@@ -73,6 +73,7 @@ func test_hidden_floor_requires_eighty_and_complete_route_at_day_boundary() -> v
 	incomplete.new_run()
 	incomplete.tower_floor = 3
 	incomplete.pollution = 80
+	incomplete.floor3_task_complete = true
 	incomplete.actions_remaining = 0
 	incomplete.needs_day_settlement = true
 	_assert_true(incomplete.settle_day_if_needed(), "the third-floor day should settle")
@@ -83,6 +84,7 @@ func test_hidden_floor_requires_eighty_and_complete_route_at_day_boundary() -> v
 	complete.new_run()
 	complete.tower_floor = 3
 	complete.pollution = 80
+	complete.floor3_task_complete = true
 	for floor_number in [1, 2, 3]:
 		complete.reveal_prerequisite_item_for_floor(floor_number)
 		complete.collect_prerequisite_item(str(complete.get_prerequisite_item_for_floor(floor_number).get("id", "")))

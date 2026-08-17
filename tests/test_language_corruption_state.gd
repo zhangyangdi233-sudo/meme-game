@@ -91,6 +91,10 @@ func test_floor_three_without_hidden_route_enters_normal_ending() -> void:
 	_assert_true(game.has_method("complete_floor_three"), "state should expose the formal floor-three ending boundary")
 	if not game.has_method("complete_floor_three"):
 		return
+	_assert_eq(game.complete_floor_three(), "floor-three-task-incomplete", "the floor-three ultimate task must gate every ending")
+	game.free_sentence_units = ["门", "可", "以", "打", "开"]
+	game.submit_free_sentence("zh")
+	_assert_true(game.floor3_task_complete, "the door rule should complete the floor-three ultimate task")
 	_assert_eq(game.complete_floor_three(), "normal-ending", "80% pollution alone must not enter the hidden floor")
 	_assert_eq(game.tower_floor, 3, "normal ending should not pretend the hidden floor was entered")
 	_assert_true(game.ending_unlocked, "formal floor-three completion should unlock the normal ending")
@@ -106,6 +110,7 @@ func test_floor_three_with_hidden_route_enters_unregistered_floor_four() -> void
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
 		game.reveal_prerequisite_item_for_floor(floor_number)
 		game.collect_prerequisite_item(str(item.get("id", "")))
+	game.floor3_task_complete = true
 	_assert_eq(game.complete_floor_three(), "hidden-floor", "80% pollution plus all three physical items should enter floor four")
 	_assert_eq(game.tower_floor, 4, "the preserved fourth floor should become the hidden unregistered floor")
 	_assert_true(not game.ending_unlocked, "entering floor four should not render the normal ending")

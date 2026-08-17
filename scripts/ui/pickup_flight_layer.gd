@@ -68,6 +68,29 @@ func play_pickup(unit_text: String, from_global: Vector2, target_getter: Callabl
 	_flight_tweens.append(flight)
 
 
+## 造句台的短飞行:词库瓦片 → 答案区,无居中定格、无压暗,0.18s 直达。
+func play_place_flight(unit_text: String, from_global: Vector2, target_getter: Callable, text_color: Color = Color(0.96, 0.98, 0.9)) -> void:
+	var glyph := Label.new()
+	glyph.name = "PlaceFlightGlyph"
+	glyph.text = unit_text
+	glyph.set_meta("flashback_text", true)
+	glyph.set_meta("skip_localization", true)
+	glyph.add_theme_font_size_override("font_size", 24)
+	glyph.add_theme_color_override("font_color", text_color)
+	glyph.z_index = 5
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(glyph)
+	glyph.size = glyph.get_minimum_size()
+	glyph.pivot_offset = glyph.size * 0.5
+	glyph.position = from_global - glyph.pivot_offset
+	_active_count += 1
+	var flight := create_tween()
+	flight.tween_method(_glide_tracked.bind(glyph, from_global, target_getter), 0.0, 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	flight.parallel().tween_property(glyph, "scale", Vector2.ONE * 0.9, 0.18)
+	flight.tween_callback(_finish_glyph.bind(glyph, unit_text, true))
+	_flight_tweens.append(flight)
+
+
 func finish_all_immediately() -> void:
 	for flight in _flight_tweens:
 		if flight != null and flight.is_valid():
@@ -103,14 +126,15 @@ func _quadratic_bezier(a: Vector2, control_point: Vector2, b: Vector2, t: float)
 	return leg_one.lerp(leg_two, t)
 
 
-func _finish_glyph(glyph: Variant, unit_text: String) -> void:
+func _finish_glyph(glyph: Variant, unit_text: String, silent: bool = false) -> void:
 	if glyph is Label and is_instance_valid(glyph):
 		(glyph as Label).queue_free()
 	_active_count = maxi(0, _active_count - 1)
 	if _active_count == 0:
 		_fade_backdrop(0.0, 0.18)
 	_flight_tweens = _flight_tweens.filter(func(flight: Tween) -> bool: return flight != null and flight.is_valid())
-	pickup_landed.emit(unit_text)
+	if not silent:
+		pickup_landed.emit(unit_text)
 
 
 func _fade_backdrop(target_alpha: float, duration: float) -> void:

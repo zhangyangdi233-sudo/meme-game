@@ -2,6 +2,13 @@ extends RefCounted
 
 
 const EN: Dictionary = {
+	# Free-sentence rules and ultimate task events.
+	"有一句话贴上了门。": "A sentence attached itself to the door.",
+	"有一句话在找它的出口。": "A sentence is looking for its exit.",
+	"有一盏灯听懂了。": "One light understood.",
+	"第三层的门开了。": "The door on floor three opened.",
+	"出口开始存在。": "The exit has begun to exist.",
+	"投稿「%s」": "POST \"%s\"",
 	# Tags, signal patterns, and reusable sentence blocks.
 	"哈吉米": "Hajimi",
 	"追问": "Follow-up Question",
@@ -424,6 +431,13 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
+	# Free-sentence rules and ultimate task events.
+	"有一句话贴上了门。": "一つの文がドアに貼りついた。",
+	"有一句话在找它的出口。": "一つの文がでぐちを探している。",
+	"有一盏灯听懂了。": "一つの明かりが聞き取った。",
+	"第三层的门开了。": "三階のドアがひらいた。",
+	"出口开始存在。": "でぐちが存在しはじめた。",
+	"投稿「%s」": "投稿「%s」",
 	# Tags, signal patterns, and reusable sentence blocks.
 	"哈吉米": "ハジミ",
 	"追问": "追加質問",

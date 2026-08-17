@@ -6,6 +6,7 @@ const LanguageCorruptionContentScript = preload("res://scripts/narrative/languag
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
 const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const PREREQUISITE_ITEMS := {
@@ -240,6 +241,7 @@ const SAVE_FIELD_NAMES := [
 	"history_entries",
 	"language_sentence_slots", "sentence_records", "tutorial_progress",
 	"collected_char_units", "last_char_pick_day",
+	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
 	"last_relationship_money_loss", "reality_dialogue_count",
@@ -297,6 +299,10 @@ var sentence_records: Array = []
 var tutorial_progress: Dictionary = {}
 var collected_char_units: Array = []
 var last_char_pick_day: int = 0
+var free_sentence_units: Array = []
+var world_rules: Dictionary = {}
+var floor3_task_complete: bool = false
+var floor4_task_complete: bool = false
 var last_clean_sentence: String = ""
 var last_polluted_sentence: String = ""
 var npc_understanding: int = 100
@@ -384,6 +390,10 @@ func new_run() -> void:
 	sentence_records = []
 	collected_char_units = []
 	last_char_pick_day = 0
+	free_sentence_units = []
+	world_rules = {}
+	floor3_task_complete = false
+	floor4_task_complete = false
 	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
@@ -663,6 +673,9 @@ func get_history_entries() -> Array:
 func complete_floor_three() -> String:
 	if tower_floor != 3:
 		return ""
+	# 第三层终极任务:必须先让「门可以打开」成为世界规则,任何结局才会开门。
+	if not floor3_task_complete:
+		return "floor-three-task-incomplete"
 	formal_floor_three_complete = true
 	if pollution >= int(POLLUTION_FLOOR_THRESHOLDS[3]) and is_hidden_layer_unlocked():
 		tower_floor = 4
@@ -670,6 +683,7 @@ func complete_floor_three() -> String:
 		ending_route = "hidden"
 		ending_unlocked = false
 		event_log.push_front("第四层没有登记记录。")
+		_latch_ultimate_tasks_for_current_floor()
 		return "hidden-floor"
 	ending_route = "normal"
 	ending_unlocked = true
@@ -694,6 +708,7 @@ func resolve_floor_transition_at_boundary() -> int:
 	tower_floor = pending_floor_transition
 	pending_floor_transition = 0
 	event_log.push_front("你抵达了第 %d 层。" % tower_floor)
+	_latch_ultimate_tasks_for_current_floor()
 	return tower_floor
 
 
@@ -1411,6 +1426,153 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 	result["picked"] = true
 	notify_tutorial("collect_word", {"token_id": "char-%s-%s" % [locale_code, normalized_unit]})
 	return result
+
+
+## ============ 自由造句(多邻国式词库,无固定主谓宾)与世界规则 ============
+
+func get_free_sentence_units() -> Array:
+	return free_sentence_units.duplicate()
+
+
+func free_sentence_place(unit: String, locale_code: String = "zh") -> bool:
+	var normalized_unit := unit.strip_edges()
+	if normalized_unit.is_empty():
+		return false
+	if not is_social_char_collected(normalized_unit, locale_code):
+		return false
+	if normalized_unit in free_sentence_units:
+		return false
+	free_sentence_units.append(normalized_unit)
+	return true
+
+
+func free_sentence_remove(unit_index: int) -> bool:
+	if unit_index < 0 or unit_index >= free_sentence_units.size():
+		return false
+	free_sentence_units.remove_at(unit_index)
+	return true
+
+
+func free_sentence_clear() -> void:
+	free_sentence_units.clear()
+
+
+func get_free_sentence_text(locale_code: String = "zh") -> String:
+	var separator := " " if locale_code == "en" else ""
+	var pieces: Array[String] = []
+	for unit in free_sentence_units:
+		pieces.append(str(unit))
+	return separator.join(pieces)
+
+
+func is_world_rule_active(rule_key: String) -> bool:
+	if not world_rules.has(rule_key):
+		return false
+	return not bool((world_rules[rule_key] as Dictionary).get("negated", false))
+
+
+func get_world_rules() -> Array:
+	var result: Array = []
+	for rule_key in world_rules.keys():
+		var rule: Dictionary = (world_rules[rule_key] as Dictionary).duplicate(true)
+		rule["key"] = str(rule_key)
+		result.append(rule)
+	return result
+
+
+## 投稿:随时可结束造句(≥1 个单位即可),消耗 1 行动。
+## 三层响应:rule(规则生效,世界异变)/ misread(世界误读)/ noise(噪声回应)。
+func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
+	var result := {
+		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
+		"sentence": "", "money_gain": 0, "pollution_gain": 0,
+		"floor3_task_completed": false, "floor4_task_completed": false,
+	}
+	if free_sentence_units.is_empty():
+		result["reason"] = "empty"
+		return result
+	if not can_spend_action():
+		result["reason"] = "no-actions"
+		return result
+	var sentence := get_free_sentence_text(locale_code)
+	var parsed: Dictionary = RuleEngineScript.parse(free_sentence_units, locale_code)
+	if not spend_action("free-sentence-publish"):
+		result["reason"] = "no-actions"
+		return result
+	var unit_count := free_sentence_units.size()
+	var tier := str(parsed.get("tier", "noise"))
+	var money_gain := 1 + int(unit_count / 2.0) + (2 if tier == "rule" else 0)
+	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
+	money += money_gain
+	var record := {
+		"id": "free-%d-%d" % [day, published_memes.size() + 1],
+		"kind": "free_sentence",
+		"title": "投稿「%s」" % sentence,
+		"text": sentence,
+		"units": free_sentence_units.duplicate(),
+		"tier": tier,
+		"rule_key": str(parsed.get("rule_key", "")),
+		"negated": bool(parsed.get("negated", false)),
+		"floor": tower_floor,
+		"published_day": day,
+		"money_gain": money_gain,
+		"pollution_gain": pollution_gain,
+		"content_locale": locale_code,
+	}
+	published_memes.push_front(record)
+	sentence_records.append(record.duplicate(true))
+	last_clean_sentence = sentence
+	if tier == "rule":
+		_apply_world_rule(parsed, sentence, locale_code)
+		result["floor3_task_completed"] = floor3_task_complete and str(parsed.get("rule_key", "")) == "door|can_open"
+		result["floor4_task_completed"] = floor4_task_complete and str(parsed.get("rule_key", "")) == "exit|exists"
+	change_pollution(pollution_gain)
+	free_sentence_units.clear()
+	notify_tutorial("sentence_composed", {"sentence": sentence})
+	notify_tutorial("sentence_published", {"sentence": sentence})
+	result["submitted"] = true
+	result["tier"] = tier
+	result["rule_key"] = str(parsed.get("rule_key", ""))
+	result["negated"] = bool(parsed.get("negated", false))
+	result["sentence"] = sentence
+	result["money_gain"] = money_gain
+	result["pollution_gain"] = pollution_gain
+	return result
+
+
+func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String) -> void:
+	var rule_key := str(parsed.get("rule_key", ""))
+	if rule_key.is_empty():
+		return
+	# Baba 式冲突消解:同键新规则覆盖旧规则;否定即压制既有正例。
+	world_rules[rule_key] = {
+		"negated": bool(parsed.get("negated", false)),
+		"source_text": sentence,
+		"locale": locale_code,
+		"day": day,
+		"floor": tower_floor,
+	}
+	if not bool(parsed.get("negated", false)):
+		match rule_key:
+			"door|can_open":
+				event_log.push_front("有一句话贴上了门。")
+			"exit|exists":
+				event_log.push_front("有一句话在找它的出口。")
+			"light|lit":
+				event_log.push_front("有一盏灯听懂了。")
+	_latch_ultimate_tasks_for_current_floor()
+
+
+## 终极任务在规则生效与抵达楼层两个时机都会重扫:
+## 早于楼层写下的规则,到层后依然兑现;任务一旦达成即锁存,不被后续否定收回。
+func _latch_ultimate_tasks_for_current_floor() -> void:
+	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
+		floor3_task_complete = true
+		event_log.push_front("第三层的门开了。")
+	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
+		floor4_task_complete = true
+		ending_unlocked = true
+		event_log.push_front("出口开始存在。")
 
 
 func get_craft_slots() -> Array:

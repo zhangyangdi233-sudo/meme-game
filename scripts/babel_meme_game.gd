@@ -10,6 +10,8 @@ const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generat
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const HandTrackingReceiverScript = preload("res://scripts/integrations/hand_tracking_receiver.gd")
 const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
+const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -443,6 +445,9 @@ var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL
 var _flashback_overlay: PollutionFlashbackDirector
 var _pickup_flight_layer: PickupFlightLayer
 var _notebook_squash_tween: Tween
+var _doll_guide_panel: PanelContainer
+var _doll_guide_line_label: Label
+var _doll_guide_body: VBoxContainer
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
 var _pollution_ambience: AudioStreamPlayer
@@ -2312,6 +2317,7 @@ func _build_ui() -> void:
 	_build_exit_confirmation_overlay()
 	_build_day_transition_overlay()
 	_build_pickup_flight_layer()
+	_build_doll_guide_overlay()
 	_build_flashback_overlay()
 	_build_prologue_overlay()
 	_apply_responsive_layouts_if_needed(true)
@@ -3872,6 +3878,8 @@ func _render_status() -> void:
 	if _history_open:
 		_render_history_window()
 	_render_playtest_assist()
+	_update_doll_guide()
+	_sync_ultimate_task_props()
 
 
 func _render_playtest_assist() -> void:
@@ -4422,7 +4430,7 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 	post_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(post_text)
 	var post_card_id := str(post.get("id", ""))
-	var pickup_line := PickupCharPool.get_pickup_line(post_card_id, _locale.current_locale)
+	var pickup_line := PickupCharPoolScript.get_pickup_line(post_card_id, _locale.current_locale)
 	if not pickup_line.is_empty():
 		var pickup_rich := _make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id)
 		detail_box.add_child(pickup_rich)
@@ -4475,7 +4483,7 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 		btn.pressed.connect(_on_token_pressed.bind(post["id"], token))
 		tokens.add_child(btn)
 
-	var post_comments: Array = PickupCharPool.get_comments(post_card_id, _locale.current_locale)
+	var post_comments: Array = PickupCharPoolScript.get_comments(post_card_id, _locale.current_locale)
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
 		comments_rule.name = "SocialCommentsRule"
@@ -4798,29 +4806,7 @@ func _render_notebook_app() -> void:
 
 
 func _render_notebook_frame_tab(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
-	var char_flow := HFlowContainer.new()
-	char_flow.name = "NotebookCharFlow"
-	char_flow.add_theme_constant_override("h_separation", 6)
-	char_flow.add_theme_constant_override("v_separation", 6)
-	notebook_content.add_child(char_flow)
-	var collected_units: Array[String] = game.get_collected_char_units(_locale.current_locale)
-	if collected_units.is_empty():
-		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
-		empty_hint.name = "NotebookCharEmptyHint"
-		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		char_flow.add_child(empty_hint)
-	for unit in collected_units:
-		var tile := Button.new()
-		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
-		tile.text = unit
-		tile.focus_mode = Control.FOCUS_NONE
-		# 第 3 轮的自由造句台会接管点击;当前只作展示,不响应输入。
-		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.custom_minimum_size = Vector2(44, 40)
-		tile.set_meta("char_tile", true)
-		tile.set_meta("skip_localization", true)
-		char_flow.add_child(tile)
+	_render_sentence_composer(notebook_content)
 
 	notebook_content.add_child(_label("拾取词库", 18, _theme_color("accent")))
 	var token_row := HFlowContainer.new()
@@ -6329,6 +6315,283 @@ func _on_app_pressed(app_id: String) -> void:
 	_render()
 
 
+## ============ 玩偶全程引导(常驻小窗,承担教程与楼层任务提示)============
+
+func _build_doll_guide_overlay() -> void:
+	_doll_guide_panel = PanelContainer.new()
+	_doll_guide_panel.name = "DollGuideOverlay"
+	_doll_guide_panel.z_index = 40
+	_doll_guide_panel.custom_minimum_size = Vector2(252, 0)
+	_ui_root.add_child(_doll_guide_panel)
+	var guide_box := VBoxContainer.new()
+	guide_box.add_theme_constant_override("separation", 4)
+	_doll_guide_panel.add_child(guide_box)
+	var header := HBoxContainer.new()
+	header.name = "DollGuideHeader"
+	header.add_theme_constant_override("separation", 6)
+	guide_box.add_child(header)
+	var portrait := TextureRect.new()
+	portrait.name = "DollGuidePortrait"
+	portrait.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
+	portrait.custom_minimum_size = Vector2(38, 38)
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header.add_child(portrait)
+	var title := _label("缝线玩偶", 15, _theme_color("accent"))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var collapse := Button.new()
+	collapse.name = "DollGuideCollapseButton"
+	collapse.text = "折叠"
+	collapse.custom_minimum_size = Vector2(58, 34)
+	collapse.focus_mode = Control.FOCUS_NONE
+	collapse.pressed.connect(_toggle_doll_guide_collapsed)
+	header.add_child(collapse)
+	_doll_guide_body = VBoxContainer.new()
+	_doll_guide_body.name = "DollGuideBody"
+	guide_box.add_child(_doll_guide_body)
+	_doll_guide_line_label = _label("", 14, _theme_color("ink"))
+	_doll_guide_line_label.name = "DollGuideLine"
+	_doll_guide_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_doll_guide_line_label.custom_minimum_size = Vector2(236, 0)
+	_doll_guide_body.add_child(_doll_guide_line_label)
+	_doll_guide_panel.position = Vector2(16.0, 552.0)
+	_make_draggable_window(_doll_guide_panel, "doll_guide", header)
+	# 玩偶从头到尾在玩家视线内:没有关闭按钮,只能折叠或拖动。
+	_doll_guide_panel.visible = false
+
+
+func _toggle_doll_guide_collapsed() -> void:
+	if _doll_guide_body == null or _doll_guide_panel == null:
+		return
+	_doll_guide_body.visible = not _doll_guide_body.visible
+	var collapse_button := _find_control_by_name(_doll_guide_panel, "DollGuideCollapseButton") as Button
+	if collapse_button != null:
+		collapse_button.text = "折叠" if _doll_guide_body.visible else "展开"
+
+
+func _update_doll_guide() -> void:
+	if _doll_guide_panel == null:
+		return
+	_doll_guide_panel.visible = _game_started and game != null
+	if not _doll_guide_panel.visible or _doll_guide_line_label == null:
+		return
+	_doll_guide_line_label.text = _doll_guide_current_line()
+
+
+func _doll_guide_current_line() -> String:
+	var step: Dictionary = game.get_tutorial_step()
+	if not bool(step.get("is_complete", false)):
+		return str(step.get("guide_line", ""))
+	if game.tower_floor == 3 and not game.floor3_task_complete:
+		return "门在等一句话。去笔记本里拼给它。"
+	if game.tower_floor == 3 and game.floor3_task_complete:
+		return "门记得这句话。"
+	if game.tower_floor == 4 and not game.floor4_task_complete:
+		return "出口还不存在。让它存在。"
+	if game.tower_floor == 4 and game.floor4_task_complete:
+		return "出口存在了。这里不会记下我们。"
+	return str(step.get("guide_line", "你已经会自己走了。至少现在是。"))
+
+
+## ============ 终极任务的世界侧道具(第三层封门 / 第四层出口)============
+
+func _sync_ultimate_task_props() -> void:
+	if game == null:
+		return
+	var floor_root := get_node_or_null("RealityFloor")
+	if floor_root == null:
+		return
+	if game.tower_floor == 3:
+		var sealed_door := _ensure_task_prop_mesh(floor_root, "FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0), false)
+		var open_frame := _ensure_task_prop_mesh(floor_root, "FloorThreeDoorOpenFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -7.0), true)
+		if sealed_door != null:
+			sealed_door.visible = not game.floor3_task_complete
+		if open_frame != null:
+			open_frame.visible = game.floor3_task_complete
+	elif game.tower_floor == 4:
+		var exit_frame := _ensure_task_prop_mesh(floor_root, "FloorFourExitFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -6.0), true)
+		if exit_frame != null:
+			exit_frame.visible = game.floor4_task_complete
+
+
+func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vector3, mesh_position: Vector3, emissive: bool) -> MeshInstance3D:
+	var existing := floor_root.get_node_or_null(node_name) as MeshInstance3D
+	if existing != null:
+		return existing
+	var prop := MeshInstance3D.new()
+	prop.name = node_name
+	var box := BoxMesh.new()
+	box.size = mesh_size
+	var material := StandardMaterial3D.new()
+	if emissive:
+		material.albedo_color = _theme_color("flash_text")
+		material.emission_enabled = true
+		material.emission = _theme_color("flash_text")
+		material.emission_energy_multiplier = 1.4
+	else:
+		material.albedo_color = _theme_color("ink")
+	box.material = material
+	prop.mesh = box
+	prop.position = mesh_position
+	floor_root.add_child(prop)
+	return prop
+
+
+## ============ 自由造句台(多邻国式:tap 入句、tap 撤回、随时投稿)============
+
+func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
+	notebook_content.add_child(_label("自由造句", 18, _theme_color("accent")))
+	var composer_hint := _label("点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。", 13, _theme_color("muted"))
+	composer_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notebook_content.add_child(composer_hint)
+
+	var placed_units: Array = game.get_free_sentence_units()
+
+	var answer_panel := _panel()
+	answer_panel.name = "ComposerAnswerPanel"
+	notebook_content.add_child(answer_panel)
+	var answer_box := VBoxContainer.new()
+	answer_box.add_theme_constant_override("separation", 4)
+	answer_panel.add_child(answer_box)
+	var answer_flow := HFlowContainer.new()
+	answer_flow.name = "ComposerAnswerFlow"
+	answer_flow.add_theme_constant_override("h_separation", 6)
+	answer_flow.add_theme_constant_override("v_separation", 6)
+	answer_flow.custom_minimum_size.y = 46
+	answer_box.add_child(answer_flow)
+	if placed_units.is_empty():
+		var placeholder := _label("……(句子还空着)", 14, _theme_color("muted"))
+		placeholder.name = "ComposerAnswerPlaceholder"
+		answer_flow.add_child(placeholder)
+	for unit_index in placed_units.size():
+		var placed_tile := Button.new()
+		placed_tile.name = "ComposerAnswerTile%d" % unit_index
+		placed_tile.text = str(placed_units[unit_index])
+		placed_tile.focus_mode = Control.FOCUS_NONE
+		placed_tile.custom_minimum_size = Vector2(44, 42)
+		placed_tile.set_meta("skip_localization", true)
+		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
+		answer_flow.add_child(placed_tile)
+	var answer_rule := ColorRect.new()
+	answer_rule.name = "ComposerAnswerUnderline"
+	answer_rule.color = Color(_theme_color("accent"), 0.8)
+	answer_rule.custom_minimum_size.y = 2.0
+	answer_box.add_child(answer_rule)
+
+	var submit_row := HBoxContainer.new()
+	submit_row.name = "ComposerSubmitRow"
+	submit_row.add_theme_constant_override("separation", 8)
+	notebook_content.add_child(submit_row)
+	var preview_label := _label(game.get_free_sentence_text(_locale.current_locale), 15, _theme_color("ink"))
+	preview_label.name = "ComposerPreviewLabel"
+	preview_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_label.set_meta("skip_localization", true)
+	submit_row.add_child(preview_label)
+	var submit_button := Button.new()
+	submit_button.name = "ComposerSubmitButton"
+	submit_button.text = "投稿"
+	submit_button.custom_minimum_size = Vector2(108, 48)
+	submit_button.disabled = placed_units.is_empty() or not game.can_spend_action()
+	submit_button.pressed.connect(_on_composer_submit_pressed)
+	submit_row.add_child(submit_button)
+
+	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
+	var char_flow := HFlowContainer.new()
+	char_flow.name = "NotebookCharFlow"
+	char_flow.add_theme_constant_override("h_separation", 6)
+	char_flow.add_theme_constant_override("v_separation", 6)
+	notebook_content.add_child(char_flow)
+	var collected_units: Array[String] = game.get_collected_char_units(_locale.current_locale)
+	if collected_units.is_empty():
+		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
+		empty_hint.name = "NotebookCharEmptyHint"
+		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		char_flow.add_child(empty_hint)
+	for unit in collected_units:
+		var tile := Button.new()
+		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
+		tile.text = unit
+		tile.focus_mode = Control.FOCUS_NONE
+		tile.custom_minimum_size = Vector2(44, 40)
+		tile.set_meta("char_tile", true)
+		tile.set_meta("skip_localization", true)
+		# 多邻国 U4:词库槽位永不 reflow —— 已入句的字留在原位变成 ghost。
+		if str(unit) in placed_units:
+			tile.disabled = true
+			tile.modulate = Color(1, 1, 1, 0.4)
+		else:
+			tile.pressed.connect(_on_composer_bank_tapped.bind(str(unit)))
+		char_flow.add_child(tile)
+
+	var active_rules: Array = game.get_world_rules()
+	if not active_rules.is_empty():
+		notebook_content.add_child(_label("现行规则", 18, _theme_color("accent")))
+		var rules_box := VBoxContainer.new()
+		rules_box.name = "ComposerRulesList"
+		rules_box.add_theme_constant_override("separation", 3)
+		notebook_content.add_child(rules_box)
+		for rule in active_rules:
+			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), _locale.current_locale)
+			var rule_label := _label("· %s" % rule_text, 14, _theme_color("accent"))
+			rule_label.set_meta("skip_localization", true)
+			rules_box.add_child(rule_label)
+
+
+func _on_composer_bank_tapped(unit: String) -> void:
+	if _input_locked:
+		return
+	if game.free_sentence_place(unit, _locale.current_locale):
+		if _pickup_flight_layer != null:
+			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _theme_color("accent"))
+		log_text = "字进入了句子。"
+		_render()
+
+
+func _on_composer_answer_tapped(unit_index: int) -> void:
+	if _input_locked:
+		return
+	if game.free_sentence_remove(unit_index):
+		_render()
+
+
+func _composer_answer_target() -> Vector2:
+	var answer_flow := _find_control_by_name(_ui_root, "ComposerAnswerFlow")
+	if answer_flow != null and is_instance_valid(answer_flow):
+		return answer_flow.get_global_position() + Vector2(answer_flow.size.x * 0.5, 20.0)
+	return _notebook_flight_target()
+
+
+func _on_composer_submit_pressed() -> void:
+	if _input_locked:
+		return
+	var actions_before: int = int(game.actions_remaining)
+	var submit_result: Dictionary = game.submit_free_sentence(_locale.current_locale)
+	if not bool(submit_result.get("submitted", false)):
+		match str(submit_result.get("reason", "")):
+			"empty":
+				log_text = "句子还空着。"
+			"no-actions":
+				log_text = "今天没有行动了。明天第一次拾字会重新消耗行动。"
+			_:
+				log_text = "投稿没有发出去。"
+		_render_status()
+		return
+	match str(submit_result.get("tier", "")):
+		"rule":
+			log_text = "投稿已发出。有什么地方遵守了它。"
+		"misread":
+			log_text = "投稿已发出。世界读错了它。"
+		_:
+			log_text = "投稿已发出。没有回应,只有噪声。"
+	if bool(submit_result.get("floor3_task_completed", false)):
+		log_text += "\n" + "第三层的门开了。"
+	if bool(submit_result.get("floor4_task_completed", false)):
+		log_text += "\n" + "出口开始存在。"
+	_after_effective_action(actions_before)
+
+
 func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer = PickupFlightLayer.new()
 	_pickup_flight_layer.name = "PickupFlightLayer"
@@ -6357,7 +6620,7 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 ## 把文本中属于字池的单位包成可点击的 [url];已拾取的单位渲染为灰色余韵。
 func _pickup_bbcode(source_text: String) -> String:
 	var locale_code: String = _locale.current_locale
-	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPool.get_unit_pool(locale_code)
+	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPoolScript.get_unit_pool(locale_code)
 	units.sort_custom(func(left, right): return str(left).length() > str(right).length())
 	var pickable_color := _theme_color("flash_text").to_html(false)
 	var collected_color := "8b8f84"
@@ -6396,10 +6659,10 @@ func _pickup_bbcode(source_text: String) -> String:
 
 
 func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) -> bool:
-	if start_index > 0 and PickupCharPool.is_word_character(text.substr(start_index - 1, 1)):
+	if start_index > 0 and PickupCharPoolScript.is_word_character(text.substr(start_index - 1, 1)):
 		return false
 	var after_index := start_index + unit_length
-	if after_index < text.length() and PickupCharPool.is_word_character(text.substr(after_index, 1)):
+	if after_index < text.length() and PickupCharPoolScript.is_word_character(text.substr(after_index, 1)):
 		return false
 	return true
 
@@ -6809,6 +7072,9 @@ func _localize_control_tree(node: Node) -> void:
 
 func _set_localized_property(control: Control, property_name: String) -> void:
 	if control == null:
+		return
+	# 拾取单位与字瓦片属于语言素材,不参与界面翻译。
+	if control.has_meta("skip_localization"):
 		return
 	var current_text := str(control.get(property_name))
 	if current_text.is_empty():

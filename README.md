@@ -48,7 +48,11 @@ Reality conversations use a cursor-driven three-choice surface. Every ordinary N
 
 Meme Frames come only from physical doll discoveries. Each floor's doll has three authored intentions, stable encounter identity, one-time reward provenance, and save-state locking. Ordinary NPCs never sell or randomly drop a frame.
 
-Finishing floor 3 without every prerequisite object enters the normal ending, even at 80% pollution. Reaching 80% after collecting all three revealed objects enters the hidden fourth floor and its special ending route. Neither route displays a hidden-condition checklist to the player.
+The notebook now hosts a Duolingo-style free composer: collected units sit in a bank whose slots never reflow (a placed unit leaves a ghost), tap-to-place builds a sentence with no fixed grammar slots, tapping an answer tile withdraws it, and a post can go out at any length for one action. Every post gets one of three world responses — a submitted sentence that parses into the supported rule table (`scripts/narrative/rule_engine.gd`: dictionary max-match merge, then subject × predicate × polarity extraction, Baba-style canonical rule strings with negation override) becomes a standing world rule; a recognizable-but-unsupported sentence is misread; anything else returns as noise. Active rules are listed in the notebook.
+
+Rules are how the ultimate tasks resolve: floor 3 ends only after 门可以打开 (or its ja/en equivalent) holds — the sealed door prop retires and an open frame appears — and the hidden floor 4 ending unlocks only after 出口存在 makes the exit frame exist. Rules written early are redeemed on arrival; achieved tasks stay latched even if the rule is later negated. Finishing floor 3 without every prerequisite object enters the normal ending, even at 80% pollution. Reaching 80% after collecting all three revealed objects enters the hidden fourth floor and its special ending route. Neither route displays a hidden-condition checklist to the player.
+
+The stitched guide doll now also lives in a persistent draggable overlay (fold-only, never closable) that carries the tutorial lines and floor-task hints from the first frame to the last.
 
 ## Localization and Saves
 
@@ -84,6 +88,8 @@ Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_di
 Run the localization audit with `res://tests/test_localization.gd`. It verifies catalog parity, dynamic format strings, language-specific text units, first-run language selection, settings language switching, and source-literal coverage.
 
 Run `res://tests/test_pickup_char_flow.gd` for the social pickup system: per-locale pool integrity (every unit seeded in a post, subject/verb/object words ≥2, rule-engine coverage), daily first-pickup action pricing, save round-trips, in-post highlight/gray states, comment sections, the notebook character bank, and the deterministic pickup flight layer.
+
+Run `res://tests/test_rule_engine.gd` for the sentence rule engine: dictionary merge, the three response tiers, free word order, negation polarity, and an exhaustive enumeration of every ≤3-word player sentence in all three locales proving the reachable rule set equals the supported table. Run `res://tests/test_sentence_composer.gd` for the composer state machine, posting economy, ultimate-task latching (including early rules redeemed on arrival and negation never revoking an achieved task), save round-trips, the doll guide overlay, and the floor 3/4 door and exit props.
 
 Run `res://tests/test_reality_world.gd` for continuous architecture, authored NPC population, suspense lighting, walkable clearance, and zero jump-scare trigger volumes.
 
