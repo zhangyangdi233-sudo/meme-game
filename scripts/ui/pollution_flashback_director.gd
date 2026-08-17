@@ -43,7 +43,6 @@ var _colors := {
 	"ink": Color(0.063, 0.078, 0.059),
 	"surface": Color(1.0, 0.945, 0.788),
 	"flash_text": Color(0.612, 1.0, 0.141),
-	"accent": Color(0.212, 0.357, 0.176),
 }
 var _freeze_rects: Array[TextureRect] = []
 var _unregistered_card: Label
@@ -52,10 +51,13 @@ var _empty_frames_blackout: ColorRect
 
 static func max_luminance_flips_in_window(window_seconds: float) -> int:
 	## 在任意 window_seconds 的滚动窗口里,明暗类别切换的最大次数。
+	## 计入退场翻转:结束时全屏覆盖消失,画面从末相位(暗)回到游戏画面(亮)。
 	var flips: Array[float] = []
 	for index in range(1, PHASES.size()):
 		if int(PHASES[index]["luminance"]) != int(PHASES[index - 1]["luminance"]):
 			flips.append(float(PHASES[index]["start"]))
+	if int(PHASES[PHASES.size() - 1]["luminance"]) == 0:
+		flips.append(TOTAL_DURATION)
 	var worst := 0
 	for anchor_index in flips.size():
 		var count := 0
@@ -74,10 +76,15 @@ func configure_colors(colors: Dictionary) -> void:
 
 
 func build_phases() -> void:
+	stop()
+	# 立即释放(而非 queue_free),避免重建时同名节点被引擎自动改名,破坏可查找性。
 	for child in get_children():
-		child.queue_free()
+		remove_child(child)
+		child.free()
 	_phase_roots.clear()
 	_freeze_rects.clear()
+	_unregistered_card = null
+	_empty_frames_blackout = null
 
 	var backdrop := ColorRect.new()
 	backdrop.name = "FlashbackBackdrop"
@@ -86,9 +93,9 @@ func build_phases() -> void:
 	add_child(backdrop)
 
 	_build_freeze_phase("freeze", "FlashbackPhaseFreeze", false)
-	_build_black_gap_a()
+	_build_black_gap_phase("black_gap_a", "FlashbackPhaseBlackGapA", false)
 	_build_scene_phase("doll_scene", "FlashbackPhaseDollScene", false)
-	_build_black_gap_b()
+	_build_black_gap_phase("black_gap_b", "FlashbackPhaseBlackGapB", true)
 	_build_scene_phase("doctor_scene", "FlashbackPhaseDoctorScene", true)
 	_build_attribution_phase()
 	_build_triple_echo_phase()
@@ -139,6 +146,9 @@ func get_phase_root(phase_id: String) -> Control:
 func _complete_sequence() -> void:
 	_timeline = null
 	sequence_finished.emit()
+	# 若外部未连接 finish(防御):时间线走完后自行收场,不让全屏覆盖滞留。
+	if visible:
+		stop()
 
 
 func _show_only_phase(phase_id: String) -> void:
@@ -218,20 +228,14 @@ func _build_freeze_phase(phase_id: String, node_name: String, with_residue: bool
 	phase_root.add_child(second)
 
 
-func _build_black_gap_a() -> void:
-	var phase_root := _register_phase("black_gap_a", "FlashbackPhaseBlackGapA")
+func _build_black_gap_phase(phase_id: String, node_name: String, with_empty_speaker_plate: bool) -> void:
+	var phase_root := _register_phase(phase_id, node_name)
 	var cover := ColorRect.new()
 	cover.color = Color.BLACK
 	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(cover)
-
-
-func _build_black_gap_b() -> void:
-	var phase_root := _register_phase("black_gap_b", "FlashbackPhaseBlackGapB")
-	var cover := ColorRect.new()
-	cover.color = Color.BLACK
-	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
-	phase_root.add_child(cover)
+	if not with_empty_speaker_plate:
+		return
 	var plate := _make_plate_label("FlashbackEmptySpeakerPlate", EMPTY_SPEAKER_PLATE, false)
 	plate.set_anchors_preset(Control.PRESET_CENTER)
 	plate.offset_left = -110.0
@@ -265,7 +269,8 @@ func _build_scene_phase(phase_id: String, node_name: String, is_doctor: bool) ->
 	var chair_seat := ColorRect.new()
 	chair_seat.name = "ChairSeat"
 	chair_seat.color = _colors["surface"]
-	chair_seat.position = Vector2(-140.0 + (DOCTOR_OFFSET_PX if is_doctor else 0.0), 10.0)
+	# 错位只由 SceneryRoot 承担一次(12px);此处保持同一局部坐标。
+	chair_seat.position = Vector2(-140.0, 10.0)
 	chair_seat.size = Vector2(128.0, 16.0)
 	scenery.add_child(chair_seat)
 	var chair_back := ColorRect.new()

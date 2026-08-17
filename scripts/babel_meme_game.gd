@@ -1434,8 +1434,8 @@ func _duck_ambience_for_flashback() -> void:
 	_audio_tween = create_tween().set_parallel(true)
 	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
 		if player != null:
-			# 底噪在冻结帧内先死(约 0.38s),画面随后才切黑 —— 声音先行的预兆。
-			_audio_tween.tween_property(player, "volume_db", -44.0, 0.38).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+			# 分镜要求:底噪在冻结帧内先保持(约 0.28s),再于 100ms 内死掉,画面随后才切黑。
+			_audio_tween.tween_property(player, "volume_db", -44.0, 0.10).set_delay(0.28).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 
 
 func _build_main_menu() -> void:
@@ -6076,7 +6076,6 @@ func _build_flashback_overlay() -> void:
 		"ink": _theme_color("ink"),
 		"surface": _theme_color("surface"),
 		"flash_text": _theme_color("flash_text"),
-		"accent": _theme_color("accent"),
 	})
 	_flashback_overlay.build_phases()
 	_flashback_overlay.sequence_finished.connect(_finish_pollution_flashback)
@@ -6086,6 +6085,13 @@ func _play_pollution_flashback() -> void:
 	if _flashback_overlay == null:
 		return
 	_set_input_locked(true)
+	# 配色以触发瞬间的活跃调色板为准(60% 时已是污染调色板),再重建相位节点。
+	_flashback_overlay.configure_colors({
+		"ink": _theme_color("ink"),
+		"surface": _theme_color("surface"),
+		"flash_text": _theme_color("flash_text"),
+	})
+	_flashback_overlay.build_phases()
 	var frozen_texture := _capture_frozen_frame_texture()
 	_duck_ambience_for_flashback()
 	if _flashback_audio != null and _flashback_audio.stream != null and _flashback_audio.is_inside_tree():
@@ -6095,7 +6101,7 @@ func _play_pollution_flashback() -> void:
 
 func _capture_frozen_frame_texture() -> Texture2D:
 	var viewport := get_viewport()
-	if viewport == null:
+	if viewport == null or DisplayServer.get_name().to_lower() == "headless":
 		return null
 	var viewport_texture := viewport.get_texture()
 	if viewport_texture == null:
