@@ -29,8 +29,12 @@ func _run() -> void:
 		return
 	var game_root := scene.instantiate()
 	root.add_child(game_root)
+	# 布局断言以源语言(中文)几何为准:显式固定 locale,隔离持久化偏好文件的污染
+	# (外部工具/探针可能把偏好写成 en/ja,英文长字符串会让小窗布局溢出)。
+	game_root._locale.set_locale("zh")
 	if game_root.has_method("new_game"):
 		game_root.new_game()
+	game_root._render()
 	await process_frame
 	await process_frame
 
