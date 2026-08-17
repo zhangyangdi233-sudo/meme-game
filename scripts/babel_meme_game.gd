@@ -5258,8 +5258,11 @@ func _update_visibility() -> void:
 	if _reality_language_frame != null:
 		_reality_language_frame.visible = interaction_visible and game.conversation_phase == "composing" and game.conversation_mode == "lexeme"
 	if _playtest_assist_panel != null:
+		# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
+		# 本面板只在测试辅助开启、或(教程未完成且玩偶窗缺席)时出现。
 		var tutorial_step: Dictionary = game.get_tutorial_step()
-		_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or not bool(tutorial_step.get("is_complete", false)))
+		var doll_guide_active := _doll_guide_panel != null and is_instance_valid(_doll_guide_panel) and _doll_guide_panel.visible
+		_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or (not bool(tutorial_step.get("is_complete", false)) and not doll_guide_active))
 	if _reality_floor != null:
 		_reality_floor.visible = not in_phone
 	if _reality_player != null:
