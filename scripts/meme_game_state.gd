@@ -1386,6 +1386,9 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
 		result["reason"] = "not-in-pool"
 		return result
+	if not PickupCharPoolScript.is_unit_seeded_in_post(post_id, normalized_unit, locale_code):
+		result["reason"] = "not-in-post"
+		return result
 	if is_social_char_collected(normalized_unit, locale_code):
 		result["reason"] = "duplicate"
 		return result

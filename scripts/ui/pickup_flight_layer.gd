@@ -109,6 +109,7 @@ func _finish_glyph(glyph: Variant, unit_text: String) -> void:
 	_active_count = maxi(0, _active_count - 1)
 	if _active_count == 0:
 		_fade_backdrop(0.0, 0.18)
+	_flight_tweens = _flight_tweens.filter(func(flight: Tween) -> bool: return flight != null and flight.is_valid())
 	pickup_landed.emit(unit_text)
 
 

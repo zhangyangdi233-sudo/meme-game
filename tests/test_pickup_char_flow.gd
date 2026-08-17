@@ -71,12 +71,15 @@ func _test_state_flow() -> void:
 	_assert_true(not bool(second.get("action_spent", false)), "same-day follow-up pickups should be free")
 	_assert_eq_int(game.actions_remaining, 4, "free pickups must not consume actions")
 
-	var duplicate: Dictionary = game.pick_social_char("missing_window", "门", "zh")
+	var duplicate: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	_assert_true(not bool(duplicate.get("picked", false)), "duplicate units should be rejected")
 	_assert_eq_text(str(duplicate.get("reason", "")), "duplicate", "duplicate pickup should report the duplicate reason")
 
 	var invalid: Dictionary = game.pick_social_char("floor_13", "龍", "zh")
 	_assert_eq_text(str(invalid.get("reason", "")), "not-in-pool", "units outside the pool should be rejected")
+
+	var wrong_post: Dictionary = game.pick_social_char("floor_13", "灯", "zh")
+	_assert_eq_text(str(wrong_post.get("reason", "")), "not-in-post", "units not seeded in that post's content should be rejected")
 
 	_assert_true(game.is_social_char_collected("门", "zh"), "collected units should be queryable")
 	_assert_true("门" in game.get_collected_char_units("zh"), "collected list should include picked units")
@@ -104,6 +107,15 @@ func _test_state_flow() -> void:
 	var blocked: Dictionary = drained.pick_social_char("floor_13", "门", "zh")
 	_assert_true(not bool(blocked.get("picked", false)), "first pickup with no actions must fail")
 	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "the refusal reason should be no-actions")
+
+	# 首拾恰好花掉最后一次行动 → 应触发日结标记。
+	var last_action = StateScript.new()
+	last_action.new_run()
+	last_action.actions_remaining = 1
+	var final_pick: Dictionary = last_action.pick_social_char("floor_13", "门", "zh")
+	_assert_true(bool(final_pick.get("picked", false)), "the last action should still allow a first pickup")
+	_assert_eq_int(last_action.actions_remaining, 0, "the last action should be consumed")
+	_assert_true(last_action.needs_day_settlement, "spending the final action on a pickup should schedule day settlement")
 
 
 func _test_flight_layer_determinism() -> void:
@@ -137,16 +149,39 @@ func _test_ui_flow() -> void:
 	_assert_true(_find_node_by_name(game_root, "SocialCommentText0") != null, "post detail should show at least one comment")
 	_assert_true(_find_node_by_name(game_root, "SocialPickupCostHint") != null, "post detail should explain the first-pickup action cost")
 
+	# bbcode 转义不再级联。
+	_assert_eq_text(game_root._escape_bbcode("[b]x[/b]"), "[lb]b[rb]x[lb]/b[rb]", "bbcode escaping must not cascade")
+
 	var actions_before: int = game_root.game.actions_remaining
-	game_root._on_pickup_unit_meta("门", "floor_13")
+	pickup_line.meta_clicked.emit("门")
 	await process_frame
-	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit should collect it")
+	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
 	_assert_eq_int(game_root.game.actions_remaining, actions_before - 1, "the first pickup should cost one action")
 	if flight_layer != null:
 		_assert_true(bool(flight_layer.is_animating()), "a successful pickup should start the flight animation")
 		flight_layer.finish_all_immediately()
-	var target: Vector2 = game_root._notebook_flight_target()
-	_assert_true(target.is_finite(), "the notebook flight target should always resolve")
+
+	# 飞行目标必须锚定真实的笔记本窗口,并跟随窗口移动。
+	game_root.game.set_active_app("notebook")
+	game_root._render()
+	await process_frame
+	var target_before: Vector2 = game_root._notebook_flight_target()
+	_assert_true(game_root._notebook_window_control() != null, "the notebook window control must resolve via its app: key")
+	_assert_true(game_root._move_window_for_test("app:notebook", Vector2(40, 24)), "the notebook window should be movable in tests")
+	var target_after: Vector2 = game_root._notebook_flight_target()
+	_assert_true((target_after - target_before).is_equal_approx(Vector2(40, 24)), "the flight target must track the notebook window position")
+
+	# 自然飞行完成:pickup_landed 信号必须发出,并触发笔记本受击。
+	var landed_units: Array = []
+	flight_layer.pickup_landed.connect(func(unit: String) -> void: landed_units.append(unit))
+	game_root._on_pickup_unit_meta("开", "floor_13")
+	var flight_budget := 100000
+	while flight_budget > 0 and landed_units.is_empty():
+		flight_budget -= 1
+		await process_frame
+	_assert_true(not landed_units.is_empty(), "a natural flight must emit pickup_landed")
+	_assert_true(game_root._notebook_squash_tween != null, "landing must squash the notebook window")
+	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "the free same-day pickup should collect its unit")
 
 	game_root._open_social_post(0)
 	await process_frame
@@ -175,6 +210,9 @@ func _test_ui_flow() -> void:
 	_assert_true(english_line != null and english_line.text.contains("[url=door]"), "the English line should offer whole-word pickups")
 	if english_line != null:
 		_assert_true(not english_line.text.contains("[url=doo]"), "English matching must respect word boundaries")
+		_assert_true(english_line.text.contains("[url=the]The[/url]"), "sentence-initial capitalized words must stay pickable (case-insensitive matching)")
+	var english_comment := _find_node_by_name(game_root, "SocialCommentText0") as RichTextLabel
+	_assert_true(english_comment != null and english_comment.text.contains("[url="), "English comments should carry pickable units too")
 	var english_pick: Dictionary = game_root.game.pick_social_char("floor_13", "door", "en")
 	_assert_true(bool(english_pick.get("picked", false)), "English word pickup should work")
 
@@ -183,6 +221,8 @@ func _test_ui_flow() -> void:
 	await process_frame
 	var japanese_line := _find_node_by_name(game_root, "SocialPickupLineText") as RichTextLabel
 	_assert_true(japanese_line != null and japanese_line.text.contains("[url=ドア]"), "the Japanese line should offer lexical-unit pickups")
+	var japanese_comment := _find_node_by_name(game_root, "SocialCommentText0") as RichTextLabel
+	_assert_true(japanese_comment != null and japanese_comment.text.contains("[url="), "Japanese comments should carry pickable units too")
 
 	game_root._locale.set_locale("zh")
 	game_root.queue_free()

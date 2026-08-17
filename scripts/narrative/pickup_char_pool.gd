@@ -266,7 +266,7 @@ const POST_SEEDS := {
 		"line": {
 			"zh": "站台只有一个出口。它昨晚不在原来的位置。",
 			"ja": "でぐちはひとつ。ゆうべは別の場所にある。",
-			"en": "The platform has one exit. Last night it exists somewhere else.",
+			"en": "The platform has one exit. By morning the exit exists somewhere else.",
 		},
 		"comments": [
 			{
@@ -442,31 +442,48 @@ static func role_word_counts(locale: String) -> Dictionary:
 	return counts
 
 
-## 单位是否以"可拾取形态"出现在文本中(英文要求完整单词边界,与 UI 点击判定一致)。
+## 单位是否以"可拾取形态"出现在文本中。
+## 英文:大小写不敏感 + 完整单词边界,与 UI 点击判定共用同一套规则(单一事实源)。
 static func contains_pickable_unit(text: String, unit: String, locale: String) -> bool:
 	if unit.is_empty():
 		return false
 	if locale != "en":
 		return text.contains(unit)
+	var lowered_text := text.to_lower()
+	var lowered_unit := unit.to_lower()
 	var search_from := 0
 	while true:
-		var found := text.find(unit, search_from)
+		var found := lowered_text.find(lowered_unit, search_from)
 		if found < 0:
 			return false
-		var before_ok := found == 0 or not _is_word_character(text.substr(found - 1, 1))
+		var before_ok := found == 0 or not is_word_character(text.substr(found - 1, 1))
 		var after_index := found + unit.length()
-		var after_ok := after_index >= text.length() or not _is_word_character(text.substr(after_index, 1))
+		var after_ok := after_index >= text.length() or not is_word_character(text.substr(after_index, 1))
 		if before_ok and after_ok:
 			return true
 		search_from = found + 1
 	return false
 
 
-static func _is_word_character(character: String) -> bool:
+static func is_word_character(character: String) -> bool:
 	if character.is_empty():
 		return false
 	var code := character.unicode_at(0)
 	return (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or (code >= 48 and code <= 57) or character == "'"
+
+
+## 单位是否埋在指定帖子的可拾取内容(埋字句 + 评论)里。
+static func is_unit_seeded_in_post(post_id: String, unit: String, locale: String) -> bool:
+	var seed: Dictionary = POST_SEEDS.get(post_id, {})
+	if seed.is_empty():
+		return false
+	if contains_pickable_unit(get_pickup_line(post_id, locale), unit, locale):
+		return true
+	for comment: Dictionary in seed.get("comments", []):
+		var comment_text := str((comment.get("text", {}) as Dictionary).get(locale, ""))
+		if contains_pickable_unit(comment_text, unit, locale):
+			return true
+	return false
 
 
 ## 校验:字池的每个单位都被埋进至少一个帖子;每个词典词的组成单位都在字池里;

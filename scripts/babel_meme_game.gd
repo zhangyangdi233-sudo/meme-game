@@ -4815,6 +4815,8 @@ func _render_notebook_frame_tab(notebook_content: VBoxContainer) -> void:
 		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
 		tile.text = unit
 		tile.focus_mode = Control.FOCUS_NONE
+		# 第 3 轮的自由造句台会接管点击;当前只作展示,不响应输入。
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.custom_minimum_size = Vector2(44, 40)
 		tile.set_meta("char_tile", true)
 		tile.set_meta("skip_localization", true)
@@ -5126,7 +5128,9 @@ func _install_rich_text_effect(label: RichTextLabel, effect_name: String) -> voi
 
 
 func _escape_bbcode(value: String) -> String:
-	return value.replace("[", "[lb]").replace("]", "[rb]")
+	# 先把左括号替换成不含括号的哨兵,避免替换级联("[" 变成 "[lb[rb]")。
+	var sentinel := String.chr(1)
+	return value.replace("[", sentinel).replace("]", "[rb]").replace(sentinel, "[lb]")
 
 
 func _on_reality_choice_hovered(choice_id: String) -> void:
@@ -6329,7 +6333,8 @@ func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer = PickupFlightLayer.new()
 	_pickup_flight_layer.name = "PickupFlightLayer"
 	_pickup_flight_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_pickup_flight_layer.z_index = 90
+	# 高于日结过场(95),低于闪回(100):日结黑幕不吞掉仍在飞行的字。
+	_pickup_flight_layer.z_index = 97
 	_ui_root.add_child(_pickup_flight_layer)
 	_pickup_flight_layer.pickup_landed.connect(_on_pickup_flight_landed)
 
@@ -6361,42 +6366,42 @@ func _pickup_bbcode(source_text: String) -> String:
 	var text_length := source_text.length()
 	while index < text_length:
 		var matched := ""
+		var matched_display := ""
 		for unit_value in units:
 			var unit := str(unit_value)
 			if unit.is_empty() or index + unit.length() > text_length:
 				continue
-			if source_text.substr(index, unit.length()) != unit:
-				continue
-			if locale_code == "en" and not _pickup_word_boundary_ok(source_text, index, unit.length()):
+			var slice := source_text.substr(index, unit.length())
+			if locale_code == "en":
+				# 英文大小写不敏感(句首大写也可拾),但要求完整单词边界。
+				if slice.to_lower() != unit.to_lower():
+					continue
+				if not _pickup_word_boundary_ok(source_text, index, unit.length()):
+					continue
+			elif slice != unit:
 				continue
 			matched = unit
+			matched_display = slice
 			break
 		if matched.is_empty():
 			result += _escape_bbcode(source_text.substr(index, 1))
 			index += 1
 			continue
 		if game != null and game.is_social_char_collected(matched, locale_code):
-			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched)]
+			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched_display)]
 		else:
-			result += "[color=#%s][url=%s]%s[/url][/color]" % [pickable_color, matched, _escape_bbcode(matched)]
+			result += "[color=#%s][url=%s]%s[/url][/color]" % [pickable_color, matched, _escape_bbcode(matched_display)]
 		index += matched.length()
 	return result
 
 
 func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) -> bool:
-	if start_index > 0 and _is_ascii_word_character(text.substr(start_index - 1, 1)):
+	if start_index > 0 and PickupCharPool.is_word_character(text.substr(start_index - 1, 1)):
 		return false
 	var after_index := start_index + unit_length
-	if after_index < text.length() and _is_ascii_word_character(text.substr(after_index, 1)):
+	if after_index < text.length() and PickupCharPool.is_word_character(text.substr(after_index, 1)):
 		return false
 	return true
-
-
-func _is_ascii_word_character(character: String) -> bool:
-	if character.is_empty():
-		return false
-	var code := character.unicode_at(0)
-	return (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or (code >= 48 and code <= 57) or character == "'"
 
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
@@ -6429,16 +6434,24 @@ func _on_pickup_flight_landed(_unit: String) -> void:
 	_squash_notebook_window()
 
 
+func _notebook_window_control() -> Control:
+	# 应用窗口在 _make_draggable_window 里以 "app:%s" 为键注册。
+	var window := _draggable_windows.get("app:notebook") as Control
+	if window != null and is_instance_valid(window):
+		return window
+	return null
+
+
 func _notebook_flight_target() -> Vector2:
-	var window := _draggable_windows.get("notebook") as Control
-	if window != null and is_instance_valid(window) and window.visible:
+	var window := _notebook_window_control()
+	if window != null and window.visible:
 		return window.get_global_position() + Vector2(56.0, 40.0)
 	return Vector2(84.0, 64.0)
 
 
 func _squash_notebook_window() -> void:
-	var window := _draggable_windows.get("notebook") as Control
-	if window == null or not is_instance_valid(window) or not window.visible:
+	var window := _notebook_window_control()
+	if window == null or not window.visible:
 		return
 	if _notebook_squash_tween != null and _notebook_squash_tween.is_valid():
 		_notebook_squash_tween.kill()
