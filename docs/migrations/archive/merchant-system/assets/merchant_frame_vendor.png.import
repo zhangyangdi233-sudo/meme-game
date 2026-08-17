@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cnkmx1gfogjtk"
-path="res://.godot/imported/merchant_frame_vendor.png-7d75d9d225377673a231e21c07c5e19d.ctex"
+path="res://.godot/imported/merchant_frame_vendor.png-3f6ba5b3f02a2d9e1ce866d56df6d875.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/generated/characters/merchant_frame_vendor.png"
-dest_files=["res://.godot/imported/merchant_frame_vendor.png-7d75d9d225377673a231e21c07c5e19d.ctex"]
+source_file="res://docs/migrations/archive/merchant-system/assets/merchant_frame_vendor.png"
+dest_files=["res://.godot/imported/merchant_frame_vendor.png-3f6ba5b3f02a2d9e1ce866d56df6d875.ctex"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7pvwj3btrm2l"
-path="res://.godot/imported/arcana_sheet.png-eb266f281e6079d1da8c8783d34ff7de.ctex"
+path="res://.godot/imported/arcana_sheet.png-f0768bae40497b3b2d2ec54e9095c14b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/generated/ui/arcana_sheet.png"
-dest_files=["res://.godot/imported/arcana_sheet.png-eb266f281e6079d1da8c8783d34ff7de.ctex"]
+source_file="res://docs/migrations/archive/tarot-system/assets/arcana_sheet.png"
+dest_files=["res://.godot/imported/arcana_sheet.png-f0768bae40497b3b2d2ec54e9095c14b.ctex"]
 
 [params]
 
