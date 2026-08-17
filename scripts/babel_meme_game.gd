@@ -450,6 +450,7 @@ var _notebook_squash_tween: Tween
 var _doll_guide_panel: PanelContainer
 var _doll_guide_line_label: Label
 var _doll_guide_body: VBoxContainer
+var _doll_companion: Node3D
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
 var _pollution_ambience: AudioStreamPlayer
@@ -525,6 +526,7 @@ func _process(delta: float) -> void:
 		_refresh_nearby_reality_actor()
 		_apply_responsive_layouts_if_needed()
 		_update_hud_drawer_auto_close(delta)
+		_update_doll_companion(delta)
 	_animate_world(delta)
 
 
@@ -6390,16 +6392,59 @@ func _update_doll_guide() -> void:
 	if _doll_guide_panel == null or not is_instance_valid(_doll_guide_panel):
 		_doll_guide_panel = null
 		return
-	_doll_guide_panel.visible = _game_started and game != null
+	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
+	_doll_guide_panel.visible = _game_started and game != null and not _reality_interaction_active
 	if not _doll_guide_panel.visible or _doll_guide_line_label == null or not is_instance_valid(_doll_guide_line_label):
 		return
 	_doll_guide_line_label.text = _doll_guide_current_line()
 
 
+## ============ 派蒙式 3D 跟随玩偶:悬浮在玩家侧前方,交互/对话时隐身 ============
+
+func _ensure_doll_companion() -> void:
+	if _doll_companion != null and is_instance_valid(_doll_companion):
+		return
+	_doll_companion = Node3D.new()
+	_doll_companion.name = "DollCompanionBody"
+	var sprite := Sprite3D.new()
+	sprite.name = "DollCompanionSprite"
+	sprite.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = 0.0042
+	sprite.no_depth_test = false
+	sprite.shaded = false
+	_doll_companion.add_child(sprite)
+	_doll_companion.visible = false
+	add_child(_doll_companion)
+
+
+func _update_doll_companion(delta: float) -> void:
+	_ensure_doll_companion()
+	if _doll_companion == null or _reality_player == null or not is_instance_valid(_reality_player):
+		return
+	var in_reality := game != null and game.view_state == "npc_up"
+	var companion_visible := _game_started and in_reality and not _reality_interaction_active and not _input_locked and (game == null or not game.ending_unlocked)
+	_doll_companion.visible = companion_visible
+	if not companion_visible:
+		return
+	# 悬浮在玩家侧前方(取玩家朝向),平滑跟随 + 轻微上下漂浮。
+	var player_basis := _reality_player.global_transform.basis
+	var follow_offset := player_basis * Vector3(0.85, 1.5, -0.9)
+	var bob := sin(Time.get_ticks_msec() / 1000.0 * 2.2) * 0.05
+	var target := _reality_player.global_position + follow_offset + Vector3(0.0, bob, 0.0)
+	var follow_weight: float = clampf(delta * 5.0, 0.0, 1.0)
+	_doll_companion.global_position = _doll_companion.global_position.lerp(target, follow_weight)
+
+
 func _doll_guide_current_line() -> String:
 	var step: Dictionary = game.get_tutorial_step()
 	if not bool(step.get("is_complete", false)):
-		return str(step.get("guide_line", ""))
+		var line := str(step.get("guide_line", ""))
+		# 一步一步教:多次数步骤显示进度(如 拾取三个字 1/3)。
+		var required_count := int(step.get("required_count", 0))
+		if required_count > 1:
+			line += "(%d/%d)" % [clampi(int(step.get("event_count", 0)), 0, required_count), required_count]
+		return line
 	if game.tower_floor == 3 and not game.floor3_task_complete:
 		return "门在等一句话。去笔记本里拼给它。"
 	if game.tower_floor == 3 and game.floor3_task_complete:
@@ -6488,6 +6533,43 @@ func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vect
 
 ## ============ 自由造句台(多邻国式:tap 入句、tap 撤回、随时投稿)============
 
+## 多邻国 U1 质感:圆角约为高度 1/4、浅底细描边、底部厚边模拟浮起阴影;
+## 按下时下沉 2px(上边距+2/下边距-2,底厚边收薄);ghost 为凹陷灰。
+func _composer_tile_style(kind: String) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_top = 5.0
+	style.content_margin_bottom = 7.0
+	match kind:
+		"pressed":
+			style.bg_color = _theme_color("surface").darkened(0.05)
+			style.border_color = Color(_theme_color("accent"), 0.9)
+			style.set_border_width_all(1)
+			style.content_margin_top = 7.0
+			style.content_margin_bottom = 5.0
+		"ghost":
+			style.bg_color = Color(_theme_color("muted"), 0.30)
+			style.border_color = Color(_theme_color("accent"), 0.22)
+			style.set_border_width_all(1)
+		_:
+			style.bg_color = _theme_color("surface")
+			style.border_color = Color(_theme_color("accent"), 0.55)
+			style.set_border_width_all(1)
+			style.border_width_bottom = 3
+	return style
+
+
+func _apply_composer_tile_theme(tile: Button, is_ghost: bool) -> void:
+	if is_ghost:
+		tile.add_theme_stylebox_override("normal", _composer_tile_style("ghost"))
+		tile.add_theme_stylebox_override("disabled", _composer_tile_style("ghost"))
+		return
+	tile.add_theme_stylebox_override("normal", _composer_tile_style("normal"))
+	tile.add_theme_stylebox_override("hover", _composer_tile_style("normal"))
+	tile.add_theme_stylebox_override("pressed", _composer_tile_style("pressed"))
+
 func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	notebook_content.add_child(_label("自由造句", 18, _theme_color("accent")))
 	var composer_hint := _label("发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。", 13, _theme_color("muted"))
@@ -6524,6 +6606,7 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
 		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
 		placed_tile.unit_dropped_before.connect(_on_composer_tile_drop)
+		_apply_composer_tile_theme(placed_tile, false)
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()
 	answer_rule.name = "ComposerAnswerUnderline"
@@ -6569,13 +6652,15 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		tile.custom_minimum_size = Vector2(44, 40)
 		tile.set_meta("char_tile", true)
 		tile.set_meta("skip_localization", true)
-		# 多邻国 U4:词库槽位永不 reflow —— 已入句的字留在原位变成 ghost。
+		# 多邻国 U4:词库槽位永不 reflow —— 已入句的字留在原位变成 ghost(凹陷灰)。
 		if str(unit) in placed_units:
 			tile.disabled = true
-			tile.modulate = Color(1, 1, 1, 0.4)
+			tile.modulate = Color(1, 1, 1, 0.55)
+			_apply_composer_tile_theme(tile, true)
 		else:
 			tile.set_drag_payload("composer_unit", str(unit), str(unit))
 			tile.pressed.connect(_on_composer_bank_tapped.bind(str(unit)))
+			_apply_composer_tile_theme(tile, false)
 		char_flow.add_child(tile)
 
 	var active_rules: Array = game.get_world_rules()

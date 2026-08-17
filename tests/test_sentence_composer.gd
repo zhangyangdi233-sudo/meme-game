@@ -214,6 +214,33 @@ func _test_ui_flow() -> void:
 	var doll_close := _find_node_by_name(game_root, "DollGuideCloseButton")
 	_assert_true(doll_close == null, "the doll guide must not have a close button")
 
+	# 派蒙式跟随伙伴:手机视图隐藏,现实视图悬浮跟随,交互/对话时连气泡一起隐身。
+	game_root._update_doll_companion(0.016)
+	var companion := _find_node_by_name(game_root, "DollCompanionBody") as Node3D
+	_assert_true(companion != null, "the 3D doll companion body should exist")
+	_assert_true(companion != null and not companion.visible, "the companion should stay hidden while the phone is up")
+	game_root.set_view_state("npc_up")
+	game_root._update_doll_companion(0.016)
+	_assert_true(companion != null and companion.visible, "the companion should float beside the player in reality view")
+	game_root._reality_interaction_active = true
+	game_root._update_doll_companion(0.016)
+	game_root._update_doll_guide()
+	_assert_true(companion != null and not companion.visible, "the companion should vanish during NPC interactions")
+	_assert_true(not doll_panel.visible, "the guide bubble should vanish during NPC interactions too")
+	game_root._reality_interaction_active = false
+	game_root.set_view_state("phone_down")
+	game_root._update_doll_guide()
+	_assert_true(doll_panel.visible, "the guide bubble should return after the interaction ends")
+
+	# 一步一步教:多次数步骤显示进度计数。
+	game_root.game.replay_tutorial()
+	game_root.game.notify_tutorial("guide_found")
+	game_root.game.notify_tutorial("social_opened")
+	game_root.game.notify_tutorial("post_opened")
+	game_root.game.notify_tutorial("collect_word")
+	var progress_line: String = game_root._doll_guide_current_line()
+	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
+
 	# 造句台:空句禁投,入句/撤回/投稿全链路。
 	game_root.game.set_active_app("notebook")
 	game_root._render()
