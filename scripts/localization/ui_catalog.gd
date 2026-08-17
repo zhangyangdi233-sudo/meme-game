@@ -31,6 +31,9 @@ const EN: Dictionary = {
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "Free Composition",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "Tap a glowing unit to add it. Submit any time — the sentence becomes a rule in the other world.",
+	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "Tap or drag a glowing unit into the sentence. Posting costs one action, and the sentence becomes a rule in the other world.",
+	"把拾到的字点进句子。让它先成为一句话。": "Tap your collected units into the sentence. Let it become a sentence first.",
+	"把这句话投稿出去。被看见的字会记住你。": "Post the sentence. Units that get seen will remember you.",
 	"……(句子还空着)": "... (the sentence is still empty)",
 	"投稿": "Post",
 	"句子还空着。": "The sentence is still empty.",
@@ -556,6 +559,9 @@ const JA: Dictionary = {
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "自由作文",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "光る文字を押して文に入れる。いつでも投稿でき、文はもう一つの世界のルールになる。",
+	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "光る文字を押すか、文へドラッグ。投稿は行動を1つ使い、文はもう一つの世界のルールになる。",
+	"把拾到的字点进句子。让它先成为一句话。": "ひろった文字を文に入れて。まず一つの文にして。",
+	"把这句话投稿出去。被看见的字会记住你。": "その文を投稿して。見られた文字はあなたを覚えている。",
 	"……(句子还空着)": "……(文はまだ空)",
 	"投稿": "投稿する",
 	"句子还空着。": "文はまだ空のまま。",

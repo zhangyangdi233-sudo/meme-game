@@ -474,6 +474,8 @@ func load_save_data(save_data: Dictionary) -> bool:
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	reset_typed_reality_conversation()
+	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
+	_latch_ultimate_tasks_for_current_floor()
 	return true
 
 
@@ -1189,6 +1191,9 @@ func _resolve_key_npc_clue_attempt() -> Dictionary:
 			str(key_dialogue.get("success_line", "对方终于说出了地点。")),
 			str(item.get("location_hint", "这一层有一件东西正等着被找到。")),
 		]
+	# 第三层的门规则叙事:由现有 key NPC 对话尾部立起(不新增 NPC、不新增对话节点)。
+	if floor_number == 3 and not floor3_task_complete:
+		feedback += "\n这扇门是下一层的入口。它现在还打不开。"
 	return {
 		"kind": "prerequisite_clue",
 		"floor": floor_number,
@@ -1453,6 +1458,27 @@ func free_sentence_remove(unit_index: int) -> bool:
 	return true
 
 
+## 拖拽支持:把词库单位放到指定位置(index 越界即追加句尾)。
+func free_sentence_place_at(unit: String, insert_index: int, locale_code: String = "zh") -> bool:
+	var normalized_unit := unit.strip_edges()
+	if normalized_unit.is_empty() or not is_social_char_collected(normalized_unit, locale_code):
+		return false
+	if normalized_unit in free_sentence_units:
+		return false
+	free_sentence_units.insert(clampi(insert_index, 0, free_sentence_units.size()), normalized_unit)
+	return true
+
+
+## 拖拽支持:答案区内重排。to_index 是移除后的目标位置(越界即句尾)。
+func free_sentence_move(from_index: int, to_index: int) -> bool:
+	if from_index < 0 or from_index >= free_sentence_units.size():
+		return false
+	var moved_unit: Variant = free_sentence_units[from_index]
+	free_sentence_units.remove_at(from_index)
+	free_sentence_units.insert(clampi(to_index, 0, free_sentence_units.size()), moved_unit)
+	return true
+
+
 func free_sentence_clear() -> void:
 	free_sentence_units.clear()
 
@@ -1523,9 +1549,11 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 	sentence_records.append(record.duplicate(true))
 	last_clean_sentence = sentence
 	if tier == "rule":
+		var floor3_before := floor3_task_complete
+		var floor4_before := floor4_task_complete
 		_apply_world_rule(parsed, sentence, locale_code)
-		result["floor3_task_completed"] = floor3_task_complete and str(parsed.get("rule_key", "")) == "door|can_open"
-		result["floor4_task_completed"] = floor4_task_complete and str(parsed.get("rule_key", "")) == "exit|exists"
+		result["floor3_task_completed"] = floor3_task_complete and not floor3_before
+		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
 	change_pollution(pollution_gain)
 	free_sentence_units.clear()
 	notify_tutorial("sentence_composed", {"sentence": sentence})
@@ -1563,15 +1591,16 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 	_latch_ultimate_tasks_for_current_floor()
 
 
-## 终极任务在规则生效与抵达楼层两个时机都会重扫:
+## 终极任务在规则生效、抵达楼层与读档三个时机都会重扫:
 ## 早于楼层写下的规则,到层后依然兑现;任务一旦达成即锁存,不被后续否定收回。
+## 第四层的隐藏结局不在此立即解锁——按规格只在日结边界结算(见 _resolve_tower_step),
+## 玩家先看见出口出现,下一次边界才进入结局。
 func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
 		event_log.push_front("第三层的门开了。")
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
-		ending_unlocked = true
 		event_log.push_front("出口开始存在。")
 
 
@@ -1924,6 +1953,10 @@ func _resolve_tower_step() -> void:
 	resolve_floor_transition_at_boundary()
 	if tower_floor == 3 and pollution >= int(POLLUTION_FLOOR_THRESHOLDS[3]) and not formal_floor_three_complete:
 		complete_floor_three()
+	# 第四层终极任务完成后,隐藏结局只在日结边界解锁,不打断出口出现的当下。
+	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
+		ending_unlocked = true
+		event_log.push_front("出口承认了你。")
 
 
 func _find_completed_meme_index(meme_id: String) -> int:

@@ -102,7 +102,7 @@ static func parse(units: Array, locale: String) -> Dictionary:
 			continue
 		if predicate.is_empty() and predicate_map.has(word):
 			predicate = str(predicate_map[word])
-	# 谓语兼作主语的中文单字(如 在/开)已被 continue 规避:主语优先占位后,后续同词可作谓语。
+	# continue 只保证同一个词不会既占主语又占谓语;主谓可在句中任意位置(语序宽容)。
 	if subject.is_empty() and predicate.is_empty():
 		return result
 	result["subject"] = subject
@@ -131,4 +131,4 @@ static func rule_display_text(rule_key: String, negated: bool, locale: String) -
 		"en":
 			return "NOT: " + base
 		_:
-			return "不再成立：" + base
+			return "已被否定：" + base

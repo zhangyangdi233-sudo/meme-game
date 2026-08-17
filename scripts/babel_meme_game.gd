@@ -12,6 +12,8 @@ const HandTrackingReceiverScript = preload("res://scripts/integrations/hand_trac
 const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
+const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -1661,6 +1663,9 @@ func _on_language_selected(locale_code: String) -> void:
 		return
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
 	_close_language_selection_overlay()
+	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
+	if game != null:
+		game.free_sentence_clear()
 	if _game_started:
 		_render()
 	else:
@@ -3432,6 +3437,9 @@ func _on_settings_language_selected(index: int) -> void:
 	if not _locale.select_language(locale_code):
 		return
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
+	if game != null:
+		game.free_sentence_clear()
 	_render()
 	_refresh_localized_ui()
 	_refresh_camera_source_option_labels()
@@ -3887,10 +3895,14 @@ func _render_playtest_assist() -> void:
 		return
 	var step: Dictionary = game.get_tutorial_step()
 	var tutorial_complete := bool(step.get("is_complete", false))
-	_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or not tutorial_complete)
+	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
+	var doll_guide_active := _doll_guide_panel != null and is_instance_valid(_doll_guide_panel) and _doll_guide_panel.visible
+	_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or (not tutorial_complete and not doll_guide_active))
 	if not _playtest_assist_panel.visible:
 		return
-	var lines: Array[String] = ["「%s」" % str(step.get("guide_line", "你已经会自己走了。至少现在是。"))]
+	var lines: Array[String] = []
+	if not doll_guide_active:
+		lines.append("「%s」" % str(step.get("guide_line", "你已经会自己走了。至少现在是。")))
 	if not _playtest_assist_enabled:
 		_playtest_assist_label.text = "\n".join(lines)
 		return
@@ -6320,7 +6332,8 @@ func _on_app_pressed(app_id: String) -> void:
 func _build_doll_guide_overlay() -> void:
 	_doll_guide_panel = PanelContainer.new()
 	_doll_guide_panel.name = "DollGuideOverlay"
-	_doll_guide_panel.z_index = 40
+	# 低于设置窗(30)与各弹层;高于普通应用窗口。
+	_doll_guide_panel.z_index = 25
 	_doll_guide_panel.custom_minimum_size = Vector2(252, 0)
 	_ui_root.add_child(_doll_guide_panel)
 	var guide_box := VBoxContainer.new()
@@ -6337,7 +6350,7 @@ func _build_doll_guide_overlay() -> void:
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	header.add_child(portrait)
-	var title := _label("缝线玩偶", 15, _theme_color("accent"))
+	var title := _label("缝线布偶", 15, _theme_color("accent"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	var collapse := Button.new()
@@ -6362,7 +6375,7 @@ func _build_doll_guide_overlay() -> void:
 
 
 func _toggle_doll_guide_collapsed() -> void:
-	if _doll_guide_body == null or _doll_guide_panel == null:
+	if _doll_guide_body == null or _doll_guide_panel == null or not is_instance_valid(_doll_guide_panel) or not is_instance_valid(_doll_guide_body):
 		return
 	_doll_guide_body.visible = not _doll_guide_body.visible
 	var collapse_button := _find_control_by_name(_doll_guide_panel, "DollGuideCollapseButton") as Button
@@ -6371,10 +6384,11 @@ func _toggle_doll_guide_collapsed() -> void:
 
 
 func _update_doll_guide() -> void:
-	if _doll_guide_panel == null:
+	if _doll_guide_panel == null or not is_instance_valid(_doll_guide_panel):
+		_doll_guide_panel = null
 		return
 	_doll_guide_panel.visible = _game_started and game != null
-	if not _doll_guide_panel.visible or _doll_guide_line_label == null:
+	if not _doll_guide_panel.visible or _doll_guide_line_label == null or not is_instance_valid(_doll_guide_line_label):
 		return
 	_doll_guide_line_label.text = _doll_guide_current_line()
 
@@ -6403,16 +6417,47 @@ func _sync_ultimate_task_props() -> void:
 	if floor_root == null:
 		return
 	if game.tower_floor == 3:
-		var sealed_door := _ensure_task_prop_mesh(floor_root, "FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0), false)
+		var sealed_door := _ensure_task_prop_body(floor_root, "FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0))
 		var open_frame := _ensure_task_prop_mesh(floor_root, "FloorThreeDoorOpenFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -7.0), true)
 		if sealed_door != null:
 			sealed_door.visible = not game.floor3_task_complete
+			var door_shape := sealed_door.get_node_or_null("DoorCollision") as CollisionShape3D
+			if door_shape != null:
+				# 门开之后不再阻挡通行。
+				door_shape.disabled = game.floor3_task_complete
 		if open_frame != null:
 			open_frame.visible = game.floor3_task_complete
 	elif game.tower_floor == 4:
 		var exit_frame := _ensure_task_prop_mesh(floor_root, "FloorFourExitFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -6.0), true)
 		if exit_frame != null:
 			exit_frame.visible = game.floor4_task_complete
+
+
+## 有碰撞的封门:StaticBody3D + 网格 + 碰撞盒,玩家在门开前无法穿过。
+func _ensure_task_prop_body(floor_root: Node, node_name: String, body_size: Vector3, body_position: Vector3) -> StaticBody3D:
+	var existing := floor_root.get_node_or_null(node_name) as StaticBody3D
+	if existing != null:
+		return existing
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.position = body_position
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "DoorMesh"
+	var box := BoxMesh.new()
+	box.size = body_size
+	var material := StandardMaterial3D.new()
+	material.albedo_color = _theme_color("ink")
+	box.material = material
+	mesh_instance.mesh = box
+	body.add_child(mesh_instance)
+	var collision := CollisionShape3D.new()
+	collision.name = "DoorCollision"
+	var shape := BoxShape3D.new()
+	shape.size = body_size
+	collision.shape = shape
+	body.add_child(collision)
+	floor_root.add_child(body)
+	return body
 
 
 func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vector3, mesh_position: Vector3, emissive: bool) -> MeshInstance3D:
@@ -6442,14 +6487,16 @@ func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vect
 
 func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	notebook_content.add_child(_label("自由造句", 18, _theme_color("accent")))
-	var composer_hint := _label("点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。", 13, _theme_color("muted"))
+	var composer_hint := _label("发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。", 13, _theme_color("muted"))
 	composer_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(composer_hint)
 
 	var placed_units: Array = game.get_free_sentence_units()
 
-	var answer_panel := _panel()
+	var answer_panel := ComposerDropAreaScript.new()
 	answer_panel.name = "ComposerAnswerPanel"
+	answer_panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
+	answer_panel.unit_dropped.connect(_on_composer_area_drop)
 	notebook_content.add_child(answer_panel)
 	var answer_box := VBoxContainer.new()
 	answer_box.add_theme_constant_override("separation", 4)
@@ -6465,13 +6512,15 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		placeholder.name = "ComposerAnswerPlaceholder"
 		answer_flow.add_child(placeholder)
 	for unit_index in placed_units.size():
-		var placed_tile := Button.new()
+		var placed_tile := ComposerAnswerTileScript.new()
 		placed_tile.name = "ComposerAnswerTile%d" % unit_index
 		placed_tile.text = str(placed_units[unit_index])
 		placed_tile.focus_mode = Control.FOCUS_NONE
 		placed_tile.custom_minimum_size = Vector2(44, 42)
 		placed_tile.set_meta("skip_localization", true)
+		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
 		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
+		placed_tile.unit_dropped_before.connect(_on_composer_tile_drop)
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()
 	answer_rule.name = "ComposerAnswerUnderline"
@@ -6510,7 +6559,7 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		char_flow.add_child(empty_hint)
 	for unit in collected_units:
-		var tile := Button.new()
+		var tile := DraggableButtonScript.new()
 		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
 		tile.text = unit
 		tile.focus_mode = Control.FOCUS_NONE
@@ -6522,6 +6571,7 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 			tile.disabled = true
 			tile.modulate = Color(1, 1, 1, 0.4)
 		else:
+			tile.set_drag_payload("composer_unit", str(unit), str(unit))
 			tile.pressed.connect(_on_composer_bank_tapped.bind(str(unit)))
 		char_flow.add_child(tile)
 
@@ -6554,6 +6604,31 @@ func _on_composer_answer_tapped(unit_index: int) -> void:
 		return
 	if game.free_sentence_remove(unit_index):
 		_render()
+
+
+func _on_composer_area_drop(data: Dictionary) -> void:
+	_handle_composer_drop(data, game.get_free_sentence_units().size())
+
+
+func _on_composer_tile_drop(data: Dictionary, before_index: int) -> void:
+	_handle_composer_drop(data, before_index)
+
+
+func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
+	if _input_locked:
+		return
+	match str(data.get("kind", "")):
+		"composer_unit":
+			if game.free_sentence_place_at(str(data.get("id", "")), target_index, _locale.current_locale):
+				log_text = "字进入了句子。"
+				_render()
+		"composer_reorder":
+			var from_index := int(str(data.get("id", "-1")))
+			var to_index := target_index
+			if from_index < to_index:
+				to_index -= 1
+			if game.free_sentence_move(from_index, to_index):
+				_render()
 
 
 func _composer_answer_target() -> Vector2:

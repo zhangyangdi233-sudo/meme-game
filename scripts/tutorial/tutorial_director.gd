@@ -51,7 +51,7 @@ const STEPS: Array[Dictionary] = [
 		"event_id": "sentence_composed",
 		"required_count": 1,
 		"focus_target": "sentence_slots",
-		"guide_line": "把词放进句槽。先让它成为一句完整的话。",
+		"guide_line": "把拾到的字点进句子。让它先成为一句话。",
 		"test_instruction": "测试提示：用拾取的词填满句槽并完成组句。",
 	},
 	{
@@ -59,7 +59,7 @@ const STEPS: Array[Dictionary] = [
 		"event_id": "sentence_published",
 		"required_count": 1,
 		"focus_target": "publish_button",
-		"guide_line": "把这句话发布出去。被看见的词会记住你。",
+		"guide_line": "把这句话投稿出去。被看见的字会记住你。",
 		"test_instruction": "测试提示：确认发布刚刚组成的完整句子。",
 	},
 	{

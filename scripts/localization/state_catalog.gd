@@ -8,6 +8,8 @@ const EN: Dictionary = {
 	"有一盏灯听懂了。": "One light understood.",
 	"第三层的门开了。": "The door on floor three opened.",
 	"出口开始存在。": "The exit has begun to exist.",
+	"出口承认了你。": "The exit acknowledged you.",
+	"这扇门是下一层的入口。它现在还打不开。": "This door is the entrance to the next floor. It will not open yet.",
 	"投稿「%s」": "POST \"%s\"",
 	# Tags, signal patterns, and reusable sentence blocks.
 	"哈吉米": "Hajimi",
@@ -437,6 +439,8 @@ const JA: Dictionary = {
 	"有一盏灯听懂了。": "一つの明かりが聞き取った。",
 	"第三层的门开了。": "三階のドアがひらいた。",
 	"出口开始存在。": "でぐちが存在しはじめた。",
+	"出口承认了你。": "でぐちがあなたを認めた。",
+	"这扇门是下一层的入口。它现在还打不开。": "このドアは次の階への入口。今はまだひらかない。",
 	"投稿「%s」": "投稿「%s」",
 	# Tags, signal patterns, and reusable sentence blocks.
 	"哈吉米": "ハジミ",

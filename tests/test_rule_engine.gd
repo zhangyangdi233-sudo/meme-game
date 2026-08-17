@@ -51,8 +51,14 @@ func _test_parse_tiers() -> void:
 	var misread: Dictionary = RuleEngineScript.parse(["我", "想", "回", "家"], "zh")
 	_assert_eq_text(str(misread.get("tier", "")), "misread", "known subject+verb outside the rule table should be misread")
 
-	var noise: Dictionary = RuleEngineScript.parse(["的", "安", "全"], "zh")
+	var noise: Dictionary = RuleEngineScript.parse(["被", "安", "全"], "zh")
 	_assert_eq_text(str(noise.get("tier", "")), "noise", "particles and modifiers alone should be noise")
+
+	var passive: Dictionary = RuleEngineScript.parse(["门", "可", "以", "被", "打", "开"], "zh")
+	_assert_eq_text(str(passive.get("rule_key", "")), "door|can_open", "the user's example 门可以被打开 must hit the door rule")
+
+	var two_unit: Dictionary = RuleEngineScript.parse(["开", "门"], "zh")
+	_assert_eq_text(str(two_unit.get("rule_key", "")), "door|can_open", "the two-unit 开门 should still resolve the door rule")
 
 	var english: Dictionary = RuleEngineScript.parse(["the", "door", "can", "be", "opened"], "en")
 	_assert_eq_text(str(english.get("rule_key", "")), "door|can_open", "the English door sentence should hit the rule")
@@ -91,6 +97,39 @@ func _test_exhaustive_enumeration() -> void:
 		for rule_key in RuleEngineScript.SUPPORTED_RULES.keys():
 			_assert_true(reachable_rules.has(str(rule_key)), "rule %s must be reachable by some player sentence in %s" % [rule_key, locale])
 		_assert_true(parse_count > 0, "enumeration should actually run for %s" % locale)
+
+	# 原始单位层面的乱序:门句五单位的全部 120 种排列都必须稳定解析(玩家可以任意拼装)。
+	var door_units := ["门", "可", "以", "打", "开"]
+	var permutations := _permutations(door_units)
+	_assert_true(permutations.size() == 120, "five units should yield 120 permutations")
+	var permutation_rule_hits := 0
+	for permutation in permutations:
+		var parsed: Dictionary = RuleEngineScript.parse(permutation, "zh")
+		_assert_true(str(parsed.get("tier", "")) in ["rule", "misread", "noise"], "every raw permutation must parse to a tier")
+		if str(parsed.get("rule_key", "")) == "door|can_open":
+			permutation_rule_hits += 1
+	_assert_true(permutation_rule_hits >= 2, "multiple raw orderings (e.g. 门可以打开 / 打开门…) should reach the door rule, got %d" % permutation_rule_hits)
+
+	# 字池任意两单位组合(30x30)不崩溃扫描。
+	var zh_pool: Array = PoolScript.get_unit_pool("zh")
+	for first_unit in zh_pool:
+		for second_unit in zh_pool:
+			var pair_parsed: Dictionary = RuleEngineScript.parse([first_unit, second_unit], "zh")
+			_assert_true(str(pair_parsed.get("tier", "")) in ["rule", "misread", "noise"], "raw unit pairs must never crash the parser")
+
+
+func _permutations(values: Array) -> Array:
+	if values.size() <= 1:
+		return [values.duplicate()]
+	var result: Array = []
+	for index in values.size():
+		var rest := values.duplicate()
+		rest.remove_at(index)
+		for tail in _permutations(rest):
+			var sequence: Array = [values[index]]
+			sequence.append_array(tail)
+			result.append(sequence)
+	return result
 
 
 func _assert_true(condition: bool, message: String) -> void:
