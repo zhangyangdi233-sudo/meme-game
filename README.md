@@ -14,7 +14,7 @@ Standalone Godot 4.6 psychological-horror game built from the third-chapter meme
 
 Each day has five effective actions. Navigation, window movement, preview placement, and editing do not spend actions.
 
-After the fifth normal action, the inline action pulse hands off to a 3.6-second internationalist day transition before settlement restores five actions. The one-time 60% pollution flashback keeps its own direct black-screen jump and does not stack this transition.
+After the fifth normal action, the inline action pulse hands off to a 3.6-second internationalist day transition before settlement restores five actions. The one-time 60% pollution flashback runs its own deterministic 3.55-second eight-beat sequence (frozen current frame, doll/doctor attribution swap over an identical protected sentence, triple echo, residue return, unregistered-area pre-memory) driven by `scripts/ui/pollution_flashback_director.gd`, then settles the day directly without stacking this transition. Its phase table, WCAG flash budget, and protected sentences are verified by `res://tests/test_flashback_sequence.gd`.
 
 The phone launcher keeps three Apps in separate movable windows: Tower, Social, and Notebook. The social App uses a tall phone layout with an image-first, equal-width two-column feed, a separate draggable post-detail companion, and a mobile publish flow ordered as content, outcome preview, and signal hand. Following accounts and liking posts from Discover are free and persist across days; Nearby remains unavailable because the device has no location signal.
 

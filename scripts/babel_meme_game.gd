@@ -440,11 +440,7 @@ var _selected_language_token_id := ""
 var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
-var _flashback_overlay: Control
-var _flashback_noise: ColorRect
-var _flashback_blackout: ColorRect
-var _flashback_words: Array[Label] = []
-var _flashback_tween: Tween
+var _flashback_overlay: PollutionFlashbackDirector
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
 var _pollution_ambience: AudioStreamPlayer
@@ -1438,7 +1434,8 @@ func _duck_ambience_for_flashback() -> void:
 	_audio_tween = create_tween().set_parallel(true)
 	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
 		if player != null:
-			_audio_tween.tween_property(player, "volume_db", -44.0, 0.10).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+			# 底噪在冻结帧内先死(约 0.38s),画面随后才切黑 —— 声音先行的预兆。
+			_audio_tween.tween_property(player, "volume_db", -44.0, 0.38).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 
 
 func _build_main_menu() -> void:
@@ -6068,98 +6065,50 @@ func _finish_day_transition() -> void:
 
 
 func _build_flashback_overlay() -> void:
-	_flashback_words.clear()
-	_flashback_overlay = Control.new()
+	_flashback_overlay = PollutionFlashbackDirector.new()
 	_flashback_overlay.name = "PollutionFlashbackOverlay"
 	_flashback_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_flashback_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flashback_overlay.visible = false
 	_flashback_overlay.z_index = 100
 	_ui_root.add_child(_flashback_overlay)
-
-	var bg := ColorRect.new()
-	bg.color = _theme_color("ink")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_flashback_overlay.add_child(bg)
-
-	_flashback_noise = ColorRect.new()
-	_flashback_noise.color = Color(_theme_color("flash_text"), 0.20)
-	_flashback_noise.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_flashback_overlay.add_child(_flashback_noise)
-
-	for index in 14:
-		var stripe := ColorRect.new()
-		stripe.color = Color(_theme_color("flash_text"), 0.20 + float(index % 4) * 0.08)
-		stripe.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		stripe.offset_left = -80 + (index % 3) * 28
-		stripe.offset_right = 80 - (index % 2) * 34
-		stripe.offset_top = 32 + index * 45
-		stripe.offset_bottom = stripe.offset_top + 4 + (index % 5) * 4
-		_flashback_overlay.add_child(stripe)
-
-	_flashback_blackout = ColorRect.new()
-	_flashback_blackout.color = _theme_color("ink")
-	_flashback_blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_flashback_blackout.visible = false
-	_flashback_overlay.add_child(_flashback_blackout)
-
-	var words := [
-		"哈吉米",
-		"我想正常说话",
-		"必须进入句子",
-		"信号丢失",
-		"POLLUTION 60",
-		"哈吉米    哈吉米    哈吉米",
-		"normal speech failed",
-		"必须进入句子\n必须进入句子\n必须进入句子",
-	]
-	for index in words.size():
-		var label := Label.new()
-		label.text = words[index]
-		label.set_meta("flashback_text", true)
-		label.add_theme_font_size_override("font_size", 28 + index % 3 * 12)
-		label.add_theme_color_override("font_color", _theme_color("flash_text"))
-		label.modulate.a = 0.88
-		label.position = Vector2(34 + index * 122, 40 + index % 4 * 128)
-		label.rotation = deg_to_rad(-4 + index % 5 * 2)
-		_flashback_overlay.add_child(label)
-		_flashback_words.append(label)
+	_flashback_overlay.configure_colors({
+		"ink": _theme_color("ink"),
+		"surface": _theme_color("surface"),
+		"flash_text": _theme_color("flash_text"),
+		"accent": _theme_color("accent"),
+	})
+	_flashback_overlay.build_phases()
+	_flashback_overlay.sequence_finished.connect(_finish_pollution_flashback)
 
 
 func _play_pollution_flashback() -> void:
 	if _flashback_overlay == null:
 		return
 	_set_input_locked(true)
-	_flashback_overlay.visible = true
-	_flashback_overlay.modulate.a = 1.0
-	_flashback_blackout.visible = false
-	_flashback_noise.visible = true
-	_scramble_flashback_words(0)
+	var frozen_texture := _capture_frozen_frame_texture()
 	_duck_ambience_for_flashback()
 	if _flashback_audio != null and _flashback_audio.stream != null and _flashback_audio.is_inside_tree():
 		_flashback_audio.play()
-	if _flashback_tween != null and _flashback_tween.is_valid():
-		_flashback_tween.kill()
-	_flashback_tween = create_tween()
-	for step in 7:
-		_flashback_tween.tween_callback(_scramble_flashback_words.bind(step))
-		_flashback_tween.tween_interval(0.12)
-	_flashback_tween.tween_callback(_set_flashback_blackout.bind(true))
-	for step in range(7, 12):
-		_flashback_tween.tween_callback(_scramble_flashback_words.bind(step))
-		_flashback_tween.tween_interval(0.13)
-	_flashback_tween.tween_interval(0.18)
-	_flashback_tween.tween_callback(_finish_pollution_flashback)
+	_flashback_overlay.play(frozen_texture)
+
+
+func _capture_frozen_frame_texture() -> Texture2D:
+	var viewport := get_viewport()
+	if viewport == null:
+		return null
+	var viewport_texture := viewport.get_texture()
+	if viewport_texture == null:
+		return null
+	var frozen_image := viewport_texture.get_image()
+	if frozen_image == null or frozen_image.is_empty():
+		return null
+	return ImageTexture.create_from_image(frozen_image)
 
 
 func _finish_pollution_flashback() -> void:
-	if _flashback_tween != null and _flashback_tween.is_valid():
-		_flashback_tween.kill()
-	_flashback_tween = null
 	if _flashback_overlay != null:
-		_flashback_overlay.visible = false
-	if _flashback_blackout != null:
-		_flashback_blackout.visible = false
+		_flashback_overlay.stop()
 	if _flashback_audio != null:
 		_flashback_audio.stop()
 	_set_input_locked(false)
@@ -6172,38 +6121,6 @@ func _finish_pollution_flashback() -> void:
 			log_text = "%s\n%s" % [log_text, game.event_log[0]]
 	_sync_audio_state(false)
 	_render()
-
-
-func _set_flashback_blackout(value: bool) -> void:
-	if _flashback_blackout != null:
-		_flashback_blackout.visible = value
-	if _flashback_noise != null:
-		_flashback_noise.modulate.a = 0.16 if value else 1.0
-
-
-func _scramble_flashback_words(step: int) -> void:
-	var viewport_size := _viewport_size()
-	var phrases := [
-		"哈吉米",
-		"哈吉米    哈吉米    哈吉米",
-		"我想正常说话",
-		"必须进入句子",
-		"信号丢失",
-		"□□□□□□",
-		"POLLUTION 60",
-		"normal speech failed",
-	]
-	for index in _flashback_words.size():
-		var label := _flashback_words[index]
-		label.text = phrases[(index + step) % phrases.size()]
-		label.add_theme_color_override("font_color", _theme_color("flash_text"))
-		label.add_theme_font_size_override("font_size", 26 + ((index + step) % 5) * 10)
-		label.position = Vector2(
-			randf_range(-80.0, viewport_size.x - 120.0),
-			randf_range(0.0, viewport_size.y - 60.0)
-		)
-		label.rotation = deg_to_rad(randf_range(-7.0, 7.0))
-		label.modulate.a = randf_range(0.45, 1.0)
 
 
 func _set_input_locked(value: bool) -> void:
