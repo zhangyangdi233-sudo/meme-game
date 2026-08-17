@@ -4,7 +4,7 @@ Standalone Godot 4.6 psychological-horror game built from the third-chapter meme
 
 ## Current Loop
 
-1. Browse image-led social posts and collect one language-aware unit at a time: a Chinese character, a Japanese lexical unit, or an English word.
+1. Browse image-led social posts and collect language-aware units: a Chinese character, a Japanese lexical unit, or an English word. Every post detail carries a seeded pickup line and an anonymous comment section in urban-legend register; units from a per-locale pool (20-30 Chinese characters guaranteeing at least two subject, verb, and object words after dictionary merge — see `scripts/narrative/pickup_char_pool.gd`) glow inside the text. Tapping one flies it to screen center for confirmation, then shrinks it into the upper-left notebook window, leaving a gray residue in the post. The first pickup each day costs one action; the rest of that day is free.
 2. Explore the physical floor and find the stitched guide doll. An authored conversation choice grants one Meme Frame once per encounter.
 3. Fuse two completed memes for higher propagation and higher pollution.
 4. Build around the day's signal hand, then publish for funds while accepting more pollution.
@@ -82,6 +82,8 @@ The rendered publish-layout capture tool is `res://tools/capture_publish_scene.g
 Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_district.gd` from a rendered Godot session to capture each district. Add `BABEL_CAPTURE_OVERVIEW=1` on floor two for the elevated structural QA view. Run `res://tools/capture_meme_bank_motion.gd` to save closed, opening, and open frames plus the measured scale/alpha trace. The generated-floor regression test is `res://tests/test_reality_world.gd`, and the transition/context test is `res://tests/test_day_transition.gd`. Doll evidence is captured by `capture_doll_discovery.gd`, `capture_doll_dialogue.gd`, and `capture_doll_reward.gd`.
 
 Run the localization audit with `res://tests/test_localization.gd`. It verifies catalog parity, dynamic format strings, language-specific text units, first-run language selection, settings language switching, and source-literal coverage.
+
+Run `res://tests/test_pickup_char_flow.gd` for the social pickup system: per-locale pool integrity (every unit seeded in a post, subject/verb/object words ≥2, rule-engine coverage), daily first-pickup action pricing, save round-trips, in-post highlight/gray states, comment sections, the notebook character bank, and the deterministic pickup flight layer.
 
 Run `res://tests/test_reality_world.gd` for continuous architecture, authored NPC population, suspense lighting, walkable clearance, and zero jump-scare trigger volumes.
 

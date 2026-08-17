@@ -5,6 +5,7 @@ const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
 const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
+const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const PREREQUISITE_ITEMS := {
@@ -238,6 +239,7 @@ const SAVE_FIELD_NAMES := [
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"history_entries",
 	"language_sentence_slots", "sentence_records", "tutorial_progress",
+	"collected_char_units", "last_char_pick_day",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
 	"last_relationship_money_loss", "reality_dialogue_count",
@@ -293,6 +295,8 @@ var history_entries: Array = []
 var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
 var tutorial_progress: Dictionary = {}
+var collected_char_units: Array = []
+var last_char_pick_day: int = 0
 var last_clean_sentence: String = ""
 var last_polluted_sentence: String = ""
 var npc_understanding: int = 100
@@ -378,6 +382,8 @@ func new_run() -> void:
 	history_entries = []
 	language_sentence_slots = {}
 	sentence_records = []
+	collected_char_units = []
+	last_char_pick_day = 0
 	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
@@ -1349,6 +1355,59 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 	notebook_tokens.append(note)
 	notify_tutorial("collect_word", {"token_id": str(note.get("id", ""))})
 	return true
+
+
+func get_pickup_unit_pool(locale_code: String = "zh") -> Array:
+	return PickupCharPoolScript.get_unit_pool(locale_code)
+
+
+func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
+	for entry in collected_char_units:
+		if entry is Dictionary and str((entry as Dictionary).get("unit", "")) == unit and str((entry as Dictionary).get("locale", "zh")) == locale_code:
+			return true
+	return false
+
+
+func get_collected_char_units(locale_code: String = "zh") -> Array[String]:
+	var result: Array[String] = []
+	for entry in collected_char_units:
+		if entry is Dictionary and str((entry as Dictionary).get("locale", "zh")) == locale_code:
+			var unit := str((entry as Dictionary).get("unit", ""))
+			if not unit.is_empty() and unit not in result:
+				result.append(unit)
+	return result
+
+
+## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。
+## 计费规则:每天第一次拾字消耗 1 行动,相当于刷一次手机;当天后续拾字免费。
+func pick_social_char(post_id: String, unit: String, locale_code: String = "zh") -> Dictionary:
+	var result := {"picked": false, "reason": "", "action_spent": false}
+	var normalized_unit := unit.strip_edges()
+	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
+		result["reason"] = "not-in-pool"
+		return result
+	if is_social_char_collected(normalized_unit, locale_code):
+		result["reason"] = "duplicate"
+		return result
+	var needs_action := last_char_pick_day != day
+	if needs_action:
+		if not can_spend_action():
+			result["reason"] = "no-actions"
+			return result
+		if not spend_action("pick-char"):
+			result["reason"] = "no-actions"
+			return result
+		result["action_spent"] = true
+	collected_char_units.append({
+		"unit": normalized_unit,
+		"locale": locale_code,
+		"source_post_id": post_id,
+		"day": day,
+	})
+	last_char_pick_day = day
+	result["picked"] = true
+	notify_tutorial("collect_word", {"token_id": "char-%s-%s" % [locale_code, normalized_unit]})
+	return result
 
 
 func get_craft_slots() -> Array:

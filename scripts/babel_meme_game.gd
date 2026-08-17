@@ -441,6 +441,8 @@ var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _flashback_overlay: PollutionFlashbackDirector
+var _pickup_flight_layer: PickupFlightLayer
+var _notebook_squash_tween: Tween
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
 var _pollution_ambience: AudioStreamPlayer
@@ -2309,6 +2311,7 @@ func _build_ui() -> void:
 	_build_history_window()
 	_build_exit_confirmation_overlay()
 	_build_day_transition_overlay()
+	_build_pickup_flight_layer()
 	_build_flashback_overlay()
 	_build_prologue_overlay()
 	_apply_responsive_layouts_if_needed(true)
@@ -4418,6 +4421,16 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 	post_text.set_meta("on_dark", true)
 	post_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(post_text)
+	var post_card_id := str(post.get("id", ""))
+	var pickup_line := PickupCharPool.get_pickup_line(post_card_id, _locale.current_locale)
+	if not pickup_line.is_empty():
+		var pickup_rich := _make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id)
+		detail_box.add_child(pickup_rich)
+		var pickup_hint := _label("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color("muted"))
+		pickup_hint.name = "SocialPickupCostHint"
+		pickup_hint.set_meta("on_dark", true)
+		pickup_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail_box.add_child(pickup_hint)
 	var engagement := HBoxContainer.new()
 	engagement.name = "SocialDetailEngagementRow"
 	engagement.add_theme_constant_override("separation", 8)
@@ -4461,6 +4474,31 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.pressed.connect(_on_token_pressed.bind(post["id"], token))
 		tokens.add_child(btn)
+
+	var post_comments: Array = PickupCharPool.get_comments(post_card_id, _locale.current_locale)
+	if not post_comments.is_empty():
+		var comments_rule := ColorRect.new()
+		comments_rule.name = "SocialCommentsRule"
+		comments_rule.color = Color(_theme_color("muted"), 0.35)
+		comments_rule.custom_minimum_size.y = 1.0
+		detail_box.add_child(comments_rule)
+		var comments_header := _label("评论 · %d" % post_comments.size(), 14, _theme_color("muted"))
+		comments_header.name = "SocialCommentsHeader"
+		comments_header.set_meta("on_dark", true)
+		detail_box.add_child(comments_header)
+		for comment_index in post_comments.size():
+			var comment: Dictionary = post_comments[comment_index]
+			var comment_box := VBoxContainer.new()
+			comment_box.name = "SocialComment%d" % comment_index
+			comment_box.add_theme_constant_override("separation", 2)
+			detail_box.add_child(comment_box)
+			var comment_meta := _label("%s  ·  %s" % [str(comment.get("handle", "")), str(comment.get("time", ""))], 12, _theme_color("muted"))
+			comment_meta.name = "SocialCommentMeta%d" % comment_index
+			comment_meta.set_meta("on_dark", true)
+			comment_meta.set_meta("skip_localization", true)
+			comment_box.add_child(comment_meta)
+			var comment_rich := _make_pickup_rich_text("SocialCommentText%d" % comment_index, str(comment.get("text", "")), post_card_id)
+			comment_box.add_child(comment_rich)
 
 
 func _render_social_publish_page(parent: VBoxContainer) -> void:
@@ -4760,6 +4798,28 @@ func _render_notebook_app() -> void:
 
 
 func _render_notebook_frame_tab(notebook_content: VBoxContainer) -> void:
+	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
+	var char_flow := HFlowContainer.new()
+	char_flow.name = "NotebookCharFlow"
+	char_flow.add_theme_constant_override("h_separation", 6)
+	char_flow.add_theme_constant_override("v_separation", 6)
+	notebook_content.add_child(char_flow)
+	var collected_units: Array[String] = game.get_collected_char_units(_locale.current_locale)
+	if collected_units.is_empty():
+		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
+		empty_hint.name = "NotebookCharEmptyHint"
+		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		char_flow.add_child(empty_hint)
+	for unit in collected_units:
+		var tile := Button.new()
+		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
+		tile.text = unit
+		tile.focus_mode = Control.FOCUS_NONE
+		tile.custom_minimum_size = Vector2(44, 40)
+		tile.set_meta("char_tile", true)
+		tile.set_meta("skip_localization", true)
+		char_flow.add_child(tile)
+
 	notebook_content.add_child(_label("拾取词库", 18, _theme_color("accent")))
 	var token_row := HFlowContainer.new()
 	token_row.name = "NotebookTokenFlow"
@@ -6263,6 +6323,130 @@ func _on_app_pressed(app_id: String) -> void:
 			window.move_to_front()
 	log_text = "打开 %s。" % app_id
 	_render()
+
+
+func _build_pickup_flight_layer() -> void:
+	_pickup_flight_layer = PickupFlightLayer.new()
+	_pickup_flight_layer.name = "PickupFlightLayer"
+	_pickup_flight_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pickup_flight_layer.z_index = 90
+	_ui_root.add_child(_pickup_flight_layer)
+	_pickup_flight_layer.pickup_landed.connect(_on_pickup_flight_landed)
+
+
+func _make_pickup_rich_text(node_name: String, source_text: String, post_id: String) -> RichTextLabel:
+	var rich := RichTextLabel.new()
+	rich.name = node_name
+	rich.bbcode_enabled = true
+	rich.fit_content = true
+	rich.scroll_active = false
+	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rich.add_theme_font_size_override("normal_font_size", 16)
+	rich.add_theme_color_override("default_color", _theme_color("surface"))
+	rich.set_meta("pickup_rich_text", true)
+	rich.text = _pickup_bbcode(source_text)
+	rich.meta_clicked.connect(_on_pickup_unit_meta.bind(post_id))
+	return rich
+
+
+## 把文本中属于字池的单位包成可点击的 [url];已拾取的单位渲染为灰色余韵。
+func _pickup_bbcode(source_text: String) -> String:
+	var locale_code: String = _locale.current_locale
+	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPool.get_unit_pool(locale_code)
+	units.sort_custom(func(left, right): return str(left).length() > str(right).length())
+	var pickable_color := _theme_color("flash_text").to_html(false)
+	var collected_color := "8b8f84"
+	var result := ""
+	var index := 0
+	var text_length := source_text.length()
+	while index < text_length:
+		var matched := ""
+		for unit_value in units:
+			var unit := str(unit_value)
+			if unit.is_empty() or index + unit.length() > text_length:
+				continue
+			if source_text.substr(index, unit.length()) != unit:
+				continue
+			if locale_code == "en" and not _pickup_word_boundary_ok(source_text, index, unit.length()):
+				continue
+			matched = unit
+			break
+		if matched.is_empty():
+			result += _escape_bbcode(source_text.substr(index, 1))
+			index += 1
+			continue
+		if game != null and game.is_social_char_collected(matched, locale_code):
+			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched)]
+		else:
+			result += "[color=#%s][url=%s]%s[/url][/color]" % [pickable_color, matched, _escape_bbcode(matched)]
+		index += matched.length()
+	return result
+
+
+func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) -> bool:
+	if start_index > 0 and _is_ascii_word_character(text.substr(start_index - 1, 1)):
+		return false
+	var after_index := start_index + unit_length
+	if after_index < text.length() and _is_ascii_word_character(text.substr(after_index, 1)):
+		return false
+	return true
+
+
+func _is_ascii_word_character(character: String) -> bool:
+	if character.is_empty():
+		return false
+	var code := character.unicode_at(0)
+	return (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or (code >= 48 and code <= 57) or character == "'"
+
+
+func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
+	if _input_locked:
+		return
+	var unit := str(meta)
+	var actions_before: int = int(game.actions_remaining)
+	var origin: Vector2 = get_viewport().get_mouse_position()
+	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
+	if bool(pick_result.get("picked", false)):
+		log_text = "一个字进入了笔记本。"
+		if _pickup_flight_layer != null:
+			_pickup_flight_layer.play_pickup(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
+		if bool(pick_result.get("action_spent", false)):
+			_after_effective_action(actions_before)
+		else:
+			_render()
+		return
+	match str(pick_result.get("reason", "")):
+		"duplicate":
+			log_text = "这个字已经在笔记本里了。"
+		"no-actions":
+			log_text = "今天没有行动了。明天第一次拾字会重新消耗行动。"
+		_:
+			log_text = "这个字没有进入笔记本。"
+	_render_status()
+
+
+func _on_pickup_flight_landed(_unit: String) -> void:
+	_squash_notebook_window()
+
+
+func _notebook_flight_target() -> Vector2:
+	var window := _draggable_windows.get("notebook") as Control
+	if window != null and is_instance_valid(window) and window.visible:
+		return window.get_global_position() + Vector2(56.0, 40.0)
+	return Vector2(84.0, 64.0)
+
+
+func _squash_notebook_window() -> void:
+	var window := _draggable_windows.get("notebook") as Control
+	if window == null or not is_instance_valid(window) or not window.visible:
+		return
+	if _notebook_squash_tween != null and _notebook_squash_tween.is_valid():
+		_notebook_squash_tween.kill()
+	window.pivot_offset = window.size * 0.5
+	window.scale = Vector2.ONE
+	_notebook_squash_tween = create_tween()
+	_notebook_squash_tween.tween_property(window, "scale", Vector2(1.05, 0.96), 0.07).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_notebook_squash_tween.tween_property(window, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _on_token_pressed(post_id: String, token: Dictionary) -> void:
