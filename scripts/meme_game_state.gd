@@ -83,7 +83,7 @@ const SAVE_FIELD_NAMES := [
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"history_entries",
 	"language_sentence_slots", "sentence_records", "tutorial_progress",
-	"collected_char_units", "last_char_pick_day",
+	"collected_char_units", "last_char_pick_day", "char_canvas_positions",
 	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
@@ -142,6 +142,7 @@ var sentence_records: Array = []
 var tutorial_progress: Dictionary = {}
 var collected_char_units: Array = []
 var last_char_pick_day: int = 0
+var char_canvas_positions: Dictionary = {}
 var free_sentence_units: Array = []
 var world_rules: Dictionary = {}
 var floor3_task_complete: bool = false
@@ -233,6 +234,7 @@ func new_run() -> void:
 	sentence_records = []
 	collected_char_units = []
 	last_char_pick_day = 0
+	char_canvas_positions = {}
 	free_sentence_units = []
 	world_rules = {}
 	floor3_task_complete = false
@@ -1445,6 +1447,44 @@ func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
 		event_log.push_front("出口开始存在。")
+
+
+## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
+
+const CHAR_CANVAS_SIZE := Vector2(520.0, 300.0)
+const CHAR_CANVAS_TILE := Vector2(46.0, 42.0)
+
+
+func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vector2:
+	var key := "%s|%s" % [locale_code, unit]
+	if char_canvas_positions.has(key):
+		var stored: Variant = char_canvas_positions[key]
+		if stored is Vector2:
+			return stored
+		if stored is Array and (stored as Array).size() == 2:
+			return Vector2(float(stored[0]), float(stored[1]))
+	return _default_char_canvas_position(unit, locale_code)
+
+
+func set_char_canvas_position(unit: String, position: Vector2, locale_code: String = "zh") -> void:
+	var clamped := Vector2(
+		clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
+		clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
+	)
+	char_canvas_positions["%s|%s" % [locale_code, unit]] = [clamped.x, clamped.y]
+
+
+## 新拾取的字按行列自动落位,不与已有的字重叠。
+func _default_char_canvas_position(unit: String, locale_code: String) -> Vector2:
+	var units: Array[String] = get_collected_char_units(locale_code)
+	var index := maxi(0, units.find(unit))
+	var columns := maxi(1, int(CHAR_CANVAS_SIZE.x / (CHAR_CANVAS_TILE.x + 10.0)))
+	var column := index % columns
+	var row := int(index / float(columns))
+	return Vector2(
+		clampf(float(column) * (CHAR_CANVAS_TILE.x + 10.0) + 8.0, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
+		clampf(float(row) * (CHAR_CANVAS_TILE.y + 10.0) + 8.0, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
+	)
 
 
 func get_craft_slots() -> Array:

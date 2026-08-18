@@ -305,8 +305,6 @@ func _refresh_playtest_markers() -> void:
 				marker_text = "TEST  教程引导"
 			"key_npc":
 				marker_text = "TEST  隐藏路线关键 NPC"
-			"doctor":
-				marker_text = "TEST  医生 / 语言拼句"
 		var existing_actor_marker := actor.get_node_or_null("PlaytestMarker") as Label3D
 		if marker_text.is_empty() or not _playtest_assist_enabled:
 			if existing_actor_marker != null:
@@ -2480,10 +2478,11 @@ func _build_actors(actor_textures: Dictionary) -> void:
 		var npc_texture: Texture2D = fallback_texture
 		if not npc_textures.is_empty() and npc_textures[index % npc_textures.size()] is Texture2D:
 			npc_texture = npc_textures[index % npc_textures.size()]
-		var actor_type := "doctor" if index == 0 else "npc"
-		var actor_label: String = "医生" if index == 0 else str(labels[index % labels.size()])
+		# 医生复述机制已移除:街区里不再生成医生角色,全部为普通 NPC。
+		var actor_type := "npc"
+		var actor_label: String = str(labels[index % labels.size()])
 		var actor := _make_actor("NPC%d" % index, actor_type, actor_label, actor_position, npc_texture, index % 3)
-		actor.set_meta("language_bridge_actor", actor_type == "doctor")
+		actor.set_meta("language_bridge_actor", false)
 		actors.add_child(actor)
 		_actors.append(actor)
 

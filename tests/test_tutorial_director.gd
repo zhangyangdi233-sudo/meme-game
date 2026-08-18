@@ -43,11 +43,9 @@ func test_steps_advance_only_in_authored_order() -> void:
 	progress = _director_script.notify(progress, &"sentence_composed")
 	_assert_step(progress, "publish_sentence")
 	progress = _director_script.notify(progress, &"sentence_published")
-	_assert_step(progress, "speak_to_doctor")
-	progress = _director_script.notify(progress, &"doctor_spoken")
 	_assert_step(progress, "complete")
 	_assert_true(bool(progress.get("is_complete", false)), "doctor conversation should complete the tutorial")
-	_assert_eq((progress.get("completed_step_ids", []) as Array).size(), 8, "all action steps should be recorded")
+	_assert_eq((progress.get("completed_step_ids", []) as Array).size(), 7, "all action steps should be recorded")
 
 
 func test_collect_word_requires_three_events() -> void:

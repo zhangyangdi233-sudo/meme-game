@@ -63,14 +63,6 @@ const STEPS: Array[Dictionary] = [
 		"test_instruction": "测试提示：确认发布刚刚组成的完整句子。",
 	},
 	{
-		"id": "speak_to_doctor",
-		"event_id": "doctor_spoken",
-		"required_count": 1,
-		"focus_target": "doctor",
-		"guide_line": "放下手机，去和医生说同一句话。听听它到了那里还剩什么。",
-		"test_instruction": "测试提示：放下手机，靠近医生并完成一次对话。",
-	},
-	{
 		"id": "complete",
 		"event_id": "",
 		"required_count": 0,

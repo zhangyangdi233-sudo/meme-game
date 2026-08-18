@@ -64,50 +64,24 @@ func _run() -> void:
 
 	game_root.new_game()
 	await process_frame
+	# 梗圆环已退役:任何页面、任何视角都不再出现,也不再有开合动效契约。
 	var meme_bank := _find_node_by_name(game_root, "MemeBankPopup") as Control
-	var meme_bank_content := _find_node_by_name(game_root, "MemeBankContent") as Control
-	_assert_true(meme_bank != null and not meme_bank.visible, "meme bank should be hidden on the normal social feed")
-	_assert_true(not game_root._should_peek_meme_bank(), "meme bank should no longer expose a global corner peek")
+	_assert_true(meme_bank != null and not meme_bank.visible, "the retired meme ring must stay hidden on the feed")
+	_assert_true(not game_root._should_peek_meme_bank(), "the retired meme ring must not peek")
+	_assert_true(not game_root._should_show_meme_bank(), "the meme ring visibility rule should always refuse")
 	game_root._social_screen = "publish"
 	game_root._open_app_windows["social"] = true
 	game_root._render()
-	_assert_true(meme_bank != null and meme_bank.visible, "meme bank should appear as a small attached window only on social publish")
-	var actions_before_bank_motion: int = game_root.game.actions_remaining
-	var opening_profile: Dictionary = game_root._meme_bank_motion_profile(true)
-	var closing_profile: Dictionary = game_root._meme_bank_motion_profile(false)
-	_assert_eq(opening_profile.get("transition"), Tween.TRANS_QUINT, "meme bank opening should use a quint transition")
-	_assert_eq(opening_profile.get("ease"), Tween.EASE_OUT, "meme bank opening should ease out")
-	_assert_eq(closing_profile.get("transition"), Tween.TRANS_QUINT, "meme bank closing should use a quint transition")
-	_assert_eq(closing_profile.get("ease"), Tween.EASE_OUT, "meme bank closing should ease out")
-	_assert_true(float(opening_profile.get("scale_duration", 0.0)) > 0.0, "meme bank scale motion should have a visible duration")
-	_assert_true(float(opening_profile.get("alpha_duration", 0.0)) > 0.0, "meme bank alpha motion should have a visible duration")
-	_assert_true(Array(opening_profile.get("properties", [])).has("scale"), "meme bank motion should animate scale")
-	_assert_true(Array(opening_profile.get("properties", [])).has("modulate:a"), "meme bank motion should animate alpha")
-	_assert_true(bool(opening_profile.get("interrupts_previous", false)), "meme bank motion should interrupt stale tweens")
-	game_root._toggle_meme_bank()
-	_assert_true(meme_bank_content != null and meme_bank_content.visible, "publish-only meme bank should still expand on demand")
-	_assert_eq(str(meme_bank.get_meta("motion_easing", "")), "easeOutQuint", "meme bank open and close motion should use easeOutQuint")
-	_assert_eq(str(meme_bank.get_meta("motion_phase", "")), "opening", "opening motion should expose its phase for regression checks")
-	_assert_eq(meme_bank.get_meta("motion_transition"), Tween.TRANS_QUINT, "opening window tween should expose quint transition metadata")
-	_assert_eq(meme_bank.get_meta("motion_ease"), Tween.EASE_OUT, "opening window tween should expose ease-out metadata")
-	var opening_tween: Tween = game_root._meme_bank_tween
-	game_root._toggle_meme_bank()
-	_assert_eq(str(meme_bank.get_meta("motion_phase", "")), "closing", "closing motion should use the same explicit profile")
-	_assert_true(opening_tween != null and not opening_tween.is_valid(), "closing the bank should cancel an unfinished opening tween")
-	_assert_true(game_root._meme_bank_tween != opening_tween, "closing the bank should create a fresh tween")
-	_assert_eq(game_root.game.actions_remaining, actions_before_bank_motion, "opening and closing the meme bank should not spend an action")
-	game_root._toggle_meme_bank()
-	await create_timer(float(opening_profile.get("scale_duration", 0.28)) + 0.08).timeout
-	_assert_eq(str(meme_bank.get_meta("motion_phase", "")), "open", "a completed opening tween should expose its settled phase")
-	_assert_true(meme_bank.scale.is_equal_approx(Vector2.ONE), "a completed meme-bank tween should settle at its exact authored scale")
-	_assert_true(is_equal_approx(meme_bank.modulate.a, 1.0), "a completed meme-bank tween should settle at full authored alpha")
+	_assert_true(meme_bank != null and not meme_bank.visible, "the retired meme ring must stay hidden on the publish page too")
 	game_root.game.set_active_app("notebook")
 	game_root._open_app_windows["social"] = false
 	game_root._render()
-	_assert_true(meme_bank != null and meme_bank.visible, "switching to notebook should keep the contextual radial meme bank available")
-	_assert_true(meme_bank_content != null and meme_bank_content.visible, "notebook should open the radial meme bank for frame and fusion work")
+	_assert_true(meme_bank != null and not meme_bank.visible, "the notebook must not bring the ring back either")
 	game_root.set_view_state("npc_up")
-	_assert_true(meme_bank != null and not meme_bank.visible, "reality walking should never show the meme bank")
+	_assert_true(meme_bank != null and not meme_bank.visible, "reality walking should never show the ring")
+	game_root.set_view_state("phone_down")
+	game_root._social_screen = "home"
+	game_root._render()
 
 	game_root.new_game()
 	await process_frame

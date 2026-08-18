@@ -2,6 +2,11 @@ extends RefCounted
 
 
 const EN: Dictionary = {
+	"字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。": "Collected units stay here for good. Arrange them freely, or drag one into the sentence on the publish page.",
+	"今天不能再投稿": "No posting left today",
+	"先放入一个字": "Add a unit first",
+	"把笔记本里的字拖进来": "Drag units in from the notebook",
+	"%d / %d 字": "%d / %d units",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "Continue",
 	"回到上次离开的位置": "Return to where you left off",
@@ -531,6 +536,11 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
+	"字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。": "ひろった文字はここに残る。自由に並べ替えられるし、投稿ページの文へドラッグもできる。",
+	"今天不能再投稿": "今日はもう投稿できない",
+	"先放入一个字": "まず一文字入れて",
+	"把笔记本里的字拖进来": "ノートの文字をここへドラッグ",
+	"%d / %d 字": "%d / %d 文字",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "つづきから",
 	"回到上次离开的位置": "前回の続きから再開",

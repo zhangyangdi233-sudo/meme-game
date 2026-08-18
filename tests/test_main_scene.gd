@@ -120,12 +120,15 @@ func _test_phone_apps(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "NotebookAppWindow") is Control, "notebook app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "ShopAppWindow") == null, "removed shop window should not be constructed")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceHeader") is Control, "notebook should explain complete sentence composition")
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "notebook should expose the free-composition answer area")
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerFlow") != null, "notebook should expose the free-composition sentence flow")
-	_assert_true(_find_node_by_name(game_root, "NotebookCharFlow") != null, "notebook should expose the collected character bank")
+	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "notebook should expose the free word canvas")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
-	_assert_true(_find_node_by_name(game_root, "NotebookCraftButton") is Button, "notebook should expose one sentence confirmation command")
+	game_root._set_social_screen("publish")
+	game_root._render()
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the sentence area")
+	_assert_true(_find_node_by_name(game_root, "SocialPublishPostButton") is Button, "the publish page should expose one post command")
+	_assert_true(_find_node_by_name(game_root, "SocialPublishUnitCounter") != null, "the publish page should show a unit counter")
+	game_root._set_social_screen("home")
 
 
 func _test_social_feed(game_root: Node) -> void:
@@ -167,18 +170,9 @@ func _test_physical_doll_entry(game_root: Node) -> void:
 
 
 func _test_language_and_playtest_contract(game_root: Node) -> void:
-	_assert_true(_find_node_by_name(game_root, "RealityLanguagePuzzleFrame") is Control, "doctor conversations should own a language puzzle frame")
-	_assert_true(_find_node_by_name(game_root, "RealityLanguageTokenFlow") is Control, "doctor puzzle should expose published-word tokens")
+	# 医生复述机制已退役:世界里不再生成医生,拼句面板也不该再被触发。
 	var doctor := _find_actor_by_type(game_root, "doctor")
-	_assert_true(doctor != null, "each ordinary level should expose one doctor using the existing NPC budget")
-	if doctor != null:
-		game_root._reality_player.position = doctor.position + Vector3(0.0, 0.0, 1.35)
-		game_root._refresh_nearby_reality_actor()
-		_assert_true(game_root._try_reality_interaction(), "approaching the doctor should open the language puzzle")
-	_assert_true(_find_node_by_name(game_root, "RealityLanguageSlotSubject") is Button, "doctor puzzle should expose a subject slot")
-	_assert_true(_find_node_by_name(game_root, "RealityLanguageSlotAction") is Button, "doctor puzzle should expose an action slot")
-	_assert_true(_find_node_by_name(game_root, "RealityLanguageSlotObject") is Button, "doctor puzzle should expose an object slot")
-	_assert_true(_find_node_by_name(game_root, "RealityLanguageConfirm") is Button, "doctor puzzle should expose one speak command")
+	_assert_true(doctor == null, "the retired doctor actor must not spawn any more")
 	var assist_panel := _find_node_by_name(game_root, "PlaytestAssistPanel") as Control
 	var assist_label := _find_node_by_name(game_root, "PlaytestAssistLabel") as Label
 	_assert_true(assist_panel != null and assist_label != null, "debug builds should expose the explicit playtest route panel")
@@ -188,7 +182,6 @@ func _test_language_and_playtest_contract(game_root: Node) -> void:
 	var key_npc := _find_actor_by_type(game_root, "key_npc")
 	_assert_true(guide != null and guide.get_node_or_null("PlaytestMarker") is Label3D, "guide should have a debug-only world marker")
 	_assert_true(key_npc != null and key_npc.get_node_or_null("PlaytestMarker") is Label3D, "key NPC should have a debug-only world marker")
-	_assert_true(doctor != null and doctor.get_node_or_null("PlaytestMarker") is Label3D, "doctor should have a debug-only world marker")
 	if guide != null:
 		var marker := guide.get_node_or_null("PlaytestMarker") as Label3D
 		_assert_true(marker != null and marker.font_size <= 16, "playtest labels should remain compact enough to reveal the world and actor")

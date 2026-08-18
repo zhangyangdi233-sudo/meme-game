@@ -14,6 +14,7 @@ const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.g
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -87,6 +88,8 @@ const DOLL_COMPANION_OFFSET := Vector3(0.72, 0.95, 0.55)
 # 可拾取字的视觉可供性:脉动频率与字号(配合下划线,构成非颜色依赖的三重提示)。
 const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
+# 句子单位软上限(参考 Bluesky 的 grapheme 计数语义;超过只提示不拦截)。
+const COMPOSER_SOFT_UNIT_LIMIT := 12
 const REALITY_FALL_RECOVERY_Y := -3.0
 const REALITY_SAFE_INSET := 1.2
 const CINEMATIC_ASPECT_RATIO := 2.35
@@ -106,10 +109,8 @@ const MEME_BANK_ALPHA_DURATION := 0.22
 const SAVE_PATH := "user://babel_meme_save.dat"
 const SAVE_FILE_VERSION := 1
 const SOCIAL_CHANNELS := [
-	{"id": "following", "label": "关注流"},
 	{"id": "discover", "label": "发现"},
-	{"id": "tower_base", "label": "塔下"},
-	{"id": "nearby", "label": "附近"},
+	{"id": "following", "label": "关注流"},
 ]
 const SOCIAL_POST_CARDS := [
 	{
@@ -3904,13 +3905,11 @@ func _render_playtest_assist() -> void:
 	var step: Dictionary = game.get_tutorial_step()
 	var tutorial_complete := bool(step.get("is_complete", false))
 	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
-	var doll_guide_active := _doll_guide_panel != null and is_instance_valid(_doll_guide_panel) and _doll_guide_panel.visible
-	_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or (not tutorial_complete and not doll_guide_active))
+	# 引导只由左下角的缝线布偶小窗承担;本面板仅在显式开启测试辅助时出现。
+	_playtest_assist_panel.visible = _game_started and not _settings_open and _playtest_assist_enabled
 	if not _playtest_assist_panel.visible:
 		return
 	var lines: Array[String] = []
-	if not doll_guide_active:
-		lines.append("「%s」" % str(step.get("guide_line", "你已经会自己走了。至少现在是。")))
 	if not _playtest_assist_enabled:
 		_playtest_assist_label.text = "\n".join(lines)
 		return
@@ -4547,21 +4546,19 @@ func _render_social_publish_page(parent: VBoxContainer) -> void:
 	var composer_box := VBoxContainer.new()
 	composer_box.add_theme_constant_override("separation", 6)
 	composer.add_child(composer_box)
+	var placed_sentence_units: Array = game.get_free_sentence_units()
 	var composer_header := HBoxContainer.new()
 	composer_header.add_theme_constant_override("separation", 8)
 	composer_box.add_child(composer_header)
 	var composer_step := _label("01  /  内容", 13, _theme_color("accent"))
 	composer_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	composer_header.add_child(composer_step)
-	composer_header.add_child(_label("拖拽或点击", 12, _theme_color("accent")))
-	composer_box.add_child(_label("从梗库放入一条完整表达", 17, _theme_color("ink")))
-	_publish_blank = DropButtonScript.new()
-	_publish_blank.name = "SocialPublishBlank"
-	_publish_blank.custom_minimum_size.y = 64
-	_publish_blank.configure_drop_target("meme", "blank_1")
-	_publish_blank.dropped.connect(_on_dialogue_meme_dropped)
-	_publish_blank.pressed.connect(_on_dialogue_blank_pressed)
-	composer_box.add_child(_publish_blank)
+	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
+	var unit_counter := _label("%d / %d 字" % [placed_sentence_units.size(), COMPOSER_SOFT_UNIT_LIMIT], 12, _theme_color("accent"))
+	unit_counter.name = "SocialPublishUnitCounter"
+	composer_header.add_child(unit_counter)
+	composer_box.add_child(_label("把笔记本里的字拖进来", 17, _theme_color("ink")))
+	_render_publish_sentence_area(composer_box, placed_sentence_units)
 
 	var result_panel := _panel()
 	result_panel.name = "SocialPublishOutcomePanel"
@@ -4603,6 +4600,70 @@ func _render_social_publish_page(parent: VBoxContainer) -> void:
 	_confirm_publish_button.custom_minimum_size.y = 56
 	_confirm_publish_button.pressed.connect(_on_confirm_dialogue_pressed)
 	action_box.add_child(_confirm_publish_button)
+
+
+## ============ 发布页的句子撰写区(接收笔记本画布拖来的字)============
+
+func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Array) -> void:
+	var answer_panel := ComposerDropAreaScript.new()
+	answer_panel.name = "ComposerAnswerPanel"
+	answer_panel.custom_minimum_size.y = 92
+	answer_panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
+	answer_panel.unit_dropped.connect(_on_composer_area_drop)
+	composer_box.add_child(answer_panel)
+	var answer_box := VBoxContainer.new()
+	answer_box.add_theme_constant_override("separation", 4)
+	answer_panel.add_child(answer_box)
+	var answer_flow := HFlowContainer.new()
+	answer_flow.name = "ComposerAnswerFlow"
+	answer_flow.add_theme_constant_override("h_separation", 6)
+	answer_flow.add_theme_constant_override("v_separation", 6)
+	answer_flow.custom_minimum_size.y = 46
+	answer_box.add_child(answer_flow)
+	if placed_units.is_empty():
+		var placeholder := _label("……(句子还空着)", 14, _theme_color("muted"))
+		placeholder.name = "ComposerAnswerPlaceholder"
+		answer_flow.add_child(placeholder)
+	for unit_index in placed_units.size():
+		var placed_tile := ComposerAnswerTileScript.new()
+		placed_tile.name = "ComposerAnswerTile%d" % unit_index
+		placed_tile.text = str(placed_units[unit_index])
+		placed_tile.focus_mode = Control.FOCUS_NONE
+		placed_tile.custom_minimum_size = Vector2(44, 42)
+		placed_tile.set_meta("skip_localization", true)
+		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
+		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
+		placed_tile.unit_dropped_before.connect(_on_composer_tile_drop)
+		_apply_composer_tile_theme(placed_tile, false)
+		answer_flow.add_child(placed_tile)
+	var answer_rule := ColorRect.new()
+	answer_rule.name = "ComposerAnswerUnderline"
+	answer_rule.color = Color(_theme_color("accent"), 0.8)
+	answer_rule.custom_minimum_size.y = 2.0
+	answer_box.add_child(answer_rule)
+
+	var preview_label := _label(game.get_free_sentence_text(_locale.current_locale), 15, _theme_color("ink"))
+	preview_label.name = "ComposerPreviewLabel"
+	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_label.set_meta("skip_localization", true)
+	composer_box.add_child(preview_label)
+
+	var post_button := Button.new()
+	post_button.name = "SocialPublishPostButton"
+	post_button.custom_minimum_size.y = 52
+	if placed_units.is_empty():
+		post_button.text = "先放入一个字"
+		post_button.disabled = true
+	elif not game.can_spend_action():
+		post_button.text = "今天不能再投稿"
+		post_button.disabled = true
+	else:
+		post_button.text = "投稿"
+		post_button.disabled = false
+		post_button.add_theme_stylebox_override("normal", _style(_theme_color("accent"), _theme_color("ink")))
+		post_button.add_theme_color_override("font_color", _theme_color("surface"))
+	post_button.pressed.connect(_on_composer_submit_pressed)
+	composer_box.add_child(post_button)
 
 
 func _render_social_profile_page(parent: VBoxContainer) -> void:
@@ -4648,10 +4709,21 @@ func _render_social_bottom_nav(phone_box: VBoxContainer) -> void:
 		var nav_button := Button.new()
 		nav_button.name = str(nav["name"])
 		nav_button.text = str(nav["text"])
-		nav_button.set_meta("flat_phone_button", true)
-		nav_button.custom_minimum_size = Vector2(100, 50)
-		nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nav_button.pressed.connect(_set_social_screen.bind(str(nav["screen"])))
+		if str(nav["screen"]) == "publish":
+			# 发布是主行动:实心强调按钮 + 更大命中区(参考各社交 App 的中央发布键)。
+			nav_button.custom_minimum_size = Vector2(132, 50)
+			nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			nav_button.size_flags_stretch_ratio = 1.35
+			nav_button.add_theme_stylebox_override("normal", _style(_theme_color("accent"), _theme_color("ink")))
+			nav_button.add_theme_stylebox_override("hover", _style(_theme_color("accent").lightened(0.12), _theme_color("ink")))
+			nav_button.add_theme_stylebox_override("pressed", _style(_theme_color("accent").darkened(0.12), _theme_color("ink")))
+			nav_button.add_theme_color_override("font_color", _theme_color("surface"))
+			nav_button.add_theme_font_size_override("font_size", 17)
+		else:
+			nav_button.set_meta("flat_phone_button", true)
+			nav_button.custom_minimum_size = Vector2(100, 50)
+			nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bottom_nav.add_child(nav_button)
 	var indicator_wrap := CenterContainer.new()
 	indicator_wrap.name = "SocialHomeIndicatorWrap"
@@ -5140,7 +5212,8 @@ func _advance_typed_reality_character() -> bool:
 
 func _update_visibility() -> void:
 	var in_phone: bool = game.view_state == "phone_down"
-	var show_phone_home := in_phone and _phone_launcher_open
+	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
+	var show_phone_home := in_phone
 	if _phone_popup_expanded != show_phone_home:
 		_phone_popup_expanded = show_phone_home
 		_apply_phone_popup_layout(show_phone_home)
@@ -5153,9 +5226,9 @@ func _update_visibility() -> void:
 	for app_id in _app_windows.keys():
 		var app_window := _app_windows[app_id] as Control
 		if app_window != null:
-			app_window.visible = in_phone and not _phone_launcher_open and bool(_open_app_windows.get(app_id, false))
+			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
 	if _social_detail_window != null:
-		_social_detail_window.visible = in_phone and not _phone_launcher_open and _social_detail_open and bool(_open_app_windows.get("social", false))
+		_social_detail_window.visible = in_phone and _social_detail_open and bool(_open_app_windows.get("social", false))
 	if _publish_panel != null:
 		_publish_panel.visible = false
 	var show_meme_bank := _should_show_meme_bank()
@@ -5208,8 +5281,7 @@ func _update_visibility() -> void:
 		# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 		# 本面板只在测试辅助开启、或(教程未完成且玩偶窗缺席)时出现。
 		var tutorial_step: Dictionary = game.get_tutorial_step()
-		var doll_guide_active := _doll_guide_panel != null and is_instance_valid(_doll_guide_panel) and _doll_guide_panel.visible
-		_playtest_assist_panel.visible = _game_started and not _settings_open and (_playtest_assist_enabled or (not bool(tutorial_step.get("is_complete", false)) and not doll_guide_active))
+		_playtest_assist_panel.visible = _game_started and not _settings_open and _playtest_assist_enabled
 	if _reality_floor != null:
 		_reality_floor.visible = not in_phone
 	if _reality_player != null:
@@ -5554,13 +5626,8 @@ func _make_draggable_window(window: Control, window_id: String, handle: Control)
 
 
 func _should_show_meme_bank() -> bool:
-	if game.view_state != "phone_down":
-		return false
-	if _phone_launcher_open:
-		return false
-	var social_publish_open := bool(_open_app_windows.get("social", false)) and _social_screen == "publish"
-	var notebook_open := bool(_open_app_windows.get("notebook", false)) and game.active_app_window == "notebook"
-	return social_publish_open or notebook_open
+	# 梗圆环已退役:造句改用笔记本画布 + 发布页拖放,不再需要环形选择器。
+	return false
 
 
 func _should_peek_meme_bank() -> bool:
@@ -6296,7 +6363,7 @@ func _build_doll_guide_overlay() -> void:
 	var portrait := TextureRect.new()
 	portrait.name = "DollGuidePortrait"
 	portrait.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
-	portrait.custom_minimum_size = Vector2(38, 38)
+	portrait.custom_minimum_size = Vector2(52, 52)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	header.add_child(portrait)
@@ -6318,7 +6385,11 @@ func _build_doll_guide_overlay() -> void:
 	_doll_guide_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_doll_guide_line_label.custom_minimum_size = Vector2(236, 0)
 	_doll_guide_body.add_child(_doll_guide_line_label)
-	_doll_guide_panel.position = Vector2(16.0, 552.0)
+	# 常驻画面左下角:玩家视觉的余光位置,不挡中心视野。
+	_doll_guide_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT, true)
+	_doll_guide_panel.offset_left = 16.0
+	_doll_guide_panel.offset_bottom = -16.0
+	_doll_guide_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_make_draggable_window(_doll_guide_panel, "doll_guide", header)
 	# 玩偶从头到尾在玩家视线内:没有关闭按钮,只能折叠或拖动。
 	_doll_guide_panel.visible = false
@@ -6344,43 +6415,14 @@ func _update_doll_guide() -> void:
 	_doll_guide_line_label.text = _doll_guide_current_line()
 
 
-## ============ 派蒙式 3D 跟随玩偶:悬浮在玩家侧前方,交互/对话时隐身 ============
+## ============ 玩偶伙伴:常驻画面左下角,和它的头像引导小窗合为一体 ============
 
-func _ensure_doll_companion() -> void:
+## 3D 跟随体已退役(在第一人称视角里几乎看不见,还会挡视线);
+## 玩偶改为始终待在屏幕左下角的引导小窗里,对话时整体隐身。
+func _update_doll_companion(_delta: float) -> void:
 	if _doll_companion != null and is_instance_valid(_doll_companion):
-		return
-	_doll_companion = Node3D.new()
-	_doll_companion.name = "DollCompanionBody"
-	var sprite := Sprite3D.new()
-	sprite.name = "DollCompanionSprite"
-	sprite.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	# 派蒙式伙伴的体量:占屏很小,永远不遮挡准心与前方视野。
-	sprite.pixel_size = DOLL_COMPANION_PIXEL_SIZE
-	sprite.no_depth_test = false
-	sprite.shaded = false
-	sprite.modulate = Color(1.0, 1.0, 1.0, 0.92)
-	_doll_companion.add_child(sprite)
-	_doll_companion.visible = false
-	add_child(_doll_companion)
-
-
-func _update_doll_companion(delta: float) -> void:
-	_ensure_doll_companion()
-	if _doll_companion == null or _reality_player == null or not is_instance_valid(_reality_player):
-		return
-	var in_reality := game != null and game.view_state == "npc_up"
-	var companion_visible := _game_started and in_reality and not _reality_interaction_active and not _input_locked and (game == null or not game.ending_unlocked)
-	_doll_companion.visible = companion_visible
-	if not companion_visible:
-		return
-	# 悬浮在玩家的右后侧下方(取玩家朝向):在余光里,不进主视野中心。
-	var player_basis := _reality_player.global_transform.basis
-	var follow_offset := player_basis * DOLL_COMPANION_OFFSET
-	var bob := sin(Time.get_ticks_msec() / 1000.0 * 2.0) * 0.035
-	var target := _reality_player.global_position + follow_offset + Vector3(0.0, bob, 0.0)
-	var follow_weight: float = clampf(delta * 4.0, 0.0, 1.0)
-	_doll_companion.global_position = _doll_companion.global_position.lerp(target, follow_weight)
+		_doll_companion.queue_free()
+	_doll_companion = null
 
 
 func _doll_guide_current_line() -> String:
@@ -6518,91 +6560,44 @@ func _apply_composer_tile_theme(tile: Button, is_ghost: bool) -> void:
 	tile.add_theme_stylebox_override("pressed", _composer_tile_style("pressed"))
 
 func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label("自由造句", 18, _theme_color("accent")))
-	var composer_hint := _label("发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。", 13, _theme_color("muted"))
-	composer_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(composer_hint)
-
-	var placed_units: Array = game.get_free_sentence_units()
-
-	var answer_panel := ComposerDropAreaScript.new()
-	answer_panel.name = "ComposerAnswerPanel"
-	answer_panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-	answer_panel.unit_dropped.connect(_on_composer_area_drop)
-	notebook_content.add_child(answer_panel)
-	var answer_box := VBoxContainer.new()
-	answer_box.add_theme_constant_override("separation", 4)
-	answer_panel.add_child(answer_box)
-	var answer_flow := HFlowContainer.new()
-	answer_flow.name = "ComposerAnswerFlow"
-	answer_flow.add_theme_constant_override("h_separation", 6)
-	answer_flow.add_theme_constant_override("v_separation", 6)
-	answer_flow.custom_minimum_size.y = 46
-	answer_box.add_child(answer_flow)
-	if placed_units.is_empty():
-		var placeholder := _label("……(句子还空着)", 14, _theme_color("muted"))
-		placeholder.name = "ComposerAnswerPlaceholder"
-		answer_flow.add_child(placeholder)
-	for unit_index in placed_units.size():
-		var placed_tile := ComposerAnswerTileScript.new()
-		placed_tile.name = "ComposerAnswerTile%d" % unit_index
-		placed_tile.text = str(placed_units[unit_index])
-		placed_tile.focus_mode = Control.FOCUS_NONE
-		placed_tile.custom_minimum_size = Vector2(44, 42)
-		placed_tile.set_meta("skip_localization", true)
-		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
-		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
-		placed_tile.unit_dropped_before.connect(_on_composer_tile_drop)
-		_apply_composer_tile_theme(placed_tile, false)
-		answer_flow.add_child(placed_tile)
-	var answer_rule := ColorRect.new()
-	answer_rule.name = "ComposerAnswerUnderline"
-	answer_rule.color = Color(_theme_color("accent"), 0.8)
-	answer_rule.custom_minimum_size.y = 2.0
-	answer_box.add_child(answer_rule)
-
-	var submit_row := HBoxContainer.new()
-	submit_row.name = "ComposerSubmitRow"
-	submit_row.add_theme_constant_override("separation", 8)
-	notebook_content.add_child(submit_row)
-	var preview_label := _label(game.get_free_sentence_text(_locale.current_locale), 15, _theme_color("ink"))
-	preview_label.name = "ComposerPreviewLabel"
-	preview_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	preview_label.set_meta("skip_localization", true)
-	submit_row.add_child(preview_label)
-
-
 	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
-	var char_flow := HFlowContainer.new()
-	char_flow.name = "NotebookCharFlow"
-	char_flow.add_theme_constant_override("h_separation", 6)
-	char_flow.add_theme_constant_override("v_separation", 6)
-	notebook_content.add_child(char_flow)
-	var collected_units: Array[String] = game.get_collected_char_units(_locale.current_locale)
+	var canvas_hint := _label("字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。", 13, _theme_color("muted"))
+	canvas_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notebook_content.add_child(canvas_hint)
+
+	var canvas_frame := _panel()
+	canvas_frame.name = "NotebookCanvasFrame"
+	notebook_content.add_child(canvas_frame)
+	var canvas := Control.new()
+	canvas.name = "NotebookWordCanvas"
+	canvas.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_SIZE
+	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	canvas.mouse_filter = Control.MOUSE_FILTER_PASS
+	canvas_frame.add_child(canvas)
+
+	var locale_code: String = _locale.current_locale
+	var collected_units: Array[String] = game.get_collected_char_units(locale_code)
+	var placed_units: Array = game.get_free_sentence_units()
 	if collected_units.is_empty():
 		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
 		empty_hint.name = "NotebookCharEmptyHint"
-		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		char_flow.add_child(empty_hint)
+		empty_hint.position = Vector2(10.0, 10.0)
+		canvas.add_child(empty_hint)
 	for unit in collected_units:
-		var tile := DraggableButtonScript.new()
-		tile.name = "NotebookCharTile%d" % char_flow.get_child_count()
-		tile.text = unit
-		tile.focus_mode = Control.FOCUS_NONE
-		tile.custom_minimum_size = Vector2(44, 40)
-		tile.set_meta("char_tile", true)
-		tile.set_meta("skip_localization", true)
-		# 多邻国 U4:词库槽位永不 reflow —— 已入句的字留在原位变成 ghost(凹陷灰)。
+		var tile := CanvasWordTileScript.new()
+		tile.name = "NotebookCharTile%d" % canvas.get_child_count()
+		tile.configure_tile(str(unit))
+		tile.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_TILE
+		tile.size = MemeGameStateScript.CHAR_CANVAS_TILE
+		tile.position = game.get_char_canvas_position(str(unit), locale_code)
+		_apply_composer_tile_theme(tile, str(unit) in placed_units)
 		if str(unit) in placed_units:
-			tile.disabled = true
 			tile.modulate = Color(1, 1, 1, 0.55)
-			_apply_composer_tile_theme(tile, true)
-		else:
-			tile.set_drag_payload("composer_unit", str(unit), str(unit))
-			tile.pressed.connect(_on_composer_bank_tapped.bind(str(unit)))
-			_apply_composer_tile_theme(tile, false)
-		char_flow.add_child(tile)
+		tile.tile_moved.connect(_on_canvas_tile_moved)
+		tile.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
+		tile.tile_tapped.connect(_on_composer_bank_tapped)
+		canvas.add_child(tile)
 
 	var active_rules: Array = game.get_world_rules()
 	if not active_rules.is_empty():
@@ -6612,10 +6607,26 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		rules_box.add_theme_constant_override("separation", 3)
 		notebook_content.add_child(rules_box)
 		for rule in active_rules:
-			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), _locale.current_locale)
+			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), locale_code)
 			var rule_label := _label("· %s" % rule_text, 14, _theme_color("accent"))
 			rule_label.set_meta("skip_localization", true)
 			rules_box.add_child(rule_label)
+
+
+func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
+	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
+
+
+## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
+func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
+	var answer_panel := _find_control_by_name(_ui_root, "ComposerAnswerPanel")
+	var dropped_into_sentence := false
+	if answer_panel != null and is_instance_valid(answer_panel) and answer_panel.is_visible_in_tree():
+		if answer_panel.get_global_rect().has_point(release_global):
+			dropped_into_sentence = game.free_sentence_place(unit, _locale.current_locale)
+	if dropped_into_sentence:
+		log_text = "字进入了句子。"
+	_render()
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
@@ -6706,6 +6717,16 @@ func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer.pickup_landed.connect(_on_pickup_flight_landed)
 
 
+## 拾字时把笔记本窗口召回左上角初始位置并打开,让玩家看见字飞进去。
+func _ensure_notebook_window_home() -> void:
+	_open_app_windows["notebook"] = true
+	var window := _notebook_window_control()
+	if window == null:
+		return
+	_apply_app_window_layout(window, "notebook", -968.0, 152.0, -528.0, 732.0)
+	window.visible = game != null and game.view_state == "phone_down"
+
+
 func _make_pickup_rich_text(node_name: String, source_text: String, post_id: String) -> RichTextLabel:
 	var rich := RichTextLabel.new()
 	rich.name = node_name
@@ -6785,6 +6806,7 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
 	if bool(pick_result.get("picked", false)):
 		log_text = "一个字进入了笔记本。"
+		_ensure_notebook_window_home()
 		if _pickup_flight_layer != null:
 			_pickup_flight_layer.play_pickup(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
 		if bool(pick_result.get("action_spent", false)):

@@ -214,23 +214,18 @@ func _test_ui_flow() -> void:
 	var doll_close := _find_node_by_name(game_root, "DollGuideCloseButton")
 	_assert_true(doll_close == null, "the doll guide must not have a close button")
 
-	# 派蒙式跟随伙伴:手机视图隐藏,现实视图悬浮跟随,交互/对话时连气泡一起隐身。
+	# 玩偶合并进左下角引导小窗:3D 跟随体不再存在,交互时整体隐身。
 	game_root._update_doll_companion(0.016)
-	var companion := _find_node_by_name(game_root, "DollCompanionBody") as Node3D
-	_assert_true(companion != null, "the 3D doll companion body should exist")
-	_assert_true(companion != null and not companion.visible, "the companion should stay hidden while the phone is up")
-	game_root.set_view_state("npc_up")
-	game_root._update_doll_companion(0.016)
-	_assert_true(companion != null and companion.visible, "the companion should float beside the player in reality view")
+	await process_frame
+	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
+	_assert_true(doll_panel.get_anchors_preset() == Control.PRESET_BOTTOM_LEFT, "the guide should dock to the bottom-left corner")
+	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
 	game_root._reality_interaction_active = true
-	game_root._update_doll_companion(0.016)
 	game_root._update_doll_guide()
-	_assert_true(companion != null and not companion.visible, "the companion should vanish during NPC interactions")
-	_assert_true(not doll_panel.visible, "the guide bubble should vanish during NPC interactions too")
+	_assert_true(not doll_panel.visible, "the guide should vanish during NPC interactions")
 	game_root._reality_interaction_active = false
-	game_root.set_view_state("phone_down")
 	game_root._update_doll_guide()
-	_assert_true(doll_panel.visible, "the guide bubble should return after the interaction ends")
+	_assert_true(doll_panel.visible, "the guide should return after the interaction ends")
 
 	# 一步一步教:多次数步骤显示进度计数。
 	game_root.game.replay_tutorial()

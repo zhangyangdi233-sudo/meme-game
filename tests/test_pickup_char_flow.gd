@@ -156,6 +156,9 @@ func _test_ui_flow() -> void:
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
+	_assert_true(bool(game_root._open_app_windows.get("notebook", false)), "a pickup should open the notebook window")
+	var notebook_window: Control = game_root._notebook_window_control()
+	_assert_true(notebook_window != null and notebook_window.get_global_rect().position.x < 400.0, "the notebook should return to its upper-left home position")
 	_assert_eq_int(game_root.game.actions_remaining, actions_before - 1, "the first pickup should cost one action")
 	if flight_layer != null:
 		_assert_true(bool(flight_layer.is_animating()), "a successful pickup should start the flight animation")
@@ -193,8 +196,8 @@ func _test_ui_flow() -> void:
 	game_root.game.set_active_app("notebook")
 	game_root._render()
 	await process_frame
-	var char_flow := _find_node_by_name(game_root, "NotebookCharFlow")
-	_assert_true(char_flow != null, "the notebook should show the collected character bank")
+	var char_flow := _find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(char_flow != null, "the notebook should show the free word canvas")
 	var tile_found := false
 	if char_flow != null:
 		for child in char_flow.get_children():
