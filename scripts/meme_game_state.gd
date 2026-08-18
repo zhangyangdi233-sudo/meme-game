@@ -7,6 +7,7 @@ const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd
 const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const PREREQUISITE_ITEMS := {
@@ -1452,7 +1453,7 @@ func _latch_ultimate_tasks_for_current_floor() -> void:
 ## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
 
 const CHAR_CANVAS_SIZE := Vector2(520.0, 300.0)
-const CHAR_CANVAS_TILE := Vector2(46.0, 42.0)
+const CHAR_CANVAS_TILE := Vector2(44.0, 40.0)
 
 
 func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vector2:
@@ -1474,17 +1475,69 @@ func set_char_canvas_position(unit: String, position: Vector2, locale_code: Stri
 	char_canvas_positions["%s|%s" % [locale_code, unit]] = [clamped.x, clamped.y]
 
 
-## 新拾取的字按行列自动落位,不与已有的字重叠。
+## 新拾取的字从画布上方落下:横向按顺序错开,纵向给一点高度差,
+## 落地后由物理决定它堆在哪里(像积木一样越堆越高)。
 func _default_char_canvas_position(unit: String, locale_code: String) -> Vector2:
 	var units: Array[String] = get_collected_char_units(locale_code)
 	var index := maxi(0, units.find(unit))
-	var columns := maxi(1, int(CHAR_CANVAS_SIZE.x / (CHAR_CANVAS_TILE.x + 10.0)))
+	var columns := maxi(1, int(CHAR_CANVAS_SIZE.x / (CHAR_CANVAS_TILE.x + 12.0)))
 	var column := index % columns
-	var row := int(index / float(columns))
+	var drop_row := int(index / float(columns))
 	return Vector2(
-		clampf(float(column) * (CHAR_CANVAS_TILE.x + 10.0) + 8.0, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
-		clampf(float(row) * (CHAR_CANVAS_TILE.y + 10.0) + 8.0, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
+		clampf(float(column) * (CHAR_CANVAS_TILE.x + 12.0) + 10.0, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
+		clampf(18.0 + float(drop_row) * 6.0, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
 	)
+
+
+## ============ 玩家投稿回流:论坛开始引用你写过的句子 ============
+##
+## 依据 docs/plans/2026-08-17-horror-atmosphere-and-mechanics-plan.md 的 M 系机制:
+## 玩家自己的行为是最贵的恐怖素材。三阶递进,污染值越高走得越远:
+##   stage 1 原样引用 → stage 2 截断引用(砍掉的正是安全阀)→ stage 3 换主语当旁证。
+## 系统永远不提示这句话出自玩家自己。
+
+const ECHO_QUOTE_STAGE_THRESHOLDS := [0, 30, 60]
+
+
+func get_player_quote_stage() -> int:
+	var stage := 0
+	for index in ECHO_QUOTE_STAGE_THRESHOLDS.size():
+		if pollution >= int(ECHO_QUOTE_STAGE_THRESHOLDS[index]):
+			stage = index + 1
+	return stage
+
+
+## 返回一条玩家投稿回流,没有可引用的投稿时返回空串。
+## 引用对象取最近一条投稿,与投稿日一起决定表现,不使用随机。
+func get_player_echo_quote(locale_code: String = "zh") -> String:
+	var source := ""
+	for record in published_memes:
+		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence":
+			source = str((record as Dictionary).get("text", "")).strip_edges()
+			if not source.is_empty():
+				break
+	if source.is_empty():
+		return ""
+	var stage := get_player_quote_stage()
+	if stage <= 1:
+		return source
+	var units: Array = []
+	for record in published_memes:
+		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence":
+			units = (record as Dictionary).get("units", [])
+			break
+	if stage == 2:
+		# 截断引用:砍掉最后一个单位 —— 被砍掉的往往正是那句话的限定与保证。
+		if units.size() >= 2:
+			var kept: Array = units.slice(0, units.size() - 1)
+			var separator := " " if locale_code == "en" else ""
+			var pieces: Array[String] = []
+			for unit in kept:
+				pieces.append(str(unit))
+			return separator.join(pieces)
+		return source
+	# stage 3:换主语当旁证 —— 你的句子被安到别人头上(措辞见 echo_quote_content.gd)。
+	return EchoQuoteContentScript.reattribute(source, locale_code)
 
 
 func get_craft_slots() -> Array:

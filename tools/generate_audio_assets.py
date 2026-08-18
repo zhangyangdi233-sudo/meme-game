@@ -22,6 +22,9 @@ EXPECTED_SHA256 = {
 	"pollution_flashback.wav": "154a71cbcd0d2d75468a85e4f7f9d1b13b22d7769557b456fb0cfb0a394b4584",
 	"reality_room_loop.wav": "c13f97fee2ae5c35efb51d4f3425d370922966c51f26ab683b2787d995403c9c",
 	"phone_road_loop.wav": "e19219a86670f9f41b9af12501a005146d983da2e0fb0bb60ca3e3f874e692b7",
+	"pickup_press.wav": "7351cadd33acc9d6524b9054086cf5f3bc99d6d23eb53289a046a5df0a1339a2",
+	"pickup_land.wav": "3f044fb3a6f7d529dbd89f04b864a7eb426caeb450694fd75df2137715de7ab6",
+	"notebook_hinge.wav": "37fbe7a686e4e637a246262078caf2d8570a5f17235f161a9ec54ded312e7432",
 }
 
 
@@ -160,6 +163,32 @@ def action_tick_sample(t: float, _index: int) -> float:
 	return envelope * (0.42 * math.sin(TAU * 620.0 * t) + 0.16 * math.sin(TAU * 82.0 * t))
 
 
+def pickup_press_sample(t: float, _index: int) -> float:
+	"""拾取按下:极短的纸张摩擦(高频噪声被快速包络切出),不带音高。"""
+	rng = random.Random(1701)
+	envelope = math.exp(-t * 90.0)
+	paper = rng.uniform(-1.0, 1.0) * 0.5
+	body = 0.18 * math.sin(TAU * 2600.0 * t)
+	return (paper + body) * envelope
+
+
+def pickup_land_sample(t: float, _index: int) -> float:
+	"""落入笔记本:一滴墨落在纸上 —— 低频短促,尾部有一点吸收感。"""
+	envelope = math.exp(-t * 26.0)
+	drop = 0.42 * math.sin(TAU * 210.0 * math.pow(max(t, 1e-6), 0.82))
+	soak = 0.10 * math.sin(TAU * 96.0 * t) * math.exp(-t * 9.0)
+	return drop * envelope + soak
+
+
+def notebook_hinge_sample(t: float, _index: int) -> float:
+	"""笔记本受击:合页的一声轻响,金属但不刺耳。"""
+	rng = random.Random(2402)
+	envelope = math.exp(-t * 34.0)
+	hinge = 0.30 * math.sin(TAU * 520.0 * t) + 0.16 * math.sin(TAU * 1240.0 * t + 0.6)
+	grit = rng.uniform(-0.22, 0.22) * math.exp(-t * 120.0)
+	return (hinge + grit) * envelope
+
+
 def verify_audio_assets() -> None:
 	for filename, expected_hash in EXPECTED_SHA256.items():
 		path = os.path.join(OUT_DIR, filename)
@@ -182,6 +211,9 @@ def main() -> None:
 	write_wav("reality_room_loop.wav", 8.0, reality_room_sample)
 	write_samples("pollution_flashback.wav", build_flashback_samples(3.70))
 	write_wav("action_tick.wav", 0.18, action_tick_sample)
+	write_wav("pickup_press.wav", 0.08, pickup_press_sample)
+	write_wav("pickup_land.wav", 0.34, pickup_land_sample)
+	write_wav("notebook_hinge.wav", 0.22, notebook_hinge_sample)
 	verify_audio_assets()
 
 

@@ -198,12 +198,12 @@ func _test_ui_flow() -> void:
 	await process_frame
 	var char_flow := _find_node_by_name(game_root, "NotebookWordCanvas")
 	_assert_true(char_flow != null, "the notebook should show the free word canvas")
-	var tile_found := false
+	# 画布是物理沙盘:字词是带碰撞体的刚体,不再是按钮。
+	var tile_found: bool = char_flow != null and bool(char_flow.has_tile("门"))
+	_assert_true(tile_found, "the collected 门 should appear as a physics tile in the notebook canvas")
 	if char_flow != null:
-		for child in char_flow.get_children():
-			if child is Button and (child as Button).text == "门":
-				tile_found = true
-	_assert_true(tile_found, "the collected 门 should appear as a notebook tile")
+		_assert_true(int(char_flow.get_tile_count()) >= 1, "the canvas should hold the collected units")
+		_assert_true(char_flow.get_node_or_null("WordPhysicsRoot/CanvasWalls") != null, "the canvas needs walls so tiles land on the floor")
 
 	# 英文与日文版本:埋字句存在且可拾取单位是完整单词/词汇单位。
 	game_root._locale.set_locale("en")

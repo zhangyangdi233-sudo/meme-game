@@ -12,9 +12,11 @@ const HandTrackingReceiverScript = preload("res://scripts/integrations/hand_trac
 const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
+const WordPhysicsCanvasScript = preload("res://scripts/ui/word_physics_canvas.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -63,6 +65,10 @@ const REALITY_AMBIENCE_PATH := "res://assets/generated/audio/babel_reality_limin
 const POLLUTION_AMBIENCE_PATH := "res://assets/generated/audio/babel_pollution_rot.wav"
 const FLASHBACK_AUDIO_PATH := "res://assets/generated/audio/pollution_flashback.wav"
 const ACTION_TICK_AUDIO_PATH := "res://assets/generated/audio/action_tick.wav"
+# 拾取反馈三件套(依据 docs/research/pickup_feedback_gap_analysis.md 的 P0:jam 基线要求拾取必有音效)。
+const PICKUP_PRESS_AUDIO_PATH := "res://assets/generated/audio/pickup_press.wav"
+const PICKUP_LAND_AUDIO_PATH := "res://assets/generated/audio/pickup_land.wav"
+const NOTEBOOK_HINGE_AUDIO_PATH := "res://assets/generated/audio/notebook_hinge.wav"
 const COVER_WATCHER_STINGER_PATH := "res://assets/generated/audio/cover_watcher_stinger.wav"
 const SOCIAL_POSTER_COLUMNS := 4
 const SOCIAL_POSTER_ROWS := 3
@@ -90,6 +96,11 @@ const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
 # 句子单位软上限(参考 Bluesky 的 grapheme 计数语义;超过只提示不拦截)。
 const COMPOSER_SOFT_UNIT_LIMIT := 12
+# 点阵字体(Boutique Bitmap 9x9,OFL):三语共用一套字形,字号必须吸附到 9 的整数倍。
+const UI_FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
+const UI_FONT_GRID := 9
+const UI_FONT_MIN_SIZE := 9
+const UI_FONT_MAX_SIZE := 45
 const REALITY_FALL_RECOVERY_Y := -3.0
 const REALITY_SAFE_INSET := 1.2
 const CINEMATIC_ASPECT_RATIO := 2.35
@@ -452,6 +463,11 @@ var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _flashback_overlay: PollutionFlashbackDirector
+var _ui_font: FontFile
+var _ui_theme: Theme
+var _pickup_press_audio: AudioStreamPlayer
+var _pickup_land_audio: AudioStreamPlayer
+var _notebook_hinge_audio: AudioStreamPlayer
 var _pickup_flight_layer: PickupFlightLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel: PanelContainer
@@ -1311,6 +1327,9 @@ func _build_audio_players() -> void:
 	_reality_ambience = _make_audio_player("RealityRoomAmbience", REALITY_AMBIENCE_PATH, true, -60.0)
 	_pollution_ambience = _make_audio_player("PollutionMusicLayer", POLLUTION_AMBIENCE_PATH, true, -60.0)
 	_flashback_audio = _make_audio_player("PollutionFlashbackAudio", FLASHBACK_AUDIO_PATH, false, -8.0)
+	_pickup_press_audio = _make_audio_player("PickupPressAudio", PICKUP_PRESS_AUDIO_PATH, false, -16.0)
+	_pickup_land_audio = _make_audio_player("PickupLandAudio", PICKUP_LAND_AUDIO_PATH, false, -11.0)
+	_notebook_hinge_audio = _make_audio_player("NotebookHingeAudio", NOTEBOOK_HINGE_AUDIO_PATH, false, -14.0)
 	_action_tick_audio = _make_audio_player("ActionTickAudio", ACTION_TICK_AUDIO_PATH, false, -15.0)
 	_cover_watcher_stinger = _make_audio_player("CoverWatcherStinger", COVER_WATCHER_STINGER_PATH, false, -9.0)
 	_sync_audio_state(true)
@@ -1465,6 +1484,7 @@ func _build_main_menu() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
 	_main_menu_layer = Control.new()
@@ -1631,13 +1651,13 @@ func _build_language_selection_overlay(first_run: bool = false) -> void:
 
 	var eyebrow := Label.new()
 	eyebrow.text = "BABEL PHONE  /  LANGUAGE"
-	eyebrow.add_theme_font_size_override("font_size", 15)
+	eyebrow.add_theme_font_size_override("font_size", _ui_font_size(15))
 	eyebrow.add_theme_color_override("font_color", _theme_color("accent"))
 	box.add_child(eyebrow)
 	var title := Label.new()
 	title.name = "LanguageSelectionTitle"
 	title.text = "选择语言  /  言語を選択  /  CHOOSE LANGUAGE"
-	title.add_theme_font_size_override("font_size", 27)
+	title.add_theme_font_size_override("font_size", _ui_font_size(27))
 	title.add_theme_color_override("font_color", _theme_color("ink"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title)
@@ -1960,6 +1980,7 @@ func _build_ui() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
 	var vignette := ColorRect.new()
@@ -2164,7 +2185,7 @@ func _build_ui() -> void:
 	_reality_intent_preview.offset_bottom = -286
 	_reality_intent_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reality_intent_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_reality_intent_preview.add_theme_font_size_override("normal_font_size", 28)
+	_reality_intent_preview.add_theme_font_size_override("normal_font_size", _ui_font_size(28))
 	_reality_intent_preview.add_theme_color_override("default_color", _theme_color("surface"))
 	_reality_intent_preview.add_theme_color_override("font_outline_color", Color("050705"))
 	_reality_intent_preview.add_theme_constant_override("outline_size", 8)
@@ -2196,7 +2217,7 @@ func _build_ui() -> void:
 	_reality_typing_line.offset_top = -300
 	_reality_typing_line.offset_right = -220
 	_reality_typing_line.offset_bottom = -206
-	_reality_typing_line.add_theme_font_size_override("normal_font_size", 30)
+	_reality_typing_line.add_theme_font_size_override("normal_font_size", _ui_font_size(30))
 	_reality_typing_line.add_theme_color_override("default_color", _theme_color("surface"))
 	_reality_typing_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_reality_typing_line.z_index = 15
@@ -2237,7 +2258,7 @@ func _build_ui() -> void:
 	_reality_subtitle_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_reality_subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reality_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_reality_subtitle_label.add_theme_font_size_override("normal_font_size", 20)
+	_reality_subtitle_label.add_theme_font_size_override("normal_font_size", _ui_font_size(20))
 	_reality_subtitle_label.add_theme_color_override("default_color", _theme_color("surface"))
 	_reality_subtitle_label.add_theme_color_override("font_outline_color", Color("050705"))
 	_reality_subtitle_label.add_theme_constant_override("outline_size", 6)
@@ -3350,7 +3371,7 @@ func _render_history_window() -> void:
 		line.fit_content = true
 		line.scroll_active = false
 		line.custom_minimum_size = Vector2(500, 70)
-		line.add_theme_font_size_override("normal_font_size", 17)
+		line.add_theme_font_size_override("normal_font_size", _ui_font_size(17))
 		line.add_theme_color_override("default_color", _theme_color("ink"))
 		var speaker := str(entry.get("currentSpeaker", entry.get("originalSpeaker", "")))
 		var display_text := str(entry.get("displayText", entry.get("originalText", "")))
@@ -4504,6 +4525,33 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 			comment_box.add_child(comment_meta)
 			var comment_rich := _make_pickup_rich_text("SocialCommentText%d" % comment_index, str(comment.get("text", "")), post_card_id)
 			comment_box.add_child(comment_rich)
+		_render_player_echo_comment(detail_box, post_comments.size())
+
+
+## 玩家投稿回流:楼里最后一条永远是陌生人在引用你写过的话,系统不作任何提示。
+func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) -> void:
+	var quote: String = game.get_player_echo_quote(_locale.current_locale)
+	if quote.is_empty():
+		return
+	var echo_box := VBoxContainer.new()
+	echo_box.name = "SocialEchoComment"
+	echo_box.add_theme_constant_override("separation", 2)
+	detail_box.add_child(echo_box)
+	var echo_meta := _label("%s  ·  %02d:%02d" % [_echo_comment_handle(), 3 + comment_index, 7 + game.day], 12, _theme_color("muted"))
+	echo_meta.name = "SocialEchoCommentMeta"
+	echo_meta.set_meta("on_dark", true)
+	echo_meta.set_meta("skip_localization", true)
+	echo_box.add_child(echo_meta)
+	var echo_text := _label(quote, 14, _theme_color("surface"))
+	echo_text.name = "SocialEchoCommentText"
+	echo_text.set_meta("on_dark", true)
+	echo_text.set_meta("skip_localization", true)
+	echo_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	echo_box.add_child(echo_text)
+
+
+func _echo_comment_handle() -> String:
+	return EchoQuoteContentScript.anon_handle(_locale.current_locale)
 
 
 func _render_social_publish_page(parent: VBoxContainer) -> void:
@@ -4719,7 +4767,7 @@ func _render_social_bottom_nav(phone_box: VBoxContainer) -> void:
 			nav_button.add_theme_stylebox_override("hover", _style(_theme_color("accent").lightened(0.12), _theme_color("ink")))
 			nav_button.add_theme_stylebox_override("pressed", _style(_theme_color("accent").darkened(0.12), _theme_color("ink")))
 			nav_button.add_theme_color_override("font_color", _theme_color("surface"))
-			nav_button.add_theme_font_size_override("font_size", 17)
+			nav_button.add_theme_font_size_override("font_size", _ui_font_size(17))
 		else:
 			nav_button.set_meta("flat_phone_button", true)
 			nav_button.custom_minimum_size = Vector2(100, 50)
@@ -5028,7 +5076,7 @@ func _render_reality() -> void:
 			button.clip_text = true
 			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			if _viewport_size().x < 760.0:
-				button.add_theme_font_size_override("font_size", 13)
+				button.add_theme_font_size_override("font_size", _ui_font_size(13))
 			button.set_meta("reality_response_choice", true)
 			button.disabled = bool(choice.get("locked", false))
 			if button.disabled:
@@ -5825,7 +5873,7 @@ func _apply_ui_theme(node: Node = null) -> void:
 			button.add_theme_color_override("font_color", _theme_color("surface"))
 			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
 			button.add_theme_color_override("font_pressed_color", _theme_color("ink"))
-			button.add_theme_font_size_override("font_size", 18)
+			button.add_theme_font_size_override("font_size", _ui_font_size(18))
 			button.add_theme_stylebox_override("normal", _launcher_app_style(_theme_color("ink"), _theme_color("muted")))
 			button.add_theme_stylebox_override("hover", _launcher_app_style(_theme_color("muted"), _theme_color("ink")))
 			button.add_theme_stylebox_override("pressed", _launcher_app_style(_theme_color("bg"), _theme_color("ink")))
@@ -5939,7 +5987,7 @@ func _build_action_spend_overlay() -> void:
 	_action_spend_label.set_meta("action_overlay_text", false)
 	_action_spend_label.set_meta("action_animation_mode", "inline_pulse")
 	_action_spend_label.visible = false
-	_action_spend_label.add_theme_font_size_override("font_size", 20)
+	_action_spend_label.add_theme_font_size_override("font_size", _ui_font_size(20))
 	_action_spend_label.add_theme_color_override("font_color", _theme_color("muted"))
 	_action_spend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_action_spend_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -6568,13 +6616,15 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	var canvas_frame := _panel()
 	canvas_frame.name = "NotebookCanvasFrame"
 	notebook_content.add_child(canvas_frame)
-	var canvas := Control.new()
+	var canvas := WordPhysicsCanvasScript.new()
 	canvas.name = "NotebookWordCanvas"
 	canvas.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_SIZE
 	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	canvas.mouse_filter = Control.MOUSE_FILTER_PASS
 	canvas_frame.add_child(canvas)
+	canvas.tile_settled.connect(_on_canvas_tile_moved)
+	canvas.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
+	canvas.tile_tapped.connect(_on_composer_bank_tapped)
 
 	var locale_code: String = _locale.current_locale
 	var collected_units: Array[String] = game.get_collected_char_units(locale_code)
@@ -6585,19 +6635,14 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 		empty_hint.position = Vector2(10.0, 10.0)
 		canvas.add_child(empty_hint)
 	for unit in collected_units:
-		var tile := CanvasWordTileScript.new()
-		tile.name = "NotebookCharTile%d" % canvas.get_child_count()
-		tile.configure_tile(str(unit))
-		tile.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_TILE
-		tile.size = MemeGameStateScript.CHAR_CANVAS_TILE
-		tile.position = game.get_char_canvas_position(str(unit), locale_code)
-		_apply_composer_tile_theme(tile, str(unit) in placed_units)
-		if str(unit) in placed_units:
-			tile.modulate = Color(1, 1, 1, 0.55)
-		tile.tile_moved.connect(_on_canvas_tile_moved)
-		tile.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
-		tile.tile_tapped.connect(_on_composer_bank_tapped)
-		canvas.add_child(tile)
+		var is_ghost := str(unit) in placed_units
+		canvas.add_tile(
+			str(unit),
+			game.get_char_canvas_position(str(unit), locale_code),
+			_theme_color("ink"),
+			_composer_tile_style("ghost" if is_ghost else "normal"),
+			is_ghost
+		)
 
 	var active_rules: Array = game.get_world_rules()
 	if not active_rules.is_empty():
@@ -6734,7 +6779,7 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.fit_content = true
 	rich.scroll_active = false
 	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rich.add_theme_font_size_override("normal_font_size", 16)
+	rich.add_theme_font_size_override("normal_font_size", _ui_font_size(16))
 	rich.add_theme_color_override("default_color", _theme_color("surface"))
 	rich.set_meta("pickup_rich_text", true)
 	rich.text = _pickup_bbcode(source_text)
@@ -6806,6 +6851,7 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
 	if bool(pick_result.get("picked", false)):
 		log_text = "一个字进入了笔记本。"
+		_play_ui_sound(_pickup_press_audio)
 		_ensure_notebook_window_home()
 		if _pickup_flight_layer != null:
 			_pickup_flight_layer.play_pickup(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
@@ -6825,7 +6871,17 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
+	_play_ui_sound(_pickup_land_audio)
+	_play_ui_sound(_notebook_hinge_audio)
 	_squash_notebook_window()
+
+
+## 短促 UI 音效:重复触发时从头播放,不叠加成噪音。
+func _play_ui_sound(player: AudioStreamPlayer) -> void:
+	if player == null or not is_instance_valid(player) or player.stream == null or not player.is_inside_tree():
+		return
+	player.stop()
+	player.play()
 
 
 func _notebook_window_control() -> Control:
@@ -7174,11 +7230,43 @@ func _wrap(node: Control) -> PanelContainer:
 	return panel
 
 
+## ============ 点阵字体主题:全局统一字形,字号吸附到点阵网格 ============
+
+func _ensure_ui_font_theme() -> Theme:
+	if _ui_theme != null:
+		return _ui_theme
+	_ui_theme = Theme.new()
+	if ResourceLoader.exists(UI_FONT_PATH):
+		var font := load(UI_FONT_PATH)
+		if font is FontFile:
+			_ui_font = font as FontFile
+			# 点阵字形不做重采样:关抗锯齿与 hinting,笔画才不会糊。
+			_ui_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+			_ui_font.hinting = TextServer.HINTING_NONE
+			_ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+			_ui_font.multichannel_signed_distance_field = false
+			_ui_theme.default_font = _ui_font
+	_ui_theme.default_font_size = UI_FONT_GRID * 2
+	return _ui_theme
+
+
+## 把任意字号吸附到点阵网格(9 的整数倍),保证像素笔画等宽。
+func _ui_font_size(requested_size: int) -> int:
+	var snapped := int(round(float(requested_size) / float(UI_FONT_GRID))) * UI_FONT_GRID
+	return clampi(snapped, UI_FONT_MIN_SIZE, UI_FONT_MAX_SIZE)
+
+
+func _apply_ui_font_theme(target: Control) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	target.theme = _ensure_ui_font_theme()
+
+
 func _label(text: String, size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
 	_set_localized_property(label, "text")
-	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_font_size_override("font_size", _ui_font_size(size))
 	label.add_theme_color_override("font_color", color)
 	return label
 
