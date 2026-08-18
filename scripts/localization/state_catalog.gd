@@ -2,6 +2,22 @@ extends RefCounted
 
 
 const EN: Dictionary = {
+	"你想说一句普通的话。第七层先开口了。": "You try to say something ordinary. The seventh floor speaks first.",
+	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。": "You put your ear to the casing. Inside, someone is saying the line you said yesterday. He says it more accurately than you did.",
+	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。": "Only a transmitter. Nothing is wired to it. Its indicator follows your breathing.",
+	"所有帖子都说智者住在顶楼。顶楼没有人。": "Every post says the wise one lives on the top floor. There is no one on the top floor.",
+	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。": "Start from single units. Build one sentence first. Then see what it becomes downstairs.",
+	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。": "The city broadcast says everything is normal today. It repeated seven times. The eighth time I switched it off.",
+	"不等消息。我在等路面停下来。它每退一步，塔多一层。": "Not for a message. I am waiting for the road to stop. Each step it retreats, the tower gains a floor.",
+	"一部手机。没有信号。我醒来的时候它已经亮着。": "A phone. No signal. It was already lit when I woke up.",
+	"没有人受理这句话的说话者。": "No one accepted a speaker for this sentence.",
+	"这些词没有登记来源。签字栏是空的。你要在这里写谁。": "These words have no registered source. The signature box is blank. Whom will you write here.",
+	"医生停笔。病历上的主语先一步空了。": "The doctor stops writing. The subject on the chart empties out first.",
+	"只用还登记在你名下的词。说出你现在的位置。": "Use only the words still registered to you. State your current position.",
+	"医生在每个词旁边写下另一种用途。笔尖比你慢半个字。": "The doctor writes another use beside every word. The pen runs half a character behind you.",
+	"按顺序念。不要按你记得的顺序，按你说过的顺序。": "Read them in order. Not the order you remember. The order you spoke.",
+	"医生记下来了。字数和你说的对不上。": "The doctor writes it down. The character count does not match what you said.",
+	"把刚才那句再说一遍。不要替它解释。": "Say that line again. Do not explain it for me.",
 	# Free-sentence rules and ultimate task events.
 	"有一句话贴上了门。": "A sentence attached itself to the door.",
 	"有一句话在找它的出口。": "A sentence is looking for its exit.",
@@ -433,6 +449,22 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
+	"你想说一句普通的话。第七层先开口了。": "普通の一言を言おうとする。七階のほうが先に口を開く。",
+	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。": "外殻に耳を寄せる。中で誰かが、昨日あなたが言った一文を言っている。あなたより正確に。",
+	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。": "送信機が一台だけ。配線はない。表示灯があなたの呼吸に合わせて光る。",
+	"所有帖子都说智者住在顶楼。顶楼没有人。": "どの投稿も、賢者は最上階にいると言う。最上階には誰もいない。",
+	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。": "文字から始める。まず一つの文にする。そのあと、下の階で何になるか見る。",
+	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。": "市の放送は今日は異常なしと言う。七回繰り返した。八回目で消した。",
+	"不等消息。我在等路面停下来。它每退一步，塔多一层。": "知らせではない。路面が止まるのを待っている。一歩下がるたび、塔が一階増える。",
+	"一部手机。没有信号。我醒来的时候它已经亮着。": "スマホが一台。圏外。目が覚めたときにはもう光っていた。",
+	"没有人受理这句话的说话者。": "この文の話者は、誰にも受理されなかった。",
+	"这些词没有登记来源。签字栏是空的。你要在这里写谁。": "これらの語に登記された出所がない。署名欄は空白。ここに誰と書く。",
+	"医生停笔。病历上的主语先一步空了。": "医者の手が止まる。カルテの主語のほうが先に空になる。",
+	"只用还登记在你名下的词。说出你现在的位置。": "まだあなたの名で登記されている語だけを使って。今いる位置を述べて。",
+	"医生在每个词旁边写下另一种用途。笔尖比你慢半个字。": "医者が語ごとに別の用途を書き足す。ペン先はあなたより半字遅い。",
+	"按顺序念。不要按你记得的顺序，按你说过的顺序。": "順に読んで。覚えている順ではなく、言った順に。",
+	"医生记下来了。字数和你说的对不上。": "医者が書き取る。文字数があなたの言葉と合わない。",
+	"把刚才那句再说一遍。不要替它解释。": "さっきの一文をもう一度。説明はいらない。",
 	# Free-sentence rules and ultimate task events.
 	"有一句话贴上了门。": "一つの文がドアに貼りついた。",
 	"有一句话在找它的出口。": "一つの文がでぐちを探している。",

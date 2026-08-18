@@ -81,6 +81,12 @@ const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
 const REALITY_INTERACTION_DISTANCE := 2.25
+# 跟随玩偶:小体量 + 右后下方偏移,保证不遮挡前方视野与准心。
+const DOLL_COMPANION_PIXEL_SIZE := 0.0016
+const DOLL_COMPANION_OFFSET := Vector3(0.72, 0.95, 0.55)
+# 可拾取字的视觉可供性:脉动频率与字号(配合下划线,构成非颜色依赖的三重提示)。
+const PICKABLE_PULSE_FREQ := 0.5
+const PICKABLE_FONT_SIZE := 19
 const REALITY_FALL_RECOVERY_Y := -3.0
 const REALITY_SAFE_INSET := 1.2
 const CINEMATIC_ASPECT_RATIO := 2.35
@@ -4475,28 +4481,6 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 	signal_profile.set_meta("on_dark", true)
 	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(signal_profile)
-	var tokens := GridContainer.new()
-	tokens.name = "SocialPickupTokenGrid"
-	tokens.columns = 2
-	tokens.add_theme_constant_override("h_separation", 6)
-	tokens.add_theme_constant_override("v_separation", 6)
-	detail_box.add_child(tokens)
-	if (post.get("tokens", []) as Array).is_empty():
-		var no_pickup := _label("今天没有可拾取的词", 14, _theme_color("muted"))
-		no_pickup.name = "SocialNoPickupLabel"
-		no_pickup.set_meta("on_dark", true)
-		no_pickup.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tokens.add_child(no_pickup)
-	for token in post["tokens"]:
-		var btn := Button.new()
-		btn.text = str(token["text"])
-		btn.clip_text = true
-		btn.disabled = not game.can_spend_action()
-		btn.custom_minimum_size = Vector2(120, 44)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.pressed.connect(_on_token_pressed.bind(post["id"], token))
-		tokens.add_child(btn)
-
 	var post_comments: Array = PickupCharPoolScript.get_comments(post_card_id, _locale.current_locale)
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
@@ -4812,55 +4796,16 @@ func _render_notebook_app() -> void:
 	action_bar.add_child(action_box)
 	var craft := Button.new()
 	craft.name = "NotebookCraftButton"
-	craft.text = "确认组成句子"
+	craft.text = "投稿这句话"
 	craft.custom_minimum_size.y = 56
-	craft.disabled = not game.can_spend_action() or not bool(game.get_craft_sentence_preview("phone").get("valid", false))
-	craft.pressed.connect(_on_confirm_craft_pressed)
+	craft.disabled = game.get_free_sentence_units().is_empty() or not game.can_spend_action()
+	craft.pressed.connect(_on_composer_submit_pressed)
 	action_box.add_child(craft)
 
 
 func _render_notebook_frame_tab(notebook_content: VBoxContainer) -> void:
 	_render_sentence_composer(notebook_content)
 
-	notebook_content.add_child(_label("拾取词库", 18, _theme_color("accent")))
-	var token_row := HFlowContainer.new()
-	token_row.name = "NotebookTokenFlow"
-	token_row.add_theme_constant_override("h_separation", 6)
-	token_row.add_theme_constant_override("v_separation", 6)
-	for token in game.notebook_tokens:
-		var btn_token = DraggableButtonScript.new()
-		btn_token.name = "NotebookToken_%s" % str(token.get("id", "token"))
-		var roles: Array = token.get("grammar_roles", [])
-		var role_label := "词"
-		if "subject" in roles:
-			role_label = "对象"
-		elif "action" in roles:
-			role_label = "动作"
-		elif "object" in roles:
-			role_label = "去向"
-		btn_token.text = "%s · %s" % [role_label, str(token["text"])]
-		btn_token.clip_text = true
-		btn_token.custom_minimum_size = Vector2(150, 52)
-		btn_token.set_drag_payload("token", str(token["id"]), str(token["text"]))
-		btn_token.pressed.connect(_on_note_token_pressed.bind(str(token["id"])))
-		token_row.add_child(btn_token)
-	notebook_content.add_child(token_row)
-
-	notebook_content.add_child(_label("句子结构", 18, _theme_color("accent")))
-	for slot in game.get_craft_slots():
-		var slot_id := str(slot["id"])
-		var btn_slot = DropButtonScript.new()
-		btn_slot.name = "NotebookSentenceSlot%s" % slot_id.capitalize()
-		btn_slot.custom_minimum_size.y = 52
-		btn_slot.text = "%s：%s" % [slot["label"], _slot_text(slot_id, str(slot.get("placeholder", "")))]
-		btn_slot.configure_drop_target("token", slot_id)
-		btn_slot.dropped.connect(_on_slot_token_dropped)
-		btn_slot.pressed.connect(_on_slot_pressed.bind(slot_id))
-		notebook_content.add_child(btn_slot)
-	var preview := _label("手机语言预览：%s" % _craft_preview_text(), 15, _theme_color("accent"))
-	preview.name = "NotebookSentencePreview"
-	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(preview)
 
 
 func _render_notebook_fusion_tab(notebook_content: VBoxContainer) -> void:
@@ -6410,9 +6355,11 @@ func _ensure_doll_companion() -> void:
 	sprite.name = "DollCompanionSprite"
 	sprite.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = 0.0042
+	# 派蒙式伙伴的体量:占屏很小,永远不遮挡准心与前方视野。
+	sprite.pixel_size = DOLL_COMPANION_PIXEL_SIZE
 	sprite.no_depth_test = false
 	sprite.shaded = false
+	sprite.modulate = Color(1.0, 1.0, 1.0, 0.92)
 	_doll_companion.add_child(sprite)
 	_doll_companion.visible = false
 	add_child(_doll_companion)
@@ -6427,12 +6374,12 @@ func _update_doll_companion(delta: float) -> void:
 	_doll_companion.visible = companion_visible
 	if not companion_visible:
 		return
-	# 悬浮在玩家侧前方(取玩家朝向),平滑跟随 + 轻微上下漂浮。
+	# 悬浮在玩家的右后侧下方(取玩家朝向):在余光里,不进主视野中心。
 	var player_basis := _reality_player.global_transform.basis
-	var follow_offset := player_basis * Vector3(0.85, 1.5, -0.9)
-	var bob := sin(Time.get_ticks_msec() / 1000.0 * 2.2) * 0.05
+	var follow_offset := player_basis * DOLL_COMPANION_OFFSET
+	var bob := sin(Time.get_ticks_msec() / 1000.0 * 2.0) * 0.035
 	var target := _reality_player.global_position + follow_offset + Vector3(0.0, bob, 0.0)
-	var follow_weight: float = clampf(delta * 5.0, 0.0, 1.0)
+	var follow_weight: float = clampf(delta * 4.0, 0.0, 1.0)
 	_doll_companion.global_position = _doll_companion.global_position.lerp(target, follow_weight)
 
 
@@ -6624,13 +6571,7 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_label.set_meta("skip_localization", true)
 	submit_row.add_child(preview_label)
-	var submit_button := Button.new()
-	submit_button.name = "ComposerSubmitButton"
-	submit_button.text = "投稿"
-	submit_button.custom_minimum_size = Vector2(108, 48)
-	submit_button.disabled = placed_units.is_empty() or not game.can_spend_action()
-	submit_button.pressed.connect(_on_composer_submit_pressed)
-	submit_row.add_child(submit_button)
+
 
 	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
 	var char_flow := HFlowContainer.new()
@@ -6814,9 +6755,14 @@ func _pickup_bbcode(source_text: String) -> String:
 			index += 1
 			continue
 		if game != null and game.is_social_char_collected(matched, locale_code):
+			# 已拾取:灰、无下划线、无脉动 —— 与可拾取形成三重差异(色/线/动)。
 			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched_display)]
 		else:
-			result += "[color=#%s][url=%s]%s[/url][/color]" % [pickable_color, matched, _escape_bbcode(matched_display)]
+			# 可拾取的多重可供性:颜色 + 下划线 + 缓慢脉动 + 略大字号,
+			# 不只靠颜色(色觉障碍与低对比屏幕下同样可辨)。
+			result += "[color=#%s][url=%s][u][pulse freq=%.1f color=#ffffff55 ease=-2.0][font_size=%d]%s[/font_size][/pulse][/u][/url][/color]" % [
+				pickable_color, matched, PICKABLE_PULSE_FREQ, PICKABLE_FONT_SIZE, _escape_bbcode(matched_display),
+			]
 		index += matched.length()
 	return result
 

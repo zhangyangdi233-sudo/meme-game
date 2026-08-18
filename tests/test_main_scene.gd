@@ -120,9 +120,11 @@ func _test_phone_apps(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "NotebookAppWindow") is Control, "notebook app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "ShopAppWindow") == null, "removed shop window should not be constructed")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceHeader") is Control, "notebook should explain complete sentence composition")
-	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") is Button, "notebook should expose a subject slot")
-	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotAction") is Button, "notebook should expose an action slot")
-	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotObject") is Button, "notebook should expose an object slot")
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "notebook should expose the free-composition answer area")
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerFlow") != null, "notebook should expose the free-composition sentence flow")
+	_assert_true(_find_node_by_name(game_root, "NotebookCharFlow") != null, "notebook should expose the collected character bank")
+	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
+	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookCraftButton") is Button, "notebook should expose one sentence confirmation command")
 
 

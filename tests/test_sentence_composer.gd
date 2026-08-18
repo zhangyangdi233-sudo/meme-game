@@ -246,7 +246,7 @@ func _test_ui_flow() -> void:
 	game_root._render()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the notebook should host the composer answer panel")
-	var submit_button := _find_node_by_name(game_root, "ComposerSubmitButton") as Button
+	var submit_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
@@ -267,7 +267,7 @@ func _test_ui_flow() -> void:
 			if child is Button and (child as Button).text == "门" and (child as Button).disabled:
 				ghost_found = true
 	_assert_true(ghost_found, "a placed unit should ghost its bank slot without reflow")
-	submit_button = _find_node_by_name(game_root, "ComposerSubmitButton") as Button
+	submit_button = _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
 
 	game_root._on_composer_answer_tapped(1)
@@ -287,7 +287,7 @@ func _test_ui_flow() -> void:
 	game_root.game.free_sentence_place("出", "zh")
 	game_root._render()
 	await process_frame
-	var drained_button := _find_node_by_name(game_root, "ComposerSubmitButton") as Button
+	var drained_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(drained_button != null and drained_button.disabled, "no actions must gray out the post button")
 	game_root.game.actions_remaining = saved_actions
 	game_root.game.free_sentence_clear()

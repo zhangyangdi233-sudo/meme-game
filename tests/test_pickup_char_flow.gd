@@ -210,7 +210,9 @@ func _test_ui_flow() -> void:
 	_assert_true(english_line != null and english_line.text.contains("[url=door]"), "the English line should offer whole-word pickups")
 	if english_line != null:
 		_assert_true(not english_line.text.contains("[url=doo]"), "English matching must respect word boundaries")
-		_assert_true(english_line.text.contains("[url=the]The[/url]"), "sentence-initial capitalized words must stay pickable (case-insensitive matching)")
+		_assert_true(english_line.text.contains("[url=the]"), "sentence-initial capitalized words must stay pickable (case-insensitive matching)")
+		_assert_true(english_line.get_parsed_text().contains("The"), "the displayed text must keep its original capitalization")
+		_assert_true(english_line.text.contains("[u][pulse"), "pickable units need non-color affordances (underline + pulse)")
 	var english_comment := _find_node_by_name(game_root, "SocialCommentText0") as RichTextLabel
 	_assert_true(english_comment != null and english_comment.text.contains("[url="), "English comments should carry pickable units too")
 	var english_pick: Dictionary = game_root.game.pick_social_char("floor_13", "door", "en")

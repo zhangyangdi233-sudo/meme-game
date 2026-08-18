@@ -30,6 +30,7 @@ const EN: Dictionary = {
 	"今天第一次拾字消耗一次行动；之后当天免费。": "The first pickup each day costs one action; the rest of the day is free.",
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "Free Composition",
+	"投稿这句话": "Post This Sentence",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "Tap a glowing unit to add it. Submit any time — the sentence becomes a rule in the other world.",
 	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "Tap or drag a glowing unit into the sentence. Posting costs one action, and the sentence becomes a rule in the other world.",
 	"把拾到的字点进句子。让它先成为一句话。": "Tap your collected units into the sentence. Let it become a sentence first.",
@@ -558,6 +559,7 @@ const JA: Dictionary = {
 	"今天第一次拾字消耗一次行动；之后当天免费。": "その日最初のひろいは行動を1つ使う。あとはその日じゅう無料。",
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "自由作文",
+	"投稿这句话": "この文を投稿する",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "光る文字を押して文に入れる。いつでも投稿でき、文はもう一つの世界のルールになる。",
 	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "光る文字を押すか、文へドラッグ。投稿は行動を1つ使い、文はもう一つの世界のルールになる。",
 	"把拾到的字点进句子。让它先成为一句话。": "ひろった文字を文に入れて。まず一つの文にして。",
