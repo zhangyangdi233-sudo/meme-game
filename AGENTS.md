@@ -1,6 +1,6 @@
 ## Language
 
-與使用者的所有回覆一律使用**繁體中文**。程式碼、識別符、commit message 維持專案既有語言，除非使用者另有要求。
+與使用者的所有回覆一律使用**繁體中文**。程式碼、識別符維持英文；Git commit message 摘要使用繁體中文（前綴仍用 Conventional Commits）。
 
 ## Agent skills
 
@@ -15,3 +15,7 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 ### Domain docs
 
 Single-context: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+### Commit messages
+
+Conventional Commits prefixes (`feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `build`). See `docs/agents/commit-messages.md`.
