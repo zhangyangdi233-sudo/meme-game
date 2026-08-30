@@ -9,6 +9,7 @@ signal like_pressed(post_id: String)
 signal follow_pressed(author_id: String)
 signal close_requested
 signal detail_close_requested
+signal publish_confirm_requested
 
 const SOCIAL_FEED_WHEEL_STEP := 2
 const SOCIAL_FEED_POSTER_HEIGHTS := [
@@ -55,8 +56,14 @@ var _player_echo_quote_fn: Callable
 var _echo_comment_handle_fn: Callable
 var _game_day_fn: Callable
 var _current_locale_fn: Callable
-var _render_publish_page_fn: Callable
-var _render_profile_page_fn: Callable
+var _publish_result_fn: Callable
+var _free_sentence_units_fn: Callable
+var _render_publish_sentence_area_fn: Callable
+var _completed_memes_count_fn: Callable
+var _pollution_fn: Callable
+var _player_character_path := ""
+var _composer_soft_unit_limit := 12
+var _confirm_publish_button: Button
 var _channels: Array = []
 var _no_signal_icon_path := ""
 var _poster_sheet_path := ""
@@ -92,6 +99,10 @@ func set_detail_post_index(post_index: int) -> void:
 
 func is_detail_open() -> bool:
 	return _social_detail_open
+
+
+func get_confirm_publish_button() -> Button:
+	return _confirm_publish_button
 
 
 func open_detail(post_index: int) -> void:
@@ -266,11 +277,9 @@ func render_app(screen: String, channel: String) -> void:
 		"detail":
 			_render_detail_page(page_host, false)
 		"publish":
-			if _render_publish_page_fn.is_valid():
-				_render_publish_page_fn.call(page_host)
+			_render_publish_page(page_host)
 		"profile":
-			if _render_profile_page_fn.is_valid():
-				_render_profile_page_fn.call(page_host)
+			_render_profile_page(page_host)
 		_:
 			_render_home_page(page_host, channel)
 
@@ -304,8 +313,13 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
 	_game_day_fn = deps.get("game_day", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
-	_render_publish_page_fn = deps.get("render_publish_page", Callable())
-	_render_profile_page_fn = deps.get("render_profile_page", Callable())
+	_publish_result_fn = deps.get("publish_result", Callable())
+	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
+	_render_publish_sentence_area_fn = deps.get("render_publish_sentence_area", Callable())
+	_completed_memes_count_fn = deps.get("completed_memes_count", Callable())
+	_pollution_fn = deps.get("pollution", Callable())
+	_player_character_path = str(deps.get("player_character_path", ""))
+	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
 	_channels = deps.get("channels", [])
 	_no_signal_icon_path = str(deps.get("no_signal_icon_path", ""))
 	_poster_sheet_path = str(deps.get("poster_sheet_path", ""))
@@ -930,6 +944,151 @@ func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) 
 
 func _on_detail_close_pressed() -> void:
 	detail_close_requested.emit()
+
+
+func _render_publish_page(parent: VBoxContainer) -> void:
+	_confirm_publish_button = null
+	var publish_page := VBoxContainer.new()
+	publish_page.name = "SocialPublishPage"
+	publish_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	publish_page.add_theme_constant_override("separation", 6)
+	parent.add_child(publish_page)
+
+	var page_header := HBoxContainer.new()
+	page_header.name = "SocialPublishHeader"
+	page_header.custom_minimum_size.y = 44
+	page_header.add_theme_constant_override("separation", 8)
+	publish_page.add_child(page_header)
+	var page_title := _label_factory.call("发布新信号", 22, _theme_color_fn.call("ink")) as Label
+	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page_header.add_child(page_title)
+	var game_day := 0
+	if _game_day_fn.is_valid():
+		game_day = int(_game_day_fn.call())
+	page_header.add_child(_label_factory.call("DAY %02d" % game_day, 12, _theme_color_fn.call("accent")) as Label)
+
+	var publish_scroll := ScrollContainer.new()
+	publish_scroll.name = "SocialPublishScroll"
+	publish_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	publish_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	publish_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	publish_page.add_child(publish_scroll)
+
+	var publish_content := VBoxContainer.new()
+	publish_content.name = "SocialPublishContent"
+	publish_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	publish_content.add_theme_constant_override("separation", 8)
+	publish_scroll.add_child(publish_content)
+
+	var publish_result: Dictionary = {}
+	if _publish_result_fn.is_valid():
+		publish_result = _publish_result_fn.call()
+
+	var composer := _panel_factory.call() as PanelContainer
+	composer.name = "SocialPublishComposer"
+	composer.set_meta("soft_panel", true)
+	publish_content.add_child(composer)
+	var composer_box := VBoxContainer.new()
+	composer_box.add_theme_constant_override("separation", 6)
+	composer.add_child(composer_box)
+	var placed_sentence_units: Array = []
+	if _free_sentence_units_fn.is_valid():
+		placed_sentence_units = _free_sentence_units_fn.call()
+	var composer_header := HBoxContainer.new()
+	composer_header.add_theme_constant_override("separation", 8)
+	composer_box.add_child(composer_header)
+	var composer_step := _label_factory.call("01  /  内容", 13, _theme_color_fn.call("accent")) as Label
+	composer_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	composer_header.add_child(composer_step)
+	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
+	var unit_counter := _label_factory.call(
+		"%d / %d 字" % [placed_sentence_units.size(), _composer_soft_unit_limit],
+		12,
+		_theme_color_fn.call("accent")
+	) as Label
+	unit_counter.name = "SocialPublishUnitCounter"
+	composer_header.add_child(unit_counter)
+	composer_box.add_child(_label_factory.call("把笔记本里的字拖进来", 17, _theme_color_fn.call("ink")) as Label)
+	if _render_publish_sentence_area_fn.is_valid():
+		_render_publish_sentence_area_fn.call(composer_box, placed_sentence_units)
+
+	var result_panel := _panel_factory.call() as PanelContainer
+	result_panel.name = "SocialPublishOutcomePanel"
+	result_panel.set_meta("soft_panel", true)
+	publish_content.add_child(result_panel)
+	var result_box := VBoxContainer.new()
+	result_box.add_theme_constant_override("separation", 8)
+	result_panel.add_child(result_box)
+	result_box.add_child(_label_factory.call("02  /  本次变化", 13, _theme_color_fn.call("accent")) as Label)
+	var outcome_row := HBoxContainer.new()
+	outcome_row.add_theme_constant_override("separation", 12)
+	result_box.add_child(outcome_row)
+	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
+	var money_outcome := _label_factory.call("资金  %s" % money_text, 22, _theme_color_fn.call("ink")) as Label
+	money_outcome.name = "SocialPublishMoneyOutcome"
+	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outcome_row.add_child(money_outcome)
+	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
+	var pollution_outcome := _label_factory.call("污染  %s" % pollution_text, 22, _theme_color_fn.call("ink")) as Label
+	pollution_outcome.name = "SocialPublishPollutionOutcome"
+	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outcome_row.add_child(pollution_outcome)
+
+	var hint := _label_factory.call("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color_fn.call("accent")) as Label
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	publish_content.add_child(hint)
+
+	var action_bar := _panel_factory.call() as PanelContainer
+	action_bar.name = "SocialPublishActionBar"
+	action_bar.set_meta("fixed_action_bar", true)
+	action_bar.set_meta("soft_panel", true)
+	publish_page.add_child(action_bar)
+	var action_box := VBoxContainer.new()
+	action_box.add_theme_constant_override("separation", 6)
+	action_bar.add_child(action_box)
+	_confirm_publish_button = Button.new()
+	_confirm_publish_button.name = "SocialPublishButton"
+	_confirm_publish_button.text = "确认发布"
+	_confirm_publish_button.custom_minimum_size.y = 56
+	_confirm_publish_button.pressed.connect(_on_publish_confirm_pressed)
+	action_box.add_child(_confirm_publish_button)
+
+
+func _render_profile_page(parent: VBoxContainer) -> void:
+	var profile_page := VBoxContainer.new()
+	profile_page.name = "SocialProfilePage"
+	profile_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	profile_page.add_theme_constant_override("separation", 10)
+	parent.add_child(profile_page)
+	profile_page.add_child(_label_factory.call("我的", 22, _theme_color_fn.call("accent")) as Label)
+	var identity_frame := PanelContainer.new()
+	identity_frame.name = "SocialPlayerIdentityFrame"
+	identity_frame.custom_minimum_size.y = 188
+	identity_frame.set_meta("poster_frame", true)
+	identity_frame.add_theme_stylebox_override("panel", _style_fn.call(_theme_color_fn.call("ink"), _theme_color_fn.call("accent")))
+	profile_page.add_child(identity_frame)
+	var identity_portrait := TextureRect.new()
+	identity_portrait.name = "SocialPlayerIdentityPortrait"
+	identity_portrait.texture = _load_texture_fn.call(_player_character_path) as Texture2D
+	identity_portrait.set_meta("asset_path", _player_character_path)
+	identity_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	identity_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	identity_frame.add_child(identity_portrait)
+	var completed_count := 0
+	if _completed_memes_count_fn.is_valid():
+		completed_count = int(_completed_memes_count_fn.call())
+	var pollution := 0
+	if _pollution_fn.is_valid():
+		pollution = int(_pollution_fn.call())
+	profile_page.add_child(_label_factory.call("已合成梗：%d" % completed_count, 17, _theme_color_fn.call("ink")) as Label)
+	profile_page.add_child(_label_factory.call("污染：%d%%" % pollution, 17, _theme_color_fn.call("ink")) as Label)
+	var note := _label_factory.call("你的语言档案会随着塔层上升变窄。", 16, _theme_color_fn.call("accent")) as Label
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	profile_page.add_child(note)
+
+
+func _on_publish_confirm_pressed() -> void:
+	publish_confirm_requested.emit()
 
 
 func _clear(node: Node) -> void:

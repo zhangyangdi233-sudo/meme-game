@@ -3056,8 +3056,13 @@ func _social_feed_mount_deps() -> Dictionary:
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
 		"game_day": func() -> int: return game.day if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"render_publish_page": _render_social_publish_page,
-		"render_profile_page": _render_social_profile_page,
+		"publish_result": _social_publish_result,
+		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
+		"render_publish_sentence_area": _render_publish_sentence_area,
+		"completed_memes_count": func() -> int: return game.completed_memes.size() if game != null else 0,
+		"pollution": func() -> int: return game.pollution if game != null else 0,
+		"player_character_path": PLAYER_CHARACTER_PATH,
+		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
 		"input_locked": func() -> bool: return _input_locked,
 	}
 
@@ -3080,6 +3085,8 @@ func _connect_social_feed_panel_signals() -> void:
 		panel.close_requested.connect(_close_app_window.bind("social"))
 	if not panel.detail_close_requested.is_connected(_close_social_detail_window):
 		panel.detail_close_requested.connect(_close_social_detail_window)
+	if not panel.publish_confirm_requested.is_connected(_on_confirm_dialogue_pressed):
+		panel.publish_confirm_requested.connect(_on_confirm_dialogue_pressed)
 
 
 func _inject_settings_camera_block() -> void:
@@ -3601,6 +3608,7 @@ func _render_app() -> void:
 				_confirm_publish_button = null
 				if _social_feed_panel != null:
 					_social_feed_panel.render_app(_social_screen, _social_channel)
+					_confirm_publish_button = _social_feed_panel.get_confirm_publish_button()
 	if _social_feed_panel != null:
 		_social_feed_panel.render_companion()
 
@@ -3652,100 +3660,13 @@ func _social_caption(post: Dictionary, _post_index: int) -> String:
 	return _locale.translate(str(post.get("caption", "未命名信号")))
 
 
-func _render_social_publish_page(parent: VBoxContainer) -> void:
-	var publish_page := VBoxContainer.new()
-	publish_page.name = "SocialPublishPage"
-	publish_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	publish_page.add_theme_constant_override("separation", 6)
-	parent.add_child(publish_page)
-
-	var page_header := HBoxContainer.new()
-	page_header.name = "SocialPublishHeader"
-	page_header.custom_minimum_size.y = 44
-	page_header.add_theme_constant_override("separation", 8)
-	publish_page.add_child(page_header)
-	var page_title := _label("发布新信号", 22, _theme_color("ink"))
-	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page_header.add_child(page_title)
-	page_header.add_child(_label("DAY %02d" % game.day, 12, _theme_color("accent")))
-
-	var publish_scroll := ScrollContainer.new()
-	publish_scroll.name = "SocialPublishScroll"
-	publish_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	publish_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	publish_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	publish_page.add_child(publish_scroll)
-
-	var publish_content := VBoxContainer.new()
-	publish_content.name = "SocialPublishContent"
-	publish_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	publish_content.add_theme_constant_override("separation", 8)
-	publish_scroll.add_child(publish_content)
-
+func _social_publish_result() -> Dictionary:
 	var placed_meme := _placed_meme()
-	var publish_result: Dictionary = game.get_publish_result(placed_meme) if not placed_meme.is_empty() else game.last_publish_result
-
-	var composer := _panel()
-	composer.name = "SocialPublishComposer"
-	composer.set_meta("soft_panel", true)
-	publish_content.add_child(composer)
-	var composer_box := VBoxContainer.new()
-	composer_box.add_theme_constant_override("separation", 6)
-	composer.add_child(composer_box)
-	var placed_sentence_units: Array = game.get_free_sentence_units()
-	var composer_header := HBoxContainer.new()
-	composer_header.add_theme_constant_override("separation", 8)
-	composer_box.add_child(composer_header)
-	var composer_step := _label("01  /  内容", 13, _theme_color("accent"))
-	composer_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	composer_header.add_child(composer_step)
-	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
-	var unit_counter := _label("%d / %d 字" % [placed_sentence_units.size(), COMPOSER_SOFT_UNIT_LIMIT], 12, _theme_color("accent"))
-	unit_counter.name = "SocialPublishUnitCounter"
-	composer_header.add_child(unit_counter)
-	composer_box.add_child(_label("把笔记本里的字拖进来", 17, _theme_color("ink")))
-	_render_publish_sentence_area(composer_box, placed_sentence_units)
-
-	var result_panel := _panel()
-	result_panel.name = "SocialPublishOutcomePanel"
-	result_panel.set_meta("soft_panel", true)
-	publish_content.add_child(result_panel)
-	var result_box := VBoxContainer.new()
-	result_box.add_theme_constant_override("separation", 8)
-	result_panel.add_child(result_box)
-	result_box.add_child(_label("02  /  本次变化", 13, _theme_color("accent")))
-	var outcome_row := HBoxContainer.new()
-	outcome_row.add_theme_constant_override("separation", 12)
-	result_box.add_child(outcome_row)
-	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
-	var money_outcome := _label("资金  %s" % money_text, 22, _theme_color("ink"))
-	money_outcome.name = "SocialPublishMoneyOutcome"
-	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(money_outcome)
-	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
-	var pollution_outcome := _label("污染  %s" % pollution_text, 22, _theme_color("ink"))
-	pollution_outcome.name = "SocialPublishPollutionOutcome"
-	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(pollution_outcome)
-
-	var hint := _label("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color("accent"))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	publish_content.add_child(hint)
-
-	var action_bar := _panel()
-	action_bar.name = "SocialPublishActionBar"
-	action_bar.set_meta("fixed_action_bar", true)
-	action_bar.set_meta("soft_panel", true)
-	publish_page.add_child(action_bar)
-	var action_box := VBoxContainer.new()
-	action_box.add_theme_constant_override("separation", 6)
-	action_bar.add_child(action_box)
-	_confirm_publish_button = Button.new()
-	_confirm_publish_button.name = "SocialPublishButton"
-	_confirm_publish_button.text = "确认发布"
-	_confirm_publish_button.custom_minimum_size.y = 56
-	_confirm_publish_button.pressed.connect(_on_confirm_dialogue_pressed)
-	action_box.add_child(_confirm_publish_button)
+	if game == null:
+		return {}
+	if not placed_meme.is_empty():
+		return game.get_publish_result(placed_meme)
+	return game.last_publish_result
 
 
 ## ============ 发布页的句子撰写区(接收笔记本画布拖来的字)============
@@ -3810,33 +3731,6 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		post_button.add_theme_color_override("font_color", _theme_color("surface"))
 	post_button.pressed.connect(_on_composer_submit_pressed)
 	composer_box.add_child(post_button)
-
-
-func _render_social_profile_page(parent: VBoxContainer) -> void:
-	var profile_page := VBoxContainer.new()
-	profile_page.name = "SocialProfilePage"
-	profile_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	profile_page.add_theme_constant_override("separation", 10)
-	parent.add_child(profile_page)
-	profile_page.add_child(_label("我的", 22, _theme_color("accent")))
-	var identity_frame := PanelContainer.new()
-	identity_frame.name = "SocialPlayerIdentityFrame"
-	identity_frame.custom_minimum_size.y = 188
-	identity_frame.set_meta("poster_frame", true)
-	identity_frame.add_theme_stylebox_override("panel", _style(_theme_color("ink"), _theme_color("accent")))
-	profile_page.add_child(identity_frame)
-	var identity_portrait := TextureRect.new()
-	identity_portrait.name = "SocialPlayerIdentityPortrait"
-	identity_portrait.texture = _load_runtime_texture(PLAYER_CHARACTER_PATH)
-	identity_portrait.set_meta("asset_path", PLAYER_CHARACTER_PATH)
-	identity_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	identity_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	identity_frame.add_child(identity_portrait)
-	profile_page.add_child(_label("已合成梗：%d" % game.completed_memes.size(), 17, _theme_color("ink")))
-	profile_page.add_child(_label("污染：%d%%" % game.pollution, 17, _theme_color("ink")))
-	var note := _label("你的语言档案会随着塔层上升变窄。", 16, _theme_color("accent"))
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	profile_page.add_child(note)
 
 
 func _set_social_screen(screen: String) -> void:
