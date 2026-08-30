@@ -336,7 +336,11 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 	_assert_true(game.start_typed_reality_conversation("doctor_floor1", "doctor", "医生"), "doctor conversation should start")
 	_assert_eq(_reality_conversation_signal_count, 3, "starting doctor conversation should emit again")
 	game.configure_conversation_locale("en")
-	_assert_eq(_reality_conversation_signal_count, 3, "locale configure should update snapshot without a second vertical emit")
+	_assert_eq(_reality_conversation_signal_count, 4, "locale configure should emit when display fields change")
+	var locale_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+	_assert_eq(str(locale_change.get("kind", "")), "locale", "locale change kind should be locale")
+	_assert_eq(str(locale_change.get("target_id", "")), "en", "locale change target should be locale code")
+	_assert_true(bool(locale_change.get("active", false)), "locale change should be active")
 	var localized: Dictionary = game.get_reality_conversation_snapshot()
 	_assert_eq(str(localized.get("actor_label", "")), "Doctor", "locale intent should localize actor label in the snapshot")
 	_assert_eq(
@@ -351,6 +355,36 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 	)
 	_assert_eq(str(localized.get("phase", "")), "composing", "doctor conversation should stay in composing")
 	_assert_eq(str(localized.get("mode", "")), "lexeme", "doctor conversation should stay in lexeme mode")
+
+	_reality_conversation_signal_count = 0
+	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "npc conversation should restart for intent signals")
+	var npc_choice_id := str(game.get_typed_reality_choices()[0].get("id", ""))
+	_assert_true(game.select_typed_reality_choice(npc_choice_id), "select intent should succeed")
+	_assert_eq(_reality_conversation_signal_count, 2, "select should emit start and select")
+	var select_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+	_assert_eq(str(select_change.get("kind", "")), "select", "select change kind should be select")
+	_assert_eq(str(select_change.get("target_id", "")), npc_choice_id, "select change target should be choice id")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "typing", "select snapshot should enter typing")
+	_assert_eq(int(_last_reality_conversation_snapshot.get("reveal_index", -1)), 0, "select snapshot should reset reveal index")
+
+	var advance_result: Dictionary = game.advance_typed_reality_character()
+	_assert_true(bool(advance_result.get("advanced", false)), "advance intent should reveal one character")
+	_assert_eq(_reality_conversation_signal_count, 3, "advance should emit once per character")
+	var advance_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+	_assert_eq(str(advance_change.get("kind", "")), "advance", "advance change kind should be advance")
+	_assert_eq(int(_last_reality_conversation_snapshot.get("reveal_index", -1)), 1, "advance snapshot should carry reveal index")
+	_assert_eq((_last_reality_conversation_snapshot.get("revealed_units", []) as Array).size(), 1, "advance snapshot should include revealed units")
+
+	while str(game.conversation_phase) == "typing":
+		game.advance_typed_reality_character()
+	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "result", "final advance should land in result")
+	if bool(_last_reality_conversation_snapshot.get("can_continue", false)):
+		_reality_conversation_signal_count = 0
+		_assert_true(game.continue_typed_reality_conversation(), "continue intent should advance to next turn")
+		_assert_eq(_reality_conversation_signal_count, 1, "continue should emit once")
+		var continue_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+		_assert_eq(str(continue_change.get("kind", "")), "continue", "continue change kind should be continue")
+		_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "choosing", "continue snapshot should return to choosing")
 
 	_reality_conversation_signal_count = 0
 	game.actions_remaining = 0

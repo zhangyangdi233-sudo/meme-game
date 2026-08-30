@@ -601,7 +601,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _input_locked or not _game_started:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if _reality_interaction_active and game.conversation_phase == "typing" and event.keycode != KEY_ESCAPE:
+		if _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
 				get_viewport().set_input_as_handled()
 				return
@@ -901,6 +901,7 @@ func _reality_conversation_snapshot() -> Dictionary:
 			"can_continue": false,
 			"feedback": "",
 			"reveal_index": 0,
+			"revealed_units": [],
 		}
 	return game.get_reality_conversation_snapshot()
 
@@ -1461,7 +1462,7 @@ func _sync_audio_state(immediate: bool = false) -> void:
 	_ensure_phone_music_for_floor(int(game.tower_floor))
 	var in_phone: bool = game.view_state == "phone_down"
 	var phone_target: float = -8.0 if in_phone else -42.0
-	var intimate_typing: bool = _reality_interaction_active and game.conversation_phase == "typing"
+	var intimate_typing: bool = _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing"
 	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
 	var pollution_target := float(_pollution_stage_snapshot().get("music_db", -60.0))
 	_phone_ambience.set_meta("target_volume_db", phone_target)
@@ -3377,7 +3378,8 @@ func _typed_reality_bbcode() -> String:
 	var pending_color := Color("777B72").to_html(false)
 	var corrupted_color := Color("FF3B30").to_html(false)
 	var parts: Array[String] = []
-	for unit in game.conversation_revealed_units:
+	var conversation: Dictionary = _reality_conversation_snapshot()
+	for unit in conversation.get("revealed_units", []):
 		var color := corrupted_color if bool(unit.get("corrupted", false)) else normal_color
 		var display := _escape_bbcode(str(unit.get("display", "")))
 		if bool(unit.get("corrupted", false)):
@@ -3431,17 +3433,15 @@ func _on_reality_choice_selected(choice_id: String) -> void:
 		return
 	if game.select_typed_reality_choice(choice_id):
 		_reality_hover_choice_id = ""
-		_render()
 		_sync_audio_state(false)
 
 
 func _on_reality_continue_pressed() -> void:
 	if _input_locked:
 		return
-	if game.conversation_phase == "result" and game.continue_typed_reality_conversation():
+	if str(_reality_conversation_snapshot().get("phase", "")) == "result" and game.continue_typed_reality_conversation():
 		_localize_active_conversation()
 		_reality_hover_choice_id = ""
-		_render()
 		_sync_audio_state(false)
 		return
 	_exit_reality_interaction()
@@ -3463,7 +3463,7 @@ func _advance_typed_reality_character() -> bool:
 	if bool(result.get("action_spent", false)):
 		_after_effective_action(actions_before)
 	else:
-		_render()
+		_sync_audio_state(false)
 	if game.conversation_actor_type == "doll" and _reality_floor != null:
 		_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
 	return true
@@ -3527,13 +3527,14 @@ func _update_visibility() -> void:
 	if _world_prompt != null:
 		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and (_nearby_reality_actor != null or _nearby_reality_item != null)
 	var interaction_visible := (not in_phone) and _reality_interaction_active
+	var conversation_visibility: Dictionary = _reality_conversation_snapshot()
 	if _reality_conversation_panel != null:
-		_reality_conversation_panel.update_visibility(interaction_visible, str(game.conversation_phase), _reality_hover_choice_id)
+		_reality_conversation_panel.update_visibility(interaction_visible, str(conversation_visibility.get("phase", "")), _reality_hover_choice_id)
 	if _reality_language_composer_panel != null:
 		_reality_language_composer_panel.update_visibility(
 			interaction_visible,
-			str(game.conversation_phase),
-			str(game.conversation_mode)
+			str(conversation_visibility.get("phase", "")),
+			str(conversation_visibility.get("mode", ""))
 		)
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。

@@ -908,6 +908,7 @@ func get_reality_conversation_snapshot() -> Dictionary:
 		"can_continue": conversation_can_continue,
 		"feedback": conversation_feedback,
 		"reveal_index": conversation_reveal_index,
+		"revealed_units": conversation_revealed_units.duplicate(true),
 	}
 
 
@@ -953,6 +954,7 @@ func continue_typed_reality_conversation() -> bool:
 	conversation_can_continue = false
 	_load_typed_reality_turn(next_turn)
 	conversation_phase = "choosing"
+	_emit_reality_conversation_changed("continue", "", true)
 	return true
 
 
@@ -982,10 +984,13 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 
 
 func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Array[String] = []) -> void:
+	var previous_display := _conversation_display_fingerprint()
 	conversation_locale = locale_code if locale_code in ["zh", "ja", "en"] else "zh"
 	_localize_conversation_display()
 	if not conversation_clean_sentence.is_empty():
 		conversation_clean_units = _conversation_units(conversation_clean_sentence)
+	if _conversation_display_fingerprint() != previous_display:
+		_emit_reality_conversation_changed("locale", conversation_locale, true)
 
 
 func _localize_conversation_display() -> void:
@@ -1005,6 +1010,19 @@ func _localize_conversation_display() -> void:
 		localized_choice["sentence"] = locale.translate(str(localized_choice.get("sentence", "")))
 		localized_choices.append(localized_choice)
 	conversation_choices = localized_choices
+
+
+func _conversation_display_fingerprint() -> String:
+	var choice_summaries: Array[String] = []
+	for choice in conversation_choices:
+		if choice is Dictionary:
+			choice_summaries.append(str((choice as Dictionary).get("summary", "")))
+	return "%s|%s|%s|%s" % [
+		conversation_actor_label,
+		conversation_prompt,
+		conversation_result_line,
+		"|".join(choice_summaries),
+	]
 
 
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
@@ -1078,6 +1096,7 @@ func select_typed_reality_choice(choice_id: String) -> bool:
 	conversation_understood = false
 	conversation_understanding_rolls = []
 	conversation_phase = "typing"
+	_emit_reality_conversation_changed("select", choice_id, true)
 	return true
 
 
@@ -1113,6 +1132,7 @@ func advance_typed_reality_character() -> Dictionary:
 	conversation_reveal_index += 1
 	result["advanced"] = true
 	if conversation_reveal_index < conversation_clean_units.size():
+		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	result["completed"] = true
@@ -1126,6 +1146,7 @@ func advance_typed_reality_character() -> Dictionary:
 			conversation_feedback = "今天已经没有能说出口的行动。"
 			result["locked_out"] = true
 			result["interrupted"] = true
+			_emit_reality_conversation_changed("advance", "", true)
 			return result
 		conversation_action_spent = true
 		result["action_spent"] = true
@@ -1162,11 +1183,13 @@ func advance_typed_reality_character() -> Dictionary:
 		if not conversation_interrupt_line.is_empty():
 			conversation_feedback += "\n" + conversation_interrupt_line
 		result["interrupted"] = true
+		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	if conversation_turn_index + 1 < conversation_turns.size():
 		conversation_can_continue = true
 		result["can_continue"] = true
+		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	conversation_can_continue = false
@@ -1180,6 +1203,7 @@ func advance_typed_reality_character() -> Dictionary:
 		conversation_reward = _resolve_doll_choice_attempt()
 		result["reward"] = conversation_reward.duplicate(true)
 		conversation_feedback += "\n" + str(conversation_reward.get("feedback", ""))
+	_emit_reality_conversation_changed("advance", "", true)
 	return result
 
 
@@ -1979,6 +2003,7 @@ func confirm_doctor_sentence() -> bool:
 	conversation_history.append(record.duplicate(true))
 	clear_language_sentence()
 	notify_tutorial("doctor_spoken", {"sentence_id": str(record.get("id", ""))})
+	_emit_reality_conversation_changed("confirm_doctor", "", true)
 	return true
 
 

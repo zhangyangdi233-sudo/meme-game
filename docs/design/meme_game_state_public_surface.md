@@ -2,7 +2,7 @@
 
 Phase **4b slice 1** documents what callers currently depend on, and pilots the **snapshot out / intent in** seam on social follow/like only. Other domains stay on direct field access until later slices.
 
-## Summary (2026-08-30, post–slice 3a housekeeping)
+## Summary (2026-08-30, post–slice 3b housekeeping)
 
 | Metric | Count |
 |---|---:|
@@ -15,6 +15,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` |
+| Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
@@ -176,12 +177,12 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_reality_conversation_snapshot()` → `{ phase, mode, actor_type, actor_label, prompt, result_line, choices, can_continue, feedback, reveal_index }` |
-| Signal | `reality_conversation_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; **emits from start/reset only** |
+| Snapshot | `get_reality_conversation_snapshot()` → `{ phase, mode, actor_type, actor_label, prompt, result_line, choices, can_continue, feedback, reveal_index, revealed_units }` |
+| Signal | `reality_conversation_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from start/reset and all conversation intents (slice 3b) |
 | Intent | `configure_conversation_locale(locale_code)` — localizes display fields internally and updates the snapshot |
 | Query | `get_typed_reality_choices()`, `get_typed_reality_progress()`, `get_typed_reality_history()` |
 
-Legacy `conversation_*` fields remain for save/load and the typed turn engine; new adapter display code should prefer the snapshot. Do **not** snapshot the full turn engine in 3a.
+Legacy `conversation_*` fields remain for save/load and the typed turn engine; new adapter display code should prefer the snapshot. Do **not** snapshot the full turn engine in 3a/3b.
 
 ### Typed reality conversation (legacy listing)
 
@@ -322,6 +323,7 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
   "can_continue": bool,
   "feedback": String,
   "reveal_index": int,
+  "revealed_units": Array,  # bounded per-character reveal payload for bbcode
 }
 
 # Signal payload = snapshot + change metadata
@@ -338,3 +340,39 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 **Adapter pattern:** connect `reality_conversation_changed` → `_render()`; read display via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent. Signal emits from `start_typed_reality_conversation` / `reset_typed_reality_conversation` only.
 
 **Stop here for human review** before slice 3b (choice select / composing intents).
+
+---
+
+## Slice 3b contract (reality conversation intents)
+
+```gdscript
+# Snapshot extension (display subset + bounded typing payload)
+{
+  # ...slice 3a fields...
+  "revealed_units": Array,  # { clean, display, corrupted, roll } per revealed character
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...display subset...
+  "change": {
+    "kind": "start" | "reset" | "select" | "advance" | "continue" | "confirm_doctor" | "locale",
+    "target_id": String,  # choice_id on select, locale code on locale, actor_id on start, else ""
+    "active": bool,
+  },
+}
+```
+
+**Intent → signal mapping:**
+
+| Intent | `change.kind` | When |
+|---|---|---|
+| `select_typed_reality_choice(choice_id)` | `select` | on success |
+| `advance_typed_reality_character()` | `advance` | when `advanced` is true |
+| `continue_typed_reality_conversation()` | `continue` | on success |
+| `confirm_doctor_sentence()` | `confirm_doctor` | on success |
+| `configure_conversation_locale(code)` | `locale` | when display fingerprint changes |
+
+**Adapter pattern:** connect `reality_conversation_changed` → `_render()`; remove redundant `_render()` after the intents above when the signal covers UI refresh. Keep `_after_effective_action`, locked-out cleanup, and doll sync side effects. Read `phase` / `mode` / `revealed_units` via `_reality_conversation_snapshot()` instead of bare `game.conversation_*` fields where trivial.
+
+**Stop here for human review** before slice 4b-4.
