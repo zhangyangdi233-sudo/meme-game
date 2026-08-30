@@ -5,12 +5,9 @@ const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
-const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
-const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
-const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
@@ -37,29 +34,10 @@ const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_pane
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
-
-const PALETTE_1 := {
-	"name": "palette_1",
-	"bg": "B7D957",
-	"surface": "FFF1C9",
-	"text": "10140F",
-	"ink": "10140F",
-	"accent": "365B2D",
-	"muted": "DDEB8A",
-	"danger_stripe": "10140F",
-	"flash_text": "9CFF24",
-}
-const POLLUTION_PALETTE_5 := {
-	"name": "pollution_palette_5",
-	"bg": "9CFF24",
-	"surface": "FFF2B8",
-	"text": "0D1009",
-	"ink": "0D1009",
-	"accent": "2F6B1F",
-	"muted": "D8FF66",
-	"danger_stripe": "0D1009",
-	"flash_text": "39FF14",
-}
+const CameraSessionScript = preload("res://scripts/integrations/camera_session.gd")
+const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
+const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
 const PLAYER_CHARACTER_PATH := "res://assets/generated/characters/protagonist_operator.png"
@@ -75,24 +53,6 @@ const HUD_MONEY_ICON_PATH := "res://assets/generated/ui/hud_money_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
 const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"
 const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.png"
-const PHONE_AMBIENCE_PATHS := {
-	1: "res://assets/generated/audio/babel_phone_signal_floor_1.wav",
-	2: "res://assets/generated/audio/babel_phone_signal.wav",
-	3: "res://assets/generated/audio/babel_phone_signal_floor_3.wav",
-	4: "res://assets/generated/audio/babel_phone_signal_floor_4.wav",
-}
-const REALITY_AMBIENCE_PATH := "res://assets/generated/audio/babel_reality_liminal.wav"
-const POLLUTION_AMBIENCE_PATH := "res://assets/generated/audio/babel_pollution_rot.wav"
-const FLASHBACK_AUDIO_PATH := "res://assets/generated/audio/pollution_flashback.wav"
-const ACTION_TICK_AUDIO_PATH := "res://assets/generated/audio/action_tick.wav"
-# 拾取反馈三件套(依据 docs/research/pickup_feedback_gap_analysis.md 的 P0:jam 基线要求拾取必有音效)。
-const PICKUP_PRESS_AUDIO_PATH := "res://assets/generated/audio/pickup_press.wav"
-const PICKUP_LAND_AUDIO_PATH := "res://assets/generated/audio/pickup_land.wav"
-const NOTEBOOK_HINGE_AUDIO_PATH := "res://assets/generated/audio/notebook_hinge.wav"
-const COVER_WATCHER_STINGER_PATH := "res://assets/generated/audio/cover_watcher_stinger.wav"
-const SOCIAL_POSTER_COLUMNS := 4
-const SOCIAL_POSTER_ROWS := 3
-const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
@@ -403,9 +363,9 @@ var _ui_root: Control
 var _texture_cache: Dictionary = {}
 var _phone_down_backdrop_image: TextureRect
 var _hand_phone_image: TextureRect
-var _hand_tracking_receiver
-var _hand_xray_overlay: Control
-var _second_layer_texture: Texture2D
+var _camera_session
+var _audio_controller
+var _ui_theme_helper := GameUiThemeScript.new()
 var _camera_consent_overlay: Control
 var _camera_access_toggle: CheckButton
 var _camera_consent_source_option: OptionButton
@@ -458,22 +418,11 @@ var _playtest_assist_panel
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _flashback_panel
 var _flashback_overlay: Control
-var _ui_theme: Theme
-var _pickup_press_audio: AudioStreamPlayer
-var _pickup_land_audio: AudioStreamPlayer
-var _notebook_hinge_audio: AudioStreamPlayer
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
 var _ending_screen_panel
 var _doll_companion: Node3D
-var _phone_ambience: AudioStreamPlayer
-var _reality_ambience: AudioStreamPlayer
-var _pollution_ambience: AudioStreamPlayer
-var _flashback_audio: AudioStreamPlayer
-var _action_tick_audio: AudioStreamPlayer
-var _cover_watcher_stinger: AudioStreamPlayer
-var _audio_tween: Tween
 var _action_spend_panel
 var _action_spend_overlay: Control
 var _action_spend_should_settle := false
@@ -499,24 +448,140 @@ var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
 var _vhs_enabled := true
 var _master_volume := 80.0
-var _camera_enabled := false
-var _camera_source := "computer"
 var _camera_session_decided := false
-var _camera_tracking_status := "摄像头未启用"
-var _camera_ready_source := ""
-var _camera_ready_index := -1
 var _phone_art_alpha := 0.0
 var _save_path := SAVE_PATH
 
 
+func _ensure_camera_session() -> void:
+	if _camera_session != null and is_instance_valid(_camera_session):
+		return
+	_camera_session = CameraSessionScript.new()
+	_camera_session.attach_to(self)
+	_camera_session.ensure_receiver()
+	if not _camera_session.tracking_ui_changed.is_connected(_on_camera_tracking_ui_changed):
+		_camera_session.tracking_ui_changed.connect(_on_camera_tracking_ui_changed)
+
+
+func _ensure_audio_controller() -> void:
+	if _audio_controller != null and is_instance_valid(_audio_controller):
+		return
+	_audio_controller = GameAudioControllerScript.new()
+	_audio_controller.attach_to(self)
+
+
+func _camera_session_deps() -> Dictionary:
+	return {
+		"game_started": _game_started,
+		"persist_preferences": func() -> void:
+			_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source),
+		"on_phone_source_enabled": _show_phone_camera_connection_overlay,
+		"on_camera_disabled": _hide_phone_camera_connection_overlay,
+		"hide_phone_connection_overlay": _hide_phone_camera_connection_overlay,
+		"refresh_phone_connection_ui": _refresh_phone_camera_connection_ui,
+		"set_localized_property": func(control: Control, property_name: String) -> void:
+			_ui_theme_helper.set_localized_property(control, property_name),
+		"locale_translate": func(text: String) -> String: return _locale.translate(text),
+		"ui_root": _ui_root,
+		"phone_down_backdrop_image": _phone_down_backdrop_image,
+	}
+
+
+func _audio_controller_deps() -> Dictionary:
+	return {
+		"game": game,
+		"game_started": _game_started,
+		"day_progress": _day_progress_snapshot(),
+		"phone_shell": _phone_shell_snapshot(),
+		"reality_interaction_active": _reality_interaction_active,
+		"reality_conversation": _reality_conversation_snapshot(),
+		"pollution_stage": _pollution_stage_snapshot(),
+	}
+
+
+func _social_content_deps() -> Dictionary:
+	return {
+		"post_cards": SOCIAL_POST_CARDS,
+		"social_channel": _social_channel,
+		"game": game,
+		"day_progress": _day_progress_snapshot(),
+		"current_locale": _locale.current_locale,
+		"translate": func(text: String) -> String: return _locale.translate(text),
+		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
+		"is_post_liked": func(post_id: String) -> bool: return _is_social_post_liked(post_id),
+		"level_display_name": func(floor_number: int) -> String: return _locale.level_display_name(floor_number),
+		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
+		"texture_cache": _texture_cache,
+		"load_texture": _load_runtime_texture,
+		"placed_meme": _placed_meme(),
+		"pickable_units": func(text: String) -> Array[String]: return _locale.pickable_units(text),
+	}
+
+
+func _on_camera_tracking_ui_changed() -> void:
+	if _camera_session == null:
+		return
+	_camera_session.refresh_source_buttons()
+	_camera_session.refresh_status_ui(_camera_session_deps())
+	_refresh_phone_camera_connection_ui()
+
+
+func _on_hand_tracking_status_changed(status: String) -> void:
+	if _camera_session == null:
+		return
+	_camera_session.tracking_status = status
+	if status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误", "无法启动手部追踪程序"]:
+		_camera_session.ready_source = ""
+		_camera_session.ready_index = -1
+	_on_camera_tracking_ui_changed()
+
+
+var _hand_tracking_receiver:
+	get:
+		return _camera_session.hand_tracking_receiver if _camera_session != null else null
+	set(value):
+		if _camera_session != null:
+			_camera_session.hand_tracking_receiver = value
+
+
+var _camera_enabled:
+	get:
+		return _camera_session.enabled if _camera_session != null else false
+
+
+var _camera_source:
+	get:
+		return _camera_session.source if _camera_session != null else "computer"
+
+
+func _on_camera_source_ready(source: String, selected_index: int) -> void:
+	if _camera_session == null or source not in ["computer", "phone"]:
+		return
+	_camera_session.ready_source = source
+	_camera_session.ready_index = selected_index
+	_on_camera_tracking_ui_changed()
+
+
+func _pollution_stage_for_theme() -> Dictionary:
+	return _pollution_stage_snapshot()
+
+
 func _ready() -> void:
+	_ui_theme_helper.configure({
+		"ui_font_path": UI_FONT_PATH,
+		"ui_font_grid": UI_FONT_GRID,
+		"ui_font_min_size": UI_FONT_MIN_SIZE,
+		"ui_font_max_size": UI_FONT_MAX_SIZE,
+		"locale_translate": func(text: String) -> String: return _locale.translate(text),
+	})
 	var preferences := _locale.load_preferences(_master_volume, _vhs_enabled)
 	_master_volume = float(preferences.get("master_volume", _master_volume))
 	_vhs_enabled = bool(preferences.get("vhs_enabled", _vhs_enabled))
-	_camera_enabled = bool(preferences.get("camera_enabled", false))
-	_camera_source = str(preferences.get("camera_source", "computer"))
+	_ensure_camera_session()
+	_camera_session.enabled = bool(preferences.get("camera_enabled", false))
+	_camera_session.source = str(preferences.get("camera_source", "computer"))
 	_camera_session_decided = false
-	_ensure_hand_tracking_receiver()
+	_camera_session.ensure_receiver()
 	_ensure_window_manager()
 	_ensure_edge_drawer()
 	_apply_master_volume()
@@ -526,8 +591,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _hand_tracking_receiver != null:
-		_hand_tracking_receiver.poll()
+	if _camera_session != null:
+		_camera_session.poll_receiver()
 	if _camera == null:
 		return
 	if _game_started:
@@ -541,8 +606,8 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
-	if _hand_tracking_receiver != null:
-		_hand_tracking_receiver.stop()
+	if _camera_session != null:
+		_camera_session.stop_receiver()
 
 
 func _physics_process(delta: float) -> void:
@@ -674,7 +739,8 @@ func continue_game() -> bool:
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
 	_game_started = true
 	_phone_art_alpha = 1.0
-	_second_layer_texture = null
+	if _camera_session != null:
+		_camera_session.second_layer_texture = null
 	game = session_state
 	_migrate_social_author_ids()
 	_connect_game_state_signals()
@@ -727,7 +793,7 @@ func show_main_menu() -> void:
 		if _reality_interaction_active:
 			_exit_reality_interaction(false)
 		_save_progress()
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	_game_started = false
 	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
 		_settings_history_panel.close_settings()
@@ -1029,18 +1095,7 @@ func _toggle_view_state() -> void:
 
 
 func _capture_phone_layer_for_xray() -> bool:
-	if not _game_started or get_viewport() == null or DisplayServer.get_name().to_lower() == "headless":
-		return false
-	var viewport_texture := get_viewport().get_texture()
-	if viewport_texture == null:
-		return false
-	var image := viewport_texture.get_image()
-	if image == null or image.is_empty():
-		return false
-	_second_layer_texture = ImageTexture.create_from_image(image)
-	if _hand_xray_overlay != null:
-		_hand_xray_overlay.set_layer_texture(_second_layer_texture)
-	return true
+	return _camera_session.capture_phone_layer_for_xray(_camera_session_deps()) if _camera_session != null else false
 
 
 func _set_reality_mouse_look(enabled: bool) -> void:
@@ -1094,10 +1149,10 @@ func _build_world() -> void:
 	if _day_transition_tween != null and _day_transition_tween.is_valid():
 		_day_transition_tween.kill()
 	_day_transition_tween = null
-	if _audio_tween != null and _audio_tween.is_valid():
-		_audio_tween.kill()
-	_audio_tween = null
-	_hand_xray_overlay = null
+	if _audio_controller != null:
+		_audio_controller.reset_session()
+	if _camera_session != null:
+		_camera_session.reset_session()
 	_camera_consent_overlay = null
 	_camera_access_toggle = null
 	_camera_consent_source_option = null
@@ -1191,7 +1246,8 @@ func _build_world() -> void:
 	_canvas = CanvasLayer.new()
 	_canvas.name = "CanvasLayer"
 	add_child(_canvas)
-	_build_audio_players()
+	_ensure_audio_controller()
+	_audio_controller.build_players(_audio_controller_deps())
 
 
 func _configure_reality_depth_of_field() -> void:
@@ -1346,27 +1402,11 @@ func _active_actor_display_name() -> String:
 	return _locale.translate(str(_active_reality_actor.get_meta("display_name", "对方")))
 
 
-func _build_audio_players() -> void:
-	var initial_floor := 1 if game == null else clampi(int(game.tower_floor), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
-	_phone_ambience = _make_audio_player("PhoneRoadAmbience", _phone_music_path_for_floor(initial_floor), true, -60.0)
-	_phone_ambience.set_meta("phone_music_floor", initial_floor)
-	_reality_ambience = _make_audio_player("RealityRoomAmbience", REALITY_AMBIENCE_PATH, true, -60.0)
-	_pollution_ambience = _make_audio_player("PollutionMusicLayer", POLLUTION_AMBIENCE_PATH, true, -60.0)
-	_flashback_audio = _make_audio_player("PollutionFlashbackAudio", FLASHBACK_AUDIO_PATH, false, -8.0)
-	_pickup_press_audio = _make_audio_player("PickupPressAudio", PICKUP_PRESS_AUDIO_PATH, false, -16.0)
-	_pickup_land_audio = _make_audio_player("PickupLandAudio", PICKUP_LAND_AUDIO_PATH, false, -11.0)
-	_notebook_hinge_audio = _make_audio_player("NotebookHingeAudio", NOTEBOOK_HINGE_AUDIO_PATH, false, -14.0)
-	_action_tick_audio = _make_audio_player("ActionTickAudio", ACTION_TICK_AUDIO_PATH, false, -15.0)
-	_cover_watcher_stinger = _make_audio_player("CoverWatcherStinger", COVER_WATCHER_STINGER_PATH, false, -9.0)
-	_sync_audio_state(true)
-
-
 func _on_cover_watcher_appeared(floor_number: int) -> void:
 	if game != null:
 		game.mark_cover_watcher_seen(floor_number)
-	if _cover_watcher_stinger != null and _cover_watcher_stinger.stream != null and is_inside_tree():
-		_cover_watcher_stinger.stop()
-		_cover_watcher_stinger.play()
+	if _audio_controller != null:
+		_audio_controller.on_cover_watcher_appeared(floor_number)
 
 
 func _on_cover_watcher_vanished(_floor_number: int) -> void:
@@ -1375,100 +1415,13 @@ func _on_cover_watcher_vanished(_floor_number: int) -> void:
 		game.event_log.push_front("掩体后的人影缩了回去。它没有留下脸。")
 
 
-func _make_audio_player(node_name: String, path: String, looped: bool, volume_db: float) -> AudioStreamPlayer:
-	var player := AudioStreamPlayer.new()
-	player.name = node_name
-	player.stream = _load_generated_wav(path, looped)
-	player.volume_db = volume_db
-	player.set_meta("generated_audio_path", path)
-	player.set_meta("looped", looped)
-	add_child(player)
-	return player
-
-
-func _load_generated_wav(path: String, looped: bool) -> AudioStreamWAV:
-	var stream := AudioStreamWAV.load_from_file(path)
-	if stream == null:
-		return null
-	if looped:
-		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		stream.loop_begin = 0
-		var channel_count := 2 if stream.stereo else 1
-		var bytes_per_sample := 2 if stream.format == AudioStreamWAV.FORMAT_16_BITS else 1
-		stream.loop_end = int(stream.data.size() / maxi(1, channel_count * bytes_per_sample))
-	return stream
-
-
 func _phone_music_path_for_floor(floor_number: int) -> String:
-	var safe_floor := clampi(floor_number, 1, MemeGameStateScript.MAX_TOWER_FLOOR)
-	return str(PHONE_AMBIENCE_PATHS.get(safe_floor, PHONE_AMBIENCE_PATHS[1]))
-
-
-func _ensure_phone_music_for_floor(floor_number: int) -> void:
-	if _phone_ambience == null:
-		return
-	var safe_floor := clampi(floor_number, 1, MemeGameStateScript.MAX_TOWER_FLOOR)
-	var target_path := _phone_music_path_for_floor(safe_floor)
-	if str(_phone_ambience.get_meta("generated_audio_path", "")) == target_path:
-		_phone_ambience.set_meta("phone_music_floor", safe_floor)
-		return
-	var phase := 0.0
-	if _reality_ambience != null and _reality_ambience.playing:
-		phase = _reality_ambience.get_playback_position()
-	elif _phone_ambience.playing:
-		phase = _phone_ambience.get_playback_position()
-	var was_playing := _phone_ambience.playing
-	_phone_ambience.stop()
-	_phone_ambience.stream = _load_generated_wav(target_path, true)
-	_phone_ambience.set_meta("generated_audio_path", target_path)
-	_phone_ambience.set_meta("phone_music_floor", safe_floor)
-	if is_inside_tree() and was_playing and _phone_ambience.stream != null:
-		_phone_ambience.play(phase)
+	return _audio_controller.phone_music_path_for_floor(floor_number) if _audio_controller != null else ""
 
 
 func _sync_audio_state(immediate: bool = false) -> void:
-	if _phone_ambience == null or _reality_ambience == null or _pollution_ambience == null:
-		return
-	if not _game_started or game == null:
-		for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-			player.set_meta("target_volume_db", -60.0)
-		if is_inside_tree():
-			for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-				player.stop()
-			if _flashback_audio != null:
-				_flashback_audio.stop()
-			if _cover_watcher_stinger != null:
-				_cover_watcher_stinger.stop()
-		return
-	_ensure_phone_music_for_floor(int(_day_progress_snapshot().get("tower_floor", 1)))
-	var in_phone: bool = str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
-	var phone_target: float = -8.0 if in_phone else -42.0
-	var intimate_typing: bool = _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing"
-	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
-	var pollution_target := float(_pollution_stage_snapshot().get("music_db", -60.0))
-	_phone_ambience.set_meta("target_volume_db", phone_target)
-	_reality_ambience.set_meta("target_volume_db", reality_target)
-	_pollution_ambience.set_meta("target_volume_db", pollution_target)
-	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-		player.set_meta("flashback_ducked", false)
-	if _audio_tween != null and _audio_tween.is_valid():
-		_audio_tween.kill()
-	_audio_tween = null
-	if immediate:
-		_phone_ambience.volume_db = phone_target
-		_reality_ambience.volume_db = reality_target
-		_pollution_ambience.volume_db = pollution_target
-	if not is_inside_tree():
-		return
-	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-		if not player.playing:
-			player.play()
-	if immediate:
-		return
-	_audio_tween = create_tween().set_parallel(true)
-	_audio_tween.tween_property(_phone_ambience, "volume_db", phone_target, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_audio_tween.tween_property(_reality_ambience, "volume_db", reality_target, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_audio_tween.tween_property(_pollution_ambience, "volume_db", pollution_target, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if _audio_controller != null:
+		_audio_controller.sync_state(_audio_controller_deps(), immediate)
 
 
 func _pollution_stage_snapshot() -> Dictionary:
@@ -1477,22 +1430,8 @@ func _pollution_stage_snapshot() -> Dictionary:
 
 
 func _duck_ambience_for_flashback() -> void:
-	if _audio_tween != null and _audio_tween.is_valid():
-		_audio_tween.kill()
-	_audio_tween = null
-	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-		if player != null:
-			player.set_meta("flashback_ducked", true)
-	if not is_inside_tree():
-		for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-			if player != null:
-				player.volume_db = -44.0
-		return
-	_audio_tween = create_tween().set_parallel(true)
-	for player in [_phone_ambience, _reality_ambience, _pollution_ambience]:
-		if player != null:
-			# 分镜要求:底噪在冻结帧内先保持(约 0.28s),再于 100ms 内死掉,画面随后才切黑。
-			_audio_tween.tween_property(player, "volume_db", -44.0, 0.10).set_delay(0.28).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	if _audio_controller != null:
+		_audio_controller.duck_ambience_for_flashback()
 
 
 func _build_main_menu() -> void:
@@ -1527,7 +1466,7 @@ func _build_language_selection_overlay(first_run: bool = false) -> void:
 func _on_language_selected(locale_code: String) -> void:
 	if not _locale.select_language(locale_code):
 		return
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	_close_language_selection_overlay()
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
 	if game != null:
@@ -1556,6 +1495,8 @@ func _build_camera_consent_overlay() -> void:
 	_camera_consent_panel.build(_ui_root, _camera_consent_mount_deps())
 	_camera_consent_overlay = _camera_consent_panel.get_overlay()
 	_camera_consent_source_option = _camera_consent_panel.get_source_option()
+	if _camera_session != null:
+		_camera_session.consent_source_option = _camera_consent_source_option
 
 
 func _resolve_camera_consent(allowed: bool) -> void:
@@ -1567,99 +1508,33 @@ func _resolve_camera_consent(allowed: bool) -> void:
 	_camera_consent_source_option = null
 
 
-func _ensure_hand_tracking_receiver() -> void:
-	if _hand_tracking_receiver != null:
-		return
-	_hand_tracking_receiver = HandTrackingReceiverScript.new()
-	_hand_tracking_receiver.camera_source = _camera_source
-	_hand_tracking_receiver.frame_received.connect(_on_hand_tracking_frame)
-	_hand_tracking_receiver.status_changed.connect(_on_hand_tracking_status_changed)
-	_hand_tracking_receiver.source_ready.connect(_on_camera_source_ready)
-
-
 func _set_camera_enabled(value: bool, persist: bool = true) -> void:
-	_camera_enabled = value
-	_camera_ready_source = ""
-	_camera_ready_index = -1
-	_ensure_hand_tracking_receiver()
-	_hand_tracking_receiver.camera_source = _camera_source
-	if value:
-		_hand_tracking_receiver.start(true)
-		_camera_tracking_status = _hand_tracking_receiver.get_status()
-	else:
-		_hand_tracking_receiver.stop()
-		_camera_tracking_status = "摄像头未启用"
-	if _camera_access_toggle != null:
-		_camera_access_toggle.set_pressed_no_signal(value)
-	if _hand_xray_overlay != null:
-		_hand_xray_overlay.set_tracking_enabled(value)
-	_refresh_camera_source_buttons()
-	_refresh_camera_status_ui()
-	if value and _camera_source == "phone":
-		_show_phone_camera_connection_overlay()
-	elif not value:
-		_hide_phone_camera_connection_overlay()
-	_refresh_phone_camera_connection_ui()
-	if persist:
-		_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_ensure_camera_session()
+	_camera_session.access_toggle = _camera_access_toggle
+	_camera_session.set_enabled(value, _camera_session_deps(), persist)
 
 
 func _set_camera_source(value: String, persist: bool = true) -> void:
-	var normalized := value if value in ["computer", "phone"] else "computer"
-	var changed := _camera_source != normalized
-	_camera_source = normalized
-	if changed:
-		_camera_ready_source = ""
-		_camera_ready_index = -1
-	_ensure_hand_tracking_receiver()
-	_hand_tracking_receiver.camera_source = _camera_source
-	if changed and _camera_enabled:
-		_hand_tracking_receiver.stop()
-		_hand_tracking_receiver.start(true)
-		_camera_tracking_status = _hand_tracking_receiver.get_status()
-	_sync_camera_source_options()
-	_refresh_camera_source_buttons()
-	_refresh_camera_status_ui()
-	if _camera_source == "computer":
-		_hide_phone_camera_connection_overlay()
-	elif _camera_enabled:
-		_show_phone_camera_connection_overlay()
-	_refresh_phone_camera_connection_ui()
-	if persist:
-		_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_ensure_camera_session()
+	_camera_session.consent_source_option = _camera_consent_source_option
+	_camera_session.set_source(value, _camera_session_deps(), persist)
 
 
 func _populate_camera_source_option(option: OptionButton) -> void:
-	if option == null:
-		return
-	option.clear()
-	for entry in [
-		{"id": "computer", "label": "电脑摄像头（默认）"},
-		{"id": "phone", "label": "手机摄像头（备用）"},
-	]:
-		option.add_item(_locale.translate(str(entry["label"])))
-		var item_index := option.item_count - 1
-		option.set_item_metadata(item_index, entry["id"])
-		if str(entry["id"]) == _camera_source:
-			option.select(item_index)
+	_ensure_camera_session()
+	_camera_session.populate_source_option(option, _camera_session_deps())
 
 
 func _sync_camera_source_options() -> void:
-	for option in [_camera_consent_source_option]:
-		if option == null:
-			continue
-		for item_index in option.item_count:
-			if str(option.get_item_metadata(item_index)) == _camera_source:
-				option.select(item_index)
-				break
+	if _camera_session != null:
+		_camera_session.consent_source_option = _camera_consent_source_option
+		_camera_session.sync_source_options()
 
 
 func _refresh_camera_source_option_labels() -> void:
-	for option in [_camera_consent_source_option]:
-		if option == null or option.item_count < 2:
-			continue
-		option.set_item_text(0, _locale.translate("电脑摄像头（默认）"))
-		option.set_item_text(1, _locale.translate("手机摄像头（备用）"))
+	if _camera_session != null:
+		_camera_session.consent_source_option = _camera_consent_source_option
+		_camera_session.refresh_source_option_labels(_camera_session_deps())
 
 
 func _on_camera_source_selected(index: int, option: OptionButton) -> void:
@@ -1669,66 +1544,29 @@ func _on_camera_source_selected(index: int, option: OptionButton) -> void:
 
 
 func _activate_camera_source(source: String) -> void:
-	var normalized := source if source in ["computer", "phone"] else "computer"
 	_camera_session_decided = true
-	if _camera_enabled:
-		_set_camera_enabled(false, false)
-	_set_camera_source(normalized, false)
-	_set_camera_enabled(true, true)
-	if normalized == "phone":
-		_show_phone_camera_connection_overlay()
-	else:
-		_hide_phone_camera_connection_overlay()
+	if _camera_session != null:
+		_camera_session.computer_button = _camera_computer_button
+		_camera_session.phone_button = _camera_phone_button
+		_camera_session.activate_source(source, _camera_session_deps())
 
 
 func _refresh_camera_source_buttons() -> void:
-	if _camera_computer_button != null:
-		_camera_computer_button.set_pressed_no_signal(_camera_enabled and _camera_source == "computer")
-		_camera_computer_button.set_meta("camera_source_selected", _camera_enabled and _camera_source == "computer")
-		_camera_computer_button.set_meta("camera_source_ready", _camera_ready_source == "computer")
-	if _camera_phone_button != null:
-		_camera_phone_button.set_pressed_no_signal(_camera_enabled and _camera_source == "phone")
-		_camera_phone_button.set_meta("camera_source_selected", _camera_enabled and _camera_source == "phone")
-		_camera_phone_button.set_meta("camera_source_ready", _camera_ready_source == "phone")
-
-
-func _on_hand_tracking_frame(hands: Array, _timestamp_msec: int) -> void:
-	var frame_locked := false
-	if _hand_xray_overlay != null:
-		frame_locked = _hand_xray_overlay.ingest_hands(hands, Time.get_ticks_msec())
-	var receiver_status: String = str(_hand_tracking_receiver.get_status()) if _hand_tracking_receiver != null else ""
-	if frame_locked:
-		_camera_tracking_status = "已锁定指尖窗口"
-	elif receiver_status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误"]:
-		_camera_tracking_status = receiver_status
-	else:
-		_camera_tracking_status = "等待双手四指框选"
-	_refresh_camera_status_ui()
-
-
-func _on_hand_tracking_status_changed(status: String) -> void:
-	_camera_tracking_status = status
-	if status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误", "无法启动手部追踪程序"]:
-		_camera_ready_source = ""
-		_camera_ready_index = -1
-	_refresh_camera_source_buttons()
-	_refresh_camera_status_ui()
-	_refresh_phone_camera_connection_ui()
-
-
-func _on_camera_source_ready(source: String, selected_index: int) -> void:
-	if source not in ["computer", "phone"]:
-		return
-	_camera_ready_source = source
-	_camera_ready_index = selected_index
-	_refresh_camera_source_buttons()
-	_refresh_phone_camera_connection_ui()
+	if _camera_session != null:
+		_camera_session.computer_button = _camera_computer_button
+		_camera_session.phone_button = _camera_phone_button
+		_camera_session.refresh_source_buttons()
 
 
 func _refresh_camera_status_ui() -> void:
-	if _camera_status_label != null:
-		_camera_status_label.text = _camera_tracking_status
-		_set_localized_property(_camera_status_label, "text")
+	if _camera_session != null:
+		_camera_session.status_label = _camera_status_label
+		_camera_session.refresh_status_ui(_camera_session_deps())
+
+
+func _build_hand_xray_overlay() -> void:
+	_ensure_camera_session()
+	_camera_session.build_hand_xray_overlay(_camera_session_deps())
 
 
 func _build_ui() -> void:
@@ -1864,20 +1702,6 @@ func _playtest_assist_mount_deps() -> Dictionary:
 		"label_factory": _label,
 		"theme_color": _theme_color,
 	}
-
-
-func _build_hand_xray_overlay() -> void:
-	_hand_xray_overlay = HandXRayOverlayScript.new()
-	_hand_xray_overlay.name = "HandXRayOverlay"
-	_hand_xray_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_hand_xray_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hand_xray_overlay.z_index = 9
-	_ui_root.add_child(_hand_xray_overlay)
-	var initial_texture: Texture2D = _second_layer_texture
-	if initial_texture == null and _phone_down_backdrop_image != null:
-		initial_texture = _phone_down_backdrop_image.texture
-	_hand_xray_overlay.set_layer_texture(initial_texture)
-	_hand_xray_overlay.set_tracking_enabled(_camera_enabled)
 
 
 func _build_prologue_overlay() -> void:
@@ -2114,7 +1938,7 @@ func _build_phone_camera_connection_overlay() -> void:
 	_phone_camera_connection_panel.build(_ui_root, _phone_camera_connection_mount_deps())
 	_phone_camera_connection_overlay = _phone_camera_connection_panel.get_overlay()
 	_refresh_phone_camera_connection_ui()
-	if _camera_enabled and _camera_source == "phone":
+	if _camera_session != null and _camera_session.enabled and _camera_session.source == "phone":
 		_show_phone_camera_connection_overlay()
 
 
@@ -2147,13 +1971,7 @@ func _refresh_phone_camera_connection_ui() -> void:
 
 
 func _phone_camera_connection_view() -> Dictionary:
-	return {
-		"camera_enabled": _camera_enabled,
-		"camera_source": _camera_source,
-		"camera_ready_source": _camera_ready_source,
-		"camera_ready_index": _camera_ready_index,
-		"camera_tracking_status": _camera_tracking_status,
-	}
+	return _camera_session.connection_view() if _camera_session != null else {}
 
 
 func _layout_settings_window() -> void:
@@ -2271,7 +2089,7 @@ func _camera_consent_mount_deps() -> Dictionary:
 		"theme_color": _theme_color,
 		"soft_style": _soft_style,
 		"populate_camera_source_option": _populate_camera_source_option,
-		"camera_enabled": _camera_enabled,
+		"camera_enabled": _camera_session.enabled if _camera_session != null else false,
 		"apply_ui_theme": _apply_ui_theme,
 		"refresh_localized_ui": _refresh_localized_ui,
 	}
@@ -2410,7 +2228,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"channels": SOCIAL_CHANNELS,
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
-		"poster_sheet_count": SOCIAL_POSTER_COUNT,
+		"poster_sheet_count": SocialFeedContentScript.SOCIAL_POSTER_COUNT,
 		"visible_post_indices": _social_visible_post_indices,
 		"post_for_index": _social_post_for_index,
 		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
@@ -2716,7 +2534,7 @@ func _inject_settings_camera_block() -> void:
 	_camera_access_toggle = CheckButton.new()
 	_camera_access_toggle.name = "SettingsCameraAccessToggle"
 	_camera_access_toggle.text = "允许访问摄像头"
-	_camera_access_toggle.button_pressed = _camera_enabled
+	_camera_access_toggle.button_pressed = _camera_session.enabled if _camera_session != null else false
 	_camera_access_toggle.custom_minimum_size.y = 48
 	_camera_access_toggle.set_meta("privacy_control", true)
 	_camera_access_toggle.toggled.connect(_on_camera_access_toggled)
@@ -2755,10 +2573,15 @@ func _inject_settings_camera_block() -> void:
 	camera_privacy.name = "SettingsCameraPrivacyNote"
 	camera_privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(camera_privacy)
-	_camera_status_label = _label(_camera_tracking_status, 14, _theme_color("accent"))
+	_camera_status_label = _label(_camera_session.tracking_status if _camera_session != null else "摄像头未启用", 14, _theme_color("accent"))
 	_camera_status_label.name = "SettingsCameraStatus"
 	_camera_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(_camera_status_label)
+	if _camera_session != null:
+		_camera_session.access_toggle = _camera_access_toggle
+		_camera_session.computer_button = _camera_computer_button
+		_camera_session.phone_button = _camera_phone_button
+		_camera_session.status_label = _camera_status_label
 
 
 func _build_history_window() -> void:
@@ -2832,7 +2655,7 @@ func _on_settings_language_selected(locale_code: String) -> void:
 		_exit_reality_interaction(false)
 	if not _locale.select_language(locale_code):
 		return
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
 	if game != null:
 		game.free_sentence_clear()
@@ -2843,7 +2666,7 @@ func _on_settings_language_selected(locale_code: String) -> void:
 
 func _on_manual_save_pressed() -> void:
 	var progress_saved := _save_progress()
-	var preferences_saved := _locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	var preferences_saved := _locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	if _settings_history_panel != null:
 		_settings_history_panel.set_save_status(
 			"已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
@@ -2880,7 +2703,7 @@ func _cancel_quit_game() -> void:
 func _confirm_quit_game() -> void:
 	if _game_started:
 		_save_progress()
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	get_tree().quit()
 
 
@@ -3079,39 +2902,23 @@ func _render_babel_app() -> void:
 
 
 func _social_visible_post_indices() -> Array[int]:
-	var result: Array[int] = []
-	for post_index in SOCIAL_POST_CARDS.size():
-		if _social_channel == "following":
-			var post := _social_post_for_index(post_index)
-			if not _is_social_following(_social_author_id(post)):
-				continue
-		result.append(post_index)
-	return result
+	return SocialFeedContentScript.visible_post_indices(_social_content_deps())
 
 
 func _social_like_text(post: Dictionary, post_index: int) -> String:
-	var liked := _is_social_post_liked(str(post.get("id", "")))
-	var stable_index := int(post.get("card_index", post_index))
-	var count := 64 + (stable_index * 31) % 120 + (1 if liked else 0)
-	return "%s %d" % ["♥" if liked else "♡", count]
+	return SocialFeedContentScript.like_text(post, post_index, _social_content_deps())
 
 
 func _social_floor_label() -> String:
-	var floor_number := 1 if game == null else clampi(int(_day_progress_snapshot().get("tower_floor", 1)), 1, 4)
-	return _locale.level_display_name(floor_number)
+	return SocialFeedContentScript.floor_label(_social_content_deps())
 
 
-func _social_caption(post: Dictionary, _post_index: int) -> String:
-	return _locale.translate(str(post.get("caption", "未命名信号")))
+func _social_caption(post: Dictionary, post_index: int) -> String:
+	return SocialFeedContentScript.caption(post, post_index, _social_content_deps())
 
 
 func _social_publish_result() -> Dictionary:
-	var placed_meme := _placed_meme()
-	if game == null:
-		return {}
-	if not placed_meme.is_empty():
-		return game.get_publish_result(placed_meme)
-	return game.last_publish_result
+	return SocialFeedContentScript.publish_result(_social_content_deps())
 
 
 func _set_social_screen(screen: String) -> void:
@@ -3428,8 +3235,8 @@ func _update_visibility() -> void:
 		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
 	if _hand_phone_image != null:
 		_hand_phone_image.visible = in_phone or _phone_art_alpha > 0.03
-	if _hand_xray_overlay != null:
-		_hand_xray_overlay.visible = _camera_enabled and _game_started and not in_phone
+	if _camera_session != null and _camera_session.hand_xray_overlay != null:
+		_camera_session.hand_xray_overlay.visible = _camera_session.enabled and _game_started and not in_phone
 	if _view_toggle_button != null:
 		_view_toggle_button.visible = _game_started and not _settings_is_open() and (in_phone or not _reality_interaction_active)
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
@@ -3524,14 +3331,11 @@ func _animate_vhs(_delta: float) -> void:
 
 
 func _active_palette() -> Dictionary:
-	if str(_pollution_stage_snapshot().get("palette_key", "palette_1")) == "pollution_palette_5":
-		return POLLUTION_PALETTE_5
-	return PALETTE_1
+	return _ui_theme_helper.active_palette(_pollution_stage_for_theme())
 
 
 func _theme_color(key: String) -> Color:
-	var palette := _active_palette()
-	return Color(str(palette.get(key, PALETTE_1.get(key, "FFF1C9"))))
+	return _ui_theme_helper.theme_color(key, _pollution_stage_for_theme())
 
 
 func _viewport_size() -> Vector2:
@@ -3568,85 +3372,31 @@ func _load_runtime_texture(path: String) -> Texture2D:
 
 
 func _social_poster_texture_path(post_index: int) -> String:
-	return SOCIAL_POSTER_SHEET_PATH
+	return SocialFeedContentScript.poster_texture_path(post_index, _social_content_deps())
 
 
 func _social_poster_texture(post_index: int) -> Texture2D:
-	var cell_index := posmod(post_index, SOCIAL_POSTER_COUNT)
-	var cache_key := "%s#cell-%d" % [SOCIAL_POSTER_SHEET_PATH, cell_index]
-	if _texture_cache.has(cache_key):
-		return _texture_cache[cache_key]
-	var sheet := _load_runtime_texture(SOCIAL_POSTER_SHEET_PATH)
-	if sheet == null:
-		return null
-	var cell_size := Vector2(
-		floorf(float(sheet.get_width()) / SOCIAL_POSTER_COLUMNS),
-		floorf(float(sheet.get_height()) / SOCIAL_POSTER_ROWS)
-	)
-	var atlas := AtlasTexture.new()
-	atlas.atlas = sheet
-	var row := floori(float(cell_index) / SOCIAL_POSTER_COLUMNS)
-	atlas.region = Rect2(
-		Vector2(cell_index % SOCIAL_POSTER_COLUMNS, row) * cell_size,
-		cell_size
-	)
-	_texture_cache[cache_key] = atlas
-	return atlas
+	return SocialFeedContentScript.poster_texture(post_index, _social_content_deps())
 
 
 func _social_post_for_index(post_index: int) -> Dictionary:
-	if SOCIAL_POST_CARDS.is_empty():
-		return {}
-	var day_offset := 0 if game == null else maxi(0, int(_day_progress_snapshot().get("day", 1)) - 1) * 3
-	var card_index := posmod(post_index + day_offset, SOCIAL_POST_CARDS.size())
-	var post: Dictionary = (SOCIAL_POST_CARDS[card_index] as Dictionary).duplicate(true)
-	post["card_index"] = card_index
-	var candidate_tokens: Array = []
-	for token_data in post.get("tokens", []):
-		var token: Dictionary = (token_data as Dictionary).duplicate(true)
-		var source_text := str(token.get("text", ""))
-		token["text"] = _locale.translate(source_text)
-		token["source_text"] = source_text
-		token["content_locale"] = _locale.current_locale
-		token["source_card_id"] = str(post.get("id", ""))
-		token["lexeme_id"] = str(token.get("lexeme_id", "%s.%s" % [post.get("id", "post"), token.get("id", "token")]))
-		for surface_field in ["phone_surface", "doctor_surface", "doll_surface"]:
-			token[surface_field] = _locale.translate(str(token.get(surface_field, source_text)))
-		candidate_tokens.append(token)
-	var prepared_tokens: Array = []
-	var current_day := 1 if game == null else int(_day_progress_snapshot().get("day", 1))
-	var pickup_indices := _social_pickup_post_indices(current_day)
-	if post_index in pickup_indices and not candidate_tokens.is_empty():
-		prepared_tokens = candidate_tokens.duplicate(true)
-	post["tokens"] = prepared_tokens
-	post["pickup_available"] = not prepared_tokens.is_empty()
-	return post
+	return SocialFeedContentScript.post_for_index(post_index, _social_content_deps())
 
 
 func _social_author_id(post: Dictionary) -> String:
-	return str(post.get("id", post.get("handle", "unknown-author")))
+	return SocialFeedContentScript.author_id(post)
 
 
 func _social_author_display(author_id: String) -> String:
-	for post in SOCIAL_POST_CARDS:
-		if str(post.get("id", "")) == author_id:
-			return _locale.translate(str(post.get("handle", author_id)))
-	return author_id
+	return SocialFeedContentScript.author_display(author_id, _social_content_deps())
 
 
 func _social_pickable_units(text: String) -> Array[String]:
-	return _locale.pickable_units(text)
+	return SocialFeedContentScript.pickable_units(text, _social_content_deps())
 
 
 func _social_pickup_post_indices(day_number: int) -> Array[int]:
-	var indices: Array[int] = []
-	if SOCIAL_POST_CARDS.is_empty():
-		return indices
-	var pickup_post_count := mini(SOCIAL_POST_CARDS.size(), 2 + posmod(maxi(1, day_number) - 1, 4))
-	var start_index := posmod((maxi(1, day_number) - 1) * 5, SOCIAL_POST_CARDS.size())
-	for offset in pickup_post_count:
-		indices.append(posmod(start_index + offset * 5, SOCIAL_POST_CARDS.size()))
-	return indices
+	return SocialFeedContentScript.pickup_post_indices(day_number, _social_content_deps())
 
 
 func _is_pickable_social_character(character: String) -> bool:
@@ -3926,121 +3676,14 @@ func _apply_world_theme() -> void:
 			var mat := npc_body.material_override as StandardMaterial3D
 			mat.albedo_color = Color.WHITE if mat.albedo_texture != null else _theme_color("surface")
 			mat.emission = _theme_color("muted")
+
+
 func _apply_ui_theme(node: Node = null) -> void:
 	if node == null:
 		node = _ui_root
 	if node == null:
 		return
-	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
-		if node.has_meta("hud_action_label"):
-			(node as Label).add_theme_color_override("font_color", _theme_color("muted"))
-		elif node.has_meta("on_dark"):
-			(node as Label).add_theme_color_override("font_color", _theme_color("surface"))
-		else:
-			(node as Label).add_theme_color_override("font_color", _theme_color("ink"))
-	elif node is Button:
-		var button := node as Button
-		if button.has_meta("hud_icon"):
-			var empty := StyleBoxEmpty.new()
-			button.add_theme_stylebox_override("normal", empty)
-			button.add_theme_stylebox_override("hover", _style(Color(_theme_color("muted"), 0.18), Color(_theme_color("muted"), 0.20)))
-			button.add_theme_stylebox_override("pressed", _style(Color(_theme_color("muted"), 0.32), Color(_theme_color("muted"), 0.32)))
-		elif button.has_meta("phone_app_icon"):
-			button.add_theme_color_override("font_color", _theme_color("surface"))
-			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("ink"))
-			button.add_theme_font_size_override("font_size", _ui_font_size(18))
-			button.add_theme_stylebox_override("normal", _launcher_app_style(_theme_color("ink"), _theme_color("muted")))
-			button.add_theme_stylebox_override("hover", _launcher_app_style(_theme_color("muted"), _theme_color("ink")))
-			button.add_theme_stylebox_override("pressed", _launcher_app_style(_theme_color("bg"), _theme_color("ink")))
-		elif button.has_meta("dark_window_close_button"):
-			button.add_theme_color_override("font_color", _theme_color("surface"))
-			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("ink"))
-			button.add_theme_stylebox_override("normal", _window_close_style(Color(_theme_color("ink"), 0.0), _theme_color("muted")))
-			button.add_theme_stylebox_override("hover", _window_close_style(_theme_color("muted"), _theme_color("surface")))
-			button.add_theme_stylebox_override("pressed", _window_close_style(_theme_color("surface"), _theme_color("surface")))
-		elif button.has_meta("window_close_button"):
-			button.add_theme_color_override("font_color", _theme_color("ink"))
-			button.add_theme_color_override("font_hover_color", _theme_color("surface"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("surface"))
-			button.add_theme_stylebox_override("normal", _window_close_style(Color(_theme_color("surface"), 0.0), _theme_color("accent")))
-			button.add_theme_stylebox_override("hover", _window_close_style(_theme_color("ink"), _theme_color("ink")))
-			button.add_theme_stylebox_override("pressed", _window_close_style(_theme_color("accent"), _theme_color("ink")))
-		elif button.has_meta("notebook_browser_tab"):
-			var tab_active := bool(button.get_meta("active_tab", false))
-			button.add_theme_color_override("font_color", _theme_color("surface") if tab_active else _theme_color("ink"))
-			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
-			button.add_theme_stylebox_override("normal", _style(_theme_color("ink") if tab_active else Color(_theme_color("surface"), 0.72), _theme_color("accent")))
-			button.add_theme_stylebox_override("hover", _style(_theme_color("muted"), _theme_color("ink")))
-			button.add_theme_stylebox_override("pressed", _style(_theme_color("accent"), _theme_color("ink")))
-		elif button.has_meta("radial_center_button"):
-			button.add_theme_color_override("font_color", _theme_color("surface"))
-			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
-			button.add_theme_stylebox_override("normal", _circle_style(Color(_theme_color("ink"), 0.92), _theme_color("muted")))
-			button.add_theme_stylebox_override("hover", _circle_style(_theme_color("muted"), _theme_color("ink")))
-			button.add_theme_stylebox_override("pressed", _circle_style(_theme_color("accent"), _theme_color("surface")))
-		elif button.has_meta("meme_bank_tab") and bool(button.get_meta("meme_bank_peek", false)):
-			button.add_theme_color_override("font_color", _theme_color("muted"))
-			button.add_theme_color_override("font_hover_color", _theme_color("surface"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("surface"))
-			button.add_theme_stylebox_override("normal", _file_corner_style(Color(_theme_color("ink"), 0.72), Color(_theme_color("muted"), 0.28)))
-			button.add_theme_stylebox_override("hover", _file_corner_style(Color(_theme_color("ink"), 0.88), Color(_theme_color("muted"), 0.46)))
-			button.add_theme_stylebox_override("pressed", _file_corner_style(_theme_color("ink"), _theme_color("muted")))
-		elif button.has_meta("meme_bank_tab") and not _meme_bank_open:
-			button.add_theme_color_override("font_color", _theme_color("muted"))
-			button.add_theme_color_override("font_hover_color", _theme_color("surface"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("surface"))
-			button.add_theme_stylebox_override("normal", _style(Color(_theme_color("ink"), 0.78), Color(_theme_color("muted"), 0.24)))
-			button.add_theme_stylebox_override("hover", _style(Color(_theme_color("ink"), 0.92), Color(_theme_color("muted"), 0.42)))
-			button.add_theme_stylebox_override("pressed", _style(_theme_color("ink"), _theme_color("muted")))
-		elif button.has_meta("flat_phone_button"):
-			var flat := StyleBoxEmpty.new()
-			button.add_theme_color_override("font_color", _theme_color("ink"))
-			button.add_theme_color_override("font_hover_color", _theme_color("accent"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("ink"))
-			button.add_theme_stylebox_override("normal", flat)
-			button.add_theme_stylebox_override("hover", _flat_button_state_style(Color(_theme_color("muted"), 0.24)))
-			button.add_theme_stylebox_override("pressed", _flat_button_state_style(Color(_theme_color("muted"), 0.40)))
-		else:
-			button.add_theme_color_override("font_color", _theme_color("ink"))
-			button.add_theme_color_override("font_hover_color", _theme_color("ink"))
-			button.add_theme_color_override("font_pressed_color", _theme_color("surface"))
-			button.add_theme_color_override("font_disabled_color", _theme_color("accent").lightened(0.22))
-			button.add_theme_stylebox_override("normal", _style(_theme_color("surface"), _theme_color("accent")))
-			button.add_theme_stylebox_override("hover", _style(_theme_color("muted"), _theme_color("ink")))
-			button.add_theme_stylebox_override("pressed", _style(_theme_color("accent"), _theme_color("ink")))
-			button.add_theme_stylebox_override("disabled", _style(_theme_color("surface").darkened(0.10), _theme_color("accent").lightened(0.20)))
-	elif node is PanelContainer:
-		if node.has_meta("phone_shell"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _phone_shell_style())
-		elif node.has_meta("movie_subtitle"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-		elif node.has_meta("portrait_panel"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _reward_card_style(_theme_color("ink"), _theme_color("muted")))
-		elif node.has_meta("phone_surface"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _phone_surface_style())
-		elif node.has_meta("poster_frame"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _poster_frame_style())
-		elif node.has_meta("meme_bank_popup") and not _meme_bank_open:
-			(node as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-		elif node.has_meta("dark_rail"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _style(_theme_color("ink"), Color(_theme_color("muted"), 0.22)))
-		elif node.has_meta("tooltip_panel"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _style(_theme_color("muted"), _theme_color("accent")))
-		elif node.has_meta("soft_panel"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-		else:
-			var panel := node as PanelContainer
-			if not panel.has_theme_stylebox_override("panel"):
-				panel.add_theme_stylebox_override("panel", _style(_theme_color("surface"), _theme_color("accent")))
-	elif node is LineEdit:
-		var edit := node as LineEdit
-		edit.add_theme_color_override("font_color", _theme_color("ink"))
-		edit.add_theme_color_override("font_placeholder_color", _theme_color("accent"))
-		edit.add_theme_stylebox_override("normal", _style(_theme_color("surface"), _theme_color("accent")))
-	for child in node.get_children():
-		_apply_ui_theme(child)
+	_ui_theme_helper.apply_ui_theme(node, _pollution_stage_for_theme(), _meme_bank_open)
 
 
 func _build_action_spend_overlay() -> void:
@@ -4077,8 +3720,8 @@ func _sync_action_spend_refs() -> void:
 func _play_action_spend_animation(before_actions: int, after_actions: int) -> void:
 	if _hud_actions_label_ref() == null or _action_spend_panel == null:
 		return
-	if _action_tick_audio != null and _action_tick_audio.stream != null and _action_tick_audio.is_inside_tree():
-		_action_tick_audio.play()
+	if _audio_controller != null and _audio_controller.action_tick_audio != null and _audio_controller.action_tick_audio.stream != null and _audio_controller.action_tick_audio.is_inside_tree():
+		_audio_controller.action_tick_audio.play()
 	_action_spend_should_settle = game.needs_day_settlement
 	_set_input_locked(true)
 	_action_spend_panel.play(before_actions, after_actions)
@@ -4232,8 +3875,8 @@ func _play_pollution_flashback() -> void:
 	_flashback_panel.build_phases()
 	var frozen_texture := _capture_frozen_frame_texture()
 	_duck_ambience_for_flashback()
-	if _flashback_audio != null and _flashback_audio.stream != null and _flashback_audio.is_inside_tree():
-		_flashback_audio.play()
+	if _audio_controller != null and _audio_controller.flashback_audio != null and _audio_controller.flashback_audio.stream != null and _audio_controller.flashback_audio.is_inside_tree():
+		_audio_controller.flashback_audio.play()
 	_flashback_panel.play(frozen_texture)
 
 
@@ -4253,8 +3896,8 @@ func _capture_frozen_frame_texture() -> Texture2D:
 func _finish_pollution_flashback() -> void:
 	if _flashback_panel != null:
 		_flashback_panel.stop()
-	if _flashback_audio != null:
-		_flashback_audio.stop()
+	if _audio_controller != null and _audio_controller.flashback_audio != null:
+		_audio_controller.flashback_audio.stop()
 	_set_input_locked(false)
 	var should_settle := game.consume_pollution_flashback()
 	if should_settle and _settle_day_and_present_rewards():
@@ -4508,39 +4151,11 @@ func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vect
 ## 多邻国 U1 质感:圆角约为高度 1/4、浅底细描边、底部厚边模拟浮起阴影;
 ## 按下时下沉 2px(上边距+2/下边距-2,底厚边收薄);ghost 为凹陷灰。
 func _composer_tile_style(kind: String) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 10.0
-	style.content_margin_right = 10.0
-	style.content_margin_top = 5.0
-	style.content_margin_bottom = 7.0
-	match kind:
-		"pressed":
-			style.bg_color = _theme_color("surface").darkened(0.05)
-			style.border_color = Color(_theme_color("accent"), 0.9)
-			style.set_border_width_all(1)
-			style.content_margin_top = 7.0
-			style.content_margin_bottom = 5.0
-		"ghost":
-			style.bg_color = Color(_theme_color("muted"), 0.30)
-			style.border_color = Color(_theme_color("accent"), 0.22)
-			style.set_border_width_all(1)
-		_:
-			style.bg_color = _theme_color("surface")
-			style.border_color = Color(_theme_color("accent"), 0.55)
-			style.set_border_width_all(1)
-			style.border_width_bottom = 3
-	return style
+	return _ui_theme_helper.composer_tile_style(kind, _pollution_stage_for_theme())
 
 
 func _apply_composer_tile_theme(tile: Button, is_ghost: bool) -> void:
-	if is_ghost:
-		tile.add_theme_stylebox_override("normal", _composer_tile_style("ghost"))
-		tile.add_theme_stylebox_override("disabled", _composer_tile_style("ghost"))
-		return
-	tile.add_theme_stylebox_override("normal", _composer_tile_style("normal"))
-	tile.add_theme_stylebox_override("hover", _composer_tile_style("normal"))
-	tile.add_theme_stylebox_override("pressed", _composer_tile_style("pressed"))
+	_ui_theme_helper.apply_composer_tile_theme(tile, is_ghost, _pollution_stage_for_theme())
 
 func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
@@ -4720,7 +4335,7 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
 	if bool(pick_result.get("picked", false)):
 		log_text = "一个字进入了笔记本。"
-		_play_ui_sound(_pickup_press_audio)
+		_play_ui_sound(_audio_controller.pickup_press_audio if _audio_controller != null else null)
 		_ensure_notebook_window_home()
 		if _pickup_flight_layer != null:
 			_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
@@ -4740,8 +4355,8 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
-	_play_ui_sound(_pickup_land_audio)
-	_play_ui_sound(_notebook_hinge_audio)
+	_play_ui_sound(_audio_controller.pickup_land_audio if _audio_controller != null else null)
+	_play_ui_sound(_audio_controller.notebook_hinge_audio if _audio_controller != null else null)
 	_squash_notebook_window()
 
 
@@ -5075,194 +4690,83 @@ func _corrupt(text: String) -> String:
 
 
 func _panel() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(_theme_color("surface"), _theme_color("accent")))
-	return panel
+	return _ui_theme_helper.panel(_pollution_stage_for_theme())
 
 
 func _wrap(node: Control) -> PanelContainer:
-	var panel := _panel()
-	panel.add_child(node)
-	return panel
+	return _ui_theme_helper.wrap(node, _pollution_stage_for_theme())
 
-
-## ============ 点阵字体主题:全局统一字形,字号吸附到点阵网格 ============
 
 func _ensure_ui_font_theme() -> Theme:
-	if _ui_theme != null:
-		return _ui_theme
-	_ui_theme = PixelFontThemeScript.build(UI_FONT_PATH, UI_FONT_GRID)
-	return _ui_theme
+	return _ui_theme_helper.ensure_ui_font_theme()
 
 
-## 把任意字号吸附到点阵网格(9 的整数倍),保证像素笔画等宽。
 func _ui_font_size(requested_size: int) -> int:
-	return PixelFontThemeScript.snap_size(requested_size, UI_FONT_GRID, UI_FONT_MIN_SIZE, UI_FONT_MAX_SIZE)
+	return _ui_theme_helper.ui_font_size(requested_size)
 
 
 func _apply_ui_font_theme(target: Control) -> void:
-	PixelFontThemeScript.apply(target, _ensure_ui_font_theme())
+	_ui_theme_helper.apply_ui_font_theme(target)
 
 
 func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	_set_localized_property(label, "text")
-	label.add_theme_font_size_override("font_size", _ui_font_size(size))
-	label.add_theme_color_override("font_color", color)
-	return label
+	return _ui_theme_helper.label(text, size, color)
 
 
 func _refresh_localized_ui() -> void:
-	if _ui_root == null or not is_instance_valid(_ui_root):
-		return
-	_localize_control_tree(_ui_root)
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 
 
 func _localize_control_tree(node: Node) -> void:
-	if node is Control and not bool(node.get_meta("skip_localization", false)):
-		var control := node as Control
-		if control is Label or control is Button:
-			_set_localized_property(control, "text")
-		if control is LineEdit:
-			_set_localized_property(control, "placeholder_text")
-		_set_localized_property(control, "tooltip_text")
-	for child in node.get_children():
-		_localize_control_tree(child)
+	_ui_theme_helper.localize_control_tree(node)
 
 
 func _set_localized_property(control: Control, property_name: String) -> void:
-	if control == null:
-		return
-	# 拾取单位与字瓦片属于语言素材,不参与界面翻译。
-	if control.has_meta("skip_localization"):
-		return
-	var current_text := str(control.get(property_name))
-	if current_text.is_empty():
-		return
-	var source_meta := "locale_source_%s" % property_name
-	var last_meta := "locale_last_%s" % property_name
-	var source_text := str(control.get_meta(source_meta, ""))
-	var last_text := str(control.get_meta(last_meta, ""))
-	if source_text.is_empty() or current_text != last_text:
-		source_text = current_text
-		control.set_meta(source_meta, source_text)
-	var localized_text := _locale.translate(source_text)
-	control.set(property_name, localized_text)
-	control.set_meta(last_meta, localized_text)
+	_ui_theme_helper.set_localized_property(control, property_name)
 
 
 func _style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	style.set_content_margin_all(10)
-	return style
+	return _ui_theme_helper.style(bg, border)
 
 
 func _soft_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(bg, 0.94)
-	style.border_color = Color(border, 0.24)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(16)
-	style.set_content_margin_all(16)
-	return style
+	return _ui_theme_helper.soft_style(bg, border)
 
 
 func _circle_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(60)
-	style.set_content_margin_all(12)
-	return style
+	return _ui_theme_helper.circle_style(bg, border)
 
 
 func _phone_shell_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("ink")
-	style.border_color = _theme_color("ink")
-	style.set_border_width_all(6)
-	style.set_corner_radius_all(24)
-	style.set_content_margin_all(6)
-	return style
+	return _ui_theme_helper.phone_shell_style(_pollution_stage_for_theme())
 
 
 func _phone_surface_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("surface")
-	style.border_color = _theme_color("surface")
-	style.set_border_width_all(0)
-	style.set_corner_radius_all(16)
-	style.set_content_margin_all(10)
-	return style
+	return _ui_theme_helper.phone_surface_style(_pollution_stage_for_theme())
 
 
 func _launcher_app_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(12)
-	return style
+	return _ui_theme_helper.launcher_app_style(bg, border)
 
 
 func _window_close_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
-	style.set_content_margin_all(4)
-	return style
+	return _ui_theme_helper.window_close_style(bg, border)
 
 
 func _reward_card_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(12)
-	return style
+	return _ui_theme_helper.reward_card_style(bg, border)
 
 
 func _poster_frame_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("muted")
-	style.border_color = Color(_theme_color("ink"), 0.65)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(0)
-	return style
+	return _ui_theme_helper.poster_frame_style(_pollution_stage_for_theme())
 
 
 func _flat_button_state_style(bg: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = Color(bg, 0.0)
-	style.set_border_width_all(0)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(4)
-	return style
+	return _ui_theme_helper.flat_button_state_style(bg)
 
 
 func _file_corner_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 18
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.set_content_margin_all(6)
-	return style
+	return _ui_theme_helper.file_corner_style(bg, border)
 
 
 func _clear(node: Node) -> void:
