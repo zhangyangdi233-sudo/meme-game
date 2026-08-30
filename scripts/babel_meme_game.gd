@@ -18,6 +18,7 @@ const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
+const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -381,8 +382,7 @@ var _phone_camera_connection_status_label: Label
 var _phone_camera_connection_detail_label: Label
 var _phone_camera_connection_retry_button: Button
 var _phone_camera_connection_continue_button: Button
-var _cinematic_top_bar: ColorRect
-var _cinematic_bottom_bar: ColorRect
+var _cinematic_bars: CinematicBars
 var _hud_panel: PanelContainer
 var _hud_reveal_zone: Control
 var _hud_reveal_indicator: ColorRect
@@ -2844,44 +2844,12 @@ func _build_vhs_overlay() -> void:
 
 
 func _build_cinematic_bars() -> void:
-	_cinematic_top_bar = ColorRect.new()
-	_cinematic_top_bar.name = "CinematicTopBar"
-	_cinematic_top_bar.color = Color("050705")
-	_cinematic_top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cinematic_top_bar.z_index = 8
-	_ui_root.add_child(_cinematic_top_bar)
-
-	_cinematic_bottom_bar = ColorRect.new()
-	_cinematic_bottom_bar.name = "CinematicBottomBar"
-	_cinematic_bottom_bar.color = Color("050705")
-	_cinematic_bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cinematic_bottom_bar.z_index = 8
-	_ui_root.add_child(_cinematic_bottom_bar)
-	_layout_cinematic_bars()
-
-
-func _layout_cinematic_bars() -> void:
-	if _cinematic_top_bar == null or _cinematic_bottom_bar == null:
-		return
-	var viewport_size := _viewport_size()
-	var bar_height := _cinematic_bar_height(viewport_size)
-	_cinematic_top_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_cinematic_top_bar.offset_left = 0.0
-	_cinematic_top_bar.offset_top = 0.0
-	_cinematic_top_bar.offset_right = 0.0
-	_cinematic_top_bar.offset_bottom = bar_height
-	_cinematic_bottom_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_cinematic_bottom_bar.offset_left = 0.0
-	_cinematic_bottom_bar.offset_top = -bar_height
-	_cinematic_bottom_bar.offset_right = 0.0
-	_cinematic_bottom_bar.offset_bottom = 0.0
-	_cinematic_top_bar.set_meta("target_aspect_ratio", CINEMATIC_ASPECT_RATIO)
-	_cinematic_bottom_bar.set_meta("target_aspect_ratio", CINEMATIC_ASPECT_RATIO)
-
-
-func _cinematic_bar_height(viewport_size: Vector2) -> float:
-	var picture_height := viewport_size.x / CINEMATIC_ASPECT_RATIO
-	return clampf((viewport_size.y - picture_height) * 0.5, 0.0, viewport_size.y * CINEMATIC_MAX_BAR_RATIO)
+	_cinematic_bars = CinematicBarsScript.new()
+	_cinematic_bars.name = "CinematicBars"
+	_ui_root.add_child(_cinematic_bars)
+	_cinematic_bars.bar_color = Color("050705")
+	_cinematic_bars.configure(CINEMATIC_ASPECT_RATIO, CINEMATIC_MAX_BAR_RATIO)
+	_cinematic_bars.relayout(_viewport_size())
 
 
 func _layout_hud_rail() -> void:
@@ -2889,7 +2857,9 @@ func _layout_hud_rail() -> void:
 		return
 	var viewport_size := _viewport_size()
 	var uses_cinematic_frame: bool = _game_started and game != null and game.view_state == "npc_up"
-	var frame_inset := _cinematic_bar_height(viewport_size) if uses_cinematic_frame else 0.0
+	var frame_inset := 0.0
+	if uses_cinematic_frame and _cinematic_bars != null:
+		frame_inset = _cinematic_bars.bar_height(viewport_size)
 	var top_limit := frame_inset + HUD_RAIL_FRAME_MARGIN
 	var bottom_limit := viewport_size.y - frame_inset - HUD_RAIL_FRAME_MARGIN
 	var available_height := maxf(1.0, bottom_limit - top_limit)
@@ -3882,7 +3852,8 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	_apply_reality_layout()
 	_apply_view_toggle_layout()
 	_layout_settings_window()
-	_layout_cinematic_bars()
+	if _cinematic_bars != null:
+		_cinematic_bars.relayout(_viewport_size())
 	_layout_hud_rail()
 
 
@@ -5338,10 +5309,8 @@ func _update_visibility() -> void:
 		_npc.visible = false
 	if _phone_rig != null:
 		_phone_rig.visible = false
-	if _cinematic_top_bar != null:
-		_cinematic_top_bar.visible = _game_started and not in_phone
-	if _cinematic_bottom_bar != null:
-		_cinematic_bottom_bar.visible = _game_started and not in_phone
+	if _cinematic_bars != null:
+		_cinematic_bars.set_bars_visible(_game_started and not in_phone)
 	_layout_hud_rail()
 
 

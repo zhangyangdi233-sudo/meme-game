@@ -65,7 +65,7 @@ func _run() -> void:
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
 		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
-		_assert_eq(float(top_bar.get_meta("target_aspect_ratio", 0.0)), 2.35, "cinematic bars should target the selected 2.35 aspect ratio")
+		_assert_true(is_equal_approx(game_root._cinematic_bars.bar_height(Vector2(2.35 * 400.0, 400.0)), 0.0), "cinematic bars should target the selected 2.35 aspect ratio")
 	if social_window != null and top_bar != null:
 		_assert_true(social_window.z_index > top_bar.z_index, "phone app windows should render above the cinematic bars")
 
