@@ -27,6 +27,7 @@ const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
+const RealityLanguageComposerPanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
@@ -431,11 +432,7 @@ var _meme_bank_selected_index := 0
 var _meme_bank_tween: Tween
 var _reality_conversation_panel
 var _reality_hover_choice_id := ""
-var _reality_language_frame: PanelContainer
-var _reality_language_slot_row: HBoxContainer
-var _reality_language_token_flow: HFlowContainer
-var _reality_language_preview: Label
-var _reality_language_confirm: Button
+var _reality_language_composer_panel
 var _selected_language_token_id := ""
 var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
@@ -1803,7 +1800,8 @@ func _build_ui() -> void:
 
 	_ensure_reality_conversation_panel()
 	_reality_conversation_panel.mount(_ui_root, _reality_conversation_mount_deps())
-	_build_reality_language_composer()
+	_ensure_reality_language_composer_panel()
+	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
 	_ensure_meme_bank_panel()
 	_meme_bank_panel.mount(_ui_root, _meme_bank_mount_deps())
@@ -1830,57 +1828,6 @@ func _build_ui() -> void:
 	_build_flashback_overlay()
 	_build_prologue_overlay()
 	_apply_responsive_layouts_if_needed(true)
-
-
-func _build_reality_language_composer() -> void:
-	_reality_language_frame = _panel()
-	_reality_language_frame.name = "RealityLanguagePuzzleFrame"
-	_reality_language_frame.set_meta("soft_panel", true)
-	_reality_language_frame.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_language_frame.offset_left = 300.0
-	_reality_language_frame.offset_top = -520.0
-	_reality_language_frame.offset_right = -240.0
-	_reality_language_frame.offset_bottom = -190.0
-	_reality_language_frame.z_index = 16
-	_reality_language_frame.visible = false
-	_ui_root.add_child(_reality_language_frame)
-
-	var composer_box := VBoxContainer.new()
-	composer_box.name = "RealityLanguagePuzzleContent"
-	composer_box.add_theme_constant_override("separation", 10)
-	_reality_language_frame.add_child(composer_box)
-
-	var heading := _label("把发布过的词重新说给医生", 20, _theme_color("ink"))
-	heading.name = "RealityLanguagePuzzleHeading"
-	composer_box.add_child(heading)
-	var hint := _label("同一个词到了这里会换一种说法。拖拽词块，或先点词块再点句槽。", 14, _theme_color("accent"))
-	hint.name = "RealityLanguagePuzzleHint"
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	composer_box.add_child(hint)
-
-	_reality_language_token_flow = HFlowContainer.new()
-	_reality_language_token_flow.name = "RealityLanguageTokenFlow"
-	_reality_language_token_flow.custom_minimum_size.y = 76.0
-	_reality_language_token_flow.add_theme_constant_override("h_separation", 8)
-	_reality_language_token_flow.add_theme_constant_override("v_separation", 8)
-	composer_box.add_child(_reality_language_token_flow)
-
-	_reality_language_slot_row = HBoxContainer.new()
-	_reality_language_slot_row.name = "RealityLanguageSlots"
-	_reality_language_slot_row.add_theme_constant_override("separation", 8)
-	composer_box.add_child(_reality_language_slot_row)
-
-	_reality_language_preview = _label("", 16, _theme_color("ink"))
-	_reality_language_preview.name = "RealityLanguagePreview"
-	_reality_language_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	composer_box.add_child(_reality_language_preview)
-
-	_reality_language_confirm = Button.new()
-	_reality_language_confirm.name = "RealityLanguageConfirm"
-	_reality_language_confirm.text = "对医生说出口"
-	_reality_language_confirm.custom_minimum_size.y = 54.0
-	_reality_language_confirm.pressed.connect(_on_confirm_doctor_sentence_pressed)
-	composer_box.add_child(_reality_language_confirm)
 
 
 func _build_playtest_assist_panel() -> void:
@@ -2648,6 +2595,37 @@ func _connect_reality_conversation_panel_signals() -> void:
 		_reality_conversation_panel.continue_pressed.connect(_on_reality_continue_pressed)
 
 
+func _ensure_reality_language_composer_panel() -> void:
+	if _reality_language_composer_panel != null and is_instance_valid(_reality_language_composer_panel):
+		return
+	_reality_language_composer_panel = RealityLanguageComposerPanelScript.new()
+	_reality_language_composer_panel.name = "RealityLanguageComposerPanel"
+	add_child(_reality_language_composer_panel)
+	_connect_reality_language_composer_panel_signals()
+
+
+func _reality_language_composer_mount_deps() -> Dictionary:
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"clear_children": _clear,
+	}
+
+
+func _connect_reality_language_composer_panel_signals() -> void:
+	if _reality_language_composer_panel == null:
+		return
+	if not _reality_language_composer_panel.token_pressed.is_connected(_on_language_token_pressed):
+		_reality_language_composer_panel.token_pressed.connect(_on_language_token_pressed)
+	if not _reality_language_composer_panel.token_dropped.is_connected(_on_language_token_dropped):
+		_reality_language_composer_panel.token_dropped.connect(_on_language_token_dropped)
+	if not _reality_language_composer_panel.slot_pressed.is_connected(_on_language_slot_pressed):
+		_reality_language_composer_panel.slot_pressed.connect(_on_language_slot_pressed)
+	if not _reality_language_composer_panel.confirm_pressed.is_connected(_on_confirm_doctor_sentence_pressed):
+		_reality_language_composer_panel.confirm_pressed.connect(_on_confirm_doctor_sentence_pressed)
+
+
 func _ensure_meme_bank_panel() -> void:
 	if _meme_bank_panel != null and is_instance_valid(_meme_bank_panel):
 		return
@@ -3342,62 +3320,23 @@ func _render_reality() -> void:
 
 
 func _render_reality_language_composer() -> void:
-	if _reality_language_frame == null or _reality_language_token_flow == null or _reality_language_slot_row == null:
+	if _reality_language_composer_panel == null:
 		return
-	_clear(_reality_language_token_flow)
-	_clear(_reality_language_slot_row)
 	var composing := _reality_interaction_active and game.conversation_phase == "composing" and game.conversation_mode == "lexeme"
-	_reality_language_frame.visible = composing
-	if not composing:
-		return
-
-	var options: Array = game.get_language_token_options("doctor")
-	if options.is_empty():
-		var empty_label := _label("还没有能带到医生面前的词。先在手机里发布一句完整的话。", 14, _theme_color("accent"))
-		empty_label.name = "RealityLanguageEmptyState"
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_reality_language_token_flow.add_child(empty_label)
-	for option_value in options:
-		var option: Dictionary = option_value as Dictionary
-		var token_id := str(option.get("id", ""))
-		var button = DraggableButtonScript.new()
-		button.name = "RealityLanguageToken_%s" % token_id
-		button.text = str(option.get("display_text", option.get("text", "")))
-		button.tooltip_text = "原词：%s\n手机里：%s" % [
-			str(option.get("text", "")),
-			str(option.get("phone_surface", option.get("text", ""))),
-		]
-		button.custom_minimum_size = Vector2(128.0, 48.0)
-		button.clip_text = true
-		button.set_drag_payload("language_token", token_id, button.text)
-		button.pressed.connect(_on_language_token_pressed.bind(token_id))
-		_reality_language_token_flow.add_child(button)
-
-	for slot_value in game.get_craft_slots():
-		var slot: Dictionary = slot_value as Dictionary
-		var slot_id := str(slot.get("id", ""))
-		var drop_slot = DropButtonScript.new()
-		drop_slot.name = "RealityLanguageSlot%s" % slot_id.capitalize()
-		drop_slot.text = "%s\n%s" % [
-			str(slot.get("label", slot_id)),
-			_language_slot_text(slot_id, str(slot.get("placeholder", "等待词语")), "doctor"),
-		]
-		drop_slot.custom_minimum_size = Vector2(150.0, 62.0)
-		drop_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		drop_slot.configure_drop_target("language_token", slot_id)
-		drop_slot.dropped.connect(_on_language_token_dropped)
-		drop_slot.pressed.connect(_on_language_slot_pressed.bind(slot_id))
-		_reality_language_slot_row.add_child(drop_slot)
-
-	var preview: Dictionary = game.get_language_sentence_preview("doctor")
-	if bool(preview.get("valid", false)):
-		_reality_language_preview.text = "原句：%s\n医生语言：%s" % [
-			str(preview.get("clean_sentence", "")),
-			str(preview.get("world_sentence", "")),
-		]
-	else:
-		_reality_language_preview.text = "句子尚未完整。需要对象、动作和去向。"
-	_reality_language_confirm.disabled = not bool(preview.get("valid", false)) or not game.can_spend_action()
+	var slots: Array = []
+	if composing:
+		for slot_value in game.get_craft_slots():
+			var slot: Dictionary = (slot_value as Dictionary).duplicate()
+			var slot_id := str(slot.get("id", ""))
+			slot["filled_text"] = _language_slot_text(slot_id, str(slot.get("placeholder", "等待词语")), "doctor")
+			slots.append(slot)
+	_reality_language_composer_panel.render({
+		"composing": composing,
+		"token_options": game.get_language_token_options("doctor") if composing else [],
+		"slots": slots,
+		"preview": game.get_language_sentence_preview("doctor") if composing else {},
+		"can_spend_action": game.can_spend_action(),
+	})
 
 
 func _typed_reality_bbcode() -> String:
@@ -3557,8 +3496,12 @@ func _update_visibility() -> void:
 	var interaction_visible := (not in_phone) and _reality_interaction_active
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.update_visibility(interaction_visible, str(game.conversation_phase), _reality_hover_choice_id)
-	if _reality_language_frame != null:
-		_reality_language_frame.visible = interaction_visible and game.conversation_phase == "composing" and game.conversation_mode == "lexeme"
+	if _reality_language_composer_panel != null:
+		_reality_language_composer_panel.update_visibility(
+			interaction_visible,
+			str(game.conversation_phase),
+			str(game.conversation_mode)
+		)
 	if _playtest_assist_panel != null:
 		# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 		# 本面板只在测试辅助开启、或(教程未完成且玩偶窗缺席)时出现。
