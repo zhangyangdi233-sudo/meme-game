@@ -26,6 +26,7 @@ const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
+const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -398,6 +399,7 @@ var _social_feed_panel
 var _phone_launcher_panel
 var _meme_bank_panel
 var _notebook_app_panel
+var _babel_app_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: Control
@@ -1729,6 +1731,7 @@ func _build_ui() -> void:
 		_app_titles[app_id] = _phone_launcher_panel.get_app_title(app_id)
 		_app_bodies[app_id] = _phone_launcher_panel.get_app_body(app_id)
 	_ensure_notebook_app_panel()
+	_ensure_babel_app_panel()
 
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
@@ -2699,6 +2702,30 @@ func _connect_meme_bank_panel_signals() -> void:
 		panel.selection_changed.connect(_on_meme_ring_selection_changed)
 
 
+func _ensure_babel_app_panel() -> void:
+	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
+		return
+	_babel_app_panel = BabelAppPanelScript.new()
+	_babel_app_panel.name = "BabelAppPanel"
+	add_child(_babel_app_panel)
+	_babel_app_panel.configure(_babel_mount_deps())
+
+
+func _babel_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"clear_children": _clear,
+		"tower_floor": func() -> int: return game.tower_floor if game != null else 1,
+		"money": func() -> int: return game.money if game != null else 0,
+		"pollution": func() -> int: return game.pollution if game != null else 0,
+		"event_log": func() -> Array:
+			return game.event_log if game != null else [],
+		"level_display_name": func(floor_number: int) -> String:
+			return _locale.level_display_name(floor_number),
+	}
+
+
 func _ensure_notebook_app_panel() -> void:
 	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
 		return
@@ -3164,23 +3191,9 @@ func _render_social_app() -> void:
 
 
 func _render_babel_app() -> void:
-	_clear(_app_body)
-	var displayed_floor := clampi(game.tower_floor, 1, 4)
-	var floor_heading := _locale.level_display_name(displayed_floor)
-	var heading := _label(floor_heading, 24, _theme_color("ink"))
-	heading.name = "BabelFloorHeading"
-	_app_body.add_child(heading)
-	var floor_card: Dictionary = LanguageCorruptionContentScript.get_floor_card_display(displayed_floor)
-	var floor_field_names := {"危险": "Danger", "提示": "Hint"}
-	for field_name in ["危险", "提示"]:
-		var card_line := _label("%s：%s" % [field_name, str(floor_card.get(field_name, ""))], 16, _theme_color("ink"))
-		card_line.name = "BabelFloor%sLabel" % floor_field_names[field_name]
-		card_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_app_body.add_child(card_line)
-	_app_body.add_child(_label("资金 %d  /  通过发布完整表达获得" % game.money, 16, _theme_color("accent")))
-	_app_body.add_child(_label("污染 %d%%  /  发布与现实表达会推进污染" % game.pollution, 16, _theme_color("accent")))
-	for item in game.event_log:
-		_app_body.add_child(_label(str(item), 15, _theme_color("accent")))
+	if _babel_app_panel == null:
+		return
+	_babel_app_panel.render(_app_body)
 
 
 func _social_visible_post_indices() -> Array[int]:
