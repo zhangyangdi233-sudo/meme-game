@@ -1,6 +1,8 @@
 class_name MemeGameState
 extends RefCounted
 
+signal social_engagement_changed(snapshot: Dictionary)
+
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
@@ -622,6 +624,18 @@ func can_spend_action() -> bool:
 	return actions_remaining > 0
 
 
+func get_social_engagement_snapshot() -> Dictionary:
+	return {
+		"followed_handles": social_followed_handles.duplicate(),
+		"liked_post_ids": social_liked_post_ids.duplicate(),
+	}
+
+
+func replace_social_followed_handles(handles: Array[String]) -> void:
+	social_followed_handles = handles.duplicate()
+	_emit_social_engagement_changed("bulk_replace", "", false)
+
+
 func is_social_following(handle: String) -> bool:
 	return handle in social_followed_handles
 
@@ -632,8 +646,10 @@ func toggle_social_follow(handle: String) -> bool:
 		return false
 	if normalized in social_followed_handles:
 		social_followed_handles.erase(normalized)
+		_emit_social_engagement_changed("follow", normalized, false)
 		return false
 	social_followed_handles.append(normalized)
+	_emit_social_engagement_changed("follow", normalized, true)
 	return true
 
 
@@ -647,9 +663,21 @@ func toggle_social_like(post_id: String) -> bool:
 		return false
 	if normalized in social_liked_post_ids:
 		social_liked_post_ids.erase(normalized)
+		_emit_social_engagement_changed("like", normalized, false)
 		return false
 	social_liked_post_ids.append(normalized)
+	_emit_social_engagement_changed("like", normalized, true)
 	return true
+
+
+func _emit_social_engagement_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_social_engagement_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	social_engagement_changed.emit(snapshot)
 
 
 func check_pollution_flashback(previous_pollution: int) -> bool:

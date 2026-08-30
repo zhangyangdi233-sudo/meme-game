@@ -665,6 +665,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_second_layer_texture = null
 	game = session_state
 	_migrate_social_author_ids()
+	_connect_game_state_signals()
 	selected_token_id = ""
 	selected_meme_id = ""
 	_meme_bank_open = false
@@ -822,7 +823,34 @@ func _migrate_social_author_ids() -> void:
 				break
 		if stable_id not in migrated:
 			migrated.append(stable_id)
-	game.social_followed_handles = migrated
+	game.replace_social_followed_handles(migrated)
+
+
+func _connect_game_state_signals() -> void:
+	if game == null:
+		return
+	if not game.social_engagement_changed.is_connected(_on_social_engagement_changed):
+		game.social_engagement_changed.connect(_on_social_engagement_changed)
+
+
+func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
+func _social_engagement_snapshot() -> Dictionary:
+	if game == null:
+		return {"followed_handles": [], "liked_post_ids": []}
+	return game.get_social_engagement_snapshot()
+
+
+func _is_social_following(author_id: String) -> bool:
+	return author_id in (_social_engagement_snapshot().get("followed_handles", []) as Array)
+
+
+func _is_social_post_liked(post_id: String) -> bool:
+	return post_id in (_social_engagement_snapshot().get("liked_post_ids", []) as Array)
 
 
 func set_view_state(value: String) -> void:
@@ -2554,7 +2582,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"poster_sheet_count": SOCIAL_POSTER_COUNT,
 		"visible_post_indices": _social_visible_post_indices,
 		"post_for_index": _social_post_for_index,
-		"is_following": func(author_id: String) -> bool: return game != null and game.is_social_following(author_id),
+		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
 		"like_text": _social_like_text,
 		"caption_text": _social_caption,
 		"corrupt_text": _corrupt,
@@ -3182,14 +3210,14 @@ func _social_visible_post_indices() -> Array[int]:
 	for post_index in SOCIAL_POST_CARDS.size():
 		if _social_channel == "following":
 			var post := _social_post_for_index(post_index)
-			if not game.is_social_following(_social_author_id(post)):
+			if not _is_social_following(_social_author_id(post)):
 				continue
 		result.append(post_index)
 	return result
 
 
 func _social_like_text(post: Dictionary, post_index: int) -> String:
-	var liked := game.is_social_post_liked(str(post.get("id", "")))
+	var liked := _is_social_post_liked(str(post.get("id", "")))
 	var stable_index := int(post.get("card_index", post_index))
 	var count := 64 + (stable_index * 31) % 120 + (1 if liked else 0)
 	return "%s %d" % ["♥" if liked else "♡", count]
@@ -3250,7 +3278,6 @@ func _on_social_follow_pressed(author_id: String) -> void:
 	var followed := game.toggle_social_follow(author_id)
 	var display_handle := _social_author_display(author_id)
 	log_text = "已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle
-	_render()
 
 
 func _on_social_like_pressed(post_id: String) -> void:
@@ -3258,7 +3285,6 @@ func _on_social_like_pressed(post_id: String) -> void:
 		return
 	var liked := game.toggle_social_like(post_id)
 	log_text = "已保存这条信号。" if liked else "已取消保存。"
-	_render()
 
 
 func _open_social_post(post_index: int) -> void:

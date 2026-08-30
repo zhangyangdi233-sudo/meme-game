@@ -4,6 +4,8 @@ const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd
 
 var _failures: Array[String] = []
 var _state_script: Script = null
+var _engagement_signal_count := 0
+var _last_engagement_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -24,6 +26,7 @@ func _run() -> void:
 		return
 	test_navigation_is_free_and_five_actions_mark_day_end()
 	test_social_follow_and_like_toggles_are_free_and_persistent()
+	test_social_engagement_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -63,6 +66,44 @@ func test_social_follow_and_like_toggles_are_free_and_persistent() -> void:
 	game.settle_day_if_needed()
 	_assert_true(game.is_social_following("塔下夜巡"), "follow state should survive day settlement")
 	_assert_true(game.is_social_post_liked("missing_window"), "like state should survive day settlement")
+
+
+func test_social_engagement_snapshot_and_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_engagement_signal_count = 0
+	_last_engagement_snapshot = {}
+	game.social_engagement_changed.connect(_capture_social_engagement)
+	_assert_true(game.toggle_social_follow("author-a"), "follow should activate")
+	_assert_eq(_engagement_signal_count, 1, "follow toggle should emit once")
+	_assert_true("author-a" in _last_engagement_snapshot.get("followed_handles", []), "signal snapshot should list followed handle")
+	var follow_change: Dictionary = _last_engagement_snapshot.get("change", {})
+	_assert_eq(str(follow_change.get("kind", "")), "follow", "change kind should be follow")
+	_assert_true(bool(follow_change.get("active", false)), "follow should be active in change metadata")
+
+	_assert_true(game.toggle_social_like("post-1"), "like should activate")
+	_assert_eq(_engagement_signal_count, 2, "like toggle should emit again")
+	var like_change: Dictionary = _last_engagement_snapshot.get("change", {})
+	_assert_eq(str(like_change.get("kind", "")), "like", "change kind should be like")
+	_assert_true("post-1" in _last_engagement_snapshot.get("liked_post_ids", []), "signal snapshot should list liked post")
+
+	var snapshot: Dictionary = game.get_social_engagement_snapshot()
+	_assert_true("author-a" in snapshot.get("followed_handles", []), "snapshot should include followed handle")
+	_assert_true("post-1" in snapshot.get("liked_post_ids", []), "snapshot should include liked post")
+	var followed_copy: Array = snapshot.get("followed_handles", [])
+	followed_copy.append("alias-test")
+	_assert_true("alias-test" not in game.social_followed_handles, "snapshot arrays must be copies")
+
+	var migrated: Array[String] = ["author-b"]
+	game.replace_social_followed_handles(migrated)
+	_assert_eq(_engagement_signal_count, 3, "bulk replace should emit")
+	_assert_true(game.is_social_following("author-b"), "bulk replace should update follow state")
+	_assert_true(not game.is_social_following("author-a"), "bulk replace should drop prior follows")
+
+
+func _capture_social_engagement(snapshot: Dictionary) -> void:
+	_engagement_signal_count += 1
+	_last_engagement_snapshot = snapshot
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:
