@@ -42,6 +42,7 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Adaptive audio mix | `scripts/integrations/game_audio_controller.gd` | Score players, floor phone music, flashback ducking, cover-watcher stinger |
 | Social feed content | `scripts/game/social_feed_content.gd` | Post/caption/poster pure helpers consumed by `social_feed_panel` mount deps |
 | UI theme factories | `scripts/ui/game_ui_theme.gd` | Palette, pixel-font theme, panel/style factories, control-tree localization |
+| Narrative overlays | `scripts/game/narrative_overlay_director.gd` | Day-transition tween, action-spend overlay glue, flashback start/finish and input-lock coordination; panels stay extracted |
 
 ---
 
