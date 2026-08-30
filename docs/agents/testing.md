@@ -34,7 +34,7 @@ $env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
 
 ## Modes
 
-**Fast** — skips GDScript tests that load `scenes/babel_meme_game.tscn` (~22 files). Use after small module-only changes.
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (18 files after the harness split). Use after small module-only changes.
 
 ```powershell
 .\tools\run_tests.ps1 -Fast
@@ -72,15 +72,60 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (46 tests)
+## What runs (48 tests)
 
-### GDScript (44)
+### GDScript (46)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
-**Loads main scene** (`--fast` skips these): `test_main_scene`, `test_settings_exit_safety`, `test_localization`, `test_social_feed_layout`, `test_sentence_composer`, `test_pickup_char_flow`, `test_save_progress`, `test_day_transition`, `test_hud_drawer`, `test_hand_xray`, `test_flashback_sequence`, `test_reality_world`, `test_responsive_layout`, `test_audio_runtime`, `test_language_corruption_ui`, `test_simplified_language_core`, `test_doll_ui_flow`, and others that `grep` for `babel_meme_game.tscn`.
+#### Module-only harness convention
 
-**Module-only** (always run, even in `--fast`): `test_framework_seam`, `test_pollution_stage`, `test_meme_game_state`, `test_rule_engine`, `test_language_bridge`, `test_cinematic_bars`, `test_settings_history_panel`, `test_drag_controls`, etc.
+Prefer **state + harness** when the behavior lives in `MemeGameState`, `PollutionStage`, extracted UI modules (`GameUiTheme`, `settings_history_panel`), or narrative content scripts — without needing the full adapter tree.
+
+Shared helpers live in `tests/harness/minimal_game_harness.gd`:
+
+- `new_state()` — `MemeGameState.new()` + `new_run()`
+- `find_node_by_name`, `collect_control_text` — Control-tree probes when a tiny scene is still needed
+- `craft_token(...)` — notebook / pickup test token dictionaries
+
+```gdscript
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
+func _run() -> void:
+    var game := Harness.new_state()
+    # assert on game.* directly
+```
+
+When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` (fast) and `test_<area>_scene.gd` or `test_<area>_ui.gd` (skipped in `--fast`).
+
+#### Classification (`--fast` skips main-scene loaders)
+
+| File | Tier | Notes |
+|---|---|---|
+| `test_meme_game_state` | state | `RefCounted` state only |
+| `test_pollution_stage` | state | `PollutionStage` rules |
+| `test_language_corruption_state` | state | hidden route, history, floor transitions |
+| `test_doll_system` | state | doll encounters, save migration, notebook craft |
+| `test_playthrough_flow` | state | five-action phone → doctor day |
+| `test_simplified_language_core` | state | metrics, publish preview, hidden floor |
+| `test_player_echo_quote` | state | echo quote stages (deterministic) |
+| `test_flashback_sequence` | module | director timeline + determinism |
+| `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
+| `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, … | module | no main scene |
+| `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
+| `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
+| `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
+| `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement |
+| `test_main_scene` | **adapter** | integration smoke |
+| `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
+| `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
+| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
+| `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
+| `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |
+| `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing, polluted menu |
+| `test_doll_ui_flow` | **adapter** | 3D doll interaction (craft → `test_doll_system`) |
+
+Re-count skipped files: `grep -l 'load("res://scenes/babel_meme_game.tscn")' tests/test_*.gd`
 
 ### Python (2)
 
@@ -94,7 +139,8 @@ Both should pass on Windows when Python 3 is available.
 | Change type | Minimum |
 |---|---|
 | `framework/**` only | `-Fast` (must include `test_framework_seam`) |
-| New `scripts/ui/*_panel.gd` | `-Filter` matching that area + main-scene tests if wired |
+| `meme_game_state.gd`, pollution, doll flows | `-Fast` (`test_meme_game_state`, `test_pollution_stage`, `test_doll_system`) |
+| New `scripts/ui/*_panel.gd` | `-Filter` matching that area + scene tests if wired |
 | `babel_meme_game.gd` adapter / node names | Full suite |
 | Before push | Full suite |
 
@@ -110,4 +156,5 @@ There is **no CI** and **no git hook**; tests run only when you or an agent invo
 
 - Prefer `tools\run_tests.bat` or `.\tools\run_tests.ps1` in this repo.
 - Do not assume macOS-only Godot paths in handoff prompts.
+- New state-level coverage: use `minimal_game_harness.gd`; add `*_scene.gd` / `*_ui.gd` only when the adapter tree is required.
 - If Godot is not installed in the agent environment, report which `-Filter` the human should run locally.
