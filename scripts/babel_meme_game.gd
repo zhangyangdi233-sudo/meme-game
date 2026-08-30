@@ -4,7 +4,6 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
-const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
 const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
@@ -37,6 +36,7 @@ const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd
 const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_panel.gd")
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
+const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -93,13 +93,9 @@ const COVER_WATCHER_STINGER_PATH := "res://assets/generated/audio/cover_watcher_
 const SOCIAL_POSTER_COLUMNS := 4
 const SOCIAL_POSTER_ROWS := 3
 const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
-const REALITY_MOVE_SPEED := 3.3
-const REALITY_SPRINT_MULTIPLIER := 1.85
-const REALITY_ACCELERATION := 14.0
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
-const REALITY_INTERACTION_DISTANCE := 2.25
 # 跟随玩偶:小体量 + 右后下方偏移,保证不遮挡前方视野与准心。
 const DOLL_COMPANION_PIXEL_SIZE := 0.0016
 const DOLL_COMPANION_OFFSET := Vector3(0.72, 0.95, 0.55)
@@ -113,8 +109,6 @@ const UI_FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const UI_FONT_GRID := 9
 const UI_FONT_MIN_SIZE := 9
 const UI_FONT_MAX_SIZE := 45
-const REALITY_FALL_RECOVERY_Y := -3.0
-const REALITY_SAFE_INSET := 1.2
 const CINEMATIC_ASPECT_RATIO := 2.35
 const CINEMATIC_MAX_BAR_RATIO := 0.12
 const HUD_RAIL_WIDTH := 158.0
@@ -357,19 +351,53 @@ var _camera: Camera3D
 var _road: Node3D
 var _phone_rig: Node3D
 var _npc: Node3D
-var _reality_player: CharacterBody3D
-var _reality_floor
-var _reality_built_floor := 0
-var _reality_built_day := 0
-var _reality_yaw := 0.0
-var _reality_pitch := 0.0
-var _reality_last_safe_position := Vector3.ZERO
+var _reality_scene_adapter
 var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
-var _nearby_reality_actor: Area3D
-var _nearby_reality_item: Area3D
-var _active_reality_actor: Area3D
 var _reality_interaction_active := false
+
+var _reality_player: CharacterBody3D:
+	get:
+		return _reality_scene_adapter.player if _reality_scene_adapter != null else null
+
+var _reality_floor:
+	get:
+		return _reality_scene_adapter.floor if _reality_scene_adapter != null else null
+
+var _reality_yaw: float:
+	get:
+		return _reality_scene_adapter.yaw if _reality_scene_adapter != null else 0.0
+	set(value):
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.yaw = value
+
+var _reality_pitch: float:
+	get:
+		return _reality_scene_adapter.pitch if _reality_scene_adapter != null else 0.0
+	set(value):
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.pitch = value
+
+var _nearby_reality_actor: Area3D:
+	get:
+		return _reality_scene_adapter.nearby_actor if _reality_scene_adapter != null else null
+	set(value):
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.nearby_actor = value
+
+var _nearby_reality_item: Area3D:
+	get:
+		return _reality_scene_adapter.nearby_item if _reality_scene_adapter != null else null
+	set(value):
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.nearby_item = value
+
+var _active_reality_actor: Area3D:
+	get:
+		return _reality_scene_adapter.active_actor if _reality_scene_adapter != null else null
+	set(value):
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.active_actor = value
 var _canvas: CanvasLayer
 var _ui_root: Control
 var _texture_cache: Dictionary = {}
@@ -679,14 +707,9 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_ensure_window_manager()
 	_window_manager.clear()
 	_last_responsive_layout_size = Vector2.ZERO
-	_reality_built_floor = 0
-	_reality_built_day = 0
-	_reality_yaw = _reality_floor.start_yaw_degrees()
-	_reality_pitch = 0.0
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.reset_session_state()
 	_set_reality_mouse_look(false)
-	_nearby_reality_actor = null
-	_nearby_reality_item = null
-	_active_reality_actor = null
 	_reality_interaction_active = false
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
 	_build_world()
@@ -726,10 +749,11 @@ func show_main_menu() -> void:
 func _save_progress() -> bool:
 	if not _game_started or game == null:
 		return false
+	var world_pose: Dictionary = _reality_scene_adapter.world_save_pose() if _reality_scene_adapter != null else {}
 	var world_data := {
-		"player_position": _reality_player.position if _reality_player != null else Vector3.ZERO,
-		"yaw": _reality_yaw,
-		"pitch": _reality_pitch,
+		"player_position": world_pose.get("player_position", Vector3.ZERO),
+		"yaw": world_pose.get("yaw", 0.0),
+		"pitch": world_pose.get("pitch", 0.0),
 		"social_screen": _social_screen,
 		"social_channel": _social_channel,
 		"social_detail_post_index": _social_detail_post_index,
@@ -769,13 +793,8 @@ func _has_save_progress() -> bool:
 func _restore_saved_world(world_data: Dictionary) -> void:
 	if world_data.is_empty():
 		return
-	var saved_position: Variant = world_data.get("player_position", Vector3.ZERO)
-	if saved_position is Vector3 and _reality_player != null and _reality_floor != null:
-		_reality_last_safe_position = _reality_floor.clamp_to_playable_position(saved_position, REALITY_SAFE_INSET)
-		_reality_player.position = _reality_last_safe_position
-		_reality_player.velocity = Vector3.ZERO
-	_reality_yaw = wrapf(float(world_data.get("yaw", 0.0)), -180.0, 180.0)
-	_reality_pitch = clampf(float(world_data.get("pitch", 0.0)), -68.0, 72.0)
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.restore_world_pose(world_data)
 	_social_screen = str(world_data.get("social_screen", "home"))
 	if _social_screen not in ["home", "detail", "publish", "profile"]:
 		_social_screen = "home"
@@ -1010,9 +1029,44 @@ func _set_reality_mouse_look(enabled: bool) -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if enabled else Input.MOUSE_MODE_VISIBLE)
 
 
+func _ensure_reality_scene_adapter() -> void:
+	if _reality_scene_adapter != null and is_instance_valid(_reality_scene_adapter):
+		return
+	_reality_scene_adapter = RealitySceneAdapterScript.new()
+	_reality_scene_adapter.attach_to(self)
+	if not _reality_scene_adapter.nearby_targets_changed.is_connected(_on_reality_nearby_targets_changed):
+		_reality_scene_adapter.nearby_targets_changed.connect(_on_reality_nearby_targets_changed)
+	if not _reality_scene_adapter.cover_watcher_appeared.is_connected(_on_cover_watcher_appeared):
+		_reality_scene_adapter.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
+	if not _reality_scene_adapter.cover_watcher_vanished.is_connected(_on_cover_watcher_vanished):
+		_reality_scene_adapter.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
+
+
+func _reality_scene_deps() -> Dictionary:
+	return {
+		"game": game,
+		"day_progress": _day_progress_snapshot(),
+		"palette": _active_palette(),
+		"load_texture": _load_runtime_texture,
+		"npc_character_paths": NPC_CHARACTER_PATHS,
+		"guide_doll_path": GUIDE_DOLL_CHARACTER_PATH,
+		"playtest_assist_enabled": _playtest_assist_enabled,
+		"view_state": game.view_state if game != null else "",
+		"interaction_active": _reality_interaction_active,
+		"input_locked": _input_locked,
+		"locale_translate": func(text: String) -> String: return _locale.translate(text),
+	}
+
+
+func _on_reality_nearby_targets_changed() -> void:
+	_render_world_prompt()
+	if _world_prompt != null:
+		_world_prompt.visible = _nearby_reality_actor != null or _nearby_reality_item != null
+
+
 func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
-	_reality_yaw = wrapf(_reality_yaw - relative_motion.x * sensitivity, -180.0, 180.0)
-	_reality_pitch = clampf(_reality_pitch - relative_motion.y * sensitivity, -68.0, 72.0)
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.apply_look_delta(relative_motion, sensitivity)
 
 
 func _build_world() -> void:
@@ -1035,6 +1089,8 @@ func _build_world() -> void:
 		_phone_camera_connection_panel.close()
 	_phone_camera_connection_panel = null
 	for child in get_children():
+		if child == _reality_scene_adapter:
+			continue
 		remove_child(child)
 		child.free()
 
@@ -1046,27 +1102,9 @@ func _build_world() -> void:
 	_configure_reality_depth_of_field()
 	_ensure_reality_input_map()
 
-	_reality_player = CharacterBody3D.new()
-	_reality_player.name = "RealityPlayer"
-	_reality_player.motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
-	_reality_player.collision_layer = 1
-	_reality_player.collision_mask = 1
-	add_child(_reality_player)
-	var player_collision := CollisionShape3D.new()
-	player_collision.name = "PlayerCollision"
-	var player_capsule := CapsuleShape3D.new()
-	player_capsule.radius = 0.34
-	player_capsule.height = 1.72
-	player_collision.shape = player_capsule
-	player_collision.position.y = 0.88
-	_reality_player.add_child(player_collision)
-
-	_reality_floor = RealityFloorGeneratorScript.new()
-	_reality_floor.name = "RealityFloor"
-	_reality_floor.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
-	_reality_floor.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
-	add_child(_reality_floor)
-	_rebuild_reality_floor()
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.build_world_nodes()
+	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 	_road = Node3D.new()
 	_road.name = "Road"
@@ -1171,153 +1209,33 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 
 
 func _rebuild_reality_floor() -> void:
-	if _reality_floor == null or game == null:
-		return
-	var progress := _day_progress_snapshot()
-	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
-	var day_number := int(progress.get("day", 1))
-	var npc_textures: Array[Texture2D] = []
-	for texture_path in NPC_CHARACTER_PATHS:
-		var texture := _load_runtime_texture(str(texture_path))
-		if texture != null:
-			npc_textures.append(texture)
-	var key_dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(clampi(tower_floor, 1, 3))
-	var key_npc_texture: Texture2D = null
-	if not npc_textures.is_empty():
-		key_npc_texture = npc_textures[posmod(tower_floor - 1, npc_textures.size())]
-	var actor_textures := {
-		"key_npc": key_npc_texture,
-		"key_npc_label": str(key_dialogue.get("actor_label", "关键住户")),
-		"npcs": npc_textures,
-		"doll": _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH),
-		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(tower_floor, 1, 3)),
-	}
-	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(tower_floor)
-	_reality_floor.rebuild(tower_floor, _active_palette(), actor_textures, day_number, game.has_seen_cover_watcher(tower_floor), prerequisite_item)
-	_reality_floor.set_playtest_assist_enabled(_playtest_assist_enabled)
-	_reality_floor.sync_collected_items(game.collected_world_item_ids)
-	_reality_floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
-	_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
-	_reality_built_floor = tower_floor
-	_reality_built_day = day_number
+	_ensure_reality_scene_adapter()
 	_reality_interaction_active = false
 	_active_reality_actor = null
-	_nearby_reality_actor = null
-	_nearby_reality_item = null
-	if _reality_player != null:
-		_reality_last_safe_position = _reality_floor.start_position()
-		_reality_player.position = _reality_last_safe_position
-		_reality_player.velocity = Vector3.ZERO
-	_reality_yaw = 0.0
-	_reality_pitch = 0.0
+	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 
 func _ensure_reality_floor_current() -> void:
-	if _reality_floor == null or game == null:
-		return
-	var progress := _day_progress_snapshot()
-	var tower_floor := int(progress.get("tower_floor", 1))
-	var day_number := int(progress.get("day", 1))
-	if _reality_built_floor != tower_floor:
-		_rebuild_reality_floor()
-	elif _reality_built_day != day_number:
-		_reality_floor.configure_authored_events(day_number, _active_palette())
-		_reality_built_day = day_number
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.ensure_floor_current(_reality_scene_deps())
 
 
 func _room_count_for_floor(floor_number: int) -> int:
-	return RealityFloorGeneratorScript.room_count_for_floor(floor_number)
+	return RealitySceneAdapterScript.room_count_for_floor(floor_number)
 
 
 func _npc_count_for_floor(floor_number: int) -> int:
-	return RealityFloorGeneratorScript.npc_count_for_floor(floor_number)
+	return RealitySceneAdapterScript.npc_count_for_floor(floor_number)
 
 
 func _update_reality_player(delta: float) -> void:
-	if _should_recover_reality_player():
-		_recover_reality_player()
-		return
-	var can_walk: bool = game.view_state == "npc_up" and not _reality_interaction_active and not _input_locked
-	var input_vector := Vector2.ZERO
-	if can_walk:
-		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
-	var local_direction := Vector3(input_vector.x, 0.0, input_vector.y)
-	var world_direction := Basis(Vector3.UP, deg_to_rad(_reality_yaw)) * local_direction
-	if world_direction.length_squared() > 0.001:
-		world_direction = world_direction.normalized()
-	var speed_multiplier := REALITY_SPRINT_MULTIPLIER if can_walk and Input.is_action_pressed("reality_sprint") else 1.0
-	var target_velocity := world_direction * REALITY_MOVE_SPEED * speed_multiplier
-	var acceleration := REALITY_ACCELERATION * speed_multiplier
-	_reality_player.velocity.x = move_toward(_reality_player.velocity.x, target_velocity.x, acceleration * delta)
-	_reality_player.velocity.z = move_toward(_reality_player.velocity.z, target_velocity.z, acceleration * delta)
-	if not _reality_player.is_on_floor():
-		_reality_player.velocity.y -= 18.0 * delta
-	else:
-		_reality_player.velocity.y = 0.0
-	_reality_player.rotation.y = deg_to_rad(_reality_yaw)
-	_reality_player.move_and_slide()
-	if _should_recover_reality_player():
-		_recover_reality_player()
-	elif _reality_player.is_on_floor() and _reality_floor != null and _reality_floor.contains_playable_position(_reality_player.position, REALITY_SAFE_INSET):
-		_reality_last_safe_position = _reality_player.position
-
-
-func _should_recover_reality_player() -> bool:
-	if _reality_player == null or _reality_floor == null:
-		return false
-	if _reality_player.position.y < REALITY_FALL_RECOVERY_Y:
-		return true
-	return not _reality_floor.contains_playable_position(_reality_player.position, -2.0)
-
-
-func _recover_reality_player() -> void:
-	if _reality_player == null or _reality_floor == null:
-		return
-	var recovery_position := _reality_last_safe_position
-	if not _reality_floor.contains_playable_position(recovery_position, REALITY_SAFE_INSET):
-		recovery_position = _reality_floor.start_position()
-	recovery_position = _reality_floor.clamp_to_playable_position(recovery_position, REALITY_SAFE_INSET)
-	recovery_position.y = 0.08
-	_reality_player.position = recovery_position
-	_reality_player.velocity = Vector3.ZERO
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.update_player(delta, _reality_scene_deps())
 
 
 func _refresh_nearby_reality_actor() -> void:
-	var previous_actor := _nearby_reality_actor
-	var previous_item := _nearby_reality_item
-	if game.view_state != "npc_up" or _reality_interaction_active or _reality_floor == null or _reality_player == null:
-		_nearby_reality_actor = null
-		_nearby_reality_item = null
-		if previous_actor != null or previous_item != null:
-			_render_world_prompt()
-			if _world_prompt != null:
-				_world_prompt.visible = false
-		return
-	var nearest: Area3D = null
-	var nearest_kind := ""
-	var nearest_distance := REALITY_INTERACTION_DISTANCE
-	for actor in _reality_floor.get_interactable_actors():
-		var offset: Vector3 = actor.position - _reality_player.position
-		offset.y = 0.0
-		var distance: float = offset.length()
-		if distance <= nearest_distance:
-			nearest = actor
-			nearest_kind = "actor"
-			nearest_distance = distance
-	for item in _reality_floor.get_interactable_items():
-		var item_offset: Vector3 = item.position - _reality_player.position
-		item_offset.y = 0.0
-		var item_distance: float = item_offset.length()
-		if item_distance <= nearest_distance:
-			nearest = item
-			nearest_kind = "item"
-			nearest_distance = item_distance
-	_nearby_reality_actor = nearest if nearest_kind == "actor" else null
-	_nearby_reality_item = nearest if nearest_kind == "item" else null
-	if previous_actor != _nearby_reality_actor or previous_item != _nearby_reality_item:
-		_render_world_prompt()
-		if _world_prompt != null:
-			_world_prompt.visible = nearest != null
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.refresh_nearby_actor(_reality_scene_deps())
 
 
 func _try_reality_interaction() -> bool:
@@ -1326,25 +1244,32 @@ func _try_reality_interaction() -> bool:
 	if _reality_interaction_active:
 		_exit_reality_interaction()
 		return true
-	_refresh_nearby_reality_actor()
-	if _nearby_reality_item != null:
-		return _collect_nearby_reality_item()
-	if _nearby_reality_actor == null:
+	_ensure_reality_scene_adapter()
+	var outcome: Dictionary = _reality_scene_adapter.probe_interaction(_reality_scene_deps())
+	match str(outcome.get("action", "none")):
+		"collect":
+			return _collect_nearby_reality_item(outcome.get("item") as Area3D, outcome.get("item_data", {}) as Dictionary)
+		"converse":
+			return _begin_reality_actor_interaction(outcome)
+	return false
+
+
+func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
+	var actor := outcome.get("actor") as Area3D
+	if actor == null:
 		return false
-	_active_reality_actor = _nearby_reality_actor
-	var actor_id := str(_active_reality_actor.get_meta("actor_id", "actor"))
-	var actor_type := str(_active_reality_actor.get_meta("actor_type", "npc"))
-	var actor_label := _locale.translate(str(_active_reality_actor.get_meta("display_name", "对方")))
+	_active_reality_actor = actor
+	var actor_id := str(outcome.get("actor_id", "actor"))
+	var actor_type := str(outcome.get("actor_type", "npc"))
+	var actor_label := str(outcome.get("actor_label", "对方"))
 	if not game.start_typed_reality_conversation(actor_id, actor_type, actor_label):
 		_active_reality_actor = null
 		return false
 	if actor_type == "doll":
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
-	var actor_direction: Vector3 = _active_reality_actor.position - _reality_player.position
-	if actor_direction.length_squared() > 0.001:
-		_reality_yaw = rad_to_deg(atan2(-actor_direction.x, -actor_direction.z))
-		_reality_pitch = -30.0 if actor_type == "doll" else -2.0
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.face_actor(actor)
 	_reality_interaction_active = true
 	_reality_hover_choice_id = ""
 	_set_reality_mouse_look(false)
@@ -1358,24 +1283,23 @@ func _localize_active_conversation() -> void:
 	game.configure_conversation_locale(_locale.current_locale)
 
 
-func _collect_nearby_reality_item() -> bool:
-	if _nearby_reality_item == null:
+func _collect_nearby_reality_item(item: Area3D = null, item_data: Dictionary = {}) -> bool:
+	if item == null:
+		item = _nearby_reality_item
+	if item == null:
 		return false
-	var item := _nearby_reality_item
-	var item_data := {
-		"id": str(item.get_meta("item_id", "")),
-		"label": str(item.get_meta("display_name", "街区遗物")),
-		"effect": str(item.get_meta("item_effect", "")),
-		"value": item.get_meta("item_value", 0),
-		"description": str(item.get_meta("item_description", "")),
-	}
+	if item_data.is_empty():
+		item_data = {
+			"id": str(item.get_meta("item_id", "")),
+			"label": str(item.get_meta("display_name", "街区遗物")),
+			"effect": str(item.get_meta("item_effect", "")),
+			"value": item.get_meta("item_value", 0),
+			"description": str(item.get_meta("item_description", "")),
+		}
 	if not game.collect_world_item(item_data):
 		return false
-	item.set_meta("collected", true)
-	item.visible = false
-	item.monitoring = false
-	item.monitorable = false
-	_nearby_reality_item = null
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.apply_item_collected(item)
 	if not game.event_log.is_empty():
 		log_text = game.event_log[0]
 	_render()
@@ -3560,8 +3484,8 @@ func _animate_world(delta: float) -> void:
 		for index in _road.get_child_count():
 			var tile := _road.get_child(index) as Node3D
 			tile.position.z = -2.0 - index * 3.8 + fmod(_road_scroll, 3.8)
-	if game.view_state == "npc_up" and _reality_floor != null and _reality_player != null:
-		_reality_floor.update_authored_events(delta, _reality_player.global_position, -_camera.global_basis.z)
+	if game.view_state == "npc_up" and _reality_scene_adapter != null and _reality_player != null:
+		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
 
 
