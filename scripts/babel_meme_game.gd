@@ -30,6 +30,7 @@ const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
 const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
+const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -453,9 +454,7 @@ var _pickup_land_audio: AudioStreamPlayer
 var _notebook_hinge_audio: AudioStreamPlayer
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
-var _doll_guide_panel: PanelContainer
-var _doll_guide_line_label: Label
-var _doll_guide_body: VBoxContainer
+var _doll_guide_panel
 var _doll_companion: Node3D
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
@@ -4628,61 +4627,31 @@ func _on_app_pressed(app_id: String) -> void:
 ## ============ 玩偶全程引导(常驻小窗,承担教程与楼层任务提示)============
 
 func _build_doll_guide_overlay() -> void:
-	_doll_guide_panel = PanelContainer.new()
-	_doll_guide_panel.name = "DollGuideOverlay"
-	# 低于设置窗(30)与各弹层;高于普通应用窗口。
-	_doll_guide_panel.z_index = 25
-	_doll_guide_panel.custom_minimum_size = Vector2(252, 0)
-	_ui_root.add_child(_doll_guide_panel)
-	var guide_box := VBoxContainer.new()
-	guide_box.add_theme_constant_override("separation", 4)
-	_doll_guide_panel.add_child(guide_box)
-	var header := HBoxContainer.new()
-	header.name = "DollGuideHeader"
-	header.add_theme_constant_override("separation", 6)
-	guide_box.add_child(header)
-	var portrait := TextureRect.new()
-	portrait.name = "DollGuidePortrait"
-	portrait.texture = _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH)
-	portrait.custom_minimum_size = Vector2(52, 52)
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	header.add_child(portrait)
-	var title := _label("缝线布偶", 15, _theme_color("accent"))
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var collapse := Button.new()
-	collapse.name = "DollGuideCollapseButton"
-	collapse.text = "折叠"
-	collapse.custom_minimum_size = Vector2(58, 34)
-	collapse.focus_mode = Control.FOCUS_NONE
-	collapse.pressed.connect(_toggle_doll_guide_collapsed)
-	header.add_child(collapse)
-	_doll_guide_body = VBoxContainer.new()
-	_doll_guide_body.name = "DollGuideBody"
-	guide_box.add_child(_doll_guide_body)
-	_doll_guide_line_label = _label("", 14, _theme_color("ink"))
-	_doll_guide_line_label.name = "DollGuideLine"
-	_doll_guide_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_doll_guide_line_label.custom_minimum_size = Vector2(236, 0)
-	_doll_guide_body.add_child(_doll_guide_line_label)
-	# 常驻画面左下角:玩家视觉的余光位置,不挡中心视野。
-	_doll_guide_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT, true)
-	_doll_guide_panel.offset_left = 16.0
-	_doll_guide_panel.offset_bottom = -16.0
-	_doll_guide_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_make_draggable_window(_doll_guide_panel, "doll_guide", header)
-	# 玩偶从头到尾在玩家视线内:没有关闭按钮,只能折叠或拖动。
-	_doll_guide_panel.visible = false
+	_ensure_doll_guide_panel()
+	_doll_guide_panel.mount(_ui_root, _doll_guide_mount_deps())
+
+
+func _ensure_doll_guide_panel() -> void:
+	if _doll_guide_panel != null and is_instance_valid(_doll_guide_panel):
+		return
+	_doll_guide_panel = DollGuidePanelScript.new()
+	_doll_guide_panel.name = "DollGuidePanel"
+	add_child(_doll_guide_panel)
+
+
+func _doll_guide_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"load_texture": _load_runtime_texture,
+		"register_draggable": _make_draggable_window,
+		"portrait_path": GUIDE_DOLL_CHARACTER_PATH,
+	}
 
 
 func _toggle_doll_guide_collapsed() -> void:
-	if _doll_guide_body == null or _doll_guide_panel == null or not is_instance_valid(_doll_guide_panel) or not is_instance_valid(_doll_guide_body):
-		return
-	_doll_guide_body.visible = not _doll_guide_body.visible
-	var collapse_button := _find_control_by_name(_doll_guide_panel, "DollGuideCollapseButton") as Button
-	if collapse_button != null:
-		collapse_button.text = "折叠" if _doll_guide_body.visible else "展开"
+	if _doll_guide_panel != null:
+		_doll_guide_panel.toggle_collapsed()
 
 
 func _update_doll_guide() -> void:
@@ -4690,10 +4659,8 @@ func _update_doll_guide() -> void:
 		_doll_guide_panel = null
 		return
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
-	_doll_guide_panel.visible = _game_started and game != null and not _reality_interaction_active
-	if not _doll_guide_panel.visible or _doll_guide_line_label == null or not is_instance_valid(_doll_guide_line_label):
-		return
-	_doll_guide_line_label.text = _doll_guide_current_line()
+	var should_show := _game_started and game != null and not _reality_interaction_active
+	_doll_guide_panel.refresh(should_show, _doll_guide_current_line() if should_show else "")
 
 
 ## ============ 玩偶伙伴:常驻画面左下角,和它的头像引导小窗合为一体 ============
