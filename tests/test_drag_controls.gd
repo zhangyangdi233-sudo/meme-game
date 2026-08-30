@@ -20,12 +20,12 @@ func _run_and_finish() -> void:
 
 
 func _run() -> void:
-	var drag_script := load("res://scripts/ui/draggable_button.gd") as Script
-	var drop_script := load("res://scripts/ui/drop_button.gd") as Script
-	var ring_script := load("res://scripts/ui/radial_meme_ring.gd") as Script
+	var drag_script := load("res://framework/ui/draggable_button.gd") as Script
+	var drop_script := load("res://framework/ui/drop_button.gd") as Script
+	var ring_script := load("res://framework/ui/radial_selector_ring.gd") as Script
 	_assert_true(drag_script != null, "draggable button script should exist")
 	_assert_true(drop_script != null, "drop button script should exist")
-	_assert_true(ring_script != null, "radial meme ring script should exist")
+	_assert_true(ring_script != null, "radial selector ring script should exist")
 	if drag_script == null or drop_script == null or ring_script == null:
 		return
 	var drag: Button = drag_script.new()
@@ -42,12 +42,12 @@ func _run() -> void:
 	_assert_true(not rejected, "drop target should reject mismatched drag kind")
 	drag.free()
 	drop.free()
-	_test_radial_meme_ring(ring_script)
+	_test_radial_selector_ring(ring_script)
 
 
-func _test_radial_meme_ring(ring_script: Script) -> void:
+func _test_radial_selector_ring(ring_script: Script) -> void:
 	var ring = ring_script.new()
-	ring.name = "RadialMemeRingTest"
+	ring.name = "RadialSelectorRingTest"
 	ring.size = Vector2(900.0, 600.0)
 	for index in 4:
 		var item := Control.new()

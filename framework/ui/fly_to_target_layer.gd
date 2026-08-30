@@ -1,4 +1,4 @@
-class_name PickupFlightLayer
+class_name FlyToTargetLayer
 extends Control
 ## 拾字飞行动画层:被拾取的字从帖子原位放大飞到屏幕正中央短暂定格,
 ## 再加速缩入左上角笔记本窗口。节拍与缓动依据 docs/research/pickup_anim_deep_research.md:

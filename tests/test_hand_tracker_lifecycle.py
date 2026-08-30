@@ -13,8 +13,8 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-TRACKER_PATH = PROJECT_DIR / "tools" / "hand_tracking" / "hand_tracker.py"
-RECEIVER_PATH = PROJECT_DIR / "scripts" / "integrations" / "hand_tracking_receiver.gd"
+TRACKER_PATH = PROJECT_DIR / "framework" / "integrations" / "hand_tracking" / "hand_tracker.py"
+RECEIVER_PATH = PROJECT_DIR / "framework" / "integrations" / "hand_tracking_receiver.gd"
 
 
 def _process_exists(pid: int) -> bool:

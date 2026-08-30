@@ -1,6 +1,6 @@
 extends SceneTree
 
-const ReceiverScript = preload("res://scripts/integrations/hand_tracking_receiver.gd")
+const ReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
 
 
 func _init() -> void:

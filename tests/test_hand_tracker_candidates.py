@@ -11,7 +11,7 @@ from unittest import mock
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-TRACKER_PATH = PROJECT_DIR / "tools" / "hand_tracking" / "hand_tracker.py"
+TRACKER_PATH = PROJECT_DIR / "framework" / "integrations" / "hand_tracking" / "hand_tracker.py"
 SPEC = importlib.util.spec_from_file_location("babel_hand_tracker", TRACKER_PATH)
 assert SPEC is not None and SPEC.loader is not None
 TRACKER = importlib.util.module_from_spec(SPEC)

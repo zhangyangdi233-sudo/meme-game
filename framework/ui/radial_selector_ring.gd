@@ -1,5 +1,5 @@
 extends Container
-class_name RadialMemeRing
+class_name RadialSelectorRing
 
 signal selection_changed(index: int)
 

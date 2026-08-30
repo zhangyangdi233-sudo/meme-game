@@ -119,7 +119,7 @@ func _test_state_flow() -> void:
 
 
 func _test_flight_layer_determinism() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/ui/pickup_flight_layer.gd")
+	var source := FileAccess.get_file_as_string("res://framework/ui/fly_to_target_layer.gd")
 	_assert_true(source.length() > 0, "flight layer source should be readable")
 	for forbidden in ["randf", "randi", "randomize("]:
 		_assert_true(not source.contains(forbidden), "pickup flight layer must stay deterministic; found %s" % forbidden)

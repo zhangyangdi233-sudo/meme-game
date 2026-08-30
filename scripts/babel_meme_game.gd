@@ -3,20 +3,20 @@ extends Node3D
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
-const DraggableButtonScript = preload("res://scripts/ui/draggable_button.gd")
-const DropButtonScript = preload("res://scripts/ui/drop_button.gd")
-const RadialMemeRingScript = preload("res://scripts/ui/radial_meme_ring.gd")
+const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
+const DropButtonScript = preload("res://framework/ui/drop_button.gd")
+const RadialSelectorRingScript = preload("res://framework/ui/radial_selector_ring.gd")
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
-const HandTrackingReceiverScript = preload("res://scripts/integrations/hand_tracking_receiver.gd")
-const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
+const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
+const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
-const WordPhysicsCanvasScript = preload("res://scripts/ui/word_physics_canvas.gd")
+const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -468,7 +468,7 @@ var _ui_theme: Theme
 var _pickup_press_audio: AudioStreamPlayer
 var _pickup_land_audio: AudioStreamPlayer
 var _notebook_hinge_audio: AudioStreamPlayer
-var _pickup_flight_layer: PickupFlightLayer
+var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel: PanelContainer
 var _doll_guide_line_label: Label
@@ -2280,7 +2280,7 @@ func _build_ui() -> void:
 	_ui_root.add_child(_meme_bank_window)
 	_apply_meme_bank_popup_layout("peek")
 
-	_meme_bank_ring = RadialMemeRingScript.new()
+	_meme_bank_ring = RadialSelectorRingScript.new()
 	_meme_bank_ring.name = "MemeBankRadialRing"
 	_meme_bank_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_meme_bank_ring.set_palette(_theme_color("surface"), Color(_theme_color("muted"), 0.88), _theme_color("accent"))
@@ -6753,7 +6753,7 @@ func _on_composer_submit_pressed() -> void:
 
 
 func _build_pickup_flight_layer() -> void:
-	_pickup_flight_layer = PickupFlightLayer.new()
+	_pickup_flight_layer = FlyToTargetLayer.new()
 	_pickup_flight_layer.name = "PickupFlightLayer"
 	_pickup_flight_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	# 高于日结过场(95),低于闪回(100):日结黑幕不吞掉仍在飞行的字。

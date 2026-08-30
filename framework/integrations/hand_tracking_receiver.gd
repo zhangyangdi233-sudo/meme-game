@@ -9,9 +9,9 @@ const DEFAULT_HOST := "127.0.0.1"
 const DEFAULT_PORT := 7001
 const PACKET_SCHEMA_VERSION := 1
 const LOST_STREAM_TIMEOUT_MSEC := 900
-const SIDECAR_SCRIPT_PATH := "res://tools/hand_tracking/hand_tracker.py"
-const SIDECAR_MODEL_PATH := "res://tools/hand_tracking/models/hand_landmarker.task"
-const SIDECAR_PYTHON_PATH := "res://tools/hand_tracking/.venv/bin/python"
+const SIDECAR_SCRIPT_PATH := "res://framework/integrations/hand_tracking/hand_tracker.py"
+const SIDECAR_MODEL_PATH := "res://framework/integrations/hand_tracking/models/hand_landmarker.task"
+const SIDECAR_PYTHON_PATH := "res://framework/integrations/hand_tracking/.venv/bin/python"
 
 var host := DEFAULT_HOST
 var port := DEFAULT_PORT

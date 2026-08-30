@@ -1,7 +1,7 @@
 extends SceneTree
 ## 笔记本物理沙盘:字词受重力下坠、落在底边、彼此碰撞可堆叠、可抓放。
 
-const CanvasScript = preload("res://scripts/ui/word_physics_canvas.gd")
+const CanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 
 var _failures: Array[String] = []
 

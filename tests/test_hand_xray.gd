@@ -1,7 +1,7 @@
 extends SceneTree
 
-const OverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
-const ReceiverScript = preload("res://scripts/integrations/hand_tracking_receiver.gd")
+const OverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
+const ReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
 
 class FakeHandTrackingReceiver:
 	extends RefCounted

@@ -89,7 +89,7 @@ def _load_cv2() -> Any:
         import cv2
     except ImportError as exc:
         raise RuntimeError(
-            "OpenCV is unavailable. Run tools/hand_tracking/setup_macos.sh first."
+            "OpenCV is unavailable. Run framework/integrations/hand_tracking/setup_macos.sh first."
         ) from exc
     return cv2
 
@@ -101,7 +101,7 @@ def _load_runtime() -> tuple[Any, Any, Any, Any]:
         from mediapipe.tasks.python import vision
     except ImportError as exc:
         raise RuntimeError(
-            "MediaPipe/OpenCV are unavailable. Run tools/hand_tracking/setup_macos.sh first."
+            "MediaPipe/OpenCV are unavailable. Run framework/integrations/hand_tracking/setup_macos.sh first."
         ) from exc
     return _load_cv2(), mp, mp_python, vision
 
