@@ -144,7 +144,27 @@ Both should pass on Windows when Python 3 is available.
 | `babel_meme_game.gd` adapter / node names | Full suite |
 | Before push | Full suite |
 
-There is **no CI** and **no git hook**; tests run only when you or an agent invokes a runner.
+There is **no git hook**; local tests run when you or an agent invokes a runner. **CI** runs the same Windows full suite on push and pull requests targeting `dev` or `main`.
+
+## CI (GitHub Actions)
+
+Workflow: [`.github/workflows/tests.yml`](../../.github/workflows/tests.yml)
+
+| Local (Windows) | CI |
+|---|---|
+| `windows-latest` runner matches the primary dev platform | same |
+| `GODOT_BIN` → `C:\Godot\Godot_v4.6.3-stable_win64.exe` | same path; downloaded on first run, then cached |
+| `.\tools\run_tests.ps1` (full suite) | same command |
+| Python 3 on `PATH` for `test_hand_tracker_*.py` | runner ships Python 3 |
+
+**Equivalent local command before push:**
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+.\tools\run_tests.ps1
+```
+
+CI does **not** pass `-Fast` or `-Filter`; a green local full run is the closest pre-push check. Use `-Fast` locally for iteration; rely on CI (or a local full run) before merging adapter or main-scene changes.
 
 ## Single test (Windows)
 

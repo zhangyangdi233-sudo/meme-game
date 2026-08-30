@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  windows-tests:
+    name: Windows headless tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot 4.6.3
+        uses: actions/cache@v4
+        id: godot-cache
+        with:
+          path: C:\Godot\Godot_v4.6.3-stable_win64.exe
+          key: godot-4.6.3-stable-win64
+
+      - name: Install Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\Godot | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP 'godot.zip'
+          $url = 'https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_win64.exe.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath C:\Godot -Force
+
+      - name: Run full test suite
+        shell: pwsh
+        env:
+          GODOT_BIN: C:\Godot\Godot_v4.6.3-stable_win64.exe
+        run: .\tools\run_tests.ps1
