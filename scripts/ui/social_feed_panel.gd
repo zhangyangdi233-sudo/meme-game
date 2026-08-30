@@ -8,6 +8,7 @@ signal card_clicked(post_index: int)
 signal like_pressed(post_id: String)
 signal follow_pressed(author_id: String)
 signal close_requested
+signal detail_close_requested
 
 const SOCIAL_FEED_WHEEL_STEP := 2
 const SOCIAL_FEED_POSTER_HEIGHTS := [
@@ -25,6 +26,11 @@ const SOCIAL_WINDOW_BOTTOM := 910.0
 var _app_window: PanelContainer
 var _app_body: VBoxContainer
 var _app_title: Label
+var _detail_window: PanelContainer
+var _detail_body: VBoxContainer
+var _detail_title: Label
+var _social_detail_post_index := 0
+var _social_detail_open := false
 var _panel_factory: Callable
 var _label_factory: Callable
 var _style_fn: Callable
@@ -38,7 +44,17 @@ var _post_for_index_fn: Callable
 var _is_following_fn: Callable
 var _like_text_fn: Callable
 var _caption_text_fn: Callable
-var _render_detail_page_fn: Callable
+var _corrupt_text_fn: Callable
+var _floor_label_fn: Callable
+var _translate_fn: Callable
+var _pickup_rich_text_fn: Callable
+var _author_id_fn: Callable
+var _pickup_line_fn: Callable
+var _pickup_comments_fn: Callable
+var _player_echo_quote_fn: Callable
+var _echo_comment_handle_fn: Callable
+var _game_day_fn: Callable
+var _current_locale_fn: Callable
 var _render_publish_page_fn: Callable
 var _render_profile_page_fn: Callable
 var _channels: Array = []
@@ -51,6 +67,7 @@ var _input_locked_fn: Callable
 func mount(parent: Control, deps: Dictionary) -> void:
 	_apply_mount_deps(deps)
 	_build_social_app_window(parent)
+	_build_social_detail_window(parent)
 
 
 func get_app_window() -> Control:
@@ -63,6 +80,65 @@ func get_app_body() -> Control:
 
 func get_app_title() -> Control:
 	return _app_title
+
+
+func get_detail_post_index() -> int:
+	return _social_detail_post_index
+
+
+func set_detail_post_index(post_index: int) -> void:
+	_social_detail_post_index = post_index
+
+
+func is_detail_open() -> bool:
+	return _social_detail_open
+
+
+func open_detail(post_index: int) -> void:
+	_social_detail_post_index = post_index
+	_social_detail_open = true
+	if _detail_window != null:
+		_detail_window.move_to_front()
+
+
+func close_detail() -> void:
+	_social_detail_open = false
+
+
+func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
+	if _detail_window == null:
+		return
+	_detail_window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	if viewport_size.x >= 900.0:
+		_detail_window.offset_left = -379.0
+		_detail_window.offset_top = 96.0
+		_detail_window.offset_right = -24.0
+		_detail_window.offset_bottom = minf(850.0, viewport_size.y - 24.0)
+		return
+	var safe_left := maxf(12.0, hud_safe_left)
+	var right_margin := 12.0
+	var available_width := maxf(220.0, viewport_size.x - safe_left - right_margin)
+	var target_width := minf(376.0, available_width)
+	_detail_window.offset_right = -right_margin
+	_detail_window.offset_left = _detail_window.offset_right - target_width
+	_detail_window.offset_top = 20.0
+	_detail_window.offset_bottom = viewport_size.y - 12.0
+
+
+func update_visibility(in_phone: bool, social_app_open: bool) -> void:
+	if _detail_window != null:
+		_detail_window.visible = in_phone and _social_detail_open and social_app_open
+
+
+func render_companion() -> void:
+	if _detail_body == null:
+		return
+	_clear(_detail_body)
+	if not _social_detail_open:
+		return
+	if _detail_title != null and _floor_label_fn.is_valid():
+		_detail_title.text = str(_floor_label_fn.call())
+	_render_detail_page(_detail_body, true)
 
 
 func layout_window(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
@@ -188,8 +264,7 @@ func render_app(screen: String, channel: String) -> void:
 
 	match screen:
 		"detail":
-			if _render_detail_page_fn.is_valid():
-				_render_detail_page_fn.call(page_host)
+			_render_detail_page(page_host, false)
 		"publish":
 			if _render_publish_page_fn.is_valid():
 				_render_publish_page_fn.call(page_host)
@@ -218,7 +293,17 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_is_following_fn = deps.get("is_following", Callable())
 	_like_text_fn = deps.get("like_text", Callable())
 	_caption_text_fn = deps.get("caption_text", Callable())
-	_render_detail_page_fn = deps.get("render_detail_page", Callable())
+	_corrupt_text_fn = deps.get("corrupt_text", Callable())
+	_floor_label_fn = deps.get("floor_label", Callable())
+	_translate_fn = deps.get("translate", Callable())
+	_pickup_rich_text_fn = deps.get("pickup_rich_text", Callable())
+	_author_id_fn = deps.get("author_id", Callable())
+	_pickup_line_fn = deps.get("pickup_line", Callable())
+	_pickup_comments_fn = deps.get("pickup_comments", Callable())
+	_player_echo_quote_fn = deps.get("player_echo_quote", Callable())
+	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
+	_game_day_fn = deps.get("game_day", Callable())
+	_current_locale_fn = deps.get("current_locale", Callable())
 	_render_publish_page_fn = deps.get("render_publish_page", Callable())
 	_render_profile_page_fn = deps.get("render_profile_page", Callable())
 	_channels = deps.get("channels", [])
@@ -256,6 +341,61 @@ func _build_social_app_window(parent: Control) -> void:
 	_app_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_app_body.add_theme_constant_override("separation", 8)
 	app_box.add_child(_app_body)
+
+
+func _build_social_detail_window(parent: Control) -> void:
+	if _detail_window != null:
+		return
+	_detail_window = _panel_factory.call() as PanelContainer
+	_detail_window.name = "SocialDetailWindow"
+	_detail_window.set_meta("detail_dark_panel", true)
+	_detail_window.clip_contents = true
+	_detail_window.z_index = 24
+	parent.add_child(_detail_window)
+	layout_detail(parent.size)
+
+	var shell := VBoxContainer.new()
+	shell.name = "SocialDetailShell"
+	shell.add_theme_constant_override("separation", 8)
+	_detail_window.add_child(shell)
+
+	var header := HBoxContainer.new()
+	header.name = "SocialDetailWindowHeader"
+	header.custom_minimum_size.y = 56
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	header.add_theme_constant_override("separation", 8)
+	shell.add_child(header)
+
+	_detail_title = _label_factory.call("第 1 层 / 3", 18, _theme_color_fn.call("surface")) as Label
+	_detail_title.name = "SocialDetailWindowHandle"
+	_detail_title.set_meta("on_dark", true)
+	_detail_title.mouse_filter = Control.MOUSE_FILTER_STOP
+	_detail_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_detail_title)
+	_register_draggable.call(_detail_window, "social-detail", header)
+	_register_draggable.call(_detail_window, "social-detail", _detail_title)
+
+	var close_button := Button.new()
+	close_button.name = "SocialDetailWindowCloseButton"
+	close_button.text = "X"
+	close_button.set_meta("dark_window_close_button", true)
+	close_button.custom_minimum_size = Vector2(56, 56)
+	close_button.pressed.connect(_on_detail_close_pressed)
+	header.add_child(close_button)
+
+	var detail_scroll := ScrollContainer.new()
+	detail_scroll.name = "SocialDetailScroll"
+	detail_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	detail_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	shell.add_child(detail_scroll)
+
+	_detail_body = VBoxContainer.new()
+	_detail_body.name = "SocialDetailBody"
+	_detail_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_body.add_theme_constant_override("separation", 8)
+	detail_scroll.add_child(_detail_body)
+	_detail_window.visible = false
 
 
 func _render_home_page(parent: VBoxContainer, channel: String) -> void:
@@ -398,6 +538,8 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		var follow := Button.new()
 		follow.name = "SocialPostFollowButton%d" % post_index
 		var author_id := str(post.get("id", post.get("handle", "unknown-author")))
+		if _author_id_fn.is_valid():
+			author_id = str(_author_id_fn.call(post))
 		var following := false
 		if _is_following_fn.is_valid():
 			following = bool(_is_following_fn.call(author_id))
@@ -596,6 +738,198 @@ func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) 
 		if vertical_delta != 0:
 			_scroll_feed(feed_scroll, vertical_delta)
 			feed_scroll.accept_event()
+
+
+func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void:
+	var detail_page := VBoxContainer.new()
+	detail_page.name = "SocialPostDetailPage"
+	detail_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_page.add_theme_constant_override("separation", 8)
+	parent.add_child(detail_page)
+
+	var post: Dictionary = {}
+	if _post_for_index_fn.is_valid():
+		post = _post_for_index_fn.call(_social_detail_post_index)
+
+	if companion:
+		var companion_meta := HBoxContainer.new()
+		companion_meta.add_theme_constant_override("separation", 8)
+		detail_page.add_child(companion_meta)
+		var handle_text := str(post.get("handle", ""))
+		if _translate_fn.is_valid():
+			handle_text = str(_translate_fn.call(handle_text))
+		var companion_handle := _label_factory.call("@%s" % handle_text, 15, _theme_color_fn.call("surface")) as Label
+		companion_handle.set_meta("on_dark", true)
+		companion_handle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		companion_meta.add_child(companion_handle)
+		var floor_marker := _label_factory.call("信号档案", 13, _theme_color_fn.call("muted")) as Label
+		floor_marker.name = "SocialDetailSignalArchive"
+		floor_marker.set_meta("on_dark", true)
+		companion_meta.add_child(floor_marker)
+	else:
+		var top_row := HBoxContainer.new()
+		top_row.add_theme_constant_override("separation", 8)
+		detail_page.add_child(top_row)
+		var back := Button.new()
+		back.name = "SocialBackToHome"
+		back.text = "‹"
+		back.custom_minimum_size = Vector2(76, 56)
+		back.pressed.connect(_on_detail_close_pressed)
+		top_row.add_child(back)
+		var handle_text := str(post.get("handle", ""))
+		if _translate_fn.is_valid():
+			handle_text = str(_translate_fn.call(handle_text))
+		var title := _label_factory.call("@%s" % handle_text, 18, _theme_color_fn.call("accent")) as Label
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top_row.add_child(title)
+		var floor_text := ""
+		if _floor_label_fn.is_valid():
+			floor_text = str(_floor_label_fn.call())
+		var floor_label := _label_factory.call(floor_text, 16, _theme_color_fn.call("ink")) as Label
+		floor_label.name = "SocialDetailTowerFloor"
+		top_row.add_child(floor_label)
+
+	var detail_card := _panel_factory.call() as PanelContainer
+	detail_card.name = "SocialPostDetailCard"
+	detail_card.set_meta("detail_dark_panel", true)
+	detail_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_page.add_child(detail_card)
+	var detail_box := VBoxContainer.new()
+	detail_box.add_theme_constant_override("separation", 9)
+	detail_card.add_child(detail_box)
+	var media := PanelContainer.new()
+	media.custom_minimum_size.y = 320 if companion else 274
+	media.set_meta("poster_frame", true)
+	media.add_theme_stylebox_override("panel", _style_fn.call(_theme_color_fn.call("muted"), _theme_color_fn.call("accent")))
+	detail_box.add_child(media)
+	var media_texture := TextureRect.new()
+	media_texture.name = "SocialDetailPostTexture"
+	var poster_cell := int(post.get("poster_cell", _social_detail_post_index))
+	if _poster_texture_fn.is_valid():
+		media_texture.texture = _poster_texture_fn.call(poster_cell) as Texture2D
+	media_texture.set_meta("poster_sheet_path", _poster_sheet_path)
+	media_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _poster_sheet_count))
+	media_texture.custom_minimum_size = Vector2(300, 320 if companion else 274)
+	media_texture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	media_texture.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	media_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	media_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	media.add_child(media_texture)
+	var post_body := str(post.get("text", ""))
+	if _corrupt_text_fn.is_valid():
+		post_body = str(_corrupt_text_fn.call(post_body))
+	var post_text := _label_factory.call(post_body, 17, _theme_color_fn.call("surface")) as Label
+	post_text.set_meta("on_dark", true)
+	post_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_box.add_child(post_text)
+	var post_card_id := str(post.get("id", ""))
+	var locale := ""
+	if _current_locale_fn.is_valid():
+		locale = str(_current_locale_fn.call())
+	var pickup_line := ""
+	if _pickup_line_fn.is_valid():
+		pickup_line = str(_pickup_line_fn.call(post_card_id, locale))
+	if not pickup_line.is_empty() and _pickup_rich_text_fn.is_valid():
+		var pickup_rich := _pickup_rich_text_fn.call("SocialPickupLineText", pickup_line, post_card_id) as RichTextLabel
+		detail_box.add_child(pickup_rich)
+		var pickup_hint := _label_factory.call("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color_fn.call("muted")) as Label
+		pickup_hint.name = "SocialPickupCostHint"
+		pickup_hint.set_meta("on_dark", true)
+		pickup_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail_box.add_child(pickup_hint)
+	var engagement := HBoxContainer.new()
+	engagement.name = "SocialDetailEngagementRow"
+	engagement.add_theme_constant_override("separation", 8)
+	detail_box.add_child(engagement)
+	var detail_like := Button.new()
+	detail_like.name = "SocialDetailLikeButton"
+	var like_text := ""
+	if _like_text_fn.is_valid():
+		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _social_detail_post_index))))
+	detail_like.text = like_text
+	detail_like.custom_minimum_size = Vector2(120, 44)
+	detail_like.pressed.connect(_on_like_pressed.bind(post_card_id))
+	engagement.add_child(detail_like)
+	var detail_follow := Button.new()
+	detail_follow.name = "SocialDetailFollowButton"
+	var author_id := str(post.get("id", post.get("handle", "unknown-author")))
+	if _author_id_fn.is_valid():
+		author_id = str(_author_id_fn.call(post))
+	var following := false
+	if _is_following_fn.is_valid():
+		following = bool(_is_following_fn.call(author_id))
+	detail_follow.text = "已关注" if following else "关注"
+	detail_follow.custom_minimum_size = Vector2(120, 44)
+	detail_follow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_follow.pressed.connect(_on_follow_pressed.bind(author_id))
+	engagement.add_child(detail_follow)
+	var signal_profile := _label_factory.call("拾取字词不增加污染；使用它才会改变语言。", 13, _theme_color_fn.call("muted")) as Label
+	signal_profile.name = "SocialCardSignalProfile"
+	signal_profile.set_meta("on_dark", true)
+	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_box.add_child(signal_profile)
+	var post_comments: Array = []
+	if _pickup_comments_fn.is_valid():
+		post_comments = _pickup_comments_fn.call(post_card_id, locale)
+	if not post_comments.is_empty():
+		var comments_rule := ColorRect.new()
+		comments_rule.name = "SocialCommentsRule"
+		comments_rule.color = Color(_theme_color_fn.call("muted"), 0.35)
+		comments_rule.custom_minimum_size.y = 1.0
+		detail_box.add_child(comments_rule)
+		var comments_header := _label_factory.call("评论 · %d" % post_comments.size(), 14, _theme_color_fn.call("muted")) as Label
+		comments_header.name = "SocialCommentsHeader"
+		comments_header.set_meta("on_dark", true)
+		detail_box.add_child(comments_header)
+		for comment_index in post_comments.size():
+			var comment: Dictionary = post_comments[comment_index]
+			var comment_box := VBoxContainer.new()
+			comment_box.name = "SocialComment%d" % comment_index
+			comment_box.add_theme_constant_override("separation", 2)
+			detail_box.add_child(comment_box)
+			var comment_meta := _label_factory.call("%s  ·  %s" % [str(comment.get("handle", "")), str(comment.get("time", ""))], 12, _theme_color_fn.call("muted")) as Label
+			comment_meta.name = "SocialCommentMeta%d" % comment_index
+			comment_meta.set_meta("on_dark", true)
+			comment_meta.set_meta("skip_localization", true)
+			comment_box.add_child(comment_meta)
+			if _pickup_rich_text_fn.is_valid():
+				var comment_rich := _pickup_rich_text_fn.call("SocialCommentText%d" % comment_index, str(comment.get("text", "")), post_card_id) as RichTextLabel
+				comment_box.add_child(comment_rich)
+		_render_player_echo_comment(detail_box, post_comments.size())
+
+
+## 玩家投稿回流:楼里最后一条永远是陌生人在引用你写过的话,系统不作任何提示。
+func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) -> void:
+	var quote := ""
+	if _player_echo_quote_fn.is_valid():
+		quote = str(_player_echo_quote_fn.call())
+	if quote.is_empty():
+		return
+	var echo_box := VBoxContainer.new()
+	echo_box.name = "SocialEchoComment"
+	echo_box.add_theme_constant_override("separation", 2)
+	detail_box.add_child(echo_box)
+	var handle := ""
+	if _echo_comment_handle_fn.is_valid():
+		handle = str(_echo_comment_handle_fn.call())
+	var game_day := 0
+	if _game_day_fn.is_valid():
+		game_day = int(_game_day_fn.call())
+	var echo_meta := _label_factory.call("%s  ·  %02d:%02d" % [handle, 3 + comment_index, 7 + game_day], 12, _theme_color_fn.call("muted")) as Label
+	echo_meta.name = "SocialEchoCommentMeta"
+	echo_meta.set_meta("on_dark", true)
+	echo_meta.set_meta("skip_localization", true)
+	echo_box.add_child(echo_meta)
+	var echo_text := _label_factory.call(quote, 14, _theme_color_fn.call("surface")) as Label
+	echo_text.name = "SocialEchoCommentText"
+	echo_text.set_meta("on_dark", true)
+	echo_text.set_meta("skip_localization", true)
+	echo_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	echo_box.add_child(echo_text)
+
+
+func _on_detail_close_pressed() -> void:
+	detail_close_requested.emit()
 
 
 func _clear(node: Node) -> void:
