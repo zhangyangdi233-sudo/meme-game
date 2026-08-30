@@ -610,6 +610,7 @@ func resolve_floor_transition_at_boundary() -> int:
 	pending_floor_transition = 0
 	event_log.push_front("你抵达了第 %d 层。" % tower_floor)
 	_latch_ultimate_tasks_for_current_floor()
+	_emit_day_progress_changed("floor_transition", str(tower_floor), true)
 	return tower_floor
 
 
@@ -1416,6 +1417,7 @@ func settle_day_if_needed() -> bool:
 	language_sentence_slots.clear()
 	reset_reality_phase_for_day()
 	reset_typed_reality_conversation()
+	_emit_day_progress_changed("settle_day", str(day), true)
 	return true
 
 

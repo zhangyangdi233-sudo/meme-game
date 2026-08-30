@@ -2,7 +2,7 @@
 
 Phase **4b slice 1** documents what callers currently depend on, and pilots the **snapshot out / intent in** seam on social follow/like only. Other domains stay on direct field access until later slices.
 
-## Summary (2026-08-30, post–slice 3b housekeeping)
+## Summary (2026-08-30, post–slice 5)
 
 | Metric | Count |
 |---|---:|
@@ -17,6 +17,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` |
 | Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
 | Signals (slice 4) | 6 — + `day_progress_changed` |
+| Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
@@ -126,13 +127,13 @@ Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlemen
 
 Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new adapter code should prefer snapshot + signal for settings UI refresh.
 
-### Pollution / tower — **slice 4 seam (pollution vertical only)**
+### Pollution / tower — **slice 4–5 seam (day progress)**
 
 | Kind | API |
 |---|---|
 | Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` |
-| Signal | `day_progress_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `change_pollution()` only in slice 4 |
-| Intent | `change_pollution(amount)` — existing; now emits when pollution, pending floor, or flashback state changes |
+| Signal | `day_progress_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `change_pollution()`, `settle_day_if_needed()`, and `resolve_floor_transition_at_boundary()` |
+| Intent | `change_pollution(amount)`, `settle_day_if_needed()`, `resolve_floor_transition_at_boundary()` |
 
 Legacy fields `day` / `pollution` / `tower_floor` / `needs_day_settlement` / `day_ended_reason` / `pending_floor_transition` remain for save/load; new adapter grouped reads should prefer snapshot + signal.
 
@@ -414,6 +415,46 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 }
 ```
 
-**Adapter pattern:** connect `day_progress_changed` → `_render()`; read grouped day/pollution/tower via `_day_progress_snapshot()` in `_render_status()`, pollution HUD tooltip, and `_pollution_stage_snapshot()`. Send pollution intents via `change_pollution()` (usually indirect through publish/craft paths). Slice 4 emits from the pollution vertical only; `spend_action` exhaustion and `settle_day_if_needed` remain on `action_economy_changed` / direct reads until a later slice.
+**Adapter pattern:** connect `day_progress_changed` → `_render()`; read grouped day/pollution/tower via `_day_progress_snapshot()` in `_render_status()`, pollution HUD tooltip, and `_pollution_stage_snapshot()`. Send pollution intents via `change_pollution()` (usually indirect through publish/craft paths). Slice 4 emits from the pollution vertical only; slice 5 adds settle and floor-transition emissions (see slice 5 contract).
 
 **Stop here for human review** before slice 5.
+
+---
+
+## Slice 5 contract (day settlement and floor transition)
+
+```gdscript
+# Snapshot (read) — unchanged from slice 4
+{
+  "day": int,
+  "pollution": int,
+  "tower_floor": int,
+  "needs_day_settlement": bool,
+  "day_ended_reason": String,
+  "pending_floor_transition": int,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...snapshot fields...
+  "change": {
+    "kind": "pollution" | "settle_day" | "floor_transition",
+    "target_id": String,  # pollution delta, new day number, or target floor
+    "active": bool,
+  },
+}
+```
+
+**Intent → signal mapping:**
+
+| Intent | `change.kind` | When |
+|---|---|---|
+| `change_pollution(amount)` | `pollution` | when pollution, pending floor, or flashback state changes (slice 4) |
+| `settle_day_if_needed()` | `settle_day` | on successful settlement; `target_id` is the new day number |
+| `resolve_floor_transition_at_boundary()` | `floor_transition` | when tower floor actually advances; `target_id` is the new floor |
+
+**`action_economy_changed` vs `day_progress_changed`:** `spend_action()` continues to emit `action_economy_changed` on every successful spend, including the last spend that sets `needs_day_settlement`. That signal owns pip count, disable-state, and the *request* to settle. `settle_day_if_needed()` emits `day_progress_changed` with kind `settle_day` and owns day rollover, action refresh, craft-slot clears, and reality reset. Do **not** duplicate an exhaustion-specific `action_economy_changed` in slice 5 — adapter HUD refresh after settlement comes from `day_progress_changed`.
+
+**Adapter pattern:** connect `day_progress_changed` → `_render()`; remove redundant `_render()` after `settle_day_if_needed()` when the signal path already refreshed UI (e.g. `_after_effective_action`). Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish). Read `day` / `tower_floor` via `_day_progress_snapshot()` in `_rebuild_reality_floor()` / `_ensure_reality_floor_current()` and floor-transition card updates touched in this slice.
+
+**Stop here for human review** before slice 6 or world extraction.

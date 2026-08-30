@@ -1154,30 +1154,33 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 func _rebuild_reality_floor() -> void:
 	if _reality_floor == null or game == null:
 		return
+	var progress := _day_progress_snapshot()
+	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
+	var day_number := int(progress.get("day", 1))
 	var npc_textures: Array[Texture2D] = []
 	for texture_path in NPC_CHARACTER_PATHS:
 		var texture := _load_runtime_texture(str(texture_path))
 		if texture != null:
 			npc_textures.append(texture)
-	var key_dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(clampi(game.tower_floor, 1, 3))
+	var key_dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(clampi(tower_floor, 1, 3))
 	var key_npc_texture: Texture2D = null
 	if not npc_textures.is_empty():
-		key_npc_texture = npc_textures[posmod(game.tower_floor - 1, npc_textures.size())]
+		key_npc_texture = npc_textures[posmod(tower_floor - 1, npc_textures.size())]
 	var actor_textures := {
 		"key_npc": key_npc_texture,
 		"key_npc_label": str(key_dialogue.get("actor_label", "关键住户")),
 		"npcs": npc_textures,
 		"doll": _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH),
-		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(game.tower_floor, 1, 3)),
+		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(tower_floor, 1, 3)),
 	}
-	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(game.tower_floor)
-	_reality_floor.rebuild(game.tower_floor, _active_palette(), actor_textures, game.day, game.has_seen_cover_watcher(game.tower_floor), prerequisite_item)
+	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(tower_floor)
+	_reality_floor.rebuild(tower_floor, _active_palette(), actor_textures, day_number, game.has_seen_cover_watcher(tower_floor), prerequisite_item)
 	_reality_floor.set_playtest_assist_enabled(_playtest_assist_enabled)
 	_reality_floor.sync_collected_items(game.collected_world_item_ids)
 	_reality_floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
 	_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
-	_reality_built_floor = game.tower_floor
-	_reality_built_day = game.day
+	_reality_built_floor = tower_floor
+	_reality_built_day = day_number
 	_reality_interaction_active = false
 	_active_reality_actor = null
 	_nearby_reality_actor = null
@@ -1193,11 +1196,14 @@ func _rebuild_reality_floor() -> void:
 func _ensure_reality_floor_current() -> void:
 	if _reality_floor == null or game == null:
 		return
-	if _reality_built_floor != game.tower_floor:
+	var progress := _day_progress_snapshot()
+	var tower_floor := int(progress.get("tower_floor", 1))
+	var day_number := int(progress.get("day", 1))
+	if _reality_built_floor != tower_floor:
 		_rebuild_reality_floor()
-	elif _reality_built_day != game.day:
-		_reality_floor.configure_authored_events(game.day, _active_palette())
-		_reality_built_day = game.day
+	elif _reality_built_day != day_number:
+		_reality_floor.configure_authored_events(day_number, _active_palette())
+		_reality_built_day = day_number
 
 
 func _room_count_for_floor(floor_number: int) -> int:
@@ -4174,7 +4180,7 @@ func _play_day_transition() -> void:
 	_set_input_locked(true)
 	if _day_transition_panel != null:
 		_day_transition_panel.prepare_show()
-	_update_floor_transition_card(game.tower_floor)
+	_update_floor_transition_card(int(_day_progress_snapshot().get("tower_floor", 1)))
 	if not is_inside_tree():
 		return
 	_day_transition_tween = create_tween()
@@ -4199,7 +4205,7 @@ func _commit_day_transition_settlement() -> void:
 		selected_meme_id = ""
 		if not game.event_log.is_empty():
 			log_text = game.event_log[0]
-	_update_floor_transition_card(game.tower_floor)
+	_update_floor_transition_card(int(_day_progress_snapshot().get("tower_floor", 1)))
 
 
 func _finish_day_transition() -> void:
@@ -4997,6 +5003,7 @@ func _after_effective_action(actions_before: int = -1) -> void:
 		selected_meme_id = ""
 		if not game.event_log.is_empty():
 			log_text = game.event_log[0]
+		return
 	_render()
 
 

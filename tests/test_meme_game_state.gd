@@ -42,6 +42,8 @@ func _run() -> void:
 	test_settings_snapshot_and_signal()
 	test_reality_conversation_snapshot_and_signal()
 	test_day_progress_snapshot_and_signal()
+	test_day_progress_settle_day_signal()
+	test_day_progress_floor_transition_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -443,7 +445,49 @@ func test_day_progress_snapshot_and_signal() -> void:
 	for index in 5:
 		game.spend_action("settle-%d" % index)
 	game.settle_day_if_needed()
-	_assert_eq(_day_progress_signal_count, 0, "day settlement should not emit in slice four pollution-only vertical")
+	_assert_eq(_day_progress_signal_count, 2, "settlement with pending floor transition should emit floor_transition then settle_day")
+	var settle_change: Dictionary = _last_day_progress_snapshot.get("change", {})
+	_assert_eq(str(settle_change.get("kind", "")), "settle_day", "last settlement signal should be settle_day")
+	_assert_eq(str(settle_change.get("target_id", "")), "2", "settle_day target should be the new day number")
+	_assert_eq(int(_last_day_progress_snapshot.get("day", -1)), 2, "settle snapshot should reflect the new day")
+	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 2, "settle snapshot should include floor advanced at boundary")
+
+
+func test_day_progress_settle_day_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_day_progress_signal_count = 0
+	_last_day_progress_snapshot = {}
+	game.day_progress_changed.connect(_capture_day_progress)
+	game.needs_day_settlement = true
+	game.day_ended_reason = "actions-depleted"
+	_assert_true(game.settle_day_if_needed(), "requested settlement should run")
+	_assert_eq(_day_progress_signal_count, 1, "settle_day should emit once when no floor transition occurs")
+	var settle_change: Dictionary = _last_day_progress_snapshot.get("change", {})
+	_assert_eq(str(settle_change.get("kind", "")), "settle_day", "change kind should be settle_day")
+	_assert_eq(str(settle_change.get("target_id", "")), "2", "settle_day target should be the new day number")
+	_assert_true(bool(settle_change.get("active", false)), "settle_day should be active")
+	_assert_eq(int(_last_day_progress_snapshot.get("day", -1)), 2, "snapshot should reflect day two after settlement")
+	_assert_true(not bool(_last_day_progress_snapshot.get("needs_day_settlement", true)), "settlement should clear needs_day_settlement")
+
+
+func test_day_progress_floor_transition_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_day_progress_signal_count = 0
+	_last_day_progress_snapshot = {}
+	game.day_progress_changed.connect(_capture_day_progress)
+	game.pollution = 25
+	_assert_eq(game.resolve_floor_transition_at_boundary(), 2, "pollution boundary should advance the floor")
+	_assert_eq(_day_progress_signal_count, 1, "floor transition should emit once")
+	var floor_change: Dictionary = _last_day_progress_snapshot.get("change", {})
+	_assert_eq(str(floor_change.get("kind", "")), "floor_transition", "change kind should be floor_transition")
+	_assert_eq(str(floor_change.get("target_id", "")), "2", "floor_transition target should be the new floor")
+	_assert_true(bool(floor_change.get("active", false)), "floor_transition should be active")
+	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 2, "snapshot should reflect floor two")
+	_day_progress_signal_count = 0
+	_assert_eq(game.resolve_floor_transition_at_boundary(), 2, "repeat boundary call should not advance again")
+	_assert_eq(_day_progress_signal_count, 0, "no-op floor transition should not emit")
 
 
 func _capture_day_progress(snapshot: Dictionary) -> void:
