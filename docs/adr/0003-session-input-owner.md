@@ -1,6 +1,6 @@
 # Session input owner is derived from adapter flags
 
-Status: accepted
+Status: superseded by ADR 0004
 
 Which overlay currently owns player input is **Session mode**. The adapter derives it with `SessionInput.owner_from(prologue_visible, input_locked, game_started)` instead of storing a parallel FSM.
 

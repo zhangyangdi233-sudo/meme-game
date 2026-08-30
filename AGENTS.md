@@ -1,6 +1,6 @@
 ## Language
 
-與使用者的所有回覆一律使用**繁體中文**。程式碼、識別符維持英文；Git commit message 摘要使用繁體中文（前綴仍用 Conventional Commits）。
+與使用者的所有回覆一律使用**繁體中文**。程式碼、識別符、檔名維持英文。GitHub issue（含 spec、ticket）標題與內文使用繁體中文；PR 標題與內文維持英文。Git commit message 摘要使用繁體中文（前綴仍用 Conventional Commits）。
 
 ## Agent skills
 

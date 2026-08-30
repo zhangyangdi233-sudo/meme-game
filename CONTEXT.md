@@ -19,8 +19,8 @@ _Avoid_: boundary, layer (when used as a synonym for this rule)
 Parallel **adapter extractions** under `scripts/integrations/` (`camera_session`, `game_audio_controller`), `scripts/game/` (`social_feed_content`, `narrative_overlay_director`), and `scripts/ui/game_ui_theme.gd` shrink `babel_meme_game.gd` without changing MemeGameState API; see `docs/design/meme_game_state_public_surface.md`.
 
 **Session mode**:
-Which overlay or loop currently owns player input. Adapter flags are derived by `scripts/game/session_input.gd`; see ADR 0003.
-_Avoid_: game state machine, main FSM (when meaning this)
+The outer flow's current state: main menu, prologue, gameplay, narrative, or ending. The reusable machine (state interface + manager) is Framework; the five state scripts are Game and are created and injected at boot. Rules flags are transition conditions, not a way to infer the screen. See ADR 0004.
+_Avoid_: deriving the screen from overlay flags, treating language picker or camera consent as flow states, a single FSM for phone apps or conversations, putting Babel state names inside Framework
 
 **Content catalog**:
 Authored narrative copy grouped by domain and looked up by id. MemeGameState stores ids, not sentences.
