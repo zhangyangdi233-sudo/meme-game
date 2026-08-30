@@ -27,6 +27,7 @@ const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.
 const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
+const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -400,6 +401,7 @@ var _phone_launcher_panel
 var _meme_bank_panel
 var _notebook_app_panel
 var _babel_app_panel
+var _day_transition_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: Control
@@ -4352,78 +4354,40 @@ func _action_spend_center_position() -> Vector2:
 
 
 func _build_day_transition_overlay() -> void:
-	_day_transition_overlay = Control.new()
-	_day_transition_overlay.name = "DayTransitionOverlay"
-	_day_transition_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_day_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_day_transition_overlay.visible = false
-	_day_transition_overlay.z_index = 95
-	_day_transition_overlay.set_meta("duration_seconds", 3.6)
-	_ui_root.add_child(_day_transition_overlay)
+	_ensure_day_transition_panel()
+	_day_transition_panel.mount(_ui_root, _day_transition_mount_deps())
+	_sync_day_transition_refs()
 
-	var background := ColorRect.new()
-	background.name = "DayTransitionBlack"
-	background.color = Color("050705")
-	background.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_day_transition_overlay.add_child(background)
 
-	_day_transition_rule = ColorRect.new()
-	_day_transition_rule.name = "DayTransitionRule"
-	_day_transition_rule.color = _theme_color("flash_text")
-	_day_transition_rule.set_anchors_preset(Control.PRESET_CENTER)
-	_day_transition_rule.offset_left = -620
-	_day_transition_rule.offset_top = -8
-	_day_transition_rule.offset_right = 620
-	_day_transition_rule.offset_bottom = 8
-	_day_transition_rule.pivot_offset = Vector2(620, 8)
-	_day_transition_rule.rotation = deg_to_rad(-5.0)
-	_day_transition_overlay.add_child(_day_transition_rule)
+func _ensure_day_transition_panel() -> void:
+	if _day_transition_panel != null and is_instance_valid(_day_transition_panel):
+		return
+	_day_transition_panel = DayTransitionPanelScript.new()
+	_day_transition_panel.name = "DayTransitionPanel"
+	add_child(_day_transition_panel)
 
-	_day_transition_day_label = _label("第一层", 58, _theme_color("surface"))
-	_day_transition_day_label.name = "FloorTransitionAreaLabel"
-	_day_transition_day_label.set_meta("on_dark", true)
-	_day_transition_day_label.set_anchors_preset(Control.PRESET_CENTER)
-	_day_transition_day_label.offset_left = -520
-	_day_transition_day_label.offset_top = -190
-	_day_transition_day_label.offset_right = 520
-	_day_transition_day_label.offset_bottom = -70
-	_day_transition_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_transition_day_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_day_transition_day_label.pivot_offset = Vector2(520, 70)
-	_day_transition_overlay.add_child(_day_transition_day_label)
 
-	_day_transition_meta_label = _label("危险：B", 28, _theme_color("flash_text"))
-	_day_transition_meta_label.name = "FloorTransitionDangerLabel"
-	_day_transition_meta_label.set_meta("on_dark", true)
-	_day_transition_meta_label.set_anchors_preset(Control.PRESET_CENTER)
-	_day_transition_meta_label.offset_left = -440
-	_day_transition_meta_label.offset_top = -16
-	_day_transition_meta_label.offset_right = 440
-	_day_transition_meta_label.offset_bottom = 42
-	_day_transition_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_transition_meta_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_day_transition_overlay.add_child(_day_transition_meta_label)
+func _day_transition_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"level_display_name": _locale.level_display_name,
+	}
 
-	_day_transition_hint_label = _label("提示：《游戏与现实》", 22, _theme_color("muted"))
-	_day_transition_hint_label.name = "FloorTransitionHintLabel"
-	_day_transition_hint_label.set_meta("on_dark", true)
-	_day_transition_hint_label.set_anchors_preset(Control.PRESET_CENTER)
-	_day_transition_hint_label.offset_left = -520
-	_day_transition_hint_label.offset_top = 62
-	_day_transition_hint_label.offset_right = 520
-	_day_transition_hint_label.offset_bottom = 132
-	_day_transition_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_day_transition_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_day_transition_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_day_transition_overlay.add_child(_day_transition_hint_label)
+
+func _sync_day_transition_refs() -> void:
+	if _day_transition_panel == null:
+		return
+	_day_transition_overlay = _day_transition_panel.get_overlay()
+	_day_transition_day_label = _day_transition_panel.get_day_label()
+	_day_transition_meta_label = _day_transition_panel.get_meta_label()
+	_day_transition_hint_label = _day_transition_panel.get_hint_label()
+	_day_transition_rule = _day_transition_panel.get_rule()
 
 
 func _update_floor_transition_card(floor_number: int) -> void:
-	var displayed_floor := clampi(floor_number, 1, 4)
-	var card: Dictionary = LanguageCorruptionContentScript.get_floor_card_display(displayed_floor)
-	_day_transition_day_label.text = _locale.level_display_name(displayed_floor)
-	_day_transition_meta_label.text = "危险：%s" % str(card.get("危险", ""))
-	_day_transition_hint_label.text = "提示：%s" % str(card.get("提示", ""))
+	if _day_transition_panel != null:
+		_day_transition_panel.refresh_copy(floor_number)
 
 
 func _play_day_transition() -> void:
@@ -4436,11 +4400,9 @@ func _play_day_transition() -> void:
 		_day_transition_tween.kill()
 	_day_transition_settled = false
 	_set_input_locked(true)
-	_day_transition_overlay.visible = true
-	_day_transition_overlay.modulate = Color(1, 1, 1, 0)
+	if _day_transition_panel != null:
+		_day_transition_panel.prepare_show()
 	_update_floor_transition_card(game.tower_floor)
-	_day_transition_day_label.scale = Vector2(0.86, 0.86)
-	_day_transition_rule.scale = Vector2(0.04, 1.0)
 	if not is_inside_tree():
 		return
 	_day_transition_tween = create_tween()
@@ -4474,9 +4436,8 @@ func _finish_day_transition() -> void:
 	_day_transition_tween = null
 	if not _day_transition_settled:
 		_commit_day_transition_settlement()
-	if _day_transition_overlay != null:
-		_day_transition_overlay.visible = false
-		_day_transition_overlay.modulate = Color.WHITE
+	if _day_transition_panel != null:
+		_day_transition_panel.hide_overlay()
 	_set_input_locked(false)
 	_sync_audio_state(false)
 	_render()
