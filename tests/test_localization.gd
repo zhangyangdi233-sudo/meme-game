@@ -240,28 +240,34 @@ func _test_language_selection_and_settings_ui() -> void:
 	await process_frame
 	var overlay := game_root._language_overlay as Control
 	_assert_true(overlay != null and is_instance_valid(overlay) and overlay.visible, "first-run language selection should cover the main menu")
-	_assert_true(_find_node_by_name(game_root, "LanguageChoiceZH") != null, "language selection should offer Chinese")
-	_assert_true(_find_node_by_name(game_root, "LanguageChoiceJA") != null, "language selection should offer Japanese")
-	_assert_true(_find_node_by_name(game_root, "LanguageChoiceEN") != null, "language selection should offer English")
+	_assert_true(_find_ui_node(game_root, "LanguageChoiceZH") != null, "language selection should offer Chinese")
+	_assert_true(_find_ui_node(game_root, "LanguageChoiceJA") != null, "language selection should offer Japanese")
+	_assert_true(_find_ui_node(game_root, "LanguageChoiceEN") != null, "language selection should offer English")
 	game_root._on_language_selected("en")
-	var continue_button: Button = null
-	for _attempt in range(12):
-		await process_frame
-		continue_button = _find_node_by_name(game_root, "MainMenuContinueButton") as Button
-		if continue_button != null and continue_button.text == "Continue":
-			break
-	_assert_true(continue_button != null and continue_button.text == "Continue", "choosing English should rebuild the main menu in English")
+	await process_frame
+	var continue_button := _find_ui_node(game_root, "MainMenuContinueButton") as Button
+	_assert_true(continue_button != null, "choosing English should keep the main menu continue button")
+	if continue_button != null:
+		_assert_eq(continue_button.text, "Continue", "choosing English should rebuild the main menu in English")
 	game_root.new_game()
 	await process_frame
-	await process_frame
-	var language_option := _find_node_by_name(game_root, "SettingsLanguageOption") as OptionButton
-	var manual_save := _find_node_by_name(game_root, "SettingsManualSaveButton") as Button
+	var language_option := _find_ui_node(game_root, "SettingsLanguageOption") as OptionButton
+	var manual_save := _find_ui_node(game_root, "SettingsManualSaveButton") as Button
 	_assert_true(language_option != null, "settings should expose an in-game language switcher")
 	_assert_true(manual_save != null, "settings should expose manual save")
 	game_root.game.pollution = 60
 	_assert_eq(game_root._corrupt("I want to speak normally."), "□ want to speak □", "English corruption should replace complete words instead of shredding letters")
 	game_root.queue_free()
 	await process_frame
+
+
+## Rebuilds queue_free the previous UIRoot, so searching from the game root can still
+## reach stale nodes for a frame. Always scope lookups to the current UIRoot.
+func _find_ui_node(game_root: Node, target_name: String) -> Node:
+	var ui_root := game_root._ui_root as Control
+	if ui_root == null or not is_instance_valid(ui_root):
+		return null
+	return _find_node_by_name(ui_root, target_name)
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:

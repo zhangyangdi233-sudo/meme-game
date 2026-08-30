@@ -1519,6 +1519,9 @@ func _build_language_selection_overlay(first_run: bool = false) -> void:
 func _on_language_selected(locale_code: String) -> void:
 	if not _locale.select_language(locale_code):
 		return
+	# 首次启动尚未选语言,show_main_menu() 不会建 consent overlay,
+	# 于是 _build_world() 释放的 session 无人重建。
+	_ensure_camera_session()
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
 	_close_language_selection_overlay()
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
