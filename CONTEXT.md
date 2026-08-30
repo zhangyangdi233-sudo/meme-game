@@ -16,6 +16,8 @@ _Avoid_: app, core (when used loosely)
 The rule that Framework may be called from Game; Framework must not call back into Game.
 _Avoid_: boundary, layer (when used as a synonym for this rule)
 
+Parallel **adapter extractions** under `scripts/integrations/` (`camera_session`, `game_audio_controller`) and `scripts/ui/game_ui_theme.gd` shrink `babel_meme_game.gd` without changing MemeGameState API; see `docs/design/meme_game_state_public_surface.md`.
+
 ## Development
 
 **Primary platform**: Windows (Godot 4.6+ editor and headless tests).

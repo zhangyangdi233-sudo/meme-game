@@ -38,6 +38,10 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Day/pollution/actions HUD chrome; reads adapter snapshots |
 | Meme bank / publish | `scripts/ui/meme_bank_panel.gd` | Meme-bank grid, publish result display; reads `_meme_bank_snapshot()` / `_inventory_snapshot()` |
 | Reality 3D scene | `scripts/world/reality_scene_adapter.gd` (slice 1) | Floor rebuild, player locomotion, proximity actors/items; MemeGameState intents stay in adapter |
+| Camera / hand X-ray | `scripts/integrations/camera_session.gd` | Hand tracking receiver, X-ray overlay, enable/source intents; settings UI wiring stays in adapter |
+| Adaptive audio mix | `scripts/integrations/game_audio_controller.gd` | Score players, floor phone music, flashback ducking, cover-watcher stinger |
+| Social feed content | `scripts/game/social_feed_content.gd` | Post/caption/poster pure helpers consumed by `social_feed_panel` mount deps |
+| UI theme factories | `scripts/ui/game_ui_theme.gd` | Palette, pixel-font theme, panel/style factories, control-tree localization |
 
 ---
 
