@@ -571,7 +571,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _handle_reality_touch_look(event: InputEvent) -> bool:
-	var can_touch_look: bool = _game_started and game.view_state == "npc_up" and not _reality_interaction_active
+	var can_touch_look: bool = _game_started and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if not touch.pressed:
@@ -603,7 +603,7 @@ func _handle_reality_touch_look(event: InputEvent) -> bool:
 func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 	if not event is InputEventPanGesture:
 		return false
-	var can_trackpad_look: bool = _game_started and game.view_state == "npc_up" and not _reality_interaction_active
+	var can_trackpad_look: bool = _game_started and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
 	if not can_trackpad_look:
 		return false
 	var pan := event as InputEventPanGesture
@@ -638,7 +638,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_reality_mouse_look(false)
 			get_viewport().set_input_as_handled()
 			return
-	if game.view_state != "npc_up" or _reality_interaction_active:
+	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up" or _reality_interaction_active:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_set_reality_mouse_look(true)
@@ -718,7 +718,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	if not show_prologue:
 		_skip_prologue()
 	_render()
-	_set_reality_mouse_look(game.view_state == "npc_up")
+	_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
 	_sync_audio_state(true)
 
 
@@ -848,6 +848,8 @@ func _connect_game_state_signals() -> void:
 		game.day_progress_changed.connect(_on_day_progress_changed)
 	if not game.inventory_changed.is_connected(_on_inventory_changed):
 		game.inventory_changed.connect(_on_inventory_changed)
+	if not game.progression_changed.is_connected(_on_progression_changed):
+		game.progression_changed.connect(_on_progression_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -887,6 +889,12 @@ func _on_day_progress_changed(_snapshot: Dictionary) -> void:
 
 
 func _on_inventory_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
+func _on_progression_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
 	_render()
@@ -961,6 +969,19 @@ func _inventory_snapshot() -> Dictionary:
 	return game.get_inventory_snapshot()
 
 
+func _progression_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"ending_unlocked": false,
+			"ending_route": "",
+			"ending_language_choice": "",
+			"formal_floor_three_complete": false,
+			"floor3_task_complete": false,
+			"floor4_task_complete": false,
+		}
+	return game.get_progression_snapshot()
+
+
 func _is_social_following(author_id: String) -> bool:
 	return author_id in (_social_engagement_snapshot().get("followed_handles", []) as Array)
 
@@ -972,7 +993,7 @@ func _is_social_post_liked(post_id: String) -> bool:
 func set_view_state(value: String) -> void:
 	if _input_locked:
 		return
-	if value == "npc_up" and game.view_state == "phone_down":
+	if value == "npc_up" and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
 		_reality_interaction_active = false
@@ -1001,7 +1022,7 @@ func set_view_state(value: String) -> void:
 
 
 func _toggle_view_state() -> void:
-	if game.view_state == "phone_down":
+	if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		set_view_state("npc_up")
 	else:
 		set_view_state("phone_down")
@@ -1024,7 +1045,7 @@ func _capture_phone_layer_for_xray() -> bool:
 
 func _set_reality_mouse_look(enabled: bool) -> void:
 	_reality_mouse_look_enabled = enabled
-	if not enabled or game.view_state != "npc_up":
+	if not enabled or str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		_reality_touch_look_index = -1
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if enabled else Input.MOUSE_MODE_VISIBLE)
 
@@ -1051,7 +1072,7 @@ func _reality_scene_deps() -> Dictionary:
 		"npc_character_paths": NPC_CHARACTER_PATHS,
 		"guide_doll_path": GUIDE_DOLL_CHARACTER_PATH,
 		"playtest_assist_enabled": _playtest_assist_enabled,
-		"view_state": game.view_state if game != null else "",
+		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
 		"interaction_active": _reality_interaction_active,
 		"input_locked": _input_locked,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
@@ -1239,7 +1260,7 @@ func _refresh_nearby_reality_actor() -> void:
 
 
 func _try_reality_interaction() -> bool:
-	if game.view_state != "npc_up":
+	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		return false
 	if _reality_interaction_active:
 		_exit_reality_interaction()
@@ -1312,7 +1333,7 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 	_reality_hover_choice_id = ""
 	_selected_language_token_id = ""
 	game.reset_typed_reality_conversation()
-	if game.view_state == "npc_up":
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
 		_set_reality_mouse_look(true)
 	if should_render:
 		_render()
@@ -1419,8 +1440,8 @@ func _sync_audio_state(immediate: bool = false) -> void:
 			if _cover_watcher_stinger != null:
 				_cover_watcher_stinger.stop()
 		return
-	_ensure_phone_music_for_floor(int(game.tower_floor))
-	var in_phone: bool = game.view_state == "phone_down"
+	_ensure_phone_music_for_floor(int(_day_progress_snapshot().get("tower_floor", 1)))
+	var in_phone: bool = str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
 	var phone_target: float = -8.0 if in_phone else -42.0
 	var intimate_typing: bool = _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing"
 	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
@@ -2037,7 +2058,7 @@ func _layout_hud_rail() -> void:
 		return
 	var hud_reveal_zone: Control = _apple_hud_panel.get_reveal_zone() if _apple_hud_panel != null else null
 	var viewport_size := _viewport_size()
-	var uses_cinematic_frame: bool = _game_started and game != null and game.view_state == "npc_up"
+	var uses_cinematic_frame: bool = _game_started and game != null and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
 	var frame_inset := 0.0
 	if uses_cinematic_frame and _cinematic_bars != null:
 		frame_inset = _cinematic_bars.bar_height(viewport_size)
@@ -2080,7 +2101,7 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.refresh_menu_labels(game.pollution, bool(_settings_snapshot().get("autoplay_enabled", false)))
+	_settings_history_panel.refresh_menu_labels(int(_day_progress_snapshot().get("pollution", 0)), bool(_settings_snapshot().get("autoplay_enabled", false)))
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
@@ -2405,7 +2426,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"pickup_comments": func(post_id: String, locale: String) -> Array: return PickupCharPoolScript.get_comments(post_id, locale),
 		"player_echo_quote": func() -> String: return game.get_player_echo_quote(_locale.current_locale) if game != null else "",
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
-		"game_day": func() -> int: return game.day if game != null else 0,
+		"game_day": func() -> int: return int(_day_progress_snapshot().get("day", 0)) if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
 		"publish_result": _social_publish_result,
 		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
@@ -2416,8 +2437,9 @@ func _social_feed_mount_deps() -> Dictionary:
 		"apply_composer_tile_theme": _apply_composer_tile_theme,
 		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
-		"completed_memes_count": func() -> int: return game.completed_memes.size() if game != null else 0,
-		"pollution": func() -> int: return game.pollution if game != null else 0,
+		"completed_memes_count": func() -> int:
+			return (_inventory_snapshot().get("completed_memes", []) as Array).size() if game != null else 0,
+		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
 		"input_locked": func() -> bool: return _input_locked,
@@ -2607,9 +2629,9 @@ func _babel_mount_deps() -> Dictionary:
 		"label_factory": _label,
 		"theme_color": _theme_color,
 		"clear_children": _clear,
-		"tower_floor": func() -> int: return game.tower_floor if game != null else 1,
+		"tower_floor": func() -> int: return int(_day_progress_snapshot().get("tower_floor", 1)) if game != null else 1,
 		"money": func() -> int: return game.money if game != null else 0,
-		"pollution": func() -> int: return game.pollution if game != null else 0,
+		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
 		"event_log": func() -> Array:
 			return game.event_log if game != null else [],
 		"level_display_name": func(floor_number: int) -> String:
@@ -2645,7 +2667,8 @@ func _notebook_mount_deps() -> Dictionary:
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
-		"fusion_ready": func() -> bool: return game != null and game.fusion_slots.size() >= 2,
+		"fusion_ready": func() -> bool:
+			return game != null and (_inventory_snapshot().get("fusion_slots", {}) as Dictionary).size() >= 2,
 	}
 
 
@@ -2905,7 +2928,7 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 		return
 	_last_responsive_layout_size = viewport_size
 	if _phone_launcher_panel != null and game != null:
-		_phone_launcher_panel.layout_popup(game.view_state == "phone_down")
+		_phone_launcher_panel.layout_popup(str(_phone_shell_snapshot().get("view_state", "")) == "phone_down")
 	if _meme_bank_window != null:
 		var show_meme_bank := _should_show_meme_bank()
 		var desired_bank_layout := "open" if _meme_bank_open else ("collapsed" if show_meme_bank else "peek")
@@ -2927,7 +2950,7 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 
 
 func _render() -> void:
-	if game.ending_unlocked:
+	if bool(_progression_snapshot().get("ending_unlocked", false)):
 		_render_ending()
 		_refresh_localized_ui()
 		return
@@ -3005,10 +3028,11 @@ func _action_pips(actions: int) -> String:
 func _render_world_prompt() -> void:
 	var plan := _day_plan()
 	var day_progress := _day_progress_snapshot()
-	if game.view_state == "phone_down":
+	if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [int(day_progress.get("day", 1)), plan["title"]]
 	elif _reality_interaction_active:
-		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(game.conversation_prompt)]
+		var conversation := _reality_conversation_snapshot()
+		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(str(conversation.get("prompt", "")))]
 	elif _nearby_reality_item != null:
 		_world_prompt.text = "F  拾取 · %s\n%s" % [
 			str(_nearby_reality_item.get_meta("display_name", "街区遗物")),
@@ -3073,7 +3097,7 @@ func _social_like_text(post: Dictionary, post_index: int) -> String:
 
 
 func _social_floor_label() -> String:
-	var floor_number := 1 if game == null else clampi(game.tower_floor, 1, 4)
+	var floor_number := 1 if game == null else clampi(int(_day_progress_snapshot().get("tower_floor", 1)), 1, 4)
 	return _locale.level_display_name(floor_number)
 
 
@@ -3355,7 +3379,7 @@ func _advance_typed_reality_character() -> bool:
 		_after_effective_action(actions_before)
 	else:
 		_sync_audio_state(false)
-	if game.conversation_actor_type == "doll" and _reality_floor != null:
+	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_floor != null:
 		_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
 	return true
 
@@ -3450,13 +3474,13 @@ func _animate_world(delta: float) -> void:
 			_camera.rotation_degrees = _camera.rotation_degrees.lerp(Vector3(-18.0, 0.0, 0.0), minf(1.0, delta * 3.0))
 		_animate_vhs(delta)
 		return
-	var phone_target := Vector3(0.0, 0.15, -1.15) if game.view_state == "phone_down" else Vector3(1.45, -0.8, -1.0)
+	var phone_target := Vector3(0.0, 0.15, -1.15) if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" else Vector3(1.45, -0.8, -1.0)
 	var camera_target_pos := Vector3(0.0, 1.45, 2.2)
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
-	if game.view_state == "npc_up" and _reality_player != null:
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_player != null:
 		camera_target_pos = _reality_player.position + Vector3(0.0, 1.56, 0.0)
 		camera_target_rot = Vector3(_reality_pitch, _reality_yaw, 0.0)
-	var camera_lerp := minf(1.0, delta * (7.0 if game.view_state == "npc_up" else 5.0))
+	var camera_lerp := minf(1.0, delta * (7.0 if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" else 5.0))
 	_camera.position = _camera.position.lerp(camera_target_pos, camera_lerp)
 	var current_rotation := _camera.rotation_degrees
 	current_rotation.x = lerpf(current_rotation.x, camera_target_rot.x, camera_lerp)
@@ -3467,11 +3491,11 @@ func _animate_world(delta: float) -> void:
 	if _phone_rig != null:
 		_phone_rig.position = _phone_rig.position.lerp(phone_target, minf(1.0, delta * 6.0))
 		_phone_rig.rotation_degrees = Vector3(68.0, 0.0, 0.0)
-	var target_alpha := 1.0 if game.view_state == "phone_down" else 0.0
+	var target_alpha := 1.0 if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" else 0.0
 	_phone_art_alpha = lerpf(_phone_art_alpha, target_alpha, minf(1.0, delta * 3.4))
 	_road_scroll += delta * 1.4
 	if _phone_down_backdrop_image != null:
-		_phone_down_backdrop_image.visible = game.view_state == "phone_down" or _phone_art_alpha > 0.03
+		_phone_down_backdrop_image.visible = str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" or _phone_art_alpha > 0.03
 		_phone_down_backdrop_image.modulate.a = _phone_art_alpha
 		var viewport_size := _viewport_size()
 		var bob := sin(_road_scroll * 2.2) * 2.4
@@ -3484,7 +3508,7 @@ func _animate_world(delta: float) -> void:
 		for index in _road.get_child_count():
 			var tile := _road.get_child(index) as Node3D
 			tile.position.z = -2.0 - index * 3.8 + fmod(_road_scroll, 3.8)
-	if game.view_state == "npc_up" and _reality_scene_adapter != null and _reality_player != null:
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_player != null:
 		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
 
@@ -3573,7 +3597,7 @@ func _social_poster_texture(post_index: int) -> Texture2D:
 func _social_post_for_index(post_index: int) -> Dictionary:
 	if SOCIAL_POST_CARDS.is_empty():
 		return {}
-	var day_offset := 0 if game == null else maxi(0, game.day - 1) * 3
+	var day_offset := 0 if game == null else maxi(0, int(_day_progress_snapshot().get("day", 1)) - 1) * 3
 	var card_index := posmod(post_index + day_offset, SOCIAL_POST_CARDS.size())
 	var post: Dictionary = (SOCIAL_POST_CARDS[card_index] as Dictionary).duplicate(true)
 	post["card_index"] = card_index
@@ -3590,7 +3614,7 @@ func _social_post_for_index(post_index: int) -> Dictionary:
 			token[surface_field] = _locale.translate(str(token.get(surface_field, source_text)))
 		candidate_tokens.append(token)
 	var prepared_tokens: Array = []
-	var current_day := 1 if game == null else game.day
+	var current_day := 1 if game == null else int(_day_progress_snapshot().get("day", 1))
 	var pickup_indices := _social_pickup_post_indices(current_day)
 	if post_index in pickup_indices and not candidate_tokens.is_empty():
 		prepared_tokens = candidate_tokens.duplicate(true)
@@ -4280,9 +4304,10 @@ func _ending_screen_mount_deps() -> Dictionary:
 
 
 func _ending_screen_render_state() -> Dictionary:
+	var progression := _progression_snapshot()
 	return {
 		"epilogue_lines": MemeGameStateScript.EPILOGUE_LINES,
-		"show_language_choices": game.ending_language_choice.is_empty(),
+		"show_language_choices": str(progression.get("ending_language_choice", "")).is_empty(),
 		"language_choices": game.get_ending_language_choices(),
 		"language_output": game.get_ending_language_output(),
 		"relationship_residue": game.relationship_residue,
@@ -4382,13 +4407,18 @@ func _doll_guide_current_line() -> String:
 		if required_count > 1:
 			line += "(%d/%d)" % [clampi(int(step.get("event_count", 0)), 0, required_count), required_count]
 		return line
-	if game.tower_floor == 3 and not game.floor3_task_complete:
+	var day_progress := _day_progress_snapshot()
+	var progression := _progression_snapshot()
+	var tower_floor := int(day_progress.get("tower_floor", 1))
+	var floor3_complete := bool(progression.get("floor3_task_complete", false))
+	var floor4_complete := bool(progression.get("floor4_task_complete", false))
+	if tower_floor == 3 and not floor3_complete:
 		return "门在等一句话。去笔记本里拼给它。"
-	if game.tower_floor == 3 and game.floor3_task_complete:
+	if tower_floor == 3 and floor3_complete:
 		return "门记得这句话。"
-	if game.tower_floor == 4 and not game.floor4_task_complete:
+	if tower_floor == 4 and not floor4_complete:
 		return "出口还不存在。让它存在。"
-	if game.tower_floor == 4 and game.floor4_task_complete:
+	if tower_floor == 4 and floor4_complete:
 		return "出口存在了。这里不会记下我们。"
 	return str(step.get("guide_line", "你已经会自己走了。至少现在是。"))
 
@@ -4401,21 +4431,26 @@ func _sync_ultimate_task_props() -> void:
 	var floor_root := get_node_or_null("RealityFloor")
 	if floor_root == null:
 		return
-	if game.tower_floor == 3:
+	var day_progress := _day_progress_snapshot()
+	var progression := _progression_snapshot()
+	var tower_floor := int(day_progress.get("tower_floor", 1))
+	var floor3_complete := bool(progression.get("floor3_task_complete", false))
+	var floor4_complete := bool(progression.get("floor4_task_complete", false))
+	if tower_floor == 3:
 		var sealed_door := _ensure_task_prop_body(floor_root, "FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0))
 		var open_frame := _ensure_task_prop_mesh(floor_root, "FloorThreeDoorOpenFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -7.0), true)
 		if sealed_door != null:
-			sealed_door.visible = not game.floor3_task_complete
+			sealed_door.visible = not floor3_complete
 			var door_shape := sealed_door.get_node_or_null("DoorCollision") as CollisionShape3D
 			if door_shape != null:
 				# 门开之后不再阻挡通行。
-				door_shape.disabled = game.floor3_task_complete
+				door_shape.disabled = floor3_complete
 		if open_frame != null:
-			open_frame.visible = game.floor3_task_complete
-	elif game.tower_floor == 4:
+			open_frame.visible = floor3_complete
+	elif tower_floor == 4:
 		var exit_frame := _ensure_task_prop_mesh(floor_root, "FloorFourExitFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -6.0), true)
 		if exit_frame != null:
-			exit_frame.visible = game.floor4_task_complete
+			exit_frame.visible = floor4_complete
 
 
 ## 有碰撞的封门:StaticBody3D + 网格 + 碰撞盒,玩家在门开前无法穿过。
@@ -4619,7 +4654,7 @@ func _ensure_notebook_window_home() -> void:
 		return
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.layout_app_window("notebook")
-	window.visible = game != null and game.view_state == "phone_down"
+	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
 
 
 func _pickup_bbcode(source_text: String) -> String:
@@ -4777,9 +4812,11 @@ func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
 	if token_id.is_empty():
 		return
 	selected_token_id = token_id
-	game.place_token_in_slot(slot_id, token_id)
-	log_text = "词语已拖入槽位。"
-	_render()
+	if game.place_token_in_slot(slot_id, token_id):
+		log_text = "词语已拖入槽位。"
+	else:
+		log_text = "这个词不能放在这里。"
+		_render()
 
 
 func _on_slot_pressed(slot_id: String) -> void:
@@ -4787,10 +4824,11 @@ func _on_slot_pressed(slot_id: String) -> void:
 		return
 	if selected_token_id.is_empty():
 		log_text = "先选一个词语。"
-	else:
-		game.place_token_in_slot(slot_id, selected_token_id)
+	elif game.place_token_in_slot(slot_id, selected_token_id):
 		log_text = "词语已放入槽位。"
-	_render()
+	else:
+		log_text = "这个词不能放在这里。"
+		_render()
 
 
 func _on_language_token_pressed(token_id: String) -> void:
@@ -4885,8 +4923,11 @@ func _on_confirm_fusion_pressed() -> void:
 		return
 	var actions_before := int(game.actions_remaining)
 	if game.confirm_meme_fusion():
-		selected_meme_id = str(game.completed_memes[0].get("id", ""))
-		log_text = "融合完成：%s" % str(game.completed_memes[0].get("title", "复合梗"))
+		var fused_memes: Array = _inventory_snapshot().get("completed_memes", [])
+		if not fused_memes.is_empty():
+			var fused: Dictionary = fused_memes[0] as Dictionary
+			selected_meme_id = str(fused.get("id", ""))
+			log_text = "融合完成：%s" % str(fused.get("title", "复合梗"))
 		_after_effective_action(actions_before)
 	else:
 		log_text = "需要两个不同且尚未融合过的完整梗。"
@@ -4971,7 +5012,8 @@ func _settle_day_and_present_rewards() -> bool:
 
 
 func _day_plan() -> Dictionary:
-	return DAY_PLANS[mini(game.day, DAY_PLANS.size()) - 1]
+	var current_day := 1 if game == null else int(_day_progress_snapshot().get("day", 1))
+	return DAY_PLANS[mini(current_day, DAY_PLANS.size()) - 1]
 
 
 func _slot_text(slot_id: String, placeholder: String) -> String:
@@ -5000,10 +5042,11 @@ func _craft_preview_text() -> String:
 
 
 func _fusion_slot_text(slot_id: String) -> String:
-	var meme_id := str(game.fusion_slots.get(slot_id, ""))
+	var inventory := _inventory_snapshot()
+	var meme_id := str((inventory.get("fusion_slots", {}) as Dictionary).get(slot_id, ""))
 	if meme_id.is_empty():
 		return "旧梗 A" if slot_id == "left" else "旧梗 B"
-	for meme in _inventory_snapshot().get("completed_memes", []):
+	for meme in inventory.get("completed_memes", []):
 		if str((meme as Dictionary).get("id", "")) == meme_id:
 			return str((meme as Dictionary).get("title", (meme as Dictionary).get("text", "完整梗")))
 	return "等待完整梗"
