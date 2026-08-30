@@ -23,6 +23,7 @@ const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
+const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -371,7 +372,6 @@ var _camera_computer_button: Button
 var _camera_phone_button: Button
 var _camera_source_button_group: ButtonGroup
 var _camera_status_label: Label
-var _camera_consent_copy: Label
 var _phone_camera_connection_overlay: Control
 var _phone_camera_connection_panel: PanelContainer
 var _phone_camera_connection_status_label: Label
@@ -392,6 +392,7 @@ var _desk_log: Label
 var _main_menu_panel: MainMenuPanel
 var _language_selection_panel: LanguageSelectionPanel
 var _prologue_panel: ProloguePanel
+var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
@@ -900,7 +901,6 @@ func _build_world() -> void:
 	_camera_phone_button = null
 	_camera_source_button_group = null
 	_camera_status_label = null
-	_camera_consent_copy = null
 	_phone_camera_connection_overlay = null
 	_phone_camera_connection_panel = null
 	_phone_camera_connection_status_label = null
@@ -1490,95 +1490,19 @@ func _close_language_selection_overlay() -> void:
 func _build_camera_consent_overlay() -> void:
 	if _ui_root == null or _camera_session_decided:
 		return
-	if _camera_consent_overlay != null and is_instance_valid(_camera_consent_overlay):
-		_camera_consent_overlay.queue_free()
-	_camera_consent_overlay = Control.new()
-	_camera_consent_overlay.name = "CameraConsentOverlay"
-	_camera_consent_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_camera_consent_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	_camera_consent_overlay.z_index = 210
-	_ui_root.add_child(_camera_consent_overlay)
-
-	var blackout := ColorRect.new()
-	blackout.name = "CameraConsentBackdrop"
-	blackout.color = Color(_theme_color("ink"), 0.94)
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
-	_camera_consent_overlay.add_child(blackout)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_camera_consent_overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.name = "CameraConsentPanel"
-	panel.custom_minimum_size = Vector2(720, 520)
-	panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-	center.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 18)
-	panel.add_child(box)
-
-	var eyebrow := _label("LOCAL VISION  /  FOUR FINGERTIPS", 15, _theme_color("accent"))
-	eyebrow.name = "CameraConsentEyebrow"
-	box.add_child(eyebrow)
-	var title := _label("摄像头与 X-RAY", 30, _theme_color("ink"))
-	title.name = "CameraConsentTitle"
-	box.add_child(title)
-	_camera_consent_copy = _label(
-		"用双手拇指与食指的四个指尖框出矩形区域，区域内会显示手机层。视频只在本机用于关键点计算，不写入存档。",
-		18,
-		_theme_color("ink")
-	)
-	_camera_consent_copy.name = "CameraConsentPrivacyCopy"
-	_camera_consent_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_camera_consent_copy.custom_minimum_size.y = 110
-	box.add_child(_camera_consent_copy)
-	var source_guidance := _label("默认使用电脑摄像头；手机只作为没有电脑镜头时的备用。", 15, _theme_color("accent"))
-	source_guidance.name = "CameraConsentSourceGuidance"
-	box.add_child(source_guidance)
-	var source_label := _label("摄像头来源", 16, _theme_color("ink"))
-	box.add_child(source_label)
-	_camera_consent_source_option = OptionButton.new()
-	_camera_consent_source_option.name = "CameraConsentSourceOption"
-	_camera_consent_source_option.set_meta("skip_localization", true)
-	_camera_consent_source_option.custom_minimum_size = Vector2(440, 52)
-	_populate_camera_source_option(_camera_consent_source_option)
-	_camera_consent_source_option.item_selected.connect(_on_camera_source_selected.bind(_camera_consent_source_option))
-	box.add_child(_camera_consent_source_option)
-	var previous_choice := _label(
-		"上次设置为允许；本次仍需要你确认。" if _camera_enabled else "镜头默认关闭，点击允许后才会启动。",
-		15,
-		_theme_color("accent")
-	)
-	previous_choice.name = "CameraConsentPreviousChoice"
-	box.add_child(previous_choice)
-
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 14)
-	box.add_child(actions)
-	var allow_button := Button.new()
-	allow_button.name = "CameraConsentAllowButton"
-	allow_button.text = "允许并打开摄像头"
-	allow_button.custom_minimum_size = Vector2(260, 58)
-	allow_button.pressed.connect(_resolve_camera_consent.bind(true))
-	actions.add_child(allow_button)
-	var skip_button := Button.new()
-	skip_button.name = "CameraConsentSkipButton"
-	skip_button.text = "暂不使用"
-	skip_button.custom_minimum_size = Vector2(190, 58)
-	skip_button.pressed.connect(_resolve_camera_consent.bind(false))
-	actions.add_child(skip_button)
-	_apply_ui_theme()
-	_refresh_localized_ui()
+	_ensure_camera_consent_panel()
+	_camera_consent_panel.build(_ui_root, _camera_consent_mount_deps())
+	_camera_consent_overlay = _camera_consent_panel.get_overlay()
+	_camera_consent_source_option = _camera_consent_panel.get_source_option()
 
 
 func _resolve_camera_consent(allowed: bool) -> void:
 	_camera_session_decided = true
 	_set_camera_enabled(allowed, true)
-	if _camera_consent_overlay != null and is_instance_valid(_camera_consent_overlay):
-		_camera_consent_overlay.queue_free()
+	if _camera_consent_panel != null:
+		_camera_consent_panel.close()
 	_camera_consent_overlay = null
+	_camera_consent_source_option = null
 
 
 func _ensure_hand_tracking_receiver() -> void:
@@ -2791,6 +2715,43 @@ func _connect_prologue_panel_signals() -> void:
 		return
 	if not panel.prologue_finished.is_connected(_on_prologue_finished):
 		panel.prologue_finished.connect(_on_prologue_finished)
+
+
+func _ensure_camera_consent_panel() -> void:
+	if _camera_consent_panel != null and is_instance_valid(_camera_consent_panel):
+		return
+	_camera_consent_panel = CameraConsentPanelScript.new()
+	_camera_consent_panel.name = "CameraConsentPanel"
+	add_child(_camera_consent_panel)
+	_connect_camera_consent_panel_signals()
+
+
+func _camera_consent_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"soft_style": _soft_style,
+		"populate_camera_source_option": _populate_camera_source_option,
+		"camera_enabled": _camera_enabled,
+		"apply_ui_theme": _apply_ui_theme,
+		"refresh_localized_ui": _refresh_localized_ui,
+	}
+
+
+func _connect_camera_consent_panel_signals() -> void:
+	var panel := _camera_consent_panel
+	if panel == null:
+		return
+	if not panel.consent_resolved.is_connected(_resolve_camera_consent):
+		panel.consent_resolved.connect(_resolve_camera_consent)
+	if not panel.source_selected.is_connected(_on_camera_consent_source_selected):
+		panel.source_selected.connect(_on_camera_consent_source_selected)
+
+
+func _on_camera_consent_source_selected(index: int) -> void:
+	if _camera_consent_source_option == null:
+		return
+	_on_camera_source_selected(index, _camera_consent_source_option)
 
 
 func _on_prologue_finished() -> void:
