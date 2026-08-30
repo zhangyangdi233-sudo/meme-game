@@ -7,7 +7,7 @@ signal window_drag_released(window_id: String)
 const DEFAULT_VISIBLE_EDGE := 88.0
 const DEFAULT_BOTTOM_INSET := 56.0
 const DRAG_Z_INDEX := 24
-const MISSING_WINDOW_POSITION := Vector2.INF
+const MISSING_WINDOW_POSITION := Vector2(INF, INF)
 
 var enabled := true
 
@@ -47,7 +47,7 @@ func set_window_min_x(window_id: String, min_x: float) -> void:
 
 
 func move_window(window_id: String, delta: Vector2) -> bool:
-	var window := get_window(window_id)
+	var window := get_registered_window(window_id)
 	if window == null:
 		return false
 	window.position += delta
@@ -58,13 +58,13 @@ func move_window(window_id: String, delta: Vector2) -> bool:
 
 ## Returns MISSING_WINDOW_POSITION when the id is unknown or the control was freed.
 func get_window_position(window_id: String) -> Vector2:
-	var window := get_window(window_id)
+	var window := get_registered_window(window_id)
 	if window == null:
 		return MISSING_WINDOW_POSITION
 	return window.position
 
 
-func get_window(window_id: String) -> Control:
+func get_registered_window(window_id: String) -> Control:
 	if not _windows.has(window_id):
 		return null
 	var window := _windows[window_id] as Control
