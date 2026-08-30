@@ -21,6 +21,7 @@ const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
 const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
+const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -414,9 +415,7 @@ var _vhs_toggle: CheckButton
 var _settings_language_option: OptionButton
 var _settings_save_status: Label
 var _exit_confirmation_overlay: Control
-var _history_window: PanelContainer
-var _history_content: VBoxContainer
-var _history_open := false
+var _settings_history_panel: SettingsHistoryPanel
 var _language_overlay: Control
 var _language_overlay_first_run := false
 var _view_toggle_button: Button
@@ -3169,101 +3168,41 @@ func _layout_settings_window() -> void:
 	_settings_window.size = Vector2(window_width, window_height)
 
 
+func _ensure_settings_history_panel() -> void:
+	if _settings_history_panel != null:
+		return
+	_settings_history_panel = SettingsHistoryPanelScript.new()
+	_settings_history_panel.name = "SettingsHistoryPanel"
+	add_child(_settings_history_panel)
+
+
 func _build_history_window() -> void:
-	_history_window = _panel()
-	_history_window.name = "HistoryWindow"
-	_history_window.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_history_window.offset_left = 570
-	_history_window.offset_top = 110
-	_history_window.offset_right = 1160
-	_history_window.offset_bottom = 760
-	_history_window.z_index = 32
-	_history_window.visible = false
-	_ui_root.add_child(_history_window)
-
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 10)
-	_history_window.add_child(outer)
-	var title_bar := HBoxContainer.new()
-	title_bar.name = "HistoryTitleBar"
-	title_bar.custom_minimum_size.y = 54
-	outer.add_child(title_bar)
-	_make_draggable_window(_history_window, "history", title_bar)
-	var title := _label("历史记录", 23, _theme_color("accent"))
-	title.name = "HistoryWindowHandle"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.set_meta("skip_localization", true)
-	title_bar.add_child(title)
-	_make_draggable_window(_history_window, "history", title)
-	var close := Button.new()
-	close.name = "HistoryCloseButton"
-	close.text = "X"
-	close.custom_minimum_size = Vector2(56, 56)
-	close.pressed.connect(_close_history_window)
-	title_bar.add_child(close)
-
-	var scroll := ScrollContainer.new()
-	scroll.name = "HistoryScroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer.add_child(scroll)
-	_history_content = VBoxContainer.new()
-	_history_content.name = "HistoryContent"
-	_history_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_history_content.add_theme_constant_override("separation", 10)
-	scroll.add_child(_history_content)
+	_ensure_settings_history_panel()
+	_settings_history_panel.mount(_ui_root, {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"register_draggable": _make_draggable_window,
+		"on_close": _close_history_window,
+	})
 	_render_history_window()
 
 
 func _toggle_history_window() -> void:
-	if _history_window == null:
+	if _settings_history_panel == null:
 		return
-	_history_open = not _history_open
-	_history_window.visible = _history_open
-	if _history_open:
-		_render_history_window()
-		_history_window.move_to_front()
+	_settings_history_panel.toggle(game.get_history_entries())
 
 
 func _close_history_window() -> void:
-	_history_open = false
-	if _history_window != null:
-		_history_window.visible = false
+	if _settings_history_panel != null:
+		_settings_history_panel.close()
 
 
 func _render_history_window() -> void:
-	if _history_content == null:
-		return
-	for child in _history_content.get_children():
-		child.queue_free()
-	var entries := game.get_history_entries()
-	if entries.is_empty():
-		var empty := _label("还没有能被记住的话。", 17, _theme_color("ink"))
-		empty.name = "HistoryEmptyState"
-		_history_content.add_child(empty)
-		return
-	for index in entries.size():
-		var entry: Dictionary = entries[index]
-		var line := RichTextLabel.new()
-		line.name = "HistoryEntry%d" % index
-		line.bbcode_enabled = true
-		line.fit_content = true
-		line.scroll_active = false
-		line.custom_minimum_size = Vector2(500, 70)
-		line.add_theme_font_size_override("normal_font_size", _ui_font_size(17))
-		line.add_theme_color_override("default_color", _theme_color("ink"))
-		var speaker := str(entry.get("currentSpeaker", entry.get("originalSpeaker", "")))
-		var display_text := str(entry.get("displayText", entry.get("originalText", "")))
-		line.text = "[b]%s[/b]\n%s" % [_escape_history_bbcode(speaker), _history_markup_to_bbcode(display_text)]
-		_history_content.add_child(line)
-
-
-func _escape_history_bbcode(value: String) -> String:
-	return value.replace("[", "[lb]").replace("]", "[rb]")
-
-
-func _history_markup_to_bbcode(value: String) -> String:
-	var escaped := _escape_history_bbcode(value)
-	return escaped.replace("{del}", "[s]").replace("{/del}", "[/s]").replace("{ins}", "[u]").replace("{/ins}", "[/u]")
+	if _settings_history_panel != null:
+		_settings_history_panel.refresh_history(game.get_history_entries())
 
 
 func _menu_display_label(kind: String) -> String:
@@ -3792,7 +3731,7 @@ func _render_status() -> void:
 	if _desk_log != null:
 		_desk_log.text = log_text
 	_refresh_language_menu_labels()
-	if _history_open:
+	if _settings_history_panel != null and _settings_history_panel.is_open():
 		_render_history_window()
 	_render_playtest_assist()
 	_update_doll_guide()
