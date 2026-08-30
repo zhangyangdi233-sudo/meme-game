@@ -22,6 +22,7 @@ const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_pa
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
+const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -390,11 +391,7 @@ var _world_prompt: Label
 var _desk_log: Label
 var _main_menu_panel: MainMenuPanel
 var _language_selection_panel: LanguageSelectionPanel
-var _prologue_overlay: Control
-var _prologue_line_label: Label
-var _prologue_counter_label: Label
-var _prologue_continue_button: Button
-var _prologue_index := 0
+var _prologue_panel: ProloguePanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
@@ -541,9 +538,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _prologue_overlay != null and _prologue_overlay.visible:
-		_reality_touch_look_index = -1
-		return
+	if _prologue_panel != null:
+		var prologue_overlay := _prologue_panel.get_overlay()
+		if prologue_overlay != null and prologue_overlay.visible:
+			_reality_touch_look_index = -1
+			return
 	if _input_locked:
 		_reality_touch_look_index = -1
 		return
@@ -699,7 +698,6 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_nearby_reality_item = null
 	_active_reality_actor = null
 	_reality_interaction_active = false
-	_prologue_index = 0
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
 	_build_world()
 	_restore_saved_world(world_data)
@@ -2228,91 +2226,20 @@ func _build_hand_xray_overlay() -> void:
 
 
 func _build_prologue_overlay() -> void:
-	_prologue_overlay = Control.new()
-	_prologue_overlay.name = "PrologueOverlay"
-	_prologue_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_prologue_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	_prologue_overlay.z_index = 80
-	_ui_root.add_child(_prologue_overlay)
-
-	var black := ColorRect.new()
-	black.name = "PrologueBlack"
-	black.color = Color("060806")
-	black.set_anchors_preset(Control.PRESET_FULL_RECT)
-	black.mouse_filter = Control.MOUSE_FILTER_STOP
-	_prologue_overlay.add_child(black)
-
-	var signal_rule := ColorRect.new()
-	signal_rule.name = "PrologueSignalRule"
-	signal_rule.color = _theme_color("flash_text")
-	signal_rule.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	signal_rule.offset_left = 78
-	signal_rule.offset_right = 90
-	_prologue_overlay.add_child(signal_rule)
-
-	var copy_column := VBoxContainer.new()
-	copy_column.name = "PrologueCopyColumn"
-	copy_column.set_anchors_preset(Control.PRESET_CENTER)
-	copy_column.offset_left = -540
-	copy_column.offset_top = -210
-	copy_column.offset_right = 540
-	copy_column.offset_bottom = 230
-	copy_column.add_theme_constant_override("separation", 22)
-	_prologue_overlay.add_child(copy_column)
-
-	var signal_header := _label("NO SIGNAL  /  DAY 01  /  PRIVATE FREQUENCY", 15, _theme_color("flash_text"))
-	signal_header.name = "PrologueSignalHeader"
-	signal_header.set_meta("on_dark", true)
-	copy_column.add_child(signal_header)
-
-	_prologue_counter_label = _label("", 14, _theme_color("muted"))
-	_prologue_counter_label.name = "PrologueCounter"
-	_prologue_counter_label.set_meta("on_dark", true)
-	copy_column.add_child(_prologue_counter_label)
-
-	_prologue_line_label = _label("", 34, _theme_color("surface"))
-	_prologue_line_label.name = "PrologueLine"
-	_prologue_line_label.custom_minimum_size.y = 190
-	_prologue_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_prologue_line_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_prologue_line_label.set_meta("on_dark", true)
-	copy_column.add_child(_prologue_line_label)
-
-	_prologue_continue_button = Button.new()
-	_prologue_continue_button.name = "PrologueContinueButton"
-	_prologue_continue_button.custom_minimum_size = Vector2(190, 56)
-	_prologue_continue_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_prologue_continue_button.pressed.connect(_advance_prologue)
-	copy_column.add_child(_prologue_continue_button)
-	_render_prologue_line()
-
-
-func _render_prologue_line() -> void:
-	if _prologue_line_label == null or MemeGameStateScript.PROLOGUE_LINES.is_empty():
-		return
-	_prologue_index = clampi(_prologue_index, 0, MemeGameStateScript.PROLOGUE_LINES.size() - 1)
-	_prologue_line_label.text = str(MemeGameStateScript.PROLOGUE_LINES[_prologue_index])
-	_prologue_counter_label.text = "TRANSMISSION %02d / %02d" % [_prologue_index + 1, MemeGameStateScript.PROLOGUE_LINES.size()]
-	_prologue_continue_button.text = "进入第一天" if _prologue_index == MemeGameStateScript.PROLOGUE_LINES.size() - 1 else "继续"
+	_ensure_prologue_panel()
+	_prologue_panel.mount(_ui_root, _prologue_mount_deps())
 
 
 func _advance_prologue() -> void:
-	if _prologue_overlay == null or not _prologue_overlay.visible:
+	if _prologue_panel == null:
 		return
-	if _prologue_index < MemeGameStateScript.PROLOGUE_LINES.size() - 1:
-		_prologue_index += 1
-		_render_prologue_line()
-		return
-	_prologue_overlay.visible = false
-	_sync_audio_state(false)
+	_prologue_panel.advance()
 
 
 func _skip_prologue() -> void:
-	if _prologue_overlay == null:
+	if _prologue_panel == null:
 		return
-	_prologue_index = MemeGameStateScript.PROLOGUE_LINES.size() - 1
-	_prologue_overlay.visible = false
-	_sync_audio_state(false)
+	_prologue_panel.skip()
 
 
 func _build_apple_hud() -> void:
@@ -2839,6 +2766,35 @@ func _connect_language_selection_panel_signals() -> void:
 		return
 	if not panel.language_selected.is_connected(_on_language_selected):
 		panel.language_selected.connect(_on_language_selected)
+
+
+func _ensure_prologue_panel() -> void:
+	if _prologue_panel != null and is_instance_valid(_prologue_panel):
+		return
+	_prologue_panel = ProloguePanelScript.new()
+	_prologue_panel.name = "ProloguePanel"
+	add_child(_prologue_panel)
+	_connect_prologue_panel_signals()
+
+
+func _prologue_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"prologue_lines": MemeGameStateScript.PROLOGUE_LINES,
+	}
+
+
+func _connect_prologue_panel_signals() -> void:
+	var panel := _prologue_panel
+	if panel == null:
+		return
+	if not panel.prologue_finished.is_connected(_on_prologue_finished):
+		panel.prologue_finished.connect(_on_prologue_finished)
+
+
+func _on_prologue_finished() -> void:
+	_sync_audio_state(false)
 
 
 func _ensure_settings_history_panel() -> void:
