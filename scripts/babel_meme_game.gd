@@ -22,6 +22,7 @@ const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
 const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
+const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -78,14 +79,6 @@ const COVER_WATCHER_STINGER_PATH := "res://assets/generated/audio/cover_watcher_
 const SOCIAL_POSTER_COLUMNS := 4
 const SOCIAL_POSTER_ROWS := 3
 const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
-const SOCIAL_FEED_WHEEL_STEP := 2
-const SOCIAL_FEED_POSTER_HEIGHTS := [
-	214.0, 176.0, 238.0, 194.0,
-	226.0, 184.0, 218.0, 202.0,
-	244.0, 188.0, 232.0, 180.0,
-]
-const SOCIAL_FEED_CAPTION_HEIGHT := 62.0
-const SOCIAL_FEED_CARD_CHROME_HEIGHT := 130.0
 const REALITY_MOVE_SPEED := 3.3
 const REALITY_SPRINT_MULTIPLIER := 1.85
 const REALITY_ACCELERATION := 14.0
@@ -404,6 +397,7 @@ var _prologue_continue_button: Button
 var _prologue_index := 0
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
+var _social_feed_panel
 var _language_overlay: Control
 var _language_overlay_first_run := false
 var _view_toggle_button: Button
@@ -2132,7 +2126,11 @@ func _build_ui() -> void:
 	_view_toggle_button.pressed.connect(_toggle_view_state)
 	_ui_root.add_child(_view_toggle_button)
 
-	_build_app_window("social", "社交媒体 App", "SocialAppWindow", -835.0, 18.0, -397.0, 910.0)
+	_ensure_social_feed_panel()
+	_social_feed_panel.mount(_ui_root, _social_feed_mount_deps())
+	_app_windows["social"] = _social_feed_panel.get_app_window()
+	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
+	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
 	_build_app_window("babel", "巴别塔 App", "BabelAppWindow", -1032.0, 96.0, -592.0, 676.0)
 	_build_app_window("notebook", "笔记本 App", "NotebookAppWindow", -968.0, 152.0, -528.0, 732.0)
 	_build_social_detail_window()
@@ -3017,6 +3015,60 @@ func _connect_settings_history_panel_signals() -> void:
 		panel.settings_open_changed.connect(_on_settings_open_changed)
 
 
+func _ensure_social_feed_panel() -> void:
+	if _social_feed_panel != null and is_instance_valid(_social_feed_panel):
+		return
+	_social_feed_panel = SocialFeedPanelScript.new()
+	_social_feed_panel.name = "SocialFeedPanel"
+	add_child(_social_feed_panel)
+	_connect_social_feed_panel_signals()
+
+
+func _social_feed_mount_deps() -> Dictionary:
+	_ensure_window_manager()
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"style_fn": _style,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"register_draggable": _window_manager.register,
+		"load_texture": _load_runtime_texture,
+		"poster_texture": _social_poster_texture,
+		"channels": SOCIAL_CHANNELS,
+		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
+		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
+		"poster_sheet_count": SOCIAL_POSTER_COUNT,
+		"visible_post_indices": _social_visible_post_indices,
+		"post_for_index": _social_post_for_index,
+		"is_following": func(author_id: String) -> bool: return game != null and game.is_social_following(author_id),
+		"like_text": _social_like_text,
+		"caption_text": _social_caption,
+		"render_detail_page": _render_social_detail_page,
+		"render_publish_page": _render_social_publish_page,
+		"render_profile_page": _render_social_profile_page,
+		"input_locked": func() -> bool: return _input_locked,
+	}
+
+
+func _connect_social_feed_panel_signals() -> void:
+	var panel = _social_feed_panel
+	if panel == null:
+		return
+	if not panel.channel_pressed.is_connected(_on_social_channel_pressed):
+		panel.channel_pressed.connect(_on_social_channel_pressed)
+	if not panel.screen_requested.is_connected(_set_social_screen):
+		panel.screen_requested.connect(_set_social_screen)
+	if not panel.card_clicked.is_connected(_open_social_post):
+		panel.card_clicked.connect(_open_social_post)
+	if not panel.like_pressed.is_connected(_on_social_like_pressed):
+		panel.like_pressed.connect(_on_social_like_pressed)
+	if not panel.follow_pressed.is_connected(_on_social_follow_pressed):
+		panel.follow_pressed.connect(_on_social_follow_pressed)
+	if not panel.close_requested.is_connected(_close_app_window.bind("social")):
+		panel.close_requested.connect(_close_app_window.bind("social"))
+
+
 func _inject_settings_camera_block() -> void:
 	var slot := _settings_history_panel.get_camera_slot() if _settings_history_panel != null else null
 	if slot == null or slot.get_child_count() > 0:
@@ -3200,15 +3252,13 @@ func _build_app_window(app_id: String, title: String, node_name: String, left: f
 	var window := _panel()
 	window.name = node_name
 	window.clip_contents = true
-	if app_id == "social":
-		window.set_meta("phone_shell", true)
 	window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_apply_app_window_layout(window, app_id, left, top, right, bottom)
 	window.z_index = 10
 	_ui_root.add_child(window)
 
 	var app_box := VBoxContainer.new()
-	app_box.add_theme_constant_override("separation", 4 if app_id == "social" else 8)
+	app_box.add_theme_constant_override("separation", 8)
 	window.add_child(app_box)
 
 	var title_label := _label(title, 21, _theme_color("accent"))
@@ -3221,27 +3271,21 @@ func _build_app_window(app_id: String, title: String, node_name: String, left: f
 	close_button.set_meta("window_close_button", true)
 	close_button.custom_minimum_size = Vector2(56, 56)
 	close_button.pressed.connect(_close_app_window.bind(app_id))
-	if app_id == "social":
-		title_label.visible = false
-		window.add_child(title_label)
-	else:
-		var title_bar := HBoxContainer.new()
-		title_bar.name = "%sTitleBar" % node_name
-		title_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-		title_bar.custom_minimum_size.y = 56
-		title_bar.add_theme_constant_override("separation", 8)
-		app_box.add_child(title_bar)
-		title_bar.add_child(title_label)
-		_make_draggable_window(window, "app:%s" % app_id, title_bar)
-		_make_draggable_window(window, "app:%s" % app_id, title_label)
-		title_bar.add_child(close_button)
+	var title_bar := HBoxContainer.new()
+	title_bar.name = "%sTitleBar" % node_name
+	title_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	title_bar.custom_minimum_size.y = 56
+	title_bar.add_theme_constant_override("separation", 8)
+	app_box.add_child(title_bar)
+	title_bar.add_child(title_label)
+	_make_draggable_window(window, "app:%s" % app_id, title_bar)
+	_make_draggable_window(window, "app:%s" % app_id, title_label)
+	title_bar.add_child(close_button)
 
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 8)
-	if app_id == "social" or app_id == "notebook":
-		body.name = "SocialAppBody"
-		if app_id == "notebook":
-			body.name = "NotebookAppBody"
+	if app_id == "notebook":
+		body.name = "NotebookAppBody"
 		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		app_box.add_child(body)
 	else:
@@ -3253,10 +3297,6 @@ func _build_app_window(app_id: String, title: String, node_name: String, left: f
 	_app_windows[app_id] = window
 	_app_titles[app_id] = title_label
 	_app_bodies[app_id] = body
-	if app_id == "social":
-		_app_window = window
-		_app_title = title_label
-		_app_body = body
 
 
 func _build_social_detail_window() -> void:
@@ -3360,9 +3400,7 @@ func _apply_app_window_layout(window: Control, app_id: String, left: float, top:
 	var available_width := maxf(220.0, viewport_size.x - safe_left - right_margin)
 	var original_width := right - left
 	var target_width := minf(original_width, available_width)
-	var top_margin := 6.0 if app_id == "social" else clampf(top, 12.0, 72.0)
-	if app_id == "social":
-		target_width = minf(target_width, (viewport_size.y - top_margin - 8.0) * 0.62)
+	var top_margin := clampf(top, 12.0, 72.0)
 	window.offset_right = -right_margin
 	window.offset_left = window.offset_right - target_width
 	window.offset_top = top_margin
@@ -3500,6 +3538,11 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 		_meme_bank_layout_mode = desired_bank_layout
 		_apply_meme_bank_popup_layout(desired_bank_layout)
 	_apply_social_detail_window_layout()
+	if _social_feed_panel != null:
+		var social_safe_left := 12.0
+		if _hud_panel != null:
+			social_safe_left = maxf(social_safe_left, _hud_panel.offset_right + 10.0)
+		_social_feed_panel.layout_window(viewport_size, social_safe_left)
 	_apply_reality_layout()
 	_apply_view_toggle_layout()
 	_layout_settings_window()
@@ -3617,7 +3660,10 @@ func _render_app() -> void:
 				_render_notebook_app()
 			"social":
 				_app_title.text = "社交媒体 App"
-				_render_social_app()
+				_publish_blank = null
+				_confirm_publish_button = null
+				if _social_feed_panel != null:
+					_social_feed_panel.render_app(_social_screen, _social_channel)
 	_render_social_detail_companion()
 
 
@@ -3641,297 +3687,6 @@ func _render_babel_app() -> void:
 		_app_body.add_child(_label(str(item), 15, _theme_color("accent")))
 
 
-func _render_social_app() -> void:
-	_clear(_app_body)
-	_publish_blank = null
-	_confirm_publish_button = null
-	var phone_view := _panel()
-	phone_view.name = "SocialPhoneView"
-	phone_view.set_meta("phone_surface", true)
-	phone_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_app_body.add_child(phone_view)
-
-	var phone_box := VBoxContainer.new()
-	phone_box.add_theme_constant_override("separation", 4)
-	phone_view.add_child(phone_box)
-
-	var status_bar := HBoxContainer.new()
-	status_bar.name = "SocialPhoneStatusBar"
-	status_bar.custom_minimum_size.y = 52
-	status_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	status_bar.add_theme_constant_override("separation", 6)
-	phone_box.add_child(status_bar)
-	_make_draggable_window(_app_windows.get("social", null) as Control, "app:social", status_bar)
-	var time_label := _label("9:41", 14, _theme_color("ink"))
-	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	time_label.custom_minimum_size.x = 40
-	status_bar.add_child(time_label)
-	var no_signal_group := HBoxContainer.new()
-	no_signal_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	no_signal_group.add_theme_constant_override("separation", 5)
-	status_bar.add_child(no_signal_group)
-	var no_signal_icon := TextureRect.new()
-	no_signal_icon.name = "SocialNoSignalIcon"
-	no_signal_icon.texture = _load_runtime_texture(NO_SIGNAL_ICON_PATH)
-	no_signal_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	no_signal_icon.visible = true
-	no_signal_icon.custom_minimum_size = Vector2(22, 22)
-	no_signal_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	no_signal_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	no_signal_group.add_child(no_signal_icon)
-	var signal_label := _label("无信号", 13, _theme_color("accent"))
-	signal_label.name = "SocialNoSignalLabel"
-	signal_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	no_signal_group.add_child(signal_label)
-	var top_spacer := Control.new()
-	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	status_bar.add_child(top_spacer)
-	var drag_grip := ColorRect.new()
-	drag_grip.name = "SocialStatusDragGrip"
-	drag_grip.color = _theme_color("accent")
-	drag_grip.modulate.a = 0.45
-	drag_grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	drag_grip.custom_minimum_size = Vector2(36, 3)
-	drag_grip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	status_bar.add_child(drag_grip)
-	var close_social := Button.new()
-	close_social.name = "SocialAppInlineCloseButton"
-	close_social.text = "X"
-	close_social.set_meta("window_close_button", true)
-	close_social.custom_minimum_size = Vector2(48, 48)
-	close_social.pressed.connect(_close_app_window.bind("social"))
-	status_bar.add_child(close_social)
-
-	var channel_tabs := HBoxContainer.new()
-	channel_tabs.name = "SocialChannelTabs"
-	channel_tabs.custom_minimum_size.y = 48
-	channel_tabs.add_theme_constant_override("separation", 2)
-	phone_box.add_child(channel_tabs)
-	for channel_data in SOCIAL_CHANNELS:
-		var channel_id := str(channel_data.get("id", "discover"))
-		var tab_text := str(channel_data.get("label", ""))
-		var tab_item := VBoxContainer.new()
-		tab_item.name = "SocialChannelTabItem%s" % channel_id
-		tab_item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tab_item.add_theme_constant_override("separation", 0)
-		channel_tabs.add_child(tab_item)
-		var tab := Button.new()
-		tab.name = "SocialChannelTab%s" % channel_id
-		tab.text = tab_text
-		tab.set_meta("flat_phone_button", true)
-		tab.custom_minimum_size = Vector2(88, 48)
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tab.pressed.connect(_on_social_channel_pressed.bind(channel_id))
-		tab_item.add_child(tab)
-		var underline := ColorRect.new()
-		underline.name = "SocialChannelTabUnderline%s" % channel_id
-		underline.color = _theme_color("muted")
-		underline.custom_minimum_size.y = 3
-		underline.visible = channel_id == _social_channel
-		tab_item.add_child(underline)
-
-	var page_host := VBoxContainer.new()
-	page_host.name = "SocialPageHost"
-	page_host.clip_contents = true
-	page_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page_host.add_theme_constant_override("separation", 8)
-	phone_box.add_child(page_host)
-
-	match _social_screen:
-		"detail":
-			_render_social_detail_page(page_host)
-		"publish":
-			_render_social_publish_page(page_host)
-		"profile":
-			_render_social_profile_page(page_host)
-		_:
-			_render_social_home_page(page_host)
-
-	_render_social_bottom_nav(phone_box)
-
-
-func _render_social_home_page(parent: VBoxContainer) -> void:
-	var home_page := VBoxContainer.new()
-	home_page.name = "SocialHomePage"
-	home_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	home_page.add_theme_constant_override("separation", 0)
-	parent.add_child(home_page)
-	if _social_channel == "nearby":
-		_render_social_channel_empty_state(
-			home_page,
-			"SocialNearbyUnavailable",
-			"无法定位",
-			"设备保持无信号。附近内容无法取得位置。"
-		)
-		return
-
-	var visible_post_indices := _social_visible_post_indices()
-	if _social_channel == "following" and visible_post_indices.is_empty():
-		_render_social_channel_empty_state(
-			home_page,
-			"SocialFollowingEmptyState",
-			"还没有关注",
-			"在发现瀑布流里关注一个账号，它的帖子会留在这里。"
-		)
-		return
-
-	var feed_frame := PanelContainer.new()
-	feed_frame.name = "SocialFeedDarkFrame"
-	feed_frame.set_meta("social_feed_dark", true)
-	feed_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	home_page.add_child(feed_frame)
-
-	var feed_scroll := ScrollContainer.new()
-	feed_scroll.name = "SocialFeedScroll"
-	feed_scroll.set_meta("slow_scroll_step", SOCIAL_FEED_WHEEL_STEP)
-	feed_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	feed_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	feed_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	feed_scroll.gui_input.connect(_on_social_feed_scroll_gui_input.bind(feed_scroll))
-	feed_frame.add_child(feed_scroll)
-
-	var feed_content := VBoxContainer.new()
-	feed_content.name = "SocialFeedContent"
-	feed_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	feed_content.add_theme_constant_override("separation", 10)
-	feed_scroll.add_child(feed_content)
-
-	var masonry := HBoxContainer.new()
-	masonry.name = "SocialFeedMasonry"
-	masonry.add_theme_constant_override("separation", 12)
-	masonry.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	masonry.set_meta("layout_mode", "independent_equal_width_columns")
-	feed_content.add_child(masonry)
-	var masonry_columns: Array[VBoxContainer] = []
-	var masonry_heights := [0.0, 0.0]
-	for column_index in 2:
-		var column := VBoxContainer.new()
-		column.name = "SocialMasonryColumn%d" % column_index
-		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		column.size_flags_stretch_ratio = 1.0
-		column.add_theme_constant_override("separation", 10)
-		column.set_meta("masonry_column_index", column_index)
-		masonry.add_child(column)
-		masonry_columns.append(column)
-	for visible_index in visible_post_indices.size():
-		var post_index: int = int(visible_post_indices[visible_index])
-		var post := _social_post_for_index(post_index)
-		var card_height := _social_feed_card_height(post_index)
-		var column_index := 0 if float(masonry_heights[0]) <= float(masonry_heights[1]) else 1
-		var card_panel := _panel()
-		card_panel.name = "SocialPostCard%d" % post_index
-		card_panel.set_meta("social_card", true)
-		card_panel.set_meta("masonry_column_index", column_index)
-		card_panel.custom_minimum_size = Vector2(0, card_height)
-		card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		card_panel.clip_contents = true
-		card_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-		card_panel.gui_input.connect(_on_social_card_gui_input.bind(post_index))
-		card_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		masonry_columns[column_index].add_child(card_panel)
-		masonry_heights[column_index] = float(masonry_heights[column_index]) + card_height + 10.0
-		var card_clip := Control.new()
-		card_clip.name = "SocialPostClip%d" % post_index
-		card_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card_clip.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card_clip.clip_contents = true
-		card_clip.mouse_filter = Control.MOUSE_FILTER_PASS
-		card_panel.add_child(card_clip)
-		var card := VBoxContainer.new()
-		card.name = "SocialPostLayout%d" % post_index
-		card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		card.add_theme_constant_override("separation", 6)
-		card.clip_contents = true
-		card_clip.add_child(card)
-		_render_social_card_poster(card, post_index, post)
-		var caption_slot := Control.new()
-		caption_slot.name = "SocialPostCaptionSlot%d" % post_index
-		caption_slot.custom_minimum_size = Vector2(0, SOCIAL_FEED_CAPTION_HEIGHT)
-		caption_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		caption_slot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		caption_slot.clip_contents = true
-		caption_slot.mouse_filter = Control.MOUSE_FILTER_PASS
-		card.add_child(caption_slot)
-		var caption := _label(_social_caption(post, post_index), 14, _theme_color("ink"))
-		caption.name = "SocialPostCaption%d" % post_index
-		caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		caption.max_lines_visible = 3
-		caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		caption.mouse_filter = Control.MOUSE_FILTER_PASS
-		caption_slot.add_child(caption)
-		var meta_row := HBoxContainer.new()
-		meta_row.name = "SocialPostActions%d" % post_index
-		meta_row.custom_minimum_size.y = 44
-		meta_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		meta_row.clip_contents = true
-		meta_row.mouse_filter = Control.MOUSE_FILTER_PASS
-		meta_row.add_theme_constant_override("separation", 4)
-		card.add_child(meta_row)
-		var likes := Button.new()
-		likes.name = "SocialPostLikeButton%d" % post_index
-		likes.text = _social_like_text(post, post_index)
-		likes.set_meta("flat_phone_button", true)
-		likes.custom_minimum_size = Vector2(64, 44)
-		likes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		likes.pressed.connect(_on_social_like_pressed.bind(str(post.get("id", ""))))
-		meta_row.add_child(likes)
-		var follow := Button.new()
-		follow.name = "SocialPostFollowButton%d" % post_index
-		follow.text = "已关注" if game.is_social_following(_social_author_id(post)) else "关注"
-		follow.set_meta("flat_phone_button", true)
-		follow.custom_minimum_size = Vector2(74, 44)
-		follow.pressed.connect(_on_social_follow_pressed.bind(_social_author_id(post)))
-		meta_row.add_child(follow)
-	var hint_slot := Control.new()
-	hint_slot.name = "SocialScrollHintSlot"
-	hint_slot.custom_minimum_size.y = 32
-	hint_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint_slot.clip_contents = true
-	feed_content.add_child(hint_slot)
-	var scroll_hint := _label("继续下滑浏览更多信号", 13, _theme_color("accent"))
-	scroll_hint.name = "SocialScrollHint"
-	scroll_hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint_slot.add_child(scroll_hint)
-	var hint_spacer := Control.new()
-	hint_spacer.name = "SocialScrollHintSpacer"
-	hint_spacer.custom_minimum_size.y = 32
-	feed_content.add_child(hint_spacer)
-
-
-func _render_social_channel_empty_state(parent: VBoxContainer, node_name: String, title: String, body: String) -> void:
-	var frame := PanelContainer.new()
-	frame.name = node_name
-	frame.set_meta("social_feed_dark", true)
-	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(frame)
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	frame.add_child(center)
-	var copy := VBoxContainer.new()
-	copy.custom_minimum_size.x = 300
-	copy.add_theme_constant_override("separation", 12)
-	center.add_child(copy)
-	var eyebrow := _label("NO SIGNAL / 00", 13, _theme_color("muted"))
-	eyebrow.set_meta("on_dark", true)
-	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	copy.add_child(eyebrow)
-	var heading := _label(title, 24, _theme_color("surface"))
-	heading.set_meta("on_dark", true)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	copy.add_child(heading)
-	var message := _label(body, 15, _theme_color("muted"))
-	message.name = "%sMessage" % node_name
-	message.set_meta("on_dark", true)
-	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	copy.add_child(message)
-
-
 func _social_visible_post_indices() -> Array[int]:
 	var result: Array[int] = []
 	for post_index in SOCIAL_POST_CARDS.size():
@@ -3948,60 +3703,6 @@ func _social_like_text(post: Dictionary, post_index: int) -> String:
 	var stable_index := int(post.get("card_index", post_index))
 	var count := 64 + (stable_index * 31) % 120 + (1 if liked else 0)
 	return "%s %d" % ["♥" if liked else "♡", count]
-
-
-func _render_social_card_poster(parent: VBoxContainer, post_index: int, post: Dictionary) -> void:
-	var poster := PanelContainer.new()
-	poster.name = "SocialPostPoster%d" % post_index
-	poster.set_meta("poster_frame", true)
-	poster.custom_minimum_size.y = _social_feed_poster_height(post_index)
-	poster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	poster.mouse_filter = Control.MOUSE_FILTER_PASS
-	poster.add_theme_stylebox_override("panel", _style(_social_poster_color(post_index), _theme_color("accent")))
-	parent.add_child(poster)
-
-	var poster_texture := TextureRect.new()
-	poster_texture.name = "SocialPostTexture%d" % post_index
-	var poster_cell := int(post.get("poster_cell", post_index))
-	poster_texture.texture = _social_poster_texture(poster_cell)
-	poster_texture.set_meta("poster_sheet_path", SOCIAL_POSTER_SHEET_PATH)
-	poster_texture.set_meta("poster_sheet_cell", poster_cell % SOCIAL_POSTER_COUNT)
-	poster_texture.custom_minimum_size = Vector2(0, poster.custom_minimum_size.y)
-	poster_texture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	poster_texture.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	poster_texture.mouse_filter = Control.MOUSE_FILTER_PASS
-	poster_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	poster_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	poster.add_child(poster_texture)
-
-
-func _social_feed_poster_height(post_index: int) -> float:
-	return float(SOCIAL_FEED_POSTER_HEIGHTS[posmod(post_index, SOCIAL_FEED_POSTER_HEIGHTS.size())])
-
-
-func _social_feed_card_height(post_index: int) -> float:
-	return _social_feed_poster_height(post_index) + SOCIAL_FEED_CARD_CHROME_HEIGHT
-
-
-func _social_poster_color(post_index: int) -> Color:
-	match post_index % 4:
-		0:
-			return _theme_color("muted")
-		1:
-			return _theme_color("surface")
-		2:
-			return _theme_color("accent").lightened(0.46)
-		_:
-			return _theme_color("bg").lightened(0.10)
-
-
-func _social_poster_headline(post_index: int) -> String:
-	var heads := ["BABEL\nSIGNAL", "空位图像", "塔下笔记", "哈吉米\nECHO"]
-	return heads[post_index % heads.size()]
-
-
-func _social_fragment(post: Dictionary) -> String:
-	return _locale.translate(str(post.get("text", "")))
 
 
 func _social_floor_label() -> String:
@@ -4363,49 +4064,6 @@ func _render_social_profile_page(parent: VBoxContainer) -> void:
 	profile_page.add_child(note)
 
 
-func _render_social_bottom_nav(phone_box: VBoxContainer) -> void:
-	var bottom_nav := HBoxContainer.new()
-	bottom_nav.name = "SocialBottomNav"
-	bottom_nav.set_meta("phone_nav", true)
-	bottom_nav.custom_minimum_size.y = 54
-	bottom_nav.add_theme_constant_override("separation", 6)
-	phone_box.add_child(bottom_nav)
-	var nav_items := [
-		{"name": "SocialNavHome", "text": "首页", "screen": "home"},
-		{"name": "SocialNavCreate", "text": "发布", "screen": "publish"},
-		{"name": "SocialNavMine", "text": "我的", "screen": "profile"},
-	]
-	for nav in nav_items:
-		var nav_button := Button.new()
-		nav_button.name = str(nav["name"])
-		nav_button.text = str(nav["text"])
-		nav_button.pressed.connect(_set_social_screen.bind(str(nav["screen"])))
-		if str(nav["screen"]) == "publish":
-			# 发布是主行动:实心强调按钮 + 更大命中区(参考各社交 App 的中央发布键)。
-			nav_button.custom_minimum_size = Vector2(132, 50)
-			nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			nav_button.size_flags_stretch_ratio = 1.35
-			nav_button.add_theme_stylebox_override("normal", _style(_theme_color("accent"), _theme_color("ink")))
-			nav_button.add_theme_stylebox_override("hover", _style(_theme_color("accent").lightened(0.12), _theme_color("ink")))
-			nav_button.add_theme_stylebox_override("pressed", _style(_theme_color("accent").darkened(0.12), _theme_color("ink")))
-			nav_button.add_theme_color_override("font_color", _theme_color("surface"))
-			nav_button.add_theme_font_size_override("font_size", _ui_font_size(17))
-		else:
-			nav_button.set_meta("flat_phone_button", true)
-			nav_button.custom_minimum_size = Vector2(100, 50)
-			nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bottom_nav.add_child(nav_button)
-	var indicator_wrap := CenterContainer.new()
-	indicator_wrap.name = "SocialHomeIndicatorWrap"
-	indicator_wrap.custom_minimum_size.y = 12
-	phone_box.add_child(indicator_wrap)
-	var home_indicator := ColorRect.new()
-	home_indicator.name = "SocialHomeIndicator"
-	home_indicator.color = _theme_color("ink")
-	home_indicator.custom_minimum_size = Vector2(94, 4)
-	indicator_wrap.add_child(home_indicator)
-
-
 func _set_social_screen(screen: String) -> void:
 	if _input_locked:
 		return
@@ -4457,39 +4115,6 @@ func _open_social_post(post_index: int) -> void:
 	if _social_detail_window != null:
 		_social_detail_window.move_to_front()
 	_render()
-
-
-func _on_social_card_gui_input(event: InputEvent, post_index: int) -> void:
-	if _input_locked:
-		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_open_social_post(post_index)
-	elif event is InputEventScreenTouch and event.pressed:
-		_open_social_post(post_index)
-
-
-func _on_social_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) -> void:
-	if _input_locked:
-		return
-	if event is InputEventMouseButton and event.pressed:
-		var direction := 0
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			direction = 1
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			direction = -1
-		if direction != 0:
-			_scroll_social_feed(feed_scroll, direction * SOCIAL_FEED_WHEEL_STEP)
-			feed_scroll.accept_event()
-	elif event is InputEventPanGesture:
-		var vertical_delta := int(round((event as InputEventPanGesture).delta.y * float(SOCIAL_FEED_WHEEL_STEP)))
-		if vertical_delta != 0:
-			_scroll_social_feed(feed_scroll, vertical_delta)
-			feed_scroll.accept_event()
-
-
-func _scroll_social_feed(feed_scroll: ScrollContainer, delta: int) -> void:
-	var max_scroll := int(feed_scroll.get_v_scroll_bar().max_value)
-	feed_scroll.scroll_vertical = clampi(feed_scroll.scroll_vertical + delta, 0, max_scroll)
 
 
 func _render_notebook_app() -> void:
