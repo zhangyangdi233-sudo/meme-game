@@ -26,6 +26,7 @@ const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
+const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
@@ -428,13 +429,7 @@ var _meme_bank_ring: Control
 var _meme_bank_focus_label: Label
 var _meme_bank_selected_index := 0
 var _meme_bank_tween: Tween
-var _reality_subtitle_panel: PanelContainer
-var _reality_subtitle_label: RichTextLabel
-var _reality_choice_row: HBoxContainer
-var _reality_intent_preview: RichTextLabel
-var _reality_typing_line: RichTextLabel
-var _reality_typing_progress: Label
-var _reality_continue_button: Button
+var _reality_conversation_panel
 var _reality_hover_choice_id := ""
 var _reality_language_frame: PanelContainer
 var _reality_language_slot_row: HBoxContainer
@@ -1806,104 +1801,8 @@ func _build_ui() -> void:
 	_view_toggle_button.pressed.connect(_toggle_view_state)
 	_ui_root.add_child(_view_toggle_button)
 
-	_reality_intent_preview = RicherTextLabelScript.new()
-	_install_rich_text_effect(_reality_intent_preview, "curspull")
-	_reality_intent_preview.name = "RealityIntentPreview"
-	_reality_intent_preview.bbcode_enabled = true
-	_reality_intent_preview.fit_content = false
-	_reality_intent_preview.scroll_active = false
-	_reality_intent_preview.set_meta("on_dark", true)
-	_reality_intent_preview.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_intent_preview.offset_left = 310
-	_reality_intent_preview.offset_top = -360
-	_reality_intent_preview.offset_right = -250
-	_reality_intent_preview.offset_bottom = -286
-	_reality_intent_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_reality_intent_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_reality_intent_preview.add_theme_font_size_override("normal_font_size", _ui_font_size(28))
-	_reality_intent_preview.add_theme_color_override("default_color", _theme_color("surface"))
-	_reality_intent_preview.add_theme_color_override("font_outline_color", Color("050705"))
-	_reality_intent_preview.add_theme_constant_override("outline_size", 8)
-	_reality_intent_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_reality_intent_preview.z_index = 14
-	_ui_root.add_child(_reality_intent_preview)
-
-	_reality_choice_row = HBoxContainer.new()
-	_reality_choice_row.name = "RealityResponseChoices"
-	_reality_choice_row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_choice_row.offset_left = 350
-	_reality_choice_row.offset_top = -270
-	_reality_choice_row.offset_right = -290
-	_reality_choice_row.offset_bottom = -206
-	_reality_choice_row.add_theme_constant_override("separation", 14)
-	_reality_choice_row.clip_contents = true
-	_reality_choice_row.z_index = 15
-	_ui_root.add_child(_reality_choice_row)
-
-	_reality_typing_line = RicherTextLabelScript.new()
-	_install_rich_text_effect(_reality_typing_line, "curspull")
-	_install_rich_text_effect(_reality_typing_line, "cuss")
-	_reality_typing_line.name = "RealityTypingLine"
-	_reality_typing_line.bbcode_enabled = true
-	_reality_typing_line.fit_content = false
-	_reality_typing_line.scroll_active = false
-	_reality_typing_line.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_typing_line.offset_left = 280
-	_reality_typing_line.offset_top = -300
-	_reality_typing_line.offset_right = -220
-	_reality_typing_line.offset_bottom = -206
-	_reality_typing_line.add_theme_font_size_override("normal_font_size", _ui_font_size(30))
-	_reality_typing_line.add_theme_color_override("default_color", _theme_color("surface"))
-	_reality_typing_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_reality_typing_line.z_index = 15
-	_ui_root.add_child(_reality_typing_line)
-
-	_reality_typing_progress = _label("", 14, _theme_color("muted"))
-	_reality_typing_progress.name = "RealityTypingProgress"
-	_reality_typing_progress.set_meta("on_dark", true)
-	_reality_typing_progress.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_typing_progress.offset_left = 520
-	_reality_typing_progress.offset_top = -210
-	_reality_typing_progress.offset_right = -460
-	_reality_typing_progress.offset_bottom = -184
-	_reality_typing_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_reality_typing_progress.z_index = 15
-	_ui_root.add_child(_reality_typing_progress)
-
-	_reality_subtitle_panel = PanelContainer.new()
-	_reality_subtitle_panel.name = "RealitySubtitlePanel"
-	_reality_subtitle_panel.set_meta("movie_subtitle", true)
-	_reality_subtitle_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_reality_subtitle_panel.offset_left = 360
-	_reality_subtitle_panel.offset_top = -178
-	_reality_subtitle_panel.offset_right = -300
-	_reality_subtitle_panel.offset_bottom = -104
-	_reality_subtitle_panel.z_index = 14
-	_ui_root.add_child(_reality_subtitle_panel)
-	var subtitle_box := HBoxContainer.new()
-	subtitle_box.add_theme_constant_override("separation", 12)
-	_reality_subtitle_panel.add_child(subtitle_box)
-	_reality_subtitle_label = RicherTextLabelScript.new()
-	_install_rich_text_effect(_reality_subtitle_label, "curspull")
-	_reality_subtitle_label.name = "RealitySubtitleLabel"
-	_reality_subtitle_label.bbcode_enabled = true
-	_reality_subtitle_label.fit_content = false
-	_reality_subtitle_label.scroll_active = false
-	_reality_subtitle_label.set_meta("on_dark", true)
-	_reality_subtitle_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_reality_subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_reality_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_reality_subtitle_label.add_theme_font_size_override("normal_font_size", _ui_font_size(20))
-	_reality_subtitle_label.add_theme_color_override("default_color", _theme_color("surface"))
-	_reality_subtitle_label.add_theme_color_override("font_outline_color", Color("050705"))
-	_reality_subtitle_label.add_theme_constant_override("outline_size", 6)
-	subtitle_box.add_child(_reality_subtitle_label)
-	_reality_continue_button = Button.new()
-	_reality_continue_button.name = "RealityConversationContinue"
-	_reality_continue_button.text = "结束"
-	_reality_continue_button.custom_minimum_size = Vector2(92, 48)
-	_reality_continue_button.pressed.connect(_on_reality_continue_pressed)
-	subtitle_box.add_child(_reality_continue_button)
+	_ensure_reality_conversation_panel()
+	_reality_conversation_panel.mount(_ui_root, _reality_conversation_mount_deps())
 	_build_reality_language_composer()
 
 	_ensure_meme_bank_panel()
@@ -2714,6 +2613,41 @@ func _connect_phone_launcher_panel_signals() -> void:
 		panel.app_window_close_requested.connect(_close_app_window)
 
 
+func _ensure_reality_conversation_panel() -> void:
+	if _reality_conversation_panel != null and is_instance_valid(_reality_conversation_panel):
+		return
+	_reality_conversation_panel = RealityConversationPanelScript.new()
+	_reality_conversation_panel.name = "RealityConversationPanel"
+	add_child(_reality_conversation_panel)
+	_connect_reality_conversation_panel_signals()
+
+
+func _reality_conversation_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"viewport_size": _viewport_size,
+		"install_rich_text_effect": _install_rich_text_effect,
+		"set_dialogue_text": _set_dialogue_text,
+		"set_richer_bbcode": _set_richer_bbcode,
+		"clear_children": _clear,
+	}
+
+
+func _connect_reality_conversation_panel_signals() -> void:
+	if _reality_conversation_panel == null:
+		return
+	if not _reality_conversation_panel.choice_hovered.is_connected(_on_reality_choice_hovered):
+		_reality_conversation_panel.choice_hovered.connect(_on_reality_choice_hovered)
+	if not _reality_conversation_panel.choice_unhovered.is_connected(_on_reality_choice_unhovered):
+		_reality_conversation_panel.choice_unhovered.connect(_on_reality_choice_unhovered)
+	if not _reality_conversation_panel.choice_pressed.is_connected(_on_reality_choice_selected):
+		_reality_conversation_panel.choice_pressed.connect(_on_reality_choice_selected)
+	if not _reality_conversation_panel.continue_pressed.is_connected(_on_reality_continue_pressed):
+		_reality_conversation_panel.continue_pressed.connect(_on_reality_continue_pressed)
+
+
 func _ensure_meme_bank_panel() -> void:
 	if _meme_bank_panel != null and is_instance_valid(_meme_bank_panel):
 		return
@@ -3018,45 +2952,11 @@ func _quit_game() -> void:
 
 
 func _apply_reality_layout() -> void:
-	var viewport_size := _viewport_size()
 	var hud_right := 0.0
 	if _hud_panel != null:
 		hud_right = _hud_panel.offset_right
-	var compact := viewport_size.x < 760.0
-	var safe_left := maxf(18.0, hud_right + (12.0 if compact else 48.0))
-	var right_margin := 18.0 if compact else 150.0
-	var content_left := safe_left + (4.0 if compact else 80.0)
-	var content_right := -right_margin
-	if _reality_intent_preview != null:
-		_reality_intent_preview.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_reality_intent_preview.offset_left = content_left
-		_reality_intent_preview.offset_top = -354.0
-		_reality_intent_preview.offset_right = content_right
-		_reality_intent_preview.offset_bottom = -282.0
-	if _reality_choice_row != null:
-		_reality_choice_row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_reality_choice_row.offset_left = content_left
-		_reality_choice_row.offset_top = -272.0
-		_reality_choice_row.offset_right = content_right
-		_reality_choice_row.offset_bottom = -208.0
-	if _reality_typing_line != null:
-		_reality_typing_line.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_reality_typing_line.offset_left = content_left
-		_reality_typing_line.offset_top = -300.0
-		_reality_typing_line.offset_right = content_right
-		_reality_typing_line.offset_bottom = -208.0
-	if _reality_typing_progress != null:
-		_reality_typing_progress.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_reality_typing_progress.offset_left = content_left
-		_reality_typing_progress.offset_top = -208.0
-		_reality_typing_progress.offset_right = content_right
-		_reality_typing_progress.offset_bottom = -182.0
-	if _reality_subtitle_panel != null:
-		_reality_subtitle_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_reality_subtitle_panel.offset_left = content_left
-		_reality_subtitle_panel.offset_top = -178.0
-		_reality_subtitle_panel.offset_right = content_right
-		_reality_subtitle_panel.offset_bottom = -104.0
+	if _reality_conversation_panel != null:
+		_reality_conversation_panel.layout(hud_right)
 
 
 func _apply_view_toggle_layout() -> void:
@@ -3413,74 +3313,32 @@ func _on_meme_ring_item_gui_input(event: InputEvent, source_button: Control) -> 
 
 
 func _render_reality() -> void:
-	if _reality_subtitle_label == null:
-		return
-	_clear(_reality_choice_row)
 	_render_reality_language_composer()
+	if _reality_conversation_panel == null:
+		return
 	var plan := _day_plan()
-	var actor_name := _active_actor_display_name()
 	var npc_line: String = game.conversation_prompt if _reality_interaction_active and not game.conversation_prompt.is_empty() else str(plan["line"])
-	var phase := str(game.conversation_phase)
-	var subtitle := "%s：%s" % [actor_name, npc_line]
-	if not game.conversation_feedback.is_empty():
-		subtitle += "\n" + str(game.conversation_feedback)
-	_set_dialogue_text(_reality_subtitle_label, subtitle)
-
-	var choosing := _reality_interaction_active and phase == "choosing"
-	var typing := _reality_interaction_active and phase == "typing"
-	var result := _reality_interaction_active and phase == "result"
-	_reality_choice_row.visible = choosing
-	_reality_typing_line.visible = typing
-	_reality_typing_progress.visible = typing
-	_reality_continue_button.visible = _reality_interaction_active
-	if result and game.conversation_can_continue:
-		_reality_continue_button.text = "继续交谈"
-	elif result:
-		_reality_continue_button.text = "结束"
-	else:
-		_reality_continue_button.text = "离开"
-	if result and game.conversation_actor_type == "doctor" and not game.last_polluted_sentence.is_empty():
-		_set_dialogue_text(_reality_subtitle_label, "%s：%s\n你说：%s\n理解度：%d%%" % [
-			actor_name,
-			game.conversation_feedback,
-			game.last_polluted_sentence,
-			game.npc_understanding,
-		])
-	if choosing:
-		for choice in game.get_typed_reality_choices():
-			var choice_id := str(choice.get("id", ""))
-			var button := Button.new()
-			button.name = "RealityChoice%s" % choice_id.to_pascal_case()
-			button.text = str(choice.get("summary", "回应"))
-			if _playtest_assist_enabled and game.conversation_actor_type == "key_npc" and bool(choice.get("correct", false)):
-				button.text = "✓ TEST  %s" % button.text
-			button.custom_minimum_size = Vector2(96 if _viewport_size().x < 760.0 else 164, 56)
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.clip_text = true
-			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			if _viewport_size().x < 760.0:
-				button.add_theme_font_size_override("font_size", _ui_font_size(13))
-			button.set_meta("reality_response_choice", true)
-			button.disabled = bool(choice.get("locked", false))
-			if button.disabled:
-				button.tooltip_text = "这部分还听不清。"
-			button.mouse_entered.connect(_on_reality_choice_hovered.bind(choice_id))
-			button.mouse_exited.connect(_on_reality_choice_unhovered.bind(choice_id))
-			if not button.disabled:
-				button.pressed.connect(_on_reality_choice_selected.bind(choice_id))
-			_reality_choice_row.add_child(button)
-		if _reality_hover_choice_id.is_empty():
-			_set_dialogue_text(_reality_intent_preview, "")
-		else:
-			_set_dialogue_text(_reality_intent_preview, game.preview_typed_reality_choice(_reality_hover_choice_id))
-	_reality_intent_preview.visible = choosing and not _reality_hover_choice_id.is_empty()
-
-	if typing:
-		_set_richer_bbcode(_reality_typing_line, _typed_reality_bbcode())
-		_reality_typing_progress.text = "任意键  %d / %d" % [game.conversation_reveal_index, game.get_typed_reality_unit_count()]
-	else:
-		_set_richer_bbcode(_reality_typing_line, "")
-		_reality_typing_progress.text = ""
+	var hover_preview := ""
+	if not _reality_hover_choice_id.is_empty():
+		hover_preview = game.preview_typed_reality_choice(_reality_hover_choice_id)
+	_reality_conversation_panel.render({
+		"interaction_active": _reality_interaction_active,
+		"actor_name": _active_actor_display_name(),
+		"npc_line": npc_line,
+		"conversation_feedback": game.conversation_feedback,
+		"phase": str(game.conversation_phase),
+		"conversation_can_continue": game.conversation_can_continue,
+		"conversation_actor_type": game.conversation_actor_type,
+		"last_polluted_sentence": game.last_polluted_sentence,
+		"npc_understanding": game.npc_understanding,
+		"choices": game.get_typed_reality_choices(),
+		"hover_choice_id": _reality_hover_choice_id,
+		"hover_choice_preview": hover_preview,
+		"playtest_assist_enabled": _playtest_assist_enabled,
+		"typed_reality_bbcode": _typed_reality_bbcode(),
+		"typing_reveal_index": game.conversation_reveal_index,
+		"typing_unit_count": game.get_typed_reality_unit_count(),
+	})
 
 
 func _render_reality_language_composer() -> void:
@@ -3583,19 +3441,17 @@ func _escape_bbcode(value: String) -> String:
 
 func _on_reality_choice_hovered(choice_id: String) -> void:
 	_reality_hover_choice_id = choice_id
-	if _reality_intent_preview != null:
+	if _reality_conversation_panel != null:
 		var preview := game.preview_typed_reality_choice(choice_id)
-		_set_dialogue_text(_reality_intent_preview, preview)
-		_reality_intent_preview.visible = not preview.is_empty()
+		_reality_conversation_panel.set_intent_preview(preview)
 
 
 func _on_reality_choice_unhovered(choice_id: String) -> void:
 	if _reality_hover_choice_id != choice_id:
 		return
 	_reality_hover_choice_id = ""
-	if _reality_intent_preview != null:
-		_set_dialogue_text(_reality_intent_preview, "")
-		_reality_intent_preview.visible = false
+	if _reality_conversation_panel != null:
+		_reality_conversation_panel.clear_intent_preview()
 
 
 func _on_reality_choice_selected(choice_id: String) -> void:
@@ -3699,16 +3555,8 @@ func _update_visibility() -> void:
 	if _world_prompt != null:
 		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and (_nearby_reality_actor != null or _nearby_reality_item != null)
 	var interaction_visible := (not in_phone) and _reality_interaction_active
-	if _reality_subtitle_panel != null:
-		_reality_subtitle_panel.visible = interaction_visible
-	if _reality_choice_row != null:
-		_reality_choice_row.visible = interaction_visible and game.conversation_phase == "choosing"
-	if _reality_intent_preview != null:
-		_reality_intent_preview.visible = interaction_visible and game.conversation_phase == "choosing" and not _reality_hover_choice_id.is_empty()
-	if _reality_typing_line != null:
-		_reality_typing_line.visible = interaction_visible and game.conversation_phase == "typing"
-	if _reality_typing_progress != null:
-		_reality_typing_progress.visible = interaction_visible and game.conversation_phase == "typing"
+	if _reality_conversation_panel != null:
+		_reality_conversation_panel.update_visibility(interaction_visible, str(game.conversation_phase), _reality_hover_choice_id)
 	if _reality_language_frame != null:
 		_reality_language_frame.visible = interaction_visible and game.conversation_phase == "composing" and game.conversation_mode == "lexeme"
 	if _playtest_assist_panel != null:
