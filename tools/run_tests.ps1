@@ -123,8 +123,12 @@ if (-not $SkipPython) {
 
             $label = "python:$($pyTest.Name)"
             Write-Host "==> $label"
-            & $python.Source $pyTest.FullName
-            if ($LASTEXITCODE -eq 0) {
+            $prevEap = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & $python.Source $pyTest.FullName 2>&1 | Out-Host
+            $pyExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $prevEap
+            if ($pyExitCode -eq 0) {
                 $passed++
             }
             else {
