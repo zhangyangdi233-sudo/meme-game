@@ -2,6 +2,8 @@ class_name SettingsHistoryPanel
 extends Node
 ## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
 
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
+
 signal volume_changed(value: float)
 signal vhs_toggled(value: bool)
 signal autoplay_toggled(value: bool)
@@ -488,9 +490,10 @@ func _on_exit_confirm_pressed() -> void:
 
 
 func _menu_display_label(pollution: int, kind: String) -> String:
-	if pollution < 25:
+	var menu_tier := int(PollutionStageScript.stage(pollution).get("menu_tier", 0))
+	if menu_tier == 0:
 		return {"save": "保存", "autoplay": "自动播放", "history": "历史记录", "settings": "设置", "volume": "音量"}.get(kind, kind)
-	if pollution < 60:
+	if menu_tier == 1:
 		return {
 			"save": "留住这一段",
 			"autoplay": "让我替你继续说",

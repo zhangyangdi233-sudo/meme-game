@@ -1,5 +1,6 @@
 extends SceneTree
 
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const SCORE_METADATA_PATH := "res://assets/generated/audio/babel_liminal_score.json"
 
 var _failures: Array[String] = []
@@ -83,9 +84,9 @@ func _run() -> void:
 	game_root.game.pollution = 50
 	game_root._sync_audio_state(true)
 	if pollution_music != null:
-		_assert_near(pollution_music.volume_db, game_root._pollution_music_target(50), 0.1, "mid pollution should fade the corruption score into the mix")
-	_assert_near(game_root._pollution_music_target(60), -24.0, 0.1, "the 60 percent threshold should expose the pollution stem")
-	_assert_near(game_root._pollution_music_target(100), -3.0, 0.1, "maximum pollution should bring the corruption stem near the foreground")
+		_assert_near(pollution_music.volume_db, float(PollutionStageScript.stage(50)["music_db"]), 0.1, "mid pollution should fade the corruption score into the mix")
+	_assert_near(float(PollutionStageScript.stage(60)["music_db"]), -24.0, 0.1, "the 60 percent threshold should expose the pollution stem")
+	_assert_near(float(PollutionStageScript.stage(100)["music_db"]), -3.0, 0.1, "maximum pollution should bring the corruption stem near the foreground")
 	game_root.game.pollution = 0
 	game_root._sync_audio_state(true)
 

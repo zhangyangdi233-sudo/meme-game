@@ -25,6 +25,7 @@ const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selectio
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -1372,7 +1373,7 @@ func _sync_audio_state(immediate: bool = false) -> void:
 	var phone_target: float = -8.0 if in_phone else -42.0
 	var intimate_typing: bool = _reality_interaction_active and game.conversation_phase == "typing"
 	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
-	var pollution_target := _pollution_music_target(int(game.pollution))
+	var pollution_target := float(_pollution_stage_snapshot().get("music_db", -60.0))
 	_phone_ambience.set_meta("target_volume_db", phone_target)
 	_reality_ambience.set_meta("target_volume_db", reality_target)
 	_pollution_ambience.set_meta("target_volume_db", pollution_target)
@@ -1398,15 +1399,10 @@ func _sync_audio_state(immediate: bool = false) -> void:
 	_audio_tween.tween_property(_pollution_ambience, "volume_db", pollution_target, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
-func _pollution_music_target(pollution_value: int) -> float:
-	var pollution := clampi(pollution_value, 0, 100)
-	if pollution <= 40:
-		return -60.0
-	if pollution <= 60:
-		return remap(float(pollution), 41.0, 60.0, -42.0, -24.0)
-	if pollution <= 80:
-		return remap(float(pollution), 60.0, 80.0, -24.0, -10.0)
-	return remap(float(pollution), 80.0, 100.0, -10.0, -3.0)
+func _pollution_stage_snapshot() -> Dictionary:
+	var pollution := int(game.pollution) if game != null else 0
+	var day := int(game.day) if game != null else 0
+	return PollutionStageScript.stage(pollution, day)
 
 
 func _duck_ambience_for_flashback() -> void:
@@ -3975,13 +3971,14 @@ func _animate_vhs(delta: float) -> void:
 		return
 	_vhs_overlay.modulate.a = 1.0
 	if _vhs_shader_rect != null and _vhs_shader_rect.material is ShaderMaterial:
+		var snapshot := _pollution_stage_snapshot()
 		var material := _vhs_shader_rect.material as ShaderMaterial
-		material.set_shader_parameter("pollution", clampf(float(game.pollution) / 100.0, 0.0, 1.0))
-		material.set_shader_parameter("intensity", 0.58 + minf(0.22, float(game.pollution) * 0.0022))
+		material.set_shader_parameter("pollution", float(snapshot.get("vhs_pollution", 0.0)))
+		material.set_shader_parameter("intensity", float(snapshot.get("vhs_intensity", 0.58)))
 
 
 func _active_palette() -> Dictionary:
-	if game != null and game.pollution >= MemeGameStateScript.POLLUTION_FLASHBACK_THRESHOLD:
+	if str(_pollution_stage_snapshot().get("palette_key", "palette_1")) == "pollution_palette_5":
 		return POLLUTION_PALETTE_5
 	return PALETTE_1
 
@@ -5693,35 +5690,37 @@ func _placed_meme() -> Dictionary:
 
 func _corrupt(text: String) -> String:
 	text = _locale.translate(text)
-	if game.pollution < 35:
+	var snapshot := _pollution_stage_snapshot()
+	if not bool(snapshot.get("corrupt_active", false)):
 		return text
 	var replacements := [_locale.translate("哈吉米"), "□", _locale.translate("沉默"), "……"]
 	if _locale.current_locale == "en":
-		return _corrupt_english_words(text, replacements)
+		return _corrupt_english_words(text, replacements, int(snapshot.get("corrupt_interval", 2)), int(snapshot.get("day", 0)))
 	var result := ""
+	var interval := int(snapshot.get("corrupt_interval", 2))
+	var day := int(snapshot.get("day", 0))
 	for index in text.length():
 		var ch := text.substr(index, 1)
-		if index % maxi(2, 8 - int(game.pollution / 14)) == 0 and ch != " ":
-			result += replacements[(index + game.day) % replacements.size()]
+		if index % interval == 0 and ch != " ":
+			result += replacements[(index + day) % replacements.size()]
 		else:
 			result += ch
 	return result
 
 
-func _corrupt_english_words(text: String, replacements: Array) -> String:
+func _corrupt_english_words(text: String, replacements: Array, interval: int, day: int) -> String:
 	var word_regex := RegEx.new()
 	word_regex.compile("(\\S+)(\\s*)")
 	var units := word_regex.search_all(text)
 	if units.is_empty():
 		return text
 	var result := ""
-	var interval := maxi(2, 8 - int(game.pollution / 14))
 	for index in units.size():
 		var unit := units[index] as RegExMatch
 		var word := unit.get_string(1)
 		var spacing := unit.get_string(2)
 		if index % interval == 0:
-			word = str(replacements[(index + game.day) % replacements.size()])
+			word = str(replacements[(index + day) % replacements.size()])
 		result += word + spacing
 	return result
 
