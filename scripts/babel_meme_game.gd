@@ -25,6 +25,7 @@ const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selectio
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
+const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -394,15 +395,13 @@ var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
+var _phone_launcher_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: Control
 var _vhs_scanlines: Array[ColorRect] = []
 var _vhs_shader_rect: ColorRect
-var _phone_panel: PanelContainer
 var _phone_tab: Button
-var _phone_content: Control
-var _phone_title: Label
 var _app_window: PanelContainer
 var _app_title: Label
 var _app_body: VBoxContainer
@@ -844,8 +843,8 @@ func set_view_state(value: String) -> void:
 			_phone_launcher_open = game.active_app_window.is_empty()
 			if not game.active_app_window.is_empty():
 				_open_app_windows[game.active_app_window] = true
-			if _phone_panel != null:
-				_phone_panel.move_to_front()
+			if _phone_launcher_panel != null:
+				_phone_launcher_panel.move_phone_to_front()
 		_render()
 		_sync_audio_state(false)
 
@@ -1714,134 +1713,19 @@ func _build_ui() -> void:
 	_world_prompt.z_index = 10
 	_ui_root.add_child(_world_prompt)
 
-	_phone_panel = _panel()
-	_phone_panel.name = "PhonePopup"
-	_phone_panel.set_meta("phone_shell", true)
-	_phone_panel.clip_contents = true
-	_phone_panel.z_index = 20
-	_ui_root.add_child(_phone_panel)
-	_apply_phone_popup_layout(true)
-
-	var phone_shell := VBoxContainer.new()
-	phone_shell.name = "PhoneShell"
-	phone_shell.add_theme_constant_override("separation", 0)
-	_phone_panel.add_child(phone_shell)
-
 	_phone_tab = null
 
-	_phone_content = VBoxContainer.new()
-	_phone_content.name = "PhoneContent"
-	_phone_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	(_phone_content as VBoxContainer).add_theme_constant_override("separation", 8)
-	phone_shell.add_child(_phone_content)
-
-	var phone_header := HBoxContainer.new()
-	phone_header.name = "PhoneWindowHeader"
-	phone_header.custom_minimum_size.y = 60
-	phone_header.mouse_filter = Control.MOUSE_FILTER_STOP
-	phone_header.add_theme_constant_override("separation", 8)
-	_phone_content.add_child(phone_header)
-
-	_phone_title = _label("BABEL / PHONE", 18, _theme_color("accent"))
-	_phone_title.name = "PhoneWindowHandle"
-	_phone_title.set_meta("on_dark", true)
-	_phone_title.mouse_filter = Control.MOUSE_FILTER_STOP
-	_phone_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	phone_header.add_child(_phone_title)
-	var phone_signal_icon := TextureRect.new()
-	phone_signal_icon.name = "PhoneHomeNoSignalIcon"
-	phone_signal_icon.texture = _load_runtime_texture(NO_SIGNAL_ICON_PATH)
-	phone_signal_icon.custom_minimum_size = Vector2(22, 22)
-	phone_signal_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	phone_signal_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	phone_signal_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	phone_header.add_child(phone_signal_icon)
-	var phone_signal := _label("无信号", 13, _theme_color("accent"))
-	phone_signal.set_meta("on_dark", true)
-	phone_signal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	phone_header.add_child(phone_signal)
-	var phone_close := Button.new()
-	phone_close.name = "PhoneHomeCloseButton"
-	phone_close.text = "X"
-	phone_close.set_meta("dark_window_close_button", true)
-	phone_close.custom_minimum_size = Vector2(56, 56)
-	phone_close.pressed.connect(set_view_state.bind("npc_up"))
-	phone_header.add_child(phone_close)
-	_make_draggable_window(_phone_panel, "phone", phone_header)
-	_make_draggable_window(_phone_panel, "phone", _phone_title)
-
-	var phone_screen := _panel()
-	phone_screen.name = "PhoneScreenPanel"
-	phone_screen.set_meta("phone_surface", true)
-	phone_screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_phone_content.add_child(phone_screen)
-	var launcher_wallpaper := TextureRect.new()
-	launcher_wallpaper.name = "PhoneLauncherWallpaper"
-	launcher_wallpaper.texture = _load_runtime_texture(PHONE_LAUNCHER_WALLPAPER_PATH)
-	launcher_wallpaper.set_meta("asset_path", PHONE_LAUNCHER_WALLPAPER_PATH)
-	launcher_wallpaper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	launcher_wallpaper.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	launcher_wallpaper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	launcher_wallpaper.modulate = Color(1.0, 1.0, 1.0, 0.78)
-	phone_screen.add_child(launcher_wallpaper)
-	var launcher_tint := ColorRect.new()
-	launcher_tint.name = "PhoneLauncherTint"
-	launcher_tint.color = Color(_theme_color("ink"), 0.42)
-	launcher_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	phone_screen.add_child(launcher_tint)
-	var screen_box := VBoxContainer.new()
-	screen_box.name = "PhoneLauncherScreen"
-	screen_box.add_theme_constant_override("separation", 14)
-	phone_screen.add_child(screen_box)
-	var launcher_eyebrow := _label("NO SIGNAL  /  APP LAUNCHER", 12, _theme_color("muted"))
-	launcher_eyebrow.name = "PhoneLauncherEyebrow"
-	launcher_eyebrow.set_meta("on_dark", true)
-	screen_box.add_child(launcher_eyebrow)
-	var launcher_title := _label("选择一个窗口", 25, _theme_color("surface"))
-	launcher_title.name = "PhoneLauncherTitle"
-	launcher_title.set_meta("on_dark", true)
-	screen_box.add_child(launcher_title)
-	var launcher_rule := ColorRect.new()
-	launcher_rule.name = "PhoneLauncherRule"
-	launcher_rule.color = _theme_color("muted")
-	launcher_rule.custom_minimum_size.y = 4
-	screen_box.add_child(launcher_rule)
-	var app_grid := GridContainer.new()
-	app_grid.name = "PhoneAppGrid"
-	app_grid.columns = 2
-	app_grid.add_theme_constant_override("h_separation", 10)
-	app_grid.add_theme_constant_override("v_separation", 10)
-	screen_box.add_child(app_grid)
-	for app in [
-		{"id": "babel", "label": "塔\n楼层档案"},
-		{"id": "social", "label": "帖\n信号瀑布"},
-		{"id": "notebook", "label": "本\n语言工坊"},
-	]:
-		var button := Button.new()
-		button.name = "PhoneAppIcon%s" % str(app["id"]).capitalize()
-		button.text = app["label"]
-		button.set_meta("phone_app_icon", true)
-		button.custom_minimum_size = Vector2(156, 126)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.pressed.connect(_on_app_pressed.bind(app["id"]))
-		app_grid.add_child(button)
-	var launcher_note := _label("每个 App 会在手机旁打开独立窗口。", 13, _theme_color("surface"))
-	launcher_note.name = "PhoneLauncherNote"
-	launcher_note.set_meta("on_dark", true)
-	launcher_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	screen_box.add_child(launcher_note)
-	var launcher_spacer := Control.new()
-	launcher_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	screen_box.add_child(launcher_spacer)
-	var launcher_indicator_wrap := CenterContainer.new()
-	launcher_indicator_wrap.name = "PhoneLauncherIndicatorWrap"
-	launcher_indicator_wrap.custom_minimum_size.y = 14
-	screen_box.add_child(launcher_indicator_wrap)
-	var launcher_indicator := ColorRect.new()
-	launcher_indicator.name = "PhoneLauncherIndicator"
-	launcher_indicator.color = _theme_color("ink")
-	launcher_indicator.custom_minimum_size = Vector2(88, 4)
-	launcher_indicator_wrap.add_child(launcher_indicator)
+	_ensure_social_feed_panel()
+	_social_feed_panel.mount(_ui_root, _social_feed_mount_deps())
+	_ensure_phone_launcher_panel()
+	_phone_launcher_panel.mount(_ui_root, _phone_launcher_mount_deps())
+	_app_windows["social"] = _social_feed_panel.get_app_window()
+	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
+	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
+	for app_id in ["babel", "notebook"]:
+		_app_windows[app_id] = _phone_launcher_panel.get_app_window(app_id)
+		_app_titles[app_id] = _phone_launcher_panel.get_app_title(app_id)
+		_app_bodies[app_id] = _phone_launcher_panel.get_app_body(app_id)
 
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
@@ -1854,14 +1738,6 @@ func _build_ui() -> void:
 	_view_toggle_button.z_index = 42
 	_view_toggle_button.pressed.connect(_toggle_view_state)
 	_ui_root.add_child(_view_toggle_button)
-
-	_ensure_social_feed_panel()
-	_social_feed_panel.mount(_ui_root, _social_feed_mount_deps())
-	_app_windows["social"] = _social_feed_panel.get_app_window()
-	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
-	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
-	_build_app_window("babel", "巴别塔 App", "BabelAppWindow", -1032.0, 96.0, -592.0, 676.0)
-	_build_app_window("notebook", "笔记本 App", "NotebookAppWindow", -968.0, 152.0, -528.0, 732.0)
 
 	_reality_intent_preview = RicherTextLabelScript.new()
 	_install_rich_text_effect(_reality_intent_preview, "curspull")
@@ -2804,6 +2680,52 @@ func _connect_social_feed_panel_signals() -> void:
 		panel.publish_confirm_requested.connect(_on_confirm_dialogue_pressed)
 
 
+func _ensure_phone_launcher_panel() -> void:
+	if _phone_launcher_panel != null and is_instance_valid(_phone_launcher_panel):
+		return
+	_phone_launcher_panel = PhoneLauncherPanelScript.new()
+	_phone_launcher_panel.name = "PhoneLauncherPanel"
+	add_child(_phone_launcher_panel)
+	_connect_phone_launcher_panel_signals()
+
+
+func _phone_launcher_mount_deps() -> Dictionary:
+	_ensure_window_manager()
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"load_texture": _load_runtime_texture,
+		"register_draggable": _make_draggable_window,
+		"viewport_size": _viewport_size,
+		"hud_safe_left": func() -> float:
+			var safe_left := 12.0
+			if _hud_panel != null:
+				safe_left = maxf(safe_left, _hud_panel.offset_right + 10.0)
+			return safe_left,
+		"phone_popup_hud_safe_left": func() -> float:
+			var safe_left := 176.0
+			if _hud_panel != null:
+				safe_left = _hud_panel.offset_right + 18.0
+			return safe_left,
+		"notebook_window_left": func() -> float: return 188.0 if _hud_panel != null else 44.0,
+		"launcher_wallpaper_path": PHONE_LAUNCHER_WALLPAPER_PATH,
+		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
+	}
+
+
+func _connect_phone_launcher_panel_signals() -> void:
+	var panel = _phone_launcher_panel
+	if panel == null:
+		return
+	if not panel.app_icon_pressed.is_connected(_on_app_pressed):
+		panel.app_icon_pressed.connect(_on_app_pressed)
+	if not panel.phone_close_requested.is_connected(set_view_state.bind("npc_up")):
+		panel.phone_close_requested.connect(set_view_state.bind("npc_up"))
+	if not panel.app_window_close_requested.is_connected(_close_app_window):
+		panel.app_window_close_requested.connect(_close_app_window)
+
+
 func _inject_settings_camera_block() -> void:
 	var slot := _settings_history_panel.get_camera_slot() if _settings_history_panel != null else null
 	if slot == null or slot.get_child_count() > 0:
@@ -2983,116 +2905,6 @@ func _quit_game() -> void:
 	_request_quit_game()
 
 
-func _build_app_window(app_id: String, title: String, node_name: String, left: float, top: float, right: float, bottom: float) -> void:
-	var window := _panel()
-	window.name = node_name
-	window.clip_contents = true
-	window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_apply_app_window_layout(window, app_id, left, top, right, bottom)
-	window.z_index = 10
-	_ui_root.add_child(window)
-
-	var app_box := VBoxContainer.new()
-	app_box.add_theme_constant_override("separation", 8)
-	window.add_child(app_box)
-
-	var title_label := _label(title, 21, _theme_color("accent"))
-	title_label.name = "%sHandle" % node_name
-	title_label.mouse_filter = Control.MOUSE_FILTER_STOP
-	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var close_button := Button.new()
-	close_button.name = "%sCloseButton" % node_name
-	close_button.text = "X"
-	close_button.set_meta("window_close_button", true)
-	close_button.custom_minimum_size = Vector2(56, 56)
-	close_button.pressed.connect(_close_app_window.bind(app_id))
-	var title_bar := HBoxContainer.new()
-	title_bar.name = "%sTitleBar" % node_name
-	title_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	title_bar.custom_minimum_size.y = 56
-	title_bar.add_theme_constant_override("separation", 8)
-	app_box.add_child(title_bar)
-	title_bar.add_child(title_label)
-	_make_draggable_window(window, "app:%s" % app_id, title_bar)
-	_make_draggable_window(window, "app:%s" % app_id, title_label)
-	title_bar.add_child(close_button)
-
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 8)
-	if app_id == "notebook":
-		body.name = "NotebookAppBody"
-		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		app_box.add_child(body)
-	else:
-		var app_scroll := ScrollContainer.new()
-		app_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		app_box.add_child(app_scroll)
-		app_scroll.add_child(body)
-
-	_app_windows[app_id] = window
-	_app_titles[app_id] = title_label
-	_app_bodies[app_id] = body
-
-
-func _apply_app_window_layout(window: Control, app_id: String, left: float, top: float, right: float, bottom: float) -> void:
-	var viewport_size := _viewport_size()
-	if viewport_size.x >= 900.0:
-		if app_id == "notebook":
-			window.set_anchors_preset(Control.PRESET_TOP_LEFT)
-			var notebook_left := 188.0 if _hud_panel != null else 44.0
-			window.offset_left = notebook_left
-			window.offset_top = 46.0
-			window.offset_right = notebook_left + minf(610.0, viewport_size.x * 0.42)
-			window.offset_bottom = minf(782.0, viewport_size.y - 34.0)
-			return
-		window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		window.offset_left = left
-		window.offset_top = top
-		window.offset_right = right
-		window.offset_bottom = bottom
-		return
-	window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	var safe_left := 12.0
-	if _hud_panel != null:
-		safe_left = maxf(safe_left, _hud_panel.offset_right + 10.0)
-	var right_margin := 12.0
-	var available_width := maxf(220.0, viewport_size.x - safe_left - right_margin)
-	var original_width := right - left
-	var target_width := minf(original_width, available_width)
-	var top_margin := clampf(top, 12.0, 72.0)
-	window.offset_right = -right_margin
-	window.offset_left = window.offset_right - target_width
-	window.offset_top = top_margin
-	window.offset_bottom = viewport_size.y - 8.0
-
-
-func _apply_phone_popup_layout(expanded: bool) -> void:
-	if _phone_panel == null:
-		return
-	var viewport_size := _viewport_size()
-	_phone_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	if expanded:
-		var safe_left := 176.0
-		if _hud_panel != null:
-			safe_left = _hud_panel.offset_right + 18.0
-		var max_height := minf(824.0, viewport_size.y - 32.0)
-		var max_width := minf(480.0, viewport_size.x - safe_left - 28.0)
-		var phone_width := maxf(286.0, minf(max_width, max_height / 1.72))
-		var phone_height := phone_width * 1.72
-		_phone_panel.offset_right = -24
-		_phone_panel.offset_bottom = -18
-		if viewport_size.x < 720.0:
-			_phone_panel.offset_right = -8
-			_phone_panel.offset_bottom = -8
-		_phone_panel.offset_left = _phone_panel.offset_right - phone_width
-		_phone_panel.offset_top = _phone_panel.offset_bottom - phone_height
-	else:
-		_phone_panel.offset_top = -306
-		_phone_panel.offset_left = -112
-		_phone_panel.offset_right = -12
-		_phone_panel.offset_bottom = -94
-
-
 func _apply_meme_bank_popup_layout(mode: String) -> void:
 	if _meme_bank_window == null:
 		return
@@ -3189,8 +3001,8 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	if not force and viewport_size == _last_responsive_layout_size:
 		return
 	_last_responsive_layout_size = viewport_size
-	if _phone_panel != null and game != null:
-		_apply_phone_popup_layout(game.view_state == "phone_down")
+	if _phone_launcher_panel != null and game != null:
+		_phone_launcher_panel.layout_popup(game.view_state == "phone_down")
 	if _meme_bank_window != null:
 		var show_meme_bank := _should_show_meme_bank()
 		var desired_bank_layout := "open" if _meme_bank_open else ("collapsed" if show_meme_bank else "peek")
@@ -3841,11 +3653,15 @@ func _update_visibility() -> void:
 	var show_phone_home := in_phone
 	if _phone_popup_expanded != show_phone_home:
 		_phone_popup_expanded = show_phone_home
-		_apply_phone_popup_layout(show_phone_home)
-	_phone_panel.visible = _game_started and show_phone_home
+		if _phone_launcher_panel != null:
+			_phone_launcher_panel.layout_popup(show_phone_home)
+	var phone_panel: PanelContainer = _phone_launcher_panel.get_phone_panel() if _phone_launcher_panel != null else null
+	if phone_panel != null:
+		phone_panel.visible = _game_started and show_phone_home
 	if _phone_tab != null:
 		_phone_tab.visible = false
-	_phone_content.visible = show_phone_home
+	if _phone_launcher_panel != null:
+		_phone_launcher_panel.set_content_visible(show_phone_home)
 	if in_phone and not game.active_app_window.is_empty():
 		_open_app_windows[game.active_app_window] = true
 	for app_id in _app_windows.keys():
@@ -4198,8 +4014,8 @@ func _open_phone_launcher() -> void:
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	_phone_launcher_open = true
-	if _phone_panel != null:
-		_phone_panel.move_to_front()
+	if _phone_launcher_panel != null:
+		_phone_launcher_panel.move_phone_to_front()
 	log_text = "展开手机主页。"
 	_render()
 
@@ -5290,7 +5106,8 @@ func _ensure_notebook_window_home() -> void:
 	var window := _notebook_window_control()
 	if window == null:
 		return
-	_apply_app_window_layout(window, "notebook", -968.0, 152.0, -528.0, 732.0)
+	if _phone_launcher_panel != null:
+		_phone_launcher_panel.layout_app_window("notebook")
 	window.visible = game != null and game.view_state == "phone_down"
 
 
