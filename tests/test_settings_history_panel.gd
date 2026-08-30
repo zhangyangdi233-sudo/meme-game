@@ -1,10 +1,19 @@
 extends SceneTree
-## SettingsHistoryPanel settings shell: named chrome, layout, camera slot. No game-handler wiring.
+## SettingsHistoryPanel: chrome plus intent signals and settings open/close state.
 
 const PanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 
 var _failures: Array[String] = []
 var _registered: Array = []
+var _volume_events: Array = []
+var _vhs_events: Array = []
+var _autoplay_events: Array = []
+var _language_events: Array = []
+var _save_events: Array = []
+var _return_events: Array = []
+var _exit_events: Array = []
+var _history_toggle_events: Array = []
+var _settings_open_events: Array = []
 
 
 func _init() -> void:
@@ -47,6 +56,15 @@ func _run() -> void:
 		],
 		"current_locale": "zh",
 	})
+	panel.volume_changed.connect(func(value: float) -> void: _volume_events.append(value))
+	panel.vhs_toggled.connect(func(value: bool) -> void: _vhs_events.append(value))
+	panel.autoplay_toggled.connect(func(value: bool) -> void: _autoplay_events.append(value))
+	panel.language_selected.connect(func(locale_code: String) -> void: _language_events.append(locale_code))
+	panel.manual_save_pressed.connect(func() -> void: _save_events.append(true))
+	panel.return_main_menu_pressed.connect(func() -> void: _return_events.append(true))
+	panel.exit_game_requested.connect(func() -> void: _exit_events.append(true))
+	panel.history_toggle_requested.connect(func() -> void: _history_toggle_events.append(true))
+	panel.settings_open_changed.connect(func(open: bool) -> void: _settings_open_events.append(open))
 	await process_frame
 
 	var settings := panel.get_settings_window() as Control
@@ -85,16 +103,13 @@ func _run() -> void:
 		_assert_true(settings.is_ancestor_of(settings_exit), "the exit command should belong to SettingsWindow")
 		_assert_true(settings_scroll == null or not settings_scroll.is_ancestor_of(settings_exit), "the exit command should stay fixed instead of scrolling out of reach")
 		_assert_eq(settings_exit.text, "退出游戏", "the exit command should remain readable")
-		_assert_true(settings_exit.pressed.get_connections().is_empty(), "slice 2 should not wire the exit button to a game handler")
 
 	if volume_slider != null:
 		_assert_true(volume_slider.editable, "volume slider should remain adjustable")
 		_assert_true(is_equal_approx(volume_slider.value, 80.0), "volume slider should take the snapshot value")
-		_assert_true(volume_slider.value_changed.get_connections().is_empty(), "slice 2 should not wire the volume slider to a game handler")
 
 	if language_option != null:
 		_assert_eq(language_option.item_count, 2, "language option should list the snapshot locales")
-		_assert_true(language_option.item_selected.get_connections().is_empty(), "slice 2 should not wire language selection to a game handler")
 
 	var settings_regs := 0
 	for entry in _registered:
@@ -109,6 +124,50 @@ func _run() -> void:
 
 	var history := _find_node_by_name(host, "HistoryWindow") as Control
 	_assert_true(history != null, "mount should still build the history window")
+
+	_assert_true(not panel.is_settings_open(), "settings should start closed")
+	panel.toggle_settings()
+	_assert_true(panel.is_settings_open(), "toggle_settings should open the settings window")
+	_assert_true(settings != null and settings.visible, "toggle_settings should show the settings window")
+	_assert_eq(_settings_open_events, [true], "toggle_settings should emit settings_open_changed(true)")
+	panel.close_settings()
+	_assert_true(not panel.is_settings_open(), "close_settings should close the settings window")
+	_assert_true(settings != null and not settings.visible, "close_settings should hide the settings window")
+	_assert_eq(_settings_open_events, [true, false], "close_settings should emit settings_open_changed(false)")
+	panel.toggle_settings()
+	var close_button := _find_node_by_name(settings, "SettingsCloseButton") as Button
+	if close_button != null:
+		close_button.pressed.emit()
+	_assert_true(not panel.is_settings_open(), "the settings close button should close the window")
+	_assert_eq(_settings_open_events, [true, false, true, false], "the settings close button should emit settings_open_changed(false)")
+
+	if volume_slider != null:
+		volume_slider.value = 42.0
+		_assert_eq(_volume_events.size(), 1, "adjusting volume should emit volume_changed once")
+		_assert_true(_volume_events.size() == 1 and is_equal_approx(float(_volume_events[0]), 42.0), "volume_changed should carry the slider value")
+	if vhs_toggle != null:
+		vhs_toggle.toggled.emit(false)
+		_assert_eq(_vhs_events, [false], "the VHS toggle should emit vhs_toggled")
+	if autoplay_button != null:
+		autoplay_button.toggled.emit(true)
+		_assert_eq(_autoplay_events, [true], "the autoplay toggle should emit autoplay_toggled")
+	if language_option != null:
+		language_option.item_selected.emit(1)
+		_assert_eq(_language_events, ["en"], "language selection should emit the locale code, not the index")
+	if save_button != null:
+		save_button.pressed.emit()
+		_assert_eq(_save_events, [true], "the save button should emit manual_save_pressed")
+	var return_main := _find_node_by_name(settings, "SettingsReturnMainButton") as Button
+	if return_main != null:
+		return_main.pressed.emit()
+		_assert_eq(_return_events, [true], "the return-main button should emit return_main_menu_pressed")
+	if settings_exit != null:
+		settings_exit.pressed.emit()
+		_assert_eq(_exit_events, [true], "the exit button should emit exit_game_requested")
+	if history_button != null:
+		history_button.pressed.emit()
+		_assert_eq(_history_toggle_events, [true], "the history button should emit history_toggle_requested")
+		_assert_true(history != null and not history.visible, "history toggle intent should not open the window until the adapter supplies entries")
 
 	host.queue_free()
 	panel.queue_free()

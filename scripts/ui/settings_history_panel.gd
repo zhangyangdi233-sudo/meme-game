@@ -1,6 +1,16 @@
 class_name SettingsHistoryPanel
 extends Node
-## Game-side settings + history windows: chrome, layout, and history render/toggle.
+## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
+
+signal volume_changed(value: float)
+signal vhs_toggled(value: bool)
+signal autoplay_toggled(value: bool)
+signal language_selected(locale_code: String)
+signal manual_save_pressed
+signal return_main_menu_pressed
+signal exit_game_requested
+signal history_toggle_requested
+signal settings_open_changed(open: bool)
 
 var _history_window: PanelContainer
 var _history_content: VBoxContainer
@@ -25,7 +35,6 @@ var _soft_style_fn: Callable
 var _theme_color_fn: Callable
 var _ui_font_size_fn: Callable
 var _register_draggable: Callable
-var _on_close: Callable
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -35,7 +44,6 @@ func mount(parent: Control, deps: Dictionary) -> void:
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
-	_on_close = deps.get("on_close", Callable())
 	_build_settings_window(parent, deps)
 	_build_history_window(parent)
 
@@ -49,9 +57,24 @@ func is_settings_open() -> bool:
 
 
 func set_settings_open(open: bool) -> void:
+	if _settings_open == open:
+		if _settings_window != null:
+			_settings_window.visible = open
+		return
 	_settings_open = open
 	if _settings_window != null:
 		_settings_window.visible = open
+		if open:
+			_settings_window.move_to_front()
+	settings_open_changed.emit(open)
+
+
+func toggle_settings() -> void:
+	set_settings_open(not _settings_open)
+
+
+func close_settings() -> void:
+	set_settings_open(false)
 
 
 func get_history_window() -> Control:
@@ -157,6 +180,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	close_button.name = "SettingsCloseButton"
 	close_button.text = "X"
 	close_button.custom_minimum_size = Vector2(56, 56)
+	close_button.pressed.connect(close_settings)
 	title_bar.add_child(close_button)
 
 	var settings_scroll := ScrollContainer.new()
@@ -188,6 +212,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
 	_volume_slider.focus_mode = Control.FOCUS_ALL
 	_volume_slider.custom_minimum_size = Vector2(260, 44)
+	_volume_slider.value_changed.connect(_on_volume_slider_changed)
 	_settings_content.add_child(_volume_slider)
 
 	_vhs_toggle = CheckButton.new()
@@ -195,6 +220,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_vhs_toggle.text = "开启 VHS 质感"
 	_vhs_toggle.button_pressed = bool(deps.get("vhs_enabled", true))
 	_vhs_toggle.custom_minimum_size.y = 48
+	_vhs_toggle.toggled.connect(_on_vhs_toggle_changed)
 	_settings_content.add_child(_vhs_toggle)
 
 	_settings_camera_slot = VBoxContainer.new()
@@ -217,6 +243,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 		_settings_language_option.set_item_metadata(_settings_language_option.item_count - 1, locale_code)
 		if locale_code == current_locale:
 			_settings_language_option.select(_settings_language_option.item_count - 1)
+	_settings_language_option.item_selected.connect(_on_language_item_selected)
 	_settings_content.add_child(_settings_language_option)
 
 	_settings_save_button = Button.new()
@@ -224,6 +251,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_save_button.text = "保存"
 	_settings_save_button.set_meta("skip_localization", true)
 	_settings_save_button.custom_minimum_size.y = 50
+	_settings_save_button.pressed.connect(_on_save_button_pressed)
 	_settings_content.add_child(_settings_save_button)
 	_settings_save_status = _label_factory.call("", 14, _theme_color_fn.call("accent")) as Label
 	_settings_save_status.name = "SettingsSaveStatus"
@@ -235,6 +263,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_autoplay_button.set_meta("skip_localization", true)
 	_settings_autoplay_button.button_pressed = bool(deps.get("autoplay_enabled", false))
 	_settings_autoplay_button.custom_minimum_size.y = 50
+	_settings_autoplay_button.toggled.connect(_on_autoplay_toggle_changed)
 	_settings_content.add_child(_settings_autoplay_button)
 
 	_settings_history_button = Button.new()
@@ -242,12 +271,14 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_history_button.text = "历史记录"
 	_settings_history_button.set_meta("skip_localization", true)
 	_settings_history_button.custom_minimum_size.y = 50
+	_settings_history_button.pressed.connect(_on_history_button_pressed)
 	_settings_content.add_child(_settings_history_button)
 
 	var return_main_button := Button.new()
 	return_main_button.name = "SettingsReturnMainButton"
 	return_main_button.text = "退回主画面"
 	return_main_button.custom_minimum_size.y = 50
+	return_main_button.pressed.connect(_on_return_main_button_pressed)
 	_settings_content.add_child(return_main_button)
 
 	var system_footer := VBoxContainer.new()
@@ -268,6 +299,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_exit_button.set_meta("skip_localization", true)
 	_settings_exit_button.set_meta("reliable_system_command", true)
 	_settings_exit_button.custom_minimum_size.y = 52
+	_settings_exit_button.pressed.connect(_on_exit_button_pressed)
 	system_footer.add_child(_settings_exit_button)
 
 
@@ -303,7 +335,7 @@ func _build_history_window(parent: Control) -> void:
 	close_button.name = "HistoryCloseButton"
 	close_button.text = "X"
 	close_button.custom_minimum_size = Vector2(56, 56)
-	close_button.pressed.connect(_on_close_button_pressed)
+	close_button.pressed.connect(_on_history_close_pressed)
 	title_bar.add_child(close_button)
 
 	var scroll := ScrollContainer.new()
@@ -317,9 +349,42 @@ func _build_history_window(parent: Control) -> void:
 	scroll.add_child(_history_content)
 
 
-func _on_close_button_pressed() -> void:
-	if _on_close.is_valid():
-		_on_close.call()
+func _on_volume_slider_changed(value: float) -> void:
+	volume_changed.emit(value)
+
+
+func _on_vhs_toggle_changed(value: bool) -> void:
+	vhs_toggled.emit(value)
+
+
+func _on_autoplay_toggle_changed(value: bool) -> void:
+	autoplay_toggled.emit(value)
+
+
+func _on_language_item_selected(index: int) -> void:
+	if _settings_language_option == null or index < 0 or index >= _settings_language_option.item_count:
+		return
+	language_selected.emit(str(_settings_language_option.get_item_metadata(index)))
+
+
+func _on_save_button_pressed() -> void:
+	manual_save_pressed.emit()
+
+
+func _on_return_main_button_pressed() -> void:
+	return_main_menu_pressed.emit()
+
+
+func _on_exit_button_pressed() -> void:
+	exit_game_requested.emit()
+
+
+func _on_history_button_pressed() -> void:
+	history_toggle_requested.emit()
+
+
+func _on_history_close_pressed() -> void:
+	close()
 
 
 func _escape_history_bbcode(value: String) -> String:

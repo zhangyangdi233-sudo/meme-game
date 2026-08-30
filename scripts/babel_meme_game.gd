@@ -738,7 +738,7 @@ func show_main_menu() -> void:
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
 	_game_started = false
 	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
-		_settings_history_panel.set_settings_open(false)
+		_settings_history_panel.close_settings()
 	_set_input_locked(false)
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
@@ -2794,7 +2794,6 @@ func _build_settings_window() -> void:
 	_settings_history_panel.mount(_ui_root, _settings_history_mount_deps())
 	_sync_settings_control_aliases()
 	_inject_settings_camera_block()
-	_connect_settings_shell_handlers()
 	_layout_settings_window()
 	_refresh_language_menu_labels()
 	if _edge_drawer != null and _settings_window != null:
@@ -2977,6 +2976,7 @@ func _ensure_settings_history_panel() -> void:
 	_settings_history_panel = SettingsHistoryPanelScript.new()
 	_settings_history_panel.name = "SettingsHistoryPanel"
 	add_child(_settings_history_panel)
+	_connect_settings_history_panel_signals()
 
 
 func _settings_history_mount_deps() -> Dictionary:
@@ -2994,7 +2994,6 @@ func _settings_history_mount_deps() -> Dictionary:
 		"theme_color": _theme_color,
 		"ui_font_size": _ui_font_size,
 		"register_draggable": _window_manager.register,
-		"on_close": _close_history_window,
 		"master_volume": _master_volume,
 		"vhs_enabled": _vhs_enabled,
 		"autoplay_enabled": game != null and game.autoplay_enabled,
@@ -3022,29 +3021,28 @@ func _sync_settings_control_aliases() -> void:
 	_vhs_toggle = _settings_window.find_child("SettingsVHSToggle", true, false) as CheckButton
 
 
-func _connect_settings_shell_handlers() -> void:
-	if _settings_window == null:
+func _connect_settings_history_panel_signals() -> void:
+	var panel := _settings_history_panel
+	if panel == null:
 		return
-	var close_button := _settings_window.find_child("SettingsCloseButton", true, false) as Button
-	if close_button != null and not close_button.pressed.is_connected(_close_settings_window):
-		close_button.pressed.connect(_close_settings_window)
-	if _volume_slider != null and not _volume_slider.value_changed.is_connected(_on_volume_changed):
-		_volume_slider.value_changed.connect(_on_volume_changed)
-	if _vhs_toggle != null and not _vhs_toggle.toggled.is_connected(_on_vhs_toggled):
-		_vhs_toggle.toggled.connect(_on_vhs_toggled)
-	if _settings_language_option != null and not _settings_language_option.item_selected.is_connected(_on_settings_language_selected):
-		_settings_language_option.item_selected.connect(_on_settings_language_selected)
-	if _settings_save_button != null and not _settings_save_button.pressed.is_connected(_on_manual_save_pressed):
-		_settings_save_button.pressed.connect(_on_manual_save_pressed)
-	if _settings_autoplay_button != null and not _settings_autoplay_button.toggled.is_connected(_on_autoplay_toggled):
-		_settings_autoplay_button.toggled.connect(_on_autoplay_toggled)
-	if _settings_history_button != null and not _settings_history_button.pressed.is_connected(_toggle_history_window):
-		_settings_history_button.pressed.connect(_toggle_history_window)
-	var return_main := _settings_window.find_child("SettingsReturnMainButton", true, false) as Button
-	if return_main != null and not return_main.pressed.is_connected(_on_return_main_menu_pressed):
-		return_main.pressed.connect(_on_return_main_menu_pressed)
-	if _settings_exit_button != null and not _settings_exit_button.pressed.is_connected(_request_quit_game):
-		_settings_exit_button.pressed.connect(_request_quit_game)
+	if not panel.volume_changed.is_connected(_on_volume_changed):
+		panel.volume_changed.connect(_on_volume_changed)
+	if not panel.vhs_toggled.is_connected(_on_vhs_toggled):
+		panel.vhs_toggled.connect(_on_vhs_toggled)
+	if not panel.autoplay_toggled.is_connected(_on_autoplay_toggled):
+		panel.autoplay_toggled.connect(_on_autoplay_toggled)
+	if not panel.language_selected.is_connected(_on_settings_language_selected):
+		panel.language_selected.connect(_on_settings_language_selected)
+	if not panel.manual_save_pressed.is_connected(_on_manual_save_pressed):
+		panel.manual_save_pressed.connect(_on_manual_save_pressed)
+	if not panel.return_main_menu_pressed.is_connected(_on_return_main_menu_pressed):
+		panel.return_main_menu_pressed.connect(_on_return_main_menu_pressed)
+	if not panel.exit_game_requested.is_connected(_request_quit_game):
+		panel.exit_game_requested.connect(_request_quit_game)
+	if not panel.history_toggle_requested.is_connected(_toggle_history_window):
+		panel.history_toggle_requested.connect(_toggle_history_window)
+	if not panel.settings_open_changed.is_connected(_on_settings_open_changed):
+		panel.settings_open_changed.connect(_on_settings_open_changed)
 
 
 func _inject_settings_camera_block() -> void:
@@ -3169,18 +3167,18 @@ func _settings_is_open() -> bool:
 
 
 func _toggle_settings_window() -> void:
-	if _settings_window == null or _settings_history_panel == null:
+	if _settings_history_panel == null:
 		return
-	_settings_history_panel.set_settings_open(not _settings_history_panel.is_settings_open())
-	if _settings_history_panel.is_settings_open():
-		_settings_window.move_to_front()
-	_hide_hud_tooltip()
-	_update_visibility()
+	_settings_history_panel.toggle_settings()
 
 
 func _close_settings_window() -> void:
 	if _settings_history_panel != null:
-		_settings_history_panel.set_settings_open(false)
+		_settings_history_panel.close_settings()
+
+
+func _on_settings_open_changed(_open: bool) -> void:
+	_hide_hud_tooltip()
 	_update_visibility()
 
 
@@ -3195,10 +3193,9 @@ func _apply_master_volume() -> void:
 		AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(0.001, _master_volume / 100.0)))
 
 
-func _on_settings_language_selected(index: int) -> void:
-	if _settings_language_option == null or index < 0 or index >= _settings_language_option.item_count:
+func _on_settings_language_selected(locale_code: String) -> void:
+	if locale_code.is_empty():
 		return
-	var locale_code := str(_settings_language_option.get_item_metadata(index))
 	if _reality_interaction_active:
 		_exit_reality_interaction(false)
 	if not _locale.select_language(locale_code):
