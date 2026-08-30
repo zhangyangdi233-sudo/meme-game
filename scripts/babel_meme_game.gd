@@ -29,6 +29,7 @@ const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
 const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
+const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -444,7 +445,8 @@ var _selected_language_token_id := ""
 var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
-var _flashback_overlay: PollutionFlashbackDirector
+var _flashback_panel
+var _flashback_overlay: Control
 var _ui_theme: Theme
 var _pickup_press_audio: AudioStreamPlayer
 var _pickup_land_audio: AudioStreamPlayer
@@ -4411,38 +4413,49 @@ func _finish_day_transition() -> void:
 
 
 func _build_flashback_overlay() -> void:
-	_flashback_overlay = PollutionFlashbackDirector.new()
-	_flashback_overlay.name = "PollutionFlashbackOverlay"
-	_flashback_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_flashback_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_flashback_overlay.visible = false
-	_flashback_overlay.z_index = 100
-	_ui_root.add_child(_flashback_overlay)
-	_flashback_overlay.configure_colors({
-		"ink": _theme_color("ink"),
-		"surface": _theme_color("surface"),
-		"flash_text": _theme_color("flash_text"),
-	})
-	_flashback_overlay.build_phases()
-	_flashback_overlay.sequence_finished.connect(_finish_pollution_flashback)
+	_ensure_flashback_panel()
+	_flashback_panel.mount(_ui_root, _flashback_mount_deps())
+	_sync_flashback_refs()
+	_flashback_panel.build_phases()
+
+
+func _ensure_flashback_panel() -> void:
+	if _flashback_panel != null and is_instance_valid(_flashback_panel):
+		return
+	_flashback_panel = FlashbackOverlayPanelScript.new()
+	_flashback_panel.name = "FlashbackOverlayPanel"
+	add_child(_flashback_panel)
+
+
+func _flashback_mount_deps() -> Dictionary:
+	return {
+		"theme_color": _theme_color,
+		"on_sequence_finished": _finish_pollution_flashback,
+	}
+
+
+func _sync_flashback_refs() -> void:
+	if _flashback_panel == null:
+		return
+	_flashback_overlay = _flashback_panel.get_overlay()
 
 
 func _play_pollution_flashback() -> void:
-	if _flashback_overlay == null:
+	if _flashback_panel == null:
 		return
 	_set_input_locked(true)
 	# 配色以触发瞬间的活跃调色板为准(60% 时已是污染调色板),再重建相位节点。
-	_flashback_overlay.configure_colors({
+	_flashback_panel.configure_colors({
 		"ink": _theme_color("ink"),
 		"surface": _theme_color("surface"),
 		"flash_text": _theme_color("flash_text"),
 	})
-	_flashback_overlay.build_phases()
+	_flashback_panel.build_phases()
 	var frozen_texture := _capture_frozen_frame_texture()
 	_duck_ambience_for_flashback()
 	if _flashback_audio != null and _flashback_audio.stream != null and _flashback_audio.is_inside_tree():
 		_flashback_audio.play()
-	_flashback_overlay.play(frozen_texture)
+	_flashback_panel.play(frozen_texture)
 
 
 func _capture_frozen_frame_texture() -> Texture2D:
@@ -4459,8 +4472,8 @@ func _capture_frozen_frame_texture() -> Texture2D:
 
 
 func _finish_pollution_flashback() -> void:
-	if _flashback_overlay != null:
-		_flashback_overlay.stop()
+	if _flashback_panel != null:
+		_flashback_panel.stop()
 	if _flashback_audio != null:
 		_flashback_audio.stop()
 	_set_input_locked(false)
