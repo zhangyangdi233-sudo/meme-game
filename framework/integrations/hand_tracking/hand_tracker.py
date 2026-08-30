@@ -22,7 +22,7 @@ RUNNING = True
 PHONE_FALLBACK_INDICES = (1, 2, 3, 4, 5)
 HOST_WATCH_INTERVAL_SECONDS = 0.25
 
-_mpl_cache = Path(tempfile.gettempdir()) / "babel-mediapipe-matplotlib"
+_mpl_cache = Path(tempfile.gettempdir()) / "hand-tracker-mediapipe-matplotlib"
 _mpl_cache.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(_mpl_cache))
 
@@ -78,7 +78,7 @@ def _start_host_watchdog(host_pid: int) -> None:
     watchdog = threading.Thread(
         target=_exit_when_host_dies,
         args=(host_pid,),
-        name="babel-hand-tracker-host-watchdog",
+        name="hand-tracker-host-watchdog",
         daemon=True,
     )
     watchdog.start()

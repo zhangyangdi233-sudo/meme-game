@@ -76,7 +76,7 @@ On this machine, the project can be launched with:
 
 ## Tests
 
-Run the **fast** suite (module tests only; skips files that instantiate `scenes/babel_meme_game.tscn`):
+Run the **fast** suite (module tests only; skips files that load `scenes/babel_meme_game.tscn`):
 
 ```sh
 GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \

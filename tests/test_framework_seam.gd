@@ -9,13 +9,15 @@ const FORBIDDEN_PATTERNS := [
 	"meme_game_state",
 ]
 
+const SCAN_SUFFIXES := [".gd", ".py", ".sh", ".txt", ".md"]
+
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	_scan_directory("res://framework")
 	if _failures.is_empty():
-		print("framework boundary tests passed")
+		print("framework seam tests passed")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -39,10 +41,17 @@ func _scan_directory(path: String) -> void:
 		var entry_path := "%s/%s" % [path, entry_name]
 		if dir.current_is_dir():
 			_scan_directory(entry_path)
-		elif entry_name.ends_with(".gd"):
+		elif _should_scan(entry_name):
 			_scan_file(entry_path)
 		entry_name = dir.get_next()
 	dir.list_dir_end()
+
+
+func _should_scan(entry_name: String) -> bool:
+	for suffix in SCAN_SUFFIXES:
+		if entry_name.ends_with(suffix):
+			return true
+	return false
 
 
 func _scan_file(path: String) -> void:

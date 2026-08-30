@@ -1,7 +1,7 @@
 class_name WordPhysicsCanvas
 extends Control
-## 笔记本里的字词物理沙盘:拾到的字受重力落到底边,彼此有碰撞体积,
-## 可以像积木一样越堆越高,也可以被玩家抓起来重新摆放。
+## Physics sandbox for word tiles: gravity to the floor, stacked collisions,
+## grab-and-throw with freeze-while-dragging.
 ##
 ## 用 RigidBody2D + 矩形碰撞体实现;拖动时切成 FREEZE(运动学)跟随指针,
 ## 松手后恢复动力学并把当时的速度交给物理,手感接近真实抓放。

@@ -6759,7 +6759,7 @@ func _build_pickup_flight_layer() -> void:
 	# 高于日结过场(95),低于闪回(100):日结黑幕不吞掉仍在飞行的字。
 	_pickup_flight_layer.z_index = 97
 	_ui_root.add_child(_pickup_flight_layer)
-	_pickup_flight_layer.pickup_landed.connect(_on_pickup_flight_landed)
+	_pickup_flight_layer.flight_landed.connect(_on_pickup_flight_landed)
 
 
 ## 拾字时把笔记本窗口召回左上角初始位置并打开,让玩家看见字飞进去。
@@ -6854,7 +6854,7 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 		_play_ui_sound(_pickup_press_audio)
 		_ensure_notebook_window_home()
 		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_pickup(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
+			_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
 		if bool(pick_result.get("action_spent", false)):
 			_after_effective_action(actions_before)
 		else:

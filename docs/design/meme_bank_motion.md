@@ -25,4 +25,4 @@ Opening begins slightly reduced and translucent. Closing begins slightly enlarge
 - Opening, closing, and dragging the bank never spend a daily action.
 - The ring remains contextual to social publishing and notebook crafting; it is absent during reality dialogue.
 
-The runtime profiles exposed by `RadialMemeRing.get_motion_profile()` and `_meme_bank_motion_profile()` are regression-tested. Any future motion change should update both the implementation and those contracts.
+The runtime profiles exposed by `RadialSelectorRing.get_motion_profile()` and `_meme_bank_motion_profile()` are regression-tested. Any future motion change should update both the implementation and those contracts.

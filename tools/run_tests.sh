@@ -14,7 +14,7 @@ Usage: tools/run_tests.sh [options]
 
 Options:
   --godot PATH       Godot executable (default: GODOT_BIN env, then common macOS path)
-  --fast             Skip tests that instantiate scenes/babel_meme_game.tscn
+  --fast             Skip tests that load scenes/babel_meme_game.tscn
   --skip-python      Skip tests/test_hand_tracker_*.py
   --filter REGEX     Only run test files whose basename matches REGEX
   -h, --help         Show this help
@@ -82,7 +82,7 @@ run_godot_test() {
     return 0
   fi
 
-  if [[ "$FAST" -eq 1 ]] && grep -q 'babel_meme_game\.tscn' "$test_path"; then
+  if [[ "$FAST" -eq 1 ]] && grep -q 'load("res://scenes/babel_meme_game.tscn")' "$test_path"; then
     skipped=$((skipped + 1))
     return 0
   fi

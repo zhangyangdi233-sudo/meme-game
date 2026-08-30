@@ -174,15 +174,15 @@ func _test_ui_flow() -> void:
 	var target_after: Vector2 = game_root._notebook_flight_target()
 	_assert_true((target_after - target_before).is_equal_approx(Vector2(40, 24)), "the flight target must track the notebook window position")
 
-	# 自然飞行完成:pickup_landed 信号必须发出,并触发笔记本受击。
+	# 自然飞行完成:flight_landed 信号必须发出,并触发笔记本受击。
 	var landed_units: Array = []
-	flight_layer.pickup_landed.connect(func(unit: String) -> void: landed_units.append(unit))
+	flight_layer.flight_landed.connect(func(unit: String) -> void: landed_units.append(unit))
 	game_root._on_pickup_unit_meta("开", "floor_13")
 	var flight_budget := 100000
 	while flight_budget > 0 and landed_units.is_empty():
 		flight_budget -= 1
 		await process_frame
-	_assert_true(not landed_units.is_empty(), "a natural flight must emit pickup_landed")
+	_assert_true(not landed_units.is_empty(), "a natural flight must emit flight_landed")
 	_assert_true(game_root._notebook_squash_tween != null, "landing must squash the notebook window")
 	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "the free same-day pickup should collect its unit")
 

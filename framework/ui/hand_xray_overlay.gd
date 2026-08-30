@@ -33,7 +33,7 @@ func _ready() -> void:
 	set_process(true)
 	set_meta("xray_mode", "two_hand_thumb_index_bbox")
 	set_meta("rectangle_gesture", "two_hand_thumb_index_bbox")
-	set_meta("border_effect", "babel_signal_contamination_v2")
+	set_meta("border_effect", "signal_contamination_v2")
 	set_meta("effect_components", ["acid_chromatic_split", "broken_edge_packets", "horizontal_frame_desync", "crawl_code", "irregular_breath"])
 	set_meta("effect_scope", "xray_window_only")
 	set_meta("max_tear_offset_px", MAX_TEAR_OFFSET_PX)

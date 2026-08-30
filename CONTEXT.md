@@ -13,5 +13,5 @@ Babel-specific state, narrative, floor generation, and the main scene wiring und
 _Avoid_: app, core (when used loosely)
 
 **Seam**:
-The dependency boundary between Framework and Game. Framework may be called from Game; Framework must not call back into Game.
-_Avoid_: boundary, layer
+The rule that Framework may be called from Game; Framework must not call back into Game.
+_Avoid_: boundary, layer (when used as a synonym for this rule)

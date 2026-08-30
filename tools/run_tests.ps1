@@ -13,7 +13,7 @@ function Show-Usage {
 Usage: tools/run_tests.ps1 [-GodotBin PATH] [-Fast] [-Filter REGEX] [-SkipPython]
 
   -GodotBin   Godot executable (default: `$env:GODOT_BIN)
-  -Fast       Skip tests that instantiate scenes/babel_meme_game.tscn
+  -Fast       Skip tests that load scenes/babel_meme_game.tscn
   -Filter     Only run tests whose file name matches REGEX
   -SkipPython Skip tests/test_hand_tracker_*.py
 
@@ -53,7 +53,7 @@ foreach ($testFile in $testFiles) {
         continue
     }
 
-    if ($Fast -and (Select-String -LiteralPath $testFile.FullName -Pattern 'babel_meme_game\.tscn' -Quiet)) {
+    if ($Fast -and (Select-String -LiteralPath $testFile.FullName -Pattern 'load\("res://scenes/babel_meme_game\.tscn"\)' -Quiet)) {
         $skipped++
         continue
     }

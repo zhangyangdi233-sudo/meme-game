@@ -188,7 +188,7 @@ func _test_main_scene_surfaces() -> void:
 	if xray != null:
 		_assert_true(xray.get_meta("xray_mode", "") == "two_hand_thumb_index_bbox", "X-ray should support only the four-fingertip, two-hand rectangle gesture")
 		_assert_true(xray.get_meta("rectangle_gesture", "") == "two_hand_thumb_index_bbox", "the four-fingertip gesture should have an explicit, testable activation contract")
-		_assert_true(xray.get_meta("border_effect", "") == "babel_signal_contamination_v2", "X-ray should use the more legible Babel signal-contamination border")
+		_assert_true(xray.get_meta("border_effect", "") == "signal_contamination_v2", "X-ray should use the more legible signal-contamination border")
 		_assert_true(xray.get_meta("effect_scope", "") == "xray_window_only", "the horror effect should stay local to the X-ray window instead of degrading the whole screen")
 		var effect_components: Array = xray.get_meta("effect_components", [])
 		_assert_true(effect_components.has("acid_chromatic_split") and effect_components.has("broken_edge_packets"), "the border should visibly combine chromatic splitting with broken signal packets")

@@ -1,11 +1,9 @@
 class_name FlyToTargetLayer
 extends Control
-## 拾字飞行动画层:被拾取的字从帖子原位放大飞到屏幕正中央短暂定格,
-## 再加速缩入左上角笔记本窗口。节拍与缓动依据 docs/research/pickup_anim_deep_research.md:
-## P1 弧线放大飞中央(QUINT/OUT)→ P2 定格确认 → P3 加速缩入笔记本(CUBIC/IN)→ 落地信号。
-## 恐怖氛围适配:聚焦靠背景压暗,不靠发光;缓动禁 Elastic/Bounce;无随机调用。
+## Glyph flight overlay: arc to viewport center, hold, then shrink toward a live target.
+## Easing is QUINT/OUT then CUBIC/IN. No Elastic/Bounce. No RNG.
 
-signal pickup_landed(unit: String)
+signal flight_landed(unit: String)
 
 const FLY_IN_DURATION := 0.36
 const HOLD_DURATION := 0.50
@@ -25,7 +23,7 @@ var _flight_tweens: Array[Tween] = []
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_backdrop = ColorRect.new()
-	_backdrop.name = "PickupFlightBackdrop"
+	_backdrop.name = "FlightBackdrop"
 	_backdrop.color = Color(0, 0, 0, 1)
 	_backdrop.modulate.a = 0.0
 	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -37,11 +35,11 @@ func is_animating() -> bool:
 	return _active_count > 0
 
 
-func play_pickup(unit_text: String, from_global: Vector2, target_getter: Callable, text_color: Color = Color(0.96, 0.98, 0.9)) -> void:
+func play_hold_flight(unit_text: String, from_global: Vector2, target_getter: Callable, text_color: Color = Color(0.96, 0.98, 0.9)) -> void:
 	var glyph := Label.new()
-	glyph.name = "PickupFlightGlyph"
+	glyph.name = "HoldFlightGlyph"
 	glyph.text = unit_text
-	glyph.set_meta("flashback_text", true)
+	glyph.set_meta("skip_localization", true)
 	glyph.add_theme_font_size_override("font_size", GLYPH_FONT_SIZE)
 	glyph.add_theme_color_override("font_color", text_color)
 	glyph.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.65))
@@ -68,12 +66,10 @@ func play_pickup(unit_text: String, from_global: Vector2, target_getter: Callabl
 	_flight_tweens.append(flight)
 
 
-## 造句台的短飞行:词库瓦片 → 答案区,无居中定格、无压暗,0.18s 直达。
 func play_place_flight(unit_text: String, from_global: Vector2, target_getter: Callable, text_color: Color = Color(0.96, 0.98, 0.9)) -> void:
 	var glyph := Label.new()
 	glyph.name = "PlaceFlightGlyph"
 	glyph.text = unit_text
-	glyph.set_meta("flashback_text", true)
 	glyph.set_meta("skip_localization", true)
 	glyph.add_theme_font_size_override("font_size", 24)
 	glyph.add_theme_color_override("font_color", text_color)
@@ -134,7 +130,7 @@ func _finish_glyph(glyph: Variant, unit_text: String, silent: bool = false) -> v
 		_fade_backdrop(0.0, 0.18)
 	_flight_tweens = _flight_tweens.filter(func(flight: Tween) -> bool: return flight != null and flight.is_valid())
 	if not silent:
-		pickup_landed.emit(unit_text)
+		flight_landed.emit(unit_text)
 
 
 func _fade_backdrop(target_alpha: float, duration: float) -> void:
