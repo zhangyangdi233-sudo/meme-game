@@ -31,6 +31,9 @@ func _run() -> void:
 
 
 func _test_pool_integrity() -> void:
+	var catalog_report: Dictionary = PoolScript.validate_post_seeds_catalog()
+	_assert_true(bool(catalog_report.get("ok", false)), "post seeds catalog should validate; problems: %s" % "; ".join(catalog_report.get("problems", [])))
+	_assert_true(PoolScript.get_post_ids().size() == 12, "post seeds catalog should cover twelve posts")
 	for locale in ["zh", "ja", "en"]:
 		var report: Dictionary = PoolScript.validate(locale)
 		_assert_true(bool(report.get("ok", false)), "pickup pool for %s should validate; problems: %s" % [locale, "; ".join(report.get("problems", []))])

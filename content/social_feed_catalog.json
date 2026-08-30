@@ -1,0 +1,275 @@
+{
+  "channels": [
+    {"id": "discover", "label": "发现"},
+    {"id": "following", "label": "关注流"}
+  ],
+  "post_cards": [
+    {
+      "id": "floor_13",
+      "poster_cell": 0,
+      "caption": "旧教学楼昨晚多出一层",
+      "handle": "塔下施工档案",
+      "text": "实拍：封闭的教学楼昨晚多出一层，末班电梯停在那里。",
+      "tags": ["巴别塔", "空位"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "floor", "text": "不存在的十三层", "lexeme_id": "place.unlisted_floor", "grammar_roles": ["object"], "phone_surface": "隐藏楼层", "doctor_surface": "未登记空间", "doll_surface": "不许去的楼上", "tags": ["巴别塔", "空位"], "rarity": 2},
+        {"id": "last_lift", "text": "末班电梯", "lexeme_id": "subject.last_lift", "grammar_roles": ["subject"], "phone_surface": "末班电梯账号", "doctor_surface": "反复梦见电梯的患者", "doll_surface": "回家的电梯", "tags": ["日常", "巴别塔"], "rarity": 1},
+        {"id": "still_building", "text": "停在", "lexeme_id": "action.stop_at", "grammar_roles": ["action"], "phone_surface": "定位到", "doctor_surface": "持续停留于", "doll_surface": "等在", "tags": ["刷新", "追问"], "rarity": 2}
+      ]
+    },
+    {
+      "id": "self_call",
+      "poster_cell": 1,
+      "caption": "无信号时收到明天短信",
+      "handle": "无信号通勤",
+      "text": "求证：断网后，我收到明天的自己发来的哈吉米。",
+      "tags": ["哈吉米", "刷新", "追问"],
+      "rarity": 3,
+      "tokens": [
+        {"id": "no_signal", "text": "无信号的短信", "lexeme_id": "object.no_signal_message", "grammar_roles": ["object"], "phone_surface": "离线消息", "doctor_surface": "无来源记录", "doll_surface": "没有声音的纸条", "tags": ["沉默", "空位"], "rarity": 1},
+        {"id": "self_call", "text": "明天的我", "lexeme_id": "subject.future_self", "grammar_roles": ["subject"], "phone_surface": "未来账号", "doctor_surface": "预期自我", "doll_surface": "明天醒来的你", "tags": ["追问", "反问"], "rarity": 2},
+        {"id": "hajimi", "text": "发来", "lexeme_id": "action.send", "grammar_roles": ["action"], "phone_surface": "推送", "doctor_surface": "投射出", "doll_surface": "塞给我", "tags": ["哈吉米", "刷新"], "rarity": 2}
+      ]
+    },
+    {
+      "id": "missing_window",
+      "poster_cell": 2,
+      "caption": "塔下每晚少一个窗口",
+      "handle": "塔下夜巡",
+      "text": "记录：塔下每到午夜，就少一扇亮着的窗。",
+      "tags": ["巴别塔", "沉默"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "midnight", "text": "一扇亮窗", "lexeme_id": "subject.lit_window", "grammar_roles": ["subject"], "phone_surface": "在线窗口", "doctor_surface": "视觉对象", "doll_surface": "会眨眼的窗", "tags": ["日常", "刷新"], "rarity": 1},
+        {"id": "one_less", "text": "消失在", "lexeme_id": "action.disappear_at", "grammar_roles": ["action"], "phone_surface": "下线于", "doctor_surface": "从知觉中脱落于", "doll_surface": "躲进", "tags": ["沉默", "空位"], "rarity": 2},
+        {"id": "under_tower", "text": "塔下", "lexeme_id": "place.tower_base", "grammar_roles": ["object"], "phone_surface": "塔下频道", "doctor_surface": "固定场景", "doll_surface": "我们楼下", "tags": ["巴别塔", "信徒"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "extra_moon",
+      "poster_cell": 3,
+      "caption": "照片里月亮多了一颗",
+      "handle": "夜空误差簿",
+      "text": "对照：昨晚的照片里，月亮比现实多一颗。",
+      "tags": ["信徒", "圣歌", "追问"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "extra_moon", "text": "一颗月亮", "lexeme_id": "object.extra_moon", "grammar_roles": ["object"], "phone_surface": "第二个月亮", "doctor_surface": "重复圆形", "doll_surface": "小月亮", "tags": ["圣歌", "信徒"], "rarity": 2},
+        {"id": "than_reality", "text": "多出", "lexeme_id": "action.appear_extra", "grammar_roles": ["action"], "phone_surface": "自动生成", "doctor_surface": "发生复视", "doll_surface": "偷偷长出", "tags": ["追问", "反问"], "rarity": 2},
+        {"id": "last_night", "text": "昨晚的照片", "lexeme_id": "subject.last_night_photo", "grammar_roles": ["subject"], "phone_surface": "昨夜影像", "doctor_surface": "患者图像记录", "doll_surface": "你藏起来的照片", "tags": ["日常"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "last_bus",
+      "poster_cell": 4,
+      "caption": "最后一班车没有终点",
+      "handle": "末班路线图",
+      "text": "旧帖：最后一班车从来没有终点站。",
+      "tags": ["日常", "空位"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "last_bus", "text": "最后一班车", "lexeme_id": "subject.last_bus", "grammar_roles": ["subject"], "phone_surface": "末班路线", "doctor_surface": "反复交通意象", "doll_surface": "接我们回家的车", "tags": ["日常"], "rarity": 1},
+        {"id": "no_terminal", "text": "没有抵达", "lexeme_id": "action.not_arrive", "grammar_roles": ["action"], "phone_surface": "未刷新到", "doctor_surface": "无法到达", "doll_surface": "忘了停在", "tags": ["空位", "沉默"], "rarity": 2},
+        {"id": "old_post", "text": "终点", "lexeme_id": "object.terminal", "grammar_roles": ["object"], "phone_surface": "最终页面", "doctor_surface": "结束条件", "doll_surface": "家的门口", "tags": ["刷新", "哈吉米"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "blackout_broadcast",
+      "poster_cell": 5,
+      "caption": "停电后广播喊了我名字",
+      "handle": "废站收音机",
+      "text": "录音：停电以后，废站广播准时报站，然后叫了我的名字。",
+      "tags": ["圣歌", "刷新", "沉默"],
+      "rarity": 3,
+      "tokens": [
+        {"id": "blackout", "text": "废站广播", "lexeme_id": "subject.dead_station_radio", "grammar_roles": ["subject"], "phone_surface": "离线广播", "doctor_surface": "听觉内容", "doll_surface": "墙里的喇叭", "tags": ["沉默", "空位"], "rarity": 1},
+        {"id": "broadcast", "text": "喊出", "lexeme_id": "action.call_out", "grammar_roles": ["action"], "phone_surface": "公开了", "doctor_surface": "重复呼唤", "doll_surface": "学会了", "tags": ["圣歌", "刷新"], "rarity": 2},
+        {"id": "dead_station", "text": "我的名字", "lexeme_id": "object.my_name", "grammar_roles": ["object"], "phone_surface": "用户实名", "doctor_surface": "自我称呼", "doll_surface": "我给你的名字", "tags": ["巴别塔", "日常"], "rarity": 2}
+      ]
+    },
+    {
+      "id": "station_lit",
+      "poster_cell": 6,
+      "caption": "废站台昨晚重新亮灯",
+      "handle": "封站观察员",
+      "text": "目击：封了十年的站台，昨晚重新亮灯。",
+      "tags": ["巴别塔", "刷新"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "ten_years", "text": "封闭站台", "lexeme_id": "subject.closed_platform", "grammar_roles": ["subject"], "phone_surface": "停用站点", "doctor_surface": "封闭场景", "doll_surface": "没人等车的地方", "tags": ["禁问", "沉默"], "rarity": 2},
+        {"id": "lit_again", "text": "重新亮起", "lexeme_id": "action.light_again", "grammar_roles": ["action"], "phone_surface": "恢复在线", "doctor_surface": "再次显现", "doll_surface": "又睁开", "tags": ["刷新", "巴别塔"], "rarity": 2},
+        {"id": "platform", "text": "十年前的灯", "lexeme_id": "object.old_light", "grammar_roles": ["object"], "phone_surface": "过期指示灯", "doctor_surface": "陈旧光源记忆", "doll_surface": "你忘掉的小灯", "tags": ["日常", "空位"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "no_shadow",
+      "poster_cell": 7,
+      "caption": "便利店店员没有影子",
+      "handle": "凌晨便利店",
+      "text": "路过：店整夜开着，店员却没有影子。",
+      "tags": ["日常", "沉默", "追问"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "all_night", "text": "便利店员", "lexeme_id": "subject.clerk", "grammar_roles": ["subject"], "phone_surface": "夜班账号", "doctor_surface": "无面孔人物", "doll_surface": "替我们看门的人", "tags": ["日常"], "rarity": 1},
+        {"id": "no_shadow", "text": "没有留下", "lexeme_id": "action.leave_none", "grammar_roles": ["action"], "phone_surface": "删除了", "doctor_surface": "未形成", "doll_surface": "不肯带走", "tags": ["沉默", "空位"], "rarity": 2},
+        {"id": "clerk", "text": "影子", "lexeme_id": "object.shadow", "grammar_roles": ["object"], "phone_surface": "在线痕迹", "doctor_surface": "自体投影", "doll_surface": "脚下的黑朋友", "tags": ["追问", "反问"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "future_notice",
+      "poster_cell": 8,
+      "caption": "小区群里出现不存在的住户",
+      "handle": "明日群公告",
+      "text": "截图：小区群凌晨多出一个查不到门牌的住户，还发来明天的失踪通知。",
+      "tags": ["刷新", "禁问", "反问"],
+      "rarity": 3,
+      "tokens": [
+        {"id": "tomorrow", "text": "明天的通知", "lexeme_id": "subject.tomorrow_notice", "grammar_roles": ["subject"], "phone_surface": "预约推送", "doctor_surface": "预期记录", "doll_surface": "明天塞进门缝的纸", "tags": ["刷新", "反问"], "rarity": 2},
+        {"id": "missing", "text": "写着", "lexeme_id": "action.write", "grammar_roles": ["action"], "phone_surface": "标记为", "doctor_surface": "诊断为", "doll_surface": "偷偷叫作", "tags": ["禁问", "沉默"], "rarity": 3},
+        {"id": "group", "text": "我的失踪", "lexeme_id": "object.my_disappearance", "grammar_roles": ["object"], "phone_surface": "用户离线", "doctor_surface": "对象缺席", "doll_surface": "你不回家", "tags": ["日常"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "old_post_today",
+      "poster_cell": 9,
+      "caption": "十年前旧帖今天回复我",
+      "handle": "旧帖考古队",
+      "text": "考古：十年前的旧帖今天突然回复我，头像是现在的我。",
+      "tags": ["刷新", "哈吉米", "反问"],
+      "rarity": 3,
+      "tokens": [
+        {"id": "ten_year_post", "text": "十年前的旧帖", "lexeme_id": "subject.old_post", "grammar_roles": ["subject"], "phone_surface": "历史缓存", "doctor_surface": "既往记录", "doll_surface": "以前写给你的信", "tags": ["刷新", "哈吉米"], "rarity": 2},
+        {"id": "today_me", "text": "回复了", "lexeme_id": "action.reply", "grammar_roles": ["action"], "phone_surface": "重新推送", "doctor_surface": "回返为", "doll_surface": "开口叫了", "tags": ["日常", "追问"], "rarity": 2},
+        {"id": "archaeology", "text": "今天的我", "lexeme_id": "object.today_self", "grammar_roles": ["object"], "phone_surface": "当前账号", "doctor_surface": "现时自我", "doll_surface": "现在陪我的你", "tags": ["信徒", "反问"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "deleted_road",
+      "poster_cell": 10,
+      "caption": "地图上少了一条回家路",
+      "handle": "绿色路线图",
+      "text": "更新：地图删掉了我每天回家的那条路。",
+      "tags": ["空位", "日常", "刷新"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "deleted", "text": "地图", "lexeme_id": "subject.map", "grammar_roles": ["subject"], "phone_surface": "导航服务", "doctor_surface": "空间图式", "doll_surface": "你画的路线", "tags": ["刷新", "空位"], "rarity": 2},
+        {"id": "way_home", "text": "删掉", "lexeme_id": "action.delete", "grammar_roles": ["action"], "phone_surface": "隐藏", "doctor_surface": "压抑", "doll_surface": "擦掉", "tags": ["日常"], "rarity": 1},
+        {"id": "this_road", "text": "回家的路", "lexeme_id": "object.way_home", "grammar_roles": ["object"], "phone_surface": "返程路线", "doctor_surface": "退行路径", "doll_surface": "回到我这里的路", "tags": ["追问", "空位"], "rarity": 1}
+      ]
+    },
+    {
+      "id": "access_record",
+      "poster_cell": 11,
+      "caption": "门禁说我没回家我却在屋里",
+      "handle": "门禁空号",
+      "text": "记录：门禁说我没回来，可我一直在屋里。",
+      "tags": ["禁问", "追问", "日常"],
+      "rarity": 2,
+      "tokens": [
+        {"id": "not_home", "text": "门禁记录", "lexeme_id": "subject.access_log", "grammar_roles": ["subject"], "phone_surface": "门禁系统", "doctor_surface": "行为记录", "doll_surface": "门口那只眼睛", "tags": ["禁问", "追问"], "rarity": 2},
+        {"id": "inside", "text": "否认", "lexeme_id": "action.deny", "grammar_roles": ["action"], "phone_surface": "判定异常", "doctor_surface": "否定", "doll_surface": "假装没看见", "tags": ["日常", "反问"], "rarity": 1},
+        {"id": "access", "text": "我在屋里", "lexeme_id": "object.inside_home", "grammar_roles": ["object"], "phone_surface": "用户已在家", "doctor_surface": "对象仍在场", "doll_surface": "你一直陪着我", "tags": ["巴别塔", "刷新"], "rarity": 1}
+      ]
+    }
+  ],
+  "day_plans": [
+    {
+      "title": "旧帖被顶上来",
+      "trends": ["哈吉米", "追问", "日常"],
+      "speaker": "同学",
+      "line": "你刚才想说什么？",
+      "feed": [
+        {"id": "d1_a", "handle": "BABEL_404", "text": "有人说哈吉米只是一个打错的名字，但打错的人已经注销。", "tokens": [
+          {"id": "phrase", "text": "打错的人已经注销", "tags": ["哈吉米", "追问"], "rarity": 1},
+          {"id": "hajimi", "text": "哈吉米", "tags": ["哈吉米"], "rarity": 1},
+          {"id": "wrong", "text": "打错", "tags": ["追问"], "rarity": 1}
+        ]},
+        {"id": "d1_b", "handle": "课桌下的账号", "text": "别急着懂。先把它转出去，懂会在后面补票。", "tokens": [
+          {"id": "phrase", "text": "懂会在后面补票", "tags": ["反问", "日常"], "rarity": 1},
+          {"id": "understand", "text": "懂", "tags": ["追问"], "rarity": 1}
+        ]}
+      ]
+    },
+    {
+      "title": "沉默用户在线",
+      "trends": ["空位", "沉默", "哈吉米"],
+      "speaker": "塔下信徒",
+      "line": "你可以不用那些词，试着直接回答我。",
+      "feed": [
+        {"id": "d2_a", "handle": "SILENT_ROOT", "text": "那个沉默用户又在线了。在线本身就是发言。", "tokens": [
+          {"id": "phrase", "text": "在线本身就是发言", "tags": ["沉默", "空位"], "rarity": 2},
+          {"id": "silent", "text": "沉默", "tags": ["沉默"], "rarity": 1}
+        ]},
+        {"id": "d2_b", "handle": "回声管理员", "text": "哈吉米没有解释，哈吉米只返回你发出去的形状。", "tokens": [
+          {"id": "phrase", "text": "返回你发出去的形状", "tags": ["哈吉米", "空位"], "rarity": 2},
+          {"id": "shape", "text": "形状", "tags": ["空位"], "rarity": 1}
+        ]}
+      ]
+    },
+    {
+      "title": "第一层通知",
+      "trends": ["巴别塔", "信徒", "刷新"],
+      "speaker": "班里的转发者",
+      "line": "你在哪一层？别说塔内地址，说你自己的话。",
+      "feed": [
+        {"id": "d3_a", "handle": "塔讯快报", "text": "第一级台阶确认开放。请用更新后的句式进入。", "tokens": [
+          {"id": "phrase", "text": "更新后的句式", "tags": ["巴别塔", "刷新"], "rarity": 2},
+          {"id": "tower", "text": "台阶", "tags": ["巴别塔"], "rarity": 1}
+        ]},
+        {"id": "d3_b", "handle": "朝圣二群", "text": "塔不是建筑。塔是大家同时把解释往上挂。", "tokens": [
+          {"id": "phrase", "text": "把解释往上挂", "tags": ["巴别塔", "信徒"], "rarity": 3},
+          {"id": "hang", "text": "往上挂", "tags": ["信徒"], "rarity": 1}
+        ]}
+      ]
+    },
+    {
+      "title": "解释开始回收",
+      "trends": ["反问", "禁问", "哈吉米"],
+      "speaker": "抄写员",
+      "line": "如果不用它，你还剩下什么表达？",
+      "feed": [
+        {"id": "d4_a", "handle": "付费问答残页", "text": "为什么智者不说话？你为什么需要他说话？", "tokens": [
+          {"id": "phrase", "text": "你为什么需要他说话", "tags": ["反问", "禁问"], "rarity": 2},
+          {"id": "why", "text": "为什么", "tags": ["追问"], "rarity": 1}
+        ]},
+        {"id": "d4_b", "handle": "旧语言回收站", "text": "普通话的边角被退了回来，剩下的词义按污染分拣。", "tokens": [
+          {"id": "phrase", "text": "词义按污染分拣", "tags": ["空位", "禁问"], "rarity": 3},
+          {"id": "pollution", "text": "污染", "tags": ["禁问"], "rarity": 1}
+        ]}
+      ]
+    },
+    {
+      "title": "圣歌体扩散",
+      "trends": ["圣歌", "信徒", "巴别塔"],
+      "speaker": "楼梯口合唱者",
+      "line": "你能把自己的问题说出来，而不是唱出来吗？",
+      "feed": [
+        {"id": "d5_a", "handle": "塔间合唱", "text": "塔啊，请把所有人挂成同一个句子。", "tokens": [
+          {"id": "phrase", "text": "挂成同一个句子", "tags": ["圣歌", "巴别塔"], "rarity": 3},
+          {"id": "chant", "text": "塔啊", "tags": ["圣歌"], "rarity": 1}
+        ]},
+        {"id": "d5_b", "handle": "未命名小组", "text": "哈吉米在副歌里出现三次，第四次必须空着。", "tokens": [
+          {"id": "phrase", "text": "第四次必须空着", "tags": ["哈吉米", "空位", "圣歌"], "rarity": 3},
+          {"id": "empty", "text": "空着", "tags": ["空位"], "rarity": 1}
+        ]}
+      ]
+    },
+    {
+      "title": "没有人在顶上",
+      "trends": ["空位", "沉默", "巴别塔"],
+      "speaker": "塔顶",
+      "line": " ",
+      "feed": [
+        {"id": "d6_a", "handle": "塔顶直播", "text": "直播间没有画面。弹幕说这就是画面。", "tokens": [
+          {"id": "phrase", "text": "这就是画面", "tags": ["空位", "巴别塔"], "rarity": 5},
+          {"id": "blank", "text": "没有画面", "tags": ["空位"], "rarity": 3}
+        ]},
+        {"id": "d6_b", "handle": "智者账号", "text": "该用户不存在。不存在是最后一次上线。", "tokens": [
+          {"id": "phrase", "text": "不存在是最后一次上线", "tags": ["沉默", "空位"], "rarity": 5},
+          {"id": "silence", "text": "不存在", "tags": ["沉默"], "rarity": 3}
+        ]}
+      ]
+    }
+  ]
+}
