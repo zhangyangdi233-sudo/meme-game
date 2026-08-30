@@ -1,8 +1,10 @@
 class_name HandTrackingReceiver
 extends RefCounted
 
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
+
 signal frame_received(hands: Array, timestamp_msec: int)
-signal status_changed(status: String)
+signal status_changed(status: HandTrackingStatusScript.Status)
 signal source_ready(source: String, selected_index: int)
 
 const DEFAULT_HOST := "127.0.0.1"
@@ -24,7 +26,7 @@ var _bound := false
 var _sidecar_pid := -1
 var _last_packet_msec := 0
 var _last_frame: Dictionary = {}
-var _status := "摄像头未启用"
+var _status := HandTrackingStatusScript.Status.DISABLED
 var _ready_source := ""
 var _ready_index := -1
 
@@ -37,15 +39,15 @@ func start(launch_sidecar: bool = true) -> bool:
 	var bind_error := _udp.bind(port, host)
 	if bind_error != OK:
 		_enabled = false
-		_set_status("手部追踪端口不可用")
+		_set_status(HandTrackingStatusScript.Status.PORT_UNAVAILABLE)
 		return false
 	_bound = true
 	_last_packet_msec = Time.get_ticks_msec()
-	_set_status("正在启动手部追踪…")
+	_set_status(HandTrackingStatusScript.Status.STARTING)
 	if launch_sidecar:
 		_launch_sidecar()
 	else:
-		_set_status("等待手部进入画面")
+		_set_status(HandTrackingStatusScript.Status.WAITING_FOR_HANDS)
 	return true
 
 
@@ -59,7 +61,7 @@ func stop() -> void:
 	_enabled = false
 	_last_frame.clear()
 	_clear_ready_source()
-	_set_status("摄像头未启用")
+	_set_status(HandTrackingStatusScript.Status.DISABLED)
 
 
 func poll() -> void:
@@ -74,12 +76,12 @@ func poll() -> void:
 	if newest_packet is Dictionary:
 		ingest_packet(newest_packet)
 	elif Time.get_ticks_msec() - _last_packet_msec > LOST_STREAM_TIMEOUT_MSEC:
-		_set_status("等待手部追踪数据")
+		_set_status(HandTrackingStatusScript.Status.WAITING_FOR_DATA)
 
 
 func ingest_packet(packet: Dictionary) -> bool:
 	if int(packet.get("schema_version", -1)) != PACKET_SCHEMA_VERSION:
-		_set_status("手部追踪数据版本不匹配")
+		_set_status(HandTrackingStatusScript.Status.PROTOCOL_MISMATCH)
 		return false
 	var raw_hands: Variant = packet.get("hands", [])
 	if not raw_hands is Array:
@@ -109,12 +111,13 @@ func ingest_packet(packet: Dictionary) -> bool:
 	match status_code:
 		"camera_open_failed":
 			_clear_ready_source()
-			_set_status("摄像头不可用或权限被拒绝")
+			_set_status(HandTrackingStatusScript.Status.PERMISSION_DENIED)
 		"tracker_error":
 			_clear_ready_source()
-			_set_status("手部追踪程序发生错误")
+			_set_status(HandTrackingStatusScript.Status.TRACKER_ERROR)
 		_:
-			_set_status("已收到手部关键点" if not hands.is_empty() else "等待手部进入画面")
+			var next_status := HandTrackingStatusScript.Status.RECEIVING_LANDMARKS if not hands.is_empty() else HandTrackingStatusScript.Status.WAITING_FOR_HANDS
+			_set_status(next_status)
 	frame_received.emit(hands, timestamp_msec)
 	return true
 
@@ -127,7 +130,7 @@ func is_sidecar_running() -> bool:
 	return _sidecar_pid > 0
 
 
-func get_status() -> String:
+func get_status() -> HandTrackingStatusScript.Status:
 	return _status
 
 
@@ -167,14 +170,14 @@ func _launch_sidecar() -> void:
 	var script_path := ProjectSettings.globalize_path(SIDECAR_SCRIPT_PATH)
 	var model_path := ProjectSettings.globalize_path(SIDECAR_MODEL_PATH)
 	if not FileAccess.file_exists(script_path):
-		_set_status("缺少手部追踪程序")
+		_set_status(HandTrackingStatusScript.Status.MISSING_HELPER)
 		return
 	if not FileAccess.file_exists(model_path):
-		_set_status("缺少手部追踪模型")
+		_set_status(HandTrackingStatusScript.Status.MISSING_MODEL)
 		return
 	var python_path := _resolve_python_path()
 	if python_path.is_empty():
-		_set_status("缺少 MediaPipe 环境")
+		_set_status(HandTrackingStatusScript.Status.MISSING_MEDIAPIPE)
 		return
 	var arguments := PackedStringArray([
 		script_path,
@@ -188,7 +191,7 @@ func _launch_sidecar() -> void:
 	_sidecar_pid = OS.create_process(python_path, arguments, false)
 	if _sidecar_pid <= 0:
 		_sidecar_pid = -1
-		_set_status("无法启动手部追踪程序")
+		_set_status(HandTrackingStatusScript.Status.SIDECAR_LAUNCH_FAILED)
 
 
 func _resolve_python_path() -> String:
@@ -217,7 +220,7 @@ func _clear_ready_source() -> void:
 	_ready_index = -1
 
 
-func _set_status(value: String) -> void:
+func _set_status(value: HandTrackingStatusScript.Status) -> void:
 	if _status == value:
 		return
 	_status = value

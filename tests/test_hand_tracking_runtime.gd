@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 
 
 func _init() -> void:
@@ -33,7 +34,11 @@ func _run() -> void:
 		push_error("MediaPipe sidecar produced neither landmarks nor a camera status packet")
 		quit(1)
 		return
-	if status not in ["等待手部进入画面", "已收到手部关键点", "摄像头不可用或权限被拒绝"]:
+	if status not in [
+		HandTrackingStatusScript.Status.WAITING_FOR_HANDS,
+		HandTrackingStatusScript.Status.RECEIVING_LANDMARKS,
+		HandTrackingStatusScript.Status.PERMISSION_DENIED,
+	]:
 		push_error("unexpected runtime hand-tracking status: %s" % status)
 		quit(1)
 		return

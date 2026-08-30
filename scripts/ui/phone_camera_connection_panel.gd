@@ -2,20 +2,11 @@ class_name PhoneCameraConnectionPanel
 extends Node
 ## Game-side phone camera connection overlay: status copy, retry/continue/disable chrome.
 
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
+
 signal retry_requested
 signal continue_requested
 signal disable_requested
-
-const TRACKING_ERROR_STATUSES := [
-	"手部追踪端口不可用",
-	"手部追踪数据版本不匹配",
-	"缺少手部追踪程序",
-	"缺少手部追踪模型",
-	"缺少 MediaPipe 环境",
-	"无法启动手部追踪程序",
-	"摄像头不可用或权限被拒绝",
-	"手部追踪程序发生错误",
-]
 
 var _overlay: Control
 var _panel: PanelContainer
@@ -63,7 +54,7 @@ func refresh(view: Dictionary) -> void:
 	var camera_source := str(view.get("camera_source", "computer"))
 	var camera_ready_source := str(view.get("camera_ready_source", ""))
 	var camera_ready_index := int(view.get("camera_ready_index", -1))
-	var camera_tracking_status := str(view.get("camera_tracking_status", ""))
+	var camera_tracking_status: HandTrackingStatusScript.Status = int(view.get("camera_tracking_status", HandTrackingStatusScript.Status.DISABLED))
 
 	var state := "off"
 	var status_text := "手机镜头未启用"
@@ -73,10 +64,10 @@ func refresh(view: Dictionary) -> void:
 			state = "ready"
 			status_text = "手机镜头已连入"
 			detail_text = "已从系统摄像头编号 %d 收到画面。放下游戏内手机，用双手拇指与食指的四个指尖框出矩形。" % camera_ready_index
-		elif _tracking_has_error(camera_tracking_status):
+		elif HandTrackingStatusScript.is_error(camera_tracking_status):
 			state = "error"
 			status_text = "手机镜头连接失败"
-			detail_text = "没有收到手机画面：%s。请解锁手机，确认系统摄像头权限，再重新扫描。" % camera_tracking_status
+			detail_text = "没有收到手机画面：%s。请解锁手机，确认系统摄像头权限，再重新扫描。" % HandTrackingStatusScript.display_text(camera_tracking_status)
 		else:
 			state = "searching"
 			status_text = "正在寻找手机镜头…"
@@ -213,10 +204,6 @@ func _build_overlay(parent: Control) -> void:
 	disable_button.custom_minimum_size = Vector2(150.0, 54.0)
 	disable_button.pressed.connect(_on_disable_pressed)
 	actions.add_child(disable_button)
-
-
-func _tracking_has_error(status: String) -> bool:
-	return status in TRACKING_ERROR_STATUSES
 
 
 func _on_retry_pressed() -> void:

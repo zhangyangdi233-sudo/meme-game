@@ -4,13 +4,14 @@ class_name CameraSession
 ## Settings UI wiring and locale persistence stay in babel_meme_game.gd.
 
 const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 
 signal tracking_ui_changed()
 
 var enabled := false
 var source := "computer"
-var tracking_status := "摄像头未启用"
+var tracking_status := HandTrackingStatusScript.Status.DISABLED
 var ready_source := ""
 var ready_index := -1
 
@@ -71,7 +72,7 @@ func set_enabled(value: bool, deps: Dictionary, persist: bool = true) -> void:
 		tracking_status = hand_tracking_receiver.get_status()
 	else:
 		hand_tracking_receiver.stop()
-		tracking_status = "摄像头未启用"
+		tracking_status = HandTrackingStatusScript.Status.DISABLED
 	if access_toggle != null:
 		access_toggle.set_pressed_no_signal(value)
 	if hand_xray_overlay != null:
@@ -192,7 +193,7 @@ func refresh_source_buttons() -> void:
 
 func refresh_status_ui(deps: Dictionary) -> void:
 	if status_label != null:
-		status_label.text = tracking_status
+		status_label.text = HandTrackingStatusScript.display_text(tracking_status)
 		var localize: Callable = deps.get("set_localized_property", Callable())
 		if localize.is_valid():
 			localize.call(status_label, "text")
@@ -246,19 +247,19 @@ func _on_hand_tracking_frame(hands: Array, _timestamp_msec: int) -> void:
 	var frame_locked := false
 	if hand_xray_overlay != null:
 		frame_locked = hand_xray_overlay.ingest_hands(hands, Time.get_ticks_msec())
-	var receiver_status: String = str(hand_tracking_receiver.get_status()) if hand_tracking_receiver != null else ""
+	var receiver_status: HandTrackingStatusScript.Status = hand_tracking_receiver.get_status() if hand_tracking_receiver != null else HandTrackingStatusScript.Status.DISABLED
 	if frame_locked:
-		tracking_status = "已锁定指尖窗口"
-	elif receiver_status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误"]:
+		tracking_status = HandTrackingStatusScript.Status.FINGERTIP_WINDOW_LOCKED
+	elif HandTrackingStatusScript.is_live_receiver_error(receiver_status):
 		tracking_status = receiver_status
 	else:
-		tracking_status = "等待双手四指框选"
+		tracking_status = HandTrackingStatusScript.Status.WAITING_FOR_FOUR_FINGERTIP_FRAME
 	tracking_ui_changed.emit()
 
 
-func _on_hand_tracking_status_changed(status: String) -> void:
+func _on_hand_tracking_status_changed(status: HandTrackingStatusScript.Status) -> void:
 	tracking_status = status
-	if status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误", "无法启动手部追踪程序"]:
+	if HandTrackingStatusScript.clears_ready_source(status):
 		ready_source = ""
 		ready_index = -1
 	tracking_ui_changed.emit()

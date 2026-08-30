@@ -32,6 +32,7 @@ const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
 const CameraSessionScript = preload("res://scripts/integrations/camera_session.gd")
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
@@ -373,11 +374,11 @@ func _on_camera_tracking_ui_changed() -> void:
 	_refresh_phone_camera_connection_ui()
 
 
-func _on_hand_tracking_status_changed(status: String) -> void:
+func _on_hand_tracking_status_changed(status: HandTrackingStatusScript.Status) -> void:
 	if _camera_session == null:
 		return
 	_camera_session.tracking_status = status
-	if status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误", "无法启动手部追踪程序"]:
+	if HandTrackingStatusScript.clears_ready_source(status):
 		_camera_session.ready_source = ""
 		_camera_session.ready_index = -1
 	_on_camera_tracking_ui_changed()
@@ -2420,7 +2421,11 @@ func _inject_settings_camera_block() -> void:
 	camera_privacy.name = "SettingsCameraPrivacyNote"
 	camera_privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(camera_privacy)
-	_camera_status_label = _label(_camera_session.tracking_status if _camera_session != null else "摄像头未启用", 14, _theme_color("accent"))
+	_camera_status_label = _label(
+		HandTrackingStatusScript.display_text(_camera_session.tracking_status) if _camera_session != null else HandTrackingStatusScript.display_text(HandTrackingStatusScript.Status.DISABLED),
+		14,
+		_theme_color("accent")
+	)
 	_camera_status_label.name = "SettingsCameraStatus"
 	_camera_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(_camera_status_label)

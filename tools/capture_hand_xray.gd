@@ -1,5 +1,7 @@
 extends SceneTree
 
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
+
 const PROJECT_DIR := "/Users/zhang/Documents/游戏/babel-meme-game"
 const CONSENT_OUTPUT := PROJECT_DIR + "/tools/current_camera_consent.png"
 const XRAY_OUTPUT := PROJECT_DIR + "/tools/current_hand_xray.png"
@@ -58,9 +60,10 @@ func _capture() -> void:
 	if not _save_viewport(SETTINGS_OUTPUT):
 		return
 	main._camera_source = "phone"
-	main._camera_tracking_status = "等待手部追踪数据"
-	main._camera_ready_source = ""
-	main._camera_ready_index = -1
+	if main._camera_session != null:
+		main._camera_session.tracking_status = HandTrackingStatusScript.Status.WAITING_FOR_DATA
+		main._camera_session.ready_source = ""
+		main._camera_session.ready_index = -1
 	main._refresh_camera_source_buttons()
 	main._refresh_camera_status_ui()
 	await _wait_frames(2)
@@ -70,7 +73,7 @@ func _capture() -> void:
 	await _wait_frames(6)
 	if not _save_viewport(PHONE_SEARCHING_OUTPUT):
 		return
-	main._on_hand_tracking_status_changed("摄像头不可用或权限被拒绝")
+	main._on_hand_tracking_status_changed(HandTrackingStatusScript.Status.PERMISSION_DENIED)
 	await _wait_frames(20)
 	if not _save_viewport(PHONE_ERROR_OUTPUT):
 		return

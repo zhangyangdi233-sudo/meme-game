@@ -2,6 +2,7 @@ extends SceneTree
 
 const OverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 const ReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
+const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 
 class FakeHandTrackingReceiver:
 	extends RefCounted
@@ -9,21 +10,21 @@ class FakeHandTrackingReceiver:
 	var camera_source := "computer"
 	var start_count := 0
 	var stop_count := 0
-	var _status := "摄像头未启用"
+	var _status := HandTrackingStatusScript.Status.DISABLED
 
 	func start(_launch_sidecar: bool = true) -> bool:
 		start_count += 1
-		_status = "等待手部进入画面"
+		_status = HandTrackingStatusScript.Status.WAITING_FOR_HANDS
 		return true
 
 	func stop() -> void:
 		stop_count += 1
-		_status = "摄像头未启用"
+		_status = HandTrackingStatusScript.Status.DISABLED
 
 	func poll() -> void:
 		pass
 
-	func get_status() -> String:
+	func get_status() -> HandTrackingStatusScript.Status:
 		return _status
 
 
@@ -63,7 +64,7 @@ func _test_receiver_protocol() -> void:
 	}
 	_assert_true(receiver.ingest_packet(packet), "receiver should accept the versioned two-hand packet")
 	_assert_eq(_received_hands.size(), 2, "receiver should emit two sanitized hands")
-	_assert_eq(receiver.get_status(), "已收到手部关键点", "receiver should expose a gesture-neutral landmark state")
+	_assert_eq(receiver.get_status(), HandTrackingStatusScript.Status.RECEIVING_LANDMARKS, "receiver should expose a gesture-neutral landmark state")
 	_assert_eq(receiver.get_ready_source(), "phone", "receiver should report which requested camera source produced real frames")
 	_assert_eq(receiver.get_ready_index(), 2, "receiver should report the concrete system camera index")
 	_assert_true(receiver.ingest_packet({
@@ -72,7 +73,7 @@ func _test_receiver_protocol() -> void:
 		"status_code": "camera_open_failed",
 		"hands": [],
 	}), "receiver should accept a sidecar status packet")
-	_assert_eq(receiver.get_status(), "摄像头不可用或权限被拒绝", "receiver should surface camera permission failure")
+	_assert_eq(receiver.get_status(), HandTrackingStatusScript.Status.PERMISSION_DENIED, "receiver should surface camera permission failure")
 	_assert_eq(receiver.get_ready_source(), "", "a camera error should clear the previously ready source")
 	_assert_true(not receiver.ingest_packet({"schema_version": 99, "hands": []}), "receiver should reject an unknown schema version")
 
@@ -175,7 +176,7 @@ func _test_main_scene_surfaces() -> void:
 	var phone_overlay := _find_node_by_name(game_root, "PhoneCameraConnectionOverlay") as Control
 	_assert_true(phone_overlay != null and phone_overlay.visible, "clicking the phone button should always open a connection-status window")
 	_assert_eq(str(phone_overlay.get_meta("connection_state", "")), "searching", "the phone window should distinguish scanning from a real video connection")
-	game_root._on_hand_tracking_status_changed("摄像头不可用或权限被拒绝")
+	game_root._on_hand_tracking_status_changed(HandTrackingStatusScript.Status.PERMISSION_DENIED)
 	_assert_eq(str(phone_overlay.get_meta("connection_state", "")), "error", "a real camera failure should remain visible in the phone connection window")
 	game_root._on_camera_source_ready("phone", 3)
 	_assert_eq(str(phone_overlay.get_meta("connection_state", "")), "ready", "the phone window should change to ready only after real frames arrive")
