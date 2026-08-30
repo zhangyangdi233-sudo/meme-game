@@ -1,8 +1,10 @@
 # MemeGameState public surface inventory
 
-Phase **4b slice 1** documents what callers currently depend on, and pilots the **snapshot out / intent in** seam on social follow/like only. Other domains stay on direct field access until later slices.
+Phase **4b** documents what callers depend on and rolls out the **snapshot out / intent in** seam domain by domain (slices 1–7 complete). Parallel **UI/world extractions** shrink `babel_meme_game.gd` without changing MemeGameState API.
 
-## Summary (2026-08-30, post–slice 6)
+## Summary (2026-08-30, post–slice 7 + adapter read cleanup)
+
+### 4b signal seams (MemeGameState)
 
 | Metric | Count |
 |---|---:|
@@ -19,11 +21,23 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 4) | 6 — + `day_progress_changed` |
 | Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
 | Signals (slice 6) | 7 — + `inventory_changed` |
+| Signals (slice 6b) | 7 — `inventory_changed` emits on `place_token_in_slot` and `confirm_meme_fusion` |
+| Signals (slice 7) | 8 — + `progression_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
+
+**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_day_progress_snapshot()`, `_progression_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
 **C2 problem:** callers read/write bare fields and must remember to `_render()` after mutations. Slice 1 proves one flow where the adapter reads a snapshot and listens for a change signal instead.
+
+### Parallel adapter extractions (no new state API)
+
+| Extraction | Module | Owns |
+|---|---|---|
+| Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Day/pollution/actions HUD chrome; reads adapter snapshots |
+| Meme bank / publish | `scripts/ui/meme_bank_panel.gd` | Meme-bank grid, publish result display; reads `_meme_bank_snapshot()` / `_inventory_snapshot()` |
+| Reality 3D scene | `scripts/world/reality_scene_adapter.gd` (slice 1) | Floor rebuild, player locomotion, proximity actors/items; MemeGameState intents stay in adapter |
 
 ---
 
@@ -150,7 +164,18 @@ Legacy fields `day` / `pollution` / `tower_floor` / `needs_day_settlement` / `da
 
 `record_history_line()`, `get_history_entries()`
 
-### Ending
+### Ending — **slice 7 seam (progression)**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, ending_language_choice, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }` |
+| Signal | `progression_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `choose_ending_language()`, `complete_floor_three()`, floor 3/4 task latches, and hidden-ending unlock in `_resolve_tower_step()` |
+| Intent | `choose_ending_language()`, `complete_floor_three()` |
+| Query | `get_ending_language_choices()`, `get_ending_language_output()` |
+
+Legacy fields `ending_unlocked` / `ending_route` / `ending_language_choice` / `formal_floor_three_complete` / `floor3_task_complete` / `floor4_task_complete` remain for save/load; new adapter ending and ultimate-task render code should prefer snapshot + signal.
+
+### Ending (legacy listing)
 
 `get_ending_language_choices()`, `choose_ending_language()`, `get_ending_language_output()`
 
@@ -182,8 +207,8 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills }` |
-| Signal | `inventory_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `confirm_craft()` only in slice 6 |
+| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills, fusion_slots }` |
+| Signal | `inventory_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `confirm_craft()`, `place_token_in_slot()` (success), and `confirm_meme_fusion()` (success) |
 | Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
 
 Legacy fields `notebook_tokens` / `draft_slots` / `completed_memes` remain for save/load; new adapter meme-bank and craft-slot render code should prefer snapshot + signal.
@@ -239,8 +264,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 ```
 
 **Adapter pattern:** connect `social_engagement_changed` → `_render()`; read engagement via `get_social_engagement_snapshot()`; send intents via `toggle_social_*`. Log copy stays in adapter handlers for slice 1.
-
-**Stop here for human review** before slice 2B (action economy).
 
 ---
 
@@ -302,8 +325,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 
 **Adapter pattern:** connect `action_economy_changed` → `_render()`; read economy via `get_action_economy_snapshot()`; send intents via `spend_action()`. `_after_effective_action()` no longer calls `_render()` when only actions changed — the signal covers HUD/disable-state refresh before the spend animation sets the pre-spend pip count.
 
-**Stop here for human review** before slice 2C (next domain).
-
 ---
 
 ## Slice 2C contract (settings)
@@ -362,8 +383,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 
 **Adapter pattern:** connect `reality_conversation_changed` → `_render()`; read display via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent. Signal emits from `start_typed_reality_conversation` / `reset_typed_reality_conversation` only.
 
-**Stop here for human review** before slice 3b (choice select / composing intents).
-
 ---
 
 ## Slice 3b contract (reality conversation intents)
@@ -398,8 +417,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 
 **Adapter pattern:** connect `reality_conversation_changed` → `_render()`; remove redundant `_render()` after the intents above when the signal covers UI refresh. Keep `_after_effective_action`, locked-out cleanup, and doll sync side effects. Read `phase` / `mode` / `revealed_units` via `_reality_conversation_snapshot()` instead of bare `game.conversation_*` fields where trivial.
 
-**Stop here for human review** before slice 4b-4.
-
 ---
 
 ## Slice 4 contract (day progression)
@@ -427,8 +444,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 ```
 
 **Adapter pattern:** connect `day_progress_changed` → `_render()`; read grouped day/pollution/tower via `_day_progress_snapshot()` in `_render_status()`, pollution HUD tooltip, and `_pollution_stage_snapshot()`. Send pollution intents via `change_pollution()` (usually indirect through publish/craft paths). Slice 4 emits from the pollution vertical only; slice 5 adds settle and floor-transition emissions (see slice 5 contract).
-
-**Stop here for human review** before slice 5.
 
 ---
 
@@ -468,8 +483,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 
 **Adapter pattern:** connect `day_progress_changed` → `_render()`; remove redundant `_render()` after `settle_day_if_needed()` when the signal path already refreshed UI (e.g. `_after_effective_action`). Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish). Read `day` / `tower_floor` via `_day_progress_snapshot()` in `_rebuild_reality_floor()` / `_ensure_reality_floor_current()` and floor-transition card updates touched in this slice.
 
-**Stop here for human review** before slice 6 or world extraction.
-
 ---
 
 ## Slice 6 contract (inventory / craft)
@@ -481,25 +494,63 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
   "notebook_token_count": int,
   "draft_slots": Dictionary,      # slot_id -> token_id
   "craft_slot_fills": Dictionary, # slot_id -> display text for adapter slot labels
+  "fusion_slots": Dictionary,     # slot_id -> meme_id (slice 6b)
 }
 
 # Signal payload = snapshot + change metadata
 {
   # ...snapshot fields...
   "change": {
-    "kind": "confirm_craft",
-    "target_id": String,  # new meme id
+    "kind": "confirm_craft" | "place_craft_token" | "confirm_fusion",
+    "target_id": String,
     "active": true,
   },
 }
 ```
 
-**Intent → signal mapping (slice 6 vertical only):**
+**Intent → signal mapping:**
 
 | Intent | `change.kind` | When |
 |---|---|---|
 | `confirm_craft()` | `confirm_craft` | on success; `target_id` is the new meme id |
+| `place_token_in_slot()` | `place_craft_token` | on success; `target_id` is the slot id (slice 6b) |
+| `confirm_meme_fusion()` | `confirm_fusion` | on success; `target_id` is the fused meme id (slice 6b) |
 
-**Adapter pattern:** connect `inventory_changed` → `_render()`; read meme bank / craft slot labels via `_inventory_snapshot()` (or adapter `_meme_bank_snapshot()` for UI chrome). Send craft intents via `place_token_in_slot()` / `confirm_craft()`. Slice 6 does **not** emit on `place_token_in_slot()` — adapter still calls `_render()` after slot placement until a later slice adds that vertical.
+**Adapter pattern:** connect `inventory_changed` → `_render()`; read meme bank / craft / fusion slot labels via `_inventory_snapshot()`. Remove redundant `_render()` after successful `place_token_in_slot()` when the signal covers slot refresh.
 
-**Stop here for human review** before slice 7 (ending/progression snapshot) or world extraction.
+---
+
+## Slice 7 contract (progression / ending)
+
+```gdscript
+# Snapshot (read)
+{
+  "ending_unlocked": bool,
+  "ending_route": String,
+  "ending_language_choice": String,
+  "formal_floor_three_complete": bool,
+  "floor3_task_complete": bool,
+  "floor4_task_complete": bool,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...snapshot fields...
+  "change": {
+    "kind": "choose_language" | "complete_floor_three" | "floor3_task" | "floor4_task" | "ending_unlock",
+    "target_id": String,
+    "active": bool,
+  },
+}
+```
+
+**Intent → signal mapping:**
+
+| Intent / latch | `change.kind` | When |
+|---|---|---|
+| `choose_ending_language(choice_id)` | `choose_language` | on success |
+| `complete_floor_three()` | `complete_floor_three` | on success; `target_id` is the route result (`normal-ending`, `hidden-floor`, …) |
+| `_latch_ultimate_tasks_for_current_floor()` | `floor3_task` / `floor4_task` | when the corresponding task latch flips true |
+| `_resolve_tower_step()` hidden branch | `ending_unlock` | when hidden-route ending unlocks at day boundary |
+
+**Adapter pattern:** connect `progression_changed` → `_render()`; read ending screen and floor 3/4 door logic via `_progression_snapshot()` combined with `_day_progress_snapshot()` for `tower_floor`. `_render()` early-exits to `_render_ending()` when `ending_unlocked` is true in the progression snapshot.
