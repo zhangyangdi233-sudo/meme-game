@@ -835,6 +835,8 @@ func _connect_game_state_signals() -> void:
 		game.social_engagement_changed.connect(_on_social_engagement_changed)
 	if not game.phone_shell_changed.is_connected(_on_phone_shell_changed):
 		game.phone_shell_changed.connect(_on_phone_shell_changed)
+	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
+		game.action_economy_changed.connect(_on_action_economy_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -844,6 +846,12 @@ func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
 
 
 func _on_phone_shell_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
+func _on_action_economy_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
 	_render()
@@ -5270,7 +5278,6 @@ func _after_effective_action(actions_before: int = -1) -> void:
 		_play_pollution_flashback()
 		return
 	if actions_before >= 0 and game.actions_remaining < actions_before:
-		_render()
 		if _hud_actions_label != null:
 			_hud_actions_label.text = _action_text(actions_before)
 		_play_action_spend_animation(actions_before, game.actions_remaining)

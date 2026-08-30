@@ -8,6 +8,8 @@ var _engagement_signal_count := 0
 var _last_engagement_snapshot: Dictionary = {}
 var _phone_shell_signal_count := 0
 var _last_phone_shell_snapshot: Dictionary = {}
+var _action_economy_signal_count := 0
+var _last_action_economy_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -30,6 +32,7 @@ func _run() -> void:
 	test_social_follow_and_like_toggles_are_free_and_persistent()
 	test_social_engagement_snapshot_and_signal()
 	test_phone_shell_snapshot_and_signal()
+	test_action_economy_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -174,6 +177,47 @@ func test_phone_shell_snapshot_and_signal() -> void:
 func _capture_phone_shell(snapshot: Dictionary) -> void:
 	_phone_shell_signal_count += 1
 	_last_phone_shell_snapshot = snapshot
+
+
+func test_action_economy_snapshot_and_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_action_economy_signal_count = 0
+	_last_action_economy_snapshot = {}
+	game.action_economy_changed.connect(_capture_action_economy)
+
+	var initial: Dictionary = game.get_action_economy_snapshot()
+	_assert_eq(int(initial.get("actions_remaining", -1)), 5, "new run should start with five actions")
+	_assert_eq(int(initial.get("max_actions_per_day", -1)), 5, "new run should cap at five actions per day")
+	_assert_true(not bool(initial.get("needs_day_settlement", true)), "new run should not need settlement")
+	_assert_eq(str(initial.get("day_ended_reason", "unset")), "", "new run should have no day-end reason")
+
+	_assert_true(game.spend_action("test-spend"), "first spend should succeed")
+	_assert_eq(_action_economy_signal_count, 1, "successful spend should emit once")
+	_assert_eq(int(_last_action_economy_snapshot.get("actions_remaining", -1)), 4, "signal snapshot should reflect remaining actions")
+	var spend_change: Dictionary = _last_action_economy_snapshot.get("change", {})
+	_assert_eq(str(spend_change.get("kind", "")), "spend", "change kind should be spend")
+	_assert_eq(str(spend_change.get("target_id", "")), "test-spend", "change target should be action type")
+	_assert_true(bool(spend_change.get("active", false)), "spend should be active in change metadata")
+
+	initial["actions_remaining"] = 99
+	_assert_eq(game.actions_remaining, 4, "snapshot must be a copy, not live state")
+
+	for index in 4:
+		_assert_true(game.spend_action("drain-%d" % index), "remaining actions should be spendable")
+	_assert_eq(_action_economy_signal_count, 5, "each successful spend should emit")
+	_assert_eq(game.actions_remaining, 0, "five spends should deplete the day")
+	_assert_true(bool(_last_action_economy_snapshot.get("needs_day_settlement", false)), "last spend should mark day settlement")
+	_assert_eq(str(_last_action_economy_snapshot.get("day_ended_reason", "")), "drain-3", "last spend should preserve action type as day-end reason")
+
+	_action_economy_signal_count = 0
+	_assert_true(not game.spend_action("blocked"), "spend at zero should fail")
+	_assert_eq(_action_economy_signal_count, 0, "failed spend should not emit")
+
+
+func _capture_action_economy(snapshot: Dictionary) -> void:
+	_action_economy_signal_count += 1
+	_last_action_economy_snapshot = snapshot
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:

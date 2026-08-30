@@ -12,6 +12,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` |
+| Signals (slice 2B) | 3 — + `action_economy_changed` |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -95,7 +96,18 @@ Legacy fields `view_state` / `active_app` / `active_app_window` / `phone_visible
 
 `set_phone_open()`, `set_view_state()`, `set_active_app()`
 
-### Action economy
+### Action economy — **slice 2B seam**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_action_economy_snapshot()` → `{ actions_remaining, max_actions_per_day, needs_day_settlement, day_ended_reason }` |
+| Signal | `action_economy_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
+| Intent | `spend_action(action_type)` — emits on successful spend only |
+| Query | `can_spend_action()`, `settle_day_if_needed()` |
+
+Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlement` / `day_ended_reason` remain for save/load; new adapter code should prefer snapshot + signal for HUD refresh.
+
+### Action economy (legacy listing)
 
 `spend_action()`, `can_spend_action()`, `settle_day_if_needed()`
 
@@ -213,4 +225,33 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 **Adapter pattern:** connect `phone_shell_changed` → `_render()`; read shell via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`. Adapter-local `_open_app_windows` tracks multi-window chrome; state owns foreground app + view.
 
-**Stop here for human review** before slice 2B (action economy).
+---
+
+## Slice 2B contract (action economy)
+
+```gdscript
+# Snapshot (read)
+{
+  "actions_remaining": int,
+  "max_actions_per_day": int,
+  "needs_day_settlement": bool,
+  "day_ended_reason": String,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  "actions_remaining": int,
+  "max_actions_per_day": int,
+  "needs_day_settlement": bool,
+  "day_ended_reason": String,
+  "change": {
+    "kind": "spend",
+    "target_id": String,  # action_type passed to spend_action()
+    "active": true,
+  },
+}
+```
+
+**Adapter pattern:** connect `action_economy_changed` → `_render()`; read economy via `get_action_economy_snapshot()`; send intents via `spend_action()`. `_after_effective_action()` no longer calls `_render()` when only actions changed — the signal covers HUD/disable-state refresh before the spend animation sets the pre-spend pip count.
+
+**Stop here for human review** before slice 2C (next domain).

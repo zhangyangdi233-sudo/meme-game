@@ -3,6 +3,7 @@ extends RefCounted
 
 signal social_engagement_changed(snapshot: Dictionary)
 signal phone_shell_changed(snapshot: Dictionary)
+signal action_economy_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -667,11 +668,31 @@ func spend_action(action_type: String) -> bool:
 	if actions_remaining == 0:
 		needs_day_settlement = true
 		day_ended_reason = action_type
+	_emit_action_economy_changed("spend", action_type)
 	return true
 
 
 func can_spend_action() -> bool:
 	return actions_remaining > 0
+
+
+func get_action_economy_snapshot() -> Dictionary:
+	return {
+		"actions_remaining": actions_remaining,
+		"max_actions_per_day": max_actions_per_day,
+		"needs_day_settlement": needs_day_settlement,
+		"day_ended_reason": day_ended_reason,
+	}
+
+
+func _emit_action_economy_changed(change_kind: String, target_id: String) -> void:
+	var snapshot := get_action_economy_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": true,
+	}
+	action_economy_changed.emit(snapshot)
 
 
 func get_social_engagement_snapshot() -> Dictionary:
