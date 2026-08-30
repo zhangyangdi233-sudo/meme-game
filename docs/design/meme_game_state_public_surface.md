@@ -2,19 +2,20 @@
 
 Phase **4b slice 1** documents what callers currently depend on, and pilots the **snapshot out / intent in** seam on social follow/like only. Other domains stay on direct field access until later slices.
 
-## Summary (2026-08-30)
+## Summary (2026-08-30, post–slice 3a housekeeping)
 
 | Metric | Count |
 |---|---:|
 | Public `var` fields | 90 |
-| Public `func` methods | 94 |
-| Public `const` | 18 content/config groups |
+| Public `func` methods | 102 |
+| Public `const` | 27 (19 content/config + 8 script preloads) |
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` |
+| Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -26,13 +27,13 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 
 These are the highest-risk couplings to retire in later 4b slices:
 
-| Location | Mutation | Risk | Slice 1 status |
+| Location (intent call site) | Retired mutation | Risk | 4b status |
 |---|---|---|---|
-| ~~`babel_meme_game.gd:825`~~ | ~~`game.social_followed_handles = migrated`~~ | ~~bypasses engagement API~~ | **Fixed** — uses `replace_social_followed_handles()` |
-| ~~`babel_meme_game.gd:1225-1234`~~ | ~~`game.conversation_* = …`~~ | ~~localizes state in adapter~~ | **Fixed** — uses `configure_conversation_locale()` |
-| ~~`babel_meme_game.gd:2863`~~ | ~~`game.autoplay_enabled = value`~~ | ~~settings write without intent~~ | **Fixed** — uses `set_autoplay_enabled()` |
-| ~~`babel_meme_game.gd:2939`~~ | ~~`game.exit_prompt_seen = true`~~ | ~~one-shot flag from UI~~ | **Fixed** — uses `mark_exit_prompt_seen()` |
-| `babel_meme_game.gd:3928-3933` | `game.active_app_window` / `active_app` | phone shell closes apps inline | **Fixed** — uses `close_app_window()` |
+| `babel_meme_game.gd:822` | ~~`game.social_followed_handles = migrated`~~ | bypasses engagement API | **Fixed** — `replace_social_followed_handles()` (slice 1) |
+| `babel_meme_game.gd:1321` | ~~`game.conversation_* = …`~~ | localizes state in adapter | **Fixed** — `configure_conversation_locale()` (slice 3a) |
+| `babel_meme_game.gd:2864` | ~~`game.autoplay_enabled = value`~~ | settings write without intent | **Fixed** — `set_autoplay_enabled()` (slice 2C) |
+| `babel_meme_game.gd:2940` | ~~`game.exit_prompt_seen = true`~~ | one-shot flag from UI | **Fixed** — `mark_exit_prompt_seen()` (slice 2C) |
+| `babel_meme_game.gd:3817` | ~~`game.active_app_window` / `active_app`~~ | phone shell closes apps inline | **Fixed** — `close_app_window()` (slice 2A) |
 
 Most other adapter usage is **read-only** field access (`game.view_state`, `game.tower_floor`, `game.completed_memes`, …) plus method calls.
 
