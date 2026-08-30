@@ -1793,6 +1793,7 @@ func get_inventory_snapshot() -> Dictionary:
 		"notebook_token_count": notebook_tokens.size(),
 		"draft_slots": draft_slots.duplicate(),
 		"craft_slot_fills": craft_slot_fills,
+		"fusion_slots": fusion_slots.duplicate(),
 	}
 
 
@@ -1829,6 +1830,7 @@ func place_token_in_slot(slot_id: String, token_id: String) -> bool:
 	if accepted_role not in token_roles:
 		return false
 	draft_slots[slot_id] = token_id
+	_emit_inventory_changed("place_craft_token", slot_id, true)
 	return true
 
 
@@ -1923,6 +1925,7 @@ func confirm_meme_fusion() -> bool:
 	fusion_slots.clear()
 	change_pollution(3 + fusion_level * 2)
 	event_log.push_front("两个旧梗粘在一起。新梗更响，也更脏。")
+	_emit_inventory_changed("confirm_fusion", str(meme.get("id", "")), true)
 	return true
 
 

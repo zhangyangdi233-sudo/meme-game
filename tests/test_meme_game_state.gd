@@ -516,9 +516,13 @@ func test_inventory_snapshot_and_signal() -> void:
 
 	game.notebook_tokens = _complete_note_tokens()
 	_assert_true(game.place_token_in_slot("subject", "subject-1"), "subject token should enter craft slot")
+	_assert_eq(_inventory_signal_count, 1, "placing a token should emit once in slice 6b")
+	var place_change: Dictionary = _last_inventory_snapshot.get("change", {})
+	_assert_eq(str(place_change.get("kind", "")), "place_craft_token", "change kind should be place_craft_token")
+	_assert_eq(str(place_change.get("target_id", "")), "subject", "change target should be the slot id")
 	_assert_true(game.place_token_in_slot("action", "action-1"), "action token should enter craft slot")
 	_assert_true(game.place_token_in_slot("object", "object-1"), "object token should enter craft slot")
-	_assert_eq(_inventory_signal_count, 0, "placing tokens should not emit in slice 6 vertical")
+	_assert_eq(_inventory_signal_count, 3, "each successful slot placement should emit")
 
 	var arranged: Dictionary = game.get_inventory_snapshot()
 	_assert_eq(int(arranged.get("notebook_token_count", -1)), 3, "snapshot should count notebook tokens")
@@ -549,6 +553,24 @@ func test_inventory_snapshot_and_signal() -> void:
 	_inventory_signal_count = 0
 	_assert_true(not game.confirm_craft(), "incomplete craft should fail")
 	_assert_eq(_inventory_signal_count, 0, "failed confirm craft should not emit")
+
+	game.new_run()
+	game.completed_memes = [
+		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+	]
+	game.fusion_slots.clear()
+	_inventory_signal_count = 0
+	_assert_true(game.place_meme_in_fusion_slot("left", "meme-left"), "left meme should enter fusion slot")
+	_assert_true(game.place_meme_in_fusion_slot("right", "meme-right"), "right meme should enter fusion slot")
+	_assert_eq(_inventory_signal_count, 0, "fusion slot placement should not emit inventory_changed")
+	_assert_true(game.confirm_meme_fusion(), "fusion should succeed")
+	_assert_eq(_inventory_signal_count, 1, "confirm fusion should emit once")
+	var fusion_change: Dictionary = _last_inventory_snapshot.get("change", {})
+	_assert_eq(str(fusion_change.get("kind", "")), "confirm_fusion", "change kind should be confirm_fusion")
+	_assert_true((_last_inventory_snapshot.get("completed_memes", []) as Array).size() >= 1, "fusion snapshot should list fused meme")
+	var fusion_slots: Dictionary = _last_inventory_snapshot.get("fusion_slots", {})
+	_assert_true(fusion_slots.is_empty(), "fusion snapshot should clear fusion slots after confirm")
 
 
 func _capture_inventory(snapshot: Dictionary) -> void:
