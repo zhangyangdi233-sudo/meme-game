@@ -2,6 +2,7 @@ class_name MemeGameState
 extends RefCounted
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
 const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
@@ -1817,20 +1818,7 @@ func get_relationship_state_label() -> String:
 
 
 func pollute_reality_sentence(sentence: String, pollution_value: int, _unused_rules: Array = []) -> String:
-	if pollution_value < 35:
-		return sentence
-	var markers := ["■", "□", "▦", "∴", "//", "≠", "…"]
-	var step := maxi(2, 9 - int(pollution_value / 12))
-	var result := ""
-	for index in sentence.length():
-		var ch := sentence.substr(index, 1)
-		if ch == " ":
-			result += ch
-		elif index % step == 0:
-			result += markers[(index + day) % markers.size()]
-		else:
-			result += ch
-	return result
+	return PollutionStageScript.corrupt_sentence_reality(sentence, pollution_value, day)
 
 
 func _get_first_placed_meme() -> Dictionary:

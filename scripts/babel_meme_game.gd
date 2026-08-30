@@ -5297,38 +5297,14 @@ func _placed_meme() -> Dictionary:
 func _corrupt(text: String) -> String:
 	text = _locale.translate(text)
 	var snapshot := _pollution_stage_snapshot()
-	if not bool(snapshot.get("corrupt_active", false)):
-		return text
 	var replacements := [_locale.translate("哈吉米"), "□", _locale.translate("沉默"), "……"]
-	if _locale.current_locale == "en":
-		return _corrupt_english_words(text, replacements, int(snapshot.get("corrupt_interval", 2)), int(snapshot.get("day", 0)))
-	var result := ""
-	var interval := int(snapshot.get("corrupt_interval", 2))
-	var day := int(snapshot.get("day", 0))
-	for index in text.length():
-		var ch := text.substr(index, 1)
-		if index % interval == 0 and ch != " ":
-			result += replacements[(index + day) % replacements.size()]
-		else:
-			result += ch
-	return result
-
-
-func _corrupt_english_words(text: String, replacements: Array, interval: int, day: int) -> String:
-	var word_regex := RegEx.new()
-	word_regex.compile("(\\S+)(\\s*)")
-	var units := word_regex.search_all(text)
-	if units.is_empty():
-		return text
-	var result := ""
-	for index in units.size():
-		var unit := units[index] as RegExMatch
-		var word := unit.get_string(1)
-		var spacing := unit.get_string(2)
-		if index % interval == 0:
-			word = str(replacements[(index + day) % replacements.size()])
-		result += word + spacing
-	return result
+	return PollutionStageScript.corrupt_sentence_ui(
+		text,
+		int(snapshot.get("pollution", 0)),
+		int(snapshot.get("day", 0)),
+		_locale.current_locale,
+		replacements,
+	)
 
 
 func _panel() -> PanelContainer:

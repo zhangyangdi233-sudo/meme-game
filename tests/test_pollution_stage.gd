@@ -21,6 +21,8 @@ func _run() -> void:
 	_test_menu_tiers()
 	_test_palette_key()
 	_test_corruption_fields()
+	_test_corrupt_sentence_ui()
+	_test_corrupt_sentence_reality()
 	_test_vhs_fields()
 
 
@@ -50,7 +52,41 @@ func _test_corruption_fields() -> void:
 	_assert_false(bool(_stage(34)["corrupt_active"]), "text corruption should stay off below 35")
 	_assert_true(bool(_stage(35)["corrupt_active"]), "text corruption should activate at 35")
 	_assert_eq(_stage(60)["corrupt_interval"], 4, "corruption interval should follow pollution / 14")
+	_assert_eq(_stage(35)["corrupt_interval"], 6, "ui corruption interval at 35 should use the 8/14 divisor")
+	_assert_eq(PollutionStageScript._reality_corrupt_interval(35), 7, "reality interval at 35 intentionally uses 9/12 divisor")
 	_assert_eq(_stage(60)["day"], 0, "day should default to zero when omitted")
+
+
+func _test_corrupt_sentence_ui() -> void:
+	var replacements := ["A", "B", "C", "D"]
+	_assert_eq(
+		PollutionStageScript.corrupt_sentence_ui("clean text", 34, 0, "zh", replacements),
+		"clean text",
+		"ui corruption should pass through below threshold",
+	)
+	_assert_eq(
+		PollutionStageScript.corrupt_sentence_ui("一二三四五六", 60, 0, "zh", replacements),
+		"A二三四A六",
+		"ui corruption should replace every fourth CJK character at pollution 60",
+	)
+	_assert_eq(
+		PollutionStageScript.corrupt_sentence_ui("one two three four five", 60, 0, "en", replacements),
+		"A two three four A",
+		"ui english corruption should replace whole words on the ui interval",
+	)
+
+
+func _test_corrupt_sentence_reality() -> void:
+	_assert_eq(
+		PollutionStageScript.corrupt_sentence_reality("doctor says hello", 34, 0),
+		"doctor says hello",
+		"reality corruption should pass through below threshold",
+	)
+	_assert_eq(
+		PollutionStageScript.corrupt_sentence_reality("abcdefghij", 60, 0),
+		"■bcd//fgh□j",
+		"reality corruption should use sentence markers and the reality interval",
+	)
 
 
 func _test_vhs_fields() -> void:
