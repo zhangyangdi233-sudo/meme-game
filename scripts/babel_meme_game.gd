@@ -35,6 +35,7 @@ const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
+const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -435,8 +436,7 @@ var _reality_conversation_panel
 var _reality_hover_choice_id := ""
 var _reality_language_composer_panel
 var _selected_language_token_id := ""
-var _playtest_assist_panel: PanelContainer
-var _playtest_assist_label: Label
+var _playtest_assist_panel
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _flashback_panel
 var _flashback_overlay: Control
@@ -1865,29 +1865,24 @@ func _build_ui() -> void:
 
 
 func _build_playtest_assist_panel() -> void:
-	_playtest_assist_panel = _panel()
-	_playtest_assist_panel.name = "PlaytestAssistPanel"
-	_playtest_assist_panel.set_meta("dark_rail", true)
-	_playtest_assist_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_playtest_assist_panel.offset_left = -474.0
-	_playtest_assist_panel.offset_top = 24.0
-	_playtest_assist_panel.offset_right = -24.0
-	_playtest_assist_panel.offset_bottom = 178.0
-	_playtest_assist_panel.z_index = 44
-	_playtest_assist_panel.visible = true
-	_ui_root.add_child(_playtest_assist_panel)
-	var assist_box := VBoxContainer.new()
-	assist_box.add_theme_constant_override("separation", 6)
-	_playtest_assist_panel.add_child(assist_box)
-	var title := _label("缝线布偶 / GUIDE", 13, _theme_color("muted"))
-	title.set_meta("on_dark", true)
-	assist_box.add_child(title)
-	_playtest_assist_label = _label("", 15, _theme_color("surface"))
-	_playtest_assist_label.name = "PlaytestAssistLabel"
-	_playtest_assist_label.set_meta("on_dark", true)
-	_playtest_assist_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_playtest_assist_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	assist_box.add_child(_playtest_assist_label)
+	_ensure_playtest_assist_panel()
+	_playtest_assist_panel.mount(_ui_root, _playtest_assist_mount_deps())
+
+
+func _ensure_playtest_assist_panel() -> void:
+	if _playtest_assist_panel != null and is_instance_valid(_playtest_assist_panel):
+		return
+	_playtest_assist_panel = PlaytestAssistPanelScript.new()
+	_playtest_assist_panel.name = "PlaytestAssistPanelHost"
+	add_child(_playtest_assist_panel)
+
+
+func _playtest_assist_mount_deps() -> Dictionary:
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+	}
 
 
 func _build_hand_xray_overlay() -> void:
@@ -3056,19 +3051,19 @@ func _render_status() -> void:
 
 
 func _render_playtest_assist() -> void:
-	if _playtest_assist_panel == null or _playtest_assist_label == null:
+	if _playtest_assist_panel == null or not is_instance_valid(_playtest_assist_panel):
+		_playtest_assist_panel = null
 		return
-	var step: Dictionary = game.get_tutorial_step()
-	var tutorial_complete := bool(step.get("is_complete", false))
+	_playtest_assist_panel.render(_playtest_assist_snapshot())
+
+
+func _playtest_assist_snapshot() -> Dictionary:
 	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
-	# 引导只由左下角的缝线布偶小窗承担;本面板仅在显式开启测试辅助时出现。
-	_playtest_assist_panel.visible = _game_started and not _settings_is_open() and _playtest_assist_enabled
-	if not _playtest_assist_panel.visible:
-		return
+	var visible := _game_started and not _settings_is_open() and _playtest_assist_enabled
 	var lines: Array[String] = []
-	if not _playtest_assist_enabled:
-		_playtest_assist_label.text = "\n".join(lines)
-		return
+	if not visible or not _playtest_assist_enabled or game == null:
+		return {"visible": visible, "lines": lines}
+	var step: Dictionary = game.get_tutorial_step()
 	lines.append(str(step.get("test_instruction", "测试提示：继续探索。")))
 	var floor_number := clampi(game.tower_floor, 1, 4)
 	if floor_number <= 3:
@@ -3082,7 +3077,7 @@ func _render_playtest_assist() -> void:
 			lines.append("目标：%s。%s" % [str(item.get("label", "前置物")), str(item.get("location_hint", "跟随荧光测试标记。"))])
 	var collected_count := game.collected_prerequisite_item_ids.size()
 	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, game.pollution])
-	_playtest_assist_label.text = "\n".join(lines)
+	return {"visible": visible, "lines": lines}
 
 
 func _action_text(actions: int) -> String:
@@ -3540,11 +3535,9 @@ func _update_visibility() -> void:
 			str(game.conversation_phase),
 			str(game.conversation_mode)
 		)
-	if _playtest_assist_panel != null:
-		# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
-		# 本面板只在测试辅助开启、或(教程未完成且玩偶窗缺席)时出现。
-		var tutorial_step: Dictionary = game.get_tutorial_step()
-		_playtest_assist_panel.visible = _game_started and not _settings_is_open() and _playtest_assist_enabled
+	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
+	# 本面板只在测试辅助开启时出现。
+	_render_playtest_assist()
 	if _reality_floor != null:
 		_reality_floor.visible = not in_phone
 	if _reality_player != null:
