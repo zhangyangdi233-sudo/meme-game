@@ -71,7 +71,12 @@ fi
 
 ensure_godot_project_imported() {
   local class_cache="$ROOT/.godot/global_script_class_cache.cfg"
-  if [[ -f "$class_cache" ]]; then
+  local imported_dir="$ROOT/.godot/imported"
+  local has_imported_assets=0
+  if [[ -d "$imported_dir" ]] && compgen -G "$imported_dir/*.ctex" >/dev/null; then
+    has_imported_assets=1
+  fi
+  if [[ -f "$class_cache" && "$has_imported_assets" -eq 1 ]]; then
     return 0
   fi
 

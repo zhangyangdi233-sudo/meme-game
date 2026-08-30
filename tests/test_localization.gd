@@ -19,6 +19,7 @@ func _run_async() -> void:
 		quit(0)
 	else:
 		for failure in _failures:
+			print("localization test failure: %s" % failure)
 			push_error(failure)
 		quit(1)
 
@@ -218,16 +219,24 @@ func _english_bridge_token(
 
 
 func _test_language_selection_and_settings_ui() -> void:
+	root.size = Vector2i(1600, 900)
 	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
 	_assert_true(scene != null, "main scene should load for localization UI tests")
 	if scene == null:
 		return
 	var game_root = scene.instantiate()
+	_assert_true(game_root.has_method("new_game"), "main scene script should load for localization UI tests")
+	if not game_root.has_method("new_game"):
+		return
 	root.add_child(game_root)
 	await process_frame
-	game_root._locale.preferences_path = "user://test_babel_meme_preferences.cfg"
+	var prefs_path := "user://test_babel_meme_localization_%d.cfg" % Time.get_ticks_usec()
+	if FileAccess.file_exists(prefs_path):
+		DirAccess.remove_absolute(prefs_path)
+	game_root._locale.preferences_path = prefs_path
 	_assert_true(game_root.has_method("_build_language_selection_overlay"), "main scene should expose the language selection surface")
 	game_root._build_language_selection_overlay(true)
+	await process_frame
 	await process_frame
 	var overlay := game_root._language_overlay as Control
 	_assert_true(overlay != null and is_instance_valid(overlay) and overlay.visible, "first-run language selection should cover the main menu")
@@ -235,10 +244,15 @@ func _test_language_selection_and_settings_ui() -> void:
 	_assert_true(_find_node_by_name(game_root, "LanguageChoiceJA") != null, "language selection should offer Japanese")
 	_assert_true(_find_node_by_name(game_root, "LanguageChoiceEN") != null, "language selection should offer English")
 	game_root._on_language_selected("en")
-	await process_frame
-	var continue_button := _find_node_by_name(game_root, "MainMenuContinueButton") as Button
+	var continue_button: Button = null
+	for _attempt in range(12):
+		await process_frame
+		continue_button = _find_node_by_name(game_root, "MainMenuContinueButton") as Button
+		if continue_button != null and continue_button.text == "Continue":
+			break
 	_assert_true(continue_button != null and continue_button.text == "Continue", "choosing English should rebuild the main menu in English")
 	game_root.new_game()
+	await process_frame
 	await process_frame
 	var language_option := _find_node_by_name(game_root, "SettingsLanguageOption") as OptionButton
 	var manual_save := _find_node_by_name(game_root, "SettingsManualSaveButton") as Button

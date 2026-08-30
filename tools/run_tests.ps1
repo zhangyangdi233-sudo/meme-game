@@ -6,6 +6,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Godot writes leak warnings to stderr; do not treat them as terminating errors (PS 7+).
+$PSNativeCommandUseErrorActionPreference = $false
 $Root = Split-Path -Parent $PSScriptRoot
 
 function Show-Usage {
@@ -52,7 +54,12 @@ function Ensure-GodotProjectImported {
 
     # Fresh checkouts (CI) have no .godot/: class_name types and preloaded textures fail until import.
     $classCache = Join-Path $ProjectRoot ".godot\global_script_class_cache.cfg"
-    if (Test-Path -LiteralPath $classCache) {
+    $importedDir = Join-Path $ProjectRoot ".godot\imported"
+    $hasImportedAssets = $false
+    if (Test-Path -LiteralPath $importedDir) {
+        $hasImportedAssets = @(Get-ChildItem -LiteralPath $importedDir -Filter "*.ctex" -File -ErrorAction SilentlyContinue | Select-Object -First 1).Count -gt 0
+    }
+    if ((Test-Path -LiteralPath $classCache) -and $hasImportedAssets) {
         return
     }
 
