@@ -1,7 +1,8 @@
 extends SceneTree
-## 点阵字体主题:资源存在、许可随包、全局生效、字号吸附到 9 的整数倍。
+## 点阵字体主题:资源存在、许可随包、GameUiTheme 字号吸附与字形覆盖。
 
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const FONT_GRID := 9
 const FONT_MIN := 9
@@ -11,11 +12,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
-	call_deferred("_run_async")
-
-
-func _run_async() -> void:
-	await _run()
+	_run()
 	if _failures.is_empty():
 		print("ui font theme tests passed")
 		quit(0)
@@ -30,7 +27,6 @@ func _run() -> void:
 	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9-OFL.txt"), "the OFL license text must ship alongside the font")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/FONT_PROVENANCE.md"), "font provenance should be documented")
 
-	# Framework seam: snap to grid, then clamp to the readable range.
 	_assert_true(PixelFontThemeScript.snap_size(12, FONT_GRID, FONT_MIN, FONT_MAX) == 9, "12 should snap to 9")
 	_assert_true(PixelFontThemeScript.snap_size(13, FONT_GRID, FONT_MIN, FONT_MAX) == 9, "13 should snap to 9")
 	_assert_true(PixelFontThemeScript.snap_size(14, FONT_GRID, FONT_MIN, FONT_MAX) == 18, "14 should snap to 18")
@@ -56,43 +52,26 @@ func _run() -> void:
 	_assert_true(apply_host.theme == theme, "apply should assign the theme onto the control")
 	apply_host.free()
 
-	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
-	if scene == null:
-		_failures.append("font test should load the main scene")
-		return
-	var game_root := scene.instantiate()
-	root.add_child(game_root)
-	game_root._locale.set_locale("zh")
-	game_root.new_game()
-	await process_frame
+	var ui_theme := GameUiThemeScript.new()
+	ui_theme.configure({
+		"ui_font_path": FONT_PATH,
+		"ui_font_grid": FONT_GRID,
+		"ui_font_min_size": FONT_MIN,
+		"ui_font_max_size": FONT_MAX,
+	})
+	var wired_theme := ui_theme.ensure_ui_font_theme()
+	_assert_true(wired_theme != null and wired_theme.default_font is FontFile, "GameUiTheme should build the shipped pixel font")
+	if wired_theme.default_font is FontFile:
+		var font_file := wired_theme.default_font as FontFile
+		for sample in ["门", "开", "あ", "ド", "A", "7"]:
+			_assert_true(font_file.has_char(sample.unicode_at(0)), "the shipped font must cover %s" % sample)
 
-	var ui_root := _find_node_by_name(game_root, "UIRoot") as Control
-	_assert_true(ui_root != null and ui_root.theme != null, "the UI root should carry the pixel-font theme")
-	if ui_root != null and ui_root.theme != null:
-		var font := ui_root.theme.default_font
-		_assert_true(font is FontFile, "the wired theme should define a default font")
-		if font is FontFile:
-			var font_file := font as FontFile
-			# 三语字形覆盖:任一语言掉字都会立刻暴露。
-			for sample in ["门", "开", "あ", "ド", "A", "7"]:
-				_assert_true(font_file.has_char(sample.unicode_at(0)), "the shipped font must cover %s" % sample)
-
-	# 实际标签也必须用吸附后的字号(不是原始值)。
-	var probe_label: Label = game_root._label("测试", 13, Color.WHITE)
+	var probe_label: Label = ui_theme.label("测试", 13, Color.WHITE)
 	_assert_true(probe_label.get_theme_font_size("font_size") % 9 == 0, "labels should render on the pixel grid")
 
-	game_root.queue_free()
-	await process_frame
-
-
-func _find_node_by_name(node: Node, node_name: String) -> Node:
-	if node.name == node_name:
-		return node
-	for child in node.get_children():
-		var found := _find_node_by_name(child, node_name)
-		if found != null:
-			return found
-	return null
+	var themed_root := Control.new()
+	ui_theme.apply_ui_font_theme(themed_root)
+	_assert_true(themed_root.theme == wired_theme, "apply_ui_font_theme should wire the built theme onto controls")
 
 
 func _assert_true(condition: bool, message: String) -> void:

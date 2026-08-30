@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
 var _failures: Array[String] = []
 var _state_script: Script
 var _content_script: Script
@@ -15,6 +17,7 @@ func _init() -> void:
 		test_pollution_locked_doll_choice_stays_unavailable_until_ready()
 		test_ordinary_npc_never_grants_a_meme_frame()
 		test_doll_state_round_trips_and_legacy_shop_state_is_normalized()
+		test_notebook_craft_preserves_clean_sentence_from_collected_tokens()
 	if _failures.is_empty():
 		print("doll system tests passed")
 		quit(0)
@@ -142,6 +145,21 @@ func test_doll_state_round_trips_and_legacy_shop_state_is_normalized() -> void:
 	_assert_eq(migrated.owned_meme_frame_ids.size(), 2, "legacy frame count should receive neutral provenance ids")
 	_assert_true(not migrated.has_method("buy_daily_meme_frame"), "removed purchases must not remain callable after migration")
 	_assert_true(not migrated.has_method("get_npc_meme_frame_reward_rules"), "ordinary NPC reward rules must be gone")
+
+
+func test_notebook_craft_preserves_clean_sentence_from_collected_tokens() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_assert_true(game.pick_token("doll-flow-post", Harness.craft_token("subject", "我", "subject", "本账号", "患者")), "test setup should add one subject")
+	_assert_true(game.pick_token("doll-flow-post", Harness.craft_token("action", "看见", "action", "捕获", "报告")), "test setup should add one action")
+	_assert_true(game.pick_token("doll-flow-post", Harness.craft_token("object", "塔", "object", "信号塔", "病区")), "test setup should add one object")
+	_assert_true(game.place_token_in_slot("subject", "doll-flow-post-subject-1"), "subject should enter its sentence slot")
+	_assert_true(game.place_token_in_slot("action", "doll-flow-post-action-1"), "action should enter its sentence slot")
+	_assert_true(game.place_token_in_slot("object", "doll-flow-post-object-1"), "object should enter its sentence slot")
+	var completed_before: int = game.completed_memes.size()
+	_assert_true(game.confirm_craft(), "three collected words should craft one complete sentence")
+	_assert_eq(game.completed_memes.size(), completed_before + 1, "crafting should add one completed meme")
+	_assert_eq(str(game.completed_memes[0].get("clean_text", "")), "我看见塔。", "crafted data should preserve the clean sentence")
 
 
 func _finish_typed_turn(game: RefCounted, choice_id: String) -> void:

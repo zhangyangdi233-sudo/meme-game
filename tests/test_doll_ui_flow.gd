@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
 var _failures: Array[String] = []
 
 
@@ -19,8 +21,8 @@ func _run_async() -> void:
 		game_root._skip_prologue()
 		await process_frame
 
-		_assert_true(_find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone launcher must not retain the removed shop")
-		_assert_true(_find_node_by_name(game_root, "ShopAppWindow") == null, "shop window must not exist")
+		_assert_true(Harness.find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone launcher must not retain the removed shop")
+		_assert_true(Harness.find_node_by_name(game_root, "ShopAppWindow") == null, "shop window must not exist")
 		_assert_true(not game_root.has_method("_on_buy_meme_frame_pressed"), "purchase callback must stay removed")
 
 		game_root.set_view_state("npc_up")
@@ -53,21 +55,6 @@ func _run_async() -> void:
 				if game_root._input_locked:
 					game_root._finish_action_spend_animation()
 
-		game_root.set_view_state("phone_down")
-		game_root._on_app_pressed("notebook")
-		await process_frame
-		_assert_true(_find_node_by_name(game_root, "NotebookSentenceHeader") is Control, "the notebook should present complete sentence composition")
-		_assert_true(game_root.game.pick_token("doll-flow-post", _token("subject", "我", "subject", "本账号", "患者")), "test setup should add one subject")
-		_assert_true(game_root.game.pick_token("doll-flow-post", _token("action", "看见", "action", "捕获", "报告")), "test setup should add one action")
-		_assert_true(game_root.game.pick_token("doll-flow-post", _token("object", "塔", "object", "信号塔", "病区")), "test setup should add one object")
-		_assert_true(game_root.game.place_token_in_slot("subject", "doll-flow-post-subject-1"), "subject should enter its sentence slot")
-		_assert_true(game_root.game.place_token_in_slot("action", "doll-flow-post-action-1"), "action should enter its sentence slot")
-		_assert_true(game_root.game.place_token_in_slot("object", "doll-flow-post-object-1"), "object should enter its sentence slot")
-		var completed_before: int = game_root.game.completed_memes.size()
-		game_root._on_confirm_craft_pressed()
-		_assert_eq(game_root.game.completed_memes.size(), completed_before + 1, "three collected words should craft one complete sentence")
-		_assert_eq(str(game_root.game.completed_memes[0].get("clean_text", "")), "我看见塔。", "crafted data should preserve the clean sentence")
-
 		game_root.queue_free()
 		await process_frame
 
@@ -81,17 +68,7 @@ func _run_async() -> void:
 
 
 func _token(token_id: String, text: String, role: String, phone_surface: String, doctor_surface: String) -> Dictionary:
-	return {
-		"id": token_id,
-		"text": text,
-		"lexeme_id": "test.%s" % token_id,
-		"grammar_roles": [role],
-		"phone_surface": phone_surface,
-		"doctor_surface": doctor_surface,
-		"doll_surface": text,
-		"tags": ["test"],
-		"rarity": 1,
-	}
+	return Harness.craft_token(token_id, text, role, phone_surface, doctor_surface)
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
@@ -104,15 +81,7 @@ func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:
-	if node == null:
-		return null
-	if node.name == target_name:
-		return node
-	for child in node.get_children():
-		var found := _find_node_by_name(child, target_name)
-		if found != null:
-			return found
-	return null
+	return Harness.find_node_by_name(node, target_name)
 
 
 func _assert_true(condition: bool, message: String) -> void:

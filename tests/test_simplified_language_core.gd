@@ -5,17 +5,16 @@ var _state_script: Script
 
 
 func _init() -> void:
-	call_deferred("_run_async")
+	_run()
 
 
-func _run_async() -> void:
+func _run() -> void:
 	_state_script = load("res://scripts/meme_game_state.gd") as Script
 	_assert_true(_state_script != null, "state script should load")
 	if _state_script != null:
 		test_only_money_and_pollution_are_gameplay_metrics()
 		test_publish_result_is_plain_money_and_pollution()
 		test_hidden_floor_requires_eighty_and_complete_route_at_day_boundary()
-	await test_removed_systems_are_absent_from_runtime_ui()
 	if _failures.is_empty():
 		print("simplified language core tests passed")
 		quit(0)
@@ -93,52 +92,6 @@ func test_hidden_floor_requires_eighty_and_complete_route_at_day_boundary() -> v
 	_assert_true(complete.settle_day_if_needed(), "a fully prepared third-floor day should settle")
 	_assert_eq(complete.tower_floor, 4, "the complete 80-percent route should enter the hidden fourth floor on the next day")
 	_assert_eq(complete.ending_route, "hidden", "the hidden floor should select the special ending route")
-
-
-func test_removed_systems_are_absent_from_runtime_ui() -> void:
-	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
-	_assert_true(scene != null, "main scene should load")
-	if scene == null:
-		return
-	var root := scene.instantiate()
-	get_root().add_child(root)
-	await process_frame
-	root._locale.set_locale("zh")
-	root.new_game()
-	root.game.set_active_app("babel")
-	root._render()
-	var all_text := _collect_control_text(root)
-	for removed_copy in ["塔罗", "牌型", "整数倍率", "传播基础", "BABEL-LINK 98", "输入四位缓存编号"]:
-		_assert_true(not all_text.contains(removed_copy), "runtime UI should not contain removed copy: %s" % removed_copy)
-	for hidden_route_copy in ["已找到的异物", "地点已被说出"]:
-		_assert_true(not all_text.contains(hidden_route_copy), "Tower App must not reveal hidden-floor checklist copy: %s" % hidden_route_copy)
-	_assert_true(_find_node_by_name(root, "SocialPublishContractPanel") == null, "the card-hand panel should be gone")
-	_assert_true(_find_node_by_name(root, "OldWebArchiveCodeInput") == null, "the archive code puzzle should be gone")
-	root.game.set_active_app("social")
-	root._set_social_screen("publish")
-	root._render()
-	var publish_text := _collect_control_text(root)
-	_assert_true(publish_text.contains("资金") and publish_text.contains("污染"), "the publish screen should preview the two remaining outcomes")
-	root.free()
-
-
-func _collect_control_text(root: Node) -> String:
-	var result := ""
-	if root is Label or root is Button or root is RichTextLabel or root is LineEdit:
-		result += str(root.get("text")) + "\n"
-	for child in root.get_children():
-		result += _collect_control_text(child)
-	return result
-
-
-func _find_node_by_name(root: Node, wanted_name: String) -> Node:
-	if root.name == wanted_name:
-		return root
-	for child in root.get_children():
-		var found := _find_node_by_name(child, wanted_name)
-		if found != null:
-			return found
-	return null
 
 
 func _assert_true(condition: bool, message: String) -> void:

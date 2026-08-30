@@ -1,4 +1,7 @@
 extends SceneTree
+## Day-transition overlay, meme-bank retirement, and adapter signal wiring (main scene).
+
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
 
@@ -10,7 +13,7 @@ func _init() -> void:
 func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
-		print("day transition tests passed")
+		print("day transition scene tests passed")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -29,12 +32,12 @@ func _run() -> void:
 	game_root.new_game()
 	await process_frame
 
-	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
-	var area_label := _find_node_by_name(game_root, "FloorTransitionAreaLabel") as Label
-	var danger_label := _find_node_by_name(game_root, "FloorTransitionDangerLabel") as Label
-	var hint_label := _find_node_by_name(game_root, "FloorTransitionHintLabel") as Label
-	var action_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
-	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
+	var day_overlay := Harness.find_node_by_name(game_root, "DayTransitionOverlay") as Control
+	var area_label := Harness.find_node_by_name(game_root, "FloorTransitionAreaLabel") as Label
+	var danger_label := Harness.find_node_by_name(game_root, "FloorTransitionDangerLabel") as Label
+	var hint_label := Harness.find_node_by_name(game_root, "FloorTransitionHintLabel") as Label
+	var action_overlay := Harness.find_node_by_name(game_root, "ActionSpendOverlay") as Control
+	var flashback_overlay := Harness.find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
 	_assert_true(day_overlay != null and area_label != null and danger_label != null and hint_label != null, "scene should expose a three-field floor transition card")
 	if day_overlay != null:
 		var duration := float(day_overlay.get_meta("duration_seconds", 0.0))
@@ -75,8 +78,7 @@ func _run() -> void:
 
 	game_root.new_game()
 	await process_frame
-	# 梗圆环已退役:任何页面、任何视角都不再出现,也不再有开合动效契约。
-	var meme_bank := _find_node_by_name(game_root, "MemeBankPopup") as Control
+	var meme_bank := Harness.find_node_by_name(game_root, "MemeBankPopup") as Control
 	_assert_true(meme_bank != null and not meme_bank.visible, "the retired meme ring must stay hidden on the feed")
 	_assert_true(not game_root._should_peek_meme_bank(), "the retired meme ring must not peek")
 	_assert_true(not game_root._should_show_meme_bank(), "the meme ring visibility rule should always refuse")
@@ -100,22 +102,12 @@ func _run() -> void:
 	game_root.game.check_pollution_flashback(59)
 	game_root._play_pollution_flashback()
 	game_root._finish_pollution_flashback()
-	day_overlay = _find_node_by_name(game_root, "DayTransitionOverlay") as Control
+	day_overlay = Harness.find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	_assert_eq(game_root.game.day, 2, "pollution flashback should still settle directly into the next day")
 	_assert_true(day_overlay != null and not day_overlay.visible, "pollution flashback should not stack the normal three-second day overlay")
 
 	game_root.queue_free()
 	await process_frame
-
-
-func _find_node_by_name(node: Node, node_name: String) -> Node:
-	if node.name == node_name:
-		return node
-	for child in node.get_children():
-		var found := _find_node_by_name(child, node_name)
-		if found != null:
-			return found
-	return null
 
 
 func _assert_true(value: bool, message: String) -> void:
