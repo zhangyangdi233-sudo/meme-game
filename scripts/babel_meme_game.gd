@@ -833,6 +833,8 @@ func _connect_game_state_signals() -> void:
 		game.action_economy_changed.connect(_on_action_economy_changed)
 	if not game.settings_changed.is_connected(_on_settings_changed):
 		game.settings_changed.connect(_on_settings_changed)
+	if not game.reality_conversation_changed.is_connected(_on_reality_conversation_changed):
+		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -859,6 +861,12 @@ func _on_settings_changed(_snapshot: Dictionary) -> void:
 	_render()
 
 
+func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
 func _phone_shell_snapshot() -> Dictionary:
 	if game == null:
 		return {
@@ -878,6 +886,23 @@ func _settings_snapshot() -> Dictionary:
 			"exit_prompt_seen": false,
 		}
 	return game.get_settings_snapshot()
+
+
+func _reality_conversation_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"phase": "idle",
+			"mode": "authored",
+			"actor_type": "npc",
+			"actor_label": "",
+			"prompt": "",
+			"result_line": "",
+			"choices": [],
+			"can_continue": false,
+			"feedback": "",
+			"reveal_index": 0,
+		}
+	return game.get_reality_conversation_snapshot()
 
 
 func _social_engagement_snapshot() -> Dictionary:
@@ -1293,16 +1318,6 @@ func _try_reality_interaction() -> bool:
 
 
 func _localize_active_conversation() -> void:
-	game.conversation_actor_label = _locale.translate(game.conversation_actor_label)
-	game.conversation_prompt = _locale.translate(game.conversation_prompt)
-	game.conversation_result_line = _locale.translate(game.conversation_result_line)
-	var localized_choices: Array = []
-	for choice in game.conversation_choices:
-		var localized_choice: Dictionary = (choice as Dictionary).duplicate(true)
-		localized_choice["summary"] = _locale.translate(str(localized_choice.get("summary", "")))
-		localized_choice["sentence"] = _locale.translate(str(localized_choice.get("sentence", "")))
-		localized_choices.append(localized_choice)
-	game.conversation_choices = localized_choices
 	game.configure_conversation_locale(_locale.current_locale)
 
 
@@ -3314,26 +3329,29 @@ func _render_reality() -> void:
 	if _reality_conversation_panel == null:
 		return
 	var plan := _day_plan()
-	var npc_line: String = game.conversation_prompt if _reality_interaction_active and not game.conversation_prompt.is_empty() else str(plan["line"])
+	var conversation: Dictionary = _reality_conversation_snapshot()
+	var prompt := str(conversation.get("prompt", ""))
+	var npc_line: String = prompt if _reality_interaction_active and not prompt.is_empty() else str(plan["line"])
 	var hover_preview := ""
 	if not _reality_hover_choice_id.is_empty():
 		hover_preview = game.preview_typed_reality_choice(_reality_hover_choice_id)
+	var actor_label := str(conversation.get("actor_label", ""))
 	_reality_conversation_panel.render({
 		"interaction_active": _reality_interaction_active,
-		"actor_name": _active_actor_display_name(),
+		"actor_name": actor_label if _reality_interaction_active and not actor_label.is_empty() else _active_actor_display_name(),
 		"npc_line": npc_line,
-		"conversation_feedback": game.conversation_feedback,
-		"phase": str(game.conversation_phase),
-		"conversation_can_continue": game.conversation_can_continue,
-		"conversation_actor_type": game.conversation_actor_type,
+		"conversation_feedback": str(conversation.get("feedback", "")),
+		"phase": str(conversation.get("phase", "")),
+		"conversation_can_continue": bool(conversation.get("can_continue", false)),
+		"conversation_actor_type": str(conversation.get("actor_type", "")),
 		"last_polluted_sentence": game.last_polluted_sentence,
 		"npc_understanding": game.npc_understanding,
-		"choices": game.get_typed_reality_choices(),
+		"choices": conversation.get("choices", []),
 		"hover_choice_id": _reality_hover_choice_id,
 		"hover_choice_preview": hover_preview,
 		"playtest_assist_enabled": _playtest_assist_enabled,
 		"typed_reality_bbcode": _typed_reality_bbcode(),
-		"typing_reveal_index": game.conversation_reveal_index,
+		"typing_reveal_index": int(conversation.get("reveal_index", 0)),
 		"typing_unit_count": game.get_typed_reality_unit_count(),
 	})
 
@@ -3341,7 +3359,8 @@ func _render_reality() -> void:
 func _render_reality_language_composer() -> void:
 	if _reality_language_composer_panel == null:
 		return
-	var composing := _reality_interaction_active and game.conversation_phase == "composing" and game.conversation_mode == "lexeme"
+	var conversation: Dictionary = _reality_conversation_snapshot()
+	var composing := _reality_interaction_active and str(conversation.get("phase", "")) == "composing" and str(conversation.get("mode", "")) == "lexeme"
 	var slots: Array = []
 	if composing:
 		for slot_value in game.get_craft_slots():

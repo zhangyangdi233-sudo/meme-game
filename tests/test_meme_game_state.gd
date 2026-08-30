@@ -12,6 +12,8 @@ var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
 var _settings_signal_count := 0
 var _last_settings_snapshot: Dictionary = {}
+var _reality_conversation_signal_count := 0
+var _last_reality_conversation_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -36,6 +38,7 @@ func _run() -> void:
 	test_phone_shell_snapshot_and_signal()
 	test_action_economy_snapshot_and_signal()
 	test_settings_snapshot_and_signal()
+	test_reality_conversation_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -269,6 +272,95 @@ func test_settings_snapshot_and_signal() -> void:
 func _capture_settings(snapshot: Dictionary) -> void:
 	_settings_signal_count += 1
 	_last_settings_snapshot = snapshot
+
+
+func test_reality_conversation_snapshot_and_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_reality_conversation_signal_count = 0
+	_last_reality_conversation_snapshot = {}
+	game.reality_conversation_changed.connect(_capture_reality_conversation)
+
+	var idle: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(idle.get("phase", "")), "idle", "new run should start with idle conversation")
+	_assert_eq(str(idle.get("mode", "")), "authored", "idle conversation should default to authored mode")
+	_assert_eq(str(idle.get("actor_type", "")), "npc", "idle conversation should default to npc actor type")
+	_assert_eq(str(idle.get("actor_label", "unset")), "", "idle conversation should have no actor label")
+	_assert_eq(str(idle.get("prompt", "unset")), "", "idle conversation should have no prompt")
+	_assert_eq(str(idle.get("result_line", "unset")), "", "idle conversation should have no result line")
+	_assert_eq((idle.get("choices", ["x"]) as Array).size(), 0, "idle conversation should have no choices")
+	_assert_true(not bool(idle.get("can_continue", true)), "idle conversation should not continue")
+	_assert_eq(str(idle.get("feedback", "unset")), "", "idle conversation should have no feedback")
+	_assert_eq(int(idle.get("reveal_index", -1)), 0, "idle conversation should start at reveal index 0")
+	_assert_true(not idle.has("turns"), "display snapshot must not expose the turn engine")
+	_assert_true(not idle.has("history"), "display snapshot must not expose conversation history")
+	_assert_true(not idle.has("actor_id"), "display snapshot must not expose actor id")
+
+	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "npc conversation should start")
+	_assert_eq(_reality_conversation_signal_count, 1, "starting a conversation should emit once")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "choosing", "signal snapshot should enter choosing")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("mode", "")), "authored", "npc conversation should be authored")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("actor_type", "")), "npc", "signal snapshot should carry npc type")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("actor_label", "")), "迟到者", "signal snapshot should carry actor label")
+	_assert_eq(
+		str(_last_reality_conversation_snapshot.get("prompt", "")),
+		"这张票印的是明天。可车刚走。你能陪我等下一班吗？",
+		"signal snapshot should carry the authored prompt"
+	)
+	_assert_eq(
+		str(_last_reality_conversation_snapshot.get("result_line", "")),
+		"迟到者把票折回掌心，往旁边让出半个座位。",
+		"signal snapshot should carry the authored result line"
+	)
+	_assert_eq((_last_reality_conversation_snapshot.get("choices", []) as Array).size(), 3, "signal snapshot should include authored choices")
+	var start_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+	_assert_eq(str(start_change.get("kind", "")), "start", "change kind should be start")
+	_assert_eq(str(start_change.get("target_id", "")), "floor1npc0", "change target should be actor id")
+	_assert_true(bool(start_change.get("active", false)), "start should be active in change metadata")
+
+	var snapshot: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(snapshot.get("prompt", "")), "这张票印的是明天。可车刚走。你能陪我等下一班吗？", "snapshot should match the live prompt")
+	snapshot["prompt"] = "mutated"
+	_assert_eq(game.conversation_prompt, "这张票印的是明天。可车刚走。你能陪我等下一班吗？", "snapshot strings must be copies")
+	var choices_copy: Array = snapshot.get("choices", [])
+	choices_copy.append({"id": "alias-test"})
+	_assert_eq(game.get_typed_reality_choices().size(), 3, "snapshot choice arrays must be copies")
+
+	game.reset_typed_reality_conversation()
+	_assert_eq(_reality_conversation_signal_count, 2, "reset should emit")
+	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "idle", "reset snapshot should return to idle")
+	var reset_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
+	_assert_eq(str(reset_change.get("kind", "")), "reset", "change kind should be reset")
+	_assert_true(not bool(reset_change.get("active", true)), "reset should mark inactive")
+
+	_assert_true(game.start_typed_reality_conversation("doctor_floor1", "doctor", "医生"), "doctor conversation should start")
+	_assert_eq(_reality_conversation_signal_count, 3, "starting doctor conversation should emit again")
+	game.configure_conversation_locale("en")
+	_assert_eq(_reality_conversation_signal_count, 3, "locale configure should update snapshot without a second vertical emit")
+	var localized: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(localized.get("actor_label", "")), "Doctor", "locale intent should localize actor label in the snapshot")
+	_assert_eq(
+		str(localized.get("prompt", "")),
+		"Say that line again. Do not explain it for me.",
+		"locale intent should localize prompt in the snapshot"
+	)
+	_assert_eq(
+		str(localized.get("result_line", "")),
+		"The doctor writes it down. The character count does not match what you said.",
+		"locale intent should localize result line in the snapshot"
+	)
+	_assert_eq(str(localized.get("phase", "")), "composing", "doctor conversation should stay in composing")
+	_assert_eq(str(localized.get("mode", "")), "lexeme", "doctor conversation should stay in lexeme mode")
+
+	_reality_conversation_signal_count = 0
+	game.actions_remaining = 0
+	_assert_true(not game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "conversation should not start without actions")
+	_assert_eq(_reality_conversation_signal_count, 0, "failed start should not emit")
+
+
+func _capture_reality_conversation(snapshot: Dictionary) -> void:
+	_reality_conversation_signal_count += 1
+	_last_reality_conversation_snapshot = snapshot
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:

@@ -5,6 +5,7 @@ signal social_engagement_changed(snapshot: Dictionary)
 signal phone_shell_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
 signal settings_changed(snapshot: Dictionary)
+signal reality_conversation_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -856,6 +857,7 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 	conversation_phase = "composing" if conversation_mode == "lexeme" else "choosing"
 	if conversation_mode == "lexeme":
 		reality_phase = "player_composing"
+	_emit_reality_conversation_changed("start", actor_id, true)
 	return true
 
 
@@ -891,6 +893,32 @@ func reset_typed_reality_conversation() -> void:
 	conversation_interrupt_line = ""
 	conversation_action_spent = false
 	conversation_reward = {}
+	_emit_reality_conversation_changed("reset", "", false)
+
+
+func get_reality_conversation_snapshot() -> Dictionary:
+	return {
+		"phase": conversation_phase,
+		"mode": conversation_mode,
+		"actor_type": conversation_actor_type,
+		"actor_label": conversation_actor_label,
+		"prompt": conversation_prompt,
+		"result_line": conversation_result_line,
+		"choices": conversation_choices.duplicate(true),
+		"can_continue": conversation_can_continue,
+		"feedback": conversation_feedback,
+		"reveal_index": conversation_reveal_index,
+	}
+
+
+func _emit_reality_conversation_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_reality_conversation_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	reality_conversation_changed.emit(snapshot)
 
 
 func get_typed_reality_choices() -> Array:
@@ -955,8 +983,28 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 
 func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Array[String] = []) -> void:
 	conversation_locale = locale_code if locale_code in ["zh", "ja", "en"] else "zh"
+	_localize_conversation_display()
 	if not conversation_clean_sentence.is_empty():
 		conversation_clean_units = _conversation_units(conversation_clean_sentence)
+
+
+func _localize_conversation_display() -> void:
+	if conversation_locale == "zh":
+		return
+	var locale = GameLocaleScript.new()
+	var previous_locale := TranslationServer.get_locale()
+	locale.set_locale(conversation_locale)
+	TranslationServer.set_locale(previous_locale)
+	conversation_actor_label = locale.translate(conversation_actor_label)
+	conversation_prompt = locale.translate(conversation_prompt)
+	conversation_result_line = locale.translate(conversation_result_line)
+	var localized_choices: Array = []
+	for choice in conversation_choices:
+		var localized_choice: Dictionary = (choice as Dictionary).duplicate(true)
+		localized_choice["summary"] = locale.translate(str(localized_choice.get("summary", "")))
+		localized_choice["sentence"] = locale.translate(str(localized_choice.get("sentence", "")))
+		localized_choices.append(localized_choice)
+	conversation_choices = localized_choices
 
 
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:

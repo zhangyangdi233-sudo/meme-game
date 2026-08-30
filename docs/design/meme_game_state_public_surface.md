@@ -7,13 +7,14 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Metric | Count |
 |---|---:|
 | Public `var` fields | 90 |
-| Public `func` methods | 93 |
+| Public `func` methods | 94 |
 | Public `const` | 18 content/config groups |
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
+| Signals (slice 3a) | 5 — + `reality_conversation_changed` |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -28,7 +29,7 @@ These are the highest-risk couplings to retire in later 4b slices:
 | Location | Mutation | Risk | Slice 1 status |
 |---|---|---|---|
 | ~~`babel_meme_game.gd:825`~~ | ~~`game.social_followed_handles = migrated`~~ | ~~bypasses engagement API~~ | **Fixed** — uses `replace_social_followed_handles()` |
-| `babel_meme_game.gd:1225-1234` | `game.conversation_* = …` | localizes state in adapter | open |
+| ~~`babel_meme_game.gd:1225-1234`~~ | ~~`game.conversation_* = …`~~ | ~~localizes state in adapter~~ | **Fixed** — uses `configure_conversation_locale()` |
 | ~~`babel_meme_game.gd:2863`~~ | ~~`game.autoplay_enabled = value`~~ | ~~settings write without intent~~ | **Fixed** — uses `set_autoplay_enabled()` |
 | ~~`babel_meme_game.gd:2939`~~ | ~~`game.exit_prompt_seen = true`~~ | ~~one-shot flag from UI~~ | **Fixed** — uses `mark_exit_prompt_seen()` |
 | `babel_meme_game.gd:3928-3933` | `game.active_app_window` / `active_app` | phone shell closes apps inline | **Fixed** — uses `close_app_window()` |
@@ -170,9 +171,20 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 `get_language_token_options()`, `place_language_token()`, `clear_language_sentence()`, `get_language_sentence_preview()`, `confirm_doctor_sentence()`, `confirm_reality_dialogue()`, `pollute_reality_sentence()`, `get_relationship_state_label()`
 
-### Typed reality conversation
+### Typed reality conversation — **slice 3a seam** (read-side display subset)
 
-`begin_reality_player_turn()`, `reset_reality_phase_for_day()`, `start_typed_reality_conversation()`, `reset_typed_reality_conversation()`, `get_typed_reality_choices()`, `get_typed_reality_progress()`, `get_typed_reality_history()`, `continue_typed_reality_conversation()`, `configure_conversation_locale()`, `preview_typed_reality_choice()`, `select_typed_reality_choice()`, `advance_typed_reality_character()`, `get_typed_reality_spoken_sentence()`, `get_typed_reality_unrevealed_suffix()`, `get_typed_reality_unit_count()`
+| Kind | API |
+|---|---|
+| Snapshot | `get_reality_conversation_snapshot()` → `{ phase, mode, actor_type, actor_label, prompt, result_line, choices, can_continue, feedback, reveal_index }` |
+| Signal | `reality_conversation_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; **emits from start/reset only** |
+| Intent | `configure_conversation_locale(locale_code)` — localizes display fields internally and updates the snapshot |
+| Query | `get_typed_reality_choices()`, `get_typed_reality_progress()`, `get_typed_reality_history()` |
+
+Legacy `conversation_*` fields remain for save/load and the typed turn engine; new adapter display code should prefer the snapshot. Do **not** snapshot the full turn engine in 3a.
+
+### Typed reality conversation (legacy listing)
+
+`begin_reality_player_turn()`, `reset_reality_phase_for_day()`, `start_typed_reality_conversation()`, `reset_typed_reality_conversation()`, `continue_typed_reality_conversation()`, `configure_conversation_locale()`, `preview_typed_reality_choice()`, `select_typed_reality_choice()`, `advance_typed_reality_character()`, `get_typed_reality_spoken_sentence()`, `get_typed_reality_unrevealed_suffix()`, `get_typed_reality_unit_count()`
 
 ### Doll
 
@@ -292,4 +304,36 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 **Adapter pattern:** connect `settings_changed` → `_render()`; read settings via `get_settings_snapshot()` (or adapter `_settings_snapshot()`); send intents via `set_autoplay_enabled()` / `mark_exit_prompt_seen()`. Settings menu label refresh in `_render_status()` still runs on pollution-driven renders; autoplay toggle state updates when settings change via the signal path.
 
-**Stop here for human review** before slice 2D (next domain).
+---
+
+## Slice 3a contract (reality conversation display)
+
+```gdscript
+# Snapshot (read) — display subset only, not the full typed turn engine
+{
+  "phase": String,
+  "mode": String,
+  "actor_type": String,
+  "actor_label": String,
+  "prompt": String,
+  "result_line": String,
+  "choices": Array,
+  "can_continue": bool,
+  "feedback": String,
+  "reveal_index": int,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...display subset...
+  "change": {
+    "kind": "start" | "reset",
+    "target_id": String,  # actor_id on start, empty on reset
+    "active": bool,
+  },
+}
+```
+
+**Adapter pattern:** connect `reality_conversation_changed` → `_render()`; read display via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent. Signal emits from `start_typed_reality_conversation` / `reset_typed_reality_conversation` only.
+
+**Stop here for human review** before slice 3b (choice select / composing intents).
