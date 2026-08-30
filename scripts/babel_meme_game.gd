@@ -12,7 +12,6 @@ const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
-const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
@@ -26,6 +25,7 @@ const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
+const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -397,6 +397,7 @@ var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
 var _phone_launcher_panel
 var _meme_bank_panel
+var _notebook_app_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: Control
@@ -1727,6 +1728,7 @@ func _build_ui() -> void:
 		_app_windows[app_id] = _phone_launcher_panel.get_app_window(app_id)
 		_app_titles[app_id] = _phone_launcher_panel.get_app_title(app_id)
 		_app_bodies[app_id] = _phone_launcher_panel.get_app_body(app_id)
+	_ensure_notebook_app_panel()
 
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
@@ -2697,6 +2699,60 @@ func _connect_meme_bank_panel_signals() -> void:
 		panel.selection_changed.connect(_on_meme_ring_selection_changed)
 
 
+func _ensure_notebook_app_panel() -> void:
+	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
+		return
+	_notebook_app_panel = NotebookAppPanelScript.new()
+	_notebook_app_panel.name = "NotebookAppPanel"
+	add_child(_notebook_app_panel)
+	_notebook_app_panel.configure(_notebook_mount_deps())
+	_connect_notebook_app_panel_signals()
+
+
+func _notebook_mount_deps() -> Dictionary:
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"clear_children": _clear,
+		"composer_tile_style": _composer_tile_style,
+		"fusion_slot_text": _fusion_slot_text,
+		"current_locale": func() -> String: return _locale.current_locale,
+		"collected_char_units": func(locale_code: String) -> Array[String]:
+			return game.get_collected_char_units(locale_code) if game != null else [],
+		"free_sentence_units": func() -> Array:
+			return game.get_free_sentence_units() if game != null else [],
+		"world_rules": func() -> Array:
+			return game.get_world_rules() if game != null else [],
+		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
+			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
+		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
+		"fusion_ready": func() -> bool: return game != null and game.fusion_slots.size() >= 2,
+	}
+
+
+func _connect_notebook_app_panel_signals() -> void:
+	var panel = _notebook_app_panel
+	if panel == null:
+		return
+	if not panel.craft_requested.is_connected(_on_composer_submit_pressed):
+		panel.craft_requested.connect(_on_composer_submit_pressed)
+	if not panel.fusion_requested.is_connected(_on_confirm_fusion_pressed):
+		panel.fusion_requested.connect(_on_confirm_fusion_pressed)
+	if not panel.tab_changed.is_connected(_set_notebook_crafting_tab):
+		panel.tab_changed.connect(_set_notebook_crafting_tab)
+	if not panel.canvas_tile_moved.is_connected(_on_canvas_tile_moved):
+		panel.canvas_tile_moved.connect(_on_canvas_tile_moved)
+	if not panel.canvas_tile_dropped_outside.is_connected(_on_canvas_tile_dropped_outside):
+		panel.canvas_tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
+	if not panel.composer_bank_tapped.is_connected(_on_composer_bank_tapped):
+		panel.composer_bank_tapped.connect(_on_composer_bank_tapped)
+	if not panel.fusion_meme_dropped.is_connected(_on_fusion_meme_dropped):
+		panel.fusion_meme_dropped.connect(_on_fusion_meme_dropped)
+	if not panel.fusion_slot_pressed.is_connected(_on_fusion_slot_pressed):
+		panel.fusion_slot_pressed.connect(_on_fusion_slot_pressed)
+
+
 func _sync_meme_bank_refs() -> void:
 	if _meme_bank_panel == null:
 		return
@@ -3223,86 +3279,9 @@ func _open_social_post(post_index: int) -> void:
 
 
 func _render_notebook_app() -> void:
-	_clear(_app_body)
-
-	var notebook_page := VBoxContainer.new()
-	notebook_page.name = "NotebookCraftPage"
-	notebook_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	notebook_page.add_theme_constant_override("separation", 8)
-	_app_body.add_child(notebook_page)
-
-	var notebook_header := VBoxContainer.new()
-	notebook_header.name = "NotebookSentenceHeader"
-	notebook_header.add_theme_constant_override("separation", 3)
-	notebook_page.add_child(notebook_header)
-	notebook_header.add_child(_label("完整句子", 24, _theme_color("ink")))
-	var header_hint := _label("从帖子拾取原词，再按语法位置组成手机世界会使用的句子。", 14, _theme_color("accent"))
-	header_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_header.add_child(header_hint)
-	var tab_rule := ColorRect.new()
-	tab_rule.name = "NotebookSentenceRule"
-	tab_rule.color = _theme_color("accent")
-	tab_rule.custom_minimum_size.y = 3.0
-	notebook_page.add_child(tab_rule)
-
-	var notebook_scroll := ScrollContainer.new()
-	notebook_scroll.name = "NotebookCraftScroll"
-	notebook_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	notebook_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	notebook_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	notebook_page.add_child(notebook_scroll)
-
-	var notebook_content := VBoxContainer.new()
-	notebook_content.name = "NotebookCraftContent"
-	notebook_content.add_theme_constant_override("separation", 10)
-	notebook_scroll.add_child(notebook_content)
-
-	_render_notebook_frame_tab(notebook_content)
-
-	var action_bar := _panel()
-	action_bar.name = "NotebookCraftActionBar"
-	action_bar.set_meta("fixed_action_bar", true)
-	notebook_page.add_child(action_bar)
-	var action_box := VBoxContainer.new()
-	action_box.add_theme_constant_override("separation", 6)
-	action_bar.add_child(action_box)
-	var craft := Button.new()
-	craft.name = "NotebookCraftButton"
-	craft.text = "投稿这句话"
-	craft.custom_minimum_size.y = 56
-	craft.disabled = game.get_free_sentence_units().is_empty() or not game.can_spend_action()
-	craft.pressed.connect(_on_composer_submit_pressed)
-	action_box.add_child(craft)
-
-
-func _render_notebook_frame_tab(notebook_content: VBoxContainer) -> void:
-	_render_sentence_composer(notebook_content)
-
-
-
-func _render_notebook_fusion_tab(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label("旧梗融合", 18, _theme_color("accent")))
-	var fusion_hint := _label("用滚轮或双指滑动右侧梗环挑选完整梗，再拖入两个槽位；也可以点击梗后再点槽位。", 14, _theme_color("accent"))
-	fusion_hint.name = "NotebookFusionRingHint"
-	fusion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(fusion_hint)
-	var fusion_row := HBoxContainer.new()
-	fusion_row.name = "NotebookFusionSlots"
-	fusion_row.add_theme_constant_override("separation", 8)
-	notebook_content.add_child(fusion_row)
-	for fusion_slot_id in ["left", "right"]:
-		var fusion_slot = DropButtonScript.new()
-		fusion_slot.name = "FusionSlot%s" % fusion_slot_id.capitalize()
-		fusion_slot.text = _fusion_slot_text(fusion_slot_id)
-		fusion_slot.custom_minimum_size = Vector2(150, 58)
-		fusion_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fusion_slot.configure_drop_target("meme", fusion_slot_id)
-		fusion_slot.dropped.connect(_on_fusion_meme_dropped)
-		fusion_slot.pressed.connect(_on_fusion_slot_pressed.bind(fusion_slot_id))
-		fusion_row.add_child(fusion_slot)
-	var warning := _label("融合会保留两侧文字，并立即增加污染。发布前会显示资金与污染变化。", 14, _theme_color("accent"))
-	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(warning)
+	if _notebook_app_panel == null:
+		return
+	_notebook_app_panel.render(_app_body, _notebook_crafting_tab)
 
 
 func _set_notebook_crafting_tab(tab_id: String) -> void:
@@ -4906,57 +4885,6 @@ func _apply_composer_tile_theme(tile: Button, is_ghost: bool) -> void:
 	tile.add_theme_stylebox_override("normal", _composer_tile_style("normal"))
 	tile.add_theme_stylebox_override("hover", _composer_tile_style("normal"))
 	tile.add_theme_stylebox_override("pressed", _composer_tile_style("pressed"))
-
-func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label("拾到的字", 18, _theme_color("accent")))
-	var canvas_hint := _label("字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。", 13, _theme_color("muted"))
-	canvas_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(canvas_hint)
-
-	var canvas_frame := _panel()
-	canvas_frame.name = "NotebookCanvasFrame"
-	notebook_content.add_child(canvas_frame)
-	var canvas := WordPhysicsCanvasScript.new()
-	canvas.name = "NotebookWordCanvas"
-	canvas.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_SIZE
-	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	canvas_frame.add_child(canvas)
-	canvas.tile_settled.connect(_on_canvas_tile_moved)
-	canvas.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
-	canvas.tile_tapped.connect(_on_composer_bank_tapped)
-
-	var locale_code: String = _locale.current_locale
-	var collected_units: Array[String] = game.get_collected_char_units(locale_code)
-	var placed_units: Array = game.get_free_sentence_units()
-	if collected_units.is_empty():
-		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
-		empty_hint.name = "NotebookCharEmptyHint"
-		empty_hint.position = Vector2(10.0, 10.0)
-		canvas.add_child(empty_hint)
-	for unit in collected_units:
-		var is_ghost := str(unit) in placed_units
-		canvas.add_tile(
-			str(unit),
-			game.get_char_canvas_position(str(unit), locale_code),
-			_theme_color("ink"),
-			_composer_tile_style("ghost" if is_ghost else "normal"),
-			is_ghost
-		)
-
-	var active_rules: Array = game.get_world_rules()
-	if not active_rules.is_empty():
-		notebook_content.add_child(_label("现行规则", 18, _theme_color("accent")))
-		var rules_box := VBoxContainer.new()
-		rules_box.name = "ComposerRulesList"
-		rules_box.add_theme_constant_override("separation", 3)
-		notebook_content.add_child(rules_box)
-		for rule in active_rules:
-			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), locale_code)
-			var rule_label := _label("· %s" % rule_text, 14, _theme_color("accent"))
-			rule_label.set_meta("skip_localization", true)
-			rules_box.add_child(rule_label)
-
 
 func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
