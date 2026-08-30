@@ -111,7 +111,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
-| `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
+| `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, `test_session_input`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |

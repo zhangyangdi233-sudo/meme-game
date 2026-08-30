@@ -9,6 +9,7 @@ const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.g
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const SessionInputScript = preload("res://scripts/game/session_input.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
@@ -466,12 +467,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _prologue_panel != null:
-		var prologue_overlay := _prologue_panel.get_overlay()
-		if prologue_overlay != null and prologue_overlay.visible:
-			_reality_touch_look_index = -1
-			return
-	if _input_locked:
+	if SessionInputScript.blocks_world_pointer(current_input_owner()):
 		_reality_touch_look_index = -1
 		return
 	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
@@ -530,7 +526,7 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _input_locked or not _game_started:
+	if SessionInputScript.blocks_unhandled_gameplay(current_input_owner()):
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
@@ -3612,6 +3608,14 @@ func _capture_frozen_frame_texture() -> Texture2D:
 func _finish_pollution_flashback() -> void:
 	if _narrative_director != null:
 		_narrative_director.finish_pollution_flashback()
+
+
+func current_input_owner() -> int:
+	var prologue_visible := false
+	if _prologue_panel != null:
+		var prologue_overlay := _prologue_panel.get_overlay()
+		prologue_visible = prologue_overlay != null and prologue_overlay.visible
+	return SessionInputScript.owner_from(prologue_visible, _input_locked, _game_started)
 
 
 func _set_input_locked(value: bool) -> void:
