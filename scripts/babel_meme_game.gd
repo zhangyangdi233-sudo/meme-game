@@ -36,6 +36,7 @@ const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_
 const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
 const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_panel.gd")
+const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -388,13 +389,7 @@ var _camera_status_label: Label
 var _phone_camera_connection_overlay: Control
 var _phone_camera_connection_panel: PhoneCameraConnectionPanel
 var _cinematic_bars: CinematicBars
-var _hud_panel: PanelContainer
-var _hud_reveal_zone: Control
-var _hud_reveal_indicator: ColorRect
-var _hud_settings_icon: Button
-var _hud_actions_label: Label
-var _hud_tooltip: PanelContainer
-var _hud_tooltip_label: Label
+var _apple_hud_panel
 var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
@@ -1938,95 +1933,10 @@ func _skip_prologue() -> void:
 
 
 func _build_apple_hud() -> void:
-	_hud_panel = _panel()
-	_hud_panel.name = "InternationalHUDRail"
-	_hud_panel.set_meta("dark_rail", true)
-	_hud_panel.set_meta("drawer_state", "collapsed")
-	_hud_panel.set_meta("slide_direction", "left_to_right")
-	_hud_panel.set_meta("open_duration", HUD_DRAWER_OPEN_DURATION)
-	_hud_panel.set_meta("close_duration", HUD_DRAWER_CLOSE_DURATION)
-	_hud_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_hud_panel.offset_left = 0.0
-	_hud_panel.offset_top = 0.0
-	_hud_panel.offset_right = HUD_RAIL_WIDTH
-	_hud_panel.offset_bottom = HUD_RAIL_MAX_HEIGHT
-	_hud_panel.z_index = 40
-	_hud_panel.clip_contents = true
-	_hud_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_hud_panel.add_theme_stylebox_override("panel", _style(_theme_color("ink"), Color(_theme_color("muted"), 0.22)))
-	_ui_root.add_child(_hud_panel)
-
-	_hud_reveal_zone = Control.new()
-	_hud_reveal_zone.name = "HUDRevealZone"
-	_hud_reveal_zone.set_meta("hover_reveals", true)
-	_hud_reveal_zone.set_meta("touch_reveals", true)
-	_hud_reveal_zone.set_meta("touch_target_width", HUD_DRAWER_EDGE_HIT_WIDTH)
-	_hud_reveal_zone.mouse_filter = Control.MOUSE_FILTER_STOP
-	_hud_reveal_zone.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_hud_reveal_zone.tooltip_text = "打开状态栏"
-	_hud_reveal_zone.z_index = 39
-	_ui_root.add_child(_hud_reveal_zone)
-
-	_hud_reveal_indicator = ColorRect.new()
-	_hud_reveal_indicator.name = "HUDRevealIndicator"
-	_hud_reveal_indicator.color = _theme_color("muted")
-	_hud_reveal_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hud_reveal_indicator.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	_hud_reveal_indicator.offset_left = 0.0
-	_hud_reveal_indicator.offset_top = -46.0
-	_hud_reveal_indicator.offset_right = HUD_DRAWER_EDGE_CUE_WIDTH
-	_hud_reveal_indicator.offset_bottom = 46.0
-	_hud_reveal_indicator.set_meta("edge_cue", true)
-	_hud_reveal_zone.add_child(_hud_reveal_indicator)
-
-	var center := CenterContainer.new()
-	center.name = "InternationalHUDCenter"
-	_hud_panel.add_child(center)
-
-	var box := VBoxContainer.new()
-	box.name = "InternationalHUDStack"
-	box.add_theme_constant_override("separation", 14)
-	center.add_child(box)
-
-	_add_hud_icon(box, "HUDPollutionIcon", "pollution", HUD_POLLUTION_ICON_PATH)
-	_add_hud_icon(box, "HUDMoneyIcon", "money", HUD_MONEY_ICON_PATH)
-
-	var action_divider := ColorRect.new()
-	action_divider.color = _theme_color("muted")
-	action_divider.modulate.a = 0.42
-	action_divider.custom_minimum_size.y = 1
-	box.add_child(action_divider)
-
-	var action_spacer := Control.new()
-	action_spacer.custom_minimum_size.y = 6
-	box.add_child(action_spacer)
-
-	_hud_actions_label = _label("", 18, _theme_color("muted"))
-	_hud_actions_label.name = "HUDActionsLabel"
-	_hud_actions_label.set_meta("action_animation_mode", "inline_pulse")
-	_hud_actions_label.set_meta("hud_action_label", true)
-	_hud_actions_label.custom_minimum_size = Vector2(118, 64)
-	_hud_actions_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_hud_actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hud_actions_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(_hud_actions_label)
-
-	var settings_spacer := Control.new()
-	settings_spacer.custom_minimum_size.y = 10
-	box.add_child(settings_spacer)
-	_hud_settings_icon = _add_hud_icon(box, "HUDSettingsIcon", "settings", HUD_SETTINGS_ICON_PATH)
-	_hud_settings_icon.pressed.connect(_toggle_settings_window)
-
-	_hud_tooltip = _panel()
-	_hud_tooltip.name = "HUDTooltip"
-	_hud_tooltip.set_meta("tooltip_panel", true)
-	_hud_tooltip.visible = false
-	_hud_tooltip.z_index = 45
-	_hud_tooltip.add_theme_stylebox_override("panel", _style(_theme_color("muted"), _theme_color("accent")))
-	_ui_root.add_child(_hud_tooltip)
-	_hud_tooltip_label = _label("", 19, _theme_color("ink"))
-	_hud_tooltip_label.name = "HUDTooltipLabel"
-	_hud_tooltip.add_child(_hud_tooltip_label)
+	_ensure_apple_hud_panel()
+	_apple_hud_panel.mount(_ui_root, _apple_hud_mount_deps())
+	if not _apple_hud_panel.settings_pressed.is_connected(_toggle_settings_window):
+		_apple_hud_panel.settings_pressed.connect(_toggle_settings_window)
 	_ensure_edge_drawer()
 	_edge_drawer.configure(
 		HUD_RAIL_WIDTH,
@@ -2034,51 +1944,76 @@ func _build_apple_hud() -> void:
 		HUD_DRAWER_CLOSE_DURATION,
 		HUD_DRAWER_CLOSE_DELAY
 	)
-	_edge_drawer.attach(_hud_panel, _hud_reveal_zone)
-	_edge_drawer.add_companion(_hud_tooltip)
+	_edge_drawer.attach(_apple_hud_panel.get_rail(), _apple_hud_panel.get_reveal_zone())
+	_edge_drawer.add_companion(_apple_hud_panel.get_tooltip())
 	_sync_edge_drawer_enabled()
 	_layout_hud_rail()
 
 
-func _add_hud_icon(parent: VBoxContainer, node_name: String, kind: String, texture_path: String) -> Button:
-	var icon := Button.new()
-	icon.name = node_name
-	icon.set_meta("hud_icon", true)
-	icon.text = ""
-	icon.icon = _load_runtime_texture(texture_path)
-	icon.custom_minimum_size = Vector2(60, 60)
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon.focus_mode = Control.FOCUS_ALL
-	icon.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	icon.pressed.connect(_show_hud_tooltip.bind(kind, icon))
-	icon.mouse_entered.connect(_show_hud_tooltip.bind(kind, icon))
-	icon.mouse_exited.connect(_hide_hud_tooltip)
-	parent.add_child(icon)
-	return icon
-
-
-func _show_hud_tooltip(kind: String, source: Control) -> void:
-	if _hud_tooltip == null or _hud_tooltip_label == null or source == null:
+func _ensure_apple_hud_panel() -> void:
+	if _apple_hud_panel != null and is_instance_valid(_apple_hud_panel):
 		return
-	match kind:
-		"pollution":
-			var progress := _day_progress_snapshot()
-			_hud_tooltip_label.text = "污染 %d%%" % int(progress.get("pollution", 0))
-		"money":
-			_hud_tooltip_label.text = "资金 %d" % game.money
-		"settings":
-			_hud_tooltip_label.text = "设置"
-		_:
-			_hud_tooltip_label.text = ""
-	_hud_tooltip.position = source.global_position + Vector2(118, 18)
-	_hud_tooltip.visible = true
+	_apple_hud_panel = AppleHudPanelScript.new()
+	_apple_hud_panel.name = "AppleHudPanelHost"
+	add_child(_apple_hud_panel)
 
 
-func _hide_hud_tooltip() -> void:
-	if _hud_tooltip != null:
-		_hud_tooltip.visible = false
+func _apple_hud_mount_deps() -> Dictionary:
+	return {
+		"panel_factory": _panel,
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"style_factory": _style,
+		"load_texture": _load_runtime_texture,
+		"rail_width": HUD_RAIL_WIDTH,
+		"rail_max_height": HUD_RAIL_MAX_HEIGHT,
+		"drawer_edge_hit_width": HUD_DRAWER_EDGE_HIT_WIDTH,
+		"drawer_edge_cue_width": HUD_DRAWER_EDGE_CUE_WIDTH,
+		"drawer_open_duration": HUD_DRAWER_OPEN_DURATION,
+		"drawer_close_duration": HUD_DRAWER_CLOSE_DURATION,
+		"pollution_icon_path": HUD_POLLUTION_ICON_PATH,
+		"money_icon_path": HUD_MONEY_ICON_PATH,
+		"settings_icon_path": HUD_SETTINGS_ICON_PATH,
+		"on_tooltip_hidden": _on_apple_hud_tooltip_hidden,
+	}
+
+
+func _on_apple_hud_tooltip_hidden() -> void:
 	if _edge_drawer != null:
 		_edge_drawer.schedule_close()
+
+
+func _apple_hud_snapshot() -> Dictionary:
+	var progress := _day_progress_snapshot()
+	return {
+		"pollution": int(progress.get("pollution", 0)),
+		"money": game.money,
+		"actions": _action_text(game.actions_remaining),
+		"tooltips": {
+			"pollution": "污染 %d%%" % int(progress.get("pollution", 0)),
+			"money": "资金 %d" % game.money,
+			"settings": "设置",
+		},
+	}
+
+
+func _render_apple_hud() -> void:
+	if _apple_hud_panel == null or not is_instance_valid(_apple_hud_panel):
+		_apple_hud_panel = null
+		return
+	_apple_hud_panel.render(_apple_hud_snapshot())
+
+
+func _hud_rail() -> PanelContainer:
+	if _apple_hud_panel == null:
+		return null
+	return _apple_hud_panel.get_rail()
+
+
+func _hud_actions_label_ref() -> Label:
+	if _apple_hud_panel == null:
+		return null
+	return _apple_hud_panel.get_actions_label()
 
 
 func _is_hud_drawer_expanded() -> bool:
@@ -2153,8 +2088,10 @@ func _build_cinematic_bars() -> void:
 
 
 func _layout_hud_rail() -> void:
-	if _hud_panel == null:
+	var hud_rail := _hud_rail()
+	if hud_rail == null:
 		return
+	var hud_reveal_zone: Control = _apple_hud_panel.get_reveal_zone() if _apple_hud_panel != null else null
 	var viewport_size := _viewport_size()
 	var uses_cinematic_frame: bool = _game_started and game != null and game.view_state == "npc_up"
 	var frame_inset := 0.0
@@ -2173,24 +2110,24 @@ func _layout_hud_rail() -> void:
 	if clamped_bottom - clamped_top > available_height:
 		clamped_top = top_limit
 		clamped_bottom = bottom_limit
-	_hud_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_hud_panel.offset_left = 0.0
-	_hud_panel.offset_top = clamped_top
-	_hud_panel.offset_right = HUD_RAIL_WIDTH
-	_hud_panel.offset_bottom = clamped_bottom
-	_hud_panel.position.x = rail_x
-	_hud_panel.set_meta("cinematic_safe_top", top_limit)
-	_hud_panel.set_meta("cinematic_safe_bottom", bottom_limit)
-	_hud_panel.set_meta("collapsed_x", _hud_drawer_x(false))
-	_hud_panel.set_meta("expanded_x", _hud_drawer_x(true))
-	if _hud_reveal_zone != null:
-		_hud_reveal_zone.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		_hud_reveal_zone.offset_left = 0.0
-		_hud_reveal_zone.offset_top = center_y - rail_height * 0.5
-		_hud_reveal_zone.offset_right = HUD_DRAWER_EDGE_HIT_WIDTH
-		_hud_reveal_zone.offset_bottom = center_y + rail_height * 0.5
+	hud_rail.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	hud_rail.offset_left = 0.0
+	hud_rail.offset_top = clamped_top
+	hud_rail.offset_right = HUD_RAIL_WIDTH
+	hud_rail.offset_bottom = clamped_bottom
+	hud_rail.position.x = rail_x
+	hud_rail.set_meta("cinematic_safe_top", top_limit)
+	hud_rail.set_meta("cinematic_safe_bottom", bottom_limit)
+	hud_rail.set_meta("collapsed_x", _hud_drawer_x(false))
+	hud_rail.set_meta("expanded_x", _hud_drawer_x(true))
+	if hud_reveal_zone != null:
+		hud_reveal_zone.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		hud_reveal_zone.offset_left = 0.0
+		hud_reveal_zone.offset_top = center_y - rail_height * 0.5
+		hud_reveal_zone.offset_right = HUD_DRAWER_EDGE_HIT_WIDTH
+		hud_reveal_zone.offset_bottom = center_y + rail_height * 0.5
 	if _window_manager != null:
-		_window_manager.set_window_min_x("bank", _hud_panel.get_global_rect().end.x + 12.0)
+		_window_manager.set_window_min_x("bank", hud_rail.get_global_rect().end.x + 12.0)
 
 
 func _build_settings_window() -> void:
@@ -2585,15 +2522,17 @@ func _phone_launcher_mount_deps() -> Dictionary:
 		"viewport_size": _viewport_size,
 		"hud_safe_left": func() -> float:
 			var safe_left := 12.0
-			if _hud_panel != null:
-				safe_left = maxf(safe_left, _hud_panel.offset_right + 10.0)
+			var hud_rail := _hud_rail()
+			if hud_rail != null:
+				safe_left = maxf(safe_left, hud_rail.offset_right + 10.0)
 			return safe_left,
 		"phone_popup_hud_safe_left": func() -> float:
 			var safe_left := 176.0
-			if _hud_panel != null:
-				safe_left = _hud_panel.offset_right + 18.0
+			var hud_rail := _hud_rail()
+			if hud_rail != null:
+				safe_left = hud_rail.offset_right + 18.0
 			return safe_left,
-		"notebook_window_left": func() -> float: return 188.0 if _hud_panel != null else 44.0,
+		"notebook_window_left": func() -> float: return 188.0 if _hud_rail() != null else 44.0,
 		"launcher_wallpaper_path": PHONE_LAUNCHER_WALLPAPER_PATH,
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 	}
@@ -2903,7 +2842,8 @@ func _close_settings_window() -> void:
 
 
 func _on_settings_open_changed(_open: bool) -> void:
-	_hide_hud_tooltip()
+	if _apple_hud_panel != null:
+		_apple_hud_panel.hide_tooltip()
 	_update_visibility()
 
 
@@ -2983,8 +2923,9 @@ func _quit_game() -> void:
 
 func _apply_reality_layout() -> void:
 	var hud_right := 0.0
-	if _hud_panel != null:
-		hud_right = _hud_panel.offset_right
+	var hud_rail := _hud_rail()
+	if hud_rail != null:
+		hud_right = hud_rail.offset_right
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.layout(hud_right)
 
@@ -3001,8 +2942,9 @@ func _apply_view_toggle_layout() -> void:
 		_view_toggle_button.offset_bottom = -36.0
 		return
 	var safe_left := 12.0
-	if _hud_panel != null:
-		safe_left = _hud_panel.offset_right + 12.0
+	var hud_rail := _hud_rail()
+	if hud_rail != null:
+		safe_left = hud_rail.offset_right + 12.0
 	var safe_right := viewport_size.x - 12.0
 	var available_width := maxf(126.0, safe_right - safe_left)
 	var button_width := minf(220.0, available_width)
@@ -3027,8 +2969,9 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 		_apply_meme_bank_popup_layout(desired_bank_layout)
 	if _social_feed_panel != null:
 		var social_safe_left := 12.0
-		if _hud_panel != null:
-			social_safe_left = maxf(social_safe_left, _hud_panel.offset_right + 10.0)
+		var hud_rail := _hud_rail()
+		if hud_rail != null:
+			social_safe_left = maxf(social_safe_left, hud_rail.offset_right + 10.0)
 		_social_feed_panel.layout_detail(viewport_size, social_safe_left)
 		_social_feed_panel.layout_window(viewport_size, social_safe_left)
 	_apply_reality_layout()
@@ -3061,8 +3004,7 @@ func _render() -> void:
 
 
 func _render_status() -> void:
-	if _hud_actions_label != null:
-		_hud_actions_label.text = _action_text(game.actions_remaining)
+	_render_apple_hud()
 	if _desk_log != null:
 		_desk_log.text = log_text
 	_refresh_settings_menu_labels()
@@ -3938,8 +3880,9 @@ func _avoid_meme_bank_overlaps() -> void:
 	var viewport_size := _viewport_size()
 	var margin := 12.0
 	var min_x := margin
-	if _hud_panel != null and _hud_panel.visible:
-		min_x = maxf(min_x, _hud_panel.get_global_rect().end.x + margin)
+	var hud_rail := _hud_rail()
+	if hud_rail != null and hud_rail.visible:
+		min_x = maxf(min_x, hud_rail.get_global_rect().end.x + margin)
 	var max_x := maxf(min_x, viewport_size.x - bank_rect.size.x - margin)
 	var max_y := maxf(margin, viewport_size.y - bank_rect.size.y - margin)
 	var current := _meme_bank_window.global_position
@@ -3974,8 +3917,9 @@ func _meme_bank_overlap_targets() -> Array[Control]:
 			targets.append(app_window)
 	if _view_toggle_button != null and _view_toggle_button.is_visible_in_tree():
 		targets.append(_view_toggle_button)
-	if _hud_actions_label != null and _hud_actions_label.is_visible_in_tree():
-		targets.append(_hud_actions_label)
+	var hud_actions_label := _hud_actions_label_ref()
+	if hud_actions_label != null and hud_actions_label.is_visible_in_tree():
+		targets.append(hud_actions_label)
 	for node_name in ["SocialBottomNav", "SocialHomeIndicator"]:
 		var social_control := _find_control_by_name(_ui_root, node_name)
 		if social_control != null and social_control.is_visible_in_tree():
@@ -4166,7 +4110,7 @@ func _ensure_action_spend_panel() -> void:
 
 func _action_spend_mount_deps() -> Dictionary:
 	return {
-		"hud_actions_label": _hud_actions_label,
+		"hud_actions_label": _hud_actions_label_ref(),
 		"action_text": _action_text,
 		"theme_color": _theme_color,
 		"ui_font_size": _ui_font_size,
@@ -4178,11 +4122,11 @@ func _sync_action_spend_refs() -> void:
 	if _action_spend_panel == null:
 		return
 	_action_spend_overlay = _action_spend_panel.get_overlay()
-	_action_spend_panel.update_hud_label_ref(_hud_actions_label)
+	_action_spend_panel.update_hud_label_ref(_hud_actions_label_ref())
 
 
 func _play_action_spend_animation(before_actions: int, after_actions: int) -> void:
-	if _hud_actions_label == null or _action_spend_panel == null:
+	if _hud_actions_label_ref() == null or _action_spend_panel == null:
 		return
 	if _action_tick_audio != null and _action_tick_audio.stream != null and _action_tick_audio.is_inside_tree():
 		_action_tick_audio.play()
@@ -4203,8 +4147,9 @@ func _finish_action_spend_animation() -> void:
 	_set_input_locked(false)
 	_sync_audio_state(false)
 	_render()
-	if _hud_actions_label != null and after_actions >= 0:
-		_hud_actions_label.text = _action_text(after_actions)
+	var hud_actions_label := _hud_actions_label_ref()
+	if hud_actions_label != null and after_actions >= 0:
+		hud_actions_label.text = _action_text(after_actions)
 
 
 func _build_day_transition_overlay() -> void:
@@ -5069,8 +5014,9 @@ func _after_effective_action(actions_before: int = -1) -> void:
 		_play_pollution_flashback()
 		return
 	if actions_before >= 0 and game.actions_remaining < actions_before:
-		if _hud_actions_label != null:
-			_hud_actions_label.text = _action_text(actions_before)
+		var hud_actions_label := _hud_actions_label_ref()
+		if hud_actions_label != null:
+			hud_actions_label.text = _action_text(actions_before)
 		_play_action_spend_animation(actions_before, game.actions_remaining)
 		return
 	if _settle_day_and_present_rewards():
