@@ -28,6 +28,7 @@ const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
+const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -461,11 +462,8 @@ var _flashback_audio: AudioStreamPlayer
 var _action_tick_audio: AudioStreamPlayer
 var _cover_watcher_stinger: AudioStreamPlayer
 var _audio_tween: Tween
+var _action_spend_panel
 var _action_spend_overlay: Control
-var _action_spend_blackout: ColorRect
-var _action_spend_label: Label
-var _action_spend_tween: Tween
-var _action_spend_after_actions := -1
 var _action_spend_should_settle := false
 var _day_transition_overlay: Control
 var _day_transition_day_label: Label
@@ -687,7 +685,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_app_windows = {}
 	_app_titles = {}
 	_app_bodies = {}
-	_action_spend_after_actions = -1
+	if _action_spend_panel != null:
+		_action_spend_panel.reset_state()
 	_action_spend_should_settle = false
 	_day_transition_settled = false
 	_ensure_window_manager()
@@ -4265,92 +4264,60 @@ func _apply_ui_theme(node: Node = null) -> void:
 
 
 func _build_action_spend_overlay() -> void:
-	_action_spend_overlay = Control.new()
-	_action_spend_overlay.name = "ActionSpendOverlay"
-	_action_spend_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_action_spend_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_action_spend_overlay.visible = false
-	_action_spend_overlay.z_index = 90
-	_ui_root.add_child(_action_spend_overlay)
+	_ensure_action_spend_panel()
+	_action_spend_panel.mount(_ui_root, _action_spend_mount_deps())
+	_sync_action_spend_refs()
 
-	_action_spend_blackout = null
 
-	_action_spend_label = Label.new()
-	_action_spend_label.name = "ActionSpendLabel"
-	_action_spend_label.set_meta("action_overlay_text", false)
-	_action_spend_label.set_meta("action_animation_mode", "inline_pulse")
-	_action_spend_label.visible = false
-	_action_spend_label.add_theme_font_size_override("font_size", _ui_font_size(20))
-	_action_spend_label.add_theme_color_override("font_color", _theme_color("muted"))
-	_action_spend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_action_spend_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_action_spend_overlay.add_child(_action_spend_label)
+func _ensure_action_spend_panel() -> void:
+	if _action_spend_panel != null and is_instance_valid(_action_spend_panel):
+		return
+	_action_spend_panel = ActionSpendPanelScript.new()
+	_action_spend_panel.name = "ActionSpendPanel"
+	add_child(_action_spend_panel)
+
+
+func _action_spend_mount_deps() -> Dictionary:
+	return {
+		"hud_actions_label": _hud_actions_label,
+		"action_text": _action_text,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"on_animation_finished": _finish_action_spend_animation,
+	}
+
+
+func _sync_action_spend_refs() -> void:
+	if _action_spend_panel == null:
+		return
+	_action_spend_overlay = _action_spend_panel.get_overlay()
+	_action_spend_panel.update_hud_label_ref(_hud_actions_label)
 
 
 func _play_action_spend_animation(before_actions: int, after_actions: int) -> void:
-	if _hud_actions_label == null:
+	if _hud_actions_label == null or _action_spend_panel == null:
 		return
 	if _action_tick_audio != null and _action_tick_audio.stream != null and _action_tick_audio.is_inside_tree():
 		_action_tick_audio.play()
-	if _action_spend_tween != null and _action_spend_tween.is_valid():
-		_action_spend_tween.kill()
-	_action_spend_after_actions = after_actions
 	_action_spend_should_settle = game.needs_day_settlement
-	_hud_actions_label.text = _action_text(before_actions)
-	_hud_actions_label.scale = Vector2.ONE
-	_hud_actions_label.pivot_offset = _hud_actions_label.size * 0.5
-	if _action_spend_overlay != null:
-		_action_spend_overlay.visible = false
 	_set_input_locked(true)
-
-	_action_spend_tween = create_tween()
-	_action_spend_tween.tween_property(_hud_actions_label, "scale", Vector2(1.07, 1.07), 0.08).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_action_spend_tween.tween_callback(_set_action_spend_center_text.bind(after_actions))
-	_action_spend_tween.tween_property(_hud_actions_label, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_action_spend_tween.tween_callback(_finish_action_spend_animation)
-
-
-func _set_action_spend_center_text(after_actions: int) -> void:
-	if _hud_actions_label != null:
-		_hud_actions_label.text = _action_text(after_actions)
-	if _action_spend_label != null:
-		_action_spend_label.text = _action_text(after_actions)
+	_action_spend_panel.play(before_actions, after_actions)
 
 
 func _finish_action_spend_animation() -> void:
-	if _action_spend_tween != null and _action_spend_tween.is_valid():
-		_action_spend_tween.kill()
-	_action_spend_tween = null
-	if _action_spend_overlay != null:
-		_action_spend_overlay.visible = false
-	if _action_spend_label != null:
-		_action_spend_label.scale = Vector2.ONE
-	if _hud_actions_label != null:
-		_hud_actions_label.scale = Vector2.ONE
+	var after_actions := -1
+	if _action_spend_panel != null:
+		after_actions = _action_spend_panel.finish()
 	var should_transition := _action_spend_should_settle
 	_action_spend_should_settle = false
 	if should_transition:
-		_action_spend_after_actions = -1
 		_play_day_transition()
 		return
 	_set_input_locked(false)
 	_sync_audio_state(false)
 	_render()
-	if _hud_actions_label != null and _action_spend_after_actions >= 0:
-		_hud_actions_label.text = _action_text(_action_spend_after_actions)
-	_action_spend_after_actions = -1
-
-
-func _action_spend_start_position() -> Vector2:
-	if _hud_actions_label == null:
-		return Vector2(28, 320)
-	return _hud_actions_label.global_position
-
-
-func _action_spend_center_position() -> Vector2:
-	var viewport_size := _viewport_size()
-	var label_size := _action_spend_label.custom_minimum_size if _action_spend_label != null else Vector2(620, 92)
-	return (viewport_size - label_size) * 0.5
+	if _hud_actions_label != null and after_actions >= 0:
+		_hud_actions_label.text = _action_text(after_actions)
 
 
 func _build_day_transition_overlay() -> void:
