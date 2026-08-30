@@ -77,6 +77,8 @@ func _test_all_script_literals_have_translations() -> void:
 		"res://scripts/babel_meme_game.gd",
 		"res://scripts/meme_game_state.gd",
 		"res://scripts/reality_floor_generator.gd",
+		"res://scripts/ui/prologue_panel.gd",
+		"res://scripts/ui/ending_screen_panel.gd",
 	]:
 		var file := FileAccess.open(path, FileAccess.READ)
 		if file == null:
@@ -138,6 +140,16 @@ func _test_audited_localization_copy() -> void:
 	_assert_true(not state_en.has("你想说一句普通的话。第七层先开口了。"), "epilogue copy should leave the state catalog after moving to the content catalog")
 	_assert_true(not ui_en.has("写着“小月亮”的旧名牌"), "prerequisite labels should leave the UI catalog after moving to the content catalog")
 	_assert_true(ui_en.has("沿主路往前走，在右侧第一盏不亮的路灯脚边。"), "prerequisite location hints should remain in the UI catalog for event_log")
+	_assert_eq(ui_en["进入第一天"], "Enter Day One", "prologue last-page chrome should stay in the UI catalog")
+	_assert_eq(ui_en["继续"], "Continue", "prologue continue chrome should stay in the UI catalog")
+	_assert_eq(ui_en["塔顶没有人"], "No One Is at the Top of the Tower", "ending title chrome should stay in the UI catalog")
+	_assert_eq(ui_en["重开"], "Start Over", "ending restart chrome should stay in the UI catalog")
+	_assert_true(ui_en.has("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。"), "ending result template should stay in the UI catalog")
+	_assert_true(ui_en.has("关系残留 %d / 100  ·  %s"), "ending residue template should stay in the UI catalog")
+	_assert_true(ui_en.has("你低头，手机边框从视野下方亮起来。"), "new-game log chrome should stay in the UI catalog")
+	_assert_true(ui_en.has("你回到离开时的位置。"), "continue-game log chrome should stay in the UI catalog")
+	_assert_true(not ui_en.has("NO SIGNAL  /  DAY 01  /  PRIVATE FREQUENCY"), "diegetic signal headers should not enter the UI catalog")
+	_assert_true(not ui_en.has("TRANSMISSION %02d / %02d"), "diegetic transmission counters should not enter the UI catalog")
 	_assert_true(not state_en.has("信号商人"), "removed merchant identity should not survive in the state catalog")
 	var locale = LocaleScript.new()
 	locale.set_locale("zh")
@@ -255,10 +267,35 @@ func _test_language_selection_and_settings_ui() -> void:
 		_assert_eq(continue_button.text, "Continue", "choosing English should rebuild the main menu in English")
 	game_root.new_game()
 	await process_frame
+	var prologue_header := _find_ui_node(game_root, "PrologueSignalHeader") as Label
+	var prologue_counter := _find_ui_node(game_root, "PrologueCounter") as Label
+	var prologue_continue := _find_ui_node(game_root, "PrologueContinueButton") as Button
+	_assert_true(prologue_header != null, "new game should show the prologue overlay")
+	if prologue_header != null:
+		_assert_eq(prologue_header.text, "NO SIGNAL  /  DAY 01  /  PRIVATE FREQUENCY", "prologue signal header should stay diegetic English")
+	if prologue_counter != null:
+		_assert_true(str(prologue_counter.text).begins_with("TRANSMISSION "), "prologue counter should stay diegetic English")
+	if prologue_continue != null:
+		_assert_eq(prologue_continue.text, "Continue", "prologue continue chrome should use the UI catalog")
 	var language_option := _find_ui_node(game_root, "SettingsLanguageOption") as OptionButton
 	var manual_save := _find_ui_node(game_root, "SettingsManualSaveButton") as Button
 	_assert_true(language_option != null, "settings should expose an in-game language switcher")
 	_assert_true(manual_save != null, "settings should expose manual save")
+	game_root._skip_prologue()
+	game_root.game.ending_unlocked = true
+	game_root.game.relationship_residue = 10
+	game_root._render()
+	await process_frame
+	var ending_restart := _find_node_by_name(game_root, "EndingRestartButton") as Button
+	var ending_residue := _find_node_by_name(game_root, "EndingResidue") as Label
+	var ending_system := _find_node_by_name(game_root, "EndingSystemLine") as Label
+	_assert_true(ending_restart != null, "ending screen should expose restart chrome")
+	if ending_restart != null:
+		_assert_eq(ending_restart.text, "Start Over", "ending restart chrome should use the UI catalog")
+	if ending_residue != null:
+		_assert_eq(ending_residue.text, "RELATIONSHIP RESIDUE 10 / 100  ·  They can still recognize you", "ending residue chrome should translate the UI catalog template")
+	if ending_system != null:
+		_assert_eq(ending_system.text, "FLOOR 05  /  NO SIGNAL  /  WISDOM USER NOT FOUND", "ending system line should stay diegetic English")
 	game_root.game.pollution = 60
 	_assert_eq(game_root._corrupt("I want to speak normally."), "□ want to speak □", "English corruption should replace complete words instead of shredding letters")
 	game_root.queue_free()

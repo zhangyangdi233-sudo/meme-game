@@ -13,6 +13,7 @@ var _prologue_lines: Array = []
 
 var _label_factory: Callable
 var _theme_color_fn: Callable
+var _set_localized_property_fn: Callable
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
@@ -51,6 +52,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 		return
 	_label_factory = deps.get("label_factory", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
+	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 	var lines: Variant = deps.get("prologue_lines", [])
 	if lines is Array:
 		_prologue_lines = lines
@@ -96,11 +98,13 @@ func _build_prologue_overlay(parent: Control) -> void:
 	) as Label
 	signal_header.name = "PrologueSignalHeader"
 	signal_header.set_meta("on_dark", true)
+	signal_header.set_meta("skip_localization", true)
 	copy_column.add_child(signal_header)
 
 	_prologue_counter_label = _label_factory.call("", 14, _theme_color_fn.call("muted")) as Label
 	_prologue_counter_label.name = "PrologueCounter"
 	_prologue_counter_label.set_meta("on_dark", true)
+	_prologue_counter_label.set_meta("skip_localization", true)
 	copy_column.add_child(_prologue_counter_label)
 
 	_prologue_line_label = _label_factory.call("", 34, _theme_color_fn.call("surface")) as Label
@@ -109,6 +113,7 @@ func _build_prologue_overlay(parent: Control) -> void:
 	_prologue_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_prologue_line_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_prologue_line_label.set_meta("on_dark", true)
+	_prologue_line_label.set_meta("skip_localization", true)
 	copy_column.add_child(_prologue_line_label)
 
 	_prologue_continue_button = Button.new()
@@ -127,6 +132,8 @@ func _render_prologue_line() -> void:
 	_prologue_line_label.text = str(_prologue_lines[_prologue_index])
 	_prologue_counter_label.text = "TRANSMISSION %02d / %02d" % [_prologue_index + 1, _prologue_lines.size()]
 	_prologue_continue_button.text = "进入第一天" if _prologue_index == _prologue_lines.size() - 1 else "继续"
+	if _set_localized_property_fn.is_valid():
+		_set_localized_property_fn.call(_prologue_continue_button, "text")
 
 
 func _finish_prologue() -> void:

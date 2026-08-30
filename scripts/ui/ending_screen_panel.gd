@@ -7,6 +7,8 @@ signal ending_language_selected(choice_id: String)
 var _label_factory: Callable
 var _theme_color_fn: Callable
 var _restart_fn: Callable
+var _translate_fn: Callable
+var _set_localized_property_fn: Callable
 var _parent: Control
 
 
@@ -28,6 +30,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_label_factory = deps.get("label_factory", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_restart_fn = deps.get("restart", Callable())
+	_translate_fn = deps.get("translate", Callable())
+	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 
 
 func _clear_parent(parent: Control) -> void:
@@ -73,6 +77,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	system_line.offset_bottom = 78
 	system_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	system_line.set_meta("on_dark", true)
+	system_line.set_meta("skip_localization", true)
 	screen.add_child(system_line)
 
 	var center := VBoxContainer.new()
@@ -98,6 +103,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.set_meta("on_dark", true)
+	body.set_meta("skip_localization", true)
 	center.add_child(body)
 
 	if bool(state.get("show_language_choices", false)):
@@ -121,10 +127,11 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 			button.text = str(choice.get("label", ""))
 			button.custom_minimum_size = Vector2(172, 58)
 			button.pressed.connect(_on_language_choice_pressed.bind(choice_id), CONNECT_DEFERRED)
+			button.set_meta("skip_localization", true)
 			choices.add_child(button)
 	else:
 		var result := _label_factory.call(
-			"你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。" % str(state.get("language_output", "")),
+			_localized_text("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。") % str(state.get("language_output", "")),
 			27,
 			_theme_color_fn.call("surface"),
 		) as Label
@@ -132,16 +139,18 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 		result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		result.set_meta("on_dark", true)
+		result.set_meta("skip_localization", true)
 		center.add_child(result)
 
 	var residue := _label_factory.call(
-		"关系残留 %d / 100  ·  %s" % [int(state.get("relationship_residue", 0)), str(state.get("relationship_state_label", ""))],
+		_localized_text("关系残留 %d / 100  ·  %s") % [int(state.get("relationship_residue", 0)), _localized_text(str(state.get("relationship_state_label", "")))],
 		16,
 		_theme_color_fn.call("muted"),
 	) as Label
 	residue.name = "EndingResidue"
 	residue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	residue.set_meta("on_dark", true)
+	residue.set_meta("skip_localization", true)
 	center.add_child(residue)
 
 	var restart := Button.new()
@@ -150,7 +159,15 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	restart.custom_minimum_size = Vector2(172, 54)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	restart.pressed.connect(_on_restart_pressed, CONNECT_DEFERRED)
+	if _set_localized_property_fn.is_valid():
+		_set_localized_property_fn.call(restart, "text")
 	center.add_child(restart)
+
+
+func _localized_text(source: String) -> String:
+	if _translate_fn.is_valid():
+		return str(_translate_fn.call(source))
+	return source
 
 
 func _on_language_choice_pressed(choice_id: String) -> void:

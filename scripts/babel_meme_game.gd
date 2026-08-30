@@ -1912,6 +1912,7 @@ func _prologue_mount_deps() -> Dictionary:
 	return {
 		"label_factory": _label,
 		"theme_color": _theme_color,
+		"set_localized_property": _set_localized_property,
 		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
 	}
 
@@ -3624,7 +3625,7 @@ func _render_ending() -> void:
 	if _canvas == null:
 		_build_world()
 	_ensure_ending_screen_panel()
-	_ending_screen_panel.mount(_canvas, _ending_screen_mount_deps())
+	_ending_screen_panel.mount(_ui_root, _ending_screen_mount_deps())
 	_ending_screen_panel.render(_ending_screen_render_state())
 
 
@@ -3642,6 +3643,8 @@ func _ending_screen_mount_deps() -> Dictionary:
 		"label_factory": _label,
 		"theme_color": _theme_color,
 		"restart": new_game,
+		"translate": func(text: String) -> String: return _locale.translate(text),
+		"set_localized_property": _set_localized_property,
 	}
 
 
