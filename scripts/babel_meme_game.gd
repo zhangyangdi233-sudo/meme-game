@@ -20,6 +20,7 @@ const DraggableWindowManagerScript = preload("res://framework/ui/draggable_windo
 const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
+const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -386,7 +387,7 @@ var _hud_tooltip_label: Label
 var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
-var _main_menu_layer: Control
+var _main_menu_panel: MainMenuPanel
 var _prologue_overlay: Control
 var _prologue_line_label: Label
 var _prologue_counter_label: Label
@@ -1445,132 +1446,8 @@ func _build_main_menu() -> void:
 	_apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
-	_main_menu_layer = Control.new()
-	_main_menu_layer.name = "MainMenuLayer"
-	_main_menu_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_ui_root.add_child(_main_menu_layer)
-
-	var bg := ColorRect.new()
-	bg.name = "MainMenuGreenBackground"
-	bg.color = Color("5DAE6B")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_main_menu_layer.add_child(bg)
-
-	for index in 7:
-		var stripe := ColorRect.new()
-		stripe.name = "MainMenuPosterStripe%d" % index
-		stripe.color = Color(_theme_color("surface"), 0.96 if index % 2 == 0 else 0.0)
-		stripe.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		stripe.offset_left = 74 + index * 144
-		stripe.offset_top = 322
-		stripe.offset_right = stripe.offset_left + 122
-		stripe.offset_bottom = 430
-		_main_menu_layer.add_child(stripe)
-		var cut := ColorRect.new()
-		cut.name = "MainMenuBlackCut%d" % index
-		cut.color = _theme_color("ink")
-		cut.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		cut.offset_left = stripe.offset_left + 10
-		cut.offset_top = 322 + (index % 3) * 18
-		cut.offset_right = cut.offset_left + 118
-		cut.offset_bottom = cut.offset_top + 22
-		cut.rotation = deg_to_rad(-22 + index * 9)
-		_main_menu_layer.add_child(cut)
-
-	var title_stack := VBoxContainer.new()
-	title_stack.name = "MainMenuTextStack"
-	title_stack.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	title_stack.offset_left = 70
-	title_stack.offset_top = 218
-	title_stack.offset_right = 1040
-	title_stack.offset_bottom = 560
-	title_stack.add_theme_constant_override("separation", 18)
-	_main_menu_layer.add_child(title_stack)
-
-	var chapter := _label("Cartridge 3", 52, Color(_theme_color("surface"), 0.82))
-	chapter.name = "MainMenuChapter"
-	title_stack.add_child(chapter)
-
-	var title := _label("HAJIMI", 94, _theme_color("surface"))
-	title.name = "MainMenuTitle"
-	title.add_theme_color_override("font_shadow_color", _theme_color("ink"))
-	title.add_theme_constant_override("shadow_offset_x", 4)
-	title.add_theme_constant_override("shadow_offset_y", 0)
-	title_stack.add_child(title)
-
-	var subtitle := _label("Die Grenzen meiner Sprache bedeuten die Grenzen meiner Welt.", 28, Color(_theme_color("surface"), 0.78))
-	subtitle.name = "MainMenuSubtitle"
-	title_stack.add_child(subtitle)
-
-	var buttons := HBoxContainer.new()
-	buttons.name = "MainMenuButtons"
-	buttons.add_theme_constant_override("separation", 18)
-	title_stack.add_child(buttons)
-
-	var continue_button := Button.new()
-	continue_button.name = "MainMenuContinueButton"
-	continue_button.text = "继续游戏"
-	continue_button.custom_minimum_size = Vector2(168, 54)
-	continue_button.disabled = not _has_save_progress()
-	continue_button.tooltip_text = "回到上次离开的位置" if not continue_button.disabled else "暂无自动存档"
-	continue_button.pressed.connect(continue_game, CONNECT_DEFERRED)
-	buttons.add_child(continue_button)
-
-	var start_button := Button.new()
-	start_button.name = "MainMenuStartButton"
-	start_button.text = "新游戏"
-	start_button.custom_minimum_size = Vector2(168, 54)
-	start_button.pressed.connect(new_game, CONNECT_DEFERRED)
-	buttons.add_child(start_button)
-
-	var exit_button := Button.new()
-	exit_button.name = "MainMenuExitButton"
-	exit_button.text = "退出游戏"
-	exit_button.set_meta("skip_localization", true)
-	exit_button.custom_minimum_size = Vector2(168, 54)
-	exit_button.pressed.connect(_request_quit_game)
-	buttons.add_child(exit_button)
-
-	var language_button := Button.new()
-	language_button.name = "MainMenuLanguageButton"
-	language_button.text = "语言"
-	language_button.custom_minimum_size = Vector2(132, 54)
-	language_button.pressed.connect(_build_language_selection_overlay.bind(false))
-	buttons.add_child(language_button)
-
-	var mark := Control.new()
-	mark.name = "MainMenuCornerMark"
-	mark.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	mark.offset_left = -150
-	mark.offset_top = -126
-	mark.offset_right = -56
-	mark.offset_bottom = -36
-	_main_menu_layer.add_child(mark)
-	var mark_circle := ColorRect.new()
-	mark_circle.color = _theme_color("surface")
-	mark_circle.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	mark_circle.offset_left = 28
-	mark_circle.offset_top = 0
-	mark_circle.offset_right = 62
-	mark_circle.offset_bottom = 34
-	mark.add_child(mark_circle)
-	var mark_stem := ColorRect.new()
-	mark_stem.color = _theme_color("ink")
-	mark_stem.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	mark_stem.offset_left = 46
-	mark_stem.offset_top = 0
-	mark_stem.offset_right = 62
-	mark_stem.offset_bottom = 34
-	mark.add_child(mark_stem)
-	for index in 3:
-		var base := ColorRect.new()
-		base.color = _theme_color("surface")
-		base.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		base.offset_left = 20 - index * 2
-		base.offset_top = 54 + index * 10
-		base.offset_right = 76 + index * 2
-		base.offset_bottom = base.offset_top + 4
-		mark.add_child(base)
+	_ensure_main_menu_panel()
+	_main_menu_panel.mount(_ui_root, _main_menu_mount_deps())
 
 	_apply_ui_theme()
 	_refresh_localized_ui()
@@ -2953,6 +2830,41 @@ func _layout_settings_window() -> void:
 	if _settings_history_panel == null:
 		return
 	_settings_history_panel.layout_settings(_viewport_size())
+
+
+func _ensure_main_menu_panel() -> void:
+	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
+		return
+	_main_menu_panel = MainMenuPanelScript.new()
+	_main_menu_panel.name = "MainMenuPanel"
+	add_child(_main_menu_panel)
+	_connect_main_menu_panel_signals()
+
+
+func _main_menu_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"has_save": _has_save_progress,
+	}
+
+
+func _connect_main_menu_panel_signals() -> void:
+	var panel := _main_menu_panel
+	if panel == null:
+		return
+	if not panel.start_game_requested.is_connected(new_game):
+		panel.start_game_requested.connect(new_game, CONNECT_DEFERRED)
+	if not panel.continue_game_requested.is_connected(continue_game):
+		panel.continue_game_requested.connect(continue_game, CONNECT_DEFERRED)
+	if not panel.exit_game_requested.is_connected(_request_quit_game):
+		panel.exit_game_requested.connect(_request_quit_game)
+	if not panel.language_picker_requested.is_connected(_on_main_menu_language_picker_requested):
+		panel.language_picker_requested.connect(_on_main_menu_language_picker_requested)
+
+
+func _on_main_menu_language_picker_requested() -> void:
+	_build_language_selection_overlay(false)
 
 
 func _ensure_settings_history_panel() -> void:
