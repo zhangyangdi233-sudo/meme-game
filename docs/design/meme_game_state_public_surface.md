@@ -16,6 +16,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 2C) | 4 — + `settings_changed` |
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` |
 | Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
+| Signals (slice 4) | 6 — + `day_progress_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
@@ -125,7 +126,17 @@ Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlemen
 
 Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new adapter code should prefer snapshot + signal for settings UI refresh.
 
-### Pollution / tower
+### Pollution / tower — **slice 4 seam (pollution vertical only)**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` |
+| Signal | `day_progress_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `change_pollution()` only in slice 4 |
+| Intent | `change_pollution(amount)` — existing; now emits when pollution, pending floor, or flashback state changes |
+
+Legacy fields `day` / `pollution` / `tower_floor` / `needs_day_settlement` / `day_ended_reason` / `pending_floor_transition` remain for save/load; new adapter grouped reads should prefer snapshot + signal.
+
+### Pollution / tower (legacy listing)
 
 `change_pollution()`, `check_pollution_flashback()`, `consume_pollution_flashback()`, `request_floor_transition_for_pollution()`, `resolve_floor_transition_at_boundary()`, `complete_floor_three()`, `get_gameplay_metrics()`
 
@@ -376,3 +387,33 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 **Adapter pattern:** connect `reality_conversation_changed` → `_render()`; remove redundant `_render()` after the intents above when the signal covers UI refresh. Keep `_after_effective_action`, locked-out cleanup, and doll sync side effects. Read `phase` / `mode` / `revealed_units` via `_reality_conversation_snapshot()` instead of bare `game.conversation_*` fields where trivial.
 
 **Stop here for human review** before slice 4b-4.
+
+---
+
+## Slice 4 contract (day progression)
+
+```gdscript
+# Snapshot (read)
+{
+  "day": int,
+  "pollution": int,
+  "tower_floor": int,
+  "needs_day_settlement": bool,
+  "day_ended_reason": String,
+  "pending_floor_transition": int,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...snapshot fields...
+  "change": {
+    "kind": "pollution",
+    "target_id": String,  # amount passed to change_pollution()
+    "active": bool,         # true when amount > 0
+  },
+}
+```
+
+**Adapter pattern:** connect `day_progress_changed` → `_render()`; read grouped day/pollution/tower via `_day_progress_snapshot()` in `_render_status()`, pollution HUD tooltip, and `_pollution_stage_snapshot()`. Send pollution intents via `change_pollution()` (usually indirect through publish/craft paths). Slice 4 emits from the pollution vertical only; `spend_action` exhaustion and `settle_day_if_needed` remain on `action_economy_changed` / direct reads until a later slice.
+
+**Stop here for human review** before slice 5.

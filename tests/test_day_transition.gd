@@ -44,6 +44,17 @@ func _run() -> void:
 		_assert_true(day_overlay.z_index > action_overlay.z_index, "next-day overlay should cover the action pulse")
 		_assert_true(day_overlay.z_index < flashback_overlay.z_index, "pollution flashback should retain highest visual priority")
 
+	_assert_true(
+		game_root.game.day_progress_changed.is_connected(game_root._on_day_progress_changed),
+		"adapter should listen for day progress changes"
+	)
+	var progress_hits: Array[int] = [0]
+	game_root.game.day_progress_changed.connect(func(_snapshot: Dictionary) -> void: progress_hits[0] += 1)
+	game_root.game.change_pollution(12)
+	_assert_eq(progress_hits[0], 1, "pollution change should emit day_progress_changed on the live adapter")
+	var progress: Dictionary = game_root.game.get_day_progress_snapshot()
+	_assert_eq(int(progress.get("pollution", -1)), 12, "adapter state should expose the pollution snapshot")
+
 	game_root.game.actions_remaining = 1
 	_assert_true(game_root.game.spend_action("transition-test"), "last daily action should be spendable")
 	game_root._play_action_spend_animation(1, 0)

@@ -6,6 +6,7 @@ signal phone_shell_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
 signal settings_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
+signal day_progress_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -799,12 +800,37 @@ func check_pollution_flashback(previous_pollution: int) -> bool:
 	return true
 
 
+func get_day_progress_snapshot() -> Dictionary:
+	return {
+		"day": day,
+		"pollution": pollution,
+		"tower_floor": tower_floor,
+		"needs_day_settlement": needs_day_settlement,
+		"day_ended_reason": day_ended_reason,
+		"pending_floor_transition": pending_floor_transition,
+	}
+
+
+func _emit_day_progress_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_day_progress_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	day_progress_changed.emit(snapshot)
+
+
 func change_pollution(amount: int) -> int:
 	var previous_pollution := pollution
+	var previous_pending := pending_floor_transition
 	pollution = clampi(pollution + amount, 0, 100)
 	request_floor_transition_for_pollution()
-	check_pollution_flashback(previous_pollution)
-	return pollution - previous_pollution
+	var flashback_triggered := check_pollution_flashback(previous_pollution)
+	var delta := pollution - previous_pollution
+	if delta != 0 or pending_floor_transition != previous_pending or flashback_triggered:
+		_emit_day_progress_changed("pollution", str(amount), amount > 0)
+	return delta
 
 
 func consume_pollution_flashback() -> bool:

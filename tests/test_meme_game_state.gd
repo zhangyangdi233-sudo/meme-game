@@ -14,6 +14,8 @@ var _settings_signal_count := 0
 var _last_settings_snapshot: Dictionary = {}
 var _reality_conversation_signal_count := 0
 var _last_reality_conversation_snapshot: Dictionary = {}
+var _day_progress_signal_count := 0
+var _last_day_progress_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -39,6 +41,7 @@ func _run() -> void:
 	test_action_economy_snapshot_and_signal()
 	test_settings_snapshot_and_signal()
 	test_reality_conversation_snapshot_and_signal()
+	test_day_progress_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -395,6 +398,57 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 func _capture_reality_conversation(snapshot: Dictionary) -> void:
 	_reality_conversation_signal_count += 1
 	_last_reality_conversation_snapshot = snapshot
+
+
+func test_day_progress_snapshot_and_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_day_progress_signal_count = 0
+	_last_day_progress_snapshot = {}
+	game.day_progress_changed.connect(_capture_day_progress)
+
+	var initial: Dictionary = game.get_day_progress_snapshot()
+	_assert_eq(int(initial.get("day", -1)), 1, "new run should start on day one")
+	_assert_eq(int(initial.get("pollution", -1)), 0, "new run should start at zero pollution")
+	_assert_eq(int(initial.get("tower_floor", -1)), 1, "new run should start on floor one")
+	_assert_true(not bool(initial.get("needs_day_settlement", true)), "new run should not need settlement")
+	_assert_eq(str(initial.get("day_ended_reason", "unset")), "", "new run should have no day-end reason")
+	_assert_eq(int(initial.get("pending_floor_transition", -1)), 0, "new run should have no pending floor transition")
+
+	game.change_pollution(10)
+	_assert_eq(_day_progress_signal_count, 1, "pollution change should emit once")
+	_assert_eq(int(_last_day_progress_snapshot.get("pollution", -1)), 10, "signal snapshot should reflect pollution")
+	var pollution_change: Dictionary = _last_day_progress_snapshot.get("change", {})
+	_assert_eq(str(pollution_change.get("kind", "")), "pollution", "change kind should be pollution")
+	_assert_eq(str(pollution_change.get("target_id", "")), "10", "change target should be the delta argument")
+	_assert_true(bool(pollution_change.get("active", false)), "positive pollution delta should be active")
+
+	initial["pollution"] = 99
+	_assert_eq(game.pollution, 10, "snapshot must be a copy, not live state")
+
+	_day_progress_signal_count = 0
+	game.change_pollution(0)
+	_assert_eq(_day_progress_signal_count, 0, "zero delta should not emit")
+
+	game.change_pollution(15)
+	_assert_eq(int(_last_day_progress_snapshot.get("pending_floor_transition", -1)), 2, "floor-one threshold should queue floor two")
+	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 1, "pollution alone must not move tower floor immediately")
+
+	game.change_pollution(35)
+	_assert_eq(int(_last_day_progress_snapshot.get("pollution", -1)), 60, "pollution should clamp at 100")
+	_assert_true(bool(_last_day_progress_snapshot.get("needs_day_settlement", false)), "flashback crossing should mark day settlement")
+	_assert_eq(str(_last_day_progress_snapshot.get("day_ended_reason", "")), "pollution-flashback", "flashback should preserve its cause")
+
+	_day_progress_signal_count = 0
+	for index in 5:
+		game.spend_action("settle-%d" % index)
+	game.settle_day_if_needed()
+	_assert_eq(_day_progress_signal_count, 0, "day settlement should not emit in slice four pollution-only vertical")
+
+
+func _capture_day_progress(snapshot: Dictionary) -> void:
+	_day_progress_signal_count += 1
+	_last_day_progress_snapshot = snapshot
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:

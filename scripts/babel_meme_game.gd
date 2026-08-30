@@ -835,6 +835,8 @@ func _connect_game_state_signals() -> void:
 		game.settings_changed.connect(_on_settings_changed)
 	if not game.reality_conversation_changed.is_connected(_on_reality_conversation_changed):
 		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
+	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
+		game.day_progress_changed.connect(_on_day_progress_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -867,6 +869,12 @@ func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
 	_render()
 
 
+func _on_day_progress_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
 func _phone_shell_snapshot() -> Dictionary:
 	if game == null:
 		return {
@@ -886,6 +894,19 @@ func _settings_snapshot() -> Dictionary:
 			"exit_prompt_seen": false,
 		}
 	return game.get_settings_snapshot()
+
+
+func _day_progress_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"day": 1,
+			"pollution": 0,
+			"tower_floor": 1,
+			"needs_day_settlement": false,
+			"day_ended_reason": "",
+			"pending_floor_transition": 0,
+		}
+	return game.get_day_progress_snapshot()
 
 
 func _reality_conversation_snapshot() -> Dictionary:
@@ -1491,9 +1512,8 @@ func _sync_audio_state(immediate: bool = false) -> void:
 
 
 func _pollution_stage_snapshot() -> Dictionary:
-	var pollution := int(game.pollution) if game != null else 0
-	var day := int(game.day) if game != null else 0
-	return PollutionStageScript.stage(pollution, day)
+	var progress := _day_progress_snapshot()
+	return PollutionStageScript.stage(int(progress.get("pollution", 0)), int(progress.get("day", 1)))
 
 
 func _duck_ambience_for_flashback() -> void:
@@ -2042,7 +2062,8 @@ func _show_hud_tooltip(kind: String, source: Control) -> void:
 		return
 	match kind:
 		"pollution":
-			_hud_tooltip_label.text = "污染 %d%%" % game.pollution
+			var progress := _day_progress_snapshot()
+			_hud_tooltip_label.text = "污染 %d%%" % int(progress.get("pollution", 0))
 		"money":
 			_hud_tooltip_label.text = "资金 %d" % game.money
 		"settings":
@@ -2858,7 +2879,8 @@ func _render_history_window() -> void:
 
 func _refresh_settings_menu_labels() -> void:
 	if _settings_history_panel != null and game != null:
-		_settings_history_panel.refresh_menu_labels(game.pollution, bool(_settings_snapshot().get("autoplay_enabled", false)))
+		var progress := _day_progress_snapshot()
+		_settings_history_panel.refresh_menu_labels(int(progress.get("pollution", 0)), bool(_settings_snapshot().get("autoplay_enabled", false)))
 
 
 func _on_autoplay_toggled(value: bool) -> void:
@@ -3066,7 +3088,8 @@ func _playtest_assist_snapshot() -> Dictionary:
 		return {"visible": visible, "lines": lines}
 	var step: Dictionary = game.get_tutorial_step()
 	lines.append(str(step.get("test_instruction", "测试提示：继续探索。")))
-	var floor_number := clampi(game.tower_floor, 1, 4)
+	var day_progress := _day_progress_snapshot()
+	var floor_number := clampi(int(day_progress.get("tower_floor", 1)), 1, 4)
 	if floor_number <= 3:
 		var progress: Dictionary = game.get_key_clue_progress(floor_number)
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
@@ -3077,7 +3100,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 		if bool(progress.get("solved", false)) and item_id not in game.collected_prerequisite_item_ids:
 			lines.append("目标：%s。%s" % [str(item.get("label", "前置物")), str(item.get("location_hint", "跟随荧光测试标记。"))])
 	var collected_count := game.collected_prerequisite_item_ids.size()
-	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, game.pollution])
+	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, int(day_progress.get("pollution", 0))])
 	return {"visible": visible, "lines": lines}
 
 
@@ -3096,8 +3119,9 @@ func _action_pips(actions: int) -> String:
 
 func _render_world_prompt() -> void:
 	var plan := _day_plan()
+	var day_progress := _day_progress_snapshot()
 	if game.view_state == "phone_down":
-		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [game.day, plan["title"]]
+		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [int(day_progress.get("day", 1)), plan["title"]]
 	elif _reality_interaction_active:
 		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(game.conversation_prompt)]
 	elif _nearby_reality_item != null:
