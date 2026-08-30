@@ -8,6 +8,7 @@ signal settings_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
 signal inventory_changed(snapshot: Dictionary)
+signal progression_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -586,10 +587,12 @@ func complete_floor_three() -> String:
 		ending_unlocked = false
 		event_log.push_front("第四层没有登记记录。")
 		_latch_ultimate_tasks_for_current_floor()
+		_emit_progression_changed("complete_floor_three", "hidden-floor", true)
 		return "hidden-floor"
 	ending_route = "normal"
 	ending_unlocked = true
 	pending_floor_transition = 0
+	_emit_progression_changed("complete_floor_three", "normal-ending", true)
 	return "normal-ending"
 
 
@@ -642,6 +645,7 @@ func choose_ending_language(choice_id: String) -> bool:
 	for choice in ENDING_LANGUAGE_CHOICES:
 		if str(choice.get("id", "")) == choice_id:
 			ending_language_choice = choice_id
+			_emit_progression_changed("choose_language", choice_id, true)
 			return true
 	return false
 
@@ -1678,9 +1682,11 @@ func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
 		event_log.push_front("第三层的门开了。")
+		_emit_progression_changed("floor3_task", "", true)
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
 		event_log.push_front("出口开始存在。")
+		_emit_progression_changed("floor4_task", "", true)
 
 
 ## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
@@ -1920,6 +1926,27 @@ func confirm_meme_fusion() -> bool:
 	return true
 
 
+func get_progression_snapshot() -> Dictionary:
+	return {
+		"ending_unlocked": ending_unlocked,
+		"ending_route": ending_route,
+		"ending_language_choice": ending_language_choice,
+		"formal_floor_three_complete": formal_floor_three_complete,
+		"floor3_task_complete": floor3_task_complete,
+		"floor4_task_complete": floor4_task_complete,
+	}
+
+
+func _emit_progression_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_progression_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	progression_changed.emit(snapshot)
+
+
 func place_meme_in_blank(blank_id: String, meme_id: String) -> bool:
 	dialogue_blanks[blank_id] = meme_id
 	return true
@@ -2142,6 +2169,7 @@ func _resolve_tower_step() -> void:
 	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
 		ending_unlocked = true
 		event_log.push_front("出口承认了你。")
+		_emit_progression_changed("ending_unlock", "hidden", true)
 
 
 func _find_completed_meme_index(meme_id: String) -> int:
