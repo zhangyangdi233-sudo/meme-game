@@ -831,6 +831,8 @@ func _connect_game_state_signals() -> void:
 		game.phone_shell_changed.connect(_on_phone_shell_changed)
 	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
 		game.action_economy_changed.connect(_on_action_economy_changed)
+	if not game.settings_changed.is_connected(_on_settings_changed):
+		game.settings_changed.connect(_on_settings_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -851,6 +853,12 @@ func _on_action_economy_changed(_snapshot: Dictionary) -> void:
 	_render()
 
 
+func _on_settings_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
 func _phone_shell_snapshot() -> Dictionary:
 	if game == null:
 		return {
@@ -861,6 +869,15 @@ func _phone_shell_snapshot() -> Dictionary:
 			"phone_open": true,
 		}
 	return game.get_phone_shell_snapshot()
+
+
+func _settings_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"autoplay_enabled": false,
+			"exit_prompt_seen": false,
+		}
+	return game.get_settings_snapshot()
 
 
 func _social_engagement_snapshot() -> Dictionary:
@@ -2150,7 +2167,7 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.refresh_menu_labels(game.pollution, game.autoplay_enabled)
+	_settings_history_panel.refresh_menu_labels(game.pollution, bool(_settings_snapshot().get("autoplay_enabled", false)))
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
@@ -2403,7 +2420,7 @@ func _settings_history_mount_deps() -> Dictionary:
 		"register_draggable": _window_manager.register,
 		"master_volume": _master_volume,
 		"vhs_enabled": _vhs_enabled,
-		"autoplay_enabled": game != null and game.autoplay_enabled,
+		"autoplay_enabled": bool(_settings_snapshot().get("autoplay_enabled", false)),
 		"locales": locales,
 		"current_locale": _locale.current_locale if _locale != null else "",
 	}
@@ -2830,11 +2847,11 @@ func _render_history_window() -> void:
 
 func _refresh_settings_menu_labels() -> void:
 	if _settings_history_panel != null and game != null:
-		_settings_history_panel.refresh_menu_labels(game.pollution, game.autoplay_enabled)
+		_settings_history_panel.refresh_menu_labels(game.pollution, bool(_settings_snapshot().get("autoplay_enabled", false)))
 
 
 func _on_autoplay_toggled(value: bool) -> void:
-	game.autoplay_enabled = value
+	game.set_autoplay_enabled(value)
 
 
 func _settings_is_open() -> bool:
@@ -2910,7 +2927,7 @@ func _on_camera_access_toggled(value: bool) -> void:
 
 
 func _request_quit_game() -> void:
-	game.exit_prompt_seen = true
+	game.mark_exit_prompt_seen()
 	if _settings_history_panel != null:
 		_settings_history_panel.request_quit()
 

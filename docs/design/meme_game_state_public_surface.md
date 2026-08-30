@@ -13,6 +13,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 1) | 1 — `social_engagement_changed` |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
+| Signals (slice 2C) | 4 — + `settings_changed` |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -28,8 +29,8 @@ These are the highest-risk couplings to retire in later 4b slices:
 |---|---|---|---|
 | ~~`babel_meme_game.gd:825`~~ | ~~`game.social_followed_handles = migrated`~~ | ~~bypasses engagement API~~ | **Fixed** — uses `replace_social_followed_handles()` |
 | `babel_meme_game.gd:1225-1234` | `game.conversation_* = …` | localizes state in adapter | open |
-| `babel_meme_game.gd:2863` | `game.autoplay_enabled = value` | settings write without intent | open |
-| `babel_meme_game.gd:2939` | `game.exit_prompt_seen = true` | one-shot flag from UI | open |
+| ~~`babel_meme_game.gd:2863`~~ | ~~`game.autoplay_enabled = value`~~ | ~~settings write without intent~~ | **Fixed** — uses `set_autoplay_enabled()` |
+| ~~`babel_meme_game.gd:2939`~~ | ~~`game.exit_prompt_seen = true`~~ | ~~one-shot flag from UI~~ | **Fixed** — uses `mark_exit_prompt_seen()` |
 | `babel_meme_game.gd:3928-3933` | `game.active_app_window` / `active_app` | phone shell closes apps inline | **Fixed** — uses `close_app_window()` |
 
 Most other adapter usage is **read-only** field access (`game.view_state`, `game.tower_floor`, `game.completed_memes`, …) plus method calls.
@@ -110,6 +111,16 @@ Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlemen
 ### Action economy (legacy listing)
 
 `spend_action()`, `can_spend_action()`, `settle_day_if_needed()`
+
+### Settings — **slice 2C seam**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_settings_snapshot()` → `{ autoplay_enabled, exit_prompt_seen }` |
+| Signal | `settings_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
+| Intent | `set_autoplay_enabled(bool)`, `mark_exit_prompt_seen()` |
+
+Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new adapter code should prefer snapshot + signal for settings UI refresh.
 
 ### Pollution / tower
 
@@ -255,3 +266,30 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 **Adapter pattern:** connect `action_economy_changed` → `_render()`; read economy via `get_action_economy_snapshot()`; send intents via `spend_action()`. `_after_effective_action()` no longer calls `_render()` when only actions changed — the signal covers HUD/disable-state refresh before the spend animation sets the pre-spend pip count.
 
 **Stop here for human review** before slice 2C (next domain).
+
+---
+
+## Slice 2C contract (settings)
+
+```gdscript
+# Snapshot (read)
+{
+  "autoplay_enabled": bool,
+  "exit_prompt_seen": bool,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  "autoplay_enabled": bool,
+  "exit_prompt_seen": bool,
+  "change": {
+    "kind": "autoplay" | "exit_prompt_seen",
+    "target_id": String,
+    "active": bool,
+  },
+}
+```
+
+**Adapter pattern:** connect `settings_changed` → `_render()`; read settings via `get_settings_snapshot()` (or adapter `_settings_snapshot()`); send intents via `set_autoplay_enabled()` / `mark_exit_prompt_seen()`. Settings menu label refresh in `_render_status()` still runs on pollution-driven renders; autoplay toggle state updates when settings change via the signal path.
+
+**Stop here for human review** before slice 2D (next domain).

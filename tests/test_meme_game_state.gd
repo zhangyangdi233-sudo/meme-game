@@ -10,6 +10,8 @@ var _phone_shell_signal_count := 0
 var _last_phone_shell_snapshot: Dictionary = {}
 var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
+var _settings_signal_count := 0
+var _last_settings_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -33,6 +35,7 @@ func _run() -> void:
 	test_social_engagement_snapshot_and_signal()
 	test_phone_shell_snapshot_and_signal()
 	test_action_economy_snapshot_and_signal()
+	test_settings_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -218,6 +221,54 @@ func test_action_economy_snapshot_and_signal() -> void:
 func _capture_action_economy(snapshot: Dictionary) -> void:
 	_action_economy_signal_count += 1
 	_last_action_economy_snapshot = snapshot
+
+
+func test_settings_snapshot_and_signal() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_settings_signal_count = 0
+	_last_settings_snapshot = {}
+	game.settings_changed.connect(_capture_settings)
+
+	var initial: Dictionary = game.get_settings_snapshot()
+	_assert_true(not bool(initial.get("autoplay_enabled", true)), "new run should start with autoplay off")
+	_assert_true(not bool(initial.get("exit_prompt_seen", true)), "new run should start without exit prompt seen")
+
+	game.set_autoplay_enabled(true)
+	_assert_eq(_settings_signal_count, 1, "enabling autoplay should emit once")
+	_assert_true(bool(_last_settings_snapshot.get("autoplay_enabled", false)), "signal snapshot should reflect autoplay on")
+	var autoplay_change: Dictionary = _last_settings_snapshot.get("change", {})
+	_assert_eq(str(autoplay_change.get("kind", "")), "autoplay", "change kind should be autoplay")
+	_assert_true(bool(autoplay_change.get("active", false)), "enabling autoplay should be active in change metadata")
+
+	game.set_autoplay_enabled(true)
+	_assert_eq(_settings_signal_count, 1, "idempotent autoplay set should not emit again")
+
+	game.set_autoplay_enabled(false)
+	_assert_eq(_settings_signal_count, 2, "disabling autoplay should emit again")
+	_assert_true(not bool(_last_settings_snapshot.get("autoplay_enabled", true)), "signal snapshot should reflect autoplay off")
+	autoplay_change = _last_settings_snapshot.get("change", {})
+	_assert_true(not bool(autoplay_change.get("active", true)), "disabling autoplay should mark inactive")
+
+	game.mark_exit_prompt_seen()
+	_assert_eq(_settings_signal_count, 3, "marking exit prompt seen should emit")
+	_assert_true(bool(_last_settings_snapshot.get("exit_prompt_seen", false)), "signal snapshot should reflect exit prompt seen")
+	var exit_change: Dictionary = _last_settings_snapshot.get("change", {})
+	_assert_eq(str(exit_change.get("kind", "")), "exit_prompt_seen", "change kind should be exit_prompt_seen")
+	_assert_true(bool(exit_change.get("active", false)), "exit prompt seen should be active in change metadata")
+
+	game.mark_exit_prompt_seen()
+	_assert_eq(_settings_signal_count, 3, "idempotent exit prompt mark should not emit again")
+
+	var snapshot: Dictionary = game.get_settings_snapshot()
+	_assert_true(bool(snapshot.get("exit_prompt_seen", false)), "snapshot should include exit prompt seen")
+	snapshot["exit_prompt_seen"] = false
+	_assert_true(game.exit_prompt_seen, "snapshot must be a copy, not live state")
+
+
+func _capture_settings(snapshot: Dictionary) -> void:
+	_settings_signal_count += 1
+	_last_settings_snapshot = snapshot
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:

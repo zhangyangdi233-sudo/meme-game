@@ -4,6 +4,7 @@ extends RefCounted
 signal social_engagement_changed(snapshot: Dictionary)
 signal phone_shell_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
+signal settings_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -693,6 +694,37 @@ func _emit_action_economy_changed(change_kind: String, target_id: String) -> voi
 		"active": true,
 	}
 	action_economy_changed.emit(snapshot)
+
+
+func get_settings_snapshot() -> Dictionary:
+	return {
+		"autoplay_enabled": autoplay_enabled,
+		"exit_prompt_seen": exit_prompt_seen,
+	}
+
+
+func set_autoplay_enabled(value: bool) -> void:
+	if autoplay_enabled == value:
+		return
+	autoplay_enabled = value
+	_emit_settings_changed("autoplay", "", value)
+
+
+func mark_exit_prompt_seen() -> void:
+	if exit_prompt_seen:
+		return
+	exit_prompt_seen = true
+	_emit_settings_changed("exit_prompt_seen", "", true)
+
+
+func _emit_settings_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_settings_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	settings_changed.emit(snapshot)
 
 
 func get_social_engagement_snapshot() -> Dictionary:
