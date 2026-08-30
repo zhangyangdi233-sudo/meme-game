@@ -2530,6 +2530,7 @@ func _build_apple_hud() -> void:
 	_hud_panel.offset_right = HUD_RAIL_WIDTH
 	_hud_panel.offset_bottom = HUD_RAIL_MAX_HEIGHT
 	_hud_panel.z_index = 40
+	_hud_panel.clip_contents = true
 	_hud_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_hud_panel.add_theme_stylebox_override("panel", _style(_theme_color("ink"), Color(_theme_color("muted"), 0.22)))
 	_ui_root.add_child(_hud_panel)
@@ -2763,11 +2764,19 @@ func _layout_hud_rail() -> void:
 	var rail_height := minf(HUD_RAIL_MAX_HEIGHT, available_height)
 	var center_y := (top_limit + bottom_limit) * 0.5
 	var rail_x := _edge_drawer.layout_panel_x() if _edge_drawer != null else _hud_drawer_x(_is_hud_drawer_expanded())
+	var desired_top := center_y - rail_height * 0.5
+	var desired_bottom := center_y + rail_height * 0.5
+	var clamped_top := maxf(top_limit, desired_top)
+	var clamped_bottom := minf(bottom_limit, desired_bottom)
+	if clamped_bottom - clamped_top > available_height:
+		clamped_top = top_limit
+		clamped_bottom = bottom_limit
 	_hud_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_hud_panel.offset_left = rail_x
-	_hud_panel.offset_top = center_y - rail_height * 0.5
-	_hud_panel.offset_right = rail_x + HUD_RAIL_WIDTH
-	_hud_panel.offset_bottom = center_y + rail_height * 0.5
+	_hud_panel.offset_left = 0.0
+	_hud_panel.offset_top = clamped_top
+	_hud_panel.offset_right = HUD_RAIL_WIDTH
+	_hud_panel.offset_bottom = clamped_bottom
+	_hud_panel.position.x = rail_x
 	_hud_panel.set_meta("cinematic_safe_top", top_limit)
 	_hud_panel.set_meta("cinematic_safe_bottom", bottom_limit)
 	_hud_panel.set_meta("collapsed_x", _hud_drawer_x(false))

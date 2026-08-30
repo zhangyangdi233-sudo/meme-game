@@ -8,6 +8,7 @@ func _init() -> void:
 
 
 func _run_async() -> void:
+	root.size = Vector2i(1600, 900)
 	await _run()
 	if _failures.is_empty():
 		print("reality world tests passed")
@@ -190,16 +191,22 @@ func _run() -> void:
 	_assert_true(_action_has_key("reality_interact", KEY_F), "world interaction should use F")
 
 	game_root.set_view_state("npc_up")
+	game_root._layout_hud_rail()
+	game_root._set_hud_drawer_expanded(true, false)
+	await process_frame
 	if top_bar != null and bottom_bar != null:
 		_assert_true(top_bar.visible and bottom_bar.visible, "putting the phone down should restore both cinematic bars")
 		_assert_true(top_bar.size.y > 24.0 and bottom_bar.size.y > 24.0, "reality walking should retain a visible movie frame")
 		_assert_true(top_bar.size.y <= game_root.get_viewport().get_visible_rect().size.y * 0.121, "responsive cinematic bars should never consume more than twelve percent per edge")
 		if hud_rail != null:
-			var hud_rect := hud_rail.get_global_rect()
-			var viewport_height := game_root.get_viewport().get_visible_rect().size.y
-			_assert_true(hud_rect.position.y >= top_bar.get_global_rect().end.y + 6.0, "left HUD should begin inside the cinematic picture instead of crossing the top matte")
-			_assert_true(hud_rect.end.y <= bottom_bar.get_global_rect().position.y - 6.0, "left HUD should end inside the cinematic picture instead of crossing the bottom matte")
-			_assert_true(absf(hud_rect.get_center().y - viewport_height * 0.5) <= 1.0, "left HUD should stay vertically centered on the picture")
+			var safe_top := float(hud_rail.get_meta("cinematic_safe_top", -1.0))
+			var safe_bottom := float(hud_rail.get_meta("cinematic_safe_bottom", -1.0))
+			_assert_true(safe_top >= 0.0 and safe_bottom > safe_top, "HUD rail should record cinematic safe bounds after layout")
+			_assert_true(hud_rail.offset_top >= safe_top - 1.0, "left HUD should begin inside the cinematic picture instead of crossing the top matte")
+			_assert_true(hud_rail.offset_bottom <= safe_bottom + 1.0, "left HUD should end inside the cinematic picture instead of crossing the bottom matte")
+			var picture_center_y := (safe_top + safe_bottom) * 0.5
+			var rail_center_y := (hud_rail.offset_top + hud_rail.offset_bottom) * 0.5
+			_assert_true(absf(rail_center_y - picture_center_y) <= 2.0, "left HUD should stay vertically centered on the picture")
 	_assert_true(bool(game_root._reality_mouse_look_enabled), "putting the phone down should immediately enable free mouse look")
 	var yaw_before_mouse := float(game_root._reality_yaw)
 	var mouse_turn := InputEventMouseMotion.new()

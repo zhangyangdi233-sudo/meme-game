@@ -194,6 +194,7 @@ func _test_ui_flow() -> void:
 	_assert_true(scene != null, "composer test should load the main scene")
 	if scene == null:
 		return
+	root.size = Vector2i(1600, 900)
 	var game_root := scene.instantiate()
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
@@ -218,7 +219,7 @@ func _test_ui_flow() -> void:
 	game_root._update_doll_companion(0.016)
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
-	_assert_true(doll_panel.get_anchors_preset() == Control.PRESET_BOTTOM_LEFT, "the guide should dock to the bottom-left corner")
+	_assert_true(_is_bottom_left_docked(doll_panel), "the guide should dock to the bottom-left corner")
 	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
 	game_root._reality_interaction_active = true
 	game_root._update_doll_guide()
@@ -236,15 +237,27 @@ func _test_ui_flow() -> void:
 	var progress_line: String = game_root._doll_guide_current_line()
 	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
 
-	# 造句台:空句禁投,入句/撤回/投稿全链路。
+	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。
 	game_root.game.set_active_app("notebook")
+	game_root._open_app_windows["notebook"] = true
 	game_root._render()
 	await process_frame
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the notebook should host the composer answer panel")
+	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "the notebook should host the word canvas")
 	var submit_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
+
+	game_root.game.set_active_app("social")
+	game_root._social_screen = "publish"
+	game_root._open_app_windows["social"] = true
+	game_root._render()
+	await process_frame
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
+	game_root.game.set_active_app("notebook")
+	game_root._open_app_windows["notebook"] = true
+	game_root._render()
+	await process_frame
 	game_root.game.pick_social_char("floor_13", "门", "zh")
 	game_root.game.pick_social_char("floor_13", "开", "zh")
 	game_root._render()
@@ -253,17 +266,18 @@ func _test_ui_flow() -> void:
 	game_root._on_composer_bank_tapped("开")
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门开", "bank taps should build the sentence in order")
-	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
-	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
-	var ghost_found := false
-	var char_flow := _find_node_by_name(game_root, "NotebookCharFlow")
-	if char_flow != null:
-		for child in char_flow.get_children():
-			if child is Button and (child as Button).text == "门" and (child as Button).disabled:
-				ghost_found = true
-	_assert_true(ghost_found, "a placed unit should ghost its bank slot without reflow")
+	var canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(_canvas_tile_is_ghost(canvas, "门"), "a placed unit should ghost its canvas tile without reflow")
 	submit_button = _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
+
+	game_root.game.set_active_app("social")
+	game_root._social_screen = "publish"
+	game_root._open_app_windows["social"] = true
+	game_root._render()
+	await process_frame
+	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
+	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
 
 	game_root._on_composer_answer_tapped(1)
 	await process_frame
@@ -338,6 +352,25 @@ func _test_ui_flow() -> void:
 
 	game_root.queue_free()
 	await process_frame
+
+
+func _is_bottom_left_docked(control: Control) -> bool:
+	return (
+		is_equal_approx(control.anchor_left, 0.0)
+		and is_equal_approx(control.anchor_top, 1.0)
+		and is_equal_approx(control.anchor_right, 0.0)
+		and is_equal_approx(control.anchor_bottom, 1.0)
+	)
+
+
+func _canvas_tile_is_ghost(canvas: Node, unit: String) -> bool:
+	if canvas == null:
+		return false
+	var physics_root := canvas.get_node_or_null("WordPhysicsRoot")
+	if physics_root == null:
+		return false
+	var body := physics_root.get_node_or_null("WordBody_%s" % unit) as CanvasItem
+	return body != null and body.modulate.a < 0.9
 
 
 func _find_node_by_name(node: Node, node_name: String) -> Node:

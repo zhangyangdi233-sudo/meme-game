@@ -54,16 +54,39 @@ def _stop(_signum: int, _frame: Any) -> None:
 def _process_exists(pid: int) -> bool:
     if pid <= 0:
         return False
+    if os.name == "nt":
+        import ctypes
+
+        synchronize = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
+        if handle:
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
     except PermissionError:
         return True
+    except OSError:
+        return False
     return True
 
 
 def _exit_when_host_dies(host_pid: int) -> None:
+    if os.name == "nt":
+        import ctypes
+
+        synchronize = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, host_pid)
+        if not handle:
+            os._exit(0)
+            return
+        ctypes.windll.kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
+        ctypes.windll.kernel32.CloseHandle(handle)
+        os._exit(0)
+        return
     while _process_exists(host_pid):
         time.sleep(HOST_WATCH_INTERVAL_SECONDS)
     # The camera read may be blocked, so a flag or graceful signal is not
@@ -251,6 +274,8 @@ def run_simulator(args: argparse.Namespace) -> int:
     frame_id = 0
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
         while RUNNING and (args.max_frames <= 0 or frame_id < args.max_frames):
+            if args.host_pid > 0 and not _process_exists(args.host_pid):
+                break
             phase = (time.monotonic() - started) * 1.2
             drift = 0.018 * __import__("math").sin(phase)
             packet = {

@@ -155,6 +155,7 @@ func _test_ui_flow() -> void:
 	var actions_before: int = game_root.game.actions_remaining
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
+	game_root._finish_action_spend_animation()
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
 	_assert_true(bool(game_root._open_app_windows.get("notebook", false)), "a pickup should open the notebook window")
 	var notebook_window: Control = game_root._notebook_window_control()
@@ -178,11 +179,11 @@ func _test_ui_flow() -> void:
 	var landed_units: Array = []
 	flight_layer.flight_landed.connect(func(unit: String) -> void: landed_units.append(unit))
 	game_root._on_pickup_unit_meta("开", "floor_13")
-	var flight_budget := 100000
+	var flight_budget := 180
 	while flight_budget > 0 and landed_units.is_empty():
 		flight_budget -= 1
 		await process_frame
-	_assert_true(not landed_units.is_empty(), "a natural flight must emit flight_landed")
+	_assert_true(not landed_units.is_empty(), "a natural flight must emit flight_landed within ~3 seconds")
 	_assert_true(game_root._notebook_squash_tween != null, "landing must squash the notebook window")
 	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "the free same-day pickup should collect its unit")
 

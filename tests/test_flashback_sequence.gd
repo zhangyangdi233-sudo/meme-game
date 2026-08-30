@@ -209,9 +209,8 @@ func _check_scene_contract() -> void:
 		phase_nodes[phase_id] = _find_node_by_name(overlay, "FlashbackPhase" + phase_id.to_pascal_case()) as Control
 		_assert_true(phase_nodes[phase_id] != null, "rebuilt overlay should still expose phase node for %s" % phase_id)
 	var seen_order: Array[String] = []
-	var frame_budget := 100000
-	while frame_budget > 0:
-		frame_budget -= 1
+	var deadline_msec := Time.get_ticks_msec() + 15000
+	while Time.get_ticks_msec() < deadline_msec:
 		for phase_id in expected_order:
 			var phase_node := phase_nodes.get(phase_id) as Control
 			if phase_node != null and is_instance_valid(phase_node) and phase_node.visible and (seen_order.is_empty() or seen_order[seen_order.size() - 1] != phase_id):
@@ -219,6 +218,7 @@ func _check_scene_contract() -> void:
 		if game_root.game.day == day_before + 1 and not overlay.visible:
 			break
 		await process_frame
+	_assert_true(game_root.game.day == day_before + 1, "pollution flashback must finish within 15 seconds")
 	_assert_eq_int(game_root.game.day, day_before + 1, "the natural timeline completion must settle the day through sequence_finished")
 	_assert_true(not overlay.visible, "the natural completion must hide the overlay by itself")
 	_assert_true(not game_root._input_locked, "the natural completion must unlock input")
