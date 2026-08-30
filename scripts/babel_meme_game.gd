@@ -21,6 +21,7 @@ const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
+const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -388,6 +389,7 @@ var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
 var _main_menu_panel: MainMenuPanel
+var _language_selection_panel: LanguageSelectionPanel
 var _prologue_overlay: Control
 var _prologue_line_label: Label
 var _prologue_counter_label: Label
@@ -397,7 +399,6 @@ var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
 var _language_overlay: Control
-var _language_overlay_first_run := false
 var _view_toggle_button: Button
 var _vhs_overlay: Control
 var _vhs_scanlines: Array[ColorRect] = []
@@ -1458,69 +1459,9 @@ func _build_main_menu() -> void:
 func _build_language_selection_overlay(first_run: bool = false) -> void:
 	if _ui_root == null:
 		return
-	if _language_overlay != null and is_instance_valid(_language_overlay):
-		_language_overlay.queue_free()
-	_language_overlay_first_run = first_run
-	_language_overlay = Control.new()
-	_language_overlay.name = "LanguageSelectionOverlay"
-	_language_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_language_overlay.z_index = 190
-	_ui_root.add_child(_language_overlay)
-
-	var blackout := ColorRect.new()
-	blackout.name = "LanguageSelectionBackdrop"
-	blackout.color = Color(_theme_color("ink"), 0.92)
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_language_overlay.add_child(blackout)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_language_overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.name = "LanguageSelectionPanel"
-	panel.custom_minimum_size = Vector2(620, 390)
-	panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-	center.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 18)
-	panel.add_child(box)
-
-	var eyebrow := Label.new()
-	eyebrow.text = "BABEL PHONE  /  LANGUAGE"
-	eyebrow.add_theme_font_size_override("font_size", _ui_font_size(15))
-	eyebrow.add_theme_color_override("font_color", _theme_color("accent"))
-	box.add_child(eyebrow)
-	var title := Label.new()
-	title.name = "LanguageSelectionTitle"
-	title.text = "选择语言  /  言語を選択  /  CHOOSE LANGUAGE"
-	title.add_theme_font_size_override("font_size", _ui_font_size(27))
-	title.add_theme_color_override("font_color", _theme_color("ink"))
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(title)
-	var rule := HSeparator.new()
-	box.add_child(rule)
-
-	var choices := VBoxContainer.new()
-	choices.name = "LanguageSelectionChoices"
-	choices.add_theme_constant_override("separation", 10)
-	box.add_child(choices)
-	for locale_code in GameLocaleScript.SUPPORTED_LOCALES:
-		var choice := Button.new()
-		choice.name = "LanguageChoice%s" % str(locale_code).to_upper()
-		choice.text = _locale.native_language_name(str(locale_code))
-		choice.custom_minimum_size = Vector2(500, 58)
-		choice.set_meta("skip_localization", true)
-		choice.pressed.connect(_on_language_selected.bind(str(locale_code)))
-		choices.add_child(choice)
-
-	if not first_run:
-		var cancel := Button.new()
-		cancel.name = "LanguageSelectionCancel"
-		cancel.text = "返回"
-		cancel.custom_minimum_size.y = 50
-		cancel.pressed.connect(_close_language_selection_overlay)
-		box.add_child(cancel)
-	_refresh_localized_ui()
+	_ensure_language_selection_panel()
+	_language_selection_panel.build(_ui_root, first_run, _language_selection_mount_deps())
+	_language_overlay = _language_selection_panel.get_overlay()
 
 
 func _on_language_selected(locale_code: String) -> void:
@@ -1541,12 +1482,11 @@ func _on_language_selected(locale_code: String) -> void:
 
 
 func _close_language_selection_overlay() -> void:
-	if _language_overlay_first_run and not _locale.language_selected:
+	if _language_selection_panel == null:
 		return
-	if _language_overlay != null and is_instance_valid(_language_overlay):
-		_language_overlay.queue_free()
+	if not _language_selection_panel.close():
+		return
 	_language_overlay = null
-	_language_overlay_first_run = false
 
 
 func _build_camera_consent_overlay() -> void:
@@ -2865,6 +2805,40 @@ func _connect_main_menu_panel_signals() -> void:
 
 func _on_main_menu_language_picker_requested() -> void:
 	_build_language_selection_overlay(false)
+
+
+func _ensure_language_selection_panel() -> void:
+	if _language_selection_panel != null and is_instance_valid(_language_selection_panel):
+		return
+	_language_selection_panel = LanguageSelectionPanelScript.new()
+	_language_selection_panel.name = "LanguageSelectionPanel"
+	add_child(_language_selection_panel)
+	_connect_language_selection_panel_signals()
+
+
+func _language_selection_mount_deps() -> Dictionary:
+	var locales: Array = []
+	for locale_code in GameLocaleScript.SUPPORTED_LOCALES:
+		locales.append({
+			"code": str(locale_code),
+			"name": _locale.native_language_name(str(locale_code)),
+		})
+	return {
+		"soft_style": _soft_style,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"locales": locales,
+		"language_selected": func() -> bool: return _locale.language_selected,
+		"refresh_localized_ui": _refresh_localized_ui,
+	}
+
+
+func _connect_language_selection_panel_signals() -> void:
+	var panel := _language_selection_panel
+	if panel == null:
+		return
+	if not panel.language_selected.is_connected(_on_language_selected):
+		panel.language_selected.connect(_on_language_selected)
 
 
 func _ensure_settings_history_panel() -> void:
