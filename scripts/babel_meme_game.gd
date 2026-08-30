@@ -20,6 +20,7 @@ const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
+const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -391,10 +392,7 @@ var _hud_settings_icon: Button
 var _hud_actions_label: Label
 var _hud_tooltip: PanelContainer
 var _hud_tooltip_label: Label
-var _hud_drawer_expanded := false
-var _hud_drawer_touch_pinned := false
-var _hud_drawer_close_countdown := -1.0
-var _hud_drawer_tween: Tween
+var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
 var _main_menu_layer: Control
@@ -533,6 +531,7 @@ func _ready() -> void:
 	_camera_session_decided = false
 	_ensure_hand_tracking_receiver()
 	_ensure_window_manager()
+	_ensure_edge_drawer()
 	_apply_master_volume()
 	show_main_menu()
 	if not _locale.language_selected:
@@ -548,7 +547,8 @@ func _process(delta: float) -> void:
 		_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
 		_apply_responsive_layouts_if_needed()
-		_update_hud_drawer_auto_close(delta)
+		if _edge_drawer != null:
+			_edge_drawer.tick(delta)
 		_update_doll_companion(delta)
 	_animate_world(delta)
 
@@ -571,7 +571,7 @@ func _input(event: InputEvent) -> void:
 	if _input_locked:
 		_reality_touch_look_index = -1
 		return
-	if _handle_hud_drawer_global_input(event):
+	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
 		return
 	if _handle_reality_touch_look(event):
 		return
@@ -695,12 +695,6 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_phone_popup_expanded = true
 	_phone_launcher_open = game.active_app_window.is_empty()
 	_meme_bank_layout_mode = ""
-	if _hud_drawer_tween != null and _hud_drawer_tween.is_valid():
-		_hud_drawer_tween.kill()
-	_hud_drawer_tween = null
-	_hud_drawer_expanded = false
-	_hud_drawer_touch_pinned = false
-	_hud_drawer_close_countdown = -1.0
 	_open_app_windows = {}
 	if not game.active_app_window.is_empty():
 		_open_app_windows[game.active_app_window] = true
@@ -2523,9 +2517,6 @@ func _skip_prologue() -> void:
 
 
 func _build_apple_hud() -> void:
-	_hud_drawer_expanded = false
-	_hud_drawer_touch_pinned = false
-	_hud_drawer_close_countdown = -1.0
 	_hud_panel = _panel()
 	_hud_panel.name = "InternationalHUDRail"
 	_hud_panel.set_meta("dark_rail", true)
@@ -2542,8 +2533,6 @@ func _build_apple_hud() -> void:
 	_hud_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_hud_panel.add_theme_stylebox_override("panel", _style(_theme_color("ink"), Color(_theme_color("muted"), 0.22)))
 	_ui_root.add_child(_hud_panel)
-	_hud_panel.mouse_entered.connect(_on_hud_drawer_pointer_entered)
-	_hud_panel.mouse_exited.connect(_schedule_hud_drawer_close)
 
 	_hud_reveal_zone = Control.new()
 	_hud_reveal_zone.name = "HUDRevealZone"
@@ -2554,9 +2543,6 @@ func _build_apple_hud() -> void:
 	_hud_reveal_zone.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_hud_reveal_zone.tooltip_text = "打开状态栏"
 	_hud_reveal_zone.z_index = 39
-	_hud_reveal_zone.mouse_entered.connect(_on_hud_reveal_zone_entered)
-	_hud_reveal_zone.mouse_exited.connect(_schedule_hud_drawer_close)
-	_hud_reveal_zone.gui_input.connect(_on_hud_reveal_zone_gui_input)
 	_ui_root.add_child(_hud_reveal_zone)
 
 	_hud_reveal_indicator = ColorRect.new()
@@ -2619,6 +2605,16 @@ func _build_apple_hud() -> void:
 	_hud_tooltip_label = _label("", 19, _theme_color("ink"))
 	_hud_tooltip_label.name = "HUDTooltipLabel"
 	_hud_tooltip.add_child(_hud_tooltip_label)
+	_ensure_edge_drawer()
+	_edge_drawer.configure(
+		HUD_RAIL_WIDTH,
+		HUD_DRAWER_OPEN_DURATION,
+		HUD_DRAWER_CLOSE_DURATION,
+		HUD_DRAWER_CLOSE_DELAY
+	)
+	_edge_drawer.attach(_hud_panel, _hud_reveal_zone)
+	_edge_drawer.add_companion(_hud_tooltip)
+	_sync_edge_drawer_enabled()
 	_layout_hud_rail()
 
 
@@ -2658,131 +2654,47 @@ func _show_hud_tooltip(kind: String, source: Control) -> void:
 func _hide_hud_tooltip() -> void:
 	if _hud_tooltip != null:
 		_hud_tooltip.visible = false
-	_schedule_hud_drawer_close()
+	if _edge_drawer != null:
+		_edge_drawer.schedule_close()
 
 
 func _is_hud_drawer_expanded() -> bool:
-	return _hud_drawer_expanded
+	_ensure_edge_drawer()
+	return _edge_drawer.is_expanded()
 
 
 func _set_hud_drawer_expanded(expanded: bool, animate: bool = true) -> void:
-	if _hud_panel == null:
-		return
-	_hud_drawer_expanded = expanded
-	_hud_drawer_close_countdown = -1.0
-	_hud_panel.set_meta("drawer_state", "expanded" if expanded else "collapsed")
-	_hud_panel.set_meta("motion_easing", "easeOutQuint" if expanded else "easeInQuint")
-	if not expanded:
-		_hide_hud_tooltip_immediately()
-	if _hud_drawer_tween != null and _hud_drawer_tween.is_valid():
-		_hud_drawer_tween.kill()
-	_hud_drawer_tween = null
-	var target_position := Vector2(_hud_drawer_x(expanded), _hud_panel.position.y)
-	if not animate or not is_inside_tree():
-		_hud_panel.position = target_position
-		_hud_panel.set_meta("motion_phase", "idle")
-		return
-	_hud_panel.set_meta("motion_phase", "opening" if expanded else "closing")
-	var duration := HUD_DRAWER_OPEN_DURATION if expanded else HUD_DRAWER_CLOSE_DURATION
-	var ease := Tween.EASE_OUT if expanded else Tween.EASE_IN
-	_hud_drawer_tween = create_tween()
-	_hud_drawer_tween.tween_property(_hud_panel, "position", target_position, duration).set_trans(Tween.TRANS_QUINT).set_ease(ease)
-	_hud_drawer_tween.finished.connect(_finish_hud_drawer_motion.bind(_hud_drawer_tween), CONNECT_ONE_SHOT)
-
-
-func _finish_hud_drawer_motion(completed_tween: Tween) -> void:
-	if completed_tween != _hud_drawer_tween or _hud_panel == null:
-		return
-	_hud_panel.position.x = _hud_drawer_x(_hud_drawer_expanded)
-	_hud_panel.set_meta("motion_phase", "idle")
-	_hud_drawer_tween = null
+	_ensure_edge_drawer()
+	_edge_drawer.set_expanded(expanded, animate)
 
 
 func _hud_drawer_x(expanded: bool) -> float:
-	return 0.0 if expanded else -HUD_RAIL_WIDTH
-
-
-func _on_hud_reveal_zone_entered() -> void:
-	if _input_locked or not _game_started:
-		return
-	_hud_drawer_touch_pinned = false
-	_set_hud_drawer_expanded(true)
-
-
-func _on_hud_drawer_pointer_entered() -> void:
-	if _input_locked or not _game_started:
-		return
-	_hud_drawer_close_countdown = -1.0
-	if not _hud_drawer_expanded:
-		_set_hud_drawer_expanded(true)
-
-
-func _schedule_hud_drawer_close() -> void:
-	if not _hud_drawer_expanded or _hud_drawer_touch_pinned:
-		return
-	_hud_drawer_close_countdown = HUD_DRAWER_CLOSE_DELAY
+	_ensure_edge_drawer()
+	return _edge_drawer.panel_x(expanded)
 
 
 func _update_hud_drawer_auto_close(delta: float) -> void:
-	if not _hud_drawer_expanded or _hud_drawer_touch_pinned or _hud_panel == null:
-		return
-	if _is_pointer_over_hud_drawer():
-		_hud_drawer_close_countdown = -1.0
-		return
-	if _hud_drawer_close_countdown < 0.0:
-		_hud_drawer_close_countdown = HUD_DRAWER_CLOSE_DELAY
-		return
-	_hud_drawer_close_countdown -= delta
-	if _hud_drawer_close_countdown <= 0.0:
-		_set_hud_drawer_expanded(false)
-
-
-func _is_pointer_over_hud_drawer() -> bool:
-	var pointer := get_viewport().get_mouse_position()
-	if _hud_panel != null and _hud_panel.visible and _hud_panel.get_global_rect().has_point(pointer):
-		return true
-	if _hud_reveal_zone != null and _hud_reveal_zone.visible and _hud_reveal_zone.get_global_rect().has_point(pointer):
-		return true
-	if _hud_tooltip != null and _hud_tooltip.visible and _hud_tooltip.get_global_rect().has_point(pointer):
-		return true
-	return false
-
-
-func _on_hud_reveal_zone_gui_input(event: InputEvent) -> void:
-	var pressed := false
-	if event is InputEventScreenTouch:
-		pressed = (event as InputEventScreenTouch).pressed
-	elif event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		pressed = mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed
-	if not pressed or _input_locked or not _game_started:
-		return
-	_hud_drawer_touch_pinned = true
-	_set_hud_drawer_expanded(true)
-	get_viewport().set_input_as_handled()
+	if _edge_drawer != null:
+		_edge_drawer.tick(delta)
 
 
 func _handle_hud_drawer_global_input(event: InputEvent) -> bool:
-	if not _hud_drawer_expanded or not _hud_drawer_touch_pinned or not event is InputEventScreenTouch:
+	if _edge_drawer == null:
 		return false
-	var touch := event as InputEventScreenTouch
-	if not touch.pressed:
-		return false
-	if _hud_panel != null and _hud_panel.get_global_rect().has_point(touch.position):
-		return false
-	if _hud_tooltip != null and _hud_tooltip.visible and _hud_tooltip.get_global_rect().has_point(touch.position):
-		return false
-	if _settings_window != null and _settings_window.visible and _settings_window.get_global_rect().has_point(touch.position):
-		return false
-	_hud_drawer_touch_pinned = false
-	_set_hud_drawer_expanded(false)
-	get_viewport().set_input_as_handled()
-	return true
+	return _edge_drawer.handle_global_input(event)
 
 
-func _hide_hud_tooltip_immediately() -> void:
-	if _hud_tooltip != null:
-		_hud_tooltip.visible = false
+func _ensure_edge_drawer() -> void:
+	if _edge_drawer != null:
+		return
+	_edge_drawer = EdgeDrawerScript.new()
+	_edge_drawer.name = "EdgeDrawer"
+	add_child(_edge_drawer)
+
+
+func _sync_edge_drawer_enabled() -> void:
+	if _edge_drawer != null:
+		_edge_drawer.enabled = _game_started and not _input_locked
 
 
 func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: String) -> Label:
@@ -2850,9 +2762,7 @@ func _layout_hud_rail() -> void:
 	var available_height := maxf(1.0, bottom_limit - top_limit)
 	var rail_height := minf(HUD_RAIL_MAX_HEIGHT, available_height)
 	var center_y := (top_limit + bottom_limit) * 0.5
-	var rail_x := _hud_drawer_x(_hud_drawer_expanded)
-	if _hud_drawer_tween != null and _hud_drawer_tween.is_valid():
-		rail_x = _hud_panel.position.x
+	var rail_x := _edge_drawer.layout_panel_x() if _edge_drawer != null else _hud_drawer_x(_is_hud_drawer_expanded())
 	_hud_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_hud_panel.offset_left = rail_x
 	_hud_panel.offset_top = center_y - rail_height * 0.5
@@ -3069,6 +2979,8 @@ func _build_settings_window() -> void:
 	_settings_exit_button.pressed.connect(_request_quit_game)
 	system_footer.add_child(_settings_exit_button)
 	_refresh_language_menu_labels()
+	if _edge_drawer != null:
+		_edge_drawer.add_exclusion(_settings_window)
 
 
 func _build_phone_camera_connection_overlay() -> void:
@@ -5610,6 +5522,7 @@ func _ensure_window_manager() -> void:
 func _sync_window_manager_enabled() -> void:
 	if _window_manager != null:
 		_window_manager.enabled = not _input_locked
+	_sync_edge_drawer_enabled()
 
 
 func _on_window_drag_released(window_id: String) -> void:
