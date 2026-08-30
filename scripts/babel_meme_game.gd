@@ -508,7 +508,6 @@ var _social_detail_title: Label
 var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
-var _settings_open := false
 var _vhs_enabled := true
 var _master_volume := 80.0
 var _camera_enabled := false
@@ -683,7 +682,6 @@ func continue_game() -> bool:
 
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
 	_game_started = true
-	_settings_open = false
 	_phone_art_alpha = 1.0
 	_second_layer_texture = null
 	game = session_state
@@ -739,7 +737,8 @@ func show_main_menu() -> void:
 		_save_progress()
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
 	_game_started = false
-	_settings_open = false
+	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
+		_settings_history_panel.set_settings_open(false)
 	_set_input_locked(false)
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
@@ -2791,203 +2790,14 @@ func _layout_hud_rail() -> void:
 
 
 func _build_settings_window() -> void:
-	_settings_window = _panel()
-	_settings_window.name = "SettingsWindow"
-	_settings_window.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_settings_window.offset_left = 180
-	_settings_window.offset_top = 16
-	_settings_window.offset_right = 610
-	_settings_window.offset_bottom = 884
-	_settings_window.z_index = 30
-	_settings_window.visible = false
-	_ui_root.add_child(_settings_window)
+	_ensure_settings_history_panel()
+	_settings_history_panel.mount(_ui_root, _settings_history_mount_deps())
+	_sync_settings_control_aliases()
+	_inject_settings_camera_block()
+	_connect_settings_shell_handlers()
 	_layout_settings_window()
-
-	var settings_shell := Control.new()
-	settings_shell.name = "SettingsShell"
-	settings_shell.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_settings_window.add_child(settings_shell)
-
-	var title_bar := HBoxContainer.new()
-	title_bar.name = "SettingsTitleBar"
-	title_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	title_bar.offset_bottom = 56
-	title_bar.add_theme_constant_override("separation", 8)
-	settings_shell.add_child(title_bar)
-	_make_draggable_window(_settings_window, "settings", title_bar)
-
-	_settings_title_label = _label("设置", 24, _theme_color("accent"))
-	_settings_title_label.name = "SettingsWindowHandle"
-	_settings_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_bar.add_child(_settings_title_label)
-	_make_draggable_window(_settings_window, "settings", _settings_title_label)
-	var close := Button.new()
-	close.name = "SettingsCloseButton"
-	close.text = "X"
-	close.custom_minimum_size = Vector2(56, 56)
-	close.pressed.connect(_close_settings_window)
-	title_bar.add_child(close)
-
-	var settings_scroll := ScrollContainer.new()
-	settings_scroll.name = "SettingsScroll"
-	settings_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	settings_scroll.offset_top = 66
-	settings_scroll.offset_bottom = -108
-	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	settings_shell.add_child(settings_scroll)
-
-	_settings_content = VBoxContainer.new()
-	_settings_content.name = "SettingsContent"
-	_settings_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settings_content.add_theme_constant_override("separation", 8)
-	settings_scroll.add_child(_settings_content)
-
-	_settings_volume_label = _label("音量", 17, _theme_color("ink"))
-	_settings_volume_label.name = "SettingsVolumeLabel"
-	_settings_volume_label.set_meta("functional_label_only", true)
-	_settings_content.add_child(_settings_volume_label)
-	_volume_slider = HSlider.new()
-	_volume_slider.name = "SettingsVolumeSlider"
-	_volume_slider.set_meta("must_remain_functional", true)
-	_volume_slider.min_value = 0
-	_volume_slider.max_value = 100
-	_volume_slider.step = 1
-	_volume_slider.value = _master_volume
-	_volume_slider.editable = true
-	_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
-	_volume_slider.focus_mode = Control.FOCUS_ALL
-	_volume_slider.custom_minimum_size = Vector2(260, 44)
-	_volume_slider.value_changed.connect(_on_volume_changed)
-	_settings_content.add_child(_volume_slider)
-
-	_vhs_toggle = CheckButton.new()
-	_vhs_toggle.name = "SettingsVHSToggle"
-	_vhs_toggle.text = "开启 VHS 质感"
-	_vhs_toggle.button_pressed = _vhs_enabled
-	_vhs_toggle.custom_minimum_size.y = 48
-	_vhs_toggle.toggled.connect(_on_vhs_toggled)
-	_settings_content.add_child(_vhs_toggle)
-
-	var camera_rule := HSeparator.new()
-	_settings_content.add_child(camera_rule)
-	_camera_access_toggle = CheckButton.new()
-	_camera_access_toggle.name = "SettingsCameraAccessToggle"
-	_camera_access_toggle.text = "允许访问摄像头"
-	_camera_access_toggle.button_pressed = _camera_enabled
-	_camera_access_toggle.custom_minimum_size.y = 48
-	_camera_access_toggle.set_meta("privacy_control", true)
-	_camera_access_toggle.toggled.connect(_on_camera_access_toggled)
-	_settings_content.add_child(_camera_access_toggle)
-	var camera_source_label := _label("摄像头来源", 15, _theme_color("ink"))
-	camera_source_label.name = "SettingsCameraSourceLabel"
-	_settings_content.add_child(camera_source_label)
-	_camera_source_button_group = ButtonGroup.new()
-	_camera_source_button_group.allow_unpress = false
-	_camera_computer_button = Button.new()
-	_camera_computer_button.name = "SettingsOpenComputerCameraButton"
-	_camera_computer_button.text = "打开电脑摄像头并开启 X-ray"
-	_camera_computer_button.tooltip_text = "只会选择电脑内置或 USB 摄像头。"
-	_camera_computer_button.toggle_mode = true
-	_camera_computer_button.button_group = _camera_source_button_group
-	_camera_computer_button.set_meta("camera_source_id", "computer")
-	_camera_computer_button.custom_minimum_size.y = 52
-	_camera_computer_button.pressed.connect(_activate_camera_source.bind("computer"))
-	_settings_content.add_child(_camera_computer_button)
-	_camera_phone_button = Button.new()
-	_camera_phone_button.name = "SettingsConnectPhoneCameraButton"
-	_camera_phone_button.text = "连接手机摄像头并开启 X-ray"
-	_camera_phone_button.tooltip_text = "只会选择手机连续互通或虚拟摄像头。"
-	_camera_phone_button.toggle_mode = true
-	_camera_phone_button.button_group = _camera_source_button_group
-	_camera_phone_button.set_meta("camera_source_id", "phone")
-	_camera_phone_button.custom_minimum_size.y = 52
-	_camera_phone_button.pressed.connect(_activate_camera_source.bind("phone"))
-	_settings_content.add_child(_camera_phone_button)
-	_refresh_camera_source_buttons()
-	var phone_fallback_note := _label("手机备用会优先寻找连续互通相机或虚拟摄像头。", 13, _theme_color("ink"))
-	phone_fallback_note.name = "SettingsPhoneCameraFallbackNote"
-	phone_fallback_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_settings_content.add_child(phone_fallback_note)
-	var camera_privacy := _label("镜头仅在启用时由本地 MediaPipe 读取。", 13, _theme_color("ink"))
-	camera_privacy.name = "SettingsCameraPrivacyNote"
-	camera_privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_settings_content.add_child(camera_privacy)
-	_camera_status_label = _label(_camera_tracking_status, 14, _theme_color("accent"))
-	_camera_status_label.name = "SettingsCameraStatus"
-	_camera_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_settings_content.add_child(_camera_status_label)
-
-	var language_label := _label("语言", 17, _theme_color("ink"))
-	_settings_content.add_child(language_label)
-	_settings_language_option = OptionButton.new()
-	_settings_language_option.name = "SettingsLanguageOption"
-	_settings_language_option.set_meta("skip_localization", true)
-	_settings_language_option.custom_minimum_size = Vector2(300, 50)
-	for locale_code in GameLocaleScript.SUPPORTED_LOCALES:
-		_settings_language_option.add_item(_locale.native_language_name(str(locale_code)))
-		_settings_language_option.set_item_metadata(_settings_language_option.item_count - 1, locale_code)
-		if str(locale_code) == _locale.current_locale:
-			_settings_language_option.select(_settings_language_option.item_count - 1)
-	_settings_language_option.item_selected.connect(_on_settings_language_selected)
-	_settings_content.add_child(_settings_language_option)
-
-	_settings_save_button = Button.new()
-	_settings_save_button.name = "SettingsManualSaveButton"
-	_settings_save_button.text = "保存"
-	_settings_save_button.set_meta("skip_localization", true)
-	_settings_save_button.custom_minimum_size.y = 50
-	_settings_save_button.pressed.connect(_on_manual_save_pressed)
-	_settings_content.add_child(_settings_save_button)
-	_settings_save_status = _label("", 14, _theme_color("accent"))
-	_settings_save_status.name = "SettingsSaveStatus"
-	_settings_content.add_child(_settings_save_status)
-
-	_settings_autoplay_button = CheckButton.new()
-	_settings_autoplay_button.name = "SettingsAutoplayButton"
-	_settings_autoplay_button.text = "自动播放"
-	_settings_autoplay_button.set_meta("skip_localization", true)
-	_settings_autoplay_button.button_pressed = game.autoplay_enabled
-	_settings_autoplay_button.custom_minimum_size.y = 50
-	_settings_autoplay_button.toggled.connect(_on_autoplay_toggled)
-	_settings_content.add_child(_settings_autoplay_button)
-
-	_settings_history_button = Button.new()
-	_settings_history_button.name = "SettingsHistoryButton"
-	_settings_history_button.text = "历史记录"
-	_settings_history_button.set_meta("skip_localization", true)
-	_settings_history_button.custom_minimum_size.y = 50
-	_settings_history_button.pressed.connect(_toggle_history_window)
-	_settings_content.add_child(_settings_history_button)
-
-	var main_menu_button := Button.new()
-	main_menu_button.name = "SettingsReturnMainButton"
-	main_menu_button.text = "退回主画面"
-	main_menu_button.custom_minimum_size.y = 50
-	main_menu_button.pressed.connect(_on_return_main_menu_pressed)
-	_settings_content.add_child(main_menu_button)
-
-	var system_footer := VBoxContainer.new()
-	system_footer.name = "SettingsSystemFooter"
-	system_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	system_footer.offset_top = -100
-	system_footer.add_theme_constant_override("separation", 6)
-	settings_shell.add_child(system_footer)
-	var system_rule := HSeparator.new()
-	system_rule.name = "SettingsSystemDivider"
-	system_footer.add_child(system_rule)
-	var system_label := _label("系统", 14, _theme_color("accent"))
-	system_label.name = "SettingsSystemLabel"
-	system_footer.add_child(system_label)
-	_settings_exit_button = Button.new()
-	_settings_exit_button.name = "SettingsExitGameButton"
-	_settings_exit_button.text = "退出游戏"
-	_settings_exit_button.set_meta("skip_localization", true)
-	_settings_exit_button.set_meta("reliable_system_command", true)
-	_settings_exit_button.custom_minimum_size.y = 52
-	_settings_exit_button.pressed.connect(_request_quit_game)
-	system_footer.add_child(_settings_exit_button)
 	_refresh_language_menu_labels()
-	if _edge_drawer != null:
+	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
 
 
@@ -3156,36 +2966,144 @@ func _camera_tracking_has_error() -> bool:
 
 
 func _layout_settings_window() -> void:
-	if _settings_window == null:
+	if _settings_history_panel == null:
 		return
-	var viewport_size := _viewport_size()
-	var margin := 16.0
-	var window_width := minf(430.0, maxf(320.0, viewport_size.x - margin * 2.0))
-	var window_height := minf(868.0, maxf(420.0, viewport_size.y - margin * 2.0))
-	var left := clampf(180.0, margin, maxf(margin, viewport_size.x - window_width - margin))
-	var top := maxf(margin, (viewport_size.y - window_height) * 0.5)
-	_settings_window.position = Vector2(left, top)
-	_settings_window.size = Vector2(window_width, window_height)
+	_settings_history_panel.layout_settings(_viewport_size())
 
 
 func _ensure_settings_history_panel() -> void:
-	if _settings_history_panel != null:
+	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
 		return
 	_settings_history_panel = SettingsHistoryPanelScript.new()
 	_settings_history_panel.name = "SettingsHistoryPanel"
 	add_child(_settings_history_panel)
 
 
-func _build_history_window() -> void:
-	_ensure_settings_history_panel()
-	_settings_history_panel.mount(_ui_root, {
+func _settings_history_mount_deps() -> Dictionary:
+	_ensure_window_manager()
+	var locales: Array = []
+	for locale_code in GameLocaleScript.SUPPORTED_LOCALES:
+		locales.append({
+			"code": str(locale_code),
+			"name": _locale.native_language_name(str(locale_code)),
+		})
+	return {
 		"panel_factory": _panel,
 		"label_factory": _label,
+		"soft_style": _soft_style,
 		"theme_color": _theme_color,
 		"ui_font_size": _ui_font_size,
-		"register_draggable": _make_draggable_window,
+		"register_draggable": _window_manager.register,
 		"on_close": _close_history_window,
-	})
+		"master_volume": _master_volume,
+		"vhs_enabled": _vhs_enabled,
+		"autoplay_enabled": game != null and game.autoplay_enabled,
+		"locales": locales,
+		"current_locale": _locale.current_locale if _locale != null else "",
+	}
+
+
+func _sync_settings_control_aliases() -> void:
+	if _settings_history_panel == null:
+		return
+	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
+	if _settings_window == null:
+		return
+	_settings_content = _settings_window.find_child("SettingsContent", true, false) as VBoxContainer
+	_settings_title_label = _settings_window.find_child("SettingsWindowHandle", true, false) as Label
+	_settings_volume_label = _settings_window.find_child("SettingsVolumeLabel", true, false) as Label
+	_settings_save_button = _settings_window.find_child("SettingsManualSaveButton", true, false) as Button
+	_settings_autoplay_button = _settings_window.find_child("SettingsAutoplayButton", true, false) as CheckButton
+	_settings_history_button = _settings_window.find_child("SettingsHistoryButton", true, false) as Button
+	_settings_exit_button = _settings_window.find_child("SettingsExitGameButton", true, false) as Button
+	_settings_language_option = _settings_window.find_child("SettingsLanguageOption", true, false) as OptionButton
+	_settings_save_status = _settings_window.find_child("SettingsSaveStatus", true, false) as Label
+	_volume_slider = _settings_window.find_child("SettingsVolumeSlider", true, false) as HSlider
+	_vhs_toggle = _settings_window.find_child("SettingsVHSToggle", true, false) as CheckButton
+
+
+func _connect_settings_shell_handlers() -> void:
+	if _settings_window == null:
+		return
+	var close_button := _settings_window.find_child("SettingsCloseButton", true, false) as Button
+	if close_button != null and not close_button.pressed.is_connected(_close_settings_window):
+		close_button.pressed.connect(_close_settings_window)
+	if _volume_slider != null and not _volume_slider.value_changed.is_connected(_on_volume_changed):
+		_volume_slider.value_changed.connect(_on_volume_changed)
+	if _vhs_toggle != null and not _vhs_toggle.toggled.is_connected(_on_vhs_toggled):
+		_vhs_toggle.toggled.connect(_on_vhs_toggled)
+	if _settings_language_option != null and not _settings_language_option.item_selected.is_connected(_on_settings_language_selected):
+		_settings_language_option.item_selected.connect(_on_settings_language_selected)
+	if _settings_save_button != null and not _settings_save_button.pressed.is_connected(_on_manual_save_pressed):
+		_settings_save_button.pressed.connect(_on_manual_save_pressed)
+	if _settings_autoplay_button != null and not _settings_autoplay_button.toggled.is_connected(_on_autoplay_toggled):
+		_settings_autoplay_button.toggled.connect(_on_autoplay_toggled)
+	if _settings_history_button != null and not _settings_history_button.pressed.is_connected(_toggle_history_window):
+		_settings_history_button.pressed.connect(_toggle_history_window)
+	var return_main := _settings_window.find_child("SettingsReturnMainButton", true, false) as Button
+	if return_main != null and not return_main.pressed.is_connected(_on_return_main_menu_pressed):
+		return_main.pressed.connect(_on_return_main_menu_pressed)
+	if _settings_exit_button != null and not _settings_exit_button.pressed.is_connected(_request_quit_game):
+		_settings_exit_button.pressed.connect(_request_quit_game)
+
+
+func _inject_settings_camera_block() -> void:
+	var slot := _settings_history_panel.get_camera_slot() if _settings_history_panel != null else null
+	if slot == null or slot.get_child_count() > 0:
+		return
+	var camera_rule := HSeparator.new()
+	slot.add_child(camera_rule)
+	_camera_access_toggle = CheckButton.new()
+	_camera_access_toggle.name = "SettingsCameraAccessToggle"
+	_camera_access_toggle.text = "允许访问摄像头"
+	_camera_access_toggle.button_pressed = _camera_enabled
+	_camera_access_toggle.custom_minimum_size.y = 48
+	_camera_access_toggle.set_meta("privacy_control", true)
+	_camera_access_toggle.toggled.connect(_on_camera_access_toggled)
+	slot.add_child(_camera_access_toggle)
+	var camera_source_label := _label("摄像头来源", 15, _theme_color("ink"))
+	camera_source_label.name = "SettingsCameraSourceLabel"
+	slot.add_child(camera_source_label)
+	_camera_source_button_group = ButtonGroup.new()
+	_camera_source_button_group.allow_unpress = false
+	_camera_computer_button = Button.new()
+	_camera_computer_button.name = "SettingsOpenComputerCameraButton"
+	_camera_computer_button.text = "打开电脑摄像头并开启 X-ray"
+	_camera_computer_button.tooltip_text = "只会选择电脑内置或 USB 摄像头。"
+	_camera_computer_button.toggle_mode = true
+	_camera_computer_button.button_group = _camera_source_button_group
+	_camera_computer_button.set_meta("camera_source_id", "computer")
+	_camera_computer_button.custom_minimum_size.y = 52
+	_camera_computer_button.pressed.connect(_activate_camera_source.bind("computer"))
+	slot.add_child(_camera_computer_button)
+	_camera_phone_button = Button.new()
+	_camera_phone_button.name = "SettingsConnectPhoneCameraButton"
+	_camera_phone_button.text = "连接手机摄像头并开启 X-ray"
+	_camera_phone_button.tooltip_text = "只会选择手机连续互通或虚拟摄像头。"
+	_camera_phone_button.toggle_mode = true
+	_camera_phone_button.button_group = _camera_source_button_group
+	_camera_phone_button.set_meta("camera_source_id", "phone")
+	_camera_phone_button.custom_minimum_size.y = 52
+	_camera_phone_button.pressed.connect(_activate_camera_source.bind("phone"))
+	slot.add_child(_camera_phone_button)
+	_refresh_camera_source_buttons()
+	var phone_fallback_note := _label("手机备用会优先寻找连续互通相机或虚拟摄像头。", 13, _theme_color("ink"))
+	phone_fallback_note.name = "SettingsPhoneCameraFallbackNote"
+	phone_fallback_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	slot.add_child(phone_fallback_note)
+	var camera_privacy := _label("镜头仅在启用时由本地 MediaPipe 读取。", 13, _theme_color("ink"))
+	camera_privacy.name = "SettingsCameraPrivacyNote"
+	camera_privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	slot.add_child(camera_privacy)
+	_camera_status_label = _label(_camera_tracking_status, 14, _theme_color("accent"))
+	_camera_status_label.name = "SettingsCameraStatus"
+	_camera_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	slot.add_child(_camera_status_label)
+
+
+func _build_history_window() -> void:
+	_ensure_settings_history_panel()
+	_settings_history_panel.mount(_ui_root, _settings_history_mount_deps())
 	_render_history_window()
 
 
@@ -3246,21 +3164,23 @@ func _on_autoplay_toggled(value: bool) -> void:
 	game.autoplay_enabled = value
 
 
+func _settings_is_open() -> bool:
+	return _settings_history_panel != null and is_instance_valid(_settings_history_panel) and _settings_history_panel.is_settings_open()
+
+
 func _toggle_settings_window() -> void:
-	if _settings_window == null:
+	if _settings_window == null or _settings_history_panel == null:
 		return
-	_settings_open = not _settings_open
-	_settings_window.visible = _settings_open
-	if _settings_open:
+	_settings_history_panel.set_settings_open(not _settings_history_panel.is_settings_open())
+	if _settings_history_panel.is_settings_open():
 		_settings_window.move_to_front()
 	_hide_hud_tooltip()
 	_update_visibility()
 
 
 func _close_settings_window() -> void:
-	_settings_open = false
-	if _settings_window != null:
-		_settings_window.visible = false
+	if _settings_history_panel != null:
+		_settings_history_panel.set_settings_open(false)
 	_update_visibility()
 
 
@@ -3745,7 +3665,7 @@ func _render_playtest_assist() -> void:
 	var tutorial_complete := bool(step.get("is_complete", false))
 	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
 	# 引导只由左下角的缝线布偶小窗承担;本面板仅在显式开启测试辅助时出现。
-	_playtest_assist_panel.visible = _game_started and not _settings_open and _playtest_assist_enabled
+	_playtest_assist_panel.visible = _game_started and not _settings_is_open() and _playtest_assist_enabled
 	if not _playtest_assist_panel.visible:
 		return
 	var lines: Array[String] = []
@@ -5120,10 +5040,10 @@ func _update_visibility() -> void:
 	if _hand_xray_overlay != null:
 		_hand_xray_overlay.visible = _camera_enabled and _game_started and not in_phone
 	if _view_toggle_button != null:
-		_view_toggle_button.visible = _game_started and not _settings_open and (in_phone or not _reality_interaction_active)
+		_view_toggle_button.visible = _game_started and not _settings_is_open() and (in_phone or not _reality_interaction_active)
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _settings_window != null:
-		_settings_window.visible = _settings_open and _game_started
+		_settings_window.visible = _settings_is_open() and _game_started
 	if _desk_log != null:
 		_desk_log.visible = in_phone
 	if _vhs_overlay != null:
@@ -5147,7 +5067,7 @@ func _update_visibility() -> void:
 		# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 		# 本面板只在测试辅助开启、或(教程未完成且玩偶窗缺席)时出现。
 		var tutorial_step: Dictionary = game.get_tutorial_step()
-		_playtest_assist_panel.visible = _game_started and not _settings_open and _playtest_assist_enabled
+		_playtest_assist_panel.visible = _game_started and not _settings_is_open() and _playtest_assist_enabled
 	if _reality_floor != null:
 		_reality_floor.visible = not in_phone
 	if _reality_player != null:

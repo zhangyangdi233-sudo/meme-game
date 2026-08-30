@@ -1,12 +1,27 @@
 class_name SettingsHistoryPanel
 extends Node
-## Game-side history window: build, toggle, and render dialogue history entries.
+## Game-side settings + history windows: chrome, layout, and history render/toggle.
 
 var _history_window: PanelContainer
 var _history_content: VBoxContainer
 var _history_open := false
+var _settings_window: PanelContainer
+var _settings_content: VBoxContainer
+var _settings_camera_slot: VBoxContainer
+var _settings_title_label: Label
+var _settings_volume_label: Label
+var _settings_save_button: Button
+var _settings_autoplay_button: CheckButton
+var _settings_history_button: Button
+var _settings_exit_button: Button
+var _settings_language_option: OptionButton
+var _settings_save_status: Label
+var _volume_slider: HSlider
+var _vhs_toggle: CheckButton
+var _settings_open := false
 var _panel_factory: Callable
 var _label_factory: Callable
+var _soft_style_fn: Callable
 var _theme_color_fn: Callable
 var _ui_font_size_fn: Callable
 var _register_draggable: Callable
@@ -16,10 +31,12 @@ var _on_close: Callable
 func mount(parent: Control, deps: Dictionary) -> void:
 	_panel_factory = deps.get("panel_factory", Callable())
 	_label_factory = deps.get("label_factory", Callable())
+	_soft_style_fn = deps.get("soft_style", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
 	_on_close = deps.get("on_close", Callable())
+	_build_settings_window(parent, deps)
 	_build_history_window(parent)
 
 
@@ -27,8 +44,38 @@ func is_open() -> bool:
 	return _history_open
 
 
+func is_settings_open() -> bool:
+	return _settings_open
+
+
+func set_settings_open(open: bool) -> void:
+	_settings_open = open
+	if _settings_window != null:
+		_settings_window.visible = open
+
+
 func get_history_window() -> Control:
 	return _history_window
+
+
+func get_settings_window() -> Control:
+	return _settings_window
+
+
+func get_camera_slot() -> Control:
+	return _settings_camera_slot
+
+
+func layout_settings(viewport_size: Vector2) -> void:
+	if _settings_window == null:
+		return
+	var margin := 16.0
+	var window_width := minf(430.0, maxf(320.0, viewport_size.x - margin * 2.0))
+	var window_height := minf(868.0, maxf(420.0, viewport_size.y - margin * 2.0))
+	var left := clampf(180.0, margin, maxf(margin, viewport_size.x - window_width - margin))
+	var top := maxf(margin, (viewport_size.y - window_height) * 0.5)
+	_settings_window.position = Vector2(left, top)
+	_settings_window.size = Vector2(window_width, window_height)
 
 
 func toggle(entries: Array) -> void:
@@ -71,6 +118,157 @@ func refresh_history(entries: Array) -> void:
 		var display_text := str(entry.get("displayText", entry.get("originalText", "")))
 		line.text = "[b]%s[/b]\n%s" % [_escape_history_bbcode(speaker), _history_markup_to_bbcode(display_text)]
 		_history_content.add_child(line)
+
+
+func _build_settings_window(parent: Control, deps: Dictionary) -> void:
+	if _settings_window != null:
+		return
+	_settings_window = _panel_factory.call() as PanelContainer
+	_settings_window.name = "SettingsWindow"
+	_settings_window.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_settings_window.offset_left = 180
+	_settings_window.offset_top = 16
+	_settings_window.offset_right = 610
+	_settings_window.offset_bottom = 884
+	_settings_window.z_index = 30
+	_settings_window.visible = false
+	parent.add_child(_settings_window)
+	layout_settings(parent.size)
+
+	var settings_shell := Control.new()
+	settings_shell.name = "SettingsShell"
+	settings_shell.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_settings_window.add_child(settings_shell)
+
+	var title_bar := HBoxContainer.new()
+	title_bar.name = "SettingsTitleBar"
+	title_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	title_bar.offset_bottom = 56
+	title_bar.add_theme_constant_override("separation", 8)
+	settings_shell.add_child(title_bar)
+	_register_draggable.call(_settings_window, "settings", title_bar)
+
+	_settings_title_label = _label_factory.call("设置", 24, _theme_color_fn.call("accent")) as Label
+	_settings_title_label.name = "SettingsWindowHandle"
+	_settings_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_bar.add_child(_settings_title_label)
+	_register_draggable.call(_settings_window, "settings", _settings_title_label)
+	var close_button := Button.new()
+	close_button.name = "SettingsCloseButton"
+	close_button.text = "X"
+	close_button.custom_minimum_size = Vector2(56, 56)
+	title_bar.add_child(close_button)
+
+	var settings_scroll := ScrollContainer.new()
+	settings_scroll.name = "SettingsScroll"
+	settings_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settings_scroll.offset_top = 66
+	settings_scroll.offset_bottom = -108
+	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	settings_shell.add_child(settings_scroll)
+
+	_settings_content = VBoxContainer.new()
+	_settings_content.name = "SettingsContent"
+	_settings_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_settings_content.add_theme_constant_override("separation", 8)
+	settings_scroll.add_child(_settings_content)
+
+	_settings_volume_label = _label_factory.call("音量", 17, _theme_color_fn.call("ink")) as Label
+	_settings_volume_label.name = "SettingsVolumeLabel"
+	_settings_volume_label.set_meta("functional_label_only", true)
+	_settings_content.add_child(_settings_volume_label)
+	_volume_slider = HSlider.new()
+	_volume_slider.name = "SettingsVolumeSlider"
+	_volume_slider.set_meta("must_remain_functional", true)
+	_volume_slider.min_value = 0
+	_volume_slider.max_value = 100
+	_volume_slider.step = 1
+	_volume_slider.value = float(deps.get("master_volume", 80.0))
+	_volume_slider.editable = true
+	_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
+	_volume_slider.focus_mode = Control.FOCUS_ALL
+	_volume_slider.custom_minimum_size = Vector2(260, 44)
+	_settings_content.add_child(_volume_slider)
+
+	_vhs_toggle = CheckButton.new()
+	_vhs_toggle.name = "SettingsVHSToggle"
+	_vhs_toggle.text = "开启 VHS 质感"
+	_vhs_toggle.button_pressed = bool(deps.get("vhs_enabled", true))
+	_vhs_toggle.custom_minimum_size.y = 48
+	_settings_content.add_child(_vhs_toggle)
+
+	_settings_camera_slot = VBoxContainer.new()
+	_settings_camera_slot.name = "SettingsCameraSlot"
+	_settings_camera_slot.add_theme_constant_override("separation", 8)
+	_settings_content.add_child(_settings_camera_slot)
+
+	var language_label := _label_factory.call("语言", 17, _theme_color_fn.call("ink")) as Label
+	_settings_content.add_child(language_label)
+	_settings_language_option = OptionButton.new()
+	_settings_language_option.name = "SettingsLanguageOption"
+	_settings_language_option.set_meta("skip_localization", true)
+	_settings_language_option.custom_minimum_size = Vector2(300, 50)
+	var locales: Array = deps.get("locales", [])
+	var current_locale := str(deps.get("current_locale", ""))
+	for item in locales:
+		var locale_item: Dictionary = item
+		var locale_code := str(locale_item.get("code", ""))
+		_settings_language_option.add_item(str(locale_item.get("name", locale_code)))
+		_settings_language_option.set_item_metadata(_settings_language_option.item_count - 1, locale_code)
+		if locale_code == current_locale:
+			_settings_language_option.select(_settings_language_option.item_count - 1)
+	_settings_content.add_child(_settings_language_option)
+
+	_settings_save_button = Button.new()
+	_settings_save_button.name = "SettingsManualSaveButton"
+	_settings_save_button.text = "保存"
+	_settings_save_button.set_meta("skip_localization", true)
+	_settings_save_button.custom_minimum_size.y = 50
+	_settings_content.add_child(_settings_save_button)
+	_settings_save_status = _label_factory.call("", 14, _theme_color_fn.call("accent")) as Label
+	_settings_save_status.name = "SettingsSaveStatus"
+	_settings_content.add_child(_settings_save_status)
+
+	_settings_autoplay_button = CheckButton.new()
+	_settings_autoplay_button.name = "SettingsAutoplayButton"
+	_settings_autoplay_button.text = "自动播放"
+	_settings_autoplay_button.set_meta("skip_localization", true)
+	_settings_autoplay_button.button_pressed = bool(deps.get("autoplay_enabled", false))
+	_settings_autoplay_button.custom_minimum_size.y = 50
+	_settings_content.add_child(_settings_autoplay_button)
+
+	_settings_history_button = Button.new()
+	_settings_history_button.name = "SettingsHistoryButton"
+	_settings_history_button.text = "历史记录"
+	_settings_history_button.set_meta("skip_localization", true)
+	_settings_history_button.custom_minimum_size.y = 50
+	_settings_content.add_child(_settings_history_button)
+
+	var return_main_button := Button.new()
+	return_main_button.name = "SettingsReturnMainButton"
+	return_main_button.text = "退回主画面"
+	return_main_button.custom_minimum_size.y = 50
+	_settings_content.add_child(return_main_button)
+
+	var system_footer := VBoxContainer.new()
+	system_footer.name = "SettingsSystemFooter"
+	system_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	system_footer.offset_top = -100
+	system_footer.add_theme_constant_override("separation", 6)
+	settings_shell.add_child(system_footer)
+	var system_rule := HSeparator.new()
+	system_rule.name = "SettingsSystemDivider"
+	system_footer.add_child(system_rule)
+	var system_label := _label_factory.call("系统", 14, _theme_color_fn.call("accent")) as Label
+	system_label.name = "SettingsSystemLabel"
+	system_footer.add_child(system_label)
+	_settings_exit_button = Button.new()
+	_settings_exit_button.name = "SettingsExitGameButton"
+	_settings_exit_button.text = "退出游戏"
+	_settings_exit_button.set_meta("skip_localization", true)
+	_settings_exit_button.set_meta("reliable_system_command", true)
+	_settings_exit_button.custom_minimum_size.y = 52
+	system_footer.add_child(_settings_exit_button)
 
 
 func _build_history_window(parent: Control) -> void:
