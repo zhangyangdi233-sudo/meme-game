@@ -34,6 +34,7 @@ const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.
 const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
+const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -446,6 +447,7 @@ var _notebook_hinge_audio: AudioStreamPlayer
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
+var _ending_screen_panel
 var _doll_companion: Node3D
 var _phone_ambience: AudioStreamPlayer
 var _reality_ambience: AudioStreamPlayer
@@ -4331,100 +4333,44 @@ func _set_input_locked(value: bool) -> void:
 func _render_ending() -> void:
 	if _canvas == null:
 		_build_world()
-	for child in _canvas.get_children():
-		_canvas.remove_child(child)
-		child.free()
-	var screen := Control.new()
-	screen.name = "EndingScreen"
-	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
-	screen.set_meta("empty_tower", true)
-	_canvas.add_child(screen)
-	var bg := ColorRect.new()
-	bg.name = "EndingBlack"
-	bg.color = _theme_color("ink")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	screen.add_child(bg)
-	var rule := ColorRect.new()
-	rule.name = "EndingSignalRule"
-	rule.color = _theme_color("flash_text")
-	rule.set_anchors_preset(Control.PRESET_CENTER)
-	rule.offset_left = -610
-	rule.offset_right = 610
-	rule.offset_top = 18
-	rule.offset_bottom = 24
-	rule.rotation = deg_to_rad(-4.0)
-	screen.add_child(rule)
-	var system_line := _label("FLOOR 05  /  NO SIGNAL  /  WISDOM USER NOT FOUND", 16, _theme_color("flash_text"))
-	system_line.name = "EndingSystemLine"
-	system_line.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	system_line.offset_left = 56
-	system_line.offset_top = 42
-	system_line.offset_right = -56
-	system_line.offset_bottom = 78
-	system_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	system_line.set_meta("on_dark", true)
-	screen.add_child(system_line)
-	var center := VBoxContainer.new()
-	center.name = "EndingContent"
-	center.set_anchors_preset(Control.PRESET_CENTER)
-	center.offset_left = -500
-	center.offset_right = 500
-	center.offset_top = -248
-	center.offset_bottom = 260
-	center.add_theme_constant_override("separation", 18)
-	screen.add_child(center)
-	var title := _label("塔顶没有人", 54, _theme_color("surface"))
-	title.name = "EndingTitle"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.set_meta("on_dark", true)
-	center.add_child(title)
-	var body_text := "\n".join(MemeGameStateScript.EPILOGUE_LINES)
-	var body := _label(body_text, 22, _theme_color("muted"))
-	body.name = "EndingBody"
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.set_meta("on_dark", true)
-	center.add_child(body)
+	_ensure_ending_screen_panel()
+	_ending_screen_panel.mount(_canvas, _ending_screen_mount_deps())
+	_ending_screen_panel.render(_ending_screen_render_state())
 
-	if game.ending_language_choice.is_empty():
-		var prompt := _label("你还能留下一个声音。", 20, _theme_color("surface"))
-		prompt.name = "EndingLanguagePrompt"
-		prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		prompt.set_meta("on_dark", true)
-		center.add_child(prompt)
-		var choices := HBoxContainer.new()
-		choices.name = "EndingLanguageChoices"
-		choices.alignment = BoxContainer.ALIGNMENT_CENTER
-		choices.add_theme_constant_override("separation", 14)
-		center.add_child(choices)
-		for choice in game.get_ending_language_choices():
-			var button := Button.new()
-			var choice_id := str(choice.get("id", ""))
-			button.name = "EndingLanguageChoice_%s" % choice_id
-			button.text = str(choice.get("label", ""))
-			button.custom_minimum_size = Vector2(172, 58)
-			button.pressed.connect(_on_ending_language_selected.bind(choice_id), CONNECT_DEFERRED)
-			choices.add_child(button)
-	else:
-		var result := _label("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。" % game.get_ending_language_output(), 27, _theme_color("surface"))
-		result.name = "EndingLanguageResult"
-		result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		result.set_meta("on_dark", true)
-		center.add_child(result)
 
-	var residue := _label("关系残留 %d / 100  ·  %s" % [game.relationship_residue, game.get_relationship_state_label()], 16, _theme_color("muted"))
-	residue.name = "EndingResidue"
-	residue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	residue.set_meta("on_dark", true)
-	center.add_child(residue)
-	var restart := Button.new()
-	restart.name = "EndingRestartButton"
-	restart.text = "重开"
-	restart.custom_minimum_size = Vector2(172, 54)
-	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	restart.pressed.connect(new_game, CONNECT_DEFERRED)
-	center.add_child(restart)
+func _ensure_ending_screen_panel() -> void:
+	if _ending_screen_panel != null and is_instance_valid(_ending_screen_panel):
+		return
+	_ending_screen_panel = EndingScreenPanelScript.new()
+	_ending_screen_panel.name = "EndingScreenPanel"
+	add_child(_ending_screen_panel)
+	_connect_ending_screen_panel_signals()
+
+
+func _ending_screen_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"restart": new_game,
+	}
+
+
+func _ending_screen_render_state() -> Dictionary:
+	return {
+		"epilogue_lines": MemeGameStateScript.EPILOGUE_LINES,
+		"show_language_choices": game.ending_language_choice.is_empty(),
+		"language_choices": game.get_ending_language_choices(),
+		"language_output": game.get_ending_language_output(),
+		"relationship_residue": game.relationship_residue,
+		"relationship_state_label": game.get_relationship_state_label(),
+	}
+
+
+func _connect_ending_screen_panel_signals() -> void:
+	if _ending_screen_panel == null:
+		return
+	if not _ending_screen_panel.ending_language_selected.is_connected(_on_ending_language_selected):
+		_ending_screen_panel.ending_language_selected.connect(_on_ending_language_selected)
 
 
 func _on_ending_language_selected(choice_id: String) -> void:
