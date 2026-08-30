@@ -169,6 +169,27 @@ func _run() -> void:
 		_assert_eq(_history_toggle_events, [true], "the history button should emit history_toggle_requested")
 		_assert_true(history != null and not history.visible, "history toggle intent should not open the window until the adapter supplies entries")
 
+	panel.refresh_menu_labels(0, false)
+	_assert_eq(volume_label.text if volume_label != null else "", "音量", "clean pollution should keep the default volume label")
+	panel.refresh_menu_labels(30, true)
+	_assert_eq(volume_label.text if volume_label != null else "", "外面的声音", "mid pollution should rename the volume label")
+	_assert_eq(autoplay_button.text if autoplay_button != null else "", "让我替你继续说", "mid pollution should rename the autoplay label")
+	_assert_true(autoplay_button != null and autoplay_button.button_pressed, "refresh_menu_labels should sync autoplay state")
+	panel.refresh_menu_labels(100, false)
+	_assert_eq(volume_label.text if volume_label != null else "", "它离你有多近", "max pollution should use the corrupted volume label")
+	_assert_true(volume_slider != null and volume_slider.editable, "max pollution must keep the volume slider adjustable")
+
+	panel.build_exit_confirmation_overlay(host)
+	await process_frame
+	var confirmation := _find_node_by_name(host, "ExitConfirmationOverlay") as Control
+	var message := _find_node_by_name(host, "ExitConfirmationMessage") as Label
+	_assert_true(confirmation != null and not confirmation.visible, "exit overlay should start hidden")
+	_assert_eq(message.text if message != null else "", "真的要抛弃我吗？", "exit overlay should keep the confirmation copy")
+	panel.request_quit()
+	_assert_true(confirmation != null and confirmation.visible, "request_quit should show the exit overlay")
+	panel.cancel_quit()
+	_assert_true(confirmation != null and not confirmation.visible, "cancel_quit should hide the exit overlay")
+
 	host.queue_free()
 	panel.queue_free()
 	await process_frame

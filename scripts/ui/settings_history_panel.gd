@@ -9,6 +9,7 @@ signal language_selected(locale_code: String)
 signal manual_save_pressed
 signal return_main_menu_pressed
 signal exit_game_requested
+signal exit_confirmed
 signal history_toggle_requested
 signal settings_open_changed(open: bool)
 
@@ -29,6 +30,7 @@ var _settings_save_status: Label
 var _volume_slider: HSlider
 var _vhs_toggle: CheckButton
 var _settings_open := false
+var _exit_confirmation_overlay: Control
 var _panel_factory: Callable
 var _label_factory: Callable
 var _soft_style_fn: Callable
@@ -38,14 +40,20 @@ var _register_draggable: Callable
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
+	_apply_mount_deps(deps)
+	_build_settings_window(parent, deps)
+	_build_history_window(parent)
+
+
+func _apply_mount_deps(deps: Dictionary) -> void:
+	if deps.is_empty():
+		return
 	_panel_factory = deps.get("panel_factory", Callable())
 	_label_factory = deps.get("label_factory", Callable())
 	_soft_style_fn = deps.get("soft_style", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
-	_build_settings_window(parent, deps)
-	_build_history_window(parent)
 
 
 func is_open() -> bool:
@@ -115,6 +123,94 @@ func close() -> void:
 	_history_open = false
 	if _history_window != null:
 		_history_window.visible = false
+
+
+func refresh_menu_labels(pollution: int, autoplay_enabled: bool = false) -> void:
+	if _settings_title_label != null:
+		_settings_title_label.text = _menu_display_label(pollution, "settings")
+	if _settings_volume_label != null:
+		_settings_volume_label.text = _menu_display_label(pollution, "volume")
+	if _volume_slider != null:
+		_volume_slider.editable = true
+		_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
+	if _settings_save_button != null:
+		_settings_save_button.text = _menu_display_label(pollution, "save")
+	if _settings_autoplay_button != null:
+		_settings_autoplay_button.text = _menu_display_label(pollution, "autoplay")
+		_settings_autoplay_button.set_pressed_no_signal(autoplay_enabled)
+	if _settings_history_button != null:
+		_settings_history_button.text = _menu_display_label(pollution, "history")
+
+
+func set_save_status(text: String) -> void:
+	if _settings_save_status != null:
+		_settings_save_status.text = text
+
+
+func build_exit_confirmation_overlay(parent: Control, deps: Dictionary = {}) -> void:
+	_apply_mount_deps(deps)
+	if parent == null or not _label_factory.is_valid():
+		return
+	if _exit_confirmation_overlay != null and is_instance_valid(_exit_confirmation_overlay):
+		_exit_confirmation_overlay.queue_free()
+	_exit_confirmation_overlay = Control.new()
+	_exit_confirmation_overlay.name = "ExitConfirmationOverlay"
+	_exit_confirmation_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_exit_confirmation_overlay.visible = false
+	_exit_confirmation_overlay.z_index = 220
+	parent.add_child(_exit_confirmation_overlay)
+
+	var blackout := ColorRect.new()
+	blackout.name = "ExitConfirmationBackdrop"
+	blackout.color = Color(_theme_color_fn.call("ink"), 0.88)
+	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_exit_confirmation_overlay.add_child(blackout)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_exit_confirmation_overlay.add_child(center)
+	var panel := _panel_factory.call() as PanelContainer
+	panel.name = "ExitConfirmationPanel"
+	panel.custom_minimum_size = Vector2(520, 230)
+	panel.add_theme_stylebox_override("panel", _soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent")))
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 24)
+	panel.add_child(box)
+	var message := _label_factory.call("真的要抛弃我吗？", 25, _theme_color_fn.call("ink")) as Label
+	message.name = "ExitConfirmationMessage"
+	message.set_meta("skip_localization", true)
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(message)
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("separation", 12)
+	box.add_child(actions)
+	var return_button := Button.new()
+	return_button.name = "ExitConfirmationReturnButton"
+	return_button.text = "返回"
+	return_button.set_meta("skip_localization", true)
+	return_button.custom_minimum_size = Vector2(180, 54)
+	return_button.pressed.connect(cancel_quit)
+	actions.add_child(return_button)
+	var confirm_button := Button.new()
+	confirm_button.name = "ExitConfirmationConfirmButton"
+	confirm_button.text = "仍然退出"
+	confirm_button.set_meta("skip_localization", true)
+	confirm_button.custom_minimum_size = Vector2(180, 54)
+	confirm_button.pressed.connect(_on_exit_confirm_pressed)
+	actions.add_child(confirm_button)
+
+
+func request_quit() -> void:
+	if _exit_confirmation_overlay != null:
+		_exit_confirmation_overlay.visible = true
+		_exit_confirmation_overlay.move_to_front()
+
+
+func cancel_quit() -> void:
+	if _exit_confirmation_overlay != null:
+		_exit_confirmation_overlay.visible = false
 
 
 func refresh_history(entries: Array) -> void:
@@ -385,6 +481,30 @@ func _on_history_button_pressed() -> void:
 
 func _on_history_close_pressed() -> void:
 	close()
+
+
+func _on_exit_confirm_pressed() -> void:
+	exit_confirmed.emit()
+
+
+func _menu_display_label(pollution: int, kind: String) -> String:
+	if pollution < 25:
+		return {"save": "保存", "autoplay": "自动播放", "history": "历史记录", "settings": "设置", "volume": "音量"}.get(kind, kind)
+	if pollution < 60:
+		return {
+			"save": "留住这一段",
+			"autoplay": "让我替你继续说",
+			"history": "他们说你说过",
+			"settings": "调整记录方式",
+			"volume": "外面的声音",
+		}.get(kind, kind)
+	return {
+		"save": "留住这■■",
+		"autoplay": "让我替你继续■■",
+		"history": "他们说你■■过",
+		"settings": "调整你能接受的部分",
+		"volume": "它离你有多近",
+	}.get(kind, kind)
 
 
 func _escape_history_bbcode(value: String) -> String:

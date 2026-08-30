@@ -403,18 +403,6 @@ var _prologue_counter_label: Label
 var _prologue_continue_button: Button
 var _prologue_index := 0
 var _settings_window: PanelContainer
-var _settings_content: VBoxContainer
-var _settings_title_label: Label
-var _settings_volume_label: Label
-var _settings_save_button: Button
-var _settings_autoplay_button: CheckButton
-var _settings_history_button: Button
-var _settings_exit_button: Button
-var _volume_slider: HSlider
-var _vhs_toggle: CheckButton
-var _settings_language_option: OptionButton
-var _settings_save_status: Label
-var _exit_confirmation_overlay: Control
 var _settings_history_panel: SettingsHistoryPanel
 var _language_overlay: Control
 var _language_overlay_first_run := false
@@ -1593,7 +1581,8 @@ func _build_main_menu() -> void:
 
 	_apply_ui_theme()
 	_refresh_localized_ui()
-	_build_exit_confirmation_overlay()
+	_ensure_settings_history_panel()
+	_settings_history_panel.build_exit_confirmation_overlay(_ui_root, _settings_history_mount_deps())
 
 
 func _build_language_selection_overlay(first_run: bool = false) -> void:
@@ -2326,7 +2315,6 @@ func _build_ui() -> void:
 	_build_settings_window()
 	_build_phone_camera_connection_overlay()
 	_build_history_window()
-	_build_exit_confirmation_overlay()
 	_build_day_transition_overlay()
 	_build_pickup_flight_layer()
 	_build_doll_guide_overlay()
@@ -2792,10 +2780,11 @@ func _layout_hud_rail() -> void:
 func _build_settings_window() -> void:
 	_ensure_settings_history_panel()
 	_settings_history_panel.mount(_ui_root, _settings_history_mount_deps())
-	_sync_settings_control_aliases()
+	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_refresh_language_menu_labels()
+	_settings_history_panel.refresh_menu_labels(game.pollution, game.autoplay_enabled)
+	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
 
@@ -3002,25 +2991,6 @@ func _settings_history_mount_deps() -> Dictionary:
 	}
 
 
-func _sync_settings_control_aliases() -> void:
-	if _settings_history_panel == null:
-		return
-	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
-	if _settings_window == null:
-		return
-	_settings_content = _settings_window.find_child("SettingsContent", true, false) as VBoxContainer
-	_settings_title_label = _settings_window.find_child("SettingsWindowHandle", true, false) as Label
-	_settings_volume_label = _settings_window.find_child("SettingsVolumeLabel", true, false) as Label
-	_settings_save_button = _settings_window.find_child("SettingsManualSaveButton", true, false) as Button
-	_settings_autoplay_button = _settings_window.find_child("SettingsAutoplayButton", true, false) as CheckButton
-	_settings_history_button = _settings_window.find_child("SettingsHistoryButton", true, false) as Button
-	_settings_exit_button = _settings_window.find_child("SettingsExitGameButton", true, false) as Button
-	_settings_language_option = _settings_window.find_child("SettingsLanguageOption", true, false) as OptionButton
-	_settings_save_status = _settings_window.find_child("SettingsSaveStatus", true, false) as Label
-	_volume_slider = _settings_window.find_child("SettingsVolumeSlider", true, false) as HSlider
-	_vhs_toggle = _settings_window.find_child("SettingsVHSToggle", true, false) as CheckButton
-
-
 func _connect_settings_history_panel_signals() -> void:
 	var panel := _settings_history_panel
 	if panel == null:
@@ -3039,6 +3009,8 @@ func _connect_settings_history_panel_signals() -> void:
 		panel.return_main_menu_pressed.connect(_on_return_main_menu_pressed)
 	if not panel.exit_game_requested.is_connected(_request_quit_game):
 		panel.exit_game_requested.connect(_request_quit_game)
+	if not panel.exit_confirmed.is_connected(_confirm_quit_game):
+		panel.exit_confirmed.connect(_confirm_quit_game)
 	if not panel.history_toggle_requested.is_connected(_toggle_history_window):
 		panel.history_toggle_requested.connect(_toggle_history_window)
 	if not panel.settings_open_changed.is_connected(_on_settings_open_changed):
@@ -3121,41 +3093,9 @@ func _render_history_window() -> void:
 		_settings_history_panel.refresh_history(game.get_history_entries())
 
 
-func _menu_display_label(kind: String) -> String:
-	if game.pollution < 25:
-		return {"save": "保存", "autoplay": "自动播放", "history": "历史记录", "settings": "设置", "volume": "音量"}.get(kind, kind)
-	if game.pollution < 60:
-		return {
-			"save": "留住这一段",
-			"autoplay": "让我替你继续说",
-			"history": "他们说你说过",
-			"settings": "调整记录方式",
-			"volume": "外面的声音",
-		}.get(kind, kind)
-	return {
-		"save": "留住这■■",
-		"autoplay": "让我替你继续■■",
-		"history": "他们说你■■过",
-		"settings": "调整你能接受的部分",
-		"volume": "它离你有多近",
-	}.get(kind, kind)
-
-
-func _refresh_language_menu_labels() -> void:
-	if _settings_title_label != null:
-		_settings_title_label.text = _menu_display_label("settings")
-	if _settings_volume_label != null:
-		_settings_volume_label.text = _menu_display_label("volume")
-	if _volume_slider != null:
-		_volume_slider.editable = true
-		_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
-	if _settings_save_button != null:
-		_settings_save_button.text = _menu_display_label("save")
-	if _settings_autoplay_button != null:
-		_settings_autoplay_button.text = _menu_display_label("autoplay")
-		_settings_autoplay_button.set_pressed_no_signal(game.autoplay_enabled)
-	if _settings_history_button != null:
-		_settings_history_button.text = _menu_display_label("history")
+func _refresh_settings_menu_labels() -> void:
+	if _settings_history_panel != null and game != null:
+		_settings_history_panel.refresh_menu_labels(game.pollution, game.autoplay_enabled)
 
 
 func _on_autoplay_toggled(value: bool) -> void:
@@ -3212,8 +3152,10 @@ func _on_settings_language_selected(locale_code: String) -> void:
 func _on_manual_save_pressed() -> void:
 	var progress_saved := _save_progress()
 	var preferences_saved := _locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
-	if _settings_save_status != null:
-		_settings_save_status.text = "已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
+	if _settings_history_panel != null:
+		_settings_history_panel.set_save_status(
+			"已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
+		)
 	_refresh_localized_ui()
 
 
@@ -3232,70 +3174,15 @@ func _on_camera_access_toggled(value: bool) -> void:
 	_set_camera_enabled(value, true)
 
 
-func _build_exit_confirmation_overlay() -> void:
-	if _ui_root == null:
-		return
-	if _exit_confirmation_overlay != null and is_instance_valid(_exit_confirmation_overlay):
-		_exit_confirmation_overlay.queue_free()
-	_exit_confirmation_overlay = Control.new()
-	_exit_confirmation_overlay.name = "ExitConfirmationOverlay"
-	_exit_confirmation_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.visible = false
-	_exit_confirmation_overlay.z_index = 220
-	_ui_root.add_child(_exit_confirmation_overlay)
-
-	var blackout := ColorRect.new()
-	blackout.name = "ExitConfirmationBackdrop"
-	blackout.color = Color(_theme_color("ink"), 0.88)
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.add_child(blackout)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.name = "ExitConfirmationPanel"
-	panel.custom_minimum_size = Vector2(520, 230)
-	panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-	center.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 24)
-	panel.add_child(box)
-	var message := _label("真的要抛弃我吗？", 25, _theme_color("ink"))
-	message.name = "ExitConfirmationMessage"
-	message.set_meta("skip_localization", true)
-	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(message)
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 12)
-	box.add_child(actions)
-	var return_button := Button.new()
-	return_button.name = "ExitConfirmationReturnButton"
-	return_button.text = "返回"
-	return_button.set_meta("skip_localization", true)
-	return_button.custom_minimum_size = Vector2(180, 54)
-	return_button.pressed.connect(_cancel_quit_game)
-	actions.add_child(return_button)
-	var confirm_button := Button.new()
-	confirm_button.name = "ExitConfirmationConfirmButton"
-	confirm_button.text = "仍然退出"
-	confirm_button.set_meta("skip_localization", true)
-	confirm_button.custom_minimum_size = Vector2(180, 54)
-	confirm_button.pressed.connect(_confirm_quit_game)
-	actions.add_child(confirm_button)
-
-
 func _request_quit_game() -> void:
 	game.exit_prompt_seen = true
-	if _exit_confirmation_overlay != null:
-		_exit_confirmation_overlay.visible = true
-		_exit_confirmation_overlay.move_to_front()
+	if _settings_history_panel != null:
+		_settings_history_panel.request_quit()
 
 
 func _cancel_quit_game() -> void:
-	if _exit_confirmation_overlay != null:
-		_exit_confirmation_overlay.visible = false
+	if _settings_history_panel != null:
+		_settings_history_panel.cancel_quit()
 
 
 func _confirm_quit_game() -> void:
@@ -3647,7 +3534,7 @@ func _render_status() -> void:
 		_hud_actions_label.text = _action_text(game.actions_remaining)
 	if _desk_log != null:
 		_desk_log.text = log_text
-	_refresh_language_menu_labels()
+	_refresh_settings_menu_labels()
 	if _settings_history_panel != null and _settings_history_panel.is_open():
 		_render_history_window()
 	_render_playtest_assist()
