@@ -166,6 +166,8 @@ $env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
 
 CI does **not** pass `-Fast` or `-Filter`; a green local full run is the closest pre-push check. Use `-Fast` locally for iteration; rely on CI (or a local full run) before merging adapter or main-scene changes.
 
+**Fresh checkout / CI:** `run_tests` runs `godot --headless --import` once when `.godot/global_script_class_cache.cfg` is missing. That builds the global `class_name` registry and imports textures (e.g. `assets/generated/**`) before any test script loads. Local dev with an existing `.godot/` from the editor skips import.
+
 ## Single test (Windows)
 
 ```powershell

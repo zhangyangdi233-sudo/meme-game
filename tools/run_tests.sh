@@ -69,6 +69,21 @@ if [[ -n "${GODOT_HOME:-}" ]]; then
   export HOME="$GODOT_HOME"
 fi
 
+ensure_godot_project_imported() {
+  local class_cache="$ROOT/.godot/global_script_class_cache.cfg"
+  if [[ -f "$class_cache" ]]; then
+    return 0
+  fi
+
+  echo "==> godot --import (building class cache and imported assets)"
+  if ! "$GODOT_BIN" --headless --path "$ROOT" --import; then
+    echo "Godot import failed." >&2
+    exit 2
+  fi
+}
+
+ensure_godot_project_imported
+
 failures=()
 passed=0
 skipped=0

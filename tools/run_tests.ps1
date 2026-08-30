@@ -44,6 +44,31 @@ if (-not (Test-Path -LiteralPath $GodotBin)) {
     Write-Error "Godot not found at: $GodotBin"
 }
 
+function Ensure-GodotProjectImported {
+    param(
+        [string]$GodotExecutable,
+        [string]$ProjectRoot
+    )
+
+    # Fresh checkouts (CI) have no .godot/: class_name types and preloaded textures fail until import.
+    $classCache = Join-Path $ProjectRoot ".godot\global_script_class_cache.cfg"
+    if (Test-Path -LiteralPath $classCache) {
+        return
+    }
+
+    Write-Host "==> godot --import (building class cache and imported assets)"
+    $importProc = Start-Process -FilePath $GodotExecutable -ArgumentList @(
+        "--headless",
+        "--path", $ProjectRoot,
+        "--import"
+    ) -Wait -PassThru -NoNewWindow
+    if ($importProc.ExitCode -ne 0) {
+        Write-Error "Godot import failed with exit code $($importProc.ExitCode)"
+    }
+}
+
+Ensure-GodotProjectImported -GodotExecutable $GodotBin -ProjectRoot $Root
+
 $testFiles = Get-ChildItem -Path (Join-Path $Root "tests") -Filter "test_*.gd" -File |
     Sort-Object Name
 
