@@ -17,6 +17,7 @@ const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
+const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -463,7 +464,6 @@ var _playtest_assist_panel: PanelContainer
 var _playtest_assist_label: Label
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _flashback_overlay: PollutionFlashbackDirector
-var _ui_font: FontFile
 var _ui_theme: Theme
 var _pickup_press_audio: AudioStreamPlayer
 var _pickup_land_audio: AudioStreamPlayer
@@ -7235,31 +7235,17 @@ func _wrap(node: Control) -> PanelContainer:
 func _ensure_ui_font_theme() -> Theme:
 	if _ui_theme != null:
 		return _ui_theme
-	_ui_theme = Theme.new()
-	if ResourceLoader.exists(UI_FONT_PATH):
-		var font := load(UI_FONT_PATH)
-		if font is FontFile:
-			_ui_font = font as FontFile
-			# 点阵字形不做重采样:关抗锯齿与 hinting,笔画才不会糊。
-			_ui_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-			_ui_font.hinting = TextServer.HINTING_NONE
-			_ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-			_ui_font.multichannel_signed_distance_field = false
-			_ui_theme.default_font = _ui_font
-	_ui_theme.default_font_size = UI_FONT_GRID * 2
+	_ui_theme = PixelFontThemeScript.build(UI_FONT_PATH, UI_FONT_GRID)
 	return _ui_theme
 
 
 ## 把任意字号吸附到点阵网格(9 的整数倍),保证像素笔画等宽。
 func _ui_font_size(requested_size: int) -> int:
-	var snapped := int(round(float(requested_size) / float(UI_FONT_GRID))) * UI_FONT_GRID
-	return clampi(snapped, UI_FONT_MIN_SIZE, UI_FONT_MAX_SIZE)
+	return PixelFontThemeScript.snap_size(requested_size, UI_FONT_GRID, UI_FONT_MIN_SIZE, UI_FONT_MAX_SIZE)
 
 
 func _apply_ui_font_theme(target: Control) -> void:
-	if target == null or not is_instance_valid(target):
-		return
-	target.theme = _ensure_ui_font_theme()
+	PixelFontThemeScript.apply(target, _ensure_ui_font_theme())
 
 
 func _label(text: String, size: int, color: Color) -> Label:
