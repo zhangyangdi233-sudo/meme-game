@@ -24,6 +24,7 @@ const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
+const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -373,11 +374,7 @@ var _camera_phone_button: Button
 var _camera_source_button_group: ButtonGroup
 var _camera_status_label: Label
 var _phone_camera_connection_overlay: Control
-var _phone_camera_connection_panel: PanelContainer
-var _phone_camera_connection_status_label: Label
-var _phone_camera_connection_detail_label: Label
-var _phone_camera_connection_retry_button: Button
-var _phone_camera_connection_continue_button: Button
+var _phone_camera_connection_panel: PhoneCameraConnectionPanel
 var _cinematic_bars: CinematicBars
 var _hud_panel: PanelContainer
 var _hud_reveal_zone: Control
@@ -902,11 +899,9 @@ func _build_world() -> void:
 	_camera_source_button_group = null
 	_camera_status_label = null
 	_phone_camera_connection_overlay = null
+	if _phone_camera_connection_panel != null:
+		_phone_camera_connection_panel.close()
 	_phone_camera_connection_panel = null
-	_phone_camera_connection_status_label = null
-	_phone_camera_connection_detail_label = null
-	_phone_camera_connection_retry_button = null
-	_phone_camera_connection_continue_button = null
 	for child in get_children():
 		remove_child(child)
 		child.free()
@@ -2456,100 +2451,25 @@ func _build_settings_window() -> void:
 func _build_phone_camera_connection_overlay() -> void:
 	if _ui_root == null:
 		return
-	_phone_camera_connection_overlay = Control.new()
-	_phone_camera_connection_overlay.name = "PhoneCameraConnectionOverlay"
-	_phone_camera_connection_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_phone_camera_connection_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	_phone_camera_connection_overlay.z_index = 205
-	_phone_camera_connection_overlay.visible = false
-	_ui_root.add_child(_phone_camera_connection_overlay)
-
-	var blackout := ColorRect.new()
-	blackout.name = "PhoneCameraConnectionBackdrop"
-	blackout.color = Color(0.01, 0.025, 0.015, 0.82)
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
-	_phone_camera_connection_overlay.add_child(blackout)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.offset_left = 24.0
-	center.offset_top = 24.0
-	center.offset_right = -24.0
-	center.offset_bottom = -24.0
-	_phone_camera_connection_overlay.add_child(center)
-
-	_phone_camera_connection_panel = _panel()
-	_phone_camera_connection_panel.name = "PhoneCameraConnectionPanel"
-	_phone_camera_connection_panel.custom_minimum_size = Vector2(680.0, 460.0)
-	center.add_child(_phone_camera_connection_panel)
-
-	var box := VBoxContainer.new()
-	box.name = "PhoneCameraConnectionContent"
-	box.add_theme_constant_override("separation", 14)
-	_phone_camera_connection_panel.add_child(box)
-
-	var eyebrow := _label("REMOTE LENS  /  LOCAL PROCESSING", 14, _theme_color("accent"))
-	eyebrow.name = "PhoneCameraConnectionEyebrow"
-	box.add_child(eyebrow)
-	var title := _label("手机镜头连接", 30, _theme_color("ink"))
-	title.name = "PhoneCameraConnectionTitle"
-	box.add_child(title)
-
-	_phone_camera_connection_status_label = _label("正在寻找手机镜头…", 21, _theme_color("accent"))
-	_phone_camera_connection_status_label.name = "PhoneCameraConnectionStatus"
-	box.add_child(_phone_camera_connection_status_label)
-	_phone_camera_connection_detail_label = _label("", 16, _theme_color("ink"))
-	_phone_camera_connection_detail_label.name = "PhoneCameraConnectionDetail"
-	_phone_camera_connection_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_phone_camera_connection_detail_label.custom_minimum_size.y = 128.0
-	box.add_child(_phone_camera_connection_detail_label)
-
-	var privacy_note := _label("画面只交给本机 MediaPipe 计算关键点；游戏不保存视频。", 14, _theme_color("accent"))
-	privacy_note.name = "PhoneCameraConnectionPrivacyNote"
-	privacy_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(privacy_note)
-
-	var actions := HBoxContainer.new()
-	actions.name = "PhoneCameraConnectionActions"
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 10)
-	box.add_child(actions)
-	_phone_camera_connection_retry_button = Button.new()
-	_phone_camera_connection_retry_button.name = "PhoneCameraConnectionRetryButton"
-	_phone_camera_connection_retry_button.text = "重新扫描手机镜头"
-	_phone_camera_connection_retry_button.custom_minimum_size = Vector2(210.0, 54.0)
-	_phone_camera_connection_retry_button.pressed.connect(_retry_phone_camera_connection)
-	actions.add_child(_phone_camera_connection_retry_button)
-	_phone_camera_connection_continue_button = Button.new()
-	_phone_camera_connection_continue_button.name = "PhoneCameraConnectionContinueButton"
-	_phone_camera_connection_continue_button.text = "继续游戏"
-	_phone_camera_connection_continue_button.custom_minimum_size = Vector2(150.0, 54.0)
-	_phone_camera_connection_continue_button.pressed.connect(_hide_phone_camera_connection_overlay)
-	actions.add_child(_phone_camera_connection_continue_button)
-	var disable_button := Button.new()
-	disable_button.name = "PhoneCameraConnectionDisableButton"
-	disable_button.text = "关闭摄像头"
-	disable_button.custom_minimum_size = Vector2(150.0, 54.0)
-	disable_button.pressed.connect(_disable_phone_camera_from_connection)
-	actions.add_child(disable_button)
-
+	_ensure_phone_camera_connection_panel()
+	_phone_camera_connection_panel.build(_ui_root, _phone_camera_connection_mount_deps())
+	_phone_camera_connection_overlay = _phone_camera_connection_panel.get_overlay()
 	_refresh_phone_camera_connection_ui()
 	if _camera_enabled and _camera_source == "phone":
 		_show_phone_camera_connection_overlay()
 
 
 func _show_phone_camera_connection_overlay() -> void:
-	if _phone_camera_connection_overlay == null or not is_instance_valid(_phone_camera_connection_overlay):
+	if _phone_camera_connection_panel == null:
 		return
-	_phone_camera_connection_overlay.visible = true
-	_phone_camera_connection_overlay.move_to_front()
+	_phone_camera_connection_panel.show_overlay()
 	_refresh_phone_camera_connection_ui()
 
 
 func _hide_phone_camera_connection_overlay() -> void:
-	if _phone_camera_connection_overlay != null and is_instance_valid(_phone_camera_connection_overlay):
-		_phone_camera_connection_overlay.visible = false
+	if _phone_camera_connection_panel == null:
+		return
+	_phone_camera_connection_panel.hide_overlay()
 
 
 func _retry_phone_camera_connection() -> void:
@@ -2562,59 +2482,19 @@ func _disable_phone_camera_from_connection() -> void:
 
 
 func _refresh_phone_camera_connection_ui() -> void:
-	if _phone_camera_connection_overlay == null or _phone_camera_connection_status_label == null or _phone_camera_connection_detail_label == null:
+	if _phone_camera_connection_panel == null:
 		return
-	var state := "off"
-	var status_text := "手机镜头未启用"
-	var detail_text := "返回设置，点击“连接手机摄像头并开启 X-ray”后再试。"
-	if _camera_enabled and _camera_source == "phone":
-		if _camera_ready_source == "phone":
-			state = "ready"
-			status_text = "手机镜头已连入"
-			detail_text = "已从系统摄像头编号 %d 收到画面。放下游戏内手机，用双手拇指与食指的四个指尖框出矩形。" % _camera_ready_index
-		elif _camera_tracking_has_error():
-			state = "error"
-			status_text = "手机镜头连接失败"
-			detail_text = "没有收到手机画面：%s。请解锁手机，确认系统摄像头权限，再重新扫描。" % _camera_tracking_status
-		else:
-			state = "searching"
-			status_text = "正在寻找手机镜头…"
-			detail_text = "当前测试版会在系统摄像头列表中寻找 Continuity Camera 或虚拟摄像头。请先解锁手机，并允许电脑把它作为摄像头。"
-	_phone_camera_connection_overlay.set_meta("connection_state", state)
-	_phone_camera_connection_overlay.set_meta("camera_source", _camera_source)
-	_phone_camera_connection_overlay.set_meta("selected_index", _camera_ready_index)
-	_phone_camera_connection_status_label.text = status_text
-	_phone_camera_connection_detail_label.text = detail_text
-	_set_localized_property(_phone_camera_connection_status_label, "text")
-	_set_localized_property(_phone_camera_connection_detail_label, "text")
-	if _phone_camera_connection_panel != null:
-		var border_color := _theme_color("muted")
-		if state == "ready":
-			border_color = _theme_color("accent")
-		elif state == "error":
-			border_color = Color("9f493f")
-		_phone_camera_connection_panel.add_theme_stylebox_override(
-			"panel",
-			_soft_style(_theme_color("surface"), border_color)
-		)
-	if _phone_camera_connection_retry_button != null:
-		_phone_camera_connection_retry_button.disabled = not _camera_enabled or _camera_source != "phone"
-	if _phone_camera_connection_continue_button != null:
-		_phone_camera_connection_continue_button.text = "进入 X-ray 玩法" if state == "ready" else "继续游戏"
-		_set_localized_property(_phone_camera_connection_continue_button, "text")
+	_phone_camera_connection_panel.refresh(_phone_camera_connection_view())
 
 
-func _camera_tracking_has_error() -> bool:
-	return _camera_tracking_status in [
-		"手部追踪端口不可用",
-		"手部追踪数据版本不匹配",
-		"缺少手部追踪程序",
-		"缺少手部追踪模型",
-		"缺少 MediaPipe 环境",
-		"无法启动手部追踪程序",
-		"摄像头不可用或权限被拒绝",
-		"手部追踪程序发生错误",
-	]
+func _phone_camera_connection_view() -> Dictionary:
+	return {
+		"camera_enabled": _camera_enabled,
+		"camera_source": _camera_source,
+		"camera_ready_source": _camera_ready_source,
+		"camera_ready_index": _camera_ready_index,
+		"camera_tracking_status": _camera_tracking_status,
+	}
 
 
 func _layout_settings_window() -> void:
@@ -2746,6 +2626,37 @@ func _connect_camera_consent_panel_signals() -> void:
 		panel.consent_resolved.connect(_resolve_camera_consent)
 	if not panel.source_selected.is_connected(_on_camera_consent_source_selected):
 		panel.source_selected.connect(_on_camera_consent_source_selected)
+
+
+func _ensure_phone_camera_connection_panel() -> void:
+	if _phone_camera_connection_panel != null and is_instance_valid(_phone_camera_connection_panel):
+		return
+	_phone_camera_connection_panel = PhoneCameraConnectionPanelScript.new()
+	_phone_camera_connection_panel.name = "PhoneCameraConnectionPanelHost"
+	add_child(_phone_camera_connection_panel)
+	_connect_phone_camera_connection_panel_signals()
+
+
+func _phone_camera_connection_mount_deps() -> Dictionary:
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"soft_style": _soft_style,
+		"panel_factory": _panel,
+		"set_localized_property": _set_localized_property,
+	}
+
+
+func _connect_phone_camera_connection_panel_signals() -> void:
+	var panel := _phone_camera_connection_panel
+	if panel == null:
+		return
+	if not panel.retry_requested.is_connected(_retry_phone_camera_connection):
+		panel.retry_requested.connect(_retry_phone_camera_connection)
+	if not panel.continue_requested.is_connected(_hide_phone_camera_connection_overlay):
+		panel.continue_requested.connect(_hide_phone_camera_connection_overlay)
+	if not panel.disable_requested.is_connected(_disable_phone_camera_from_connection):
+		panel.disable_requested.connect(_disable_phone_camera_from_connection)
 
 
 func _on_camera_consent_source_selected(index: int) -> void:
