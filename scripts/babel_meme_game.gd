@@ -25,9 +25,6 @@ const RealityConversationPanelScript = preload("res://scripts/ui/reality_convers
 const RealityLanguageComposerPanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
-const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
-const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
-const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
 const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_panel.gd")
@@ -37,6 +34,7 @@ const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_ada
 const CameraSessionScript = preload("res://scripts/integrations/camera_session.gd")
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
+const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
@@ -365,6 +363,28 @@ var _phone_down_backdrop_image: TextureRect
 var _hand_phone_image: TextureRect
 var _camera_session
 var _audio_controller
+var _narrative_director: NarrativeOverlayDirector
+var _action_spend_overlay: Control:
+	get:
+		return _narrative_director.action_spend_overlay if _narrative_director != null else null
+var _flashback_overlay: Control:
+	get:
+		return _narrative_director.flashback_overlay if _narrative_director != null else null
+var _day_transition_overlay: Control:
+	get:
+		return _narrative_director.day_transition_overlay if _narrative_director != null else null
+var _day_transition_day_label: Label:
+	get:
+		return _narrative_director.day_transition_day_label if _narrative_director != null else null
+var _day_transition_rule: ColorRect:
+	get:
+		return _narrative_director.day_transition_rule if _narrative_director != null else null
+var _day_transition_tween: Tween:
+	get:
+		return _narrative_director.day_transition_tween if _narrative_director != null else null
+	set(value):
+		if _narrative_director != null:
+			_narrative_director.day_transition_tween = value
 var _ui_theme_helper := GameUiThemeScript.new()
 var _camera_consent_overlay: Control
 var _camera_access_toggle: CheckButton
@@ -391,7 +411,6 @@ var _phone_launcher_panel
 var _meme_bank_panel
 var _notebook_app_panel
 var _babel_app_panel
-var _day_transition_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: VhsOverlayScript
@@ -416,23 +435,11 @@ var _reality_language_composer_panel
 var _selected_language_token_id := ""
 var _playtest_assist_panel
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
-var _flashback_panel
-var _flashback_overlay: Control
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
 var _ending_screen_panel
 var _doll_companion: Node3D
-var _action_spend_panel
-var _action_spend_overlay: Control
-var _action_spend_should_settle := false
-var _day_transition_overlay: Control
-var _day_transition_day_label: Label
-var _day_transition_meta_label: Label
-var _day_transition_hint_label: Label
-var _day_transition_rule: ColorRect
-var _day_transition_tween: Tween
-var _day_transition_settled := false
 var _meme_bank_open := false
 var _phone_popup_expanded := true
 var _phone_launcher_open := true
@@ -468,6 +475,55 @@ func _ensure_audio_controller() -> void:
 		return
 	_audio_controller = GameAudioControllerScript.new()
 	_audio_controller.attach_to(self)
+
+
+func _ensure_narrative_director() -> void:
+	if _narrative_director != null and is_instance_valid(_narrative_director):
+		return
+	_narrative_director = NarrativeOverlayDirectorScript.new()
+	_narrative_director.attach_to(self)
+
+
+func _narrative_overlay_deps() -> Dictionary:
+	return {
+		"game": game,
+		"ui_root": _ui_root,
+		"render": _render,
+		"set_input_locked": _set_input_locked,
+		"sync_audio_state": _sync_audio_state,
+		"settle_day": _settle_day_and_present_rewards,
+		"consume_pollution_flashback": func() -> bool:
+			return game != null and game.consume_pollution_flashback(),
+		"hud_actions_label": _hud_actions_label_ref,
+		"action_text": _action_text,
+		"theme_color": _theme_color,
+		"ui_font_size": _ui_font_size,
+		"label_factory": _label,
+		"level_display_name": _locale.level_display_name,
+		"day_progress": _day_progress_snapshot,
+		"capture_frozen_frame": _capture_frozen_frame_texture,
+		"duck_ambience": _duck_ambience_for_flashback,
+		"play_action_tick": func() -> void:
+			if _audio_controller != null and _audio_controller.action_tick_audio != null and _audio_controller.action_tick_audio.stream != null and _audio_controller.action_tick_audio.is_inside_tree():
+				_audio_controller.action_tick_audio.play(),
+		"play_flashback_audio": func() -> void:
+			if _audio_controller != null and _audio_controller.flashback_audio != null and _audio_controller.flashback_audio.stream != null and _audio_controller.flashback_audio.is_inside_tree():
+				_audio_controller.flashback_audio.play(),
+		"stop_flashback_audio": func() -> void:
+			if _audio_controller != null and _audio_controller.flashback_audio != null:
+				_audio_controller.flashback_audio.stop(),
+		"on_day_settled": func() -> void:
+			selected_token_id = ""
+			selected_meme_id = ""
+			if game != null and not game.event_log.is_empty():
+				log_text = game.event_log[0],
+		"on_flashback_settled": func() -> void:
+			selected_token_id = ""
+			selected_meme_id = ""
+			log_text = "黑屏之后，已经是第二天。"
+			if game != null and not game.event_log.is_empty():
+				log_text = "%s\n%s" % [log_text, game.event_log[0]],
+	}
 
 
 func _camera_session_deps() -> Dictionary:
@@ -766,10 +822,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_app_windows = {}
 	_app_titles = {}
 	_app_bodies = {}
-	if _action_spend_panel != null:
-		_action_spend_panel.reset_state()
-	_action_spend_should_settle = false
-	_day_transition_settled = false
+	if _narrative_director != null:
+		_narrative_director.reset_session()
 	_ensure_window_manager()
 	_window_manager.clear()
 	_last_responsive_layout_size = Vector2.ZERO
@@ -1146,9 +1200,8 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 
 
 func _build_world() -> void:
-	if _day_transition_tween != null and _day_transition_tween.is_valid():
-		_day_transition_tween.kill()
-	_day_transition_tween = null
+	if _narrative_director != null:
+		_narrative_director.kill_day_transition_tween()
 	if _audio_controller != null:
 		_audio_controller.reset_session()
 	if _camera_session != null:
@@ -1165,7 +1218,7 @@ func _build_world() -> void:
 		_phone_camera_connection_panel.close()
 	_phone_camera_connection_panel = null
 	for child in get_children():
-		if child == _reality_scene_adapter:
+		if child == _reality_scene_adapter or child == _narrative_director:
 			continue
 		remove_child(child)
 		child.free()
@@ -3686,198 +3739,59 @@ func _apply_ui_theme(node: Node = null) -> void:
 	_ui_theme_helper.apply_ui_theme(node, _pollution_stage_for_theme(), _meme_bank_open)
 
 
+func _bind_narrative_director() -> void:
+	_ensure_narrative_director()
+	_narrative_director.apply_deps(_narrative_overlay_deps())
+
+
 func _build_action_spend_overlay() -> void:
-	_ensure_action_spend_panel()
-	_action_spend_panel.mount(_ui_root, _action_spend_mount_deps())
-	_sync_action_spend_refs()
-
-
-func _ensure_action_spend_panel() -> void:
-	if _action_spend_panel != null and is_instance_valid(_action_spend_panel):
-		return
-	_action_spend_panel = ActionSpendPanelScript.new()
-	_action_spend_panel.name = "ActionSpendPanel"
-	add_child(_action_spend_panel)
-
-
-func _action_spend_mount_deps() -> Dictionary:
-	return {
-		"hud_actions_label": _hud_actions_label_ref(),
-		"action_text": _action_text,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
-		"on_animation_finished": _finish_action_spend_animation,
-	}
-
-
-func _sync_action_spend_refs() -> void:
-	if _action_spend_panel == null:
-		return
-	_action_spend_overlay = _action_spend_panel.get_overlay()
-	_action_spend_panel.update_hud_label_ref(_hud_actions_label_ref())
+	_bind_narrative_director()
+	_narrative_director.build_action_spend_overlay()
 
 
 func _play_action_spend_animation(before_actions: int, after_actions: int) -> void:
-	if _hud_actions_label_ref() == null or _action_spend_panel == null:
-		return
-	if _audio_controller != null and _audio_controller.action_tick_audio != null and _audio_controller.action_tick_audio.stream != null and _audio_controller.action_tick_audio.is_inside_tree():
-		_audio_controller.action_tick_audio.play()
-	_action_spend_should_settle = game.needs_day_settlement
-	_set_input_locked(true)
-	_action_spend_panel.play(before_actions, after_actions)
+	_bind_narrative_director()
+	_narrative_director.play_action_spend_animation(before_actions, after_actions)
 
 
 func _finish_action_spend_animation() -> void:
-	var after_actions := -1
-	if _action_spend_panel != null:
-		after_actions = _action_spend_panel.finish()
-	var should_transition := _action_spend_should_settle
-	_action_spend_should_settle = false
-	if should_transition:
-		_play_day_transition()
-		return
-	_set_input_locked(false)
-	_sync_audio_state(false)
-	_render()
-	var hud_actions_label := _hud_actions_label_ref()
-	if hud_actions_label != null and after_actions >= 0:
-		hud_actions_label.text = _action_text(after_actions)
+	if _narrative_director != null:
+		_narrative_director.finish_action_spend_animation()
 
 
 func _build_day_transition_overlay() -> void:
-	_ensure_day_transition_panel()
-	_day_transition_panel.mount(_ui_root, _day_transition_mount_deps())
-	_sync_day_transition_refs()
-
-
-func _ensure_day_transition_panel() -> void:
-	if _day_transition_panel != null and is_instance_valid(_day_transition_panel):
-		return
-	_day_transition_panel = DayTransitionPanelScript.new()
-	_day_transition_panel.name = "DayTransitionPanel"
-	add_child(_day_transition_panel)
-
-
-func _day_transition_mount_deps() -> Dictionary:
-	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"level_display_name": _locale.level_display_name,
-	}
-
-
-func _sync_day_transition_refs() -> void:
-	if _day_transition_panel == null:
-		return
-	_day_transition_overlay = _day_transition_panel.get_overlay()
-	_day_transition_day_label = _day_transition_panel.get_day_label()
-	_day_transition_meta_label = _day_transition_panel.get_meta_label()
-	_day_transition_hint_label = _day_transition_panel.get_hint_label()
-	_day_transition_rule = _day_transition_panel.get_rule()
+	_bind_narrative_director()
+	_narrative_director.build_day_transition_overlay()
 
 
 func _update_floor_transition_card(floor_number: int) -> void:
-	if _day_transition_panel != null:
-		_day_transition_panel.refresh_copy(floor_number)
+	if _narrative_director != null:
+		_narrative_director.update_floor_transition_card(floor_number)
 
 
 func _play_day_transition() -> void:
-	if _day_transition_overlay == null:
-		_settle_day_and_present_rewards()
-		_set_input_locked(false)
-		_render()
-		return
-	if _day_transition_tween != null and _day_transition_tween.is_valid():
-		_day_transition_tween.kill()
-	_day_transition_settled = false
-	_set_input_locked(true)
-	if _day_transition_panel != null:
-		_day_transition_panel.prepare_show()
-	_update_floor_transition_card(int(_day_progress_snapshot().get("tower_floor", 1)))
-	if not is_inside_tree():
-		return
-	_day_transition_tween = create_tween()
-	_day_transition_tween.set_parallel(true)
-	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.tween_property(_day_transition_rule, "scale:x", 1.0, 0.72).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.set_parallel(false)
-	_day_transition_tween.tween_property(_day_transition_day_label, "scale", Vector2.ONE, 0.58).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.tween_interval(0.55)
-	_day_transition_tween.tween_callback(_commit_day_transition_settlement)
-	_day_transition_tween.tween_interval(0.95)
-	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 0.0, 0.80).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.tween_callback(_finish_day_transition)
+	_bind_narrative_director()
+	_narrative_director.play_day_transition()
 
 
 func _commit_day_transition_settlement() -> void:
-	if _day_transition_settled:
-		return
-	_day_transition_settled = true
-	if _settle_day_and_present_rewards():
-		selected_token_id = ""
-		selected_meme_id = ""
-		if not game.event_log.is_empty():
-			log_text = game.event_log[0]
-	_update_floor_transition_card(int(_day_progress_snapshot().get("tower_floor", 1)))
+	if _narrative_director != null:
+		_narrative_director.commit_day_transition_settlement()
 
 
 func _finish_day_transition() -> void:
-	if _day_transition_tween != null and _day_transition_tween.is_valid():
-		_day_transition_tween.kill()
-	_day_transition_tween = null
-	if not _day_transition_settled:
-		_commit_day_transition_settlement()
-	if _day_transition_panel != null:
-		_day_transition_panel.hide_overlay()
-	_set_input_locked(false)
-	_sync_audio_state(false)
-	_render()
+	if _narrative_director != null:
+		_narrative_director.finish_day_transition()
 
 
 func _build_flashback_overlay() -> void:
-	_ensure_flashback_panel()
-	_flashback_panel.mount(_ui_root, _flashback_mount_deps())
-	_sync_flashback_refs()
-	_flashback_panel.build_phases()
-
-
-func _ensure_flashback_panel() -> void:
-	if _flashback_panel != null and is_instance_valid(_flashback_panel):
-		return
-	_flashback_panel = FlashbackOverlayPanelScript.new()
-	_flashback_panel.name = "FlashbackOverlayPanel"
-	add_child(_flashback_panel)
-
-
-func _flashback_mount_deps() -> Dictionary:
-	return {
-		"theme_color": _theme_color,
-		"on_sequence_finished": _finish_pollution_flashback,
-	}
-
-
-func _sync_flashback_refs() -> void:
-	if _flashback_panel == null:
-		return
-	_flashback_overlay = _flashback_panel.get_overlay()
+	_bind_narrative_director()
+	_narrative_director.build_flashback_overlay()
 
 
 func _play_pollution_flashback() -> void:
-	if _flashback_panel == null:
-		return
-	_set_input_locked(true)
-	# 配色以触发瞬间的活跃调色板为准(60% 时已是污染调色板),再重建相位节点。
-	_flashback_panel.configure_colors({
-		"ink": _theme_color("ink"),
-		"surface": _theme_color("surface"),
-		"flash_text": _theme_color("flash_text"),
-	})
-	_flashback_panel.build_phases()
-	var frozen_texture := _capture_frozen_frame_texture()
-	_duck_ambience_for_flashback()
-	if _audio_controller != null and _audio_controller.flashback_audio != null and _audio_controller.flashback_audio.stream != null and _audio_controller.flashback_audio.is_inside_tree():
-		_audio_controller.flashback_audio.play()
-	_flashback_panel.play(frozen_texture)
+	_bind_narrative_director()
+	_narrative_director.play_pollution_flashback()
 
 
 func _capture_frozen_frame_texture() -> Texture2D:
@@ -3894,31 +3808,15 @@ func _capture_frozen_frame_texture() -> Texture2D:
 
 
 func _finish_pollution_flashback() -> void:
-	if _flashback_panel != null:
-		_flashback_panel.stop()
-	if _audio_controller != null and _audio_controller.flashback_audio != null:
-		_audio_controller.flashback_audio.stop()
-	_set_input_locked(false)
-	var should_settle := game.consume_pollution_flashback()
-	if should_settle and _settle_day_and_present_rewards():
-		selected_token_id = ""
-		selected_meme_id = ""
-		log_text = "黑屏之后，已经是第二天。"
-		if not game.event_log.is_empty():
-			log_text = "%s\n%s" % [log_text, game.event_log[0]]
-	_sync_audio_state(false)
-	_render()
+	if _narrative_director != null:
+		_narrative_director.finish_pollution_flashback()
 
 
 func _set_input_locked(value: bool) -> void:
 	_input_locked = value
 	_sync_window_manager_enabled()
-	if _flashback_overlay != null:
-		_flashback_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if value else Control.MOUSE_FILTER_IGNORE
-	if _action_spend_overlay != null:
-		_action_spend_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if value and _action_spend_overlay.visible else Control.MOUSE_FILTER_IGNORE
-	if _day_transition_overlay != null:
-		_day_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if value and _day_transition_overlay.visible else Control.MOUSE_FILTER_IGNORE
+	if _narrative_director != null:
+		_narrative_director.apply_input_lock_filters(value)
 
 
 func _render_ending() -> void:
