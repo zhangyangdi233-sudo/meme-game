@@ -20,25 +20,9 @@ const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
-const PREREQUISITE_ITEMS := {
-	1: {
-		"id": "artifact_named_lamp_tag",
-		"label": "写着“小月亮”的旧名牌",
-		"location_hint": "沿主路往前走，在右侧第一盏不亮的路灯脚边。",
-	},
-	2: {
-		"id": "artifact_reversed_tape",
-		"label": "两面都录着同一句话的磁带",
-		"location_hint": "在与你醒来位置相反的低坡上，贴着一栋亮窗房子的门前。",
-	},
-	3: {
-		"id": "artifact_missing_subject_page",
-		"label": "缺少主语的病历页",
-		"location_hint": "沿中央通道走过第三排立柱，夹在左侧那扇假窗下面。",
-	},
-}
 const HISTORY_FIELD_NAMES := [
 	"lineId", "originalSpeaker", "currentSpeaker", "originalText",
 	"displayText", "revisionStage", "revisionMarkup",
@@ -50,36 +34,8 @@ const LANGUAGE_RECIPE_SLOTS := [
 	{"id": "action", "label": "发生了什么", "placeholder": "放入动作", "accepted_role": "action"},
 	{"id": "object", "label": "对谁 / 在哪里", "placeholder": "放入落点", "accepted_role": "object"},
 ]
-const DOCTOR_DIALOGUES_BY_FLOOR := {
-	1: {"line": "把刚才那句再说一遍。不要替它解释。", "result": "医生记下来了。字数和你说的对不上。"},
-	2: {"line": "按顺序念。不要按你记得的顺序，按你说过的顺序。", "result": "医生在每个词旁边写下另一种用途。笔尖比你慢半个字。"},
-	3: {"line": "只用还登记在你名下的词。说出你现在的位置。", "result": "医生停笔。病历上的主语先一步空了。"},
-	4: {"line": "这些词没有登记来源。签字栏是空的。你要在这里写谁。", "result": "没有人受理这句话的说话者。"},
-}
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
-const ENDING_LANGUAGE_CHOICES := [
-	{"id": "blank", "label": "空白", "output": "（空白）"},
-	{"id": "blocks", "label": "■■■■", "output": "■ ■ ■ ■"},
-	{"id": "hajimi", "label": "哈吉米", "output": "哈吉米"},
-	{"id": "silence", "label": "沉默", "output": "……"},
-]
-const PROLOGUE_LINES := [
-	"（先确认一件事。你手里拿着什么？）",
-	"一部手机。没有信号。我醒来的时候它已经亮着。",
-	"（你在等谁的消息？）",
-	"不等消息。我在等路面停下来。它每退一步，塔多一层。",
-	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。",
-	"（从哪里开始？）",
-	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。",
-]
-const EPILOGUE_LINES := [
-	"所有帖子都说智者住在顶楼。顶楼没有人。",
-	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。",
-	"（它在发送什么？）",
-	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。",
-	"你想说一句普通的话。第七层先开口了。",
-]
 const SAVE_DATA_VERSION := 5
 const SAVE_FIELD_NAMES := [
 	"day", "pollution", "tower_floor",
@@ -507,14 +463,11 @@ func is_world_item_collected(item_id: String) -> bool:
 
 
 func get_prerequisite_item_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for floor_number in [1, 2, 3]:
-		ids.append(str((PREREQUISITE_ITEMS[floor_number] as Dictionary).get("id", "")))
-	return ids
+	return NarrativeSessionCatalogScript.prerequisite_item_ids()
 
 
-func get_prerequisite_item_for_floor(floor_number: int) -> Dictionary:
-	return (PREREQUISITE_ITEMS.get(floor_number, {}) as Dictionary).duplicate(true)
+func get_prerequisite_item_for_floor(floor_number: int, locale_code: String = "zh") -> Dictionary:
+	return NarrativeSessionCatalogScript.prerequisite_item(floor_number, locale_code)
 
 
 func get_key_clue_progress(floor_number: int) -> Dictionary:
@@ -522,7 +475,7 @@ func get_key_clue_progress(floor_number: int) -> Dictionary:
 
 
 func reveal_prerequisite_item_for_floor(floor_number: int) -> bool:
-	var item := get_prerequisite_item_for_floor(floor_number)
+	var item := get_prerequisite_item_for_floor(floor_number, "zh")
 	var item_id := str(item.get("id", ""))
 	if item_id.is_empty() or item_id in revealed_prerequisite_item_ids:
 		return false
@@ -635,26 +588,22 @@ func collect_world_item(item_data: Dictionary) -> bool:
 	return collect_prerequisite_item(item_id)
 
 
-func get_ending_language_choices() -> Array:
-	return ENDING_LANGUAGE_CHOICES.duplicate(true)
+func get_ending_language_choices(locale_code: String = "zh") -> Array:
+	return NarrativeSessionCatalogScript.ending_language_choices(locale_code)
 
 
 func choose_ending_language(choice_id: String) -> bool:
 	if not ending_unlocked or not ending_language_choice.is_empty():
 		return false
-	for choice in ENDING_LANGUAGE_CHOICES:
-		if str(choice.get("id", "")) == choice_id:
-			ending_language_choice = choice_id
-			_emit_progression_changed("choose_language", choice_id, true)
-			return true
-	return false
+	if not NarrativeSessionCatalogScript.has_ending_language_choice(choice_id):
+		return false
+	ending_language_choice = choice_id
+	_emit_progression_changed("choose_language", choice_id, true)
+	return true
 
 
-func get_ending_language_output() -> String:
-	for choice in ENDING_LANGUAGE_CHOICES:
-		if str(choice.get("id", "")) == ending_language_choice:
-			return str(choice.get("output", ""))
-	return ""
+func get_ending_language_output(locale_code: String = "zh") -> String:
+	return str(NarrativeSessionCatalogScript.ending_language_choice(ending_language_choice, locale_code).get("output", ""))
 
 
 func set_active_app(app_id: String) -> void:
@@ -1026,6 +975,12 @@ func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Ar
 
 
 func _localize_conversation_display() -> void:
+	if conversation_actor_type == "doctor":
+		var doctor_dialogue: Dictionary = NarrativeSessionCatalogScript.doctor_dialogue(tower_floor, conversation_locale)
+		conversation_prompt = str(doctor_dialogue.get("line", ""))
+		conversation_result_line = str(doctor_dialogue.get("result", ""))
+		if conversation_locale == "zh":
+			return
 	if conversation_locale == "zh":
 		return
 	var locale = GameLocaleScript.new()
@@ -1033,8 +988,9 @@ func _localize_conversation_display() -> void:
 	locale.set_locale(conversation_locale)
 	TranslationServer.set_locale(previous_locale)
 	conversation_actor_label = locale.translate(conversation_actor_label)
-	conversation_prompt = locale.translate(conversation_prompt)
-	conversation_result_line = locale.translate(conversation_result_line)
+	if conversation_actor_type != "doctor":
+		conversation_prompt = locale.translate(conversation_prompt)
+		conversation_result_line = locale.translate(conversation_result_line)
 	var localized_choices: Array = []
 	for choice in conversation_choices:
 		var localized_choice: Dictionary = (choice as Dictionary).duplicate(true)
@@ -1060,10 +1016,10 @@ func _conversation_display_fingerprint() -> String:
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
 	var floor_number := clampi(tower_floor, 1, 3)
 	if actor_type == "doctor":
-		var doctor_dialogue: Dictionary = DOCTOR_DIALOGUES_BY_FLOOR.get(clampi(tower_floor, 1, 4), DOCTOR_DIALOGUES_BY_FLOOR[1])
+		var doctor_dialogue: Dictionary = NarrativeSessionCatalogScript.doctor_dialogue(tower_floor, "zh")
 		return {
-			"line": str(doctor_dialogue.get("line", "用你从屏幕里带回来的词说一句完整的话。")),
-			"result": str(doctor_dialogue.get("result", "医生把句子写了下来。")),
+			"line": str(doctor_dialogue.get("line", "")),
+			"result": str(doctor_dialogue.get("result", "")),
 			"choices": [],
 		}
 	if actor_type == "doll":
@@ -1263,7 +1219,7 @@ func _resolve_key_npc_clue_attempt() -> Dictionary:
 		"solved": bool(previous.get("solved", false)) or solved,
 	}
 	key_clue_progress[progress_key] = progress
-	var item := get_prerequisite_item_for_floor(floor_number)
+	var item := get_prerequisite_item_for_floor(floor_number, "zh")
 	var item_id := str(item.get("id", ""))
 	var newly_revealed := false
 	var feedback := str(key_dialogue.get("failure_line", "对方没有说出地点。"))

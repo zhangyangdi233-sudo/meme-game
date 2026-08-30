@@ -105,7 +105,8 @@ func rebuild_floor(deps: Dictionary) -> void:
 		"doll": load_texture.call(str(deps.get("guide_doll_path", ""))),
 		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(tower_floor, 1, 3)),
 	}
-	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(tower_floor)
+	var locale_code := str(deps.get("locale", "zh"))
+	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(tower_floor, locale_code)
 	floor.rebuild(
 		tower_floor,
 		deps.get("palette", {}),

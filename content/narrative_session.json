@@ -1,0 +1,202 @@
+{
+  "prologue": [
+    {
+      "id": "prologue_01",
+      "zh": "（先确认一件事。你手里拿着什么？）",
+      "ja": "（先に一つ確認しよう。手に何を持っている？）",
+      "en": "(First, let's confirm one thing. What are you holding?)"
+    },
+    {
+      "id": "prologue_02",
+      "zh": "一部手机。没有信号。我醒来的时候它已经亮着。",
+      "ja": "スマホが一台。圏外。目が覚めたときにはもう光っていた。",
+      "en": "A phone. No signal. It was already lit when I woke up."
+    },
+    {
+      "id": "prologue_03",
+      "zh": "（你在等谁的消息？）",
+      "ja": "（誰からのメッセージを待っている？）",
+      "en": "(Whose message are you waiting for?)"
+    },
+    {
+      "id": "prologue_04",
+      "zh": "不等消息。我在等路面停下来。它每退一步，塔多一层。",
+      "ja": "知らせではない。路面が止まるのを待っている。一歩下がるたび、塔が一階増える。",
+      "en": "Not for a message. I am waiting for the road to stop. Each step it retreats, the tower gains a floor."
+    },
+    {
+      "id": "prologue_05",
+      "zh": "城市广播说今天一切正常。它重复了七次。第八次我关掉了。",
+      "ja": "市の放送は今日は異常なしと言う。七回繰り返した。八回目で消した。",
+      "en": "The city broadcast says everything is normal today. It repeated seven times. The eighth time I switched it off."
+    },
+    {
+      "id": "prologue_06",
+      "zh": "（从哪里开始？）",
+      "ja": "（どこから始める？）",
+      "en": "(Where do we begin?)"
+    },
+    {
+      "id": "prologue_07",
+      "zh": "从字开始。先拼成一句话。再看这句话到了楼下变成什么。",
+      "ja": "文字から始める。まず一つの文にする。そのあと、下の階で何になるか見る。",
+      "en": "Start from single units. Build one sentence first. Then see what it becomes downstairs."
+    }
+  ],
+  "epilogue": [
+    {
+      "id": "epilogue_01",
+      "zh": "所有帖子都说智者住在顶楼。顶楼没有人。",
+      "ja": "どの投稿も、賢者は最上階にいると言う。最上階には誰もいない。",
+      "en": "Every post says the wise one lives on the top floor. There is no one on the top floor."
+    },
+    {
+      "id": "epilogue_02",
+      "zh": "只有一台发射机。它没有接线。指示灯跟着你的呼吸。",
+      "ja": "送信機が一台だけ。配線はない。表示灯があなたの呼吸に合わせて光る。",
+      "en": "Only a transmitter. Nothing is wired to it. Its indicator follows your breathing."
+    },
+    {
+      "id": "epilogue_03",
+      "zh": "（它在发送什么？）",
+      "ja": "（何を送信している？）",
+      "en": "(What is it transmitting?)"
+    },
+    {
+      "id": "epilogue_04",
+      "zh": "你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。",
+      "ja": "外殻に耳を寄せる。中で誰かが、昨日あなたが言った一文を言っている。あなたより正確に。",
+      "en": "You put your ear to the casing. Inside, someone is saying the line you said yesterday. He says it more accurately than you did."
+    },
+    {
+      "id": "epilogue_05",
+      "zh": "你想说一句普通的话。第七层先开口了。",
+      "ja": "普通の一言を言おうとする。七階のほうが先に口を開く。",
+      "en": "You try to say something ordinary. The seventh floor speaks first."
+    }
+  ],
+  "doctor": [
+    {
+      "id": "doctor_floor_1",
+      "floor": 1,
+      "line": {
+        "zh": "把刚才那句再说一遍。不要替它解释。",
+        "ja": "さっきの一文をもう一度。説明はいらない。",
+        "en": "Say that line again. Do not explain it for me."
+      },
+      "result": {
+        "zh": "医生记下来了。字数和你说的对不上。",
+        "ja": "医者が書き取る。文字数があなたの言葉と合わない。",
+        "en": "The doctor writes it down. The character count does not match what you said."
+      }
+    },
+    {
+      "id": "doctor_floor_2",
+      "floor": 2,
+      "line": {
+        "zh": "按顺序念。不要按你记得的顺序，按你说过的顺序。",
+        "ja": "順に読んで。覚えている順ではなく、言った順に。",
+        "en": "Read them in order. Not the order you remember. The order you spoke."
+      },
+      "result": {
+        "zh": "医生在每个词旁边写下另一种用途。笔尖比你慢半个字。",
+        "ja": "医者が語ごとに別の用途を書き足す。ペン先はあなたより半字遅い。",
+        "en": "The doctor writes another use beside every word. The pen runs half a character behind you."
+      }
+    },
+    {
+      "id": "doctor_floor_3",
+      "floor": 3,
+      "line": {
+        "zh": "只用还登记在你名下的词。说出你现在的位置。",
+        "ja": "まだあなたの名で登記されている語だけを使って。今いる位置を述べて。",
+        "en": "Use only the words still registered to you. State your current position."
+      },
+      "result": {
+        "zh": "医生停笔。病历上的主语先一步空了。",
+        "ja": "医者の手が止まる。カルテの主語のほうが先に空になる。",
+        "en": "The doctor stops writing. The subject on the chart empties out first."
+      }
+    },
+    {
+      "id": "doctor_floor_4",
+      "floor": 4,
+      "line": {
+        "zh": "这些词没有登记来源。签字栏是空的。你要在这里写谁。",
+        "ja": "これらの語に登記された出所がない。署名欄は空白。ここに誰と書く。",
+        "en": "These words have no registered source. The signature box is blank. Whom will you write here."
+      },
+      "result": {
+        "zh": "没有人受理这句话的说话者。",
+        "ja": "この文の話者は、誰にも受理されなかった。",
+        "en": "No one accepted a speaker for this sentence."
+      }
+    }
+  ],
+  "prerequisite_items": [
+    {
+      "id": "artifact_named_lamp_tag",
+      "floor": 1,
+      "label": {
+        "zh": "写着“小月亮”的旧名牌",
+        "ja": "「小さな月」と書かれた古い名札",
+        "en": "An Old Nameplate Marked 'Little Moon'"
+      },
+      "location_hint": {
+        "zh": "沿主路往前走，在右侧第一盏不亮的路灯脚边。",
+        "ja": "大通りを進み、右側にある最初の消えた街灯の足元。",
+        "en": "Follow the main road. It is at the foot of the first unlit streetlamp on the right."
+      }
+    },
+    {
+      "id": "artifact_reversed_tape",
+      "floor": 2,
+      "label": {
+        "zh": "两面都录着同一句话的磁带",
+        "ja": "両面に同じ言葉が録音されたテープ",
+        "en": "A Tape with the Same Sentence Recorded on Both Sides"
+      },
+      "location_hint": {
+        "zh": "在与你醒来位置相反的低坡上，贴着一栋亮窗房子的门前。",
+        "ja": "目覚めた場所と反対側の低い斜面。窓の明るい家の扉のそば。",
+        "en": "On the low slope opposite where you woke, beside the door of a house with a lit window."
+      }
+    },
+    {
+      "id": "artifact_missing_subject_page",
+      "floor": 3,
+      "label": {
+        "zh": "缺少主语的病历页",
+        "ja": "主語の欠けた診療記録の一頁",
+        "en": "A Case-Note Page with Its Subject Missing"
+      },
+      "location_hint": {
+        "zh": "沿中央通道走过第三排立柱，夹在左侧那扇假窗下面。",
+        "ja": "中央通路の三列目の柱を越え、左側の偽の窓の下に挟まっている。",
+        "en": "Pass the third row of columns along the central passage. It is wedged beneath the false window on the left."
+      }
+    }
+  ],
+  "ending_language_choices": [
+    {
+      "id": "blank",
+      "label": {"zh": "空白", "ja": "空白", "en": "Blank"},
+      "output": {"zh": "（空白）", "ja": "（空白）", "en": "(blank)"}
+    },
+    {
+      "id": "blocks",
+      "label": {"zh": "■■■■", "ja": "■■■■", "en": "■■■■"},
+      "output": {"zh": "■ ■ ■ ■", "ja": "■ ■ ■ ■", "en": "■ ■ ■ ■"}
+    },
+    {
+      "id": "hajimi",
+      "label": {"zh": "哈吉米", "ja": "ハジミ", "en": "Hajimi"},
+      "output": {"zh": "哈吉米", "ja": "ハジミ", "en": "Hajimi"}
+    },
+    {
+      "id": "silence",
+      "label": {"zh": "沉默", "ja": "沈黙", "en": "Silence"},
+      "output": {"zh": "……", "ja": "……", "en": "……"}
+    }
+  ]
+}

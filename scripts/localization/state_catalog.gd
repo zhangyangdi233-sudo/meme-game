@@ -2,22 +2,6 @@ extends RefCounted
 
 
 const EN: Dictionary = {
-	"你想说一句普通的话。第七层先开口了。": "You try to say something ordinary. The seventh floor speaks first.",
-	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。": "You put your ear to the casing. Inside, someone is saying the line you said yesterday. He says it more accurately than you did.",
-	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。": "Only a transmitter. Nothing is wired to it. Its indicator follows your breathing.",
-	"所有帖子都说智者住在顶楼。顶楼没有人。": "Every post says the wise one lives on the top floor. There is no one on the top floor.",
-	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。": "Start from single units. Build one sentence first. Then see what it becomes downstairs.",
-	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。": "The city broadcast says everything is normal today. It repeated seven times. The eighth time I switched it off.",
-	"不等消息。我在等路面停下来。它每退一步，塔多一层。": "Not for a message. I am waiting for the road to stop. Each step it retreats, the tower gains a floor.",
-	"一部手机。没有信号。我醒来的时候它已经亮着。": "A phone. No signal. It was already lit when I woke up.",
-	"没有人受理这句话的说话者。": "No one accepted a speaker for this sentence.",
-	"这些词没有登记来源。签字栏是空的。你要在这里写谁。": "These words have no registered source. The signature box is blank. Whom will you write here.",
-	"医生停笔。病历上的主语先一步空了。": "The doctor stops writing. The subject on the chart empties out first.",
-	"只用还登记在你名下的词。说出你现在的位置。": "Use only the words still registered to you. State your current position.",
-	"医生在每个词旁边写下另一种用途。笔尖比你慢半个字。": "The doctor writes another use beside every word. The pen runs half a character behind you.",
-	"按顺序念。不要按你记得的顺序，按你说过的顺序。": "Read them in order. Not the order you remember. The order you spoke.",
-	"医生记下来了。字数和你说的对不上。": "The doctor writes it down. The character count does not match what you said.",
-	"把刚才那句再说一遍。不要替它解释。": "Say that line again. Do not explain it for me.",
 	# Free-sentence rules and ultimate task events.
 	"有一句话贴上了门。": "A sentence attached itself to the door.",
 	"有一句话在找它的出口。": "A sentence is looking for its exit.",
@@ -368,17 +352,12 @@ const EN: Dictionary = {
 	"旧词典页": "Old Dictionary Page",
 	"仅能使用一次，但会压低 32% 的污染噪声。": "One use only. After an understanding check fails, increase its success chance by 32 percentage points.",
 	"空白": "Blank",
-	"（空白）": "(blank)",
-	"（先确认一件事。你手里拿着什么？）": "(First, let's confirm one thing. What are you holding?)",
 	"一部没有信号的手机。它在我醒来以前就亮着。": "A phone with no signal. It was lit before I woke up.",
-	"（你在等谁的消息？）": "(Whose message are you waiting for?)",
 	"不。我在等路面停止向后移动。它每退一步，塔就多出一层。": "No. I'm waiting for the road to stop moving backward. Every step it slips back adds another floor to the tower.",
 	"城市广播说今天一切正常。广播重复了七次，正常因此变成一个可疑的词。": "The city broadcast says everything is normal today. It repeated itself seven times, which made normal a suspicious word.",
-	"（从哪里开始？）": "(Where do we begin?)",
 	"从一个字开始。先让它进入框里，再看它会把谁赶出去。": "With one word. Put it in the frame first, then see whom it pushes out.",
 	"所有遗产规则都说智者住在这里。这里没有智者。": "Every Legacy Rule says the wise one lives here. There is no wise one here.",
 	"塔顶只有一台没有接线的发射机。指示灯按照你的呼吸闪烁。": "At the top is only an unwired transmitter. Its indicator blinks in time with your breathing.",
-	"（它在发送什么？）": "(What is it transmitting?)",
 	"你把耳朵贴近外壳。里面传来整座城市的声音，每个人都在准确重复别人。": "You press your ear to the casing. The whole city is inside; everyone is repeating someone else perfectly.",
 	"你想说一句普通的话。每一层却先替你开口。": "You try to say something ordinary. Every floor speaks before you can.",
 
@@ -437,8 +416,6 @@ const EN: Dictionary = {
 	"旧帖目击者": "Old-Post Witness",
 
 	# Non-Chinese visible residue emitted by the same state data.
-	"■■■■": "■■■■",
-	"■ ■ ■ ■": "■ ■ ■ ■",
 	"……": "...",
 	"■": "■",
 	"▦": "▦",
@@ -449,22 +426,6 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
-	"你想说一句普通的话。第七层先开口了。": "普通の一言を言おうとする。七階のほうが先に口を開く。",
-	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。": "外殻に耳を寄せる。中で誰かが、昨日あなたが言った一文を言っている。あなたより正確に。",
-	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。": "送信機が一台だけ。配線はない。表示灯があなたの呼吸に合わせて光る。",
-	"所有帖子都说智者住在顶楼。顶楼没有人。": "どの投稿も、賢者は最上階にいると言う。最上階には誰もいない。",
-	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。": "文字から始める。まず一つの文にする。そのあと、下の階で何になるか見る。",
-	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。": "市の放送は今日は異常なしと言う。七回繰り返した。八回目で消した。",
-	"不等消息。我在等路面停下来。它每退一步，塔多一层。": "知らせではない。路面が止まるのを待っている。一歩下がるたび、塔が一階増える。",
-	"一部手机。没有信号。我醒来的时候它已经亮着。": "スマホが一台。圏外。目が覚めたときにはもう光っていた。",
-	"没有人受理这句话的说话者。": "この文の話者は、誰にも受理されなかった。",
-	"这些词没有登记来源。签字栏是空的。你要在这里写谁。": "これらの語に登記された出所がない。署名欄は空白。ここに誰と書く。",
-	"医生停笔。病历上的主语先一步空了。": "医者の手が止まる。カルテの主語のほうが先に空になる。",
-	"只用还登记在你名下的词。说出你现在的位置。": "まだあなたの名で登記されている語だけを使って。今いる位置を述べて。",
-	"医生在每个词旁边写下另一种用途。笔尖比你慢半个字。": "医者が語ごとに別の用途を書き足す。ペン先はあなたより半字遅い。",
-	"按顺序念。不要按你记得的顺序，按你说过的顺序。": "順に読んで。覚えている順ではなく、言った順に。",
-	"医生记下来了。字数和你说的对不上。": "医者が書き取る。文字数があなたの言葉と合わない。",
-	"把刚才那句再说一遍。不要替它解释。": "さっきの一文をもう一度。説明はいらない。",
 	# Free-sentence rules and ultimate task events.
 	"有一句话贴上了门。": "一つの文がドアに貼りついた。",
 	"有一句话在找它的出口。": "一つの文がでぐちを探している。",
@@ -815,17 +776,12 @@ const JA: Dictionary = {
 	"旧词典页": "古い辞書の一頁",
 	"仅能使用一次，但会压低 32% 的污染噪声。": "1回のみ使用可能。理解判定に失敗したとき、その判定の成功率を32ポイント上げる。",
 	"空白": "空白",
-	"（空白）": "（空白）",
-	"（先确认一件事。你手里拿着什么？）": "（先に一つ確認しよう。手に何を持っている？）",
 	"一部没有信号的手机。它在我醒来以前就亮着。": "圏外の携帯電話。目を覚ます前から画面が点いていた。",
-	"（你在等谁的消息？）": "（誰からのメッセージを待っている？）",
 	"不。我在等路面停止向后移动。它每退一步，塔就多出一层。": "違う。路面が後ろへ動くのをやめるのを待っている。一歩下がるたび、塔に一階増える。",
 	"城市广播说今天一切正常。广播重复了七次，正常因此变成一个可疑的词。": "市の放送は今日もすべて正常だと言った。七度繰り返したせいで、「正常」は疑わしい言葉になった。",
-	"（从哪里开始？）": "（どこから始める？）",
 	"从一个字开始。先让它进入框里，再看它会把谁赶出去。": "一語から始めよう。まず枠へ入れ、それが誰を追い出すのか見よう。",
 	"所有遗产规则都说智者住在这里。这里没有智者。": "すべての遺産ルールは、賢者がここに住むと言っている。ここに賢者はいない。",
 	"塔顶只有一台没有接线的发射机。指示灯按照你的呼吸闪烁。": "塔の頂には、配線されていない送信機が一台あるだけ。表示灯はあなたの呼吸に合わせて点滅する。",
-	"（它在发送什么？）": "（何を送信している？）",
 	"你把耳朵贴近外壳。里面传来整座城市的声音，每个人都在准确重复别人。": "耳を外殻に当てる。中から街全体の声が聞こえる。誰もが誰かの言葉を正確に繰り返している。",
 	"你想说一句普通的话。每一层却先替你开口。": "普通のことを一つ言おうとする。だが、すべての階が先に口を開く。",
 
@@ -884,8 +840,6 @@ const JA: Dictionary = {
 	"旧帖目击者": "旧投稿の目撃者",
 
 	# Non-Chinese visible residue emitted by the same state data.
-	"■■■■": "■■■■",
-	"■ ■ ■ ■": "■ ■ ■ ■",
 	"……": "……",
 	"■": "■",
 	"▦": "▦",

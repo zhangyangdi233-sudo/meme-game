@@ -18,6 +18,22 @@ _Avoid_: boundary, layer (when used as a synonym for this rule)
 
 Parallel **adapter extractions** under `scripts/integrations/` (`camera_session`, `game_audio_controller`), `scripts/game/` (`social_feed_content`, `narrative_overlay_director`), and `scripts/ui/game_ui_theme.gd` shrink `babel_meme_game.gd` without changing MemeGameState API; see `docs/design/meme_game_state_public_surface.md`.
 
+**Session mode**:
+Which overlay or loop currently owns player input.
+_Avoid_: game state machine, main FSM (when meaning this)
+
+**Content catalog**:
+Authored narrative copy grouped by domain and looked up by id. MemeGameState stores ids, not sentences.
+_Avoid_: strings file, localization dump, 文案系統
+
+**ContentJson**:
+Framework module that reads and caches `content/*.json`. Game catalogs call it; they do not parse JSON themselves.
+_Avoid_: per-feature JSON loader, new parser
+
+**Language material**:
+Locale-native phrases that *are* the language mechanic (pickup units, echo templates). Each locale writes its own; they do not go through the UI catalog.
+_Avoid_: UI copy, translation entry, content catalog (when meaning pickup or echo text)
+
 ## Development
 
 **Primary platform**: Windows (Godot 4.6+ editor and headless tests).

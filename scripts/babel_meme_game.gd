@@ -8,6 +8,7 @@ const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
@@ -976,6 +977,7 @@ func _reality_scene_deps() -> Dictionary:
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
 		"interaction_active": _reality_interaction_active,
 		"input_locked": _input_locked,
+		"locale": _locale.current_locale,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 	}
 
@@ -1910,7 +1912,7 @@ func _prologue_mount_deps() -> Dictionary:
 	return {
 		"label_factory": _label,
 		"theme_color": _theme_color,
-		"prologue_lines": MemeGameStateScript.PROLOGUE_LINES,
+		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
 	}
 
 
@@ -3646,10 +3648,10 @@ func _ending_screen_mount_deps() -> Dictionary:
 func _ending_screen_render_state() -> Dictionary:
 	var progression := _progression_snapshot()
 	return {
-		"epilogue_lines": MemeGameStateScript.EPILOGUE_LINES,
+		"epilogue_lines": NarrativeSessionCatalogScript.epilogue_lines(_locale.current_locale),
 		"show_language_choices": str(progression.get("ending_language_choice", "")).is_empty(),
-		"language_choices": game.get_ending_language_choices(),
-		"language_output": game.get_ending_language_output(),
+		"language_choices": game.get_ending_language_choices(_locale.current_locale),
+		"language_output": game.get_ending_language_output(_locale.current_locale),
 		"relationship_residue": game.relationship_residue,
 		"relationship_state_label": game.get_relationship_state_label(),
 	}
