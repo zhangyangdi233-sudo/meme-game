@@ -4,8 +4,10 @@ extends Node
 
 signal tab_pressed
 signal selection_changed(index: int)
+signal meme_pressed(meme_id: String)
 
 const RadialSelectorRingScript = preload("res://framework/ui/radial_selector_ring.gd")
+const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
 
 var _window: Control
 var _ring: Control
@@ -18,6 +20,12 @@ var _label_factory: Callable
 var _theme_color_fn: Callable
 var _register_draggable: Callable
 var _viewport_size_fn: Callable
+var _clear_children_fn: Callable
+var _corrupt_text_fn: Callable
+
+var _selected_index := 0
+var _last_completed_memes: Array = []
+var _last_publish_state: Dictionary = {}
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -85,6 +93,67 @@ func layout_popup(mode: String) -> void:
 		_window.offset_bottom = 0.0
 
 
+func render(state: Dictionary) -> void:
+	if _tab == null or _ring == null:
+		return
+	var completed_memes: Array = state.get("completed_memes", [])
+	var theme_colors: Dictionary = state.get("theme_colors", {})
+	var surface := theme_colors.get("surface", _theme_color_fn.call("surface")) as Color
+	var muted := theme_colors.get("muted", _theme_color_fn.call("muted")) as Color
+	var accent := theme_colors.get("accent", _theme_color_fn.call("accent")) as Color
+	var meme_bank_open := bool(state.get("meme_bank_open", false))
+	var should_show_meme_bank := bool(state.get("should_show_meme_bank", false))
+	_render_tab_chrome(meme_bank_open, should_show_meme_bank, completed_memes.size())
+	_ring.set_palette(surface, Color(muted, 0.88), accent)
+	if _clear_children_fn.is_valid():
+		_clear_children_fn.call(_ring)
+	if completed_memes.is_empty():
+		if _focus_label != null:
+			_focus_label.text = "还没有完整梗。"
+		_last_completed_memes = []
+		_last_publish_state = {
+			"publish_blank": state.get("publish_blank"),
+			"confirm_publish_button": state.get("confirm_publish_button"),
+			"placed_meme": state.get("placed_meme", {}),
+			"can_spend_action": state.get("can_spend_action", false),
+		}
+		_render_publish_controls(_last_publish_state)
+		return
+	_selected_index = clampi(int(state.get("selected_index", _selected_index)), 0, completed_memes.size() - 1)
+	var selected_meme_id := str(state.get("selected_meme_id", ""))
+	if not selected_meme_id.is_empty():
+		for index in completed_memes.size():
+			if str((completed_memes[index] as Dictionary).get("id", "")) == selected_meme_id:
+				_selected_index = index
+				break
+	for index in completed_memes.size():
+		var meme: Dictionary = completed_memes[index] as Dictionary
+		var meme_id := str(meme.get("id", index))
+		var btn = DraggableButtonScript.new()
+		btn.name = "MemeRingItem_%s" % meme_id
+		btn.set_meta("radial_meme_item", true)
+		btn.set_meta("meme_index", index)
+		btn.custom_minimum_size = Vector2(134, 54)
+		var display_text := str(meme.get("text", ""))
+		if _corrupt_text_fn.is_valid():
+			display_text = str(_corrupt_text_fn.call(display_text))
+		btn.text = "%s\n%s" % [meme.get("title", ""), display_text]
+		btn.set_drag_payload("meme", meme_id, str(meme.get("title", "")))
+		btn.pressed.connect(_on_meme_item_pressed.bind(meme_id))
+		btn.gui_input.connect(_on_meme_ring_item_gui_input.bind(btn))
+		_ring.add_child(btn)
+	_ring.set_selected_index(_selected_index)
+	_update_focus_label(completed_memes)
+	_last_completed_memes = completed_memes
+	_last_publish_state = {
+		"publish_blank": state.get("publish_blank"),
+		"confirm_publish_button": state.get("confirm_publish_button"),
+		"placed_meme": state.get("placed_meme", {}),
+		"can_spend_action": state.get("can_spend_action", false),
+	}
+	_render_publish_controls(_last_publish_state)
+
+
 func update_open_parts_visible(show_meme_bank: bool, is_open: bool) -> void:
 	var show_open_parts := show_meme_bank and is_open
 	if _content != null:
@@ -102,6 +171,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
 	_viewport_size_fn = deps.get("viewport_size", Callable())
+	_clear_children_fn = deps.get("clear_children", Callable())
+	_corrupt_text_fn = deps.get("corrupt_text", Callable())
 
 
 func _build_popup(parent: Control) -> void:
@@ -175,9 +246,63 @@ func _build_popup(parent: Control) -> void:
 	_content.add_child(_focus_label)
 
 
+func _render_tab_chrome(meme_bank_open: bool, should_show_meme_bank: bool, completed_count: int) -> void:
+	if _tab == null:
+		return
+	if meme_bank_open:
+		_tab.text = "×"
+		_tab.set_meta("meme_bank_peek", false)
+		_tab.custom_minimum_size = Vector2(88, 88)
+	elif should_show_meme_bank:
+		_tab.text = "梗 %d" % completed_count
+		_tab.set_meta("meme_bank_peek", false)
+		_tab.custom_minimum_size = Vector2(104, 88)
+	else:
+		_tab.text = ""
+		_tab.set_meta("meme_bank_peek", true)
+		_tab.custom_minimum_size = Vector2.ZERO
+
+
+func _render_publish_controls(state: Dictionary) -> void:
+	var publish_blank: Control = state.get("publish_blank") as Control
+	var confirm_publish_button: Button = state.get("confirm_publish_button") as Button
+	var placed_meme: Dictionary = state.get("placed_meme", {}) as Dictionary
+	if publish_blank != null:
+		var title := "等待完整梗"
+		if not placed_meme.is_empty():
+			title = str(placed_meme.get("title", "等待完整梗"))
+		publish_blank.text = "发布空格：%s" % title
+	if confirm_publish_button != null:
+		confirm_publish_button.disabled = placed_meme.is_empty() or not bool(state.get("can_spend_action", false))
+
+
+func _update_focus_label(completed_memes: Array) -> void:
+	if _focus_label == null or completed_memes.is_empty():
+		return
+	_selected_index = clampi(_selected_index, 0, completed_memes.size() - 1)
+	var meme: Dictionary = completed_memes[_selected_index] as Dictionary
+	_focus_label.text = "%d/%d  ·  %s" % [
+		_selected_index + 1,
+		completed_memes.size(),
+		str(meme.get("title", meme.get("text", "完整梗"))),
+	]
+
+
 func _on_tab_pressed() -> void:
 	tab_pressed.emit()
 
 
+func _on_meme_item_pressed(meme_id: String) -> void:
+	meme_pressed.emit(meme_id)
+
+
+func _on_meme_ring_item_gui_input(event: InputEvent, source_button: Control) -> void:
+	if _ring != null and _ring.handle_navigation_event(event):
+		source_button.accept_event()
+
+
 func _on_ring_selection_changed(index: int) -> void:
+	_selected_index = index
+	if not _last_completed_memes.is_empty():
+		_update_focus_label(_last_completed_memes)
 	selection_changed.emit(index)

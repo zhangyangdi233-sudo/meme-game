@@ -3,7 +3,6 @@ extends Node3D
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
-const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
@@ -418,13 +417,9 @@ var _app_bodies: Dictionary = {}
 var _publish_panel: PanelContainer
 var _publish_blank: DropButton
 var _confirm_publish_button: Button
-var _meme_bank_tab: Button
-var _meme_bank_drag_handle: Label
 var _meme_bank_window: Control
 var _meme_bank_content: Control
-var _bank_list: Control
 var _meme_bank_ring: Control
-var _meme_bank_focus_label: Label
 var _meme_bank_selected_index := 0
 var _meme_bank_tween: Tween
 var _reality_conversation_panel
@@ -2632,6 +2627,8 @@ func _meme_bank_mount_deps() -> Dictionary:
 		"theme_color": _theme_color,
 		"register_draggable": _make_draggable_window,
 		"viewport_size": _viewport_size,
+		"clear_children": _clear,
+		"corrupt_text": _corrupt,
 	}
 
 
@@ -2643,6 +2640,8 @@ func _connect_meme_bank_panel_signals() -> void:
 		panel.tab_pressed.connect(_toggle_meme_bank)
 	if not panel.selection_changed.is_connected(_on_meme_ring_selection_changed):
 		panel.selection_changed.connect(_on_meme_ring_selection_changed)
+	if not panel.meme_pressed.is_connected(_on_meme_pressed):
+		panel.meme_pressed.connect(_on_meme_pressed)
 
 
 func _ensure_babel_app_panel() -> void:
@@ -2728,11 +2727,7 @@ func _sync_meme_bank_refs() -> void:
 		return
 	_meme_bank_window = _meme_bank_panel.get_popup()
 	_meme_bank_ring = _meme_bank_panel.get_ring()
-	_meme_bank_tab = _meme_bank_panel.get_tab()
 	_meme_bank_content = _meme_bank_panel.get_content()
-	_meme_bank_focus_label = _meme_bank_panel.get_focus_label()
-	_meme_bank_drag_handle = _meme_bank_panel.get_drag_handle()
-	_bank_list = _meme_bank_panel.get_bank_list()
 
 
 func _apply_meme_bank_popup_layout(mode: String) -> void:
@@ -2994,8 +2989,7 @@ func _render() -> void:
 	_render_status()
 	_render_world_prompt()
 	_render_app()
-	_render_publish()
-	_render_bank()
+	_render_meme_bank()
 	_render_reality()
 	_update_visibility()
 	_apply_world_theme()
@@ -3219,55 +3213,42 @@ func _set_notebook_crafting_tab(tab_id: String) -> void:
 	_render()
 
 
-func _render_publish() -> void:
-	if _publish_blank == null or _confirm_publish_button == null:
-		return
-	var meme := _placed_meme()
-	_publish_blank.text = "发布空格：%s" % (meme.get("title", "等待完整梗") if not meme.is_empty() else "等待完整梗")
-	_confirm_publish_button.disabled = meme.is_empty() or not game.can_spend_action()
+func _meme_bank_snapshot() -> Dictionary:
+	return {
+		"completed_memes": game.completed_memes if game != null else [],
+		"selected_meme_id": selected_meme_id,
+		"selected_index": _meme_bank_selected_index,
+		"can_spend_action": game != null and game.can_spend_action(),
+		"theme_colors": {
+			"surface": _theme_color("surface"),
+			"muted": _theme_color("muted"),
+			"accent": _theme_color("accent"),
+		},
+		"meme_bank_open": _meme_bank_open,
+		"should_show_meme_bank": _should_show_meme_bank(),
+		"placed_meme": _placed_meme(),
+		"publish_blank": _publish_blank,
+		"confirm_publish_button": _confirm_publish_button,
+	}
 
 
-func _render_bank() -> void:
-	if _meme_bank_tab != null:
-		if _meme_bank_open:
-			_meme_bank_tab.text = "×"
-			_meme_bank_tab.set_meta("meme_bank_peek", false)
-			_meme_bank_tab.custom_minimum_size = Vector2(88, 88)
-		elif _should_show_meme_bank():
-			_meme_bank_tab.text = "梗 %d" % game.completed_memes.size()
-			_meme_bank_tab.set_meta("meme_bank_peek", false)
-			_meme_bank_tab.custom_minimum_size = Vector2(104, 88)
-		else:
-			_meme_bank_tab.text = ""
-			_meme_bank_tab.set_meta("meme_bank_peek", true)
-			_meme_bank_tab.custom_minimum_size = Vector2.ZERO
-	if _meme_bank_ring != null:
-		_meme_bank_ring.set_palette(_theme_color("surface"), Color(_theme_color("muted"), 0.88), _theme_color("accent"))
-	_clear(_bank_list)
-	if game.completed_memes.is_empty():
-		if _meme_bank_focus_label != null:
-			_meme_bank_focus_label.text = "还没有完整梗。"
+func _render_meme_bank() -> void:
+	if _meme_bank_panel == null or not is_instance_valid(_meme_bank_panel):
+		_meme_bank_panel = null
 		return
-	_meme_bank_selected_index = clampi(_meme_bank_selected_index, 0, game.completed_memes.size() - 1)
+	_sync_meme_bank_selected_index()
+	_meme_bank_panel.render(_meme_bank_snapshot())
+
+
+func _sync_meme_bank_selected_index() -> void:
+	if game == null or game.completed_memes.is_empty():
+		return
 	if not selected_meme_id.is_empty():
 		for index in game.completed_memes.size():
 			if str(game.completed_memes[index].get("id", "")) == selected_meme_id:
 				_meme_bank_selected_index = index
-				break
-	for index in game.completed_memes.size():
-		var meme: Dictionary = game.completed_memes[index]
-		var btn = DraggableButtonScript.new()
-		btn.name = "MemeRingItem_%s" % str(meme.get("id", index))
-		btn.set_meta("radial_meme_item", true)
-		btn.set_meta("meme_index", index)
-		btn.custom_minimum_size = Vector2(134, 54)
-		btn.text = "%s\n%s" % [meme["title"], _corrupt(str(meme["text"]))]
-		btn.set_drag_payload("meme", str(meme["id"]), str(meme["title"]))
-		btn.pressed.connect(_on_meme_pressed.bind(str(meme["id"])))
-		btn.gui_input.connect(_on_meme_ring_item_gui_input.bind(btn))
-		_bank_list.add_child(btn)
-	_meme_bank_ring.set_selected_index(_meme_bank_selected_index)
-	_on_meme_ring_selection_changed(_meme_bank_selected_index)
+				return
+	_meme_bank_selected_index = clampi(_meme_bank_selected_index, 0, game.completed_memes.size() - 1)
 
 
 func _on_meme_ring_selection_changed(index: int) -> void:
@@ -3276,14 +3257,6 @@ func _on_meme_ring_selection_changed(index: int) -> void:
 	_meme_bank_selected_index = clampi(index, 0, game.completed_memes.size() - 1)
 	var meme: Dictionary = game.completed_memes[_meme_bank_selected_index]
 	selected_meme_id = str(meme.get("id", ""))
-	if _meme_bank_focus_label != null:
-		_meme_bank_focus_label.text = "%d/%d  ·  %s" % [_meme_bank_selected_index + 1, game.completed_memes.size(), str(meme.get("title", meme.get("text", "完整梗")))]
-	_render_publish()
-
-
-func _on_meme_ring_item_gui_input(event: InputEvent, source_button: Control) -> void:
-	if _meme_bank_ring != null and _meme_bank_ring.handle_navigation_event(event):
-		source_button.accept_event()
 
 
 func _render_reality() -> void:
