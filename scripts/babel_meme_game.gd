@@ -13,9 +13,6 @@ const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
-const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
-const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
-const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
@@ -3031,6 +3028,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"panel_factory": _panel,
 		"label_factory": _label,
 		"style_fn": _style,
+		"soft_style": _soft_style,
 		"theme_color": _theme_color,
 		"ui_font_size": _ui_font_size,
 		"register_draggable": _window_manager.register,
@@ -3048,7 +3046,8 @@ func _social_feed_mount_deps() -> Dictionary:
 		"corrupt_text": _corrupt,
 		"floor_label": _social_floor_label,
 		"translate": func(text: String) -> String: return _locale.translate(text),
-		"pickup_rich_text": _make_pickup_rich_text,
+		"pickup_bbcode": _pickup_bbcode,
+		"pickup_meta": _on_pickup_unit_meta,
 		"author_id": _social_author_id,
 		"pickup_line": func(post_id: String, locale: String) -> String: return PickupCharPoolScript.get_pickup_line(post_id, locale),
 		"pickup_comments": func(post_id: String, locale: String) -> Array: return PickupCharPoolScript.get_comments(post_id, locale),
@@ -3058,7 +3057,13 @@ func _social_feed_mount_deps() -> Dictionary:
 		"current_locale": func() -> String: return _locale.current_locale,
 		"publish_result": _social_publish_result,
 		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
-		"render_publish_sentence_area": _render_publish_sentence_area,
+		"composer_area_drop": _on_composer_area_drop,
+		"composer_tile_drop": _on_composer_tile_drop,
+		"composer_answer_tapped": _on_composer_answer_tapped,
+		"composer_submit": _on_composer_submit_pressed,
+		"apply_composer_tile_theme": _apply_composer_tile_theme,
+		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
+		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
 		"completed_memes_count": func() -> int: return game.completed_memes.size() if game != null else 0,
 		"pollution": func() -> int: return game.pollution if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
@@ -3603,14 +3608,18 @@ func _render_app() -> void:
 				_app_title.text = "笔记本 App"
 				_render_notebook_app()
 			"social":
-				_app_title.text = "社交媒体 App"
-				_publish_blank = null
-				_confirm_publish_button = null
-				if _social_feed_panel != null:
-					_social_feed_panel.render_app(_social_screen, _social_channel)
-					_confirm_publish_button = _social_feed_panel.get_confirm_publish_button()
-	if _social_feed_panel != null:
-		_social_feed_panel.render_companion()
+				_render_social_app()
+
+
+func _render_social_app() -> void:
+	_app_title.text = "社交媒体 App"
+	_publish_blank = null
+	_confirm_publish_button = null
+	if _social_feed_panel == null:
+		return
+	_social_feed_panel.render_app(_social_screen, _social_channel)
+	_social_feed_panel.render_companion()
+	_confirm_publish_button = _social_feed_panel.get_confirm_publish_button()
 
 
 func _render_babel_app() -> void:
@@ -3667,70 +3676,6 @@ func _social_publish_result() -> Dictionary:
 	if not placed_meme.is_empty():
 		return game.get_publish_result(placed_meme)
 	return game.last_publish_result
-
-
-## ============ 发布页的句子撰写区(接收笔记本画布拖来的字)============
-
-func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Array) -> void:
-	var answer_panel := ComposerDropAreaScript.new()
-	answer_panel.name = "ComposerAnswerPanel"
-	answer_panel.custom_minimum_size.y = 92
-	answer_panel.add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
-	answer_panel.unit_dropped.connect(_on_composer_area_drop)
-	composer_box.add_child(answer_panel)
-	var answer_box := VBoxContainer.new()
-	answer_box.add_theme_constant_override("separation", 4)
-	answer_panel.add_child(answer_box)
-	var answer_flow := HFlowContainer.new()
-	answer_flow.name = "ComposerAnswerFlow"
-	answer_flow.add_theme_constant_override("h_separation", 6)
-	answer_flow.add_theme_constant_override("v_separation", 6)
-	answer_flow.custom_minimum_size.y = 46
-	answer_box.add_child(answer_flow)
-	if placed_units.is_empty():
-		var placeholder := _label("……(句子还空着)", 14, _theme_color("muted"))
-		placeholder.name = "ComposerAnswerPlaceholder"
-		answer_flow.add_child(placeholder)
-	for unit_index in placed_units.size():
-		var placed_tile := ComposerAnswerTileScript.new()
-		placed_tile.name = "ComposerAnswerTile%d" % unit_index
-		placed_tile.text = str(placed_units[unit_index])
-		placed_tile.focus_mode = Control.FOCUS_NONE
-		placed_tile.custom_minimum_size = Vector2(44, 42)
-		placed_tile.set_meta("skip_localization", true)
-		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
-		placed_tile.pressed.connect(_on_composer_answer_tapped.bind(unit_index))
-		placed_tile.unit_dropped_before.connect(_on_composer_tile_drop)
-		_apply_composer_tile_theme(placed_tile, false)
-		answer_flow.add_child(placed_tile)
-	var answer_rule := ColorRect.new()
-	answer_rule.name = "ComposerAnswerUnderline"
-	answer_rule.color = Color(_theme_color("accent"), 0.8)
-	answer_rule.custom_minimum_size.y = 2.0
-	answer_box.add_child(answer_rule)
-
-	var preview_label := _label(game.get_free_sentence_text(_locale.current_locale), 15, _theme_color("ink"))
-	preview_label.name = "ComposerPreviewLabel"
-	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	preview_label.set_meta("skip_localization", true)
-	composer_box.add_child(preview_label)
-
-	var post_button := Button.new()
-	post_button.name = "SocialPublishPostButton"
-	post_button.custom_minimum_size.y = 52
-	if placed_units.is_empty():
-		post_button.text = "先放入一个字"
-		post_button.disabled = true
-	elif not game.can_spend_action():
-		post_button.text = "今天不能再投稿"
-		post_button.disabled = true
-	else:
-		post_button.text = "投稿"
-		post_button.disabled = false
-		post_button.add_theme_stylebox_override("normal", _style(_theme_color("accent"), _theme_color("ink")))
-		post_button.add_theme_color_override("font_color", _theme_color("surface"))
-	post_button.pressed.connect(_on_composer_submit_pressed)
-	composer_box.add_child(post_button)
 
 
 func _set_social_screen(screen: String) -> void:
@@ -4813,14 +4758,8 @@ func _apply_ui_theme(node: Node = null) -> void:
 			(node as PanelContainer).add_theme_stylebox_override("panel", _reward_card_style(_theme_color("ink"), _theme_color("muted")))
 		elif node.has_meta("phone_surface"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", _phone_surface_style())
-		elif node.has_meta("social_card"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _social_card_style())
 		elif node.has_meta("poster_frame"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", _poster_frame_style())
-		elif node.has_meta("detail_dark_panel"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _detail_dark_style())
-		elif node.has_meta("social_feed_dark"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", _social_feed_dark_style())
 		elif node.has_meta("meme_bank_popup") and not _meme_bank_open:
 			(node as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 		elif node.has_meta("dark_rail"):
@@ -4830,7 +4769,9 @@ func _apply_ui_theme(node: Node = null) -> void:
 		elif node.has_meta("soft_panel"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", _soft_style(_theme_color("surface"), _theme_color("accent")))
 		else:
-			(node as PanelContainer).add_theme_stylebox_override("panel", _style(_theme_color("surface"), _theme_color("accent")))
+			var panel := node as PanelContainer
+			if not panel.has_theme_stylebox_override("panel"):
+				panel.add_theme_stylebox_override("panel", _style(_theme_color("surface"), _theme_color("accent")))
 	elif node is LineEdit:
 		var edit := node as LineEdit
 		edit.add_theme_color_override("font_color", _theme_color("ink"))
@@ -5642,22 +5583,6 @@ func _ensure_notebook_window_home() -> void:
 	window.visible = game != null and game.view_state == "phone_down"
 
 
-func _make_pickup_rich_text(node_name: String, source_text: String, post_id: String) -> RichTextLabel:
-	var rich := RichTextLabel.new()
-	rich.name = node_name
-	rich.bbcode_enabled = true
-	rich.fit_content = true
-	rich.scroll_active = false
-	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rich.add_theme_font_size_override("normal_font_size", _ui_font_size(16))
-	rich.add_theme_color_override("default_color", _theme_color("surface"))
-	rich.set_meta("pickup_rich_text", true)
-	rich.text = _pickup_bbcode(source_text)
-	rich.meta_clicked.connect(_on_pickup_unit_meta.bind(post_id))
-	return rich
-
-
-## 把文本中属于字池的单位包成可点击的 [url];已拾取的单位渲染为灰色余韵。
 func _pickup_bbcode(source_text: String) -> String:
 	var locale_code: String = _locale.current_locale
 	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPoolScript.get_unit_pool(locale_code)
@@ -6245,26 +6170,6 @@ func _reward_card_style(bg: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func _social_feed_dark_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("ink")
-	style.border_color = Color(_theme_color("muted"), 0.18)
-	style.set_border_width_all(0)
-	style.set_corner_radius_all(12)
-	style.set_content_margin_all(6)
-	return style
-
-
-func _social_card_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("surface")
-	style.border_color = Color(_theme_color("muted"), 0.62)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(6)
-	return style
-
-
 func _poster_frame_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = _theme_color("muted")
@@ -6272,16 +6177,6 @@ func _poster_frame_style() -> StyleBoxFlat:
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(0)
-	return style
-
-
-func _detail_dark_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color("ink")
-	style.border_color = _theme_color("ink")
-	style.set_border_width_all(0)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(10)
 	return style
 
 

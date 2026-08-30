@@ -2,6 +2,9 @@ class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
 
+const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
+const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+
 signal channel_pressed(channel: String)
 signal screen_requested(screen: String)
 signal card_clicked(post_index: int)
@@ -48,7 +51,8 @@ var _caption_text_fn: Callable
 var _corrupt_text_fn: Callable
 var _floor_label_fn: Callable
 var _translate_fn: Callable
-var _pickup_rich_text_fn: Callable
+var _pickup_bbcode_fn: Callable
+var _pickup_meta_fn: Callable
 var _author_id_fn: Callable
 var _pickup_line_fn: Callable
 var _pickup_comments_fn: Callable
@@ -58,7 +62,14 @@ var _game_day_fn: Callable
 var _current_locale_fn: Callable
 var _publish_result_fn: Callable
 var _free_sentence_units_fn: Callable
-var _render_publish_sentence_area_fn: Callable
+var _soft_style_fn: Callable
+var _composer_area_drop_fn: Callable
+var _composer_tile_drop_fn: Callable
+var _composer_answer_tapped_fn: Callable
+var _composer_submit_fn: Callable
+var _apply_composer_tile_theme_fn: Callable
+var _free_sentence_text_fn: Callable
+var _can_spend_action_fn: Callable
 var _completed_memes_count_fn: Callable
 var _pollution_fn: Callable
 var _player_character_path := ""
@@ -305,7 +316,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_corrupt_text_fn = deps.get("corrupt_text", Callable())
 	_floor_label_fn = deps.get("floor_label", Callable())
 	_translate_fn = deps.get("translate", Callable())
-	_pickup_rich_text_fn = deps.get("pickup_rich_text", Callable())
+	_pickup_bbcode_fn = deps.get("pickup_bbcode", Callable())
+	_pickup_meta_fn = deps.get("pickup_meta", Callable())
 	_author_id_fn = deps.get("author_id", Callable())
 	_pickup_line_fn = deps.get("pickup_line", Callable())
 	_pickup_comments_fn = deps.get("pickup_comments", Callable())
@@ -315,7 +327,14 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_current_locale_fn = deps.get("current_locale", Callable())
 	_publish_result_fn = deps.get("publish_result", Callable())
 	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
-	_render_publish_sentence_area_fn = deps.get("render_publish_sentence_area", Callable())
+	_soft_style_fn = deps.get("soft_style", Callable())
+	_composer_area_drop_fn = deps.get("composer_area_drop", Callable())
+	_composer_tile_drop_fn = deps.get("composer_tile_drop", Callable())
+	_composer_answer_tapped_fn = deps.get("composer_answer_tapped", Callable())
+	_composer_submit_fn = deps.get("composer_submit", Callable())
+	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
+	_free_sentence_text_fn = deps.get("free_sentence_text", Callable())
+	_can_spend_action_fn = deps.get("can_spend_action", Callable())
 	_completed_memes_count_fn = deps.get("completed_memes_count", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
@@ -362,7 +381,7 @@ func _build_social_detail_window(parent: Control) -> void:
 		return
 	_detail_window = _panel_factory.call() as PanelContainer
 	_detail_window.name = "SocialDetailWindow"
-	_detail_window.set_meta("detail_dark_panel", true)
+	_detail_window.add_theme_stylebox_override("panel", _detail_dark_style())
 	_detail_window.clip_contents = true
 	_detail_window.z_index = 24
 	parent.add_child(_detail_window)
@@ -441,7 +460,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 
 	var feed_frame := PanelContainer.new()
 	feed_frame.name = "SocialFeedDarkFrame"
-	feed_frame.set_meta("social_feed_dark", true)
+	feed_frame.add_theme_stylebox_override("panel", _social_feed_dark_style())
 	feed_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	home_page.add_child(feed_frame)
 
@@ -487,6 +506,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		var card_panel := _panel_factory.call() as PanelContainer
 		card_panel.name = "SocialPostCard%d" % post_index
 		card_panel.set_meta("social_card", true)
+		card_panel.add_theme_stylebox_override("panel", _social_card_style())
 		card_panel.set_meta("masonry_column_index", column_index)
 		card_panel.custom_minimum_size = Vector2(0, card_height)
 		card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -582,7 +602,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 func _render_channel_empty_state(parent: VBoxContainer, node_name: String, title: String, body: String) -> void:
 	var frame := PanelContainer.new()
 	frame.name = node_name
-	frame.set_meta("social_feed_dark", true)
+	frame.add_theme_stylebox_override("panel", _social_feed_dark_style())
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(frame)
 	var center := CenterContainer.new()
@@ -805,7 +825,7 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 
 	var detail_card := _panel_factory.call() as PanelContainer
 	detail_card.name = "SocialPostDetailCard"
-	detail_card.set_meta("detail_dark_panel", true)
+	detail_card.add_theme_stylebox_override("panel", _detail_dark_style())
 	detail_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	detail_page.add_child(detail_card)
 	var detail_box := VBoxContainer.new()
@@ -843,9 +863,8 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	var pickup_line := ""
 	if _pickup_line_fn.is_valid():
 		pickup_line = str(_pickup_line_fn.call(post_card_id, locale))
-	if not pickup_line.is_empty() and _pickup_rich_text_fn.is_valid():
-		var pickup_rich := _pickup_rich_text_fn.call("SocialPickupLineText", pickup_line, post_card_id) as RichTextLabel
-		detail_box.add_child(pickup_rich)
+	if not pickup_line.is_empty():
+		detail_box.add_child(_make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id))
 		var pickup_hint := _label_factory.call("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color_fn.call("muted")) as Label
 		pickup_hint.name = "SocialPickupCostHint"
 		pickup_hint.set_meta("on_dark", true)
@@ -906,9 +925,7 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 			comment_meta.set_meta("on_dark", true)
 			comment_meta.set_meta("skip_localization", true)
 			comment_box.add_child(comment_meta)
-			if _pickup_rich_text_fn.is_valid():
-				var comment_rich := _pickup_rich_text_fn.call("SocialCommentText%d" % comment_index, str(comment.get("text", "")), post_card_id) as RichTextLabel
-				comment_box.add_child(comment_rich)
+			comment_box.add_child(_make_pickup_rich_text("SocialCommentText%d" % comment_index, str(comment.get("text", "")), post_card_id))
 		_render_player_echo_comment(detail_box, post_comments.size())
 
 
@@ -1009,8 +1026,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	unit_counter.name = "SocialPublishUnitCounter"
 	composer_header.add_child(unit_counter)
 	composer_box.add_child(_label_factory.call("把笔记本里的字拖进来", 17, _theme_color_fn.call("ink")) as Label)
-	if _render_publish_sentence_area_fn.is_valid():
-		_render_publish_sentence_area_fn.call(composer_box, placed_sentence_units)
+	_render_publish_sentence_area(composer_box, placed_sentence_units)
 
 	var result_panel := _panel_factory.call() as PanelContainer
 	result_panel.name = "SocialPublishOutcomePanel"
@@ -1089,6 +1105,129 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 
 func _on_publish_confirm_pressed() -> void:
 	publish_confirm_requested.emit()
+
+
+func _social_feed_dark_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _theme_color_fn.call("ink")
+	style.border_color = Color(_theme_color_fn.call("muted"), 0.18)
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(6)
+	return style
+
+
+func _social_card_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _theme_color_fn.call("surface")
+	style.border_color = Color(_theme_color_fn.call("muted"), 0.62)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(6)
+	return style
+
+
+func _detail_dark_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _theme_color_fn.call("ink")
+	style.border_color = _theme_color_fn.call("ink")
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(10)
+	return style
+
+
+func _make_pickup_rich_text(node_name: String, source_text: String, post_id: String) -> RichTextLabel:
+	var rich := RichTextLabel.new()
+	rich.name = node_name
+	rich.bbcode_enabled = true
+	rich.fit_content = true
+	rich.scroll_active = false
+	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rich.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(16))
+	rich.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
+	rich.set_meta("on_dark", true)
+	var bbcode := source_text
+	if _pickup_bbcode_fn.is_valid():
+		bbcode = str(_pickup_bbcode_fn.call(source_text))
+	rich.text = bbcode
+	if _pickup_meta_fn.is_valid():
+		rich.meta_clicked.connect(_pickup_meta_fn.bind(post_id))
+	return rich
+
+
+func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Array) -> void:
+	var answer_panel := ComposerDropAreaScript.new()
+	answer_panel.name = "ComposerAnswerPanel"
+	answer_panel.custom_minimum_size.y = 92
+	if _soft_style_fn.is_valid():
+		answer_panel.add_theme_stylebox_override(
+			"panel",
+			_soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent"))
+		)
+	if _composer_area_drop_fn.is_valid():
+		answer_panel.unit_dropped.connect(_composer_area_drop_fn)
+	composer_box.add_child(answer_panel)
+	var answer_box := VBoxContainer.new()
+	answer_box.add_theme_constant_override("separation", 4)
+	answer_panel.add_child(answer_box)
+	var answer_flow := HFlowContainer.new()
+	answer_flow.name = "ComposerAnswerFlow"
+	answer_flow.add_theme_constant_override("h_separation", 6)
+	answer_flow.add_theme_constant_override("v_separation", 6)
+	answer_flow.custom_minimum_size.y = 46
+	answer_box.add_child(answer_flow)
+	if placed_units.is_empty():
+		var placeholder := _label_factory.call("……(句子还空着)", 14, _theme_color_fn.call("muted")) as Label
+		placeholder.name = "ComposerAnswerPlaceholder"
+		answer_flow.add_child(placeholder)
+	for unit_index in placed_units.size():
+		var placed_tile := ComposerAnswerTileScript.new()
+		placed_tile.name = "ComposerAnswerTile%d" % unit_index
+		placed_tile.text = str(placed_units[unit_index])
+		placed_tile.focus_mode = Control.FOCUS_NONE
+		placed_tile.custom_minimum_size = Vector2(44, 42)
+		placed_tile.set_meta("skip_localization", true)
+		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
+		if _composer_answer_tapped_fn.is_valid():
+			placed_tile.pressed.connect(_composer_answer_tapped_fn.bind(unit_index))
+		if _composer_tile_drop_fn.is_valid():
+			placed_tile.unit_dropped_before.connect(_composer_tile_drop_fn)
+		if _apply_composer_tile_theme_fn.is_valid():
+			_apply_composer_tile_theme_fn.call(placed_tile, false)
+		answer_flow.add_child(placed_tile)
+	var answer_rule := ColorRect.new()
+	answer_rule.name = "ComposerAnswerUnderline"
+	answer_rule.color = Color(_theme_color_fn.call("accent"), 0.8)
+	answer_rule.custom_minimum_size.y = 2.0
+	answer_box.add_child(answer_rule)
+
+	var preview_text := ""
+	if _free_sentence_text_fn.is_valid():
+		preview_text = str(_free_sentence_text_fn.call())
+	var preview_label := _label_factory.call(preview_text, 15, _theme_color_fn.call("ink")) as Label
+	preview_label.name = "ComposerPreviewLabel"
+	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_label.set_meta("skip_localization", true)
+	composer_box.add_child(preview_label)
+
+	var post_button := Button.new()
+	post_button.name = "SocialPublishPostButton"
+	post_button.custom_minimum_size.y = 52
+	if placed_units.is_empty():
+		post_button.text = "先放入一个字"
+		post_button.disabled = true
+	elif not _can_spend_action_fn.is_valid() or not bool(_can_spend_action_fn.call()):
+		post_button.text = "今天不能再投稿"
+		post_button.disabled = true
+	else:
+		post_button.text = "投稿"
+		post_button.disabled = false
+		post_button.add_theme_stylebox_override("normal", _style_fn.call(_theme_color_fn.call("accent"), _theme_color_fn.call("ink")))
+		post_button.add_theme_color_override("font_color", _theme_color_fn.call("surface"))
+	if _composer_submit_fn.is_valid():
+		post_button.pressed.connect(_composer_submit_fn)
+	composer_box.add_child(post_button)
 
 
 func _clear(node: Node) -> void:
