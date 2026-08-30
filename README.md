@@ -76,7 +76,20 @@ On this machine, the project can be launched with:
 
 ## Tests
 
-Run the full headless suite (every `tests/test_*.gd` plus Python hand-tracker sidecars):
+Run the **fast** suite (module tests only; skips files that instantiate `scenes/babel_meme_game.tscn`):
+
+```sh
+GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
+  GODOT_HOME=/Users/zhang/Documents/游戏/.godot_home \
+  tools/run_tests.sh --fast
+```
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+.\tools\run_tests.ps1 -Fast
+```
+
+Run the **full** suite (every `tests/test_*.gd` plus Python hand-tracker sidecars):
 
 ```sh
 GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
@@ -84,10 +97,8 @@ GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/God
   tools/run_tests.sh
 ```
 
-On Windows PowerShell:
-
 ```powershell
-$env:GODOT_BIN = 'C:\path\to\Godot_v4.6.3-stable_win64.exe'
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
 .\tools\run_tests.ps1
 ```
 

@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT_BIN="${GODOT_BIN:-}"
 INCLUDE_PYTHON=1
 FILTER=""
+FAST=0
 
 usage() {
   cat <<'EOF'
@@ -13,11 +14,13 @@ Usage: tools/run_tests.sh [options]
 
 Options:
   --godot PATH       Godot executable (default: GODOT_BIN env, then common macOS path)
+  --fast             Skip tests that instantiate scenes/babel_meme_game.tscn
   --skip-python      Skip tests/test_hand_tracker_*.py
   --filter REGEX     Only run test files whose basename matches REGEX
   -h, --help         Show this help
 
-Example:
+Examples:
+  GODOT_BIN=/path/to/Godot tools/run_tests.sh --fast
   GODOT_BIN=/path/to/Godot tools/run_tests.sh
 EOF
 }
@@ -27,6 +30,10 @@ while [[ $# -gt 0 ]]; do
     --godot)
       GODOT_BIN="$2"
       shift 2
+      ;;
+    --fast)
+      FAST=1
+      shift
       ;;
     --skip-python)
       INCLUDE_PYTHON=0
@@ -64,6 +71,7 @@ fi
 
 failures=()
 passed=0
+skipped=0
 
 run_godot_test() {
   local test_path="$1"
@@ -71,6 +79,11 @@ run_godot_test() {
   local script_path="res://${rel//\\//}"
 
   if [[ -n "$FILTER" ]] && ! basename "$test_path" .gd | grep -Eq "$FILTER"; then
+    return 0
+  fi
+
+  if [[ "$FAST" -eq 1 ]] && grep -q 'babel_meme_game\.tscn' "$test_path"; then
+    skipped=$((skipped + 1))
     return 0
   fi
 
@@ -115,6 +128,11 @@ if [[ "$INCLUDE_PYTHON" -eq 1 ]]; then
 fi
 
 echo
+if [[ "$FAST" -eq 1 ]]; then
+  echo "Mode: fast (skipped $skipped scene tests)"
+else
+  echo "Mode: full"
+fi
 echo "Passed: $passed"
 echo "Failed: ${#failures[@]}"
 

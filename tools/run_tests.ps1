@@ -1,6 +1,7 @@
 param(
     [string]$GodotBin = $env:GODOT_BIN,
     [string]$Filter = "",
+    [switch]$Fast,
     [switch]$SkipPython
 )
 
@@ -9,14 +10,16 @@ $Root = Split-Path -Parent $PSScriptRoot
 
 function Show-Usage {
     Write-Host @"
-Usage: tools/run_tests.ps1 [-GodotBin PATH] [-Filter REGEX] [-SkipPython]
+Usage: tools/run_tests.ps1 [-GodotBin PATH] [-Fast] [-Filter REGEX] [-SkipPython]
 
   -GodotBin   Godot executable (default: `$env:GODOT_BIN)
+  -Fast       Skip tests that instantiate scenes/babel_meme_game.tscn
   -Filter     Only run tests whose file name matches REGEX
   -SkipPython Skip tests/test_hand_tracker_*.py
 
-Example:
+Examples:
   `$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+  .\tools\run_tests.ps1 -Fast
   .\tools\run_tests.ps1
 "@
 }
@@ -43,17 +46,28 @@ if ($testFiles.Count -eq 0) {
 
 $failures = New-Object System.Collections.Generic.List[string]
 $passed = 0
+$skipped = 0
 
 foreach ($testFile in $testFiles) {
     if ($Filter -and ($testFile.BaseName -notmatch $Filter)) {
         continue
     }
 
+    if ($Fast -and (Select-String -LiteralPath $testFile.FullName -Pattern 'babel_meme_game\.tscn' -Quiet)) {
+        $skipped++
+        continue
+    }
+
     $scriptPath = "res://tests/$($testFile.Name)"
     Write-Host "==> $scriptPath"
 
-    & $GodotBin --headless --path $Root --script $scriptPath
-    if ($LASTEXITCODE -eq 0) {
+    # Windows GUI Godot.exe returns immediately unless we wait on the process.
+    $proc = Start-Process -FilePath $GodotBin -ArgumentList @(
+        "--headless",
+        "--path", $Root,
+        "--script", $scriptPath
+    ) -Wait -PassThru -NoNewWindow
+    if ($proc.ExitCode -eq 0) {
         $passed++
     }
     else {
@@ -92,6 +106,12 @@ if (-not $SkipPython) {
 }
 
 Write-Host ""
+if ($Fast) {
+    Write-Host "Mode: fast (skipped $skipped scene tests)"
+}
+else {
+    Write-Host "Mode: full"
+}
 Write-Host "Passed: $passed"
 Write-Host "Failed: $($failures.Count)"
 
