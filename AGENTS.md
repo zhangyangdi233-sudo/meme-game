@@ -16,6 +16,10 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 Single-context: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
 
+### Tests
+
+Primary dev is **Windows**. Run `tools\run_tests.bat` or `.\tools\run_tests.ps1` with `GODOT_BIN` set. See `docs/agents/testing.md`.
+
 ### Commit messages
 
 Conventional Commits prefixes (`feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `build`). See `docs/agents/commit-messages.md`.

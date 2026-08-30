@@ -13,7 +13,7 @@ usage() {
 Usage: tools/run_tests.sh [options]
 
 Options:
-  --godot PATH       Godot executable (default: GODOT_BIN env, then common macOS path)
+  --godot PATH       Godot executable (default: GODOT_BIN env, then platform default)
   --fast             Skip tests that load scenes/babel_meme_game.tscn
   --skip-python      Skip tests/test_hand_tracker_*.py
   --filter REGEX     Only run test files whose basename matches REGEX

@@ -35,13 +35,23 @@ This matrix is the handoff contract for independent review. A row is complete on
 
 ## Test Command
 
-Each test is a standalone SceneTree script. Example:
+Each test is a standalone SceneTree script.
+
+**Windows (primary):**
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+& $env:GODOT_BIN --headless --path . --script res://tests/test_reality_world.gd
+```
+
+Or run the full suite: `tools\run_tests.bat`
+
+**macOS / Linux:**
 
 ```bash
-HOME=/Users/zhang/Documents/游戏/.godot_home \
-  /Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
-  --headless --path /Users/zhang/Documents/游戏/babel-meme-game \
-  --script res://tests/test_reality_world.gd
+GODOT_BIN=/path/to/Godot \
+  GODOT_HOME="$HOME/.godot_home" \
+  $GODOT_BIN --headless --path . --script res://tests/test_reality_world.gd
 ```
 
 ## Asset Integrity Commands

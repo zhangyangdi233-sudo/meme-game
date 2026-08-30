@@ -15,3 +15,11 @@ _Avoid_: app, core (when used loosely)
 **Seam**:
 The rule that Framework may be called from Game; Framework must not call back into Game.
 _Avoid_: boundary, layer (when used as a synonym for this rule)
+
+## Development
+
+**Primary platform**: Windows (Godot 4.6+ editor and headless tests).
+
+**Tests**: `tools\run_tests.bat` or `.\tools\run_tests.ps1`; set `GODOT_BIN` to your Godot executable. See `docs/agents/testing.md`.
+
+**macOS**: still supported for Godot and optional Continuity Camera hand-tracking; use `tools/run_tests.sh` with `GODOT_BIN` set.

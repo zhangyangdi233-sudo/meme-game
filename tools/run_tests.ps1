@@ -30,6 +30,13 @@ if ($args -contains "-h" -or $args -contains "--help") {
 }
 
 if ([string]::IsNullOrWhiteSpace($GodotBin)) {
+    $defaultGodot = "C:\Godot\Godot_v4.6.3-stable_win64.exe"
+    if (Test-Path -LiteralPath $defaultGodot) {
+        $GodotBin = $defaultGodot
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($GodotBin)) {
     Write-Error "Godot not configured. Set -GodotBin or `$env:GODOT_BIN to your Godot 4.6+ executable."
 }
 

@@ -68,45 +68,57 @@ Open this folder in Godot 4.6 or newer. The main scene is:
 res://scenes/babel_meme_game.tscn
 ```
 
-On this machine, the project can be launched with:
+**Windows (primary dev platform)** — open the project in the Godot editor, or launch headless:
+
+```powershell
+& 'C:\Godot\Godot_v4.6.3-stable_win64.exe' --path C:\Godot\meme-game
+```
+
+Adjust the path to your Godot install and repo location.
+
+**macOS** (optional; needed for Continuity Camera hand-tracking features):
 
 ```sh
-/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot --path /Users/zhang/Documents/游戏/babel-meme-game
+/Applications/Godot.app/Contents/MacOS/Godot --path /path/to/meme-game
 ```
 
 ## Tests
 
-Run the **fast** suite (module tests only; skips files that load `scenes/babel_meme_game.tscn`):
+Full instructions: **`docs/agents/testing.md`**.
 
-```sh
-GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
-  GODOT_HOME=/Users/zhang/Documents/游戏/.godot_home \
-  tools/run_tests.sh --fast
-```
+Set `GODOT_BIN` once per shell session, then use the batch runner:
 
 ```powershell
 $env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+tools\run_tests.bat -Fast          # module tests only (skips main-scene loads)
+tools\run_tests.bat                # full suite (44 GDScript + 2 Python)
+tools\run_tests.bat -Filter social # filename filter
+```
+
+Equivalent PowerShell:
+
+```powershell
 .\tools\run_tests.ps1 -Fast
+.\tools\run_tests.ps1
+.\tools\run_tests.ps1 -Filter settings
 ```
 
-Run the **full** suite (every `tests/test_*.gd` plus Python hand-tracker sidecars):
+**macOS / Linux:**
 
 ```sh
-GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
-  GODOT_HOME=/Users/zhang/Documents/游戏/.godot_home \
-  tools/run_tests.sh
+export GODOT_BIN=/path/to/Godot
+tools/run_tests.sh --fast
+tools/run_tests.sh
+tools/run_tests.sh --filter social
 ```
+
+Run a **single** GDScript test on Windows:
 
 ```powershell
-$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
-.\tools\run_tests.ps1
+& $env:GODOT_BIN --headless --path . --script res://tests/test_meme_game_state.gd
 ```
 
-Run a single test:
-
-```sh
-HOME=/Users/zhang/Documents/游戏/.godot_home /Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot --headless --path /Users/zhang/Documents/游戏/babel-meme-game --script res://tests/test_meme_game_state.gd
-```
+There is no CI and no pre-commit hook — tests run only when you invoke a runner (or when an agent does so in your environment).
 
 The rendered publish-layout capture tool is `res://tools/capture_publish_scene.gd`.
 Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_district.gd` from a rendered Godot session to capture each district. Add `BABEL_CAPTURE_OVERVIEW=1` on floor two for the elevated structural QA view. Run `res://tools/capture_meme_bank_motion.gd` to save closed, opening, and open frames plus the measured scale/alpha trace. The generated-floor regression test is `res://tests/test_reality_world.gd`, and the transition/context test is `res://tests/test_day_transition.gd`. Doll evidence is captured by `capture_doll_discovery.gd`, `capture_doll_dialogue.gd`, and `capture_doll_reward.gd`.

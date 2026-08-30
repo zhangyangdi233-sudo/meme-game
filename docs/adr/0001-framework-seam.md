@@ -8,7 +8,7 @@ Reusable Godot modules live under `framework/` (grouped as `ui/`, `input/`, and 
 
 **Why not addons/ or a separate repo:** This repo is not publishing shared libraries yet. A top-level `framework/` folder is enough to mark the seam and keep modules extractable for a future Godot project without submodule or release overhead.
 
-**Enforcement:** `tests/test_framework_seam.gd` scans `framework/**` source files (`.gd`, `.py`, `.sh`, `.txt`, `.md`) for forbidden tokens. A batch runner (`tools/run_tests.sh`, `tools/run_tests.ps1`) runs the full headless suite so refactors cannot silently break imports.
+**Enforcement:** `tests/test_framework_seam.gd` scans `framework/**` source files (`.gd`, `.py`, `.sh`, `.txt`, `.md`) for forbidden tokens. Batch runners (`tools/run_tests.bat`, `tools/run_tests.ps1`, `tools/run_tests.sh`) run the full headless suite so refactors cannot silently break imports. See `docs/agents/testing.md`.
 
 **Considered:** `gdcruiser` / architecture-guard for dependency graphs — deferred until CI exists; the seam test is the baseline guard.
 
