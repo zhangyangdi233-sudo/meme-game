@@ -14,6 +14,7 @@ const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
+const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
 const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
@@ -407,9 +408,7 @@ var _babel_app_panel
 var _day_transition_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
-var _vhs_overlay: Control
-var _vhs_scanlines: Array[ColorRect] = []
-var _vhs_shader_rect: ColorRect
+var _vhs_overlay: VhsOverlayScript
 var _phone_tab: Button
 var _app_window: PanelContainer
 var _app_title: Label
@@ -2180,31 +2179,11 @@ func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: Stri
 
 
 func _build_vhs_overlay() -> void:
-	_vhs_scanlines.clear()
-	_vhs_overlay = Control.new()
+	_vhs_overlay = VhsOverlayScript.new()
 	_vhs_overlay.name = "VHSOverlay"
-	_vhs_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_vhs_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vhs_overlay.visible = _vhs_enabled
 	_vhs_overlay.z_index = 3
 	_ui_root.add_child(_vhs_overlay)
-
-	var back_buffer := BackBufferCopy.new()
-	back_buffer.name = "VHSBackBufferCopy"
-	back_buffer.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
-	_vhs_overlay.add_child(back_buffer)
-
-	_vhs_shader_rect = ColorRect.new()
-	_vhs_shader_rect.name = "VHSDynamicFilter"
-	_vhs_shader_rect.color = Color.WHITE
-	_vhs_shader_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_vhs_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shader_material := ShaderMaterial.new()
-	shader_material.shader = load("res://shaders/vhs_screen.gdshader") as Shader
-	shader_material.set_shader_parameter("intensity", 0.62)
-	shader_material.set_shader_parameter("pollution", 0.0)
-	_vhs_shader_rect.material = shader_material
-	_vhs_overlay.add_child(_vhs_shader_rect)
 
 
 func _build_cinematic_bars() -> void:
@@ -3735,15 +3714,14 @@ func _animate_world(delta: float) -> void:
 	_animate_vhs(delta)
 
 
-func _animate_vhs(delta: float) -> void:
+func _animate_vhs(_delta: float) -> void:
 	if _vhs_overlay == null or not _vhs_enabled:
 		return
-	_vhs_overlay.modulate.a = 1.0
-	if _vhs_shader_rect != null and _vhs_shader_rect.material is ShaderMaterial:
-		var snapshot := _pollution_stage_snapshot()
-		var material := _vhs_shader_rect.material as ShaderMaterial
-		material.set_shader_parameter("pollution", float(snapshot.get("vhs_pollution", 0.0)))
-		material.set_shader_parameter("intensity", float(snapshot.get("vhs_intensity", 0.58)))
+	var snapshot := _pollution_stage_snapshot()
+	_vhs_overlay.configure(
+		float(snapshot.get("vhs_intensity", 0.58)),
+		float(snapshot.get("vhs_pollution", 0.0))
+	)
 
 
 func _active_palette() -> Dictionary:
