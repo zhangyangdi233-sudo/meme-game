@@ -19,6 +19,7 @@ const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
+const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
 
 const PALETTE_1 := {
 	"name": "palette_1",
@@ -507,9 +508,7 @@ var _notebook_crafting_tab := "frame"
 var _social_detail_window: PanelContainer
 var _social_detail_body: VBoxContainer
 var _social_detail_title: Label
-var _draggable_windows: Dictionary = {}
-var _dragged_window: Control
-var _drag_offset := Vector2.ZERO
+var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
 var _settings_open := false
@@ -533,6 +532,7 @@ func _ready() -> void:
 	_camera_source = str(preferences.get("camera_source", "computer"))
 	_camera_session_decided = false
 	_ensure_hand_tracking_receiver()
+	_ensure_window_manager()
 	_apply_master_volume()
 	show_main_menu()
 	if not _locale.language_selected:
@@ -577,22 +577,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if _handle_reality_trackpad_pan(event):
 		return
-	if _dragged_window == null:
-		return
-	if event is InputEventMouseMotion:
-		_dragged_window.global_position = _event_pointer_position(event) - _drag_offset
-		_clamp_window_to_viewport(_dragged_window)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		if _dragged_window == _meme_bank_window:
-			_avoid_meme_bank_overlaps()
-		_dragged_window = null
-	elif event is InputEventScreenDrag:
-		_dragged_window.global_position = _event_pointer_position(event) - _drag_offset
-		_clamp_window_to_viewport(_dragged_window)
-	elif event is InputEventScreenTouch and not event.pressed:
-		if _dragged_window == _meme_bank_window:
-			_avoid_meme_bank_overlaps()
-		_dragged_window = null
+	if _window_manager != null:
+		_window_manager.handle_global_input(event)
 
 
 func _handle_reality_touch_look(event: InputEvent) -> bool:
@@ -729,9 +715,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_action_spend_after_actions = -1
 	_action_spend_should_settle = false
 	_day_transition_settled = false
-	_draggable_windows = {}
-	_dragged_window = null
-	_drag_offset = Vector2.ZERO
+	_ensure_window_manager()
+	_window_manager.clear()
 	_last_responsive_layout_size = Vector2.ZERO
 	_reality_built_floor = 0
 	_reality_built_day = 0
@@ -762,7 +747,7 @@ func show_main_menu() -> void:
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
 	_game_started = false
 	_settings_open = false
-	_input_locked = false
+	_set_input_locked(false)
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
 	_reality_interaction_active = false
@@ -2883,6 +2868,8 @@ func _layout_hud_rail() -> void:
 		_hud_reveal_zone.offset_top = center_y - rail_height * 0.5
 		_hud_reveal_zone.offset_right = HUD_DRAWER_EDGE_HIT_WIDTH
 		_hud_reveal_zone.offset_bottom = center_y + rail_height * 0.5
+	if _window_manager != null:
+		_window_manager.set_window_min_x("bank", _hud_panel.get_global_rect().end.x + 12.0)
 
 
 func _build_settings_window() -> void:
@@ -5605,41 +5592,44 @@ func _close_social_detail_window() -> void:
 	_render()
 
 
+func _ensure_window_manager() -> void:
+	if _window_manager != null:
+		return
+	_window_manager = DraggableWindowManagerScript.new()
+	_window_manager.name = "DraggableWindowManager"
+	add_child(_window_manager)
+	_window_manager.set_clamp_bounds(
+		-1.0e6,
+		DraggableWindowManager.DEFAULT_VISIBLE_EDGE,
+		DraggableWindowManager.DEFAULT_BOTTOM_INSET
+	)
+	_sync_window_manager_enabled()
+	_window_manager.window_drag_released.connect(_on_window_drag_released)
+
+
+func _sync_window_manager_enabled() -> void:
+	if _window_manager != null:
+		_window_manager.enabled = not _input_locked
+
+
+func _on_window_drag_released(window_id: String) -> void:
+	if window_id == "bank":
+		_avoid_meme_bank_overlaps()
+
+
 func _move_window_for_test(window_id: String, delta: Vector2) -> bool:
-	if not _draggable_windows.has(window_id):
-		return false
-	var window := _draggable_windows[window_id] as Control
-	if window == null:
-		return false
-	window.position += delta
-	window.move_to_front()
-	if window is CanvasItem:
-		(window as CanvasItem).z_index = maxi((window as CanvasItem).z_index, 24)
-	_clamp_window_to_viewport(window)
-	return true
+	_ensure_window_manager()
+	return _window_manager.move_window(window_id, delta)
 
 
 func _window_position_for_test(window_id: String) -> Vector2:
-	if not _draggable_windows.has(window_id):
-		return Vector2.INF
-	var window := _draggable_windows[window_id] as Control
-	if window == null:
-		return Vector2.INF
-	return window.position
+	_ensure_window_manager()
+	return _window_manager.get_window_position(window_id)
 
 
 func _make_draggable_window(window: Control, window_id: String, handle: Control) -> void:
-	if window == null or handle == null:
-		return
-	_draggable_windows[window_id] = window
-	if bool(handle.get_meta("drag_connected", false)) and str(handle.get_meta("drag_window_id", "")) == window_id:
-		return
-	handle.set_meta("drag_connected", true)
-	handle.set_meta("drag_window_id", window_id)
-	handle.set_meta("drag_handle", true)
-	handle.mouse_filter = Control.MOUSE_FILTER_STOP
-	handle.mouse_default_cursor_shape = Control.CURSOR_MOVE
-	handle.gui_input.connect(_on_window_handle_gui_input.bind(window_id, window, handle))
+	_ensure_window_manager()
+	_window_manager.register(window, window_id, handle)
 
 
 func _should_show_meme_bank() -> bool:
@@ -5732,65 +5722,6 @@ func _meme_bank_conflicts_at(position: Vector2, targets: Array[Control]) -> bool
 		if rect.intersects(target.get_global_rect()):
 			return true
 	return false
-
-
-func _on_window_handle_gui_input(event: InputEvent, _window_id: String, window: Control, handle: Control) -> void:
-	if _input_locked:
-		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_dragged_window = window
-			_drag_offset = _event_pointer_position(event) - window.global_position
-			window.move_to_front()
-			if window is CanvasItem:
-				(window as CanvasItem).z_index = maxi((window as CanvasItem).z_index, 24)
-		else:
-			_dragged_window = null
-		if not (handle is Button):
-			handle.accept_event()
-	elif event is InputEventMouseMotion and _dragged_window == window:
-		window.global_position = _event_pointer_position(event) - _drag_offset
-		_clamp_window_to_viewport(window)
-		if not (handle is Button):
-			handle.accept_event()
-	elif event is InputEventScreenTouch:
-		if event.pressed:
-			_dragged_window = window
-			_drag_offset = _event_pointer_position(event) - window.global_position
-			window.move_to_front()
-		else:
-			if _dragged_window == _meme_bank_window:
-				_avoid_meme_bank_overlaps()
-			_dragged_window = null
-		handle.accept_event()
-	elif event is InputEventScreenDrag and _dragged_window == window:
-		window.global_position = _event_pointer_position(event) - _drag_offset
-		_clamp_window_to_viewport(window)
-		handle.accept_event()
-
-
-func _event_pointer_position(event: InputEvent) -> Vector2:
-	if event is InputEventMouse:
-		var mouse_event := event as InputEventMouse
-		return mouse_event.global_position
-	if event is InputEventScreenTouch:
-		return (event as InputEventScreenTouch).position
-	if event is InputEventScreenDrag:
-		return (event as InputEventScreenDrag).position
-	if get_viewport() != null:
-		return get_viewport().get_mouse_position()
-	return Vector2.ZERO
-
-
-func _clamp_window_to_viewport(window: Control) -> void:
-	var viewport_size := _viewport_size()
-	var visible_edge := 88.0
-	var min_x := -maxf(0.0, window.size.x - visible_edge)
-	if window == _meme_bank_window and _hud_panel != null:
-		min_x = _hud_panel.get_global_rect().end.x + 12.0
-	var max_x := viewport_size.x - visible_edge
-	var max_y := viewport_size.y - 56.0
-	window.position = Vector2(clampf(window.position.x, min_x, max_x), clampf(window.position.y, 0.0, max_y))
 
 
 func _apply_world_theme() -> void:
@@ -6227,6 +6158,7 @@ func _finish_pollution_flashback() -> void:
 
 func _set_input_locked(value: bool) -> void:
 	_input_locked = value
+	_sync_window_manager_enabled()
 	if _flashback_overlay != null:
 		_flashback_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if value else Control.MOUSE_FILTER_IGNORE
 	if _action_spend_overlay != null:
@@ -6854,8 +6786,7 @@ func _play_ui_sound(player: AudioStreamPlayer) -> void:
 
 
 func _notebook_window_control() -> Control:
-	# 应用窗口在 _make_draggable_window 里以 "app:%s" 为键注册。
-	var window := _draggable_windows.get("app:notebook") as Control
+	var window := _app_windows.get("notebook") as Control
 	if window != null and is_instance_valid(window):
 		return window
 	return null
