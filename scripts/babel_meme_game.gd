@@ -670,11 +670,13 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	selected_meme_id = ""
 	_meme_bank_open = false
 	_phone_popup_expanded = true
-	_phone_launcher_open = game.active_app_window.is_empty()
+	_phone_launcher_open = str(_phone_shell_snapshot().get("active_app_window", "")).is_empty()
 	_meme_bank_layout_mode = ""
 	_open_app_windows = {}
-	if not game.active_app_window.is_empty():
-		_open_app_windows[game.active_app_window] = true
+	var shell_snapshot: Dictionary = _phone_shell_snapshot()
+	var restored_app_window := str(shell_snapshot.get("active_app_window", ""))
+	if not restored_app_window.is_empty():
+		_open_app_windows[restored_app_window] = true
 	_social_screen = "home"
 	_social_channel = "discover"
 	_social_detail_post_index = 0
@@ -831,12 +833,32 @@ func _connect_game_state_signals() -> void:
 		return
 	if not game.social_engagement_changed.is_connected(_on_social_engagement_changed):
 		game.social_engagement_changed.connect(_on_social_engagement_changed)
+	if not game.phone_shell_changed.is_connected(_on_phone_shell_changed):
+		game.phone_shell_changed.connect(_on_phone_shell_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
 	_render()
+
+
+func _on_phone_shell_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
+func _phone_shell_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"view_state": "phone_down",
+			"active_app": "",
+			"active_app_window": "",
+			"phone_visible": true,
+			"phone_open": true,
+		}
+	return game.get_phone_shell_snapshot()
 
 
 func _social_engagement_snapshot() -> Dictionary:
@@ -873,9 +895,11 @@ func set_view_state(value: String) -> void:
 		else:
 			_set_reality_mouse_look(false)
 			log_text = "你又低头看向手机。"
-			_phone_launcher_open = game.active_app_window.is_empty()
-			if not game.active_app_window.is_empty():
-				_open_app_windows[game.active_app_window] = true
+			var phone_shell: Dictionary = _phone_shell_snapshot()
+			_phone_launcher_open = str(phone_shell.get("active_app_window", "")).is_empty()
+			var foreground_app := str(phone_shell.get("active_app_window", ""))
+			if not foreground_app.is_empty():
+				_open_app_windows[foreground_app] = true
 			if _phone_launcher_panel != null:
 				_phone_launcher_panel.move_phone_to_front()
 		_render()
@@ -3610,7 +3634,8 @@ func _advance_typed_reality_character() -> bool:
 
 
 func _update_visibility() -> void:
-	var in_phone: bool = game.view_state == "phone_down"
+	var phone_shell: Dictionary = _phone_shell_snapshot()
+	var in_phone: bool = str(phone_shell.get("view_state", "phone_down")) == "phone_down"
 	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
 	var show_phone_home := in_phone
 	if _phone_popup_expanded != show_phone_home:
@@ -3624,8 +3649,10 @@ func _update_visibility() -> void:
 		_phone_tab.visible = false
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.set_content_visible(show_phone_home)
-	if in_phone and not game.active_app_window.is_empty():
-		_open_app_windows[game.active_app_window] = true
+	if in_phone:
+		var foreground_app := str(phone_shell.get("active_app_window", ""))
+		if not foreground_app.is_empty():
+			_open_app_windows[foreground_app] = true
 	for app_id in _app_windows.keys():
 		var app_window := _app_windows[app_id] as Control
 		if app_window != null:
@@ -3951,13 +3978,13 @@ func _close_app_window(app_id: String) -> void:
 		_social_detail_open = false
 		if _social_feed_panel != null:
 			_social_feed_panel.close_detail()
-	if game.active_app_window == app_id:
-		game.active_app_window = ""
+	var foreground_app := str(_phone_shell_snapshot().get("active_app_window", ""))
+	if foreground_app == app_id:
+		var remaining_open_apps: Array[String] = []
 		for candidate in ["social", "babel", "notebook"]:
 			if bool(_open_app_windows.get(candidate, false)):
-				game.active_app = candidate
-				game.active_app_window = candidate
-				break
+				remaining_open_apps.append(candidate)
+		game.close_app_window(app_id, remaining_open_apps)
 	var any_open := false
 	for open_value in _open_app_windows.values():
 		if bool(open_value):

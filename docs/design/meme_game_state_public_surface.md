@@ -11,6 +11,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Public `const` | 18 content/config groups |
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
+| Signals (slice 2A) | 2 — + `phone_shell_changed` |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -28,7 +29,7 @@ These are the highest-risk couplings to retire in later 4b slices:
 | `babel_meme_game.gd:1225-1234` | `game.conversation_* = …` | localizes state in adapter | open |
 | `babel_meme_game.gd:2863` | `game.autoplay_enabled = value` | settings write without intent | open |
 | `babel_meme_game.gd:2939` | `game.exit_prompt_seen = true` | one-shot flag from UI | open |
-| `babel_meme_game.gd:3928-3933` | `game.active_app_window` / `active_app` | phone shell closes apps inline | open |
+| `babel_meme_game.gd:3928-3933` | `game.active_app_window` / `active_app` | phone shell closes apps inline | **Fixed** — uses `close_app_window()` |
 
 Most other adapter usage is **read-only** field access (`game.view_state`, `game.tower_floor`, `game.completed_memes`, …) plus method calls.
 
@@ -80,7 +81,17 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 `notify_tutorial()`, `get_tutorial_step()`, `skip_tutorial()`, `replay_tutorial()`
 
-### Phone / view
+### Phone / view — **slice 2A seam**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_phone_shell_snapshot()` → `{ view_state, active_app, active_app_window, phone_visible, phone_open }` |
+| Signal | `phone_shell_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
+| Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `close_app_window(app_id, remaining_open_apps)` |
+
+Legacy fields `view_state` / `active_app` / `active_app_window` / `phone_visible` / `phone_open` remain for save/load; new adapter code should prefer snapshot + signal.
+
+### Phone / view (legacy listing)
 
 `set_phone_open()`, `set_view_state()`, `set_active_app()`
 
@@ -169,4 +180,37 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 **Adapter pattern:** connect `social_engagement_changed` → `_render()`; read engagement via `get_social_engagement_snapshot()`; send intents via `toggle_social_*`. Log copy stays in adapter handlers for slice 1.
 
-**Stop here for human review** before slice 2 (next vertical: likely phone shell or action economy).
+**Stop here for human review** before slice 2B (action economy).
+
+---
+
+## Slice 2A contract (phone shell)
+
+```gdscript
+# Snapshot (read)
+{
+  "view_state": "phone_down" | "npc_up",
+  "active_app": String,
+  "active_app_window": String,
+  "phone_visible": bool,
+  "phone_open": bool,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  "view_state": String,
+  "active_app": String,
+  "active_app_window": String,
+  "phone_visible": bool,
+  "phone_open": bool,
+  "change": {
+    "kind": "view_state" | "active_app" | "close_app" | "phone_open",
+    "target_id": String,
+    "active": bool,
+  },
+}
+```
+
+**Adapter pattern:** connect `phone_shell_changed` → `_render()`; read shell via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`. Adapter-local `_open_app_windows` tracks multi-window chrome; state owns foreground app + view.
+
+**Stop here for human review** before slice 2B (action economy).

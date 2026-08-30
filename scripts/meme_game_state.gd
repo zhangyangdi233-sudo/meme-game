@@ -2,6 +2,9 @@ class_name MemeGameState
 extends RefCounted
 
 signal social_engagement_changed(snapshot: Dictionary)
+signal phone_shell_changed(snapshot: Dictionary)
+
+const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
@@ -427,15 +430,20 @@ func _normalize_doll_state() -> void:
 
 
 func set_phone_open(value: bool) -> void:
+	if phone_open == value and phone_visible == value:
+		return
 	phone_open = value
 	phone_visible = value
 	if not value:
 		active_app_window = ""
+	_emit_phone_shell_changed("phone_open", "", value)
 
 
 func set_view_state(value: String) -> bool:
 	if value != "phone_down" and value != "npc_up":
 		return false
+	if view_state == value:
+		return true
 	view_state = value
 	if view_state == "phone_down":
 		phone_visible = true
@@ -447,7 +455,45 @@ func set_view_state(value: String) -> bool:
 		phone_open = false
 		active_app_window = ""
 		reset_reality_phase_for_day()
+	_emit_phone_shell_changed("view_state", value, value == "phone_down")
 	return true
+
+
+func get_phone_shell_snapshot() -> Dictionary:
+	return {
+		"view_state": view_state,
+		"active_app": active_app,
+		"active_app_window": active_app_window,
+		"phone_visible": phone_visible,
+		"phone_open": phone_open,
+	}
+
+
+func close_app_window(app_id: String, remaining_open_apps: Array[String] = []) -> void:
+	var normalized := app_id.strip_edges()
+	if normalized.is_empty():
+		return
+	var previous_window := active_app_window
+	if active_app_window == normalized:
+		active_app_window = ""
+		for candidate in PHONE_APP_FALLBACK_ORDER:
+			if candidate in remaining_open_apps:
+				active_app = candidate
+				if view_state == "phone_down":
+					active_app_window = candidate
+				break
+	if previous_window != active_app_window:
+		_emit_phone_shell_changed("close_app", normalized, false)
+
+
+func _emit_phone_shell_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_phone_shell_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	phone_shell_changed.emit(snapshot)
 
 
 func is_world_item_collected(item_id: String) -> bool:
@@ -602,9 +648,13 @@ func get_ending_language_output() -> String:
 
 
 func set_active_app(app_id: String) -> void:
+	var previous_app := active_app
+	var previous_window := active_app_window
 	active_app = app_id
 	if view_state == "phone_down":
 		active_app_window = app_id
+	if previous_app != active_app or previous_window != active_app_window:
+		_emit_phone_shell_changed("active_app", app_id, true)
 
 
 func spend_action(action_type: String) -> bool:
