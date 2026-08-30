@@ -5,7 +5,6 @@ const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
-const RadialSelectorRingScript = preload("res://framework/ui/radial_selector_ring.gd")
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
@@ -26,6 +25,7 @@ const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
+const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 
 const PALETTE_1 := {
@@ -396,6 +396,7 @@ var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
 var _phone_launcher_panel
+var _meme_bank_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: Control
@@ -1839,68 +1840,9 @@ func _build_ui() -> void:
 	subtitle_box.add_child(_reality_continue_button)
 	_build_reality_language_composer()
 
-	_meme_bank_window = Control.new()
-	_meme_bank_window.name = "MemeBankPopup"
-	_meme_bank_window.set_meta("meme_bank_popup", true)
-	_meme_bank_window.set_meta("radial_meme_bank", true)
-	_meme_bank_window.mouse_filter = Control.MOUSE_FILTER_PASS
-	_meme_bank_window.z_index = 18
-	_ui_root.add_child(_meme_bank_window)
-	_apply_meme_bank_popup_layout("peek")
-
-	_meme_bank_ring = RadialSelectorRingScript.new()
-	_meme_bank_ring.name = "MemeBankRadialRing"
-	_meme_bank_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_meme_bank_ring.set_palette(_theme_color("surface"), Color(_theme_color("muted"), 0.88), _theme_color("accent"))
-	_meme_bank_ring.selection_changed.connect(_on_meme_ring_selection_changed)
-	_meme_bank_window.add_child(_meme_bank_ring)
-	_bank_list = _meme_bank_ring
-
-	_meme_bank_tab = Button.new()
-	_meme_bank_tab.name = "MemeBankTab"
-	_meme_bank_tab.text = "梗"
-	_meme_bank_tab.set_meta("meme_bank_tab", true)
-	_meme_bank_tab.set_meta("radial_center_button", true)
-	_meme_bank_tab.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_meme_bank_tab.offset_left = -142.0
-	_meme_bank_tab.offset_top = -58.0
-	_meme_bank_tab.offset_right = -22.0
-	_meme_bank_tab.offset_bottom = 58.0
-	_meme_bank_tab.custom_minimum_size = Vector2(120, 116)
-	_meme_bank_tab.pressed.connect(_toggle_meme_bank)
-	_meme_bank_window.add_child(_meme_bank_tab)
-
-	_meme_bank_drag_handle = _label("≡", 24, _theme_color("accent"))
-	_meme_bank_drag_handle.name = "MemeBankDragHandle"
-	_meme_bank_drag_handle.tooltip_text = "拖动梗仓库"
-	_meme_bank_drag_handle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_meme_bank_drag_handle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_meme_bank_drag_handle.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_meme_bank_drag_handle.offset_left = -70.0
-	_meme_bank_drag_handle.offset_top = 14.0
-	_meme_bank_drag_handle.offset_right = -26.0
-	_meme_bank_drag_handle.offset_bottom = 58.0
-	_meme_bank_drag_handle.custom_minimum_size = Vector2(44, 44)
-	_meme_bank_window.add_child(_meme_bank_drag_handle)
-	_make_draggable_window(_meme_bank_window, "bank", _meme_bank_drag_handle)
-
-	_meme_bank_content = Control.new()
-	_meme_bank_content.name = "MemeBankContent"
-	_meme_bank_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_meme_bank_content.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_meme_bank_window.add_child(_meme_bank_content)
-	_meme_bank_focus_label = _label("还没有完整梗", 16, _theme_color("accent"))
-	_meme_bank_focus_label.name = "MemeBankFocusLabel"
-	_meme_bank_focus_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_meme_bank_focus_label.offset_left = 24.0
-	_meme_bank_focus_label.offset_top = -92.0
-	_meme_bank_focus_label.offset_right = 286.0
-	_meme_bank_focus_label.offset_bottom = -26.0
-	_meme_bank_focus_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_meme_bank_focus_label.max_lines_visible = 1
-	_meme_bank_focus_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_meme_bank_focus_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_meme_bank_content.add_child(_meme_bank_focus_label)
+	_ensure_meme_bank_panel()
+	_meme_bank_panel.mount(_ui_root, _meme_bank_mount_deps())
+	_sync_meme_bank_refs()
 
 	_desk_log = _label("", 16, _theme_color("accent"))
 	_desk_log.name = "DeskLog"
@@ -2726,6 +2668,52 @@ func _connect_phone_launcher_panel_signals() -> void:
 		panel.app_window_close_requested.connect(_close_app_window)
 
 
+func _ensure_meme_bank_panel() -> void:
+	if _meme_bank_panel != null and is_instance_valid(_meme_bank_panel):
+		return
+	_meme_bank_panel = MemeBankPanelScript.new()
+	_meme_bank_panel.name = "MemeBankPanel"
+	add_child(_meme_bank_panel)
+	_connect_meme_bank_panel_signals()
+
+
+func _meme_bank_mount_deps() -> Dictionary:
+	_ensure_window_manager()
+	return {
+		"label_factory": _label,
+		"theme_color": _theme_color,
+		"register_draggable": _make_draggable_window,
+		"viewport_size": _viewport_size,
+	}
+
+
+func _connect_meme_bank_panel_signals() -> void:
+	var panel = _meme_bank_panel
+	if panel == null:
+		return
+	if not panel.tab_pressed.is_connected(_toggle_meme_bank):
+		panel.tab_pressed.connect(_toggle_meme_bank)
+	if not panel.selection_changed.is_connected(_on_meme_ring_selection_changed):
+		panel.selection_changed.connect(_on_meme_ring_selection_changed)
+
+
+func _sync_meme_bank_refs() -> void:
+	if _meme_bank_panel == null:
+		return
+	_meme_bank_window = _meme_bank_panel.get_popup()
+	_meme_bank_ring = _meme_bank_panel.get_ring()
+	_meme_bank_tab = _meme_bank_panel.get_tab()
+	_meme_bank_content = _meme_bank_panel.get_content()
+	_meme_bank_focus_label = _meme_bank_panel.get_focus_label()
+	_meme_bank_drag_handle = _meme_bank_panel.get_drag_handle()
+	_bank_list = _meme_bank_panel.get_bank_list()
+
+
+func _apply_meme_bank_popup_layout(mode: String) -> void:
+	if _meme_bank_panel != null:
+		_meme_bank_panel.layout_popup(mode)
+
+
 func _inject_settings_camera_block() -> void:
 	var slot := _settings_history_panel.get_camera_slot() if _settings_history_panel != null else null
 	if slot == null or slot.get_child_count() > 0:
@@ -2903,31 +2891,6 @@ func _confirm_quit_game() -> void:
 
 func _quit_game() -> void:
 	_request_quit_game()
-
-
-func _apply_meme_bank_popup_layout(mode: String) -> void:
-	if _meme_bank_window == null:
-		return
-	var viewport_size := _viewport_size()
-	if mode == "open":
-		_meme_bank_window.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		var ring_size := minf(680.0, maxf(430.0, minf(viewport_size.x * 0.48, viewport_size.y - 54.0)))
-		_meme_bank_window.offset_left = -ring_size
-		_meme_bank_window.offset_top = -ring_size * 0.5
-		_meme_bank_window.offset_right = 18.0
-		_meme_bank_window.offset_bottom = ring_size * 0.5
-	elif mode == "collapsed":
-		_meme_bank_window.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		_meme_bank_window.offset_left = -144.0
-		_meme_bank_window.offset_top = -66.0
-		_meme_bank_window.offset_right = -12.0
-		_meme_bank_window.offset_bottom = 66.0
-	else:
-		_meme_bank_window.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-		_meme_bank_window.offset_left = -1.0
-		_meme_bank_window.offset_top = -1.0
-		_meme_bank_window.offset_right = 0.0
-		_meme_bank_window.offset_bottom = 0.0
 
 
 func _apply_reality_layout() -> void:
@@ -3681,12 +3644,8 @@ func _update_visibility() -> void:
 	if _meme_bank_layout_mode != desired_bank_layout:
 		_meme_bank_layout_mode = desired_bank_layout
 		_apply_meme_bank_popup_layout(desired_bank_layout)
-	if _meme_bank_content != null:
-		_meme_bank_content.visible = show_meme_bank and _meme_bank_open
-	if _meme_bank_ring != null:
-		_meme_bank_ring.visible = show_meme_bank and _meme_bank_open
-	if _meme_bank_drag_handle != null:
-		_meme_bank_drag_handle.visible = show_meme_bank and _meme_bank_open
+	if _meme_bank_panel != null:
+		_meme_bank_panel.update_open_parts_visible(show_meme_bank, _meme_bank_open)
 	_avoid_meme_bank_overlaps()
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
@@ -3931,8 +3890,11 @@ func _toggle_meme_bank() -> void:
 		_render_status()
 		return
 	_meme_bank_open = not _meme_bank_open
-	if _meme_bank_open and _meme_bank_window != null:
-		_meme_bank_window.move_to_front()
+	if _meme_bank_open:
+		if _meme_bank_panel != null:
+			_meme_bank_panel.move_to_front()
+		elif _meme_bank_window != null:
+			_meme_bank_window.move_to_front()
 	_render()
 	_play_meme_bank_motion(_meme_bank_open)
 
