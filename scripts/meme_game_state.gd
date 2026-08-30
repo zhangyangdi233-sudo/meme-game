@@ -7,6 +7,7 @@ signal action_economy_changed(snapshot: Dictionary)
 signal settings_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
+signal inventory_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
@@ -1772,6 +1773,33 @@ func get_player_echo_quote(locale_code: String = "zh") -> String:
 	return EchoQuoteContentScript.reattribute(source, locale_code)
 
 
+func get_inventory_snapshot() -> Dictionary:
+	var craft_slot_fills := {}
+	for slot_def: Dictionary in LANGUAGE_RECIPE_SLOTS:
+		var slot_id := str(slot_def.get("id", ""))
+		if not draft_slots.has(slot_id):
+			continue
+		var token := _find_token(str(draft_slots[slot_id]))
+		if not token.is_empty():
+			craft_slot_fills[slot_id] = str(token.get("text", ""))
+	return {
+		"completed_memes": completed_memes.duplicate(true),
+		"notebook_token_count": notebook_tokens.size(),
+		"draft_slots": draft_slots.duplicate(),
+		"craft_slot_fills": craft_slot_fills,
+	}
+
+
+func _emit_inventory_changed(change_kind: String, target_id: String, active: bool) -> void:
+	var snapshot := get_inventory_snapshot()
+	snapshot["change"] = {
+		"kind": change_kind,
+		"target_id": target_id,
+		"active": active,
+	}
+	inventory_changed.emit(snapshot)
+
+
 func get_craft_slots() -> Array:
 	return LANGUAGE_RECIPE_SLOTS.duplicate(true)
 
@@ -1833,6 +1861,7 @@ func confirm_craft() -> bool:
 	completed_memes.push_front(meme)
 	draft_slots.clear()
 	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
+	_emit_inventory_changed("confirm_craft", str(meme.get("id", "")), true)
 	return true
 
 

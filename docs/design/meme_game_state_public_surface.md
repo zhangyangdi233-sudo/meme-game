@@ -2,12 +2,12 @@
 
 Phase **4b slice 1** documents what callers currently depend on, and pilots the **snapshot out / intent in** seam on social follow/like only. Other domains stay on direct field access until later slices.
 
-## Summary (2026-08-30, post–slice 5)
+## Summary (2026-08-30, post–slice 6)
 
 | Metric | Count |
 |---|---:|
 | Public `var` fields | 90 |
-| Public `func` methods | 102 |
+| Public `func` methods | 103 |
 | Public `const` | 27 (19 content/config + 8 script preloads) |
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
@@ -18,6 +18,7 @@ Phase **4b slice 1** documents what callers currently depend on, and pilots the 
 | Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
 | Signals (slice 4) | 6 — + `day_progress_changed` |
 | Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
+| Signals (slice 6) | 7 — + `inventory_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
@@ -177,7 +178,17 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 `is_world_rule_active()`, `get_world_rules()`
 
-### Notebook craft / publish
+### Notebook craft / publish — **slice 6 seam (inventory)**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills }` |
+| Signal | `inventory_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `confirm_craft()` only in slice 6 |
+| Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
+
+Legacy fields `notebook_tokens` / `draft_slots` / `completed_memes` remain for save/load; new adapter meme-bank and craft-slot render code should prefer snapshot + signal.
+
+### Notebook craft / publish (legacy listing)
 
 `pick_token()`, `get_craft_slots()`, `get_craft_sentence_preview()`, `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()`, `get_publish_result()`
 
@@ -458,3 +469,37 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 **Adapter pattern:** connect `day_progress_changed` → `_render()`; remove redundant `_render()` after `settle_day_if_needed()` when the signal path already refreshed UI (e.g. `_after_effective_action`). Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish). Read `day` / `tower_floor` via `_day_progress_snapshot()` in `_rebuild_reality_floor()` / `_ensure_reality_floor_current()` and floor-transition card updates touched in this slice.
 
 **Stop here for human review** before slice 6 or world extraction.
+
+---
+
+## Slice 6 contract (inventory / craft)
+
+```gdscript
+# Snapshot (read)
+{
+  "completed_memes": Array,       # full duplicate for meme-bank render
+  "notebook_token_count": int,
+  "draft_slots": Dictionary,      # slot_id -> token_id
+  "craft_slot_fills": Dictionary, # slot_id -> display text for adapter slot labels
+}
+
+# Signal payload = snapshot + change metadata
+{
+  # ...snapshot fields...
+  "change": {
+    "kind": "confirm_craft",
+    "target_id": String,  # new meme id
+    "active": true,
+  },
+}
+```
+
+**Intent → signal mapping (slice 6 vertical only):**
+
+| Intent | `change.kind` | When |
+|---|---|---|
+| `confirm_craft()` | `confirm_craft` | on success; `target_id` is the new meme id |
+
+**Adapter pattern:** connect `inventory_changed` → `_render()`; read meme bank / craft slot labels via `_inventory_snapshot()` (or adapter `_meme_bank_snapshot()` for UI chrome). Send craft intents via `place_token_in_slot()` / `confirm_craft()`. Slice 6 does **not** emit on `place_token_in_slot()` — adapter still calls `_render()` after slot placement until a later slice adds that vertical.
+
+**Stop here for human review** before slice 7 (ending/progression snapshot) or world extraction.

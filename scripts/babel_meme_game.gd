@@ -827,6 +827,8 @@ func _connect_game_state_signals() -> void:
 		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
 	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
 		game.day_progress_changed.connect(_on_day_progress_changed)
+	if not game.inventory_changed.is_connected(_on_inventory_changed):
+		game.inventory_changed.connect(_on_inventory_changed)
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
@@ -860,6 +862,12 @@ func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
 
 
 func _on_day_progress_changed(_snapshot: Dictionary) -> void:
+	if not _game_started:
+		return
+	_render()
+
+
+func _on_inventory_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
 	_render()
@@ -921,6 +929,17 @@ func _social_engagement_snapshot() -> Dictionary:
 	if game == null:
 		return {"followed_handles": [], "liked_post_ids": []}
 	return game.get_social_engagement_snapshot()
+
+
+func _inventory_snapshot() -> Dictionary:
+	if game == null:
+		return {
+			"completed_memes": [],
+			"notebook_token_count": 0,
+			"draft_slots": {},
+			"craft_slot_fills": {},
+		}
+	return game.get_inventory_snapshot()
 
 
 func _is_social_following(author_id: String) -> bool:
@@ -3220,8 +3239,9 @@ func _set_notebook_crafting_tab(tab_id: String) -> void:
 
 
 func _meme_bank_snapshot() -> Dictionary:
+	var inventory: Dictionary = _inventory_snapshot()
 	return {
-		"completed_memes": game.completed_memes if game != null else [],
+		"completed_memes": inventory.get("completed_memes", []),
 		"selected_meme_id": selected_meme_id,
 		"selected_index": _meme_bank_selected_index,
 		"can_spend_action": game != null and game.can_spend_action(),
@@ -3247,21 +3267,23 @@ func _render_meme_bank() -> void:
 
 
 func _sync_meme_bank_selected_index() -> void:
-	if game == null or game.completed_memes.is_empty():
+	var completed_memes: Array = _inventory_snapshot().get("completed_memes", [])
+	if completed_memes.is_empty():
 		return
 	if not selected_meme_id.is_empty():
-		for index in game.completed_memes.size():
-			if str(game.completed_memes[index].get("id", "")) == selected_meme_id:
+		for index in completed_memes.size():
+			if str((completed_memes[index] as Dictionary).get("id", "")) == selected_meme_id:
 				_meme_bank_selected_index = index
 				return
-	_meme_bank_selected_index = clampi(_meme_bank_selected_index, 0, game.completed_memes.size() - 1)
+	_meme_bank_selected_index = clampi(_meme_bank_selected_index, 0, completed_memes.size() - 1)
 
 
 func _on_meme_ring_selection_changed(index: int) -> void:
-	if game == null or game.completed_memes.is_empty():
+	var completed_memes: Array = _inventory_snapshot().get("completed_memes", [])
+	if completed_memes.is_empty():
 		return
-	_meme_bank_selected_index = clampi(index, 0, game.completed_memes.size() - 1)
-	var meme: Dictionary = game.completed_memes[_meme_bank_selected_index]
+	_meme_bank_selected_index = clampi(index, 0, completed_memes.size() - 1)
+	var meme: Dictionary = completed_memes[_meme_bank_selected_index] as Dictionary
 	selected_meme_id = str(meme.get("id", ""))
 
 
@@ -4899,8 +4921,11 @@ func _on_confirm_craft_pressed() -> void:
 		return
 	var actions_before: int = int(game.actions_remaining)
 	if game.confirm_craft():
-		selected_meme_id = str(game.completed_memes[0]["id"])
-		log_text = "完整句子已经写好：%s" % game.completed_memes[0]["title"]
+		var crafted_memes: Array = _inventory_snapshot().get("completed_memes", [])
+		if not crafted_memes.is_empty():
+			var crafted: Dictionary = crafted_memes[0] as Dictionary
+			selected_meme_id = str(crafted.get("id", ""))
+			log_text = "完整句子已经写好：%s" % str(crafted.get("title", ""))
 		_after_effective_action(actions_before)
 	else:
 		log_text = "需要分别填入对象、动作和去向。"
@@ -5026,11 +5051,9 @@ func _day_plan() -> Dictionary:
 
 
 func _slot_text(slot_id: String, placeholder: String) -> String:
-	if game.draft_slots.has(slot_id):
-		var token_id := str(game.draft_slots[slot_id])
-		for token in game.notebook_tokens:
-			if str(token["id"]) == token_id:
-				return str(token["text"])
+	var craft_slot_fills: Dictionary = _inventory_snapshot().get("craft_slot_fills", {})
+	if craft_slot_fills.has(slot_id):
+		return str(craft_slot_fills[slot_id])
 	return placeholder
 
 
@@ -5056,18 +5079,18 @@ func _fusion_slot_text(slot_id: String) -> String:
 	var meme_id := str(game.fusion_slots.get(slot_id, ""))
 	if meme_id.is_empty():
 		return "旧梗 A" if slot_id == "left" else "旧梗 B"
-	for meme in game.completed_memes:
-		if str(meme.get("id", "")) == meme_id:
-			return str(meme.get("title", meme.get("text", "完整梗")))
+	for meme in _inventory_snapshot().get("completed_memes", []):
+		if str((meme as Dictionary).get("id", "")) == meme_id:
+			return str((meme as Dictionary).get("title", (meme as Dictionary).get("text", "完整梗")))
 	return "等待完整梗"
 
 
 func _placed_meme() -> Dictionary:
 	if game.dialogue_blanks.has("blank_1"):
 		var meme_id := str(game.dialogue_blanks["blank_1"])
-		for meme in game.completed_memes:
-			if str(meme["id"]) == meme_id:
-				return meme
+		for meme in _inventory_snapshot().get("completed_memes", []):
+			if str((meme as Dictionary).get("id", "")) == meme_id:
+				return (meme as Dictionary).duplicate(true)
 	return {}
 
 
