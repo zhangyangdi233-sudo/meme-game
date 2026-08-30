@@ -76,7 +76,22 @@ On this machine, the project can be launched with:
 
 ## Tests
 
-Run the headless state tests with:
+Run the full headless suite (every `tests/test_*.gd` plus Python hand-tracker sidecars):
+
+```sh
+GODOT_BIN=/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
+  GODOT_HOME=/Users/zhang/Documents/游戏/.godot_home \
+  tools/run_tests.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:GODOT_BIN = 'C:\path\to\Godot_v4.6.3-stable_win64.exe'
+.\tools\run_tests.ps1
+```
+
+Run a single test:
 
 ```sh
 HOME=/Users/zhang/Documents/游戏/.godot_home /Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot --headless --path /Users/zhang/Documents/游戏/babel-meme-game --script res://tests/test_meme_game_state.gd
