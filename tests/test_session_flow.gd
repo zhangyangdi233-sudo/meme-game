@@ -1,5 +1,5 @@
 extends SceneTree
-## Adapter Session mode: boot injects five states; new run, continue, and title go through the manager.
+## Adapter Session mode: boot injects five states; new run, continue, title, and narrative go through the manager.
 
 var _failures: Array[String] = []
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
@@ -63,6 +63,36 @@ func _run() -> void:
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
+	game_root.game.pollution = 60
+	game_root.game.check_pollution_flashback(59)
+	game_root._play_pollution_flashback()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "a flashback should set Session mode to narrative")
+	await _assert_world_hotkeys_inert(game_root, "flashback")
+	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
+	await _assert_overlay_eats_phone_clicks(game_root, flashback_overlay, "flashback overlay")
+	game_root._finish_pollution_flashback()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
+	await _assert_gameplay_world_hotkeys_live(game_root)
+
+	game_root.game.actions_remaining = 1
+	_assert_true(game_root.game.spend_action("session-flow-narrative"), "last daily action should be spendable")
+	game_root._play_action_spend_animation(1, 0)
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "spending an action should set Session mode to narrative")
+	await _assert_world_hotkeys_inert(game_root, "action spend")
+	game_root._finish_action_spend_animation()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative")
+	await _assert_world_hotkeys_inert(game_root, "day transition")
+	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
+	await _assert_overlay_eats_phone_clicks(game_root, day_overlay, "day transition overlay")
+	game_root._finish_day_transition()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "finishing a day transition should set Session mode to gameplay")
+	await _assert_gameplay_world_hotkeys_live(game_root)
+
 	game_root.set_view_state("npc_up")
 	game_root.game.ending_unlocked = false
 	game_root.show_main_menu()
@@ -86,17 +116,21 @@ func _run() -> void:
 
 func _assert_prologue_overlay_eats_phone_clicks(game_root) -> void:
 	var overlay := _find_node_by_name(game_root, "PrologueOverlay") as Control
-	_assert_true(overlay != null and overlay.visible, "new game should show the prologue overlay")
+	await _assert_overlay_eats_phone_clicks(game_root, overlay, "prologue overlay")
+
+
+func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: String) -> void:
+	_assert_true(overlay != null and overlay.visible, "%s should be visible" % label)
 	if overlay == null:
 		return
 	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
-	_assert_true(toggle != null, "phone view toggle should exist under the prologue overlay")
+	_assert_true(toggle != null, "phone view toggle should exist under %s" % label)
 	if toggle == null:
 		return
 	var click_point := toggle.get_global_rect().get_center()
 	_assert_true(
 		overlay.get_global_rect().has_point(click_point),
-		"prologue overlay should cover the phone view toggle"
+		"%s should cover the phone view toggle" % label
 	)
 	var view_before := str(game_root.game.view_state)
 	var press := InputEventMouseButton.new()
@@ -117,7 +151,7 @@ func _assert_prologue_overlay_eats_phone_clicks(game_root) -> void:
 	_assert_eq(
 		str(game_root.game.view_state),
 		view_before,
-		"prologue overlay should eat clicks aimed at phone UI"
+		"%s should eat clicks aimed at phone UI" % label
 	)
 
 

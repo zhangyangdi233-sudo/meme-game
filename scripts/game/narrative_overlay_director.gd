@@ -108,6 +108,7 @@ func play_action_spend_animation(before_actions: int, after_actions: int) -> voi
 		play_tick.call()
 	var game: Variant = _deps.get("game")
 	action_spend_should_settle = game != null and bool(game.needs_day_settlement)
+	_request_narrative()
 	_set_input_locked(true)
 	action_spend_panel.play(before_actions, after_actions)
 
@@ -124,6 +125,7 @@ func finish_action_spend_animation() -> void:
 	_set_input_locked(false)
 	_sync_audio(false)
 	_render()
+	_request_gameplay_from_narrative()
 	var hud_actions_label := _hud_actions_label()
 	var action_text: Callable = _deps.get("action_text", Callable())
 	if hud_actions_label != null and after_actions >= 0 and action_text.is_valid():
@@ -140,9 +142,11 @@ func play_day_transition() -> void:
 		_settle_day()
 		_set_input_locked(false)
 		_render()
+		_request_gameplay_from_narrative()
 		return
 	kill_day_transition_tween()
 	day_transition_settled = false
+	_request_narrative()
 	_set_input_locked(true)
 	if day_transition_panel != null:
 		day_transition_panel.prepare_show()
@@ -180,11 +184,13 @@ func finish_day_transition() -> void:
 	_set_input_locked(false)
 	_sync_audio(false)
 	_render()
+	_request_gameplay_from_narrative()
 
 
 func play_pollution_flashback() -> void:
 	if flashback_panel == null:
 		return
+	_request_narrative()
 	_set_input_locked(true)
 	var theme_color: Callable = _deps.get("theme_color", Callable())
 	if theme_color.is_valid():
@@ -220,6 +226,7 @@ func finish_pollution_flashback() -> void:
 		_notify_day_settled(true)
 	_sync_audio(false)
 	_render()
+	_request_gameplay_from_narrative()
 
 
 func _ensure_action_spend_panel() -> void:
@@ -279,6 +286,18 @@ func _tower_floor() -> int:
 	if snapshot_fn.is_valid():
 		return int(snapshot_fn.call().get("tower_floor", 1))
 	return 1
+
+
+func _request_narrative() -> void:
+	var callback: Callable = _deps.get("request_narrative", Callable())
+	if callback.is_valid():
+		callback.call()
+
+
+func _request_gameplay_from_narrative() -> void:
+	var callback: Callable = _deps.get("request_gameplay_from_narrative", Callable())
+	if callback.is_valid():
+		callback.call()
 
 
 func _set_input_locked(value: bool) -> void:

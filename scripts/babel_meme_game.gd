@@ -300,6 +300,11 @@ func _narrative_overlay_deps() -> Dictionary:
 		"ui_root": _ui_root,
 		"render": _render,
 		"set_input_locked": _set_input_locked,
+		"request_narrative": func() -> void:
+			_request_session_mode("narrative"),
+		"request_gameplay_from_narrative": func() -> void:
+			if session_mode() == "narrative":
+				_request_session_mode("gameplay"),
 		"sync_audio_state": _sync_audio_state,
 		"settle_day": _settle_day_and_present_rewards,
 		"consume_pollution_flashback": func() -> bool:
@@ -3687,6 +3692,8 @@ func _ensure_flow_manager() -> void:
 
 func _request_session_mode(id: String) -> bool:
 	_ensure_flow_manager()
+	if _flow.current_id() == id:
+		return true
 	return _flow.transition_to(id)
 
 
