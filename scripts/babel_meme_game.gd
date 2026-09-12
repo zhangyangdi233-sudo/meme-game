@@ -650,9 +650,14 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	if not show_prologue:
 		_skip_prologue()
 	_render()
-	_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
+	if show_prologue:
+		_set_reality_mouse_look(false)
+		_request_session_mode("prologue")
+	else:
+		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
+		if session_mode() != "gameplay":
+			_request_session_mode("gameplay")
 	_sync_audio_state(true)
-	_request_session_mode("gameplay")
 
 
 func show_main_menu() -> void:
@@ -2029,6 +2034,8 @@ func _on_camera_consent_source_selected(index: int) -> void:
 
 
 func _on_prologue_finished() -> void:
+	_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
+	_request_session_mode("gameplay")
 	_sync_audio_state(false)
 
 

@@ -1,5 +1,5 @@
 extends SceneTree
-## Adapter Session mode: boot injects five states, continue and title go through the manager.
+## Adapter Session mode: boot injects five states; new run, continue, and title go through the manager.
 
 var _failures: Array[String] = []
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
@@ -50,16 +50,25 @@ func _run() -> void:
 			"boot should inject session state %s" % state_id
 		)
 	_assert_eq(game_root.session_mode(), "main_menu", "boot should start on the main menu")
-	await _assert_title_world_hotkeys_inert(game_root, "boot title")
+	await _assert_world_hotkeys_inert(game_root, "boot title")
 
 	game_root.new_game()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "prologue", "a new run should set Session mode to prologue")
+	await _assert_world_hotkeys_inert(game_root, "prologue")
+	await _assert_prologue_overlay_eats_phone_clicks(game_root)
+
 	game_root._skip_prologue()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
+	await _assert_gameplay_world_hotkeys_live(game_root)
+
 	game_root.set_view_state("npc_up")
 	game_root.game.ending_unlocked = false
 	game_root.show_main_menu()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "returning to title should set Session mode to main menu")
-	await _assert_title_world_hotkeys_inert(game_root, "returned title")
+	await _assert_world_hotkeys_inert(game_root, "returned title")
 
 	_assert_true(game_root.continue_game(), "continue should load the non-ending save")
 	await process_frame
@@ -69,13 +78,50 @@ func _run() -> void:
 	game_root.show_main_menu()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "returning to title after continue should restore the main menu")
-	await _assert_title_world_hotkeys_inert(game_root, "title after continue")
+	await _assert_world_hotkeys_inert(game_root, "title after continue")
 
 	game_root.queue_free()
 	await process_frame
 
 
-func _assert_title_world_hotkeys_inert(game_root, label: String) -> void:
+func _assert_prologue_overlay_eats_phone_clicks(game_root) -> void:
+	var overlay := _find_node_by_name(game_root, "PrologueOverlay") as Control
+	_assert_true(overlay != null and overlay.visible, "new game should show the prologue overlay")
+	if overlay == null:
+		return
+	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	_assert_true(toggle != null, "phone view toggle should exist under the prologue overlay")
+	if toggle == null:
+		return
+	var click_point := toggle.get_global_rect().get_center()
+	_assert_true(
+		overlay.get_global_rect().has_point(click_point),
+		"prologue overlay should cover the phone view toggle"
+	)
+	var view_before := str(game_root.game.view_state)
+	var press := InputEventMouseButton.new()
+	press.position = click_point
+	press.global_position = click_point
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	press.pressed = true
+	game_root.get_viewport().push_input(press, true)
+	await process_frame
+	var release := InputEventMouseButton.new()
+	release.position = click_point
+	release.global_position = click_point
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	game_root.get_viewport().push_input(release, true)
+	await process_frame
+	_assert_eq(
+		str(game_root.game.view_state),
+		view_before,
+		"prologue overlay should eat clicks aimed at phone UI"
+	)
+
+
+func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	var yaw_before := float(game_root._reality_yaw)
 	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
 	var interacting_before: bool = game_root._reality_interaction_active
@@ -101,11 +147,16 @@ func _assert_title_world_hotkeys_inert(game_root, label: String) -> void:
 	if player == null:
 		return
 	var start := player.position
+	var had_forward := InputMap.has_action("reality_forward")
+	if had_forward:
+		Input.action_press("reality_forward")
 	for _frame in 8:
 		await physics_frame
+	if had_forward:
+		Input.action_release("reality_forward")
 	_assert_true(
 		start.distance_to(player.position) < 0.01,
-		"%s should not walk while Session mode is the main menu" % label
+		"%s should not walk while Session mode is not gameplay" % label
 	)
 
 
@@ -139,6 +190,18 @@ func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 		walk_start.distance_to(player.position) > 0.25,
 		"gameplay walk hotkeys should move the body"
 	)
+
+
+func _find_node_by_name(node: Node, wanted_name: String) -> Node:
+	if node == null:
+		return null
+	if node.name == wanted_name:
+		return node
+	for child in node.get_children():
+		var found := _find_node_by_name(child, wanted_name)
+		if found != null:
+			return found
+	return null
 
 
 func _key_event(keycode: int) -> InputEventKey:

@@ -1,5 +1,5 @@
 extends "res://framework/flow/flow_state.gd"
-## Opening transmission. Behaviour is filled in by a later ticket.
+## Opening transmission. World hotkeys stay unloaded.
 
 func _init(_host: Node) -> void:
 	id = "prologue"
