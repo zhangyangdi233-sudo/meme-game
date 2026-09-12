@@ -12,6 +12,7 @@ func _init() -> void:
 	test_transition_exits_then_enters()
 	test_input_reaches_only_current_state()
 	test_unknown_id_fails_without_changing_current()
+	test_has_registered_ids()
 	if _failures.is_empty():
 		print("flow manager tests passed")
 		quit(0)
@@ -71,6 +72,14 @@ func test_unknown_id_fails_without_changing_current() -> void:
 	_assert_true(not manager.transition_to("missing"), "unknown id should fail")
 	_assert_eq(manager.current_id(), "alpha", "failed transition should keep the current state")
 	_assert_eq(log, [], "failed transition should not exit or enter any state")
+
+
+func test_has_registered_ids() -> void:
+	var manager = FlowManagerScript.new()
+	var log: Array[String] = []
+	manager.register(RecordingStateScript.new("alpha", log))
+	_assert_true(manager.has("alpha"), "a registered id should be present")
+	_assert_true(not manager.has("missing"), "an unknown id should be absent")
 
 
 func _assert_true(condition: bool, message: String) -> void:

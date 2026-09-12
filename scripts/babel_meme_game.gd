@@ -40,6 +40,12 @@ const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.
 const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const FlowManagerScript = preload("res://framework/flow/flow_manager.gd")
+const MainMenuFlowStateScript = preload("res://scripts/game/flow/main_menu_flow_state.gd")
+const PrologueFlowStateScript = preload("res://scripts/game/flow/prologue_flow_state.gd")
+const GameplayFlowStateScript = preload("res://scripts/game/flow/gameplay_flow_state.gd")
+const NarrativeFlowStateScript = preload("res://scripts/game/flow/narrative_flow_state.gd")
+const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state.gd")
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
 const PLAYER_CHARACTER_PATH := "res://assets/generated/characters/protagonist_operator.png"
@@ -87,6 +93,15 @@ const MEME_BANK_SCALE_DURATION := 0.28
 const MEME_BANK_ALPHA_DURATION := 0.22
 const SAVE_PATH := "user://babel_meme_save.dat"
 const SAVE_FILE_VERSION := 1
+const WORLD_HOTKEY_ACTIONS := [
+	"reality_forward",
+	"reality_back",
+	"reality_left",
+	"reality_right",
+	"reality_sprint",
+	"reality_interact",
+	"reality_phone",
+]
 
 var _social_channels: Array = SocialFeedCatalogScript.get_channels()
 var _social_post_cards: Array = SocialFeedCatalogScript.get_post_cards()
@@ -247,6 +262,7 @@ var _notebook_crafting_tab := "frame"
 var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
+var _flow: FlowManager
 var _vhs_enabled := true
 var _master_volume := 80.0
 var _camera_session_decided := false
@@ -435,6 +451,7 @@ func _ready() -> void:
 	_ensure_window_manager()
 	_ensure_edge_drawer()
 	_apply_master_volume()
+	_ensure_flow_manager()
 	show_main_menu()
 	if not _locale.language_selected:
 		_build_language_selection_overlay(true)
@@ -461,7 +478,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not _game_started or _reality_player == null:
+	if session_mode() != "gameplay" or _reality_player == null:
 		return
 	_update_reality_player(delta)
 
@@ -472,10 +489,11 @@ func _input(event: InputEvent) -> void:
 		return
 	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
 		return
-	if _handle_reality_touch_look(event):
-		return
-	if _handle_reality_trackpad_pan(event):
-		return
+	if session_mode() == "gameplay":
+		if _handle_reality_touch_look(event):
+			return
+		if _handle_reality_trackpad_pan(event):
+			return
 	if _window_manager != null:
 		_window_manager.handle_global_input(event)
 
@@ -526,6 +544,11 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _flow != null:
+		_flow.handle_input(event)
+
+
+func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 	if SessionInputScript.blocks_unhandled_gameplay(current_input_owner()):
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -629,6 +652,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_render()
 	_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
 	_sync_audio_state(true)
+	_request_session_mode("gameplay")
 
 
 func show_main_menu() -> void:
@@ -648,6 +672,7 @@ func show_main_menu() -> void:
 	_nearby_reality_actor = null
 	_nearby_reality_item = null
 	_set_reality_mouse_look(false)
+	_request_session_mode("main_menu")
 	_build_world()
 	_build_main_menu()
 	if _locale.language_selected and not _camera_session_decided:
@@ -1019,7 +1044,6 @@ func _build_world() -> void:
 	_camera.current = true
 	_camera.fov = 58.0
 	_configure_reality_depth_of_field()
-	_ensure_reality_input_map()
 
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.build_world_nodes()
@@ -1116,6 +1140,21 @@ func _ensure_reality_input_map() -> void:
 	_set_key_action("reality_sprint", [KEY_SHIFT])
 	_set_key_action("reality_interact", [KEY_F])
 	_set_key_action("reality_phone", [KEY_TAB])
+
+
+func _clear_reality_input_map() -> void:
+	for action_name in WORLD_HOTKEY_ACTIONS:
+		if InputMap.has_action(action_name):
+			InputMap.action_erase_events(action_name)
+			InputMap.erase_action(action_name)
+
+
+func install_world_hotkeys() -> void:
+	_ensure_reality_input_map()
+
+
+func uninstall_world_hotkeys() -> void:
+	_clear_reality_input_map()
 
 
 func _set_key_action(action_name: StringName, keycodes: Array) -> void:
@@ -3616,6 +3655,32 @@ func current_input_owner() -> int:
 		var prologue_overlay := _prologue_panel.get_overlay()
 		prologue_visible = prologue_overlay != null and prologue_overlay.visible
 	return SessionInputScript.owner_from(prologue_visible, _input_locked, _game_started)
+
+
+func session_mode() -> String:
+	_ensure_flow_manager()
+	return _flow.current_id()
+
+
+func has_session_state(id: String) -> bool:
+	_ensure_flow_manager()
+	return _flow.has(id)
+
+
+func _ensure_flow_manager() -> void:
+	if _flow != null:
+		return
+	_flow = FlowManagerScript.new()
+	_flow.register(MainMenuFlowStateScript.new(self))
+	_flow.register(PrologueFlowStateScript.new(self))
+	_flow.register(GameplayFlowStateScript.new(self))
+	_flow.register(NarrativeFlowStateScript.new(self))
+	_flow.register(EndingFlowStateScript.new(self))
+
+
+func _request_session_mode(id: String) -> bool:
+	_ensure_flow_manager()
+	return _flow.transition_to(id)
 
 
 func _set_input_locked(value: bool) -> void:

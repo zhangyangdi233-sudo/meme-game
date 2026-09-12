@@ -12,6 +12,10 @@ func register(state: FlowState) -> void:
 	_states[state.id] = state
 
 
+func has(id: String) -> bool:
+	return _states.has(id)
+
+
 func current_id() -> String:
 	if _current == null:
 		return ""
