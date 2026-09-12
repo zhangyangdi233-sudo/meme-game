@@ -51,7 +51,7 @@ func _new_game_scene() -> Node:
 
 
 func _find_actor(main: Node, actor_type: String) -> Area3D:
-	for actor in main._reality_floor.get_interactable_actors():
+	for actor in main._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null
@@ -61,10 +61,10 @@ func _frame_actor(main: Node, actor: Area3D, distance: float) -> void:
 	var open_side := Vector3(-actor.position.x, 0.0, 0.0)
 	if open_side.length_squared() < 0.01:
 		open_side = Vector3.RIGHT
-	main._reality_player.position = actor.position + open_side.normalized() * distance
-	var direction: Vector3 = actor.position - main._reality_player.position
-	main._reality_yaw = rad_to_deg(atan2(-direction.x, -direction.z))
-	main._reality_pitch = -20.0
+	main._reality_scene_adapter.player.position = actor.position + open_side.normalized() * distance
+	var direction: Vector3 = actor.position - main._reality_scene_adapter.player.position
+	main._reality_scene_adapter.yaw = rad_to_deg(atan2(-direction.x, -direction.z))
+	main._reality_scene_adapter.pitch = -20.0
 	main._refresh_nearby_reality_actor()
 
 

@@ -109,48 +109,6 @@ var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
 var _reality_interaction_active := false
 
-var _reality_player: CharacterBody3D:
-	get:
-		return _reality_scene_adapter.player if _reality_scene_adapter != null else null
-
-var _reality_floor:
-	get:
-		return _reality_scene_adapter.floor if _reality_scene_adapter != null else null
-
-var _reality_yaw: float:
-	get:
-		return _reality_scene_adapter.yaw if _reality_scene_adapter != null else 0.0
-	set(value):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.yaw = value
-
-var _reality_pitch: float:
-	get:
-		return _reality_scene_adapter.pitch if _reality_scene_adapter != null else 0.0
-	set(value):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.pitch = value
-
-var _nearby_reality_actor: Area3D:
-	get:
-		return _reality_scene_adapter.nearby_actor if _reality_scene_adapter != null else null
-	set(value):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.nearby_actor = value
-
-var _nearby_reality_item: Area3D:
-	get:
-		return _reality_scene_adapter.nearby_item if _reality_scene_adapter != null else null
-	set(value):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.nearby_item = value
-
-var _active_reality_actor: Area3D:
-	get:
-		return _reality_scene_adapter.active_actor if _reality_scene_adapter != null else null
-	set(value):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.active_actor = value
 var _canvas: CanvasLayer
 var _ui_root: Control
 var _texture_cache: Dictionary = {}
@@ -159,27 +117,6 @@ var _hand_phone_image: TextureRect
 var _camera_session
 var _audio_controller
 var _narrative_director: NarrativeOverlayDirector
-var _action_spend_overlay: Control:
-	get:
-		return _narrative_director.action_spend_overlay if _narrative_director != null else null
-var _flashback_overlay: Control:
-	get:
-		return _narrative_director.flashback_overlay if _narrative_director != null else null
-var _day_transition_overlay: Control:
-	get:
-		return _narrative_director.day_transition_overlay if _narrative_director != null else null
-var _day_transition_day_label: Label:
-	get:
-		return _narrative_director.day_transition_day_label if _narrative_director != null else null
-var _day_transition_rule: ColorRect:
-	get:
-		return _narrative_director.day_transition_rule if _narrative_director != null else null
-var _day_transition_tween: Tween:
-	get:
-		return _narrative_director.day_transition_tween if _narrative_director != null else null
-	set(value):
-		if _narrative_director != null:
-			_narrative_director.day_transition_tween = value
 var _ui_theme_helper := GameUiThemeScript.new()
 var _camera_consent_overlay: Control
 var _camera_access_toggle: CheckButton
@@ -289,13 +226,15 @@ func _narrative_overlay_deps() -> Dictionary:
 			return game != null and game.consume_pollution_flashback(),
 		"hud_actions_label": _hud_actions_label_ref,
 		"action_text": _action_text,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
-		"label_factory": _label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"ui_font_size": _ui_theme_helper.ui_font_size,
+		"label_factory": _ui_theme_helper.label,
 		"level_display_name": _locale.level_display_name,
 		"day_progress": _day_progress_snapshot,
 		"capture_frozen_frame": _capture_frozen_frame_texture,
-		"duck_ambience": _duck_ambience_for_flashback,
+		"duck_ambience": func() -> void:
+			if _audio_controller != null:
+				_audio_controller.duck_ambience_for_flashback(),
 		"play_action_tick": func() -> void:
 			if _audio_controller != null and _audio_controller.action_tick_audio != null and _audio_controller.action_tick_audio.stream != null and _audio_controller.action_tick_audio.is_inside_tree():
 				_audio_controller.action_tick_audio.play(),
@@ -326,8 +265,7 @@ func _camera_session_deps() -> Dictionary:
 		"on_camera_disabled": _hide_phone_camera_connection_overlay,
 		"hide_phone_connection_overlay": _hide_phone_camera_connection_overlay,
 		"refresh_phone_connection_ui": _refresh_phone_camera_connection_ui,
-		"set_localized_property": func(control: Control, property_name: String) -> void:
-			_ui_theme_helper.set_localized_property(control, property_name),
+		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 		"ui_root": _ui_root,
 		"phone_down_backdrop_image": _phone_down_backdrop_image,
@@ -383,34 +321,12 @@ func _on_hand_tracking_status_changed(status: HandTrackingStatusScript.Status) -
 	_on_camera_tracking_ui_changed()
 
 
-var _hand_tracking_receiver:
-	get:
-		return _camera_session.hand_tracking_receiver if _camera_session != null else null
-	set(value):
-		if _camera_session != null:
-			_camera_session.hand_tracking_receiver = value
-
-
-var _camera_enabled:
-	get:
-		return _camera_session.enabled if _camera_session != null else false
-
-
-var _camera_source:
-	get:
-		return _camera_session.source if _camera_session != null else "computer"
-
-
 func _on_camera_source_ready(source: String, selected_index: int) -> void:
 	if _camera_session == null or source not in ["computer", "phone"]:
 		return
 	_camera_session.ready_source = source
 	_camera_session.ready_index = selected_index
 	_on_camera_tracking_ui_changed()
-
-
-func _pollution_stage_for_theme() -> Dictionary:
-	return _pollution_stage_snapshot()
 
 
 func _ready() -> void:
@@ -420,6 +336,7 @@ func _ready() -> void:
 		"ui_font_min_size": UI_FONT_MIN_SIZE,
 		"ui_font_max_size": UI_FONT_MAX_SIZE,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
+		"pollution_stage": _pollution_stage_snapshot,
 	})
 	var preferences := _locale.load_preferences(_master_volume, _vhs_enabled)
 	_master_volume = float(preferences.get("master_volume", _master_volume))
@@ -459,7 +376,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if session_mode() != "gameplay" or _reality_player == null:
+	if session_mode() != "gameplay" or _reality_scene_adapter == null or _reality_scene_adapter.player == null:
 		return
 	_update_reality_player(delta)
 
@@ -652,9 +569,9 @@ func show_main_menu() -> void:
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
 	_reality_interaction_active = false
-	_active_reality_actor = null
-	_nearby_reality_actor = null
-	_nearby_reality_item = null
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_nearby_targets()
 	_set_reality_mouse_look(false)
 	_request_session_mode("main_menu")
 	_build_world()
@@ -913,9 +830,9 @@ func set_view_state(value: String) -> void:
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
 		_reality_interaction_active = false
-		_active_reality_actor = null
-		_nearby_reality_actor = null
-		_nearby_reality_item = null
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.active_actor = null
+			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		game.reset_typed_reality_conversation()
 		if value == "npc_up":
@@ -971,7 +888,7 @@ func _reality_scene_deps() -> Dictionary:
 	return {
 		"game": game,
 		"day_progress": _day_progress_snapshot(),
-		"palette": _active_palette(),
+		"palette": _ui_theme_helper.active_palette(),
 		"load_texture": _load_runtime_texture,
 		"npc_character_paths": NPC_CHARACTER_PATHS,
 		"guide_doll_path": GUIDE_DOLL_CHARACTER_PATH,
@@ -986,7 +903,7 @@ func _reality_scene_deps() -> Dictionary:
 func _on_reality_nearby_targets_changed() -> void:
 	_render_world_prompt()
 	if _world_prompt != null:
-		_world_prompt.visible = _nearby_reality_actor != null or _nearby_reality_item != null
+		_world_prompt.visible = _reality_scene_adapter != null and (_reality_scene_adapter.nearby_actor != null or _reality_scene_adapter.nearby_item != null)
 
 
 func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
@@ -1090,21 +1007,13 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 func _rebuild_reality_floor() -> void:
 	_ensure_reality_scene_adapter()
 	_reality_interaction_active = false
-	_active_reality_actor = null
+	_reality_scene_adapter.active_actor = null
 	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 
 func _ensure_reality_floor_current() -> void:
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.ensure_floor_current(_reality_scene_deps())
-
-
-func _room_count_for_floor(floor_number: int) -> int:
-	return RealitySceneAdapterScript.room_count_for_floor(floor_number)
-
-
-func _npc_count_for_floor(floor_number: int) -> int:
-	return RealitySceneAdapterScript.npc_count_for_floor(floor_number)
 
 
 func _update_reality_player(delta: float) -> void:
@@ -1137,12 +1046,12 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 	var actor := outcome.get("actor") as Area3D
 	if actor == null:
 		return false
-	_active_reality_actor = actor
+	_reality_scene_adapter.active_actor = actor
 	var actor_id := str(outcome.get("actor_id", "actor"))
 	var actor_type := str(outcome.get("actor_type", "npc"))
 	var actor_label := str(outcome.get("actor_label", "对方"))
 	if not game.start_typed_reality_conversation(actor_id, actor_type, actor_label):
-		_active_reality_actor = null
+		_reality_scene_adapter.active_actor = null
 		return false
 	if actor_type == "doll":
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
@@ -1164,7 +1073,7 @@ func _localize_active_conversation() -> void:
 
 func _collect_nearby_reality_item(item: Area3D = null, item_data: Dictionary = {}) -> bool:
 	if item == null:
-		item = _nearby_reality_item
+		item = _reality_scene_adapter.nearby_item if _reality_scene_adapter != null else null
 	if item == null:
 		return false
 	if item_data.is_empty():
@@ -1187,7 +1096,8 @@ func _collect_nearby_reality_item(item: Area3D = null, item_data: Dictionary = {
 
 func _exit_reality_interaction(should_render: bool = true) -> void:
 	_reality_interaction_active = false
-	_active_reality_actor = null
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.active_actor = null
 	_reality_hover_choice_id = ""
 	_selected_language_token_id = ""
 	game.reset_typed_reality_conversation()
@@ -1199,9 +1109,10 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 
 
 func _active_actor_display_name() -> String:
-	if _active_reality_actor == null:
+	var actor: Area3D = _reality_scene_adapter.active_actor if _reality_scene_adapter != null else null
+	if actor == null:
 		return _locale.translate("对方")
-	return _locale.translate(str(_active_reality_actor.get_meta("display_name", "对方")))
+	return _locale.translate(str(actor.get_meta("display_name", "对方")))
 
 
 func _on_cover_watcher_appeared(floor_number: int) -> void:
@@ -1217,10 +1128,6 @@ func _on_cover_watcher_vanished(_floor_number: int) -> void:
 		game.event_log.push_front("掩体后的人影缩了回去。它没有留下脸。")
 
 
-func _phone_music_path_for_floor(floor_number: int) -> String:
-	return _audio_controller.phone_music_path_for_floor(floor_number) if _audio_controller != null else ""
-
-
 func _sync_audio_state(immediate: bool = false) -> void:
 	if _audio_controller != null:
 		_audio_controller.sync_state(_audio_controller_deps(), immediate)
@@ -1229,11 +1136,6 @@ func _sync_audio_state(immediate: bool = false) -> void:
 func _pollution_stage_snapshot() -> Dictionary:
 	var progress := _day_progress_snapshot()
 	return PollutionStageScript.stage(int(progress.get("pollution", 0)), int(progress.get("day", 1)))
-
-
-func _duck_ambience_for_flashback() -> void:
-	if _audio_controller != null:
-		_audio_controller.duck_ambience_for_flashback()
 
 
 func _build_main_menu() -> void:
@@ -1245,14 +1147,14 @@ func _build_main_menu() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_apply_ui_font_theme(_ui_root)
+	_ui_theme_helper.apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
 	_ensure_main_menu_panel()
 	_main_menu_panel.mount(_ui_root, _main_menu_mount_deps())
 
 	_apply_ui_theme()
-	_refresh_localized_ui()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 	_ensure_settings_history_panel()
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root, _settings_history_mount_deps())
 
@@ -1282,7 +1184,7 @@ func _on_language_selected(locale_code: String) -> void:
 		_build_main_menu()
 		if not _camera_session_decided:
 			_build_camera_consent_overlay()
-	_refresh_localized_ui()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 
 
 func _close_language_selection_overlay() -> void:
@@ -1383,11 +1285,11 @@ func _build_ui() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_apply_ui_font_theme(_ui_root)
+	_ui_theme_helper.apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
 	var vignette := ColorRect.new()
-	vignette.color = _theme_color("ink").darkened(0.15)
+	vignette.color = _ui_theme_helper.theme_color("ink").darkened(0.15)
 	vignette.modulate.a = 0.16
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vignette.z_index = 2
@@ -1412,7 +1314,7 @@ func _build_ui() -> void:
 
 	_build_apple_hud()
 
-	_world_prompt = _label("", 18, _theme_color("surface"))
+	_world_prompt = _ui_theme_helper.label("", 18, _ui_theme_helper.theme_color("surface"))
 	_world_prompt.name = "WorldPrompt"
 	_world_prompt.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_world_prompt.offset_left = 520
@@ -1461,7 +1363,7 @@ func _build_ui() -> void:
 	_ensure_reality_language_composer_panel()
 	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
-	_desk_log = _label("", 16, _theme_color("accent"))
+	_desk_log = _ui_theme_helper.label("", 16, _ui_theme_helper.theme_color("accent"))
 	_desk_log.name = "DeskLog"
 	_desk_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_desk_log.offset_left = 282
@@ -1472,14 +1374,15 @@ func _build_ui() -> void:
 	_ui_root.add_child(_desk_log)
 	_build_playtest_assist_panel()
 
-	_build_action_spend_overlay()
+	_bind_narrative_director()
+	_narrative_director.build_action_spend_overlay()
 	_build_settings_window()
 	_build_phone_camera_connection_overlay()
 	_build_history_window()
-	_build_day_transition_overlay()
+	_narrative_director.build_day_transition_overlay()
 	_build_pickup_flight_layer()
 	_build_doll_guide_overlay()
-	_build_flashback_overlay()
+	_narrative_director.build_flashback_overlay()
 	_build_prologue_overlay()
 	_apply_responsive_layouts_if_needed(true)
 
@@ -1499,9 +1402,9 @@ func _ensure_playtest_assist_panel() -> void:
 
 func _playtest_assist_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 	}
 
 
@@ -1550,10 +1453,10 @@ func _ensure_apple_hud_panel() -> void:
 
 func _apple_hud_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"style_factory": _style,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"style_factory": _ui_theme_helper.style,
 		"load_texture": _load_runtime_texture,
 		"rail_width": HUD_RAIL_WIDTH,
 		"rail_max_height": HUD_RAIL_MAX_HEIGHT,
@@ -1649,10 +1552,10 @@ func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: Stri
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	parent.add_child(row)
-	var key := _label(label_text, 13, _theme_color("accent"))
+	var key := _ui_theme_helper.label(label_text, 13, _ui_theme_helper.theme_color("accent"))
 	key.custom_minimum_size.x = 70
 	row.add_child(key)
-	var value := _label("", 17, _theme_color("ink"))
+	var value := _ui_theme_helper.label("", 17, _ui_theme_helper.theme_color("ink"))
 	value.name = value_name
 	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1790,8 +1693,8 @@ func _ensure_main_menu_panel() -> void:
 
 func _main_menu_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"has_save": _has_save_progress,
 	}
 
@@ -1831,12 +1734,13 @@ func _language_selection_mount_deps() -> Dictionary:
 			"name": _locale.native_language_name(str(locale_code)),
 		})
 	return {
-		"soft_style": _soft_style,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
+		"soft_style": _ui_theme_helper.soft_style,
+		"theme_color": _ui_theme_helper.theme_color,
+		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"locales": locales,
 		"language_selected": func() -> bool: return _locale.language_selected,
-		"refresh_localized_ui": _refresh_localized_ui,
+		"refresh_localized_ui": func() -> void:
+			_ui_theme_helper.refresh_localized_ui(_ui_root),
 	}
 
 
@@ -1859,9 +1763,9 @@ func _ensure_prologue_panel() -> void:
 
 func _prologue_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"set_localized_property": _set_localized_property,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
 	}
 
@@ -1885,13 +1789,14 @@ func _ensure_camera_consent_panel() -> void:
 
 func _camera_consent_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"soft_style": _soft_style,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"soft_style": _ui_theme_helper.soft_style,
 		"populate_camera_source_option": _populate_camera_source_option,
 		"camera_enabled": _camera_session.enabled if _camera_session != null else false,
 		"apply_ui_theme": _apply_ui_theme,
-		"refresh_localized_ui": _refresh_localized_ui,
+		"refresh_localized_ui": func() -> void:
+			_ui_theme_helper.refresh_localized_ui(_ui_root),
 	}
 
 
@@ -1916,11 +1821,11 @@ func _ensure_phone_camera_connection_panel() -> void:
 
 func _phone_camera_connection_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"soft_style": _soft_style,
-		"panel_factory": _panel,
-		"set_localized_property": _set_localized_property,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"soft_style": _ui_theme_helper.soft_style,
+		"panel_factory": _ui_theme_helper.panel,
+		"set_localized_property": _ui_theme_helper.set_localized_property,
 	}
 
 
@@ -1970,11 +1875,11 @@ func _settings_history_mount_deps() -> Dictionary:
 			"name": _locale.native_language_name(str(locale_code)),
 		})
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"soft_style": _soft_style,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"soft_style": _ui_theme_helper.soft_style,
+		"theme_color": _ui_theme_helper.theme_color,
+		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"register_draggable": _window_manager.register,
 		"master_volume": _master_volume,
 		"vhs_enabled": _vhs_enabled,
@@ -2022,43 +1927,50 @@ func _ensure_social_feed_panel() -> void:
 func _social_feed_mount_deps() -> Dictionary:
 	_ensure_window_manager()
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"style_fn": _style,
-		"soft_style": _soft_style,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"style_fn": _ui_theme_helper.style,
+		"soft_style": _ui_theme_helper.soft_style,
+		"theme_color": _ui_theme_helper.theme_color,
+		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"register_draggable": _window_manager.register,
 		"load_texture": _load_runtime_texture,
-		"poster_texture": _social_poster_texture,
+		"poster_texture": func(post_index: int) -> Texture2D:
+			return SocialFeedContentScript.poster_texture(post_index, _social_content_deps()),
 		"channels": _social_channels,
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
 		"poster_sheet_count": SocialFeedContentScript.SOCIAL_POSTER_COUNT,
-		"visible_post_indices": _social_visible_post_indices,
-		"post_for_index": _social_post_for_index,
+		"visible_post_indices": func() -> Array[int]:
+			return SocialFeedContentScript.visible_post_indices(_social_content_deps()),
+		"post_for_index": func(post_index: int) -> Dictionary:
+			return SocialFeedContentScript.post_for_index(post_index, _social_content_deps()),
 		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
-		"like_text": _social_like_text,
-		"caption_text": _social_caption,
+		"like_text": func(post: Dictionary, post_index: int) -> String:
+			return SocialFeedContentScript.like_text(post, post_index, _social_content_deps()),
+		"caption_text": func(post: Dictionary, post_index: int) -> String:
+			return SocialFeedContentScript.caption(post, post_index, _social_content_deps()),
 		"corrupt_text": _corrupt,
-		"floor_label": _social_floor_label,
+		"floor_label": func() -> String:
+			return SocialFeedContentScript.floor_label(_social_content_deps()),
 		"translate": func(text: String) -> String: return _locale.translate(text),
 		"pickup_bbcode": _pickup_bbcode,
 		"pickup_meta": _on_pickup_unit_meta,
-		"author_id": _social_author_id,
+		"author_id": SocialFeedContentScript.author_id,
 		"pickup_line": func(post_id: String, locale: String) -> String: return PickupCharPoolScript.get_pickup_line(post_id, locale),
 		"pickup_comments": func(post_id: String, locale: String) -> Array: return PickupCharPoolScript.get_comments(post_id, locale),
 		"player_echo_quote": func() -> String: return game.get_player_echo_quote(_locale.current_locale) if game != null else "",
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
 		"game_day": func() -> int: return int(_day_progress_snapshot().get("day", 0)) if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"publish_result": _social_publish_result,
+		"publish_result": func() -> Dictionary:
+			return SocialFeedContentScript.publish_result(_social_content_deps()),
 		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
 		"composer_area_drop": _on_composer_area_drop,
 		"composer_tile_drop": _on_composer_tile_drop,
 		"composer_answer_tapped": _on_composer_answer_tapped,
 		"composer_submit": _on_composer_submit_pressed,
-		"apply_composer_tile_theme": _apply_composer_tile_theme,
+		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
 		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
 		"completed_memes_count": func() -> int:
@@ -2103,9 +2015,9 @@ func _ensure_phone_launcher_panel() -> void:
 func _phone_launcher_mount_deps() -> Dictionary:
 	_ensure_window_manager()
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"load_texture": _load_runtime_texture,
 		"register_draggable": _make_draggable_window,
 		"viewport_size": _viewport_size,
@@ -2150,9 +2062,9 @@ func _ensure_reality_conversation_panel() -> void:
 
 func _reality_conversation_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
+		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"viewport_size": _viewport_size,
 		"install_rich_text_effect": _install_rich_text_effect,
 		"set_dialogue_text": _set_dialogue_text,
@@ -2185,9 +2097,9 @@ func _ensure_reality_language_composer_panel() -> void:
 
 func _reality_language_composer_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 	}
 
@@ -2216,8 +2128,8 @@ func _ensure_babel_app_panel() -> void:
 
 func _babel_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 		"tower_floor": func() -> int: return int(_day_progress_snapshot().get("tower_floor", 1)) if game != null else 1,
 		"money": func() -> int: return game.money if game != null else 0,
@@ -2241,11 +2153,11 @@ func _ensure_notebook_app_panel() -> void:
 
 func _notebook_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"panel_factory": _ui_theme_helper.panel,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
-		"composer_tile_style": _composer_tile_style,
+		"composer_tile_style": _ui_theme_helper.composer_tile_style,
 		"fusion_slot_text": _fusion_slot_text,
 		"current_locale": func() -> String: return _locale.current_locale,
 		"collected_char_units": func(locale_code: String) -> Array[String]:
@@ -2298,7 +2210,7 @@ func _inject_settings_camera_block() -> void:
 	_camera_access_toggle.set_meta("privacy_control", true)
 	_camera_access_toggle.toggled.connect(_on_camera_access_toggled)
 	slot.add_child(_camera_access_toggle)
-	var camera_source_label := _label("摄像头来源", 15, _theme_color("ink"))
+	var camera_source_label := _ui_theme_helper.label("摄像头来源", 15, _ui_theme_helper.theme_color("ink"))
 	camera_source_label.name = "SettingsCameraSourceLabel"
 	slot.add_child(camera_source_label)
 	_camera_source_button_group = ButtonGroup.new()
@@ -2324,18 +2236,18 @@ func _inject_settings_camera_block() -> void:
 	_camera_phone_button.pressed.connect(_activate_camera_source.bind("phone"))
 	slot.add_child(_camera_phone_button)
 	_refresh_camera_source_buttons()
-	var phone_fallback_note := _label("手机备用会优先寻找连续互通相机或虚拟摄像头。", 13, _theme_color("ink"))
+	var phone_fallback_note := _ui_theme_helper.label("手机备用会优先寻找连续互通相机或虚拟摄像头。", 13, _ui_theme_helper.theme_color("ink"))
 	phone_fallback_note.name = "SettingsPhoneCameraFallbackNote"
 	phone_fallback_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(phone_fallback_note)
-	var camera_privacy := _label("镜头仅在启用时由本地 MediaPipe 读取。", 13, _theme_color("ink"))
+	var camera_privacy := _ui_theme_helper.label("镜头仅在启用时由本地 MediaPipe 读取。", 13, _ui_theme_helper.theme_color("ink"))
 	camera_privacy.name = "SettingsCameraPrivacyNote"
 	camera_privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slot.add_child(camera_privacy)
-	_camera_status_label = _label(
+	_camera_status_label = _ui_theme_helper.label(
 		HandTrackingStatusScript.display_text(_camera_session.tracking_status) if _camera_session != null else HandTrackingStatusScript.display_text(HandTrackingStatusScript.Status.DISABLED),
 		14,
-		_theme_color("accent")
+		_ui_theme_helper.theme_color("accent")
 	)
 	_camera_status_label.name = "SettingsCameraStatus"
 	_camera_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2423,7 +2335,7 @@ func _on_settings_language_selected(locale_code: String) -> void:
 	if game != null:
 		game.free_sentence_clear()
 	_render()
-	_refresh_localized_ui()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 	_refresh_camera_source_option_labels()
 
 
@@ -2434,7 +2346,7 @@ func _on_manual_save_pressed() -> void:
 		_settings_history_panel.set_save_status(
 			"已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
 		)
-	_refresh_localized_ui()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 
 
 func _on_return_main_menu_pressed() -> void:
@@ -2535,12 +2447,12 @@ func _render() -> void:
 		_request_ending_if_unlocked()
 	if session_mode() == "ending":
 		_render_ending()
-		_refresh_localized_ui()
+		_ui_theme_helper.refresh_localized_ui(_ui_root)
 		return
 	_ensure_reality_floor_current()
-	if _reality_floor != null:
-		_reality_floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
-		_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
+	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
+		_reality_scene_adapter.floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
+		_reality_scene_adapter.floor.sync_claimed_dolls(game.claimed_doll_ids)
 	_render_status()
 	_render_world_prompt()
 	_render_app()
@@ -2548,7 +2460,7 @@ func _render() -> void:
 	_update_visibility()
 	_apply_world_theme()
 	_apply_ui_theme()
-	_refresh_localized_ui()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
 
 
 func _render_status() -> void:
@@ -2615,13 +2527,13 @@ func _render_world_prompt() -> void:
 	elif _reality_interaction_active:
 		var conversation := _reality_conversation_snapshot()
 		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(str(conversation.get("prompt", "")))]
-	elif _nearby_reality_item != null:
+	elif _reality_scene_adapter != null and _reality_scene_adapter.nearby_item != null:
 		_world_prompt.text = "F  拾取 · %s\n%s" % [
-			str(_nearby_reality_item.get_meta("display_name", "街区遗物")),
-			str(_nearby_reality_item.get_meta("item_description", "信号已经写入。")),
+			str(_reality_scene_adapter.nearby_item.get_meta("display_name", "街区遗物")),
+			str(_reality_scene_adapter.nearby_item.get_meta("item_description", "信号已经写入。")),
 		]
-	elif _nearby_reality_actor != null:
-		_world_prompt.text = "F  交谈 · %s" % str(_nearby_reality_actor.get_meta("display_name", "对方"))
+	elif _reality_scene_adapter != null and _reality_scene_adapter.nearby_actor != null:
+		_world_prompt.text = "F  交谈 · %s" % str(_reality_scene_adapter.nearby_actor.get_meta("display_name", "对方"))
 	else:
 		_world_prompt.text = ""
 
@@ -2657,26 +2569,6 @@ func _render_babel_app() -> void:
 	_babel_app_panel.render(_app_body)
 
 
-func _social_visible_post_indices() -> Array[int]:
-	return SocialFeedContentScript.visible_post_indices(_social_content_deps())
-
-
-func _social_like_text(post: Dictionary, post_index: int) -> String:
-	return SocialFeedContentScript.like_text(post, post_index, _social_content_deps())
-
-
-func _social_floor_label() -> String:
-	return SocialFeedContentScript.floor_label(_social_content_deps())
-
-
-func _social_caption(post: Dictionary, post_index: int) -> String:
-	return SocialFeedContentScript.caption(post, post_index, _social_content_deps())
-
-
-func _social_publish_result() -> Dictionary:
-	return SocialFeedContentScript.publish_result(_social_content_deps())
-
-
 func _set_social_screen(screen: String) -> void:
 	_social_screen = screen
 	_social_detail_open = false
@@ -2704,7 +2596,7 @@ func _on_social_channel_pressed(channel: String) -> void:
 
 func _on_social_follow_pressed(author_id: String) -> void:
 	var followed := game.toggle_social_follow(author_id)
-	var display_handle := _social_author_display(author_id)
+	var display_handle := SocialFeedContentScript.author_display(author_id, _social_content_deps())
 	log_text = "已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle
 
 
@@ -2789,7 +2681,7 @@ func _render_reality_language_composer() -> void:
 
 
 func _typed_reality_bbcode() -> String:
-	var normal_color := _theme_color("surface").to_html(false)
+	var normal_color := _ui_theme_helper.theme_color("surface").to_html(false)
 	var pending_color := Color("777B72").to_html(false)
 	var corrupted_color := Color("FF3B30").to_html(false)
 	var parts: Array[String] = []
@@ -2867,16 +2759,16 @@ func _advance_typed_reality_character() -> bool:
 		return false
 	if bool(result.get("locked_out", false)):
 		_reality_interaction_active = false
-		_active_reality_actor = null
-		_nearby_reality_actor = null
-		_nearby_reality_item = null
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.active_actor = null
+			_reality_scene_adapter.clear_nearby_targets()
 		_set_reality_mouse_look(true)
 	if bool(result.get("action_spent", false)):
 		_after_effective_action(actions_before)
 	else:
 		_sync_audio_state(false)
-	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_floor != null:
-		_reality_floor.sync_claimed_dolls(game.claimed_doll_ids)
+	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
+		_reality_scene_adapter.floor.sync_claimed_dolls(game.claimed_doll_ids)
 	return true
 
 
@@ -2922,7 +2814,7 @@ func _update_visibility() -> void:
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and _game_started
 	if _world_prompt != null:
-		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and (_nearby_reality_actor != null or _nearby_reality_item != null)
+		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and _reality_scene_adapter != null and (_reality_scene_adapter.nearby_actor != null or _reality_scene_adapter.nearby_item != null)
 	var interaction_visible := (not in_phone) and _reality_interaction_active
 	var conversation_visibility: Dictionary = _reality_conversation_snapshot()
 	if _reality_conversation_panel != null:
@@ -2936,10 +2828,10 @@ func _update_visibility() -> void:
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。
 	_render_playtest_assist()
-	if _reality_floor != null:
-		_reality_floor.visible = not in_phone
-	if _reality_player != null:
-		_reality_player.visible = not in_phone
+	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
+		_reality_scene_adapter.floor.visible = not in_phone
+	if _reality_scene_adapter != null and _reality_scene_adapter.player != null:
+		_reality_scene_adapter.player.visible = not in_phone
 	if _cinematic_bars != null:
 		_cinematic_bars.set_bars_visible(_game_started and not in_phone)
 	_layout_hud_rail()
@@ -2954,9 +2846,9 @@ func _animate_world(delta: float) -> void:
 		return
 	var camera_target_pos := Vector3(0.0, 1.45, 2.2)
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_player != null:
-		camera_target_pos = _reality_player.position + Vector3(0.0, 1.56, 0.0)
-		camera_target_rot = Vector3(_reality_pitch, _reality_yaw, 0.0)
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_scene_adapter.player != null:
+		camera_target_pos = _reality_scene_adapter.player.position + Vector3(0.0, 1.56, 0.0)
+		camera_target_rot = Vector3(_reality_scene_adapter.pitch, _reality_scene_adapter.yaw, 0.0)
 	var camera_lerp := minf(1.0, delta * (7.0 if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" else 5.0))
 	_camera.position = _camera.position.lerp(camera_target_pos, camera_lerp)
 	var current_rotation := _camera.rotation_degrees
@@ -2978,7 +2870,7 @@ func _animate_world(delta: float) -> void:
 		_phone_down_backdrop_image.scale = Vector2(1.012, 1.012)
 		var settled_position := Vector2(-viewport_size.x * 0.006 + sway, -viewport_size.y * 0.006 + bob)
 		_phone_down_backdrop_image.position = Vector2(settled_position.x, lerpf(70.0, settled_position.y, _phone_art_alpha))
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_player != null:
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_scene_adapter.player != null:
 		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
 
@@ -2991,14 +2883,6 @@ func _animate_vhs(_delta: float) -> void:
 		float(snapshot.get("vhs_intensity", 0.58)),
 		float(snapshot.get("vhs_pollution", 0.0))
 	)
-
-
-func _active_palette() -> Dictionary:
-	return _ui_theme_helper.active_palette(_pollution_stage_for_theme())
-
-
-func _theme_color(key: String) -> Color:
-	return _ui_theme_helper.theme_color(key, _pollution_stage_for_theme())
 
 
 func _viewport_size() -> Vector2:
@@ -3034,32 +2918,6 @@ func _load_runtime_texture(path: String) -> Texture2D:
 	return null
 
 
-func _social_poster_texture_path(post_index: int) -> String:
-	return SocialFeedContentScript.poster_texture_path(post_index, _social_content_deps())
-
-
-func _social_poster_texture(post_index: int) -> Texture2D:
-	return SocialFeedContentScript.poster_texture(post_index, _social_content_deps())
-
-
-func _social_post_for_index(post_index: int) -> Dictionary:
-	return SocialFeedContentScript.post_for_index(post_index, _social_content_deps())
-
-
-func _social_author_id(post: Dictionary) -> String:
-	return SocialFeedContentScript.author_id(post)
-
-
-func _social_author_display(author_id: String) -> String:
-	return SocialFeedContentScript.author_display(author_id, _social_content_deps())
-
-
-func _social_pickable_units(text: String) -> Array[String]:
-	return SocialFeedContentScript.pickable_units(text, _social_content_deps())
-
-
-func _social_pickup_post_indices(day_number: int) -> Array[int]:
-	return SocialFeedContentScript.pickup_post_indices(day_number, _social_content_deps())
 
 
 func _is_pickable_social_character(character: String) -> bool:
@@ -3157,8 +3015,8 @@ func _find_control_by_name(node: Node, node_name: String) -> Control:
 
 
 func _apply_world_theme() -> void:
-	if _reality_floor != null:
-		_reality_floor.apply_palette(_active_palette())
+	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
+		_reality_scene_adapter.floor.apply_palette(_ui_theme_helper.active_palette())
 
 
 func _apply_ui_theme(node: Node = null) -> void:
@@ -3166,62 +3024,12 @@ func _apply_ui_theme(node: Node = null) -> void:
 		node = _ui_root
 	if node == null:
 		return
-	_ui_theme_helper.apply_ui_theme(node, _pollution_stage_for_theme(), false)
+	_ui_theme_helper.apply_ui_theme(node)
 
 
 func _bind_narrative_director() -> void:
 	_ensure_narrative_director()
 	_narrative_director.apply_deps(_narrative_overlay_deps())
-
-
-func _build_action_spend_overlay() -> void:
-	_bind_narrative_director()
-	_narrative_director.build_action_spend_overlay()
-
-
-func _play_action_spend_animation(before_actions: int, after_actions: int) -> void:
-	_bind_narrative_director()
-	_narrative_director.play_action_spend_animation(before_actions, after_actions)
-
-
-func _finish_action_spend_animation() -> void:
-	if _narrative_director != null:
-		_narrative_director.finish_action_spend_animation()
-
-
-func _build_day_transition_overlay() -> void:
-	_bind_narrative_director()
-	_narrative_director.build_day_transition_overlay()
-
-
-func _update_floor_transition_card(floor_number: int) -> void:
-	if _narrative_director != null:
-		_narrative_director.update_floor_transition_card(floor_number)
-
-
-func _play_day_transition() -> void:
-	_bind_narrative_director()
-	_narrative_director.play_day_transition()
-
-
-func _commit_day_transition_settlement() -> void:
-	if _narrative_director != null:
-		_narrative_director.commit_day_transition_settlement()
-
-
-func _finish_day_transition() -> void:
-	if _narrative_director != null:
-		_narrative_director.finish_day_transition()
-
-
-func _build_flashback_overlay() -> void:
-	_bind_narrative_director()
-	_narrative_director.build_flashback_overlay()
-
-
-func _play_pollution_flashback() -> void:
-	_bind_narrative_director()
-	_narrative_director.play_pollution_flashback()
 
 
 func _capture_frozen_frame_texture() -> Texture2D:
@@ -3235,11 +3043,6 @@ func _capture_frozen_frame_texture() -> Texture2D:
 	if frozen_image == null or frozen_image.is_empty():
 		return null
 	return ImageTexture.create_from_image(frozen_image)
-
-
-func _finish_pollution_flashback() -> void:
-	if _narrative_director != null:
-		_narrative_director.finish_pollution_flashback()
 
 
 func session_mode() -> String:
@@ -3310,11 +3113,11 @@ func _ensure_ending_screen_panel() -> void:
 
 func _ending_screen_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"restart": new_game,
 		"translate": func(text: String) -> String: return _locale.translate(text),
-		"set_localized_property": _set_localized_property,
+		"set_localized_property": _ui_theme_helper.set_localized_property,
 	}
 
 
@@ -3377,8 +3180,8 @@ func _ensure_doll_guide_panel() -> void:
 
 func _doll_guide_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
+		"label_factory": _ui_theme_helper.label,
+		"theme_color": _ui_theme_helper.theme_color,
 		"load_texture": _load_runtime_texture,
 		"register_draggable": _make_draggable_window,
 		"portrait_path": GUIDE_DOLL_CHARACTER_PATH,
@@ -3467,7 +3270,7 @@ func _ensure_task_prop_body(floor_root: Node, node_name: String, body_size: Vect
 	var box := BoxMesh.new()
 	box.size = body_size
 	var material := StandardMaterial3D.new()
-	material.albedo_color = _theme_color("ink")
+	material.albedo_color = _ui_theme_helper.theme_color("ink")
 	box.material = material
 	mesh_instance.mesh = box
 	body.add_child(mesh_instance)
@@ -3491,12 +3294,12 @@ func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vect
 	box.size = mesh_size
 	var material := StandardMaterial3D.new()
 	if emissive:
-		material.albedo_color = _theme_color("flash_text")
+		material.albedo_color = _ui_theme_helper.theme_color("flash_text")
 		material.emission_enabled = true
-		material.emission = _theme_color("flash_text")
+		material.emission = _ui_theme_helper.theme_color("flash_text")
 		material.emission_energy_multiplier = 1.4
 	else:
-		material.albedo_color = _theme_color("ink")
+		material.albedo_color = _ui_theme_helper.theme_color("ink")
 	box.material = material
 	prop.mesh = box
 	prop.position = mesh_position
@@ -3508,12 +3311,6 @@ func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vect
 
 ## 多邻国 U1 质感:圆角约为高度 1/4、浅底细描边、底部厚边模拟浮起阴影;
 ## 按下时下沉 2px(上边距+2/下边距-2,底厚边收薄);ghost 为凹陷灰。
-func _composer_tile_style(kind: String) -> StyleBoxFlat:
-	return _ui_theme_helper.composer_tile_style(kind, _pollution_stage_for_theme())
-
-
-func _apply_composer_tile_theme(tile: Button, is_ghost: bool) -> void:
-	_ui_theme_helper.apply_composer_tile_theme(tile, is_ghost, _pollution_stage_for_theme())
 
 func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
@@ -3534,7 +3331,7 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 func _on_composer_bank_tapped(unit: String) -> void:
 	if game.free_sentence_place(unit, _locale.current_locale):
 		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _theme_color("accent"))
+			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _ui_theme_helper.theme_color("accent"))
 		log_text = "字进入了句子。"
 		_render()
 
@@ -3626,7 +3423,7 @@ func _pickup_bbcode(source_text: String) -> String:
 	var locale_code: String = _locale.current_locale
 	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPoolScript.get_unit_pool(locale_code)
 	units.sort_custom(func(left, right): return str(left).length() > str(right).length())
-	var pickable_color := _theme_color("flash_text").to_html(false)
+	var pickable_color := _ui_theme_helper.theme_color("flash_text").to_html(false)
 	var collected_color := "8b8f84"
 	var result := ""
 	var index := 0
@@ -3686,7 +3483,7 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 		_play_ui_sound(_audio_controller.pickup_press_audio if _audio_controller != null else null)
 		_ensure_notebook_window_home()
 		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _theme_color("flash_text"))
+			_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _ui_theme_helper.theme_color("flash_text"))
 		if bool(pick_result.get("action_spent", false)):
 			_after_effective_action(actions_before)
 		else:
@@ -3829,13 +3626,15 @@ func _on_confirm_dialogue_pressed() -> void:
 
 func _after_effective_action(actions_before: int = -1) -> void:
 	if game.pollution_flashback_pending:
-		_play_pollution_flashback()
+		_bind_narrative_director()
+		_narrative_director.play_pollution_flashback()
 		return
 	if actions_before >= 0 and game.actions_remaining < actions_before:
 		var hud_actions_label := _hud_actions_label_ref()
 		if hud_actions_label != null:
 			hud_actions_label.text = _action_text(actions_before)
-		_play_action_spend_animation(actions_before, game.actions_remaining)
+		_bind_narrative_director()
+		_narrative_director.play_action_spend_animation(actions_before, game.actions_remaining)
 		return
 	if _settle_day_and_present_rewards():
 		selected_meme_id = ""
@@ -3849,9 +3648,9 @@ func _settle_day_and_present_rewards() -> bool:
 	if not game.settle_day_if_needed():
 		return false
 	_reality_interaction_active = false
-	_active_reality_actor = null
-	_nearby_reality_actor = null
-	_nearby_reality_item = null
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_nearby_targets()
 	_reality_hover_choice_id = ""
 	selected_meme_id = ""
 	_sync_audio_state(false)
@@ -3905,86 +3704,6 @@ func _corrupt(text: String) -> String:
 		_locale.current_locale,
 		replacements,
 	)
-
-
-func _panel() -> PanelContainer:
-	return _ui_theme_helper.panel(_pollution_stage_for_theme())
-
-
-func _wrap(node: Control) -> PanelContainer:
-	return _ui_theme_helper.wrap(node, _pollution_stage_for_theme())
-
-
-func _ensure_ui_font_theme() -> Theme:
-	return _ui_theme_helper.ensure_ui_font_theme()
-
-
-func _ui_font_size(requested_size: int) -> int:
-	return _ui_theme_helper.ui_font_size(requested_size)
-
-
-func _apply_ui_font_theme(target: Control) -> void:
-	_ui_theme_helper.apply_ui_font_theme(target)
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	return _ui_theme_helper.label(text, size, color)
-
-
-func _refresh_localized_ui() -> void:
-	_ui_theme_helper.refresh_localized_ui(_ui_root)
-
-
-func _localize_control_tree(node: Node) -> void:
-	_ui_theme_helper.localize_control_tree(node)
-
-
-func _set_localized_property(control: Control, property_name: String) -> void:
-	_ui_theme_helper.set_localized_property(control, property_name)
-
-
-func _style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.style(bg, border)
-
-
-func _soft_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.soft_style(bg, border)
-
-
-func _circle_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.circle_style(bg, border)
-
-
-func _phone_shell_style() -> StyleBoxFlat:
-	return _ui_theme_helper.phone_shell_style(_pollution_stage_for_theme())
-
-
-func _phone_surface_style() -> StyleBoxFlat:
-	return _ui_theme_helper.phone_surface_style(_pollution_stage_for_theme())
-
-
-func _launcher_app_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.launcher_app_style(bg, border)
-
-
-func _window_close_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.window_close_style(bg, border)
-
-
-func _reward_card_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.reward_card_style(bg, border)
-
-
-func _poster_frame_style() -> StyleBoxFlat:
-	return _ui_theme_helper.poster_frame_style(_pollution_stage_for_theme())
-
-
-func _flat_button_state_style(bg: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.flat_button_state_style(bg)
-
-
-func _file_corner_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return _ui_theme_helper.file_corner_style(bg, border)
 
 
 func _clear(node: Node) -> void:

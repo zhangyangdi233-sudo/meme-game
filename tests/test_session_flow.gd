@@ -78,32 +78,32 @@ func _run() -> void:
 
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a flashback should set Session mode to narrative")
 	await _assert_world_hotkeys_inert(game_root, "flashback")
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, flashback_overlay, "flashback overlay")
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
 	game_root.game.actions_remaining = 1
 	_assert_true(game_root.game.spend_action("session-flow-narrative"), "last daily action should be spendable")
-	game_root._play_action_spend_animation(1, 0)
+	game_root._narrative_director.play_action_spend_animation(1, 0)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "spending an action should set Session mode to narrative")
 	await _assert_world_hotkeys_inert(game_root, "action spend")
 	var spend_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, spend_overlay, "action spend overlay")
-	game_root._finish_action_spend_animation()
+	game_root._narrative_director.finish_action_spend_animation()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative")
 	await _assert_world_hotkeys_inert(game_root, "day transition")
 	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, day_overlay, "day transition overlay")
-	game_root._finish_day_transition()
+	game_root._narrative_director.finish_day_transition()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing a day transition should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
@@ -130,15 +130,15 @@ func _run() -> void:
 	)
 	game_root.game.actions_remaining = 1
 	_assert_true(game_root.game.spend_action("session-flow-ending"), "last action should spend before the ending unlock")
-	game_root._play_action_spend_animation(1, 0)
+	game_root._narrative_director.play_action_spend_animation(1, 0)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "spending the last action should stay in narrative")
 	game_root.game.ending_unlocked = true
-	game_root._finish_action_spend_animation()
+	game_root._narrative_director.finish_action_spend_animation()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative after ending unlock")
 	await _assert_world_hotkeys_inert(game_root, "ending-pending narrative")
-	game_root._finish_day_transition()
+	game_root._narrative_director.finish_day_transition()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "ending", "finishing narrative with ending unlocked should set Session mode to ending")
 	await _assert_world_hotkeys_inert(game_root, "ending unlock")
@@ -231,7 +231,7 @@ func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: Stri
 
 
 func _assert_world_hotkeys_inert(game_root, label: String) -> void:
-	var yaw_before := float(game_root._reality_yaw)
+	var yaw_before := float(game_root._reality_scene_adapter.yaw)
 	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
 	var interacting_before: bool = game_root._reality_interaction_active
 	game_root._unhandled_input(_key_event(KEY_F))
@@ -240,7 +240,7 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	look.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(look)
 	_assert_true(
-		is_equal_approx(float(game_root._reality_yaw), yaw_before),
+		is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before),
 		"%s should ignore look hotkeys" % label
 	)
 	_assert_eq(
@@ -271,12 +271,12 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 
 func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 	game_root.set_view_state("npc_up")
-	var yaw_before := float(game_root._reality_yaw)
+	var yaw_before := float(game_root._reality_scene_adapter.yaw)
 	var look := InputEventMouseMotion.new()
 	look.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(look)
 	_assert_true(
-		not is_equal_approx(float(game_root._reality_yaw), yaw_before),
+		not is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before),
 		"gameplay look should rotate the first-person view"
 	)
 	var view_before := str(game_root.game.view_state)

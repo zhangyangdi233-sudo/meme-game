@@ -31,10 +31,10 @@ func _capture() -> void:
 	if main._phone_down_backdrop_image != null:
 		main._phone_down_backdrop_image.visible = false
 	_hide_canvas_layers(main)
-	var actors := main._reality_floor.get_node_or_null("Actors") as Node3D
+	var actors := main._reality_scene_adapter.floor.get_node_or_null("Actors") as Node3D
 	if actors != null:
 		actors.visible = false
-	for item in main._reality_floor.get_interactable_items():
+	for item in main._reality_scene_adapter.floor.get_interactable_items():
 		item.visible = false
 	for frame in 20:
 		await process_frame
@@ -43,7 +43,7 @@ func _capture() -> void:
 	camera.current = true
 	camera.fov = 40.0
 	camera.attributes = null
-	var floor_root = main._reality_floor
+	var floor_root = main._reality_scene_adapter.floor
 	var start: Vector3 = floor_root.start_position()
 
 	var sign_event := _find_node_by_name(floor_root, "DeadSignEvent") as Node3D
@@ -59,7 +59,7 @@ func _capture() -> void:
 	_frame_event(camera, sign_event, Vector3(3.0, 0.0, 5.5), 2.0)
 	await _save_after_frames("current_horror_dead_sign.png")
 
-	floor_root.configure_authored_events(2, main._active_palette())
+	floor_root.configure_authored_events(2, main._ui_theme_helper.active_palette())
 	var light_event := _find_node_by_name(floor_root, "LightMemoryEvent") as Node3D
 	if light_event == null:
 		push_error("Unable to locate light-memory event")
@@ -71,7 +71,7 @@ func _capture() -> void:
 	_frame_event(camera, light_event, Vector3(3.2, -0.40, 6.4), 2.75)
 	await _save_after_frames("current_horror_light_memory.png")
 
-	floor_root.configure_authored_events(4, main._active_palette())
+	floor_root.configure_authored_events(4, main._ui_theme_helper.active_palette())
 	var mirage_event := _find_node_by_name(floor_root, "DistantMirageEvent") as Node3D
 	if mirage_event == null:
 		push_error("Unable to locate distant-mirage event")

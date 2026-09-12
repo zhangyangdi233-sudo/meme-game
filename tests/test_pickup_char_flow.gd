@@ -158,7 +158,7 @@ func _test_ui_flow() -> void:
 	var actions_before: int = game_root.game.actions_remaining
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
-	game_root._finish_action_spend_animation()
+	game_root._narrative_director.finish_action_spend_animation()
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
 	_assert_true(bool(game_root._open_app_windows.get("notebook", false)), "a pickup should open the notebook window")
 	var notebook_window: Control = game_root._notebook_window_control()

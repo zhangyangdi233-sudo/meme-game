@@ -114,30 +114,30 @@ func _check_scene_contract() -> void:
 
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_true(overlay.visible, "playing the flashback should reveal the overlay")
 	_assert_true(game_root._input_locked, "flashback should lock gameplay input")
 	var freeze_phase := _find_node_by_name(overlay, "FlashbackPhaseFreeze") as Control
 	_assert_true(freeze_phase != null and freeze_phase.visible, "the sequence should open on the frozen current frame")
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	_assert_eq_int(game_root.game.day, 2, "finishing the flashback should settle straight into the next day")
 	_assert_true(not overlay.visible, "finishing should hide the overlay")
 	_assert_true(not game_root._input_locked, "finishing should unlock input")
 
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	_assert_eq_int(game_root.game.day, 2, "a second finish call must not settle a second day")
 
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	_assert_true(not overlay.visible, "an interrupted flashback should still clean up")
 
 	game_root.game.pollution = 60
 	game_root.game.pollution_flashback_seen = false
 	game_root.game.check_pollution_flashback(59)
 	var day_before: int = game_root.game.day
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	var director_script := load("res://scripts/ui/pollution_flashback_director.gd") as GDScript
 	var expected_order: Array[String] = []
 	for phase in director_script.PHASES:

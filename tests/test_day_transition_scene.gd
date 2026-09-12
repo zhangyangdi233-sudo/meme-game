@@ -60,19 +60,19 @@ func _run() -> void:
 
 	game_root.game.actions_remaining = 1
 	_assert_true(game_root.game.spend_action("transition-test"), "last daily action should be spendable")
-	game_root._play_action_spend_animation(1, 0)
-	game_root._finish_action_spend_animation()
+	game_root._narrative_director.play_action_spend_animation(1, 0)
+	game_root._narrative_director.finish_action_spend_animation()
 	_assert_true(day_overlay != null and day_overlay.visible, "last action should start the next-day overlay after its inline pulse")
 	_assert_true(game_root._input_locked, "next-day overlay should lock gameplay input")
 	_assert_eq(game_root.game.day, 1, "day settlement should wait until the transition reaches its midpoint")
 	_assert_eq(str(area_label.text), "第一层", "transition should use the requested level name without the old region prefix")
 	_assert_eq(str(danger_label.text), "危险：B", "floor one transition should display danger rank B")
 	_assert_true(str(hint_label.text).contains("《游戏与现实》"), "floor one transition should use the approved psychology title")
-	game_root._commit_day_transition_settlement()
+	game_root._narrative_director.commit_day_transition_settlement()
 	_assert_eq(game_root.game.day, 2, "transition midpoint should commit the next day")
 	_assert_eq(game_root.game.actions_remaining, 5, "committed next day should restore all five actions")
 	_assert_eq(str(area_label.text), "第一层", "level naming should remain stable after the settlement midpoint")
-	game_root._finish_day_transition()
+	game_root._narrative_director.finish_day_transition()
 	_assert_true(day_overlay != null and not day_overlay.visible, "finished next-day transition should hide its overlay")
 	_assert_true(not game_root._input_locked, "finished next-day transition should restore input")
 
@@ -99,8 +99,8 @@ func _run() -> void:
 	await process_frame
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
-	game_root._play_pollution_flashback()
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	day_overlay = Harness.find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	_assert_eq(game_root.game.day, 2, "pollution flashback should still settle directly into the next day")
 	_assert_true(day_overlay != null and not day_overlay.visible, "pollution flashback should not stack the normal three-second day overlay")

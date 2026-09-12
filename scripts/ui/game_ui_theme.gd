@@ -34,6 +34,7 @@ var ui_font_max_size := 45
 
 var _ui_theme: Theme
 var _locale_translate: Callable = Callable()
+var _pollution_stage_fn: Callable = Callable()
 
 
 func configure(deps: Dictionary) -> void:
@@ -42,16 +43,27 @@ func configure(deps: Dictionary) -> void:
 	ui_font_min_size = int(deps.get("ui_font_min_size", ui_font_min_size))
 	ui_font_max_size = int(deps.get("ui_font_max_size", ui_font_max_size))
 	_locale_translate = deps.get("locale_translate", Callable())
+	_pollution_stage_fn = deps.get("pollution_stage", Callable())
 
 
-func active_palette(pollution_stage: Dictionary) -> Dictionary:
-	if str(pollution_stage.get("palette_key", "palette_1")) == "pollution_palette_5":
+func current_pollution_stage() -> Dictionary:
+	return _pollution_stage_fn.call() if _pollution_stage_fn.is_valid() else {}
+
+
+func _stage(pollution_stage = null) -> Dictionary:
+	if pollution_stage == null:
+		return current_pollution_stage()
+	return pollution_stage
+
+
+func active_palette(pollution_stage = null) -> Dictionary:
+	if str(_stage(pollution_stage).get("palette_key", "palette_1")) == "pollution_palette_5":
 		return POLLUTION_PALETTE_5
 	return PALETTE_1
 
 
-func theme_color(key: String, pollution_stage: Dictionary) -> Color:
-	var palette := active_palette(pollution_stage)
+func theme_color(key: String, pollution_stage = null) -> Color:
+	var palette := active_palette(_stage(pollution_stage))
 	return Color(str(palette.get(key, PALETTE_1.get(key, "FFF1C9"))))
 
 
@@ -70,14 +82,15 @@ func apply_ui_font_theme(target: Control) -> void:
 	PixelFontThemeScript.apply(target, ensure_ui_font_theme())
 
 
-func panel(pollution_stage: Dictionary) -> PanelContainer:
+func panel(pollution_stage = null) -> PanelContainer:
+	var stage := _stage(pollution_stage)
 	var panel_node := PanelContainer.new()
-	panel_node.add_theme_stylebox_override("panel", style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
+	panel_node.add_theme_stylebox_override("panel", style(theme_color("surface", stage), theme_color("accent", stage)))
 	return panel_node
 
 
-func wrap(node: Control, pollution_stage: Dictionary) -> PanelContainer:
-	var panel_node := panel(pollution_stage)
+func wrap(node: Control, pollution_stage = null) -> PanelContainer:
+	var panel_node := panel(_stage(pollution_stage))
 	panel_node.add_child(node)
 	return panel_node
 
@@ -244,7 +257,8 @@ func file_corner_style(bg: Color, border: Color) -> StyleBoxFlat:
 	return style_box
 
 
-func composer_tile_style(kind: String, pollution_stage: Dictionary) -> StyleBoxFlat:
+func composer_tile_style(kind: String, pollution_stage = null) -> StyleBoxFlat:
+	var stage := _stage(pollution_stage)
 	var style_box := StyleBoxFlat.new()
 	style_box.set_corner_radius_all(10)
 	style_box.content_margin_left = 10.0
@@ -253,36 +267,38 @@ func composer_tile_style(kind: String, pollution_stage: Dictionary) -> StyleBoxF
 	style_box.content_margin_bottom = 7.0
 	match kind:
 		"pressed":
-			style_box.bg_color = theme_color("surface", pollution_stage).darkened(0.05)
-			style_box.border_color = Color(theme_color("accent", pollution_stage), 0.9)
+			style_box.bg_color = theme_color("surface", stage).darkened(0.05)
+			style_box.border_color = Color(theme_color("accent", stage), 0.9)
 			style_box.set_border_width_all(1)
 			style_box.content_margin_top = 7.0
 			style_box.content_margin_bottom = 5.0
 		"ghost":
-			style_box.bg_color = Color(theme_color("muted", pollution_stage), 0.30)
-			style_box.border_color = Color(theme_color("accent", pollution_stage), 0.22)
+			style_box.bg_color = Color(theme_color("muted", stage), 0.30)
+			style_box.border_color = Color(theme_color("accent", stage), 0.22)
 			style_box.set_border_width_all(1)
 		_:
-			style_box.bg_color = theme_color("surface", pollution_stage)
-			style_box.border_color = Color(theme_color("accent", pollution_stage), 0.55)
+			style_box.bg_color = theme_color("surface", stage)
+			style_box.border_color = Color(theme_color("accent", stage), 0.55)
 			style_box.set_border_width_all(1)
 			style_box.border_width_bottom = 3
 	return style_box
 
 
-func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage: Dictionary) -> void:
+func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage = null) -> void:
+	var stage := _stage(pollution_stage)
 	if is_ghost:
-		tile.add_theme_stylebox_override("normal", composer_tile_style("ghost", pollution_stage))
-		tile.add_theme_stylebox_override("disabled", composer_tile_style("ghost", pollution_stage))
+		tile.add_theme_stylebox_override("normal", composer_tile_style("ghost", stage))
+		tile.add_theme_stylebox_override("disabled", composer_tile_style("ghost", stage))
 		return
-	tile.add_theme_stylebox_override("normal", composer_tile_style("normal", pollution_stage))
-	tile.add_theme_stylebox_override("hover", composer_tile_style("normal", pollution_stage))
-	tile.add_theme_stylebox_override("pressed", composer_tile_style("pressed", pollution_stage))
+	tile.add_theme_stylebox_override("normal", composer_tile_style("normal", stage))
+	tile.add_theme_stylebox_override("hover", composer_tile_style("normal", stage))
+	tile.add_theme_stylebox_override("pressed", composer_tile_style("pressed", stage))
 
 
-func apply_ui_theme(node: Node, pollution_stage: Dictionary, meme_bank_open: bool) -> void:
+func apply_ui_theme(node: Node, pollution_stage = null, meme_bank_open: bool = false) -> void:
 	if node == null:
 		return
+	pollution_stage = _stage(pollution_stage)
 	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
 		if node.has_meta("hud_action_label"):
 			(node as Label).add_theme_color_override("font_color", theme_color("muted", pollution_stage))

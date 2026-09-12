@@ -69,11 +69,29 @@ func _run() -> void:
 	var probe_label: Label = ui_theme.label("测试", 13, Color.WHITE)
 	_assert_true(probe_label.get_theme_font_size("font_size") % 9 == 0, "labels should render on the pixel grid")
 
+	ui_theme.configure({
+		"ui_font_path": FONT_PATH,
+		"ui_font_grid": FONT_GRID,
+		"ui_font_min_size": FONT_MIN,
+		"ui_font_max_size": FONT_MAX,
+		"pollution_stage": func() -> Dictionary: return {"palette_key": "pollution_palette_5"},
+	})
+	_assert_eq(ui_theme.theme_color("flash_text"), Color("39FF14"), "bound pollution stage should drive one-arg theme_color")
+	_assert_eq(str(ui_theme.active_palette().get("name", "")), "pollution_palette_5", "bound pollution stage should select the high-pollution palette")
+	_assert_eq(ui_theme.theme_color("flash_text", {"palette_key": "palette_1"}), Color("9CFF24"), "an explicit stage should still override the bound provider")
+	_assert_eq(ui_theme.theme_color("flash_text", {}), Color("9CFF24"), "an explicit empty stage should keep the default palette")
+
 	var themed_root := Control.new()
 	ui_theme.apply_ui_font_theme(themed_root)
 	_assert_true(themed_root.theme == wired_theme, "apply_ui_font_theme should wire the built theme onto controls")
+	themed_root.free()
 
 
 func _assert_true(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _assert_eq(actual, expected, message: String) -> void:
+	if actual != expected:
+		_failures.append("%s (expected %s, got %s)" % [message, str(expected), str(actual)])

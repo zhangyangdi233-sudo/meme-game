@@ -29,7 +29,7 @@ func _capture() -> void:
 		push_error("Unable to find physical doll encounter")
 		quit(1)
 		return
-	main._reality_player.position = _approach_position(main, doll, 1.45)
+	main._reality_scene_adapter.player.position = _approach_position(main, doll, 1.45)
 	main._refresh_nearby_reality_actor()
 	if not main._try_reality_interaction():
 		push_error("Unable to start doll dialogue")
@@ -46,7 +46,7 @@ func _capture() -> void:
 			break
 		main._advance_typed_reality_character()
 	if main._input_locked:
-		main._finish_action_spend_animation()
+		main._narrative_director.finish_action_spend_animation()
 	main.set_view_state("phone_down")
 	main._on_app_pressed("notebook")
 	for _frame in 30:
@@ -68,7 +68,7 @@ func _capture() -> void:
 
 
 func _find_actor(main: Node, actor_type: String) -> Area3D:
-	for actor in main._reality_floor.get_interactable_actors():
+	for actor in main._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null

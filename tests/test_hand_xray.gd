@@ -157,19 +157,19 @@ func _test_main_scene_surfaces() -> void:
 	_assert_true(computer_button != null, "settings should expose one direct button for the computer camera X-ray path")
 	_assert_true(phone_button != null, "settings should expose a second direct button for the phone fallback X-ray path")
 	_assert_true(computer_button != null and phone_button != null and computer_button.button_group == phone_button.button_group, "camera source buttons should share one exclusive selection group")
-	if game_root._hand_tracking_receiver != null:
-		game_root._hand_tracking_receiver.stop()
+	if game_root._camera_session.hand_tracking_receiver != null:
+		game_root._camera_session.hand_tracking_receiver.stop()
 	var fake_receiver := FakeHandTrackingReceiver.new()
-	game_root._hand_tracking_receiver = fake_receiver
+	game_root._camera_session.hand_tracking_receiver = fake_receiver
 	if computer_button != null:
 		computer_button.pressed.emit()
-	_assert_eq(game_root._camera_source, "computer", "clicking the computer button should select the computer source")
+	_assert_eq(game_root._camera_session.source, "computer", "clicking the computer button should select the computer source")
 	_assert_eq(fake_receiver.camera_source, "computer", "clicking the computer button should start the computer camera path")
 	_assert_true(computer_button != null and computer_button.button_pressed, "clicking the computer button should turn that button green")
 	_assert_true(phone_button != null and not phone_button.button_pressed, "computer selection should unpress the phone button")
 	if phone_button != null:
 		phone_button.pressed.emit()
-	_assert_eq(game_root._camera_source, "phone", "clicking the phone button should select the phone source")
+	_assert_eq(game_root._camera_session.source, "phone", "clicking the phone button should select the phone source")
 	_assert_eq(fake_receiver.camera_source, "phone", "clicking the phone button should start the phone camera path")
 	_assert_true(phone_button != null and phone_button.button_pressed, "clicking the phone button should turn that button green")
 	_assert_true(computer_button != null and not computer_button.button_pressed, "phone selection should unpress the computer button")

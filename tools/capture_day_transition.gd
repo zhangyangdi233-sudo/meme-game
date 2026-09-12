@@ -25,14 +25,14 @@ func _capture() -> void:
 	main.game.actions_remaining = 0
 	main.game.needs_day_settlement = true
 	main.game.day_ended_reason = "capture-transition"
-	main._play_day_transition()
-	if main._day_transition_tween != null and main._day_transition_tween.is_valid():
-		main._day_transition_tween.kill()
-	main._day_transition_tween = null
-	main._day_transition_overlay.modulate = Color.WHITE
-	main._day_transition_rule.scale = Vector2.ONE
-	main._day_transition_day_label.scale = Vector2.ONE
-	main._commit_day_transition_settlement()
+	main._narrative_director.play_day_transition()
+	if main._narrative_director.day_transition_tween != null and main._narrative_director.day_transition_tween.is_valid():
+		main._narrative_director.day_transition_tween.kill()
+	main._narrative_director.day_transition_tween = null
+	main._narrative_director.day_transition_overlay.modulate = Color.WHITE
+	main._narrative_director.day_transition_rule.scale = Vector2.ONE
+	main._narrative_director.day_transition_day_label.scale = Vector2.ONE
+	main._narrative_director.commit_day_transition_settlement()
 	for frame in 8:
 		await process_frame
 	var viewport_texture := root.get_texture()

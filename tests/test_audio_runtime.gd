@@ -72,7 +72,7 @@ func _run() -> void:
 			game_root._sync_audio_state(true)
 			var floor_path := str(phone.get_meta("generated_audio_path", ""))
 			floor_paths[floor_path] = true
-			_assert_eq(floor_path, game_root._phone_music_path_for_floor(floor_number), "each tower floor should select its authored phone score")
+			_assert_eq(floor_path, game_root._audio_controller.phone_music_path_for_floor(floor_number), "each tower floor should select its authored phone score")
 			_assert_eq(int(phone.get_meta("phone_music_floor", 0)), floor_number, "phone score metadata should follow the current floor")
 			var floor_stream := phone.stream as AudioStreamWAV
 			_assert_true(floor_stream != null and floor_stream.loop_end == 2_116_800, "every floor score should preserve the 96-second seamless loop contract")
@@ -111,7 +111,7 @@ func _run() -> void:
 	if reality != null:
 		_assert_near(reality.volume_db, -7.0, 0.2, "player composing should make the room score more intimate")
 
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_true(flashback != null and flashback.playing, "pollution flashback should play its signal burst")
 	if phone != null and reality != null:
@@ -119,13 +119,13 @@ func _run() -> void:
 		_assert_true(bool(reality.get_meta("flashback_ducked", false)), "flashback should duck the reality layer")
 	if pollution_music != null:
 		_assert_true(bool(pollution_music.get_meta("flashback_ducked", false)), "flashback should duck the pollution music layer")
-	game_root._finish_pollution_flashback()
+	game_root._narrative_director.finish_pollution_flashback()
 	_assert_true(flashback != null and not flashback.playing, "finishing flashback should stop the signal burst")
 
-	game_root._play_action_spend_animation(5, 4)
+	game_root._narrative_director.play_action_spend_animation(5, 4)
 	await process_frame
 	_assert_true(action_tick != null and action_tick.playing, "spending an action should play the short tick")
-	game_root._finish_action_spend_animation()
+	game_root._narrative_director.finish_action_spend_animation()
 	game_root._on_cover_watcher_appeared(1)
 	await process_frame
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")

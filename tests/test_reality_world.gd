@@ -1,5 +1,7 @@
 extends SceneTree
 
+const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
+
 var _failures: Array[String] = []
 
 
@@ -70,17 +72,17 @@ func _run() -> void:
 	if social_window != null and top_bar != null:
 		_assert_true(social_window.z_index > top_bar.z_index, "phone app windows should render above the cinematic bars")
 
-	_assert_eq(game_root._room_count_for_floor(1), 4, "floor one should begin with four rooms")
-	_assert_eq(game_root._room_count_for_floor(2), 6, "floor two should add two rooms")
-	_assert_eq(game_root._room_count_for_floor(3), 9, "floor three should add three rooms")
-	_assert_eq(game_root._room_count_for_floor(4), 11, "hidden floor four should retain the final authored expansion")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(1), 4, "floor one should begin with four rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(2), 6, "floor two should add two rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(3), 9, "floor three should add three rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(4), 11, "hidden floor four should retain the final authored expansion")
 	for floor_number in range(2, 5):
-		var growth: int = game_root._room_count_for_floor(floor_number) - game_root._room_count_for_floor(floor_number - 1)
+		var growth: int = RealitySceneAdapterScript.room_count_for_floor(floor_number) - RealitySceneAdapterScript.room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
 	var expected_npc_counts := [4, 3, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
-		_assert_eq(game_root._npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
+		_assert_eq(RealitySceneAdapterScript.npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
 		if floor_index > 0:
 			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 4, "generated first floor should match the room formula")
@@ -208,13 +210,13 @@ func _run() -> void:
 			var rail_center_y := (hud_rail.offset_top + hud_rail.offset_bottom) * 0.5
 			_assert_true(absf(rail_center_y - picture_center_y) <= 2.0, "left HUD should stay vertically centered on the picture")
 	_assert_true(bool(game_root._reality_mouse_look_enabled), "putting the phone down should immediately enable free mouse look")
-	var yaw_before_mouse := float(game_root._reality_yaw)
+	var yaw_before_mouse := float(game_root._reality_scene_adapter.yaw)
 	var mouse_turn := InputEventMouseMotion.new()
 	mouse_turn.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(mouse_turn)
-	_assert_true(not is_equal_approx(float(game_root._reality_yaw), yaw_before_mouse), "horizontal mouse movement should rotate the first-person view")
-	var yaw_before_touch := float(game_root._reality_yaw)
-	var pitch_before_touch := float(game_root._reality_pitch)
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before_mouse), "horizontal mouse movement should rotate the first-person view")
+	var yaw_before_touch := float(game_root._reality_scene_adapter.yaw)
+	var pitch_before_touch := float(game_root._reality_scene_adapter.pitch)
 	var actions_before_touch := int(game_root.game.actions_remaining)
 	var touch_start := InputEventScreenTouch.new()
 	touch_start.index = 3
@@ -226,58 +228,58 @@ func _run() -> void:
 	touch_turn.position = Vector2(688.0, 468.0)
 	touch_turn.screen_relative = Vector2(-72.0, 38.0)
 	game_root._input(touch_turn)
-	_assert_true(not is_equal_approx(float(game_root._reality_yaw), yaw_before_touch), "horizontal touchscreen drag should rotate the first-person view")
-	_assert_true(not is_equal_approx(float(game_root._reality_pitch), pitch_before_touch), "vertical touchscreen drag should tilt the first-person view")
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before_touch), "horizontal touchscreen drag should rotate the first-person view")
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pitch), pitch_before_touch), "vertical touchscreen drag should tilt the first-person view")
 	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "touchscreen free look should not spend an action")
-	var yaw_after_primary_touch := float(game_root._reality_yaw)
+	var yaw_after_primary_touch := float(game_root._reality_scene_adapter.yaw)
 	var second_touch_turn := InputEventScreenDrag.new()
 	second_touch_turn.index = 4
 	second_touch_turn.position = Vector2(500.0, 300.0)
 	second_touch_turn.screen_relative = Vector2(120.0, 0.0)
 	game_root._input(second_touch_turn)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_after_primary_touch), "a second finger should not steal the active one-finger camera gesture")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_after_primary_touch), "a second finger should not steal the active one-finger camera gesture")
 	var touch_end := InputEventScreenTouch.new()
 	touch_end.index = 3
 	touch_end.position = touch_turn.position
 	touch_end.pressed = false
 	game_root._input(touch_end)
 	_assert_eq(int(game_root._reality_touch_look_index), -1, "lifting the active finger should finish the camera gesture")
-	game_root._reality_yaw = 0.0
+	game_root._reality_scene_adapter.yaw = 0.0
 	var trackpad_left := InputEventPanGesture.new()
 	# macOS pan deltas report content movement, opposite to finger movement.
 	trackpad_left.delta = Vector2(2.0, 0.0)
 	game_root._input(trackpad_left)
-	_assert_true(float(game_root._reality_yaw) > 0.0, "two-finger trackpad movement to the left should turn the camera left")
-	_assert_true(absf(float(game_root._reality_yaw)) <= 4.0, "trackpad look should use the reduced sensitivity")
-	game_root._reality_yaw = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.yaw) > 0.0, "two-finger trackpad movement to the left should turn the camera left")
+	_assert_true(absf(float(game_root._reality_scene_adapter.yaw)) <= 4.0, "trackpad look should use the reduced sensitivity")
+	game_root._reality_scene_adapter.yaw = 0.0
 	var trackpad_right := InputEventPanGesture.new()
 	trackpad_right.delta = Vector2(-2.0, 0.0)
 	game_root._input(trackpad_right)
-	_assert_true(float(game_root._reality_yaw) < 0.0, "two-finger trackpad movement to the right should turn the camera right")
-	game_root._reality_pitch = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.yaw) < 0.0, "two-finger trackpad movement to the right should turn the camera right")
+	game_root._reality_scene_adapter.pitch = 0.0
 	var trackpad_up := InputEventPanGesture.new()
 	trackpad_up.delta = Vector2(0.0, 2.0)
 	game_root._input(trackpad_up)
-	_assert_true(float(game_root._reality_pitch) > 0.0, "two-finger trackpad movement upward should tilt the camera upward")
-	game_root._reality_pitch = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.pitch) > 0.0, "two-finger trackpad movement upward should tilt the camera upward")
+	game_root._reality_scene_adapter.pitch = 0.0
 	var trackpad_down := InputEventPanGesture.new()
 	trackpad_down.delta = Vector2(0.0, -2.0)
 	game_root._input(trackpad_down)
-	_assert_true(float(game_root._reality_pitch) < 0.0, "two-finger trackpad movement downward should tilt the camera downward")
+	_assert_true(float(game_root._reality_scene_adapter.pitch) < 0.0, "two-finger trackpad movement downward should tilt the camera downward")
 	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "trackpad free look should not spend an action")
 	game_root.set_view_state("phone_down")
-	var yaw_while_phone_is_up := float(game_root._reality_yaw)
+	var yaw_while_phone_is_up := float(game_root._reality_scene_adapter.yaw)
 	game_root._input(touch_start)
 	game_root._input(touch_turn)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_while_phone_is_up), "touchscreen drag should not turn the world while the phone interface is active")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_while_phone_is_up), "touchscreen drag should not turn the world while the phone interface is active")
 	game_root._input(trackpad_left)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_while_phone_is_up), "trackpad pan should keep scrolling available instead of turning the world while the phone is active")
-	var pitch_while_phone_is_up := float(game_root._reality_pitch)
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_while_phone_is_up), "trackpad pan should keep scrolling available instead of turning the world while the phone is active")
+	var pitch_while_phone_is_up := float(game_root._reality_scene_adapter.pitch)
 	game_root._input(trackpad_up)
-	_assert_true(is_equal_approx(float(game_root._reality_pitch), pitch_while_phone_is_up), "vertical trackpad pan should remain available to phone UI while the phone is active")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pitch), pitch_while_phone_is_up), "vertical trackpad pan should remain available to phone UI while the phone is active")
 	game_root.set_view_state("npc_up")
-	game_root._reality_yaw = 0.0
-	game_root._reality_pitch = 0.0
+	game_root._reality_scene_adapter.yaw = 0.0
+	game_root._reality_scene_adapter.pitch = 0.0
 	if player != null:
 		var walk_start := player.position
 		Input.action_press("reality_forward")
@@ -296,7 +298,7 @@ func _run() -> void:
 		Input.action_release("reality_forward")
 		var sprint_distance := walk_start.distance_to(player.position)
 		_assert_true(sprint_distance > walk_distance * 1.35, "holding Shift while walking should cover substantially more distance")
-		game_root._reality_yaw = 0.0
+		game_root._reality_scene_adapter.yaw = 0.0
 		player.position = Vector3(0.0, 0.08, map_length * 0.5 - 1.2)
 		player.velocity = Vector3.ZERO
 		Input.action_press("reality_back")
@@ -312,10 +314,10 @@ func _run() -> void:
 	if player != null and doll != null:
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 		game_root._refresh_nearby_reality_actor()
-		_assert_true(game_root._nearby_reality_actor == doll, "approaching the stitched doll should select it as the nearby actor")
+		_assert_true(game_root._reality_scene_adapter.nearby_actor == doll, "approaching the stitched doll should select it as the nearby actor")
 		_assert_true(game_root._try_reality_interaction(), "F interaction path should open the nearby actor")
 		_assert_true(game_root._reality_interaction_active, "world interaction should enter the dialogue state")
-		_assert_true(game_root._active_reality_actor == doll, "world interaction should remember the discovered doll")
+		_assert_true(game_root._reality_scene_adapter.active_actor == doll, "world interaction should remember the discovered doll")
 		var leave_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
 		var actions_before_leave := int(game_root.game.actions_remaining)
 		_assert_true(leave_button != null and leave_button.visible and leave_button.text == "离开", "doll and NPC conversations should expose an immediate Leave button")
@@ -325,9 +327,9 @@ func _run() -> void:
 		_assert_eq(game_root.game.actions_remaining, actions_before_leave, "leaving without speaking should not spend an action")
 		game_root._refresh_nearby_reality_actor()
 		_assert_true(game_root._try_reality_interaction(), "the same actor should remain available after leaving")
-		var yaw_during_dialogue := float(game_root._reality_yaw)
+		var yaw_during_dialogue := float(game_root._reality_scene_adapter.yaw)
 		game_root._unhandled_input(touch_turn)
-		_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_during_dialogue), "touchscreen drag should not turn the camera during a reality conversation")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_during_dialogue), "touchscreen drag should not turn the camera during a reality conversation")
 		var choice_id := str(game_root.game.get_typed_reality_choices()[0].get("id", ""))
 		game_root._on_reality_choice_selected(choice_id)
 		var arbitrary_key := InputEventKey.new()

@@ -63,7 +63,7 @@ func _capture() -> void:
 	if main._phone_down_backdrop_image != null:
 		main._phone_down_backdrop_image.visible = false
 	_hide_canvas_layers(main)
-	var actor_root := main._reality_floor.get_node_or_null("Actors") as Node3D
+	var actor_root := main._reality_scene_adapter.floor.get_node_or_null("Actors") as Node3D
 	if actor_root != null:
 		actor_root.visible = false
 	for frame in 18:
@@ -79,8 +79,8 @@ func _capture() -> void:
 	camera.attributes = null
 	_add_review_light(camera, floor_number)
 	var artifacts: Array[Node3D] = []
-	_collect_artifacts(main._reality_floor, artifacts)
-	_hide_non_preview_geometry(main._reality_floor)
+	_collect_artifacts(main._reality_scene_adapter.floor, artifacts)
+	_hide_non_preview_geometry(main._reality_scene_adapter.floor)
 	var first_by_type: Dictionary = {}
 	for artifact in artifacts:
 		var artifact_type := str(artifact.get_meta("dreamcore_type", ""))

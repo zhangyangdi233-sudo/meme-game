@@ -33,9 +33,9 @@ func _run_async() -> void:
 			var billboard := doll.get_node_or_null("Billboard") as Sprite3D
 			_assert_true(billboard != null and billboard.texture != null, "the doll should render with the user-authored artwork")
 			_assert_true(bool(doll.get_meta("guide_character", false)), "the world actor should be marked as the guide character")
-			game_root._reality_player.position = doll.position + Vector3(0.0, 0.0, 1.4)
+			game_root._reality_scene_adapter.player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 			game_root._refresh_nearby_reality_actor()
-			_assert_true(game_root._nearby_reality_actor == doll, "approaching the doll should select it for interaction")
+			_assert_true(game_root._reality_scene_adapter.nearby_actor == doll, "approaching the doll should select it for interaction")
 			_assert_true(game_root._try_reality_interaction(), "the physical doll should open its authored conversation")
 			_assert_eq(game_root.game.conversation_actor_type, "doll", "doll interaction should enter the doll conversation branch")
 			var choices: Array = game_root.game.get_typed_reality_choices()
@@ -53,7 +53,7 @@ func _run_async() -> void:
 				_assert_eq(str(game_root.game.get_tutorial_step().get("id", "")), "open_social", "guide discovery should advance the tutorial to the phone")
 				_assert_true(bool(doll.get_meta("claimed", false)), "the world doll should remember that its first guidance was heard")
 				if game_root._input_locked:
-					game_root._finish_action_spend_animation()
+					game_root._narrative_director.finish_action_spend_animation()
 
 		game_root.queue_free()
 		await process_frame
@@ -72,9 +72,9 @@ func _token(token_id: String, text: String, role: String, phone_surface: String,
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
-	if game_root._reality_floor == null:
+	if game_root._reality_scene_adapter.floor == null:
 		return null
-	for actor in game_root._reality_floor.get_interactable_actors():
+	for actor in game_root._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null

@@ -51,8 +51,9 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(game_root.get_node_or_null("CanvasLayer") is CanvasLayer, "2D interaction UI should remain on a CanvasLayer")
 	_assert_true(game_root.get_node_or_null("RealityFloor") is Node3D, "the physical floor should exist")
 	_assert_true(game_root.has_method("set_view_state"), "camera should support phone-down and NPC-up views")
-	_assert_true(game_root.has_method("_play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
-	_assert_true(game_root.has_method("_finish_pollution_flashback"), "the flashback should expose a deterministic completion path")
+	_assert_true(game_root._narrative_director != null, "narrative overlays should be wired through the director")
+	_assert_true(game_root._narrative_director.has_method("play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
+	_assert_true(game_root._narrative_director.has_method("finish_pollution_flashback"), "the flashback should expose a deterministic completion path")
 	_assert_true(_find_node_by_name(game_root, "PollutionFlashbackOverlay") is Control, "the flashback overlay should be present")
 	_assert_true(game_root.get_node_or_null("Road") == null, "retired road tiles must not be built each run")
 	_assert_true(game_root.get_node_or_null("PhoneRig") == null, "retired PhoneRig must not be built each run")
@@ -199,7 +200,7 @@ func _test_physical_doll_entry(game_root: Node) -> void:
 	var billboard := doll.get_node_or_null("Billboard") as Sprite3D
 	_assert_true(billboard != null and billboard.texture != null, "doll should use the user-authored guide image")
 	_assert_true(bool(doll.get_meta("guide_character", false)), "doll actor should carry the permanent guide role")
-	game_root._reality_player.position = doll.position + Vector3(0.0, 0.0, 1.35)
+	game_root._reality_scene_adapter.player.position = doll.position + Vector3(0.0, 0.0, 1.35)
 	game_root._refresh_nearby_reality_actor()
 	_assert_true(game_root._try_reality_interaction(), "approaching the doll should start its authored encounter")
 	_assert_eq(game_root.game.conversation_actor_type, "doll", "doll should use its own conversation type")
@@ -226,9 +227,9 @@ func _test_language_and_playtest_contract(game_root: Node) -> void:
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
-	if game_root._reality_floor == null:
+	if game_root._reality_scene_adapter.floor == null:
 		return null
-	for actor in game_root._reality_floor.get_interactable_actors():
+	for actor in game_root._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null
