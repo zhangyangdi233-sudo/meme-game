@@ -54,6 +54,21 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(game_root.has_method("_play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
 	_assert_true(game_root.has_method("_finish_pollution_flashback"), "the flashback should expose a deterministic completion path")
 	_assert_true(_find_node_by_name(game_root, "PollutionFlashbackOverlay") is Control, "the flashback overlay should be present")
+	_assert_true(game_root.get_node_or_null("Road") == null, "retired road tiles must not be built each run")
+	_assert_true(game_root.get_node_or_null("PhoneRig") == null, "retired PhoneRig must not be built each run")
+	_assert_true(game_root.get_node_or_null("NPC") == null, "retired NPC plane must not be built each run")
+	_assert_true(_find_node_by_name(game_root, "MemeBankPopup") == null, "retired meme ring popup must not hang into the adapter")
+	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "retired 3D companion body must not exist")
+	_assert_true(_find_node_by_name(game_root, "DollGuideOverlay") is Control, "the DollGuide window must remain")
+	var backdrop := _find_node_by_name(game_root, "PhoneDownBackdropImage") as TextureRect
+	_assert_true(backdrop != null, "phone-down backdrop should remain")
+	if backdrop != null:
+		game_root.set_view_state("phone_down")
+		for _settle_index in 8:
+			game_root._animate_world(0.5)
+		var settled_position := backdrop.position
+		game_root._animate_world(0.8)
+		_assert_true(backdrop.position != settled_position, "phone-down backdrop should keep walking sway after fade-in without road tiles")
 
 	for asset_path in [
 		"res://assets/generated/characters/guide_doll.png",
@@ -74,8 +89,26 @@ func _test_scene_contract(game_root: Node) -> void:
 		"func _render_shop_app",
 		"func _on_buy_meme_frame_pressed",
 		"merchant_frame_vendor.png",
+		"func _should_show_meme_bank",
+		"func _should_peek_meme_bank",
+		"func _ensure_meme_bank_panel",
+		"func _update_doll_companion",
+		"func _on_confirm_craft_pressed",
+		"func _on_token_pressed",
+		"func _on_note_token_pressed",
+		"func _on_slot_token_dropped",
+		"func _on_slot_pressed",
+		"func _on_dialogue_blank_pressed",
+		"func _on_dialogue_meme_dropped",
+		"func _craft_preview_text",
+		"func _slot_text",
+		"func _on_meme_pressed",
+		"func _on_meme_ring_selection_changed",
+		'_phone_rig.name = "PhoneRig"',
+		'npc_body.name = "NPCPlane"',
+		'tile.name = "RoadTile%d"',
 	]:
-		_assert_true(not main_source.contains(removed_runtime_identifier), "removed shop runtime should stay absent: %s" % removed_runtime_identifier)
+		_assert_true(not main_source.contains(removed_runtime_identifier), "removed adapter corpse should stay absent: %s" % removed_runtime_identifier)
 
 
 func _test_compact_hud_and_settings(game_root: Node) -> void:

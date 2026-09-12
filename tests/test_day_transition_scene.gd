@@ -78,20 +78,19 @@ func _run() -> void:
 
 	game_root.new_game()
 	await process_frame
-	var meme_bank := Harness.find_node_by_name(game_root, "MemeBankPopup") as Control
-	_assert_true(meme_bank != null and not meme_bank.visible, "the retired meme ring must stay hidden on the feed")
-	_assert_true(not game_root._should_peek_meme_bank(), "the retired meme ring must not peek")
-	_assert_true(not game_root._should_show_meme_bank(), "the meme ring visibility rule should always refuse")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the retired meme ring must not be mounted on the feed")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPanel") == null, "the retired meme ring panel must not hang into the adapter")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankRadialRing") == null, "the retired radial selector must not exist in the scene")
 	game_root._social_screen = "publish"
 	game_root._open_app_windows["social"] = true
 	game_root._render()
-	_assert_true(meme_bank != null and not meme_bank.visible, "the retired meme ring must stay hidden on the publish page too")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the retired meme ring must not appear on the publish page")
 	game_root.game.set_active_app("notebook")
 	game_root._open_app_windows["social"] = false
 	game_root._render()
-	_assert_true(meme_bank != null and not meme_bank.visible, "the notebook must not bring the ring back either")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the notebook must not bring the ring back")
 	game_root.set_view_state("npc_up")
-	_assert_true(meme_bank != null and not meme_bank.visible, "reality walking should never show the ring")
+	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "reality walking should never show the ring")
 	game_root.set_view_state("phone_down")
 	game_root._social_screen = "home"
 	game_root._render()

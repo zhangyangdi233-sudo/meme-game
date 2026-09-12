@@ -121,7 +121,7 @@ Run a **single** GDScript test on Windows:
 There is no CI and no pre-commit hook — tests run only when you invoke a runner (or when an agent does so in your environment).
 
 The rendered publish-layout capture tool is `res://tools/capture_publish_scene.gd`.
-Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_district.gd` from a rendered Godot session to capture each district. Add `BABEL_CAPTURE_OVERVIEW=1` on floor two for the elevated structural QA view. Run `res://tools/capture_meme_bank_motion.gd` to save closed, opening, and open frames plus the measured scale/alpha trace. The generated-floor regression test is `res://tests/test_reality_world.gd`, and the transition/context test is `res://tests/test_day_transition.gd`. Doll evidence is captured by `capture_doll_discovery.gd`, `capture_doll_dialogue.gd`, and `capture_doll_reward.gd`.
+Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_district.gd` from a rendered Godot session to capture each district. Add `BABEL_CAPTURE_OVERVIEW=1` on floor two for the elevated structural QA view. The generated-floor regression test is `res://tests/test_reality_world.gd`, and the transition/context test is `res://tests/test_day_transition_scene.gd`. Doll evidence is captured by `capture_doll_discovery.gd`, `capture_doll_dialogue.gd`, and `capture_doll_reward.gd`.
 
 Run the localization audit with `res://tests/test_localization.gd`. It verifies catalog parity, dynamic format strings, language-specific text units, first-run language selection, settings language switching, and source-literal coverage.
 

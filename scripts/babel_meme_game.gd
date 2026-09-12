@@ -3,7 +3,6 @@ extends Node3D
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
-const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
@@ -21,7 +20,6 @@ const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
-const MemeBankPanelScript = preload("res://scripts/ui/meme_bank_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
 const RealityLanguageComposerPanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
@@ -63,9 +61,6 @@ const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.pn
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
-# 跟随玩偶:小体量 + 右后下方偏移,保证不遮挡前方视野与准心。
-const DOLL_COMPANION_PIXEL_SIZE := 0.0016
-const DOLL_COMPANION_OFFSET := Vector3(0.72, 0.95, 0.55)
 # 可拾取字的视觉可供性:脉动频率与字号(配合下划线,构成非颜色依赖的三重提示)。
 const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
@@ -86,10 +81,6 @@ const HUD_DRAWER_EDGE_CUE_WIDTH := 5.0
 const HUD_DRAWER_OPEN_DURATION := 0.26
 const HUD_DRAWER_CLOSE_DURATION := 0.18
 const HUD_DRAWER_CLOSE_DELAY := 0.22
-const MEME_BANK_MOTION_TRANSITION := Tween.TRANS_QUINT
-const MEME_BANK_MOTION_EASE := Tween.EASE_OUT
-const MEME_BANK_SCALE_DURATION := 0.28
-const MEME_BANK_ALPHA_DURATION := 0.22
 const SAVE_PATH := "user://babel_meme_save.dat"
 const SAVE_FILE_VERSION := 1
 const WORLD_HOTKEY_ACTIONS := [
@@ -107,16 +98,12 @@ var _social_post_cards: Array = SocialFeedCatalogScript.get_post_cards()
 
 var game: MemeGameState = MemeGameStateScript.new()
 var _locale = GameLocaleScript.new()
-var selected_token_id := ""
 var selected_meme_id := ""
 var log_text := ""
-var _road_scroll := 0.0
+var _phone_sway_time := 0.0
 var _input_locked := false
 
 var _camera: Camera3D
-var _road: Node3D
-var _phone_rig: Node3D
-var _npc: Node3D
 var _reality_scene_adapter
 var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
@@ -216,7 +203,6 @@ var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
 var _phone_launcher_panel
-var _meme_bank_panel
 var _notebook_app_panel
 var _babel_app_panel
 var _language_overlay: Control
@@ -229,14 +215,6 @@ var _app_body: VBoxContainer
 var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
-var _publish_panel: PanelContainer
-var _publish_blank: DropButton
-var _confirm_publish_button: Button
-var _meme_bank_window: Control
-var _meme_bank_content: Control
-var _meme_bank_ring: Control
-var _meme_bank_selected_index := 0
-var _meme_bank_tween: Tween
 var _reality_conversation_panel
 var _reality_hover_choice_id := ""
 var _reality_language_composer_panel
@@ -247,11 +225,8 @@ var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
 var _ending_screen_panel
-var _doll_companion: Node3D
-var _meme_bank_open := false
 var _phone_popup_expanded := true
 var _phone_launcher_open := true
-var _meme_bank_layout_mode := ""
 var _open_app_windows: Dictionary = {}
 var _social_screen := "home"
 var _social_channel := "discover"
@@ -331,12 +306,10 @@ func _narrative_overlay_deps() -> Dictionary:
 			if _audio_controller != null and _audio_controller.flashback_audio != null:
 				_audio_controller.flashback_audio.stop(),
 		"on_day_settled": func() -> void:
-			selected_token_id = ""
 			selected_meme_id = ""
 			if game != null and not game.event_log.is_empty():
 				log_text = game.event_log[0],
 		"on_flashback_settled": func() -> void:
-			selected_token_id = ""
 			selected_meme_id = ""
 			log_text = "黑屏之后，已经是第二天。"
 			if game != null and not game.event_log.is_empty():
@@ -477,7 +450,6 @@ func _process(delta: float) -> void:
 		_apply_responsive_layouts_if_needed()
 		if _edge_drawer != null:
 			_edge_drawer.tick(delta)
-		_update_doll_companion(delta)
 	_animate_world(delta)
 
 
@@ -620,12 +592,9 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	game = session_state
 	_migrate_social_author_ids()
 	_connect_game_state_signals()
-	selected_token_id = ""
 	selected_meme_id = ""
-	_meme_bank_open = false
 	_phone_popup_expanded = true
 	_phone_launcher_open = str(_phone_shell_snapshot().get("active_app_window", "")).is_empty()
-	_meme_bank_layout_mode = ""
 	_open_app_windows = {}
 	var shell_snapshot: Dictionary = _phone_shell_snapshot()
 	var restored_app_window := str(shell_snapshot.get("active_app_window", ""))
@@ -952,7 +921,6 @@ func set_view_state(value: String) -> void:
 		if value == "npc_up":
 			_set_reality_mouse_look(true)
 			log_text = "你放下手机，大街重新获得纵深。"
-			_meme_bank_open = false
 			_phone_launcher_open = false
 		else:
 			_set_reality_mouse_look(false)
@@ -1061,67 +1029,6 @@ func _build_world(build_playable_floor: bool = true) -> void:
 	_reality_scene_adapter.build_world_nodes()
 	if build_playable_floor:
 		_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
-
-	_road = Node3D.new()
-	_road.name = "Road"
-	add_child(_road)
-	for index in 3:
-		var tile := MeshInstance3D.new()
-		tile.name = "RoadTile%d" % index
-		var plane := PlaneMesh.new()
-		plane.size = Vector2(7.0, 4.0)
-		tile.mesh = plane
-		tile.position = Vector3(0.0, -0.08, -2.0 - index * 3.8)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = _theme_color("accent").darkened(0.50 - index * 0.08)
-		mat.roughness = 0.8
-		tile.material_override = mat
-		_road.add_child(tile)
-
-	_phone_rig = Node3D.new()
-	_phone_rig.name = "PhoneRig"
-	add_child(_phone_rig)
-	var phone_body := MeshInstance3D.new()
-	phone_body.name = "PhoneBody"
-	var phone_box := BoxMesh.new()
-	phone_box.size = Vector3(1.0, 0.08, 1.65)
-	phone_body.mesh = phone_box
-	var phone_mat := StandardMaterial3D.new()
-	phone_mat.albedo_color = _theme_color("accent")
-	phone_body.material_override = phone_mat
-	_phone_rig.add_child(phone_body)
-	var phone_screen := MeshInstance3D.new()
-	phone_screen.name = "PhoneScreen"
-	var screen_box := BoxMesh.new()
-	screen_box.size = Vector3(0.84, 0.085, 1.35)
-	phone_screen.mesh = screen_box
-	phone_screen.position = Vector3(0.0, 0.006, 0.0)
-	var screen_mat := StandardMaterial3D.new()
-	screen_mat.albedo_color = _theme_color("ink")
-	screen_mat.emission_enabled = true
-	screen_mat.emission = _theme_color("accent")
-	screen_mat.emission_energy_multiplier = 0.35
-	phone_screen.material_override = screen_mat
-	_phone_rig.add_child(phone_screen)
-
-	_npc = Node3D.new()
-	_npc.name = "NPC"
-	add_child(_npc)
-	var npc_body := MeshInstance3D.new()
-	npc_body.name = "NPCPlane"
-	var npc_quad := QuadMesh.new()
-	npc_quad.size = Vector2(1.6, 2.4)
-	npc_body.mesh = npc_quad
-	npc_body.position = Vector3(0.0, 1.25, -3.2)
-	var npc_mat := StandardMaterial3D.new()
-	npc_mat.albedo_color = _theme_color("surface")
-	npc_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	npc_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	npc_mat.emission_enabled = true
-	npc_mat.emission = _theme_color("muted")
-	npc_mat.emission_energy_multiplier = 0.12
-	npc_body.material_override = npc_mat
-	_npc.add_child(npc_body)
 
 	_canvas = CanvasLayer.new()
 	_canvas.name = "CanvasLayer"
@@ -1554,10 +1461,6 @@ func _build_ui() -> void:
 	_ensure_reality_language_composer_panel()
 	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
-	_ensure_meme_bank_panel()
-	_meme_bank_panel.mount(_ui_root, _meme_bank_mount_deps())
-	_sync_meme_bank_refs()
-
 	_desk_log = _label("", 16, _theme_color("accent"))
 	_desk_log.name = "DeskLog"
 	_desk_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -1813,8 +1716,6 @@ func _layout_hud_rail() -> void:
 		hud_reveal_zone.offset_top = center_y - rail_height * 0.5
 		hud_reveal_zone.offset_right = HUD_DRAWER_EDGE_HIT_WIDTH
 		hud_reveal_zone.offset_bottom = center_y + rail_height * 0.5
-	if _window_manager != null:
-		_window_manager.set_window_min_x("bank", hud_rail.get_global_rect().end.x + 12.0)
 
 
 func _build_settings_window() -> void:
@@ -2304,39 +2205,6 @@ func _connect_reality_language_composer_panel_signals() -> void:
 		_reality_language_composer_panel.confirm_pressed.connect(_on_confirm_doctor_sentence_pressed)
 
 
-func _ensure_meme_bank_panel() -> void:
-	if _meme_bank_panel != null and is_instance_valid(_meme_bank_panel):
-		return
-	_meme_bank_panel = MemeBankPanelScript.new()
-	_meme_bank_panel.name = "MemeBankPanel"
-	add_child(_meme_bank_panel)
-	_connect_meme_bank_panel_signals()
-
-
-func _meme_bank_mount_deps() -> Dictionary:
-	_ensure_window_manager()
-	return {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"register_draggable": _make_draggable_window,
-		"viewport_size": _viewport_size,
-		"clear_children": _clear,
-		"corrupt_text": _corrupt,
-	}
-
-
-func _connect_meme_bank_panel_signals() -> void:
-	var panel = _meme_bank_panel
-	if panel == null:
-		return
-	if not panel.tab_pressed.is_connected(_toggle_meme_bank):
-		panel.tab_pressed.connect(_toggle_meme_bank)
-	if not panel.selection_changed.is_connected(_on_meme_ring_selection_changed):
-		panel.selection_changed.connect(_on_meme_ring_selection_changed)
-	if not panel.meme_pressed.is_connected(_on_meme_pressed):
-		panel.meme_pressed.connect(_on_meme_pressed)
-
-
 func _ensure_babel_app_panel() -> void:
 	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
 		return
@@ -2414,19 +2282,6 @@ func _connect_notebook_app_panel_signals() -> void:
 		panel.fusion_meme_dropped.connect(_on_fusion_meme_dropped)
 	if not panel.fusion_slot_pressed.is_connected(_on_fusion_slot_pressed):
 		panel.fusion_slot_pressed.connect(_on_fusion_slot_pressed)
-
-
-func _sync_meme_bank_refs() -> void:
-	if _meme_bank_panel == null:
-		return
-	_meme_bank_window = _meme_bank_panel.get_popup()
-	_meme_bank_ring = _meme_bank_panel.get_ring()
-	_meme_bank_content = _meme_bank_panel.get_content()
-
-
-func _apply_meme_bank_popup_layout(mode: String) -> void:
-	if _meme_bank_panel != null:
-		_meme_bank_panel.layout_popup(mode)
 
 
 func _inject_settings_camera_block() -> void:
@@ -2660,11 +2515,6 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	_last_responsive_layout_size = viewport_size
 	if _phone_launcher_panel != null and game != null:
 		_phone_launcher_panel.layout_popup(str(_phone_shell_snapshot().get("view_state", "")) == "phone_down")
-	if _meme_bank_window != null:
-		var show_meme_bank := _should_show_meme_bank()
-		var desired_bank_layout := "open" if _meme_bank_open else ("collapsed" if show_meme_bank else "peek")
-		_meme_bank_layout_mode = desired_bank_layout
-		_apply_meme_bank_popup_layout(desired_bank_layout)
 	if _social_feed_panel != null:
 		var social_safe_left := 12.0
 		var hud_rail := _hud_rail()
@@ -2694,7 +2544,6 @@ func _render() -> void:
 	_render_status()
 	_render_world_prompt()
 	_render_app()
-	_render_meme_bank()
 	_render_reality()
 	_update_visibility()
 	_apply_world_theme()
@@ -2796,13 +2645,10 @@ func _render_app() -> void:
 
 func _render_social_app() -> void:
 	_app_title.text = "社交媒体 App"
-	_publish_blank = null
-	_confirm_publish_button = null
 	if _social_feed_panel == null:
 		return
 	_social_feed_panel.render_app(_social_screen, _social_channel)
 	_social_feed_panel.render_companion()
-	_confirm_publish_button = _social_feed_panel.get_confirm_publish_button()
 
 
 func _render_babel_app() -> void:
@@ -2837,8 +2683,6 @@ func _set_social_screen(screen: String) -> void:
 	if _social_feed_panel != null:
 		_social_feed_panel.close_detail()
 	_social_channel = "discover"
-	if screen == "publish":
-		_meme_bank_open = true
 	_render()
 
 
@@ -2888,58 +2732,7 @@ func _set_notebook_crafting_tab(tab_id: String) -> void:
 	if tab_id not in ["frame", "fusion"]:
 		return
 	_notebook_crafting_tab = tab_id
-	if tab_id == "fusion":
-		_meme_bank_open = true
 	_render()
-
-
-func _meme_bank_snapshot() -> Dictionary:
-	var inventory: Dictionary = _inventory_snapshot()
-	return {
-		"completed_memes": inventory.get("completed_memes", []),
-		"selected_meme_id": selected_meme_id,
-		"selected_index": _meme_bank_selected_index,
-		"can_spend_action": game != null and game.can_spend_action(),
-		"theme_colors": {
-			"surface": _theme_color("surface"),
-			"muted": _theme_color("muted"),
-			"accent": _theme_color("accent"),
-		},
-		"meme_bank_open": _meme_bank_open,
-		"should_show_meme_bank": _should_show_meme_bank(),
-		"placed_meme": _placed_meme(),
-		"publish_blank": _publish_blank,
-		"confirm_publish_button": _confirm_publish_button,
-	}
-
-
-func _render_meme_bank() -> void:
-	if _meme_bank_panel == null or not is_instance_valid(_meme_bank_panel):
-		_meme_bank_panel = null
-		return
-	_sync_meme_bank_selected_index()
-	_meme_bank_panel.render(_meme_bank_snapshot())
-
-
-func _sync_meme_bank_selected_index() -> void:
-	var completed_memes: Array = _inventory_snapshot().get("completed_memes", [])
-	if completed_memes.is_empty():
-		return
-	if not selected_meme_id.is_empty():
-		for index in completed_memes.size():
-			if str((completed_memes[index] as Dictionary).get("id", "")) == selected_meme_id:
-				_meme_bank_selected_index = index
-				return
-	_meme_bank_selected_index = clampi(_meme_bank_selected_index, 0, completed_memes.size() - 1)
-
-
-func _on_meme_ring_selection_changed(index: int) -> void:
-	var completed_memes: Array = _inventory_snapshot().get("completed_memes", [])
-	if completed_memes.is_empty():
-		return
-	_meme_bank_selected_index = clampi(index, 0, completed_memes.size() - 1)
-	var meme: Dictionary = completed_memes[_meme_bank_selected_index] as Dictionary
-	selected_meme_id = str(meme.get("id", ""))
 
 
 func _render_reality() -> void:
@@ -3113,20 +2906,6 @@ func _update_visibility() -> void:
 			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
 	if _social_feed_panel != null:
 		_social_feed_panel.update_visibility(in_phone, bool(_open_app_windows.get("social", false)))
-	if _publish_panel != null:
-		_publish_panel.visible = false
-	var show_meme_bank := _should_show_meme_bank()
-	var peek_meme_bank := _should_peek_meme_bank()
-	_meme_bank_window.visible = show_meme_bank or peek_meme_bank
-	if not show_meme_bank:
-		_meme_bank_open = false
-	var desired_bank_layout := "open" if _meme_bank_open else ("collapsed" if show_meme_bank else "peek")
-	if _meme_bank_layout_mode != desired_bank_layout:
-		_meme_bank_layout_mode = desired_bank_layout
-		_apply_meme_bank_popup_layout(desired_bank_layout)
-	if _meme_bank_panel != null:
-		_meme_bank_panel.update_open_parts_visible(show_meme_bank, _meme_bank_open)
-	_avoid_meme_bank_overlaps()
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
 	if _hand_phone_image != null:
@@ -3161,10 +2940,6 @@ func _update_visibility() -> void:
 		_reality_floor.visible = not in_phone
 	if _reality_player != null:
 		_reality_player.visible = not in_phone
-	if _npc != null:
-		_npc.visible = false
-	if _phone_rig != null:
-		_phone_rig.visible = false
 	if _cinematic_bars != null:
 		_cinematic_bars.set_bars_visible(_game_started and not in_phone)
 	_layout_hud_rail()
@@ -3177,7 +2952,6 @@ func _animate_world(delta: float) -> void:
 			_camera.rotation_degrees = _camera.rotation_degrees.lerp(Vector3(-18.0, 0.0, 0.0), minf(1.0, delta * 3.0))
 		_animate_vhs(delta)
 		return
-	var phone_target := Vector3(0.0, 0.15, -1.15) if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" else Vector3(1.45, -0.8, -1.0)
 	var camera_target_pos := Vector3(0.0, 1.45, 2.2)
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_player != null:
@@ -3191,26 +2965,19 @@ func _animate_world(delta: float) -> void:
 	current_rotation.z = lerpf(current_rotation.z, 0.0, camera_lerp)
 	_camera.rotation_degrees = current_rotation
 	_camera.fov = 58.0
-	if _phone_rig != null:
-		_phone_rig.position = _phone_rig.position.lerp(phone_target, minf(1.0, delta * 6.0))
-		_phone_rig.rotation_degrees = Vector3(68.0, 0.0, 0.0)
 	var target_alpha := 1.0 if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" else 0.0
 	_phone_art_alpha = lerpf(_phone_art_alpha, target_alpha, minf(1.0, delta * 3.4))
-	_road_scroll += delta * 1.4
+	_phone_sway_time += delta * 1.4
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" or _phone_art_alpha > 0.03
 		_phone_down_backdrop_image.modulate.a = _phone_art_alpha
 		var viewport_size := _viewport_size()
-		var bob := sin(_road_scroll * 2.2) * 2.4
-		var sway := sin(_road_scroll * 1.1) * 1.1
+		var bob := sin(_phone_sway_time * 2.2) * 2.4
+		var sway := sin(_phone_sway_time * 1.1) * 1.1
 		_phone_down_backdrop_image.pivot_offset = viewport_size * 0.5
 		_phone_down_backdrop_image.scale = Vector2(1.012, 1.012)
 		var settled_position := Vector2(-viewport_size.x * 0.006 + sway, -viewport_size.y * 0.006 + bob)
 		_phone_down_backdrop_image.position = Vector2(settled_position.x, lerpf(70.0, settled_position.y, _phone_art_alpha))
-	if _road != null:
-		for index in _road.get_child_count():
-			var tile := _road.get_child(index) as Node3D
-			tile.position.z = -2.0 - index * 3.8 + fmod(_road_scroll, 3.8)
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_player != null:
 		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
@@ -3299,67 +3066,6 @@ func _is_pickable_social_character(character: String) -> bool:
 	return not character.is_empty() and not " \t\r\n，。！？；：、,.!?;:（）()【】[]《》<>“”\"'—-…".contains(character)
 
 
-func _toggle_meme_bank() -> void:
-	if not _should_show_meme_bank():
-		log_text = "梗仓库只在发布页或笔记本中出现。"
-		_render_status()
-		return
-	_meme_bank_open = not _meme_bank_open
-	if _meme_bank_open:
-		if _meme_bank_panel != null:
-			_meme_bank_panel.move_to_front()
-		elif _meme_bank_window != null:
-			_meme_bank_window.move_to_front()
-	_render()
-	_play_meme_bank_motion(_meme_bank_open)
-
-
-func _play_meme_bank_motion(opening: bool) -> void:
-	if _meme_bank_window == null or not _meme_bank_window.visible:
-		return
-	var profile := _meme_bank_motion_profile(opening)
-	if _meme_bank_tween != null and _meme_bank_tween.is_valid():
-		_meme_bank_tween.kill()
-	_meme_bank_window.pivot_offset = _meme_bank_window.size * 0.5
-	_meme_bank_window.scale = profile["start_scale"]
-	_meme_bank_window.modulate = Color(1.0, 1.0, 1.0, float(profile["start_alpha"]))
-	_meme_bank_window.set_meta("motion_easing", "easeOutQuint")
-	_meme_bank_window.set_meta("motion_phase", profile["phase"])
-	_meme_bank_window.set_meta("motion_transition", profile["transition"])
-	_meme_bank_window.set_meta("motion_ease", profile["ease"])
-	var motion_tween := create_tween().set_parallel(true)
-	_meme_bank_tween = motion_tween
-	motion_tween.tween_property(_meme_bank_window, "scale", profile["target_scale"], float(profile["scale_duration"])) \
-		.set_trans(int(profile["transition"])).set_ease(int(profile["ease"]))
-	motion_tween.tween_property(_meme_bank_window, "modulate", Color(1.0, 1.0, 1.0, float(profile["target_alpha"])), float(profile["alpha_duration"])) \
-		.set_trans(int(profile["transition"])).set_ease(int(profile["ease"]))
-	motion_tween.finished.connect(_finish_meme_bank_motion.bind(opening, motion_tween), CONNECT_ONE_SHOT)
-
-
-func _finish_meme_bank_motion(opening: bool, completed_tween: Tween) -> void:
-	if completed_tween != _meme_bank_tween or _meme_bank_window == null:
-		return
-	_meme_bank_window.scale = Vector2.ONE
-	_meme_bank_window.modulate.a = 1.0
-	_meme_bank_window.set_meta("motion_phase", "open" if opening else "closed")
-
-
-func _meme_bank_motion_profile(opening: bool) -> Dictionary:
-	return {
-		"phase": "opening" if opening else "closing",
-		"transition": MEME_BANK_MOTION_TRANSITION,
-		"ease": MEME_BANK_MOTION_EASE,
-		"scale_duration": MEME_BANK_SCALE_DURATION,
-		"alpha_duration": MEME_BANK_ALPHA_DURATION,
-		"start_scale": Vector2.ONE * (0.84 if opening else 1.10),
-		"start_alpha": 0.18 if opening else 0.72,
-		"target_scale": Vector2.ONE,
-		"target_alpha": 1.0,
-		"properties": ["scale", "modulate:a"],
-		"interrupts_previous": true,
-	}
-
-
 func _close_app_window(app_id: String) -> void:
 	_open_app_windows[app_id] = false
 	if app_id == "social":
@@ -3415,18 +3121,12 @@ func _ensure_window_manager() -> void:
 		DraggableWindowManager.DEFAULT_BOTTOM_INSET
 	)
 	_sync_window_manager_enabled()
-	_window_manager.window_drag_released.connect(_on_window_drag_released)
 
 
 func _sync_window_manager_enabled() -> void:
 	if _window_manager != null:
 		_window_manager.enabled = session_mode() == "gameplay"
 	_sync_edge_drawer_enabled()
-
-
-func _on_window_drag_released(window_id: String) -> void:
-	if window_id == "bank":
-		_avoid_meme_bank_overlaps()
 
 
 func _move_window_for_test(window_id: String, delta: Vector2) -> bool:
@@ -3444,76 +3144,6 @@ func _make_draggable_window(window: Control, window_id: String, handle: Control)
 	_window_manager.register(window, window_id, handle)
 
 
-func _should_show_meme_bank() -> bool:
-	# 梗圆环已退役:造句改用笔记本画布 + 发布页拖放,不再需要环形选择器。
-	return false
-
-
-func _should_peek_meme_bank() -> bool:
-	return false
-
-
-func _avoid_meme_bank_overlaps() -> void:
-	if _meme_bank_window == null or not _meme_bank_window.visible:
-		return
-	# The ring deliberately owns the right edge; preserving that anchor makes
-	# scroll navigation spatially predictable even when the notebook moves.
-	if _meme_bank_ring != null:
-		return
-	var targets := _meme_bank_overlap_targets()
-	if not _meme_bank_conflicts_at(_meme_bank_window.global_position, targets):
-		return
-	var bank_rect := _meme_bank_window.get_global_rect()
-	var viewport_size := _viewport_size()
-	var margin := 12.0
-	var min_x := margin
-	var hud_rail := _hud_rail()
-	if hud_rail != null and hud_rail.visible:
-		min_x = maxf(min_x, hud_rail.get_global_rect().end.x + margin)
-	var max_x := maxf(min_x, viewport_size.x - bank_rect.size.x - margin)
-	var max_y := maxf(margin, viewport_size.y - bank_rect.size.y - margin)
-	var current := _meme_bank_window.global_position
-	var candidates: Array[Vector2] = []
-	for target in targets:
-		if target == null or not target.is_visible_in_tree():
-			continue
-		var target_rect := target.get_global_rect()
-		if not Rect2(current, bank_rect.size).intersects(target_rect):
-			continue
-		candidates.append(Vector2(target_rect.position.x - bank_rect.size.x - margin, current.y))
-		candidates.append(Vector2(target_rect.end.x + margin, current.y))
-		candidates.append(Vector2(current.x, target_rect.position.y - bank_rect.size.y - margin))
-		candidates.append(Vector2(current.x, target_rect.end.y + margin))
-	candidates.append(Vector2(min_x, current.y))
-	candidates.append(Vector2(max_x, current.y))
-	for candidate in candidates:
-		var clamped := Vector2(
-			clampf(candidate.x, min_x, max_x),
-			clampf(candidate.y, margin, max_y)
-		)
-		if not _meme_bank_conflicts_at(clamped, targets):
-			_meme_bank_window.global_position = clamped
-			return
-
-
-func _meme_bank_overlap_targets() -> Array[Control]:
-	var targets: Array[Control] = []
-	for app_id in _app_windows.keys():
-		var app_window := _app_windows[app_id] as Control
-		if app_window != null and app_window.is_visible_in_tree():
-			targets.append(app_window)
-	if _view_toggle_button != null and _view_toggle_button.is_visible_in_tree():
-		targets.append(_view_toggle_button)
-	var hud_actions_label := _hud_actions_label_ref()
-	if hud_actions_label != null and hud_actions_label.is_visible_in_tree():
-		targets.append(hud_actions_label)
-	for node_name in ["SocialBottomNav", "SocialHomeIndicator"]:
-		var social_control := _find_control_by_name(_ui_root, node_name)
-		if social_control != null and social_control.is_visible_in_tree():
-			targets.append(social_control)
-	return targets
-
-
 func _find_control_by_name(node: Node, node_name: String) -> Control:
 	if node == null:
 		return null
@@ -3526,44 +3156,9 @@ func _find_control_by_name(node: Node, node_name: String) -> Control:
 	return null
 
 
-func _meme_bank_conflicts_at(position: Vector2, targets: Array[Control]) -> bool:
-	if _meme_bank_window == null:
-		return false
-	var rect := Rect2(position, _meme_bank_window.get_global_rect().size)
-	for target in targets:
-		if target == null or not target.is_visible_in_tree():
-			continue
-		if rect.intersects(target.get_global_rect()):
-			return true
-	return false
-
-
 func _apply_world_theme() -> void:
 	if _reality_floor != null:
 		_reality_floor.apply_palette(_active_palette())
-	if _road != null:
-		for index in _road.get_child_count():
-			var tile := _road.get_child(index) as MeshInstance3D
-			if tile == null:
-				continue
-			var mat := tile.material_override as StandardMaterial3D
-			if mat != null:
-				mat.albedo_color = Color.WHITE if mat.albedo_texture != null else _theme_color("accent").darkened(0.50 - index * 0.08)
-	if _phone_rig != null:
-		var phone_body := _phone_rig.get_node_or_null("PhoneBody") as MeshInstance3D
-		if phone_body != null and phone_body.material_override is StandardMaterial3D:
-			(phone_body.material_override as StandardMaterial3D).albedo_color = _theme_color("accent")
-		var phone_screen := _phone_rig.get_node_or_null("PhoneScreen") as MeshInstance3D
-		if phone_screen != null and phone_screen.material_override is StandardMaterial3D:
-			var mat := phone_screen.material_override as StandardMaterial3D
-			mat.albedo_color = _theme_color("ink")
-			mat.emission = _theme_color("accent")
-	if _npc != null:
-		var npc_body := _npc.get_node_or_null("NPCPlane") as MeshInstance3D
-		if npc_body != null and npc_body.material_override is StandardMaterial3D:
-			var mat := npc_body.material_override as StandardMaterial3D
-			mat.albedo_color = Color.WHITE if mat.albedo_texture != null else _theme_color("surface")
-			mat.emission = _theme_color("muted")
 
 
 func _apply_ui_theme(node: Node = null) -> void:
@@ -3571,7 +3166,7 @@ func _apply_ui_theme(node: Node = null) -> void:
 		node = _ui_root
 	if node == null:
 		return
-	_ui_theme_helper.apply_ui_theme(node, _pollution_stage_for_theme(), _meme_bank_open)
+	_ui_theme_helper.apply_ui_theme(node, _pollution_stage_for_theme(), false)
 
 
 func _bind_narrative_director() -> void:
@@ -3757,8 +3352,6 @@ func _on_app_pressed(app_id: String) -> void:
 		game.notify_tutorial("notebook_opened")
 	_open_app_windows[app_id] = true
 	_phone_launcher_open = false
-	if app_id == "notebook":
-		_meme_bank_open = true
 	if _app_windows.has(app_id):
 		var window := _app_windows[app_id] as Control
 		if window != null:
@@ -3804,16 +3397,6 @@ func _update_doll_guide() -> void:
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
 	var should_show := _game_started and game != null and not _reality_interaction_active
 	_doll_guide_panel.refresh(should_show, _doll_guide_current_line() if should_show else "")
-
-
-## ============ 玩偶伙伴:常驻画面左下角,和它的头像引导小窗合为一体 ============
-
-## 3D 跟随体已退役(在第一人称视角里几乎看不见,还会挡视线);
-## 玩偶改为始终待在屏幕左下角的引导小窗里,对话时整体隐身。
-func _update_doll_companion(_delta: float) -> void:
-	if _doll_companion != null and is_instance_valid(_doll_companion):
-		_doll_companion.queue_free()
-	_doll_companion = null
 
 
 func _doll_guide_current_line() -> String:
@@ -4160,49 +3743,6 @@ func _squash_notebook_window() -> void:
 	_notebook_squash_tween.tween_property(window, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func _on_token_pressed(post_id: String, token: Dictionary) -> void:
-	var actions_before: int = int(game.actions_remaining)
-	var localized_token := token.duplicate(true)
-	localized_token["source_text"] = str(token.get("source_text", token.get("text", "")))
-	localized_token["text"] = _locale.translate(str(token.get("text", "")))
-	localized_token["content_locale"] = _locale.current_locale
-	if game.pick_token(post_id, localized_token):
-		selected_token_id = "%s-%s-%d" % [post_id, token.get("id", "token"), game.day]
-		log_text = "拾取：%s" % localized_token["text"]
-		_after_effective_action(actions_before)
-	else:
-		log_text = "这个词没有进入笔记本。"
-		_render()
-
-
-func _on_note_token_pressed(token_id: String) -> void:
-	selected_token_id = token_id
-	log_text = "选中词语。"
-	_render()
-
-
-func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
-	var token_id := str(data.get("id", ""))
-	if token_id.is_empty():
-		return
-	selected_token_id = token_id
-	if game.place_token_in_slot(slot_id, token_id):
-		log_text = "词语已拖入槽位。"
-	else:
-		log_text = "这个词不能放在这里。"
-		_render()
-
-
-func _on_slot_pressed(slot_id: String) -> void:
-	if selected_token_id.is_empty():
-		log_text = "先选一个词语。"
-	elif game.place_token_in_slot(slot_id, selected_token_id):
-		log_text = "词语已放入槽位。"
-	else:
-		log_text = "这个词不能放在这里。"
-		_render()
-
-
 func _on_language_token_pressed(token_id: String) -> void:
 	_selected_language_token_id = token_id
 	log_text = "选中了一个带到医生面前的词。"
@@ -4242,20 +3782,6 @@ func _on_confirm_doctor_sentence_pressed() -> void:
 		_render()
 
 
-func _on_confirm_craft_pressed() -> void:
-	var actions_before: int = int(game.actions_remaining)
-	if game.confirm_craft():
-		var crafted_memes: Array = _inventory_snapshot().get("completed_memes", [])
-		if not crafted_memes.is_empty():
-			var crafted: Dictionary = crafted_memes[0] as Dictionary
-			selected_meme_id = str(crafted.get("id", ""))
-			log_text = "完整句子已经写好：%s" % str(crafted.get("title", ""))
-		_after_effective_action(actions_before)
-	else:
-		log_text = "需要分别填入对象、动作和去向。"
-		_render()
-
-
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 	var meme_id := str(data.get("id", ""))
 	if game.place_meme_in_fusion_slot(slot_id, meme_id):
@@ -4290,31 +3816,6 @@ func _on_confirm_fusion_pressed() -> void:
 		_render()
 
 
-func _on_meme_pressed(meme_id: String) -> void:
-	selected_meme_id = meme_id
-	log_text = "选中完整梗。"
-	_render()
-
-
-func _on_dialogue_blank_pressed() -> void:
-	if selected_meme_id.is_empty():
-		log_text = "空格还在等一个完整梗。"
-	else:
-		game.place_meme_in_blank("blank_1", selected_meme_id)
-		log_text = "梗已经塞进手机发布空格。"
-	_render()
-
-
-func _on_dialogue_meme_dropped(data: Dictionary, blank_id: String) -> void:
-	var meme_id := str(data.get("id", ""))
-	if meme_id.is_empty():
-		return
-	selected_meme_id = meme_id
-	game.place_meme_in_blank(blank_id, meme_id)
-	log_text = "完整梗已拖进发布空格。"
-	_render()
-
-
 func _on_confirm_dialogue_pressed() -> void:
 	var actions_before: int = int(game.actions_remaining)
 	if game.confirm_dialogue():
@@ -4337,7 +3838,6 @@ func _after_effective_action(actions_before: int = -1) -> void:
 		_play_action_spend_animation(actions_before, game.actions_remaining)
 		return
 	if _settle_day_and_present_rewards():
-		selected_token_id = ""
 		selected_meme_id = ""
 		if not game.event_log.is_empty():
 			log_text = game.event_log[0]
@@ -4353,7 +3853,6 @@ func _settle_day_and_present_rewards() -> bool:
 	_nearby_reality_actor = null
 	_nearby_reality_item = null
 	_reality_hover_choice_id = ""
-	selected_token_id = ""
 	selected_meme_id = ""
 	_sync_audio_state(false)
 	return true
@@ -4362,13 +3861,6 @@ func _settle_day_and_present_rewards() -> bool:
 func _day_plan() -> Dictionary:
 	var current_day := 1 if game == null else int(_day_progress_snapshot().get("day", 1))
 	return SocialFeedCatalogScript.day_plan_for_day(current_day)
-
-
-func _slot_text(slot_id: String, placeholder: String) -> String:
-	var craft_slot_fills: Dictionary = _inventory_snapshot().get("craft_slot_fills", {})
-	if craft_slot_fills.has(slot_id):
-		return str(craft_slot_fills[slot_id])
-	return placeholder
 
 
 func _language_slot_text(slot_id: String, placeholder: String, world: String) -> String:
@@ -4380,13 +3872,6 @@ func _language_slot_text(slot_id: String, placeholder: String, world: String) ->
 		if str(option.get("id", "")) == token_id:
 			return str(option.get("display_text", option.get("text", placeholder)))
 	return placeholder
-
-
-func _craft_preview_text() -> String:
-	var preview: Dictionary = game.get_craft_sentence_preview("phone")
-	if bool(preview.get("valid", false)):
-		return str(preview.get("world_sentence", preview.get("clean_sentence", "")))
-	return "等待对象、动作和去向"
 
 
 func _fusion_slot_text(slot_id: String) -> String:

@@ -216,8 +216,6 @@ func _test_ui_flow() -> void:
 	_assert_true(doll_close == null, "the doll guide must not have a close button")
 
 	# 玩偶合并进左下角引导小窗:3D 跟随体不再存在,交互时整体隐身。
-	game_root._update_doll_companion(0.016)
-	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
 	_assert_true(_is_bottom_left_docked(doll_panel), "the guide should dock to the bottom-left corner")
 	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")

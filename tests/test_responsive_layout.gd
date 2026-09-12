@@ -59,8 +59,7 @@ func _run() -> void:
 		_assert_true(social_inline_close.custom_minimum_size.x >= 44.0, "small-view social close target should meet mobile touch guidance")
 	if view_toggle != null:
 		_assert_true(_inside_rect(view_toggle, viewport_rect), "small-view put-phone button should stay reachable")
-	if meme_bank != null:
-		_assert_true(not meme_bank.visible, "small-view passive social browsing should hide the publish-only meme bank")
+	_assert_true(meme_bank == null, "small view must not mount the retired meme ring")
 	if game_root.has_method("_open_social_post"):
 		game_root._open_social_post(0)
 		await process_frame
