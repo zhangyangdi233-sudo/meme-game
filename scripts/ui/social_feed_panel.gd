@@ -79,7 +79,6 @@ var _channels: Array = []
 var _no_signal_icon_path := ""
 var _poster_sheet_path := ""
 var _poster_sheet_count := 0
-var _input_locked_fn: Callable
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -343,7 +342,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_no_signal_icon_path = str(deps.get("no_signal_icon_path", ""))
 	_poster_sheet_path = str(deps.get("poster_sheet_path", ""))
 	_poster_sheet_count = int(deps.get("poster_sheet_count", 0))
-	_input_locked_fn = deps.get("input_locked", Callable())
 
 
 func _build_social_app_window(parent: Control) -> void:
@@ -722,10 +720,6 @@ func _scroll_feed(feed_scroll: ScrollContainer, delta: int) -> void:
 	feed_scroll.scroll_vertical = clampi(feed_scroll.scroll_vertical + delta, 0, max_scroll)
 
 
-func _input_locked() -> bool:
-	return _input_locked_fn.is_valid() and bool(_input_locked_fn.call())
-
-
 func _on_close_pressed() -> void:
 	close_requested.emit()
 
@@ -747,8 +741,6 @@ func _on_follow_pressed(author_id: String) -> void:
 
 
 func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
-	if _input_locked():
-		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		card_clicked.emit(post_index)
 	elif event is InputEventScreenTouch and event.pressed:
@@ -756,8 +748,6 @@ func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
 
 
 func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) -> void:
-	if _input_locked():
-		return
 	if event is InputEventMouseButton and event.pressed:
 		var direction := 0
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:

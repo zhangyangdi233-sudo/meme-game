@@ -41,7 +41,8 @@ func play(before_actions: int, after_actions: int) -> void:
 	_hud_actions_label.scale = Vector2.ONE
 	_hud_actions_label.pivot_offset = _hud_actions_label.size * 0.5
 	if _overlay != null:
-		_overlay.visible = false
+		_overlay.visible = true
+		_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_tween = create_tween()
 	_tween.tween_property(_hud_actions_label, "scale", Vector2(1.07, 1.07), 0.08).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
@@ -56,6 +57,7 @@ func finish() -> int:
 	_tween = null
 	if _overlay != null:
 		_overlay.visible = false
+		_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _spend_label != null:
 		_spend_label.scale = Vector2.ONE
 	if _hud_actions_label != null:

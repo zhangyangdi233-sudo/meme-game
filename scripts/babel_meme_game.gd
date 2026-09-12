@@ -9,7 +9,6 @@ const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.g
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
-const SessionInputScript = preload("res://scripts/game/session_input.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
 const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
@@ -494,12 +493,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if SessionInputScript.blocks_world_pointer(current_input_owner()):
+	var mode := session_mode()
+	if mode == "prologue" or mode == "narrative" or mode == "ending":
 		_reality_touch_look_index = -1
 		return
 	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
 		return
-	if session_mode() == "gameplay":
+	if mode == "gameplay":
 		if _handle_reality_touch_look(event):
 			return
 		if _handle_reality_trackpad_pan(event):
@@ -559,8 +559,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func handle_gameplay_unhandled_input(event: InputEvent) -> void:
-	if SessionInputScript.blocks_unhandled_gameplay(current_input_owner()):
-		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
@@ -942,8 +940,6 @@ func _is_social_post_liked(post_id: String) -> bool:
 
 
 func set_view_state(value: String) -> void:
-	if _input_locked:
-		return
 	if value == "npc_up" and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
@@ -1014,7 +1010,6 @@ func _reality_scene_deps() -> Dictionary:
 		"playtest_assist_enabled": _playtest_assist_enabled,
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
 		"interaction_active": _reality_interaction_active,
-		"input_locked": _input_locked,
 		"locale": _locale.current_locale,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 	}
@@ -1744,7 +1739,7 @@ func _ensure_edge_drawer() -> void:
 
 func _sync_edge_drawer_enabled() -> void:
 	if _edge_drawer != null:
-		_edge_drawer.enabled = _game_started and not _input_locked
+		_edge_drawer.enabled = session_mode() == "gameplay"
 
 
 func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: String) -> Label:
@@ -2170,7 +2165,6 @@ func _social_feed_mount_deps() -> Dictionary:
 		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
-		"input_locked": func() -> bool: return _input_locked,
 	}
 
 
@@ -2838,8 +2832,6 @@ func _social_publish_result() -> Dictionary:
 
 
 func _set_social_screen(screen: String) -> void:
-	if _input_locked:
-		return
 	_social_screen = screen
 	_social_detail_open = false
 	if _social_feed_panel != null:
@@ -2851,8 +2843,6 @@ func _set_social_screen(screen: String) -> void:
 
 
 func _on_social_channel_pressed(channel: String) -> void:
-	if _input_locked:
-		return
 	_social_channel = channel
 	if channel == "tower_base":
 		_social_screen = "home"
@@ -2869,23 +2859,17 @@ func _on_social_channel_pressed(channel: String) -> void:
 
 
 func _on_social_follow_pressed(author_id: String) -> void:
-	if _input_locked:
-		return
 	var followed := game.toggle_social_follow(author_id)
 	var display_handle := _social_author_display(author_id)
 	log_text = "已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle
 
 
 func _on_social_like_pressed(post_id: String) -> void:
-	if _input_locked:
-		return
 	var liked := game.toggle_social_like(post_id)
 	log_text = "已保存这条信号。" if liked else "已取消保存。"
 
 
 func _open_social_post(post_index: int) -> void:
-	if _input_locked:
-		return
 	if _social_feed_panel != null:
 		_social_feed_panel.open_detail(post_index)
 	_social_detail_post_index = post_index
@@ -2901,7 +2885,7 @@ func _render_notebook_app() -> void:
 
 
 func _set_notebook_crafting_tab(tab_id: String) -> void:
-	if _input_locked or tab_id not in ["frame", "fusion"]:
+	if tab_id not in ["frame", "fusion"]:
 		return
 	_notebook_crafting_tab = tab_id
 	if tab_id == "fusion":
@@ -3067,16 +3051,12 @@ func _on_reality_choice_unhovered(choice_id: String) -> void:
 
 
 func _on_reality_choice_selected(choice_id: String) -> void:
-	if _input_locked:
-		return
 	if game.select_typed_reality_choice(choice_id):
 		_reality_hover_choice_id = ""
 		_sync_audio_state(false)
 
 
 func _on_reality_continue_pressed() -> void:
-	if _input_locked:
-		return
 	if str(_reality_conversation_snapshot().get("phase", "")) == "result" and game.continue_typed_reality_conversation():
 		_localize_active_conversation()
 		_reality_hover_choice_id = ""
@@ -3086,7 +3066,7 @@ func _on_reality_continue_pressed() -> void:
 
 
 func _advance_typed_reality_character() -> bool:
-	if _input_locked or not _reality_interaction_active:
+	if not _reality_interaction_active:
 		return false
 	var actions_before := int(game.actions_remaining)
 	var result: Dictionary = game.advance_typed_reality_character()
@@ -3320,8 +3300,6 @@ func _is_pickable_social_character(character: String) -> bool:
 
 
 func _toggle_meme_bank() -> void:
-	if _input_locked:
-		return
 	if not _should_show_meme_bank():
 		log_text = "梗仓库只在发布页或笔记本中出现。"
 		_render_status()
@@ -3383,8 +3361,6 @@ func _meme_bank_motion_profile(opening: bool) -> Dictionary:
 
 
 func _close_app_window(app_id: String) -> void:
-	if _input_locked:
-		return
 	_open_app_windows[app_id] = false
 	if app_id == "social":
 		_social_detail_open = false
@@ -3408,8 +3384,6 @@ func _close_app_window(app_id: String) -> void:
 
 
 func _open_phone_launcher() -> void:
-	if _input_locked:
-		return
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	_phone_launcher_open = true
@@ -3420,8 +3394,6 @@ func _open_phone_launcher() -> void:
 
 
 func _close_social_detail_window() -> void:
-	if _input_locked:
-		return
 	if _social_feed_panel != null:
 		_social_feed_panel.close_detail()
 	_social_detail_open = false
@@ -3448,7 +3420,7 @@ func _ensure_window_manager() -> void:
 
 func _sync_window_manager_enabled() -> void:
 	if _window_manager != null:
-		_window_manager.enabled = not _input_locked
+		_window_manager.enabled = session_mode() == "gameplay"
 	_sync_edge_drawer_enabled()
 
 
@@ -3675,14 +3647,6 @@ func _finish_pollution_flashback() -> void:
 		_narrative_director.finish_pollution_flashback()
 
 
-func current_input_owner() -> int:
-	var prologue_visible := false
-	if _prologue_panel != null:
-		var prologue_overlay := _prologue_panel.get_overlay()
-		prologue_visible = prologue_overlay != null and prologue_overlay.visible
-	return SessionInputScript.owner_from(prologue_visible, _input_locked, _game_started)
-
-
 func session_mode() -> String:
 	_ensure_flow_manager()
 	return _flow.current_id()
@@ -3708,7 +3672,10 @@ func _request_session_mode(id: String) -> bool:
 	_ensure_flow_manager()
 	if _flow.current_id() == id:
 		return true
-	return _flow.transition_to(id)
+	var changed := _flow.transition_to(id)
+	if changed:
+		_sync_window_manager_enabled()
+	return changed
 
 
 func _ending_is_unlocked() -> bool:
@@ -3781,8 +3748,6 @@ func _on_ending_language_selected(choice_id: String) -> void:
 
 
 func _on_app_pressed(app_id: String) -> void:
-	if _input_locked:
-		return
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	game.set_active_app(app_id)
@@ -3984,8 +3949,6 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
-	if _input_locked:
-		return
 	if game.free_sentence_place(unit, _locale.current_locale):
 		if _pickup_flight_layer != null:
 			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _theme_color("accent"))
@@ -3994,8 +3957,6 @@ func _on_composer_bank_tapped(unit: String) -> void:
 
 
 func _on_composer_answer_tapped(unit_index: int) -> void:
-	if _input_locked:
-		return
 	if game.free_sentence_remove(unit_index):
 		_render()
 
@@ -4009,8 +3970,6 @@ func _on_composer_tile_drop(data: Dictionary, before_index: int) -> void:
 
 
 func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
-	if _input_locked:
-		return
 	match str(data.get("kind", "")):
 		"composer_unit":
 			if game.free_sentence_place_at(str(data.get("id", "")), target_index, _locale.current_locale):
@@ -4033,8 +3992,6 @@ func _composer_answer_target() -> Vector2:
 
 
 func _on_composer_submit_pressed() -> void:
-	if _input_locked:
-		return
 	var actions_before: int = int(game.actions_remaining)
 	var submit_result: Dictionary = game.submit_free_sentence(_locale.current_locale)
 	if not bool(submit_result.get("submitted", false)):
@@ -4137,8 +4094,6 @@ func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) 
 
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
-	if _input_locked:
-		return
 	var unit := str(meta)
 	var actions_before: int = int(game.actions_remaining)
 	var origin: Vector2 = get_viewport().get_mouse_position()
@@ -4206,8 +4161,6 @@ func _squash_notebook_window() -> void:
 
 
 func _on_token_pressed(post_id: String, token: Dictionary) -> void:
-	if _input_locked:
-		return
 	var actions_before: int = int(game.actions_remaining)
 	var localized_token := token.duplicate(true)
 	localized_token["source_text"] = str(token.get("source_text", token.get("text", "")))
@@ -4223,16 +4176,12 @@ func _on_token_pressed(post_id: String, token: Dictionary) -> void:
 
 
 func _on_note_token_pressed(token_id: String) -> void:
-	if _input_locked:
-		return
 	selected_token_id = token_id
 	log_text = "选中词语。"
 	_render()
 
 
 func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
-	if _input_locked:
-		return
 	var token_id := str(data.get("id", ""))
 	if token_id.is_empty():
 		return
@@ -4245,8 +4194,6 @@ func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_slot_pressed(slot_id: String) -> void:
-	if _input_locked:
-		return
 	if selected_token_id.is_empty():
 		log_text = "先选一个词语。"
 	elif game.place_token_in_slot(slot_id, selected_token_id):
@@ -4257,16 +4204,12 @@ func _on_slot_pressed(slot_id: String) -> void:
 
 
 func _on_language_token_pressed(token_id: String) -> void:
-	if _input_locked:
-		return
 	_selected_language_token_id = token_id
 	log_text = "选中了一个带到医生面前的词。"
 	_render()
 
 
 func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
-	if _input_locked:
-		return
 	var token_id := str(data.get("id", ""))
 	if token_id.is_empty():
 		return
@@ -4279,8 +4222,6 @@ func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_language_slot_pressed(slot_id: String) -> void:
-	if _input_locked:
-		return
 	if _selected_language_token_id.is_empty():
 		log_text = "先选择一个词。"
 	elif game.place_language_token(slot_id, _selected_language_token_id, "doctor"):
@@ -4291,8 +4232,6 @@ func _on_language_slot_pressed(slot_id: String) -> void:
 
 
 func _on_confirm_doctor_sentence_pressed() -> void:
-	if _input_locked:
-		return
 	var actions_before := int(game.actions_remaining)
 	if game.confirm_doctor_sentence():
 		_selected_language_token_id = ""
@@ -4304,8 +4243,6 @@ func _on_confirm_doctor_sentence_pressed() -> void:
 
 
 func _on_confirm_craft_pressed() -> void:
-	if _input_locked:
-		return
 	var actions_before: int = int(game.actions_remaining)
 	if game.confirm_craft():
 		var crafted_memes: Array = _inventory_snapshot().get("completed_memes", [])
@@ -4320,8 +4257,6 @@ func _on_confirm_craft_pressed() -> void:
 
 
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
-	if _input_locked:
-		return
 	var meme_id := str(data.get("id", ""))
 	if game.place_meme_in_fusion_slot(slot_id, meme_id):
 		selected_meme_id = meme_id
@@ -4332,8 +4267,6 @@ func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
-	if _input_locked:
-		return
 	if selected_meme_id.is_empty():
 		log_text = "先从融合列表选择一个完整梗。"
 	elif game.place_meme_in_fusion_slot(slot_id, selected_meme_id):
@@ -4344,8 +4277,6 @@ func _on_fusion_slot_pressed(slot_id: String) -> void:
 
 
 func _on_confirm_fusion_pressed() -> void:
-	if _input_locked:
-		return
 	var actions_before := int(game.actions_remaining)
 	if game.confirm_meme_fusion():
 		var fused_memes: Array = _inventory_snapshot().get("completed_memes", [])
@@ -4360,16 +4291,12 @@ func _on_confirm_fusion_pressed() -> void:
 
 
 func _on_meme_pressed(meme_id: String) -> void:
-	if _input_locked:
-		return
 	selected_meme_id = meme_id
 	log_text = "选中完整梗。"
 	_render()
 
 
 func _on_dialogue_blank_pressed() -> void:
-	if _input_locked:
-		return
 	if selected_meme_id.is_empty():
 		log_text = "空格还在等一个完整梗。"
 	else:
@@ -4379,8 +4306,6 @@ func _on_dialogue_blank_pressed() -> void:
 
 
 func _on_dialogue_meme_dropped(data: Dictionary, blank_id: String) -> void:
-	if _input_locked:
-		return
 	var meme_id := str(data.get("id", ""))
 	if meme_id.is_empty():
 		return
@@ -4391,8 +4316,6 @@ func _on_dialogue_meme_dropped(data: Dictionary, blank_id: String) -> void:
 
 
 func _on_confirm_dialogue_pressed() -> void:
-	if _input_locked:
-		return
 	var actions_before: int = int(game.actions_remaining)
 	if game.confirm_dialogue():
 		selected_meme_id = ""

@@ -164,7 +164,6 @@ func update_player(delta: float, deps: Dictionary) -> void:
 	var can_walk: bool = (
 		str(deps.get("view_state", "")) == "npc_up"
 		and not bool(deps.get("interaction_active", false))
-		and not bool(deps.get("input_locked", false))
 	)
 	var input_vector := Vector2.ZERO
 	if can_walk:

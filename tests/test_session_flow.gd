@@ -39,6 +39,10 @@ func _run() -> void:
 		game_root.has_method("session_mode") and game_root.has_method("has_session_state"),
 		"adapter should expose Session mode through the flow manager"
 	)
+	_assert_true(
+		not game_root.has_method("current_input_owner"),
+		"adapter should not expose a flag-derived input owner"
+	)
 	if not game_root.has_method("session_mode") or not game_root.has_method("has_session_state"):
 		game_root.queue_free()
 		await process_frame
@@ -62,6 +66,15 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
+	game_root._input_locked = true
+	_assert_eq(
+		game_root.session_mode(),
+		"gameplay",
+		"Session mode should not be derived from the narrative lock flag"
+	)
+	await _assert_gameplay_world_hotkeys_live(game_root)
+	game_root._input_locked = false
+	game_root.set_view_state("npc_up")
 
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
@@ -82,6 +95,8 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "spending an action should set Session mode to narrative")
 	await _assert_world_hotkeys_inert(game_root, "action spend")
+	var spend_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
+	await _assert_overlay_eats_phone_clicks(game_root, spend_overlay, "action spend overlay")
 	game_root._finish_action_spend_animation()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative")
