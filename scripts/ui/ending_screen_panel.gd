@@ -44,6 +44,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	var screen := Control.new()
 	screen.name = "EndingScreen"
 	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.mouse_filter = Control.MOUSE_FILTER_STOP
 	screen.set_meta("empty_tower", true)
 	parent.add_child(screen)
 
@@ -51,6 +52,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	bg.name = "EndingBlack"
 	bg.color = _theme_color_fn.call("ink")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	screen.add_child(bg)
 
 	var rule := ColorRect.new()

@@ -1,5 +1,5 @@
 extends "res://framework/flow/flow_state.gd"
-## Ending screen. Behaviour is filled in by a later ticket.
+## Ending screen. World hotkeys stay unloaded.
 
 func _init(_host: Node) -> void:
 	id = "ending"

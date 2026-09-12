@@ -303,7 +303,11 @@ func _narrative_overlay_deps() -> Dictionary:
 		"request_narrative": func() -> void:
 			_request_session_mode("narrative"),
 		"request_gameplay_from_narrative": func() -> void:
-			if session_mode() == "narrative":
+			if session_mode() != "narrative":
+				return
+			if _request_ending_if_unlocked():
+				_render()
+			else:
 				_request_session_mode("gameplay"),
 		"sync_audio_state": _sync_audio_state,
 		"settle_day": _settle_day_and_present_rewards,
@@ -468,7 +472,8 @@ func _process(delta: float) -> void:
 	if _camera == null:
 		return
 	if _game_started:
-		_ensure_reality_floor_current()
+		if session_mode() != "ending":
+			_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
 		_apply_responsive_layouts_if_needed()
 		if _edge_drawer != null:
@@ -649,19 +654,21 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_set_reality_mouse_look(false)
 	_reality_interaction_active = false
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
-	_build_world()
+	_build_world(not _ending_is_unlocked())
 	_restore_saved_world(world_data)
 	_build_ui()
 	if not show_prologue:
 		_skip_prologue()
-	_render()
 	if show_prologue:
 		_set_reality_mouse_look(false)
 		_request_session_mode("prologue")
+	elif _request_ending_if_unlocked():
+		_set_reality_mouse_look(false)
 	else:
 		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
 		if session_mode() != "gameplay":
 			_request_session_mode("gameplay")
+	_render()
 	_sync_audio_state(true)
 
 
@@ -1024,7 +1031,7 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 	_reality_scene_adapter.apply_look_delta(relative_motion, sensitivity)
 
 
-func _build_world() -> void:
+func _build_world(build_playable_floor: bool = true) -> void:
 	if _narrative_director != null:
 		_narrative_director.kill_day_transition_tween()
 	if _audio_controller != null:
@@ -1057,7 +1064,8 @@ func _build_world() -> void:
 
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.build_world_nodes()
-	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
+	if build_playable_floor:
+		_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 	_road = Node3D.new()
 	_road.name = "Road"
@@ -2039,8 +2047,12 @@ func _on_camera_consent_source_selected(index: int) -> void:
 
 
 func _on_prologue_finished() -> void:
-	_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
-	_request_session_mode("gameplay")
+	if _request_ending_if_unlocked():
+		_set_reality_mouse_look(false)
+		_render()
+	else:
+		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
+		_request_session_mode("gameplay")
 	_sync_audio_state(false)
 
 
@@ -2675,7 +2687,9 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 
 
 func _render() -> void:
-	if bool(_progression_snapshot().get("ending_unlocked", false)):
+	if session_mode() == "gameplay":
+		_request_ending_if_unlocked()
+	if session_mode() == "ending":
 		_render_ending()
 		_refresh_localized_ui()
 		return
@@ -3697,6 +3711,17 @@ func _request_session_mode(id: String) -> bool:
 	return _flow.transition_to(id)
 
 
+func _ending_is_unlocked() -> bool:
+	return bool(_progression_snapshot().get("ending_unlocked", false))
+
+
+func _request_ending_if_unlocked() -> bool:
+	if not _ending_is_unlocked():
+		return false
+	_request_session_mode("ending")
+	return true
+
+
 func _set_input_locked(value: bool) -> void:
 	_input_locked = value
 	_sync_window_manager_enabled()
@@ -3706,7 +3731,7 @@ func _set_input_locked(value: bool) -> void:
 
 func _render_ending() -> void:
 	if _canvas == null:
-		_build_world()
+		_build_world(not _ending_is_unlocked())
 	_ensure_ending_screen_panel()
 	_ending_screen_panel.mount(_ui_root, _ending_screen_mount_deps())
 	_ending_screen_panel.render(_ending_screen_render_state())

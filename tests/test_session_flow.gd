@@ -105,13 +105,69 @@ func _run() -> void:
 	_assert_eq(game_root.session_mode(), "gameplay", "continuing a non-ending save should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
+	_assert_true(
+		not game_root.game.get_progression_snapshot().has("current_screen"),
+		"rules snapshot should not grow a current-screen field"
+	)
+	_assert_true(
+		not game_root.game.get_progression_snapshot().has("session_mode"),
+		"Session mode belongs to the flow manager, not MemeGameState"
+	)
+	game_root.game.actions_remaining = 1
+	_assert_true(game_root.game.spend_action("session-flow-ending"), "last action should spend before the ending unlock")
+	game_root._play_action_spend_animation(1, 0)
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "spending the last action should stay in narrative")
+	game_root.game.ending_unlocked = true
+	game_root._finish_action_spend_animation()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative after ending unlock")
+	await _assert_world_hotkeys_inert(game_root, "ending-pending narrative")
+	game_root._finish_day_transition()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "ending", "finishing narrative with ending unlocked should set Session mode to ending")
+	await _assert_world_hotkeys_inert(game_root, "ending unlock")
+	await _assert_ending_overlay_eats_clicks(game_root)
+
+	_assert_true(game_root._save_progress(), "an ending run should still save")
 	game_root.show_main_menu()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "returning to title after continue should restore the main menu")
 	await _assert_world_hotkeys_inert(game_root, "title after continue")
 
+	_assert_true(game_root.continue_game(), "continue should load the ending-unlocked save")
+	await process_frame
+	_assert_eq(game_root.session_mode(), "ending", "continuing an ending-unlocked save should set Session mode to ending")
+	await _assert_world_hotkeys_inert(game_root, "ending continue")
+	await _assert_ending_overlay_eats_clicks(game_root)
+	var ending_floor := _find_node_by_name(game_root, "RealityFloor")
+	_assert_true(ending_floor != null, "ending continue should still mount the floor node")
+	if ending_floor != null:
+		_assert_eq(
+			ending_floor.get_child_count(),
+			0,
+			"continuing an ending-unlocked save should not generate a playable floor behind the ending screen"
+		)
+
 	game_root.queue_free()
 	await process_frame
+
+
+func _assert_ending_overlay_eats_clicks(game_root) -> void:
+	var overlay := _find_node_by_name(game_root, "EndingScreen") as Control
+	_assert_true(overlay != null and overlay.visible, "ending screen should be visible")
+	if overlay == null:
+		return
+	_assert_eq(
+		overlay.mouse_filter,
+		Control.MOUSE_FILTER_STOP,
+		"ending screen should stop mouse events"
+	)
+	await _assert_overlay_eats_clicks_at(
+		game_root,
+		overlay.get_global_rect().get_center(),
+		"ending screen"
+	)
 
 
 func _assert_prologue_overlay_eats_phone_clicks(game_root) -> void:
@@ -132,6 +188,10 @@ func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: Strin
 		overlay.get_global_rect().has_point(click_point),
 		"%s should cover the phone view toggle" % label
 	)
+	await _assert_overlay_eats_clicks_at(game_root, click_point, "%s aimed at phone UI" % label)
+
+
+func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: String) -> void:
 	var view_before := str(game_root.game.view_state)
 	var press := InputEventMouseButton.new()
 	press.position = click_point
@@ -151,7 +211,7 @@ func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: Strin
 	_assert_eq(
 		str(game_root.game.view_state),
 		view_before,
-		"%s should eat clicks aimed at phone UI" % label
+		"%s should eat clicks" % label
 	)
 
 
