@@ -35,7 +35,7 @@ func _run_async() -> void:
 			_assert_true(bool(doll.get_meta("guide_character", false)), "the world actor should be marked as the guide character")
 			game_root._reality_scene_adapter.player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 			game_root._refresh_nearby_reality_actor()
-			_assert_true(game_root._reality_scene_adapter.nearby_actor == doll, "approaching the doll should select it for interaction")
+			_assert_eq(str(game_root._reality_scene_adapter.nearby_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "approaching the doll should select it for interaction")
 			_assert_true(game_root._try_reality_interaction(), "the physical doll should open its authored conversation")
 			_assert_eq(game_root.game.conversation_actor_type, "doll", "doll interaction should enter the doll conversation branch")
 			var choices: Array = game_root.game.get_typed_reality_choices()

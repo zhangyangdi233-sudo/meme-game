@@ -1,7 +1,7 @@
 extends Node
 class_name RealitySceneAdapter
 ## 3D reality floor, player locomotion, and proximity interaction for the main scene adapter.
-## Game rules and MemeGameState intents stay in babel_meme_game.gd.
+## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
@@ -81,9 +81,6 @@ func clear_nearby_targets() -> void:
 func rebuild_floor(deps: Dictionary) -> void:
 	if floor == null:
 		return
-	var game: Variant = deps.get("game")
-	if game == null:
-		return
 	var progress: Dictionary = deps.get("day_progress", {})
 	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
 	var day_number := int(progress.get("day", 1))
@@ -91,7 +88,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 	var npc_character_paths: Array = deps.get("npc_character_paths", [])
 	var npc_textures: Array[Texture2D] = []
 	for texture_path in npc_character_paths:
-		var texture: Texture2D = load_texture.call(texture_path)
+		var texture := _load_texture(load_texture, str(texture_path))
 		if texture != null:
 			npc_textures.append(texture)
 	var key_dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(clampi(tower_floor, 1, 3))
@@ -102,27 +99,25 @@ func rebuild_floor(deps: Dictionary) -> void:
 		"key_npc": key_npc_texture,
 		"key_npc_label": str(key_dialogue.get("actor_label", "关键住户")),
 		"npcs": npc_textures,
-		"doll": load_texture.call(str(deps.get("guide_doll_path", ""))),
+		"doll": _load_texture(load_texture, str(deps.get("guide_doll_path", ""))),
 		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(tower_floor, 1, 3)),
 	}
-	var locale_code := str(deps.get("locale", "zh"))
-	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(tower_floor, locale_code)
+	var prerequisite_item: Dictionary = deps.get("prerequisite_item", {})
 	floor.rebuild(
 		tower_floor,
 		deps.get("palette", {}),
 		actor_textures,
 		day_number,
-		game.has_seen_cover_watcher(tower_floor),
+		bool(deps.get("cover_watcher_seen", false)),
 		prerequisite_item,
 	)
 	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
-	floor.sync_collected_items(game.collected_world_item_ids)
-	floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
-	floor.sync_claimed_dolls(game.claimed_doll_ids)
+	sync_world_state(deps)
+	floor.sync_collected_items(_string_ids(deps.get("collected_world_item_ids", [])))
 	_built_floor = tower_floor
 	_built_day = day_number
 	clear_nearby_targets()
-	active_actor = null
+	clear_active_actor()
 	if player != null:
 		_last_safe_position = floor.start_position()
 		player.position = _last_safe_position
@@ -133,9 +128,6 @@ func rebuild_floor(deps: Dictionary) -> void:
 
 func ensure_floor_current(deps: Dictionary) -> void:
 	if floor == null:
-		return
-	var game: Variant = deps.get("game")
-	if game == null:
 		return
 	var progress: Dictionary = deps.get("day_progress", {})
 	var tower_floor := int(progress.get("tower_floor", 1))
@@ -232,30 +224,40 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 		nearby_targets_changed.emit()
 
 
-func probe_interaction(deps: Dictionary) -> Dictionary:
-	refresh_nearby_actor(deps)
+func nearby_outcome() -> Dictionary:
 	if nearby_item != null:
 		return {
+			"kind": "item",
 			"action": "collect",
-			"item": nearby_item,
 			"item_data": _item_data(nearby_item),
 		}
-	if nearby_actor == null:
-		return {"action": "none"}
-	var locale_translate: Callable = deps.get("locale_translate", Callable())
-	var actor_label := str(nearby_actor.get_meta("display_name", "对方"))
-	if locale_translate.is_valid():
-		actor_label = str(locale_translate.call(actor_label))
+	if nearby_actor != null:
+		var actor_data := _actor_data(nearby_actor)
+		actor_data["kind"] = "actor"
+		actor_data["action"] = "converse"
+		return actor_data
 	return {
-		"action": "converse",
-		"actor": nearby_actor,
-		"actor_id": str(nearby_actor.get_meta("actor_id", "actor")),
-		"actor_type": str(nearby_actor.get_meta("actor_type", "npc")),
-		"actor_label": actor_label,
+		"kind": "none",
+		"action": "none",
 	}
 
 
-func apply_item_collected(item: Area3D) -> void:
+func probe_interaction(deps: Dictionary) -> Dictionary:
+	refresh_nearby_actor(deps)
+	var nearby := nearby_outcome()
+	if str(nearby.get("action", "none")) == "converse":
+		var locale_translate: Callable = deps.get("locale_translate", Callable())
+		var actor_label := str(nearby.get("actor_label", "对方"))
+		if locale_translate.is_valid():
+			actor_label = str(locale_translate.call(actor_label))
+		nearby["actor_label"] = actor_label
+	return nearby
+
+
+func apply_item_collected(item_id: String) -> void:
+	var item := _find_item(item_id)
+	if item == null:
+		return
 	item.set_meta("collected", true)
 	item.visible = false
 	item.monitoring = false
@@ -263,14 +265,55 @@ func apply_item_collected(item: Area3D) -> void:
 	nearby_item = null
 
 
-func face_actor(actor: Area3D) -> void:
+func face_actor(actor_id: String) -> void:
 	if player == null:
+		return
+	var actor := _find_actor(actor_id)
+	if actor == null:
 		return
 	var actor_type := str(actor.get_meta("actor_type", "npc"))
 	var actor_direction: Vector3 = actor.position - player.position
 	if actor_direction.length_squared() > 0.001:
 		yaw = rad_to_deg(atan2(-actor_direction.x, -actor_direction.z))
 		pitch = -30.0 if actor_type == "doll" else -2.0
+
+
+func remember_actor(actor_id: String) -> void:
+	active_actor = _find_actor(actor_id)
+
+
+func clear_active_actor() -> void:
+	active_actor = null
+
+
+func sync_world_state(deps: Dictionary) -> void:
+	if floor == null:
+		return
+	floor.sync_prerequisite_items(
+		_string_ids(deps.get("revealed_prerequisite_item_ids", [])),
+		_string_ids(deps.get("collected_prerequisite_item_ids", []))
+	)
+	floor.sync_claimed_dolls(_string_ids(deps.get("claimed_doll_ids", [])))
+
+
+func active_actor_outcome() -> Dictionary:
+	if active_actor == null or not is_instance_valid(active_actor):
+		return {
+			"kind": "none",
+			"action": "none",
+		}
+	var actor_data := _actor_data(active_actor)
+	actor_data["kind"] = "actor"
+	return actor_data
+
+
+func pose() -> Dictionary:
+	return {
+		"player_position": player.position if player != null else Vector3.ZERO,
+		"yaw": yaw,
+		"pitch": pitch,
+		"has_player": player != null,
+	}
 
 
 func restore_world_pose(world_data: Dictionary) -> void:
@@ -286,10 +329,11 @@ func restore_world_pose(world_data: Dictionary) -> void:
 
 
 func world_save_pose() -> Dictionary:
+	var look_pose := pose()
 	return {
-		"player_position": player.position if player != null else Vector3.ZERO,
-		"yaw": yaw,
-		"pitch": pitch,
+		"player_position": look_pose.get("player_position", Vector3.ZERO),
+		"yaw": look_pose.get("yaw", 0.0),
+		"pitch": look_pose.get("pitch", 0.0),
 	}
 
 
@@ -327,6 +371,56 @@ func _item_data(item: Area3D) -> Dictionary:
 		"value": item.get_meta("item_value", 0),
 		"description": str(item.get_meta("item_description", "")),
 	}
+
+
+func _actor_data(actor: Area3D) -> Dictionary:
+	return {
+		"actor_id": str(actor.get_meta("actor_id", "actor")),
+		"actor_type": str(actor.get_meta("actor_type", "npc")),
+		"actor_label": str(actor.get_meta("display_name", "对方")),
+	}
+
+
+func _string_ids(value: Variant) -> Array[String]:
+	var ids: Array[String] = []
+	if value is Array:
+		for item in value:
+			ids.append(str(item))
+	return ids
+
+
+func _load_texture(load_texture: Callable, texture_path: String) -> Texture2D:
+	if not load_texture.is_valid() or texture_path.is_empty():
+		return null
+	return load_texture.call(texture_path) as Texture2D
+
+
+func _find_actor(actor_id: String) -> Area3D:
+	if actor_id.is_empty():
+		return null
+	if nearby_actor != null and str(nearby_actor.get_meta("actor_id", "")) == actor_id:
+		return nearby_actor
+	if active_actor != null and is_instance_valid(active_actor) and str(active_actor.get_meta("actor_id", "")) == actor_id:
+		return active_actor
+	if floor == null:
+		return null
+	for actor in floor.get_interactable_actors():
+		if str(actor.get_meta("actor_id", "")) == actor_id:
+			return actor
+	return null
+
+
+func _find_item(item_id: String) -> Area3D:
+	if item_id.is_empty():
+		return null
+	if nearby_item != null and str(nearby_item.get_meta("item_id", "")) == item_id:
+		return nearby_item
+	if floor == null:
+		return null
+	for item in floor.get_interactable_items():
+		if str(item.get_meta("item_id", "")) == item_id:
+			return item
+	return null
 
 
 func _on_cover_watcher_appeared(floor_number: int) -> void:

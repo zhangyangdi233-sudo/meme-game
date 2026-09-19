@@ -58,9 +58,11 @@ func _run() -> void:
 		game_root._reality_scene_adapter.floor.update_authored_events(0.72, near_watcher, toward_watcher)
 		_assert_true(not watcher_sprite.visible and bool(game_root._reality_scene_adapter.floor.get_cover_watcher_state().get("vanished", false)), "approaching through the runtime path should fully withdraw the watcher")
 	var saved_position := Vector3(2.25, 0.08, 17.5)
-	game_root._reality_scene_adapter.player.position = saved_position
-	game_root._reality_scene_adapter.yaw = 38.0
-	game_root._reality_scene_adapter.pitch = -12.0
+	game_root._reality_scene_adapter.restore_world_pose({
+		"player_position": saved_position,
+		"yaw": 38.0,
+		"pitch": -12.0,
+	})
 	game_root.show_main_menu()
 	await process_frame
 
@@ -78,10 +80,11 @@ func _run() -> void:
 	_assert_true(game_root.game.has_seen_cover_watcher(2), "Continue should restore the watcher floor history from the actual save file")
 	_assert_true(_find_node_by_name(game_root._reality_scene_adapter.floor, "CoverWatcherEvent") == null, "reloading the same floor should not rebuild an already observed watcher")
 	_assert_eq(game_root.game.view_state, "npc_up", "Continue should restore the previous phone or reality view")
-	var restored_position: Vector3 = game_root._reality_scene_adapter.player.position
+	var restored_pose: Dictionary = game_root._reality_scene_adapter.pose()
+	var restored_position: Vector3 = restored_pose.get("player_position", Vector3.ZERO)
 	var planar_error := Vector2(restored_position.x, restored_position.z).distance_to(Vector2(saved_position.x, saved_position.z))
 	_assert_true(planar_error < 0.05, "Continue should return the player to the saved world position (got %s)" % str(restored_position))
-	_assert_true(is_equal_approx(game_root._reality_scene_adapter.yaw, 38.0) and is_equal_approx(game_root._reality_scene_adapter.pitch, -12.0), "Continue should restore camera orientation")
+	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
 	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
 	_assert_true(prologue != null and not prologue.visible, "Continue should not replay the prologue")
 	game_root.queue_free()

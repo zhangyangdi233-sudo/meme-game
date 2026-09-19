@@ -373,7 +373,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if session_mode() != "gameplay" or _reality_scene_adapter == null or _reality_scene_adapter.player == null:
+	if session_mode() != "gameplay" or _reality_scene_adapter == null or not bool(_reality_scene_adapter.pose().get("has_player", false)):
 		return
 	_update_reality_player(delta)
 
@@ -567,7 +567,7 @@ func show_main_menu() -> void:
 	_phone_launcher_open = false
 	_reality_interaction_active = false
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_active_actor()
 		_reality_scene_adapter.clear_nearby_targets()
 	_set_reality_mouse_look(false)
 	_request_session_mode("main_menu")
@@ -829,7 +829,7 @@ func set_view_state(value: String) -> void:
 	if game.set_view_state(value):
 		_reality_interaction_active = false
 		if _reality_scene_adapter != null:
-			_reality_scene_adapter.active_actor = null
+			_reality_scene_adapter.clear_active_actor()
 			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		game.reset_typed_reality_conversation()
@@ -884,9 +884,13 @@ func _ensure_reality_scene_adapter() -> void:
 
 
 func _reality_scene_deps() -> Dictionary:
+	var progress := _day_progress_snapshot()
+	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
+	var locale_code: String = "zh"
+	if _locale != null:
+		locale_code = str(_locale.current_locale)
 	return {
-		"game": game,
-		"day_progress": _day_progress_snapshot(),
+		"day_progress": progress,
 		"palette": _ui_theme_helper.active_palette(),
 		"load_texture": _load_runtime_texture,
 		"npc_character_paths": NPC_CHARACTER_PATHS,
@@ -894,15 +898,27 @@ func _reality_scene_deps() -> Dictionary:
 		"playtest_assist_enabled": _playtest_assist_enabled,
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
 		"interaction_active": _reality_interaction_active,
-		"locale": _locale.current_locale,
+		"locale": locale_code,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
+		"prerequisite_item": game.get_prerequisite_item_for_floor(tower_floor, locale_code) if game != null else {},
+		"cover_watcher_seen": game.has_seen_cover_watcher(tower_floor) if game != null else false,
+		"collected_world_item_ids": game.collected_world_item_ids.duplicate() if game != null else [],
+		"revealed_prerequisite_item_ids": game.revealed_prerequisite_item_ids.duplicate() if game != null else [],
+		"collected_prerequisite_item_ids": game.collected_prerequisite_item_ids.duplicate() if game != null else [],
+		"claimed_doll_ids": game.claimed_doll_ids.duplicate() if game != null else [],
 	}
 
 
 func _on_reality_nearby_targets_changed() -> void:
 	_render_world_prompt()
 	if _world_prompt != null:
-		_world_prompt.visible = _reality_scene_adapter != null and (_reality_scene_adapter.nearby_actor != null or _reality_scene_adapter.nearby_item != null)
+		_world_prompt.visible = _has_nearby_reality_target()
+
+
+func _has_nearby_reality_target() -> bool:
+	if _reality_scene_adapter == null:
+		return false
+	return str(_reality_scene_adapter.nearby_outcome().get("kind", "none")) != "none"
 
 
 func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
@@ -1006,7 +1022,7 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 func _rebuild_reality_floor() -> void:
 	_ensure_reality_scene_adapter()
 	_reality_interaction_active = false
-	_reality_scene_adapter.active_actor = null
+	_reality_scene_adapter.clear_active_actor()
 	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 
@@ -1035,28 +1051,27 @@ func _try_reality_interaction() -> bool:
 	var outcome: Dictionary = _reality_scene_adapter.probe_interaction(_reality_scene_deps())
 	match str(outcome.get("action", "none")):
 		"collect":
-			return _collect_nearby_reality_item(outcome.get("item") as Area3D, outcome.get("item_data", {}) as Dictionary)
+			return _collect_nearby_reality_item(outcome.get("item_data", {}) as Dictionary)
 		"converse":
 			return _begin_reality_actor_interaction(outcome)
 	return false
 
 
 func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
-	var actor := outcome.get("actor") as Area3D
-	if actor == null:
+	var actor_id := str(outcome.get("actor_id", "")).strip_edges()
+	if actor_id.is_empty():
 		return false
-	_reality_scene_adapter.active_actor = actor
-	var actor_id := str(outcome.get("actor_id", "actor"))
 	var actor_type := str(outcome.get("actor_type", "npc"))
 	var actor_label := str(outcome.get("actor_label", "对方"))
 	if not game.start_typed_reality_conversation(actor_id, actor_type, actor_label):
-		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_active_actor()
 		return false
 	if actor_type == "doll":
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
 	_ensure_reality_scene_adapter()
-	_reality_scene_adapter.face_actor(actor)
+	_reality_scene_adapter.remember_actor(actor_id)
+	_reality_scene_adapter.face_actor(actor_id)
 	_reality_interaction_active = true
 	_reality_hover_choice_id = ""
 	_set_reality_mouse_look(false)
@@ -1070,23 +1085,15 @@ func _localize_active_conversation() -> void:
 	game.configure_conversation_locale(_locale.current_locale)
 
 
-func _collect_nearby_reality_item(item: Area3D = null, item_data: Dictionary = {}) -> bool:
-	if item == null:
-		item = _reality_scene_adapter.nearby_item if _reality_scene_adapter != null else null
-	if item == null:
-		return false
+func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
+	if item_data.is_empty() and _reality_scene_adapter != null:
+		item_data = _reality_scene_adapter.nearby_outcome().get("item_data", {}) as Dictionary
 	if item_data.is_empty():
-		item_data = {
-			"id": str(item.get_meta("item_id", "")),
-			"label": str(item.get_meta("display_name", "街区遗物")),
-			"effect": str(item.get_meta("item_effect", "")),
-			"value": item.get_meta("item_value", 0),
-			"description": str(item.get_meta("item_description", "")),
-		}
+		return false
 	if not game.collect_world_item(item_data):
 		return false
 	_ensure_reality_scene_adapter()
-	_reality_scene_adapter.apply_item_collected(item)
+	_reality_scene_adapter.apply_item_collected(str(item_data.get("id", "")))
 	if not game.event_log.is_empty():
 		log_text = game.event_log[0]
 	_render()
@@ -1096,7 +1103,7 @@ func _collect_nearby_reality_item(item: Area3D = null, item_data: Dictionary = {
 func _exit_reality_interaction(should_render: bool = true) -> void:
 	_reality_interaction_active = false
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_active_actor()
 	_reality_hover_choice_id = ""
 	_selected_language_token_id = ""
 	game.reset_typed_reality_conversation()
@@ -1108,10 +1115,12 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 
 
 func _active_actor_display_name() -> String:
-	var actor: Area3D = _reality_scene_adapter.active_actor if _reality_scene_adapter != null else null
-	if actor == null:
+	if _reality_scene_adapter == null:
 		return _locale.translate("对方")
-	return _locale.translate(str(actor.get_meta("display_name", "对方")))
+	var label := str(_reality_scene_adapter.active_actor_outcome().get("actor_label", "")).strip_edges()
+	if label.is_empty():
+		return _locale.translate("对方")
+	return _locale.translate(label)
 
 
 func _on_cover_watcher_appeared(floor_number: int) -> void:
@@ -2511,9 +2520,8 @@ func _render() -> void:
 		_ui_theme_helper.refresh_localized_ui(_ui_root)
 		return
 	_ensure_reality_floor_current()
-	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
-		_reality_scene_adapter.floor.sync_prerequisite_items(game.revealed_prerequisite_item_ids, game.collected_prerequisite_item_ids)
-		_reality_scene_adapter.floor.sync_claimed_dolls(game.claimed_doll_ids)
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
 	_render_status()
 	_render_world_prompt()
 	_render_app()
@@ -2588,15 +2596,19 @@ func _render_world_prompt() -> void:
 	elif _reality_interaction_active:
 		var conversation := _reality_conversation_snapshot()
 		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(str(conversation.get("prompt", "")))]
-	elif _reality_scene_adapter != null and _reality_scene_adapter.nearby_item != null:
-		_world_prompt.text = "F  拾取 · %s\n%s" % [
-			str(_reality_scene_adapter.nearby_item.get_meta("display_name", "街区遗物")),
-			str(_reality_scene_adapter.nearby_item.get_meta("item_description", "信号已经写入。")),
-		]
-	elif _reality_scene_adapter != null and _reality_scene_adapter.nearby_actor != null:
-		_world_prompt.text = "F  交谈 · %s" % str(_reality_scene_adapter.nearby_actor.get_meta("display_name", "对方"))
 	else:
-		_world_prompt.text = ""
+		var nearby: Dictionary = _reality_scene_adapter.nearby_outcome() if _reality_scene_adapter != null else {}
+		match str(nearby.get("kind", "none")):
+			"item":
+				var item_data: Dictionary = nearby.get("item_data", {})
+				_world_prompt.text = "F  拾取 · %s\n%s" % [
+					str(item_data.get("label", "街区遗物")),
+					str(item_data.get("description", "信号已经写入。")),
+				]
+			"actor":
+				_world_prompt.text = "F  交谈 · %s" % str(nearby.get("actor_label", "对方"))
+			_:
+				_world_prompt.text = ""
 
 
 func _render_app() -> void:
@@ -2821,15 +2833,15 @@ func _advance_typed_reality_character() -> bool:
 	if bool(result.get("locked_out", false)):
 		_reality_interaction_active = false
 		if _reality_scene_adapter != null:
-			_reality_scene_adapter.active_actor = null
+			_reality_scene_adapter.clear_active_actor()
 			_reality_scene_adapter.clear_nearby_targets()
 		_set_reality_mouse_look(true)
 	if bool(result.get("action_spent", false)):
 		_after_effective_action(actions_before)
 	else:
 		_sync_audio_state(false)
-	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
-		_reality_scene_adapter.floor.sync_claimed_dolls(game.claimed_doll_ids)
+	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null:
+		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
 	return true
 
 
@@ -2846,7 +2858,7 @@ func _update_visibility() -> void:
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and _game_started
 	if _world_prompt != null:
-		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and _reality_scene_adapter != null and (_reality_scene_adapter.nearby_actor != null or _reality_scene_adapter.nearby_item != null)
+		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and _has_nearby_reality_target()
 	var interaction_visible := (not in_phone) and _reality_interaction_active
 	var conversation_visibility: Dictionary = _reality_conversation_snapshot()
 	if _reality_conversation_panel != null:
@@ -2920,9 +2932,10 @@ func _animate_world(delta: float) -> void:
 		return
 	var camera_target_pos := Vector3(0.0, 1.45, 2.2)
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_scene_adapter.player != null:
-		camera_target_pos = _reality_scene_adapter.player.position + Vector3(0.0, 1.56, 0.0)
-		camera_target_rot = Vector3(_reality_scene_adapter.pitch, _reality_scene_adapter.yaw, 0.0)
+	var look_pose: Dictionary = _reality_scene_adapter.pose() if _reality_scene_adapter != null else {}
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
+		camera_target_pos = (look_pose.get("player_position", Vector3.ZERO) as Vector3) + Vector3(0.0, 1.56, 0.0)
+		camera_target_rot = Vector3(float(look_pose.get("pitch", 0.0)), float(look_pose.get("yaw", 0.0)), 0.0)
 	var camera_lerp := minf(1.0, delta * (7.0 if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" else 5.0))
 	_camera.position = _camera.position.lerp(camera_target_pos, camera_lerp)
 	var current_rotation := _camera.rotation_degrees
@@ -2944,7 +2957,7 @@ func _animate_world(delta: float) -> void:
 		_phone_down_backdrop_image.scale = Vector2(1.012, 1.012)
 		var settled_position := Vector2(-viewport_size.x * 0.006 + sway, -viewport_size.y * 0.006 + bob)
 		_phone_down_backdrop_image.position = Vector2(settled_position.x, lerpf(70.0, settled_position.y, _phone_art_alpha))
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and _reality_scene_adapter != null and _reality_scene_adapter.player != null:
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
 		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
 
@@ -3632,7 +3645,7 @@ func _settle_day_and_present_rewards() -> bool:
 		return false
 	_reality_interaction_active = false
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.active_actor = null
+		_reality_scene_adapter.clear_active_actor()
 		_reality_scene_adapter.clear_nearby_targets()
 	_reality_hover_choice_id = ""
 	selected_meme_id = ""

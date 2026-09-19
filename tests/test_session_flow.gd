@@ -231,7 +231,7 @@ func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: Stri
 
 
 func _assert_world_hotkeys_inert(game_root, label: String) -> void:
-	var yaw_before := float(game_root._reality_scene_adapter.yaw)
+	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
 	var interacting_before: bool = game_root._reality_interaction_active
 	game_root._unhandled_input(_key_event(KEY_F))
@@ -240,7 +240,7 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	look.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(look)
 	_assert_true(
-		is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before),
+		is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
 		"%s should ignore look hotkeys" % label
 	)
 	_assert_eq(
@@ -271,12 +271,12 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 
 func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 	game_root.set_view_state("npc_up")
-	var yaw_before := float(game_root._reality_scene_adapter.yaw)
+	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var look := InputEventMouseMotion.new()
 	look.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(look)
 	_assert_true(
-		not is_equal_approx(float(game_root._reality_scene_adapter.yaw), yaw_before),
+		not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
 		"gameplay look should rotate the first-person view"
 	)
 	var view_before := str(game_root.game.view_state)

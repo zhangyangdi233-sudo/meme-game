@@ -1,5 +1,5 @@
 extends SceneTree
-## RealitySceneAdapter static floor tables without the Node3D host.
+## RealitySceneAdapter floor tables and fake-floor approach / interaction outcomes.
 
 const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
 
@@ -35,6 +35,168 @@ func _run() -> void:
 		)
 		if floor_index > 0:
 			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
+	_test_nearby_actor_returns_converse_outcome()
+	_test_nearby_item_returns_collect_outcome()
+	_test_far_actor_returns_none()
+	_test_refresh_exposes_nearby_outcome()
+	_test_look_delta_updates_pose()
+	_test_rebuild_uses_intent_snapshot_not_live_game()
+	_test_collect_item_by_id_clears_nearby_item()
+	_test_face_actor_by_id_updates_pose()
+
+
+func _test_nearby_actor_returns_converse_outcome() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("guide_doll", "doll", "缝合向导", Vector3(0.0, 0.0, 1.4))
+	adapter.player.position = Vector3.ZERO
+	var outcome: Dictionary = adapter.probe_interaction(_walk_deps())
+	_assert_eq(str(outcome.get("action", "")), "converse", "approaching a fake-floor actor should probe converse")
+	_assert_eq(str(outcome.get("actor_id", "")), "guide_doll", "converse outcome should identify the actor")
+	_assert_eq(str(outcome.get("actor_type", "")), "doll", "converse outcome should include actor type")
+	_assert_eq(str(outcome.get("actor_label", "")), "缝合向导", "converse outcome should include actor label")
+	_assert_true(outcome.get("actor") == null, "converse outcome must not leak the live Area3D")
+	setup["host"].free()
+
+
+func _test_nearby_item_returns_collect_outcome() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_item(
+		"floor1_key",
+		"荧光钥匙",
+		Vector3(0.0, 0.0, 1.0),
+		{"effect": "unlock", "value": 1, "description": "楼层前置物。"}
+	)
+	adapter.player.position = Vector3.ZERO
+	var outcome: Dictionary = adapter.probe_interaction(_walk_deps())
+	_assert_eq(str(outcome.get("action", "")), "collect", "approaching a fake-floor item should probe collect")
+	var item_data: Dictionary = outcome.get("item_data", {})
+	_assert_eq(str(item_data.get("id", "")), "floor1_key", "collect outcome should identify the item")
+	_assert_eq(str(item_data.get("label", "")), "荧光钥匙", "collect outcome should include the item label")
+	_assert_eq(str(item_data.get("description", "")), "楼层前置物。", "collect outcome should include the item description")
+	_assert_true(outcome.get("item") == null, "collect outcome must not leak the live Area3D")
+	setup["host"].free()
+
+
+func _test_far_actor_returns_none() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(0.0, 0.0, 8.0))
+	adapter.player.position = Vector3.ZERO
+	var outcome: Dictionary = adapter.probe_interaction(_walk_deps())
+	_assert_eq(str(outcome.get("action", "")), "none", "an actor outside interaction distance should not probe")
+	setup["host"].free()
+
+
+func _test_refresh_exposes_nearby_outcome() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(0.0, 0.0, 1.2))
+	adapter.player.position = Vector3.ZERO
+	adapter.refresh_nearby_actor(_walk_deps())
+	var nearby: Dictionary = adapter.nearby_outcome()
+	_assert_eq(str(nearby.get("kind", "")), "actor", "refresh should expose a nearby actor outcome")
+	_assert_eq(str(nearby.get("actor_id", "")), "latecomer", "nearby outcome should identify the actor")
+	_assert_eq(str(nearby.get("actor_label", "")), "迟到者", "nearby outcome should include the prompt label")
+	_assert_true(nearby.get("actor") == null, "nearby outcome must not leak the live Area3D")
+	setup["host"].free()
+
+
+func _test_look_delta_updates_pose() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	adapter.apply_look_delta(Vector2(10.0, 5.0), 1.0)
+	var look_pose: Dictionary = adapter.pose()
+	_assert_true(is_equal_approx(float(look_pose.get("yaw", 0.0)), -10.0), "look delta should update pose yaw")
+	_assert_true(is_equal_approx(float(look_pose.get("pitch", 0.0)), -5.0), "look delta should update pose pitch")
+	_assert_true(look_pose.get("player_position") is Vector3, "pose should include player position")
+	setup["host"].free()
+
+
+func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	adapter.rebuild_floor({
+		"day_progress": {"tower_floor": 2, "day": 3},
+		"palette": {"ink": Color.BLACK},
+		"load_texture": func(_path: String) -> Texture2D: return null,
+		"npc_character_paths": [],
+		"guide_doll_path": "",
+		"playtest_assist_enabled": false,
+		"locale": "zh",
+		"prerequisite_item": {"id": "floor2_key"},
+		"cover_watcher_seen": true,
+		"collected_world_item_ids": ["floor1_key"],
+		"revealed_prerequisite_item_ids": ["floor2_key"],
+		"collected_prerequisite_item_ids": [],
+		"claimed_doll_ids": ["guide_doll"],
+	})
+	_assert_eq(int(fake.last_rebuild.get("floor_number", 0)), 2, "rebuild should use tower_floor from day_progress")
+	_assert_eq(int(fake.last_rebuild.get("day_number", 0)), 3, "rebuild should use day from day_progress")
+	_assert_true(bool(fake.last_rebuild.get("cover_watcher_seen", false)), "rebuild should use cover_watcher_seen from the snapshot")
+	_assert_eq(str((fake.last_rebuild.get("prerequisite_item", {}) as Dictionary).get("id", "")), "floor2_key", "rebuild should use prerequisite_item from the snapshot")
+	_assert_eq(fake.last_sync_collected, ["floor1_key"] as Array[String], "rebuild should sync collected item ids from the snapshot")
+	_assert_eq(fake.last_sync_dolls, ["guide_doll"] as Array[String], "rebuild should sync claimed doll ids from the snapshot")
+	setup["host"].free()
+
+
+func _test_collect_item_by_id_clears_nearby_item() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_item("floor1_key", "荧光钥匙", Vector3(0.0, 0.0, 1.0))
+	adapter.player.position = Vector3.ZERO
+	_assert_eq(str(adapter.probe_interaction(_walk_deps()).get("action", "")), "collect", "item should be collectable before pickup")
+	adapter.apply_item_collected("floor1_key")
+	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "none", "collecting by id should clear the nearby item")
+	_assert_eq(str(adapter.probe_interaction(_walk_deps()).get("action", "")), "none", "a collected item should no longer probe as collect")
+	setup["host"].free()
+
+
+func _test_face_actor_by_id_updates_pose() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(2.0, 0.0, 0.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.face_actor("latecomer")
+	var look_pose: Dictionary = adapter.pose()
+	_assert_true(is_equal_approx(float(look_pose.get("yaw", 0.0)), -90.0), "facing an actor to the right should yaw the view")
+	_assert_true(is_equal_approx(float(look_pose.get("pitch", 0.0)), -2.0), "facing an npc should use the conversation pitch")
+	adapter.remember_actor("latecomer")
+	var active: Dictionary = adapter.active_actor_outcome()
+	_assert_eq(str(active.get("actor_id", "")), "latecomer", "remembered actor should be readable as an outcome")
+	_assert_true(active.get("actor") == null, "active actor outcome must not leak the live Area3D")
+	setup["host"].free()
+
+
+func _make_adapter_with_fake_floor() -> Dictionary:
+	var host := Node3D.new()
+	host.name = "RealityAdapterTestHost"
+	root.add_child(host)
+	var adapter = RealitySceneAdapterScript.new()
+	adapter.attach_to(host)
+	adapter.build_world_nodes()
+	if adapter.floor != null:
+		adapter.floor.free()
+	var fake := FakeFloor.new()
+	fake.name = "RealityFloor"
+	host.add_child(fake)
+	adapter.floor = fake
+	return {"host": host, "adapter": adapter, "floor": fake}
+
+
+func _walk_deps() -> Dictionary:
+	return {
+		"view_state": "npc_up",
+		"interaction_active": false,
+	}
 
 
 func _assert_true(condition: bool, message: String) -> void:
@@ -45,3 +207,77 @@ func _assert_true(condition: bool, message: String) -> void:
 func _assert_eq(actual, expected, message: String) -> void:
 	if actual != expected:
 		_failures.append("%s (expected %s, got %s)" % [message, str(expected), str(actual)])
+
+
+class FakeFloor extends RealityFloorGenerator:
+	var fake_actors: Array[Area3D] = []
+	var fake_items: Array[Area3D] = []
+	var last_rebuild: Dictionary = {}
+	var last_sync_collected: Array[String] = []
+	var last_sync_dolls: Array[String] = []
+
+	func rebuild(
+		floor_number: int,
+		palette: Dictionary,
+		actor_textures: Dictionary,
+		day_number: int = 1,
+		cover_watcher_seen: bool = false,
+		prerequisite_item: Dictionary = {}
+	) -> void:
+		last_rebuild = {
+			"floor_number": floor_number,
+			"palette": palette,
+			"actor_textures": actor_textures,
+			"day_number": day_number,
+			"cover_watcher_seen": cover_watcher_seen,
+			"prerequisite_item": prerequisite_item,
+		}
+
+	func get_interactable_actors() -> Array[Area3D]:
+		return fake_actors
+
+	func get_interactable_items() -> Array[Area3D]:
+		var live_items: Array[Area3D] = []
+		for item in fake_items:
+			if is_instance_valid(item) and item.visible and not bool(item.get_meta("collected", false)):
+				live_items.append(item)
+		return live_items
+
+	func sync_collected_items(collected_ids: Array[String]) -> void:
+		last_sync_collected = collected_ids.duplicate()
+
+	func sync_claimed_dolls(claimed_ids: Array[String]) -> void:
+		last_sync_dolls = claimed_ids.duplicate()
+
+	func contains_playable_position(_position: Vector3, _inset: float = 0.0) -> bool:
+		return true
+
+	func start_position() -> Vector3:
+		return Vector3(0.0, 0.08, 0.0)
+
+	func clamp_to_playable_position(position: Vector3, _inset: float = 1.2) -> Vector3:
+		return position
+
+	func add_actor(actor_id: String, actor_type: String, label: String, pos: Vector3) -> Area3D:
+		var actor := Area3D.new()
+		actor.name = actor_id
+		actor.position = pos
+		actor.set_meta("actor_id", actor_id)
+		actor.set_meta("actor_type", actor_type)
+		actor.set_meta("display_name", label)
+		add_child(actor)
+		fake_actors.append(actor)
+		return actor
+
+	func add_item(item_id: String, label: String, pos: Vector3, extra: Dictionary = {}) -> Area3D:
+		var item := Area3D.new()
+		item.name = item_id
+		item.position = pos
+		item.set_meta("item_id", item_id)
+		item.set_meta("display_name", label)
+		item.set_meta("item_effect", str(extra.get("effect", "")))
+		item.set_meta("item_value", extra.get("value", 0))
+		item.set_meta("item_description", str(extra.get("description", "信号已经写入。")))
+		add_child(item)
+		fake_items.append(item)
+		return item
