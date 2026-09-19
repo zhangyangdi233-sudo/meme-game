@@ -9,7 +9,7 @@ Reusable Godot modules under `framework/` that know nothing about this game's ru
 _Avoid_: addon (when we mean this repo's seam, not third-party plugins), shared, utils
 
 **Game**:
-Babel-specific state, narrative, floor generation, and the main scene wiring under `scripts/` and `scenes/`.
+Babel-specific state, narrative, floor composition, and the main scene wiring under `scripts/` and `scenes/`.
 _Avoid_: app, core (when used loosely)
 
 **Seam**:
@@ -17,6 +17,26 @@ The rule that Framework may be called from Game; Framework must not call back in
 _Avoid_: boundary, layer (when used as a synonym for this rule)
 
 Parallel **adapter extractions** under `scripts/integrations/` (`camera_session`, `game_audio_controller`), `scripts/game/` (`social_feed_content`, `narrative_overlay_director`), and `scripts/ui/game_ui_theme.gd` shrink `babel_meme_game.gd` without changing MemeGameState API; see `docs/design/meme_game_state_public_surface.md`.
+
+**Reality scene adapter**:
+Game-side facade and composition root for the 3D street. Host talks to this one module via interaction outcomes and look pose, not live world objects. Locomotion and look pose stay on this facade. Internally it may later call a Floor generator and Floor composer.
+_Avoid_: Framework, Reality HUD, host reading live world objects as the API, treating locomotion / proximity / floor composition as three host-facing adapters today, letting the main scene compose 3D pieces directly
+
+**Floor generator**:
+Framework module that builds walkable space, collision, and generic geometry from engine primitives (cubes and the like). It does not know Babel rules, dolls, catalogs, or which floor the player is on. Cubes are the stand-in for objects; imported 3D models are not required.
+_Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
+
+**Floor composer**:
+Game module that assembles one tower floor from catalogs and snapshots: who stands where, which items exist, which authored events run. It uses a Floor generator for geometry; that geometry is engine primitives unless a later ticket introduces templates. Interaction stays an interaction outcome, not node signals as the host API.
+_Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models
+
+**Interaction outcome**:
+The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind. Host and Reality HUD read this instead of live world objects.
+_Avoid_: publish outcome (funds/pollution), live actor/item, treating the whole nearby crowd as the API
+
+**Look pose**:
+The Reality scene adapter's player position and first-person yaw/pitch.
+_Avoid_: reading adapter fields as the host API, camera node as the look contract
 
 **Session mode**:
 The outer flow's current state: main menu, prologue, gameplay, narrative, or ending. The reusable machine (state interface + manager) is Framework; the five state scripts are Game and are created and injected at boot. Rules flags are transition conditions, not a way to infer the screen. See ADR 0004.
