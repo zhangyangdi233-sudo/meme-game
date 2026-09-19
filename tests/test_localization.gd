@@ -169,8 +169,10 @@ func _test_audited_localization_copy() -> void:
 	_assert_eq(ui_en["门禁说我没回家我却在屋里"], "The Entry Log Says I Never Came Home. I'm Already Inside.", "English social horror copy should use short native clauses")
 	_assert_eq(ui_ja["门禁说我没回家我却在屋里"], "入退室記録では帰っていない。なのに、もう部屋にいる", "Japanese social horror copy should preserve the ordinary-to-impossible pivot")
 	_assert_eq(ui_ja["别急着懂。先把它转出去，懂会在后面补票。"], "急いで理解しなくていい。先に拡散して。理解はあとから追いついて、足りないぶんを払う。", "Japanese surreal copy should remain idiomatic without explaining away the metaphor")
-	_assert_eq(ui_en["梗仓库只在发布页或笔记本中出现。"], "The Meme Bank is available only while posting or using the Notebook.", "English Meme Bank guidance should match both valid contexts")
-	_assert_eq(ui_ja["梗仓库只在发布页或笔记本中出现。"], "ミーム庫は投稿画面かノートでのみ開ける。", "Japanese Meme Bank guidance should match both valid contexts")
+	_assert_true(not ui_en.has("梗仓库只在发布页或笔记本中出现。"), "retired Meme Bank guidance should be removed")
+	_assert_true(not ui_ja.has("梗仓库只在发布页或笔记本中出现。"), "retired Japanese Meme Bank guidance should be removed")
+	_assert_true(not ui_en.has("梗库"), "retired Meme Bank label should be removed")
+	_assert_true(not ui_en.has("用滚轮或双指滑动右侧梗环挑选完整梗，再拖入两个槽位；也可以点击梗后再点槽位。"), "retired Meme Ring fusion hint should be removed")
 	_assert_true(not ui_en.has("梗仓库只在社交发布页出现。"), "stale publishing-only Meme Bank copy should be removed")
 	var aid_descriptions := {
 		"现实句子严重失真时，临时压低 18% 的污染噪声。": [

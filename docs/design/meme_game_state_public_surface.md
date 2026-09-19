@@ -36,7 +36,6 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Extraction | Module | Owns |
 |---|---|---|
 | Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Day/pollution/actions HUD chrome; reads adapter snapshots |
-| Meme bank / publish | `scripts/ui/meme_bank_panel.gd` | Meme-bank grid, publish result display; reads `_meme_bank_snapshot()` / `_inventory_snapshot()` |
 | Reality 3D scene | `scripts/world/reality_scene_adapter.gd` (slice 1) | Floor rebuild, player locomotion, proximity actors/items; MemeGameState intents stay in adapter |
 | Camera / hand X-ray | `scripts/integrations/camera_session.gd` | Hand tracking receiver, X-ray overlay, enable/source intents; settings UI wiring stays in adapter |
 | Adaptive audio mix | `scripts/integrations/game_audio_controller.gd` | Score players, floor phone music, flashback ducking, cover-watcher stinger |
@@ -216,7 +215,7 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 | Signal | `inventory_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `confirm_craft()`, `place_token_in_slot()` (success), and `confirm_meme_fusion()` (success) |
 | Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
 
-Legacy fields `notebook_tokens` / `draft_slots` / `completed_memes` remain for save/load; new adapter meme-bank and craft-slot render code should prefer snapshot + signal.
+Legacy fields `notebook_tokens` / `draft_slots` / `completed_memes` remain for save/load; new adapter craft-slot render code should prefer snapshot + signal.
 
 ### Notebook craft / publish (legacy listing)
 
@@ -495,7 +494,7 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 ```gdscript
 # Snapshot (read)
 {
-  "completed_memes": Array,       # full duplicate for meme-bank render
+  "completed_memes": Array,       # full duplicate for inventory render
   "notebook_token_count": int,
   "draft_slots": Dictionary,      # slot_id -> token_id
   "craft_slot_fills": Dictionary, # slot_id -> display text for adapter slot labels
@@ -521,7 +520,7 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 | `place_token_in_slot()` | `place_craft_token` | on success; `target_id` is the slot id (slice 6b) |
 | `confirm_meme_fusion()` | `confirm_fusion` | on success; `target_id` is the fused meme id (slice 6b) |
 
-**Adapter pattern:** connect `inventory_changed` → `_render()`; read meme bank / craft / fusion slot labels via `_inventory_snapshot()`. Remove redundant `_render()` after successful `place_token_in_slot()` when the signal covers slot refresh.
+**Adapter pattern:** connect `inventory_changed` → `_render()`; read craft / fusion slot labels via `_inventory_snapshot()`. Remove redundant `_render()` after successful `place_token_in_slot()` when the signal covers slot refresh.
 
 ---
 

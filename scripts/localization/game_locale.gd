@@ -364,7 +364,6 @@ func _dynamic_patterns() -> Dictionary:
 		{"pattern": "^污染：([0-9]+)%$", "replacement": "汚染度：$1%"},
 		{"pattern": "^任意键  ([0-9]+) / ([0-9]+)$", "replacement": "いずれかのキー  $1 / $2"},
 		{"pattern": "^([0-9]+) 资金$", "replacement": "$1 資金"},
-		{"pattern": "^梗库\\n([0-9]+)$", "replacement": "ミーム庫\\n$1"},
 		{"pattern": "^梗字「(.+)」$", "replacement": "単語ミーム「$1」"},
 		{"pattern": "^复合「(.+)」$", "replacement": "融合「$1」"},
 	])
@@ -378,7 +377,6 @@ func _dynamic_patterns() -> Dictionary:
 		{"pattern": "^污染：([0-9]+)%$", "replacement": "CORRUPTION: $1%"},
 		{"pattern": "^任意键  ([0-9]+) / ([0-9]+)$", "replacement": "ANY KEY  $1 / $2"},
 		{"pattern": "^([0-9]+) 资金$", "replacement": "$1 FUNDS"},
-		{"pattern": "^梗库\\n([0-9]+)$", "replacement": "MEME BANK\\n$1"},
 		{"pattern": "^梗字「(.+)」$", "replacement": "WORD MEME \"$1\""},
 		{"pattern": "^复合「(.+)」$", "replacement": "FUSION \"$1\""},
 	])

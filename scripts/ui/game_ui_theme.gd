@@ -164,16 +164,6 @@ func soft_style(bg: Color, border: Color) -> StyleBoxFlat:
 	return style_box
 
 
-func circle_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style_box := StyleBoxFlat.new()
-	style_box.bg_color = bg
-	style_box.border_color = border
-	style_box.set_border_width_all(3)
-	style_box.set_corner_radius_all(60)
-	style_box.set_content_margin_all(12)
-	return style_box
-
-
 func phone_shell_style(pollution_stage: Dictionary) -> StyleBoxFlat:
 	var style_box := StyleBoxFlat.new()
 	style_box.bg_color = theme_color("ink", pollution_stage)
@@ -244,19 +234,6 @@ func flat_button_state_style(bg: Color) -> StyleBoxFlat:
 	return style_box
 
 
-func file_corner_style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style_box := StyleBoxFlat.new()
-	style_box.bg_color = bg
-	style_box.border_color = border
-	style_box.set_border_width_all(1)
-	style_box.corner_radius_top_left = 2
-	style_box.corner_radius_top_right = 18
-	style_box.corner_radius_bottom_left = 2
-	style_box.corner_radius_bottom_right = 2
-	style_box.set_content_margin_all(6)
-	return style_box
-
-
 func composer_tile_style(kind: String, pollution_stage = null) -> StyleBoxFlat:
 	var stage := _stage(pollution_stage)
 	var style_box := StyleBoxFlat.new()
@@ -295,7 +272,7 @@ func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage = n
 	tile.add_theme_stylebox_override("pressed", composer_tile_style("pressed", stage))
 
 
-func apply_ui_theme(node: Node, pollution_stage = null, meme_bank_open: bool = false) -> void:
+func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 	if node == null:
 		return
 	pollution_stage = _stage(pollution_stage)
@@ -342,26 +319,6 @@ func apply_ui_theme(node: Node, pollution_stage = null, meme_bank_open: bool = f
 			button.add_theme_stylebox_override("normal", style(theme_color("ink", pollution_stage) if tab_active else Color(theme_color("surface", pollution_stage), 0.72), theme_color("accent", pollution_stage)))
 			button.add_theme_stylebox_override("hover", style(theme_color("muted", pollution_stage), theme_color("ink", pollution_stage)))
 			button.add_theme_stylebox_override("pressed", style(theme_color("accent", pollution_stage), theme_color("ink", pollution_stage)))
-		elif button.has_meta("radial_center_button"):
-			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage))
-			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
-			button.add_theme_stylebox_override("normal", circle_style(Color(theme_color("ink", pollution_stage), 0.92), theme_color("muted", pollution_stage)))
-			button.add_theme_stylebox_override("hover", circle_style(theme_color("muted", pollution_stage), theme_color("ink", pollution_stage)))
-			button.add_theme_stylebox_override("pressed", circle_style(theme_color("accent", pollution_stage), theme_color("surface", pollution_stage)))
-		elif button.has_meta("meme_bank_tab") and bool(button.get_meta("meme_bank_peek", false)):
-			button.add_theme_color_override("font_color", theme_color("muted", pollution_stage))
-			button.add_theme_color_override("font_hover_color", theme_color("surface", pollution_stage))
-			button.add_theme_color_override("font_pressed_color", theme_color("surface", pollution_stage))
-			button.add_theme_stylebox_override("normal", file_corner_style(Color(theme_color("ink", pollution_stage), 0.72), Color(theme_color("muted", pollution_stage), 0.28)))
-			button.add_theme_stylebox_override("hover", file_corner_style(Color(theme_color("ink", pollution_stage), 0.88), Color(theme_color("muted", pollution_stage), 0.46)))
-			button.add_theme_stylebox_override("pressed", file_corner_style(theme_color("ink", pollution_stage), theme_color("muted", pollution_stage)))
-		elif button.has_meta("meme_bank_tab") and not meme_bank_open:
-			button.add_theme_color_override("font_color", theme_color("muted", pollution_stage))
-			button.add_theme_color_override("font_hover_color", theme_color("surface", pollution_stage))
-			button.add_theme_color_override("font_pressed_color", theme_color("surface", pollution_stage))
-			button.add_theme_stylebox_override("normal", style(Color(theme_color("ink", pollution_stage), 0.78), Color(theme_color("muted", pollution_stage), 0.24)))
-			button.add_theme_stylebox_override("hover", style(Color(theme_color("ink", pollution_stage), 0.92), Color(theme_color("muted", pollution_stage), 0.42)))
-			button.add_theme_stylebox_override("pressed", style(theme_color("ink", pollution_stage), theme_color("muted", pollution_stage)))
 		elif button.has_meta("flat_phone_button"):
 			var flat := StyleBoxEmpty.new()
 			button.add_theme_color_override("font_color", theme_color("ink", pollution_stage))
@@ -390,8 +347,6 @@ func apply_ui_theme(node: Node, pollution_stage = null, meme_bank_open: bool = f
 			(node as PanelContainer).add_theme_stylebox_override("panel", phone_surface_style(pollution_stage))
 		elif node.has_meta("poster_frame"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", poster_frame_style(pollution_stage))
-		elif node.has_meta("meme_bank_popup") and not meme_bank_open:
-			(node as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 		elif node.has_meta("dark_rail"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("ink", pollution_stage), Color(theme_color("muted", pollution_stage), 0.22)))
 		elif node.has_meta("tooltip_panel"):
@@ -408,4 +363,4 @@ func apply_ui_theme(node: Node, pollution_stage = null, meme_bank_open: bool = f
 		edit.add_theme_color_override("font_placeholder_color", theme_color("accent", pollution_stage))
 		edit.add_theme_stylebox_override("normal", style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
 	for child in node.get_children():
-		apply_ui_theme(child, pollution_stage, meme_bank_open)
+		apply_ui_theme(child, pollution_stage)

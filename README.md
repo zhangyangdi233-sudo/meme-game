@@ -18,7 +18,7 @@ After the fifth normal action, the inline action pulse hands off to a 3.6-second
 
 The phone launcher keeps three Apps in separate movable windows: Tower, Social, and Notebook. The social App uses a tall phone layout with an image-first, equal-width two-column feed, a separate draggable post-detail companion, and a mobile publish flow ordered as content, outcome preview, and signal hand. Following accounts and liking posts from Discover are free and persist across days; Nearby remains unavailable because the device has no location signal.
 
-The meme bank is a right-edge radial selector that appears contextually on the social Publish page and beside the notebook. Completed memes sit on the ring and can be selected with the mouse wheel, a Mac trackpad pan, clicking, or drag and drop. The notebook opens at the upper left and separates frame crafting from two-meme fusion with browser-style tabs.
+The notebook opens at the upper left and separates frame crafting from two-meme fusion with browser-style tabs.
 
 ## Reality Controls
 

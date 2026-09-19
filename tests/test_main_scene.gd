@@ -59,6 +59,7 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(game_root.get_node_or_null("PhoneRig") == null, "retired PhoneRig must not be built each run")
 	_assert_true(game_root.get_node_or_null("NPC") == null, "retired NPC plane must not be built each run")
 	_assert_true(_find_node_by_name(game_root, "MemeBankPopup") == null, "retired meme ring popup must not hang into the adapter")
+	_assert_true(not FileAccess.file_exists("res://scripts/ui/meme_bank_panel.gd"), "retired meme bank panel source must not remain as a dead file")
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "retired 3D companion body must not exist")
 	_assert_true(_find_node_by_name(game_root, "DollGuideOverlay") is Control, "the DollGuide window must remain")
 	var backdrop := _find_node_by_name(game_root, "PhoneDownBackdropImage") as TextureRect

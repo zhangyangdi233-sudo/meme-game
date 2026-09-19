@@ -153,8 +153,8 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 
 func _render_fusion_tab(notebook_content: VBoxContainer) -> void:
 	notebook_content.add_child(_label_factory.call("旧梗融合", 18, _theme_color_fn.call("accent")))
-	var fusion_hint := _label_factory.call("用滚轮或双指滑动右侧梗环挑选完整梗，再拖入两个槽位；也可以点击梗后再点槽位。", 14, _theme_color_fn.call("accent")) as Label
-	fusion_hint.name = "NotebookFusionRingHint"
+	var fusion_hint := _label_factory.call("将两则不同的完整梗放入左右槽位。", 14, _theme_color_fn.call("accent")) as Label
+	fusion_hint.name = "NotebookFusionHint"
 	fusion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(fusion_hint)
 	var fusion_row := HBoxContainer.new()
