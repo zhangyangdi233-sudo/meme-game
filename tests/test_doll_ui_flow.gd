@@ -52,7 +52,7 @@ func _run_async() -> void:
 				_assert_eq(game_root.game.actions_remaining, actions_before, "speaking to the tutorial guide should not consume a daily action")
 				_assert_eq(str(game_root.game.get_tutorial_step().get("id", "")), "open_social", "guide discovery should advance the tutorial to the phone")
 				_assert_true(bool(doll.get_meta("claimed", false)), "the world doll should remember that its first guidance was heard")
-				if game_root._input_locked:
+				if game_root.session_mode() == "narrative":
 					game_root._narrative_director.finish_action_spend_animation()
 
 		game_root.queue_free()

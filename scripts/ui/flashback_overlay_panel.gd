@@ -77,6 +77,7 @@ func build_phases() -> void:
 func play(frozen_texture: Texture2D) -> void:
 	if _overlay != null:
 		_overlay.visible = true
+		_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	if _director != null:
 		_director.play(frozen_texture)
 
@@ -86,6 +87,7 @@ func stop() -> void:
 		_director.stop()
 	if _overlay != null:
 		_overlay.visible = false
+		_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func is_playing() -> bool:

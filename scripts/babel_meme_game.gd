@@ -210,7 +210,6 @@ func _narrative_overlay_deps() -> Dictionary:
 		"game": game,
 		"ui_root": _ui_root,
 		"render": _render,
-		"set_input_locked": _set_input_locked,
 		"request_narrative": func() -> void:
 			_request_session_mode("narrative"),
 		"request_gameplay_from_narrative": func() -> void:
@@ -3090,8 +3089,6 @@ func _request_ending_if_unlocked() -> bool:
 func _set_input_locked(value: bool) -> void:
 	_input_locked = value
 	_sync_window_manager_enabled()
-	if _narrative_director != null:
-		_narrative_director.apply_input_lock_filters(value)
 
 
 func _render_ending() -> void:

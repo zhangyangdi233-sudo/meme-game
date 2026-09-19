@@ -58,6 +58,7 @@ func prepare_show() -> void:
 	if _overlay == null:
 		return
 	_overlay.visible = true
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_overlay.modulate = Color(1, 1, 1, 0)
 	_day_label.scale = Vector2(0.86, 0.86)
 	_rule.scale = Vector2(0.04, 1.0)
@@ -67,6 +68,7 @@ func hide_overlay() -> void:
 	if _overlay == null:
 		return
 	_overlay.visible = false
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.modulate = Color.WHITE
 
 

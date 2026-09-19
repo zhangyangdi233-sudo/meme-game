@@ -45,7 +45,7 @@ func _capture() -> void:
 		if main.game.conversation_phase != "typing":
 			break
 		main._advance_typed_reality_character()
-	if main._input_locked:
+	if main.session_mode() == "narrative":
 		main._narrative_director.finish_action_spend_animation()
 	main.set_view_state("phone_down")
 	main._on_app_pressed("notebook")

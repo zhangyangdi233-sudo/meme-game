@@ -50,15 +50,6 @@ func kill_day_transition_tween() -> void:
 	day_transition_tween = null
 
 
-func apply_input_lock_filters(locked: bool) -> void:
-	if flashback_overlay != null:
-		flashback_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if locked else Control.MOUSE_FILTER_IGNORE
-	if action_spend_overlay != null:
-		action_spend_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if locked and action_spend_overlay.visible else Control.MOUSE_FILTER_IGNORE
-	if day_transition_overlay != null:
-		day_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if locked and day_transition_overlay.visible else Control.MOUSE_FILTER_IGNORE
-
-
 func build_action_spend_overlay() -> void:
 	_ensure_action_spend_panel()
 	var ui_root := _deps.get("ui_root") as Control
@@ -109,7 +100,6 @@ func play_action_spend_animation(before_actions: int, after_actions: int) -> voi
 	var game: Variant = _deps.get("game")
 	action_spend_should_settle = game != null and bool(game.needs_day_settlement)
 	_request_narrative()
-	_set_input_locked(true)
 	action_spend_panel.play(before_actions, after_actions)
 
 
@@ -122,7 +112,6 @@ func finish_action_spend_animation() -> void:
 	if should_transition:
 		play_day_transition()
 		return
-	_set_input_locked(false)
 	_sync_audio(false)
 	_render()
 	_request_gameplay_from_narrative()
@@ -140,14 +129,12 @@ func update_floor_transition_card(floor_number: int) -> void:
 func play_day_transition() -> void:
 	if day_transition_overlay == null:
 		_settle_day()
-		_set_input_locked(false)
 		_render()
 		_request_gameplay_from_narrative()
 		return
 	kill_day_transition_tween()
 	day_transition_settled = false
 	_request_narrative()
-	_set_input_locked(true)
 	if day_transition_panel != null:
 		day_transition_panel.prepare_show()
 	update_floor_transition_card(_tower_floor())
@@ -181,7 +168,6 @@ func finish_day_transition() -> void:
 		commit_day_transition_settlement()
 	if day_transition_panel != null and is_instance_valid(day_transition_panel):
 		day_transition_panel.hide_overlay()
-	_set_input_locked(false)
 	_sync_audio(false)
 	_render()
 	_request_gameplay_from_narrative()
@@ -191,7 +177,6 @@ func play_pollution_flashback() -> void:
 	if flashback_panel == null:
 		return
 	_request_narrative()
-	_set_input_locked(true)
 	var theme_color: Callable = _deps.get("theme_color", Callable())
 	if theme_color.is_valid():
 		flashback_panel.configure_colors({
@@ -219,7 +204,6 @@ func finish_pollution_flashback() -> void:
 	var stop_audio: Callable = _deps.get("stop_flashback_audio", Callable())
 	if stop_audio.is_valid():
 		stop_audio.call()
-	_set_input_locked(false)
 	var consume: Callable = _deps.get("consume_pollution_flashback", Callable())
 	var should_settle: bool = bool(consume.call()) if consume.is_valid() else false
 	if should_settle and _settle_day():
@@ -298,12 +282,6 @@ func _request_gameplay_from_narrative() -> void:
 	var callback: Callable = _deps.get("request_gameplay_from_narrative", Callable())
 	if callback.is_valid():
 		callback.call()
-
-
-func _set_input_locked(value: bool) -> void:
-	var callback: Callable = _deps.get("set_input_locked", Callable())
-	if callback.is_valid():
-		callback.call(value)
 
 
 func _sync_audio(immediate: bool) -> void:

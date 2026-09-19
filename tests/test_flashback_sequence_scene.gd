@@ -117,13 +117,14 @@ func _check_scene_contract() -> void:
 	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_true(overlay.visible, "playing the flashback should reveal the overlay")
-	_assert_true(game_root._input_locked, "flashback should lock gameplay input")
+	_assert_eq_text(game_root.session_mode(), "narrative", "a flashback should set Session mode to narrative")
+	_assert_eq_int(overlay.mouse_filter, Control.MOUSE_FILTER_STOP, "flashback overlay should eat clicks while Session mode is narrative")
 	var freeze_phase := _find_node_by_name(overlay, "FlashbackPhaseFreeze") as Control
 	_assert_true(freeze_phase != null and freeze_phase.visible, "the sequence should open on the frozen current frame")
 	game_root._narrative_director.finish_pollution_flashback()
 	_assert_eq_int(game_root.game.day, 2, "finishing the flashback should settle straight into the next day")
 	_assert_true(not overlay.visible, "finishing should hide the overlay")
-	_assert_true(not game_root._input_locked, "finishing should unlock input")
+	_assert_eq_text(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
 
 	game_root._narrative_director.finish_pollution_flashback()
 	_assert_eq_int(game_root.game.day, 2, "a second finish call must not settle a second day")
@@ -160,7 +161,7 @@ func _check_scene_contract() -> void:
 	_assert_true(game_root.game.day == day_before + 1, "pollution flashback must finish within 15 seconds")
 	_assert_eq_int(game_root.game.day, day_before + 1, "the natural timeline completion must settle the day through sequence_finished")
 	_assert_true(not overlay.visible, "the natural completion must hide the overlay by itself")
-	_assert_true(not game_root._input_locked, "the natural completion must unlock input")
+	_assert_eq_text(game_root.session_mode(), "gameplay", "the natural completion must leave Session mode as gameplay")
 	_assert_eq_text(",".join(seen_order), ",".join(expected_order), "phases must appear exactly in PHASES order during a natural run")
 
 	game_root.queue_free()
