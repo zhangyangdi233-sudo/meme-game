@@ -13,6 +13,11 @@ signal follow_pressed(author_id: String)
 signal close_requested
 signal detail_close_requested
 signal publish_confirm_requested
+signal pickup_unit_clicked(meta: Variant, post_id: String)
+signal composer_area_dropped(data: Dictionary)
+signal composer_tile_dropped(data: Dictionary, before_index: int)
+signal composer_answer_tapped(unit_index: int)
+signal composer_submit_requested
 
 const SOCIAL_FEED_WHEEL_STEP := 2
 const SOCIAL_FEED_POSTER_HEIGHTS := [
@@ -51,11 +56,8 @@ var _caption_text_fn: Callable
 var _corrupt_text_fn: Callable
 var _floor_label_fn: Callable
 var _translate_fn: Callable
-var _pickup_bbcode_fn: Callable
-var _pickup_meta_fn: Callable
+var _language_material
 var _author_id_fn: Callable
-var _pickup_line_fn: Callable
-var _pickup_comments_fn: Callable
 var _player_echo_quote_fn: Callable
 var _echo_comment_handle_fn: Callable
 var _game_day_fn: Callable
@@ -63,10 +65,6 @@ var _current_locale_fn: Callable
 var _publish_result_fn: Callable
 var _free_sentence_units_fn: Callable
 var _soft_style_fn: Callable
-var _composer_area_drop_fn: Callable
-var _composer_tile_drop_fn: Callable
-var _composer_answer_tapped_fn: Callable
-var _composer_submit_fn: Callable
 var _apply_composer_tile_theme_fn: Callable
 var _free_sentence_text_fn: Callable
 var _can_spend_action_fn: Callable
@@ -319,11 +317,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_corrupt_text_fn = deps.get("corrupt_text", Callable())
 	_floor_label_fn = deps.get("floor_label", Callable())
 	_translate_fn = deps.get("translate", Callable())
-	_pickup_bbcode_fn = deps.get("pickup_bbcode", Callable())
-	_pickup_meta_fn = deps.get("pickup_meta", Callable())
+	_language_material = deps.get("language_material")
 	_author_id_fn = deps.get("author_id", Callable())
-	_pickup_line_fn = deps.get("pickup_line", Callable())
-	_pickup_comments_fn = deps.get("pickup_comments", Callable())
 	_player_echo_quote_fn = deps.get("player_echo_quote", Callable())
 	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
 	_game_day_fn = deps.get("game_day", Callable())
@@ -331,10 +326,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_publish_result_fn = deps.get("publish_result", Callable())
 	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
 	_soft_style_fn = deps.get("soft_style", Callable())
-	_composer_area_drop_fn = deps.get("composer_area_drop", Callable())
-	_composer_tile_drop_fn = deps.get("composer_tile_drop", Callable())
-	_composer_answer_tapped_fn = deps.get("composer_answer_tapped", Callable())
-	_composer_submit_fn = deps.get("composer_submit", Callable())
 	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
 	_free_sentence_text_fn = deps.get("free_sentence_text", Callable())
 	_can_spend_action_fn = deps.get("can_spend_action", Callable())
@@ -855,8 +846,8 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	if _current_locale_fn.is_valid():
 		locale = str(_current_locale_fn.call())
 	var pickup_line := ""
-	if _pickup_line_fn.is_valid():
-		pickup_line = str(_pickup_line_fn.call(post_card_id, locale))
+	if _language_material != null:
+		pickup_line = str(_language_material.pickup_line(post_card_id, locale))
 	if not pickup_line.is_empty():
 		detail_box.add_child(_make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id))
 		var pickup_hint := _label_factory.call("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color_fn.call("muted")) as Label
@@ -896,8 +887,8 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(signal_profile)
 	var post_comments: Array = []
-	if _pickup_comments_fn.is_valid():
-		post_comments = _pickup_comments_fn.call(post_card_id, locale)
+	if _language_material != null:
+		post_comments = _language_material.pickup_comments(post_card_id, locale)
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
 		comments_rule.name = "SocialCommentsRule"
@@ -1142,11 +1133,11 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
 	rich.set_meta("on_dark", true)
 	var bbcode := source_text
-	if _pickup_bbcode_fn.is_valid():
-		bbcode = str(_pickup_bbcode_fn.call(source_text))
+	if _language_material != null:
+		var pickable_color = _theme_color_fn.call("flash_text") if _theme_color_fn.is_valid() else Color("9cff24")
+		bbcode = str(_language_material.marked_text(source_text, pickable_color))
 	rich.text = bbcode
-	if _pickup_meta_fn.is_valid():
-		rich.meta_clicked.connect(_pickup_meta_fn.bind(post_id))
+	rich.meta_clicked.connect(_on_pickup_meta_clicked.bind(post_id))
 	return rich
 
 
@@ -1159,8 +1150,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 			"panel",
 			_soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent"))
 		)
-	if _composer_area_drop_fn.is_valid():
-		answer_panel.unit_dropped.connect(_composer_area_drop_fn)
+	answer_panel.unit_dropped.connect(_on_composer_area_dropped)
 	composer_box.add_child(answer_panel)
 	var answer_box := VBoxContainer.new()
 	answer_box.add_theme_constant_override("separation", 4)
@@ -1183,10 +1173,8 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		placed_tile.custom_minimum_size = Vector2(44, 42)
 		placed_tile.set_meta("skip_localization", true)
 		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
-		if _composer_answer_tapped_fn.is_valid():
-			placed_tile.pressed.connect(_composer_answer_tapped_fn.bind(unit_index))
-		if _composer_tile_drop_fn.is_valid():
-			placed_tile.unit_dropped_before.connect(_composer_tile_drop_fn)
+		placed_tile.pressed.connect(_on_composer_answer_pressed.bind(unit_index))
+		placed_tile.unit_dropped_before.connect(_on_composer_tile_dropped)
 		if _apply_composer_tile_theme_fn.is_valid():
 			_apply_composer_tile_theme_fn.call(placed_tile, false)
 		answer_flow.add_child(placed_tile)
@@ -1219,9 +1207,28 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		post_button.disabled = false
 		post_button.add_theme_stylebox_override("normal", _style_fn.call(_theme_color_fn.call("accent"), _theme_color_fn.call("ink")))
 		post_button.add_theme_color_override("font_color", _theme_color_fn.call("surface"))
-	if _composer_submit_fn.is_valid():
-		post_button.pressed.connect(_composer_submit_fn)
+	post_button.pressed.connect(_on_composer_submit_pressed)
 	composer_box.add_child(post_button)
+
+
+func _on_pickup_meta_clicked(meta: Variant, post_id: String) -> void:
+	pickup_unit_clicked.emit(meta, post_id)
+
+
+func _on_composer_area_dropped(data: Dictionary) -> void:
+	composer_area_dropped.emit(data)
+
+
+func _on_composer_tile_dropped(data: Dictionary, before_index: int) -> void:
+	composer_tile_dropped.emit(data, before_index)
+
+
+func _on_composer_answer_pressed(unit_index: int) -> void:
+	composer_answer_tapped.emit(unit_index)
+
+
+func _on_composer_submit_pressed() -> void:
+	composer_submit_requested.emit()
 
 
 func _clear(node: Node) -> void:

@@ -4,7 +4,6 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
-const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
@@ -35,6 +34,7 @@ const HandTrackingStatusScript = preload("res://framework/integrations/hand_trac
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
+const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const FlowManagerScript = preload("res://framework/flow/flow_manager.gd")
@@ -61,9 +61,6 @@ const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.pn
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
-# 可拾取字的视觉可供性:脉动频率与字号(配合下划线,构成非颜色依赖的三重提示)。
-const PICKABLE_PULSE_FREQ := 0.5
-const PICKABLE_FONT_SIZE := 19
 # 句子单位软上限(参考 Bluesky 的 grapheme 计数语义;超过只提示不拦截)。
 const COMPOSER_SOFT_UNIT_LIMIT := 12
 # 点阵字体(Boutique Bitmap 9x9,OFL):三语共用一套字形,字号必须吸附到 9 的整数倍。
@@ -139,6 +136,7 @@ var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
+var _language_material
 var _phone_launcher_panel
 var _notebook_app_panel
 var _babel_app_panel
@@ -1917,6 +1915,7 @@ func _connect_settings_history_panel_signals() -> void:
 
 
 func _ensure_social_feed_panel() -> void:
+	_ensure_language_material()
 	if _social_feed_panel != null and is_instance_valid(_social_feed_panel):
 		return
 	_social_feed_panel = SocialFeedPanelScript.new()
@@ -1925,8 +1924,42 @@ func _ensure_social_feed_panel() -> void:
 	_connect_social_feed_panel_signals()
 
 
+func _ensure_language_material() -> void:
+	if _language_material != null:
+		return
+	_language_material = LanguageMaterialScript.new()
+	_language_material.configure({
+		"game": func(): return game,
+		"locale": func() -> String: return _locale.current_locale,
+		"mouse_origin": func() -> Vector2: return get_viewport().get_mouse_position(),
+	})
+	_connect_language_material()
+
+
+func _connect_language_material() -> void:
+	if _language_material == null:
+		return
+	if not _language_material.sfx_requested.is_connected(_on_language_material_sfx):
+		_language_material.sfx_requested.connect(_on_language_material_sfx)
+	if not _language_material.effective_action.is_connected(_after_effective_action):
+		_language_material.effective_action.connect(_after_effective_action)
+	if not _language_material.ui_refresh_requested.is_connected(_render):
+		_language_material.ui_refresh_requested.connect(_render)
+	if not _language_material.log_requested.is_connected(_on_language_material_log):
+		_language_material.log_requested.connect(_on_language_material_log)
+	if not _language_material.notebook_home_requested.is_connected(_ensure_notebook_window_home):
+		_language_material.notebook_home_requested.connect(_ensure_notebook_window_home)
+	if not _language_material.pickup_flight_requested.is_connected(_on_language_pickup_flight):
+		_language_material.pickup_flight_requested.connect(_on_language_pickup_flight)
+	if not _language_material.place_flight_requested.is_connected(_on_language_place_flight):
+		_language_material.place_flight_requested.connect(_on_language_place_flight)
+	if not _language_material.status_refresh_requested.is_connected(_render_status):
+		_language_material.status_refresh_requested.connect(_render_status)
+
+
 func _social_feed_mount_deps() -> Dictionary:
 	_ensure_window_manager()
+	_ensure_language_material()
 	return {
 		"panel_factory": _ui_theme_helper.panel,
 		"label_factory": _ui_theme_helper.label,
@@ -1955,11 +1988,8 @@ func _social_feed_mount_deps() -> Dictionary:
 		"floor_label": func() -> String:
 			return SocialFeedContentScript.floor_label(_social_content_deps()),
 		"translate": func(text: String) -> String: return _locale.translate(text),
-		"pickup_bbcode": _pickup_bbcode,
-		"pickup_meta": _on_pickup_unit_meta,
+		"language_material": _language_material,
 		"author_id": SocialFeedContentScript.author_id,
-		"pickup_line": func(post_id: String, locale: String) -> String: return PickupCharPoolScript.get_pickup_line(post_id, locale),
-		"pickup_comments": func(post_id: String, locale: String) -> Array: return PickupCharPoolScript.get_comments(post_id, locale),
 		"player_echo_quote": func() -> String: return game.get_player_echo_quote(_locale.current_locale) if game != null else "",
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
 		"game_day": func() -> int: return int(_day_progress_snapshot().get("day", 0)) if game != null else 0,
@@ -1967,10 +1997,6 @@ func _social_feed_mount_deps() -> Dictionary:
 		"publish_result": func() -> Dictionary:
 			return SocialFeedContentScript.publish_result(_social_content_deps()),
 		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
-		"composer_area_drop": _on_composer_area_drop,
-		"composer_tile_drop": _on_composer_tile_drop,
-		"composer_answer_tapped": _on_composer_answer_tapped,
-		"composer_submit": _on_composer_submit_pressed,
 		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
 		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
@@ -2002,6 +2028,16 @@ func _connect_social_feed_panel_signals() -> void:
 		panel.detail_close_requested.connect(_close_social_detail_window)
 	if not panel.publish_confirm_requested.is_connected(_on_confirm_dialogue_pressed):
 		panel.publish_confirm_requested.connect(_on_confirm_dialogue_pressed)
+	if not panel.pickup_unit_clicked.is_connected(_language_material.pick_from_post):
+		panel.pickup_unit_clicked.connect(_language_material.pick_from_post)
+	if not panel.composer_area_dropped.is_connected(_language_material.drop_on_area):
+		panel.composer_area_dropped.connect(_language_material.drop_on_area)
+	if not panel.composer_tile_dropped.is_connected(_language_material.drop_before):
+		panel.composer_tile_dropped.connect(_language_material.drop_before)
+	if not panel.composer_answer_tapped.is_connected(_language_material.remove_at):
+		panel.composer_answer_tapped.connect(_language_material.remove_at)
+	if not panel.composer_submit_requested.is_connected(_language_material.submit):
+		panel.composer_submit_requested.connect(_language_material.submit)
 
 
 func _ensure_phone_launcher_panel() -> void:
@@ -3354,84 +3390,46 @@ func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 
 ## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
+	_ensure_language_material()
 	var answer_panel := _find_control_by_name(_ui_root, "ComposerAnswerPanel")
-	var dropped_into_sentence := false
-	if answer_panel != null and is_instance_valid(answer_panel) and answer_panel.is_visible_in_tree():
-		if answer_panel.get_global_rect().has_point(release_global):
-			dropped_into_sentence = game.free_sentence_place(unit, _locale.current_locale)
-	if dropped_into_sentence:
-		log_text = "字进入了句子。"
-	_render()
+	_language_material.place_if_over_answer(unit, release_global, answer_panel)
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
-	if game.free_sentence_place(unit, _locale.current_locale):
-		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _ui_theme_helper.theme_color("accent"))
-		log_text = "字进入了句子。"
-		_render()
+	_ensure_language_material()
+	_language_material.place_from_bank(unit)
 
 
 func _on_composer_answer_tapped(unit_index: int) -> void:
-	if game.free_sentence_remove(unit_index):
-		_render()
+	_ensure_language_material()
+	_language_material.remove_at(unit_index)
 
 
 func _on_composer_area_drop(data: Dictionary) -> void:
-	_handle_composer_drop(data, game.get_free_sentence_units().size())
+	_ensure_language_material()
+	_language_material.drop_on_area(data)
 
 
 func _on_composer_tile_drop(data: Dictionary, before_index: int) -> void:
-	_handle_composer_drop(data, before_index)
+	_ensure_language_material()
+	_language_material.drop_before(data, before_index)
 
 
 func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
-	match str(data.get("kind", "")):
-		"composer_unit":
-			if game.free_sentence_place_at(str(data.get("id", "")), target_index, _locale.current_locale):
-				log_text = "字进入了句子。"
-				_render()
-		"composer_reorder":
-			var from_index := int(str(data.get("id", "-1")))
-			var to_index := target_index
-			if from_index < to_index:
-				to_index -= 1
-			if game.free_sentence_move(from_index, to_index):
-				_render()
+	_ensure_language_material()
+	_language_material.apply_drop_at(data, target_index)
 
 
 func _composer_answer_target() -> Vector2:
 	var answer_flow := _find_control_by_name(_ui_root, "ComposerAnswerFlow")
 	if answer_flow != null and is_instance_valid(answer_flow):
-		return answer_flow.get_global_position() + Vector2(answer_flow.size.x * 0.5, 20.0)
+		return LanguageMaterialScript.composer_answer_target(answer_flow)
 	return _notebook_flight_target()
 
 
 func _on_composer_submit_pressed() -> void:
-	var actions_before: int = int(game.actions_remaining)
-	var submit_result: Dictionary = game.submit_free_sentence(_locale.current_locale)
-	if not bool(submit_result.get("submitted", false)):
-		match str(submit_result.get("reason", "")):
-			"empty":
-				log_text = "句子还空着。"
-			"no-actions":
-				log_text = "今天没有行动了。明天第一次拾字会重新消耗行动。"
-			_:
-				log_text = "投稿没有发出去。"
-		_render_status()
-		return
-	match str(submit_result.get("tier", "")):
-		"rule":
-			log_text = "投稿已发出。有什么地方遵守了它。"
-		"misread":
-			log_text = "投稿已发出。世界读错了它。"
-		_:
-			log_text = "投稿已发出。没有回应,只有噪声。"
-	if bool(submit_result.get("floor3_task_completed", false)):
-		log_text += "\n" + "第三层的门开了。"
-	if bool(submit_result.get("floor4_task_completed", false)):
-		log_text += "\n" + "出口开始存在。"
-	_after_effective_action(actions_before)
+	_ensure_language_material()
+	_language_material.submit()
 
 
 func _build_pickup_flight_layer() -> void:
@@ -3456,89 +3454,41 @@ func _ensure_notebook_window_home() -> void:
 
 
 func _pickup_bbcode(source_text: String) -> String:
-	var locale_code: String = _locale.current_locale
-	var units: Array = game.get_pickup_unit_pool(locale_code) if game != null else PickupCharPoolScript.get_unit_pool(locale_code)
-	units.sort_custom(func(left, right): return str(left).length() > str(right).length())
-	var pickable_color := _ui_theme_helper.theme_color("flash_text").to_html(false)
-	var collected_color := "8b8f84"
-	var result := ""
-	var index := 0
-	var text_length := source_text.length()
-	while index < text_length:
-		var matched := ""
-		var matched_display := ""
-		for unit_value in units:
-			var unit := str(unit_value)
-			if unit.is_empty() or index + unit.length() > text_length:
-				continue
-			var slice := source_text.substr(index, unit.length())
-			if locale_code == "en":
-				# 英文大小写不敏感(句首大写也可拾),但要求完整单词边界。
-				if slice.to_lower() != unit.to_lower():
-					continue
-				if not _pickup_word_boundary_ok(source_text, index, unit.length()):
-					continue
-			elif slice != unit:
-				continue
-			matched = unit
-			matched_display = slice
-			break
-		if matched.is_empty():
-			result += _escape_bbcode(source_text.substr(index, 1))
-			index += 1
-			continue
-		if game != null and game.is_social_char_collected(matched, locale_code):
-			# 已拾取:灰、无下划线、无脉动 —— 与可拾取形成三重差异(色/线/动)。
-			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched_display)]
-		else:
-			# 可拾取的多重可供性:颜色 + 下划线 + 缓慢脉动 + 略大字号,
-			# 不只靠颜色(色觉障碍与低对比屏幕下同样可辨)。
-			result += "[color=#%s][url=%s][u][pulse freq=%.1f color=#ffffff55 ease=-2.0][font_size=%d]%s[/font_size][/pulse][/u][/url][/color]" % [
-				pickable_color, matched, PICKABLE_PULSE_FREQ, PICKABLE_FONT_SIZE, _escape_bbcode(matched_display),
-			]
-		index += matched.length()
-	return result
-
-
-func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) -> bool:
-	if start_index > 0 and PickupCharPoolScript.is_word_character(text.substr(start_index - 1, 1)):
-		return false
-	var after_index := start_index + unit_length
-	if after_index < text.length() and PickupCharPoolScript.is_word_character(text.substr(after_index, 1)):
-		return false
-	return true
+	_ensure_language_material()
+	return _language_material.marked_text(source_text, _ui_theme_helper.theme_color("flash_text"))
 
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
-	var unit := str(meta)
-	var actions_before: int = int(game.actions_remaining)
-	var origin: Vector2 = get_viewport().get_mouse_position()
-	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
-	if bool(pick_result.get("picked", false)):
-		log_text = "一个字进入了笔记本。"
-		_play_ui_sound(_audio_controller.pickup_press_audio if _audio_controller != null else null)
-		_ensure_notebook_window_home()
-		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _ui_theme_helper.theme_color("flash_text"))
-		if bool(pick_result.get("action_spent", false)):
-			_after_effective_action(actions_before)
-		else:
-			_render()
-		return
-	match str(pick_result.get("reason", "")):
-		"duplicate":
-			log_text = "这个字已经在笔记本里了。"
-		"no-actions":
-			log_text = "今天没有行动了。明天第一次拾字会重新消耗行动。"
-		_:
-			log_text = "这个字没有进入笔记本。"
-	_render_status()
+	_ensure_language_material()
+	_language_material.pick_from_post(meta, post_id)
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
 	_play_ui_sound(_audio_controller.pickup_land_audio if _audio_controller != null else null)
 	_play_ui_sound(_audio_controller.notebook_hinge_audio if _audio_controller != null else null)
 	_squash_notebook_window()
+
+
+func _on_language_material_sfx(kind: String) -> void:
+	if _audio_controller == null:
+		return
+	match kind:
+		"pickup_press":
+			_play_ui_sound(_audio_controller.pickup_press_audio)
+
+
+func _on_language_material_log(text: String) -> void:
+	log_text = text
+
+
+func _on_language_pickup_flight(unit: String, origin: Vector2) -> void:
+	if _pickup_flight_layer != null:
+		_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _ui_theme_helper.theme_color("flash_text"))
+
+
+func _on_language_place_flight(unit: String) -> void:
+	if _pickup_flight_layer != null:
+		_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _ui_theme_helper.theme_color("accent"))
 
 
 ## 短促 UI 音效:重复触发时从头播放,不叠加成噪音。
@@ -3557,10 +3507,7 @@ func _notebook_window_control() -> Control:
 
 
 func _notebook_flight_target() -> Vector2:
-	var window := _notebook_window_control()
-	if window != null and window.visible:
-		return window.get_global_position() + Vector2(56.0, 40.0)
-	return Vector2(84.0, 64.0)
+	return LanguageMaterialScript.notebook_flight_target(_notebook_window_control())
 
 
 func _squash_notebook_window() -> void:
