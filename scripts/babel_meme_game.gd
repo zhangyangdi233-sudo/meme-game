@@ -689,19 +689,20 @@ func _connect_game_state_signals() -> void:
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_phone_shell_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
-	_render()
+	_refresh_phone_shell()
+	_update_world_for_phone_view()
 
 
 func _on_action_economy_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_settings_changed(_snapshot: Dictionary) -> void:
@@ -848,7 +849,8 @@ func set_view_state(value: String) -> void:
 				_open_app_windows[foreground_app] = true
 			if _phone_launcher_panel != null:
 				_phone_launcher_panel.move_phone_to_front()
-		_render()
+		_refresh_phone_shell()
+		_update_world_for_phone_view()
 		_sync_audio_state(false)
 
 
@@ -2441,6 +2443,30 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	_layout_hud_rail()
 
 
+func _refresh_phone_shell() -> void:
+	if session_mode() == "ending":
+		return
+	_render_app()
+	_update_phone_shell_visibility()
+	_apply_phone_shell_theme()
+
+
+func _apply_phone_shell_theme() -> void:
+	var targets: Array[Node] = []
+	if _phone_launcher_panel != null:
+		targets.append(_phone_launcher_panel.get_phone_panel())
+		targets.append(_phone_launcher_panel.get_app_window("babel"))
+		targets.append(_phone_launcher_panel.get_app_window("notebook"))
+	if _social_feed_panel != null:
+		targets.append(_social_feed_panel.get_app_window())
+		targets.append(_social_feed_panel.get_detail_window())
+	for target in targets:
+		if target == null or not is_instance_valid(target):
+			continue
+		_apply_ui_theme(target)
+		_ui_theme_helper.localize_control_tree(target)
+
+
 func _render() -> void:
 	if session_mode() == "gameplay":
 		_request_ending_if_unlocked()
@@ -2574,7 +2600,7 @@ func _set_social_screen(screen: String) -> void:
 	if _social_feed_panel != null:
 		_social_feed_panel.close_detail()
 	_social_channel = "discover"
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_social_channel_pressed(channel: String) -> void:
@@ -2590,7 +2616,7 @@ func _on_social_channel_pressed(channel: String) -> void:
 		_social_detail_open = false
 		if _social_feed_panel != null:
 			_social_feed_panel.close_detail()
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_social_follow_pressed(author_id: String) -> void:
@@ -2610,7 +2636,7 @@ func _open_social_post(post_index: int) -> void:
 	_social_detail_post_index = post_index
 	_social_detail_open = true
 	game.notify_tutorial("post_opened", {"post_index": post_index})
-	_render()
+	_refresh_phone_shell()
 
 
 func _render_notebook_app() -> void:
@@ -2623,7 +2649,7 @@ func _set_notebook_crafting_tab(tab_id: String) -> void:
 	if tab_id not in ["frame", "fusion"]:
 		return
 	_notebook_crafting_tab = tab_id
-	_render()
+	_refresh_phone_shell()
 
 
 func _render_reality() -> void:
@@ -2772,40 +2798,11 @@ func _advance_typed_reality_character() -> bool:
 
 
 func _update_visibility() -> void:
-	var phone_shell: Dictionary = _phone_shell_snapshot()
-	var in_phone: bool = str(phone_shell.get("view_state", "phone_down")) == "phone_down"
-	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
-	var show_phone_home := in_phone
-	if _phone_popup_expanded != show_phone_home:
-		_phone_popup_expanded = show_phone_home
-		if _phone_launcher_panel != null:
-			_phone_launcher_panel.layout_popup(show_phone_home)
-	var phone_panel: PanelContainer = _phone_launcher_panel.get_phone_panel() if _phone_launcher_panel != null else null
-	if phone_panel != null:
-		phone_panel.visible = _game_started and show_phone_home
-	if _phone_tab != null:
-		_phone_tab.visible = false
-	if _phone_launcher_panel != null:
-		_phone_launcher_panel.set_content_visible(show_phone_home)
-	if in_phone:
-		var foreground_app := str(phone_shell.get("active_app_window", ""))
-		if not foreground_app.is_empty():
-			_open_app_windows[foreground_app] = true
-	for app_id in _app_windows.keys():
-		var app_window := _app_windows[app_id] as Control
-		if app_window != null:
-			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
-	if _social_feed_panel != null:
-		_social_feed_panel.update_visibility(in_phone, bool(_open_app_windows.get("social", false)))
-	if _phone_down_backdrop_image != null:
-		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
-	if _hand_phone_image != null:
-		_hand_phone_image.visible = in_phone or _phone_art_alpha > 0.03
+	_update_phone_shell_visibility()
+	_update_world_for_phone_view()
+	var in_phone := _phone_view_is_down()
 	if _camera_session != null and _camera_session.hand_xray_overlay != null:
 		_camera_session.hand_xray_overlay.visible = _camera_session.enabled and _game_started and not in_phone
-	if _view_toggle_button != null:
-		_view_toggle_button.visible = _game_started and not _settings_is_open() and (in_phone or not _reality_interaction_active)
-		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _settings_window != null:
 		_settings_window.visible = _settings_is_open() and _game_started
 	if _desk_log != null:
@@ -2827,13 +2824,55 @@ func _update_visibility() -> void:
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。
 	_render_playtest_assist()
+	_layout_hud_rail()
+
+
+func _phone_view_is_down() -> bool:
+	return str(_phone_shell_snapshot().get("view_state", "phone_down")) == "phone_down"
+
+
+func _update_phone_shell_visibility() -> void:
+	var in_phone := _phone_view_is_down()
+	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
+	var show_phone_home := in_phone
+	if _phone_popup_expanded != show_phone_home:
+		_phone_popup_expanded = show_phone_home
+		if _phone_launcher_panel != null:
+			_phone_launcher_panel.layout_popup(show_phone_home)
+	var phone_panel: PanelContainer = _phone_launcher_panel.get_phone_panel() if _phone_launcher_panel != null else null
+	if phone_panel != null:
+		phone_panel.visible = _game_started and show_phone_home
+	if _phone_tab != null:
+		_phone_tab.visible = false
+	if _phone_launcher_panel != null:
+		_phone_launcher_panel.set_content_visible(show_phone_home)
+	if in_phone:
+		var foreground_app := str(_phone_shell_snapshot().get("active_app_window", ""))
+		if not foreground_app.is_empty():
+			_open_app_windows[foreground_app] = true
+	for app_id in _app_windows.keys():
+		var app_window := _app_windows[app_id] as Control
+		if app_window != null:
+			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
+	if _social_feed_panel != null:
+		_social_feed_panel.update_visibility(in_phone, bool(_open_app_windows.get("social", false)))
+	if _phone_down_backdrop_image != null:
+		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
+	if _hand_phone_image != null:
+		_hand_phone_image.visible = in_phone or _phone_art_alpha > 0.03
+
+
+func _update_world_for_phone_view() -> void:
+	var in_phone := _phone_view_is_down()
+	if _view_toggle_button != null:
+		_view_toggle_button.visible = _game_started and not _settings_is_open() and (in_phone or not _reality_interaction_active)
+		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
 		_reality_scene_adapter.floor.visible = not in_phone
 	if _reality_scene_adapter != null and _reality_scene_adapter.player != null:
 		_reality_scene_adapter.player.visible = not in_phone
 	if _cinematic_bars != null:
 		_cinematic_bars.set_bars_visible(_game_started and not in_phone)
-	_layout_hud_rail()
 
 
 func _animate_world(delta: float) -> void:
@@ -2943,7 +2982,7 @@ func _close_app_window(app_id: String) -> void:
 			break
 	_phone_launcher_open = not any_open
 	log_text = "关闭 %s 窗口。" % app_id
-	_render()
+	_refresh_phone_shell()
 
 
 func _open_phone_launcher() -> void:
@@ -2953,7 +2992,7 @@ func _open_phone_launcher() -> void:
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.move_phone_to_front()
 	log_text = "展开手机主页。"
-	_render()
+	_refresh_phone_shell()
 
 
 func _close_social_detail_window() -> void:
@@ -2963,7 +3002,7 @@ func _close_social_detail_window() -> void:
 	if _social_channel == "tower_base":
 		_social_channel = "discover"
 	log_text = "关闭社交详情。"
-	_render()
+	_refresh_phone_shell()
 
 
 func _ensure_window_manager() -> void:
@@ -3157,7 +3196,7 @@ func _on_app_pressed(app_id: String) -> void:
 		if window != null:
 			window.move_to_front()
 	log_text = "打开 %s。" % app_id
-	_render()
+	_refresh_phone_shell()
 
 
 ## ============ 玩偶全程引导(常驻小窗,承担教程与楼层任务提示)============

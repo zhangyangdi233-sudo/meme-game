@@ -91,6 +91,10 @@ func get_app_window() -> Control:
 	return _app_window
 
 
+func get_detail_window() -> Control:
+	return _detail_window
+
+
 func get_app_body() -> Control:
 	return _app_body
 
