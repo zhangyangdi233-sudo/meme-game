@@ -47,6 +47,8 @@ func set_window_min_x(window_id: String, min_x: float) -> void:
 
 
 func move_window(window_id: String, delta: Vector2) -> bool:
+	if not enabled:
+		return false
 	var window := get_registered_window(window_id)
 	if window == null:
 		return false
@@ -67,10 +69,11 @@ func get_window_position(window_id: String) -> Vector2:
 func get_registered_window(window_id: String) -> Control:
 	if not _windows.has(window_id):
 		return null
-	var window := _windows[window_id] as Control
-	if window == null or not is_instance_valid(window):
+	var stored: Variant = _windows[window_id]
+	if stored == null or not is_instance_valid(stored):
+		_windows.erase(window_id)
 		return null
-	return window
+	return stored as Control
 
 
 func clear() -> void:

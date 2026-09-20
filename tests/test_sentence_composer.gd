@@ -206,6 +206,8 @@ func _test_ui_flow() -> void:
 	_assert_true(doll_panel != null and doll_panel.visible, "the doll guide should stay in view from the start")
 	var doll_line := _find_node_by_name(game_root, "DollGuideLine") as Label
 	_assert_true(doll_line != null and not doll_line.text.is_empty(), "the doll should always have a guide line")
+	game_root._skip_prologue()
+	await process_frame
 	_assert_true(game_root._move_window_for_test("doll_guide", Vector2(12, -8)), "the doll guide should be draggable")
 	var doll_body := _find_node_by_name(game_root, "DollGuideBody") as Container
 	game_root._toggle_doll_guide_collapsed()

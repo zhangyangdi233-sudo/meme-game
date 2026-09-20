@@ -148,6 +148,9 @@ func _test_draggable_window_manager(manager_script: Script) -> void:
 	handle.gui_input.emit(press)
 	handle.gui_input.emit(release)
 	_assert_eq(released, [], "a disabled manager should ignore handle input")
+	var disabled_pos: Vector2 = window.position
+	_assert_true(not manager.move_window("panel", Vector2(20.0, 0.0)), "a disabled manager should refuse move_window")
+	_assert_eq(window.position, disabled_pos, "a disabled manager should not move windows")
 	window.queue_free()
 	manager.queue_free()
 

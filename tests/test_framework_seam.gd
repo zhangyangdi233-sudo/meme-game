@@ -9,12 +9,16 @@ const FORBIDDEN_PATTERNS := [
 	"meme_game_state",
 ]
 
+const FORBIDDEN_SESSION_IDS := "\\b(main_menu|prologue|gameplay|narrative|ending)\\b"
+
 const SCAN_SUFFIXES := [".gd", ".py", ".sh", ".txt", ".md"]
 
 var _failures: Array[String] = []
+var _session_id_regex := RegEx.new()
 
 
 func _init() -> void:
+	_session_id_regex.compile(FORBIDDEN_SESSION_IDS)
 	_scan_directory("res://framework")
 	if _failures.is_empty():
 		print("framework seam tests passed")
@@ -69,4 +73,9 @@ func _scan_file(path: String) -> void:
 				_failures.append(
 					"%s:%d contains forbidden token %s" % [path, line_number, pattern]
 				)
+		var session_hit := _session_id_regex.search(line)
+		if session_hit != null:
+			_failures.append(
+				"%s:%d contains forbidden token %s" % [path, line_number, session_hit.get_string()]
+			)
 	file.close()

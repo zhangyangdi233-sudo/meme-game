@@ -98,7 +98,6 @@ var _locale = GameLocaleScript.new()
 var selected_meme_id := ""
 var log_text := ""
 var _phone_sway_time := 0.0
-var _input_locked := false
 
 var _camera: Camera3D
 var _reality_scene_adapter
@@ -379,23 +378,21 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	var mode := session_mode()
-	if mode == "prologue" or mode == "narrative" or mode == "ending":
+	if session_mode() != "gameplay":
 		_reality_touch_look_index = -1
 		return
 	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
 		return
-	if mode == "gameplay":
-		if _handle_reality_touch_look(event):
-			return
-		if _handle_reality_trackpad_pan(event):
-			return
+	if _handle_reality_touch_look(event):
+		return
+	if _handle_reality_trackpad_pan(event):
+		return
 	if _window_manager != null:
 		_window_manager.handle_global_input(event)
 
 
 func _handle_reality_touch_look(event: InputEvent) -> bool:
-	var can_touch_look: bool = _game_started and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
+	var can_touch_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if not touch.pressed:
@@ -427,7 +424,7 @@ func _handle_reality_touch_look(event: InputEvent) -> bool:
 func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 	if not event is InputEventPanGesture:
 		return false
-	var can_trackpad_look: bool = _game_started and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
+	var can_trackpad_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
 	if not can_trackpad_look:
 		return false
 	var pan := event as InputEventPanGesture
@@ -562,7 +559,6 @@ func show_main_menu() -> void:
 	_game_started = false
 	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
 		_settings_history_panel.close_settings()
-	_set_input_locked(false)
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
 	_reality_interaction_active = false
@@ -3172,11 +3168,6 @@ func _request_ending_if_unlocked() -> bool:
 		return false
 	_request_session_mode("ending")
 	return true
-
-
-func _set_input_locked(value: bool) -> void:
-	_input_locked = value
-	_sync_window_manager_enabled()
 
 
 func _render_ending() -> void:

@@ -53,8 +53,26 @@ func _run() -> void:
 			game_root.has_session_state(state_id),
 			"boot should inject session state %s" % state_id
 		)
+	_assert_true(not game_root.has_session_state("settings"), "in-run settings is not a sixth Session mode")
+	_assert_true(not game_root.has_session_state("language_picker"), "language picker is not a Session mode")
+	_assert_true(not game_root.has_session_state("camera_consent"), "camera consent is not a Session mode")
 	_assert_eq(game_root.session_mode(), "main_menu", "boot should start on the main menu")
 	await _assert_world_hotkeys_inert(game_root, "boot title")
+
+	game_root._build_language_selection_overlay(true)
+	await process_frame
+	_assert_eq(game_root.session_mode(), "main_menu", "language picker should stay on the main menu")
+	await _assert_world_hotkeys_inert(game_root, "language picker")
+	game_root._close_language_selection_overlay()
+	await process_frame
+
+	game_root._build_camera_consent_overlay()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "main_menu", "camera consent should stay on the main menu")
+	await _assert_world_hotkeys_inert(game_root, "camera consent")
+	if game_root.has_method("_resolve_camera_consent"):
+		game_root._resolve_camera_consent(false)
+	await process_frame
 
 	game_root.new_game()
 	await process_frame
@@ -66,14 +84,13 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
-	game_root._input_locked = true
-	_assert_eq(
-		game_root.session_mode(),
-		"gameplay",
-		"Session mode should not be derived from the narrative lock flag"
-	)
+	game_root._toggle_settings_window()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "in-run settings should stay in gameplay")
+	_assert_true(not game_root.has_session_state("settings"), "opening settings should not add a sixth Session mode")
 	await _assert_gameplay_world_hotkeys_live(game_root)
-	game_root._input_locked = false
+	game_root._close_settings_window()
+	await process_frame
 	game_root.set_view_state("npc_up")
 
 	game_root.game.pollution = 60
@@ -231,6 +248,10 @@ func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: Stri
 
 
 func _assert_world_hotkeys_inert(game_root, label: String) -> void:
+	_assert_true(
+		not InputMap.has_action("reality_forward") and not InputMap.has_action("reality_phone"),
+		"%s should unload the gameplay world hotkey pack" % label
+	)
 	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
 	var interacting_before: bool = game_root._reality_interaction_active
@@ -238,11 +259,13 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	game_root._unhandled_input(_key_event(KEY_TAB))
 	var look := InputEventMouseMotion.new()
 	look.relative = Vector2(96.0, 0.0)
+	game_root._input(look)
 	game_root._unhandled_input(look)
 	_assert_true(
 		is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
 		"%s should ignore look hotkeys" % label
 	)
+	_assert_window_drag(game_root, false, label)
 	_assert_eq(
 		str(game_root.game.view_state) if game_root.game != null else "",
 		view_before,
@@ -270,15 +293,21 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 
 
 func _assert_gameplay_world_hotkeys_live(game_root) -> void:
+	_assert_true(
+		InputMap.has_action("reality_forward") and InputMap.has_action("reality_phone"),
+		"gameplay should install the world hotkey pack"
+	)
 	game_root.set_view_state("npc_up")
 	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var look := InputEventMouseMotion.new()
 	look.relative = Vector2(96.0, 0.0)
+	game_root._input(look)
 	game_root._unhandled_input(look)
 	_assert_true(
 		not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
 		"gameplay look should rotate the first-person view"
 	)
+	_assert_window_drag(game_root, true, "gameplay")
 	var view_before := str(game_root.game.view_state)
 	game_root._unhandled_input(_key_event(KEY_TAB))
 	_assert_true(
@@ -299,6 +328,27 @@ func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 		walk_start.distance_to(player.position) > 0.25,
 		"gameplay walk hotkeys should move the body"
 	)
+
+
+func _assert_window_drag(game_root, expect_live: bool, label: String) -> void:
+	if not game_root.has_method("_move_window_for_test") or not game_root.has_method("_window_position_for_test"):
+		_failures.append("%s should expose window drag through the adapter" % label)
+		return
+	var window_id := "phone"
+	var before: Vector2 = game_root._window_position_for_test(window_id)
+	if not before.is_finite():
+		if expect_live:
+			_failures.append("%s should have a draggable phone window" % label)
+		return
+	var moved: bool = game_root._move_window_for_test(window_id, Vector2(16, -10))
+	var after: Vector2 = game_root._window_position_for_test(window_id)
+	if expect_live:
+		_assert_true(moved, "gameplay windows should drag")
+		_assert_true(after.distance_to(before) > 1.0, "gameplay window drag should move the window")
+		game_root._move_window_for_test(window_id, Vector2(-16, 10))
+		return
+	_assert_true(not moved, "%s should ignore window drag" % label)
+	_assert_true(after.is_equal_approx(before), "%s should not move windows" % label)
 
 
 func _find_node_by_name(node: Node, wanted_name: String) -> Node:
