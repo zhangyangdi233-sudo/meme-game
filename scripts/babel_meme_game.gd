@@ -708,7 +708,7 @@ func _on_settings_changed(_snapshot: Dictionary) -> void:
 func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
 	if not _game_started:
 		return
-	_render()
+	_refresh_reality_hud()
 
 
 func _on_day_progress_changed(_snapshot: Dictionary) -> void:
@@ -779,6 +779,34 @@ func _reality_conversation_snapshot() -> Dictionary:
 			"revealed_units": [],
 		}
 	return game.get_reality_conversation_snapshot()
+
+
+func _reality_hud_snapshot() -> Dictionary:
+	var nearby: Dictionary = {}
+	var look_pose: Dictionary = {}
+	var active_actor: Dictionary = {}
+	if _reality_scene_adapter != null:
+		nearby = _reality_scene_adapter.nearby_outcome()
+		look_pose = _reality_scene_adapter.pose()
+		active_actor = _reality_scene_adapter.active_actor_outcome()
+	else:
+		nearby = {"kind": "none", "action": "none"}
+		look_pose = {
+			"player_position": Vector3.ZERO,
+			"yaw": 0.0,
+			"pitch": 0.0,
+			"has_player": false,
+		}
+		active_actor = {"kind": "none", "action": "none"}
+	return {
+		"nearby": nearby,
+		"pose": look_pose,
+		"active_actor": active_actor,
+		"conversation": _reality_conversation_snapshot(),
+		"interaction_active": _reality_interaction_active,
+		"view_state": str(_phone_shell_snapshot().get("view_state", "")),
+		"day_progress": _day_progress_snapshot(),
+	}
 
 
 func _social_engagement_snapshot() -> Dictionary:
@@ -906,15 +934,7 @@ func _reality_scene_deps() -> Dictionary:
 
 
 func _on_reality_nearby_targets_changed() -> void:
-	_render_world_prompt()
-	if _world_prompt != null:
-		_world_prompt.visible = _has_nearby_reality_target()
-
-
-func _has_nearby_reality_target() -> bool:
-	if _reality_scene_adapter == null:
-		return false
-	return str(_reality_scene_adapter.nearby_outcome().get("kind", "none")) != "none"
+	_refresh_reality_hud()
 
 
 func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
@@ -1072,7 +1092,8 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 	_reality_hover_choice_id = ""
 	_set_reality_mouse_look(false)
 	log_text = "你停在%s面前。" % _active_actor_display_name()
-	_render()
+	_update_world_for_phone_view()
+	_refresh_reality_hud()
 	_sync_audio_state(false)
 	return true
 
@@ -1092,7 +1113,7 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 	_reality_scene_adapter.apply_item_collected(str(item_data.get("id", "")))
 	if not game.event_log.is_empty():
 		log_text = game.event_log[0]
-	_render()
+	_refresh_reality_hud()
 	return true
 
 
@@ -1106,14 +1127,20 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
 		_set_reality_mouse_look(true)
 	if should_render:
-		_render()
+		_update_world_for_phone_view()
+		_refresh_reality_hud()
 		_sync_audio_state(false)
 
 
 func _active_actor_display_name() -> String:
-	if _reality_scene_adapter == null:
-		return _locale.translate("对方")
-	var label := str(_reality_scene_adapter.active_actor_outcome().get("actor_label", "")).strip_edges()
+	return _reality_hud_actor_label(_reality_hud_snapshot())
+
+
+func _reality_hud_actor_label(hud: Dictionary) -> String:
+	var conversation: Dictionary = hud.get("conversation", {})
+	var label := str(conversation.get("actor_label", "")).strip_edges()
+	if label.is_empty():
+		label = str((hud.get("active_actor", {}) as Dictionary).get("actor_label", "")).strip_edges()
 	if label.is_empty():
 		return _locale.translate("对方")
 	return _locale.translate(label)
@@ -2492,6 +2519,14 @@ func _refresh_phone_shell() -> void:
 	_apply_phone_shell_theme()
 
 
+func _refresh_reality_hud() -> void:
+	if session_mode() == "ending":
+		return
+	_render_world_prompt()
+	_render_reality()
+	_update_reality_hud_visibility()
+
+
 func _apply_phone_shell_theme() -> void:
 	var targets: Array[Node] = []
 	if _phone_launcher_panel != null:
@@ -2519,9 +2554,8 @@ func _render() -> void:
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
 	_render_status()
-	_render_world_prompt()
 	_render_app()
-	_render_reality()
+	_refresh_reality_hud()
 	_update_visibility()
 	_apply_world_theme()
 	_apply_ui_theme()
@@ -2585,15 +2619,18 @@ func _action_pips(actions: int) -> String:
 
 
 func _render_world_prompt() -> void:
+	if _world_prompt == null:
+		return
+	var hud := _reality_hud_snapshot()
 	var plan := _day_plan()
-	var day_progress := _day_progress_snapshot()
-	if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
+	var day_progress: Dictionary = hud.get("day_progress", {})
+	if str(hud.get("view_state", "")) == "phone_down":
 		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [int(day_progress.get("day", 1)), plan["title"]]
-	elif _reality_interaction_active:
-		var conversation := _reality_conversation_snapshot()
-		_world_prompt.text = "%s：%s" % [_active_actor_display_name(), _corrupt(str(conversation.get("prompt", "")))]
+	elif bool(hud.get("interaction_active", false)):
+		var conversation: Dictionary = hud.get("conversation", {})
+		_world_prompt.text = "%s：%s" % [_reality_hud_actor_label(hud), _corrupt(str(conversation.get("prompt", "")))]
 	else:
-		var nearby: Dictionary = _reality_scene_adapter.nearby_outcome() if _reality_scene_adapter != null else {}
+		var nearby: Dictionary = hud.get("nearby", {})
 		match str(nearby.get("kind", "none")):
 			"item":
 				var item_data: Dictionary = nearby.get("item_data", {})
@@ -2700,17 +2737,19 @@ func _render_reality() -> void:
 	_render_reality_language_composer()
 	if _reality_conversation_panel == null:
 		return
+	var hud := _reality_hud_snapshot()
 	var plan := _day_plan()
-	var conversation: Dictionary = _reality_conversation_snapshot()
+	var conversation: Dictionary = hud.get("conversation", {})
+	var interaction_active := bool(hud.get("interaction_active", false))
 	var prompt := str(conversation.get("prompt", ""))
-	var npc_line: String = prompt if _reality_interaction_active and not prompt.is_empty() else str(plan["line"])
+	var npc_line: String = prompt if interaction_active and not prompt.is_empty() else str(plan["line"])
 	var hover_preview := ""
 	if not _reality_hover_choice_id.is_empty():
 		hover_preview = game.preview_typed_reality_choice(_reality_hover_choice_id)
 	var actor_label := str(conversation.get("actor_label", ""))
 	_reality_conversation_panel.render({
-		"interaction_active": _reality_interaction_active,
-		"actor_name": actor_label if _reality_interaction_active and not actor_label.is_empty() else _active_actor_display_name(),
+		"interaction_active": interaction_active,
+		"actor_name": actor_label if interaction_active and not actor_label.is_empty() else _reality_hud_actor_label(hud),
 		"npc_line": npc_line,
 		"conversation_feedback": str(conversation.get("feedback", "")),
 		"phase": str(conversation.get("phase", "")),
@@ -2731,8 +2770,9 @@ func _render_reality() -> void:
 func _render_reality_language_composer() -> void:
 	if _reality_language_composer_panel == null:
 		return
-	var conversation: Dictionary = _reality_conversation_snapshot()
-	var composing := _reality_interaction_active and str(conversation.get("phase", "")) == "composing" and str(conversation.get("mode", "")) == "lexeme"
+	var hud := _reality_hud_snapshot()
+	var conversation: Dictionary = hud.get("conversation", {})
+	var composing := bool(hud.get("interaction_active", false)) and str(conversation.get("phase", "")) == "composing" and str(conversation.get("mode", "")) == "lexeme"
 	var slots: Array = []
 	if composing:
 		for slot_value in game.get_craft_slots():
@@ -2853,22 +2893,30 @@ func _update_visibility() -> void:
 		_desk_log.visible = in_phone
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and _game_started
-	if _world_prompt != null:
-		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and _has_nearby_reality_target()
-	var interaction_visible := (not in_phone) and _reality_interaction_active
-	var conversation_visibility: Dictionary = _reality_conversation_snapshot()
-	if _reality_conversation_panel != null:
-		_reality_conversation_panel.update_visibility(interaction_visible, str(conversation_visibility.get("phase", "")), _reality_hover_choice_id)
-	if _reality_language_composer_panel != null:
-		_reality_language_composer_panel.update_visibility(
-			interaction_visible,
-			str(conversation_visibility.get("phase", "")),
-			str(conversation_visibility.get("mode", ""))
-		)
+	_update_reality_hud_visibility()
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。
 	_render_playtest_assist()
 	_layout_hud_rail()
+
+
+func _update_reality_hud_visibility() -> void:
+	var hud := _reality_hud_snapshot()
+	var in_phone := str(hud.get("view_state", "phone_down")) == "phone_down"
+	var interaction_active := bool(hud.get("interaction_active", false))
+	if _world_prompt != null:
+		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
+		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
+	var interaction_visible := (not in_phone) and interaction_active
+	var conversation: Dictionary = hud.get("conversation", {})
+	if _reality_conversation_panel != null:
+		_reality_conversation_panel.update_visibility(interaction_visible, str(conversation.get("phase", "")), _reality_hover_choice_id)
+	if _reality_language_composer_panel != null:
+		_reality_language_composer_panel.update_visibility(
+			interaction_visible,
+			str(conversation.get("phase", "")),
+			str(conversation.get("mode", ""))
+		)
 
 
 func _phone_view_is_down() -> bool:
