@@ -46,12 +46,14 @@ func _build_main_menu(parent: Control) -> void:
 	_main_menu_layer = Control.new()
 	_main_menu_layer.name = "MainMenuLayer"
 	_main_menu_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_main_menu_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	parent.add_child(_main_menu_layer)
 
 	var bg := ColorRect.new()
 	bg.name = "MainMenuGreenBackground"
 	bg.color = Color("5DAE6B")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_main_menu_layer.add_child(bg)
 
 	for index in 7:

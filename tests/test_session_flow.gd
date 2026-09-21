@@ -63,8 +63,11 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "language picker should stay on the main menu")
 	await _assert_world_hotkeys_inert(game_root, "language picker")
+	var language_overlay := _find_node_by_name(game_root, "LanguageSelectionOverlay") as Control
+	await _assert_fullscreen_overlay_eats_clicks(game_root, language_overlay, "language picker overlay")
 	game_root._close_language_selection_overlay()
 	await process_frame
+	await _assert_main_menu_overlay_eats_clicks(game_root)
 
 	game_root._build_camera_consent_overlay()
 	await process_frame
@@ -84,6 +87,7 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
+	await _assert_gameplay_phone_toggle_click(game_root)
 	game_root._toggle_settings_window()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "in-run settings should stay in gameplay")
@@ -131,6 +135,7 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "returning to title should set Session mode to main menu")
 	await _assert_world_hotkeys_inert(game_root, "returned title")
+	await _assert_main_menu_overlay_eats_clicks(game_root)
 
 	_assert_true(game_root.continue_game(), "continue should load the non-ending save")
 	await process_frame
@@ -185,6 +190,54 @@ func _run() -> void:
 	await process_frame
 
 
+func _assert_gameplay_phone_toggle_click(game_root) -> void:
+	game_root.set_view_state("phone_down")
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	await process_frame
+	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	_assert_true(toggle != null and toggle.visible, "gameplay should show the phone view toggle")
+	if toggle == null:
+		return
+	_assert_true(not toggle.disabled, "gameplay should not lock the phone view toggle")
+	_assert_true(not game_root.get_tree().paused, "gameplay should not pause the scene tree to gate clicks")
+	var view_before := str(game_root.game.view_state)
+	await _click_at(game_root, toggle.get_global_rect().get_center())
+	_assert_true(
+		str(game_root.game.view_state) != view_before,
+		"gameplay phone toggle click should change the view when Session mode allows it"
+	)
+	game_root.set_view_state("phone_down")
+
+
+func _assert_main_menu_overlay_eats_clicks(game_root) -> void:
+	var overlay := _find_node_by_name(game_root, "MainMenuLayer") as Control
+	await _assert_fullscreen_overlay_eats_clicks(game_root, overlay, "main menu overlay")
+	_assert_true(
+		_find_node_by_name(game_root, "PhoneViewToggleButton") == null,
+		"main menu should not keep phone UI under the overlay"
+	)
+
+
+func _assert_fullscreen_overlay_eats_clicks(game_root, overlay: Control, label: String) -> void:
+	_assert_true(overlay != null and overlay.visible, "%s should be visible" % label)
+	if overlay == null:
+		return
+	_assert_eq(
+		overlay.mouse_filter,
+		Control.MOUSE_FILTER_STOP,
+		"%s should stop mouse events" % label
+	)
+	_assert_true(not game_root.get_tree().paused, "%s should not pause the scene tree to gate clicks" % label)
+	var mode_before := str(game_root.session_mode())
+	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
+	var click_point := overlay.get_global_rect().position + Vector2(36.0, 36.0)
+	_assert_true(overlay.get_global_rect().has_point(click_point), "%s should cover its own chrome" % label)
+	await _click_at(game_root, click_point)
+	_assert_eq(str(game_root.session_mode()), mode_before, "%s should eat clicks without changing Session mode" % label)
+	if game_root.game != null:
+		_assert_eq(str(game_root.game.view_state), view_before, "%s should eat clicks" % label)
+
+
 func _assert_ending_overlay_eats_clicks(game_root) -> void:
 	var overlay := _find_node_by_name(game_root, "EndingScreen") as Control
 	_assert_true(overlay != null and overlay.visible, "ending screen should be visible")
@@ -220,11 +273,23 @@ func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: Strin
 		overlay.get_global_rect().has_point(click_point),
 		"%s should cover the phone view toggle" % label
 	)
+	_assert_true(not toggle.disabled, "%s should not disable the phone toggle; overlay eats clicks" % label)
+	_assert_true(not game_root.get_tree().paused, "%s should not pause the scene tree to gate clicks" % label)
 	await _assert_overlay_eats_clicks_at(game_root, click_point, "%s aimed at phone UI" % label)
 
 
 func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: String) -> void:
 	var view_before := str(game_root.game.view_state)
+	await _click_at(game_root, click_point)
+	_assert_eq(
+		str(game_root.game.view_state),
+		view_before,
+		"%s should eat clicks" % label
+	)
+
+
+func _click_at(game_root, click_point: Vector2) -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	var press := InputEventMouseButton.new()
 	press.position = click_point
 	press.global_position = click_point
@@ -240,11 +305,6 @@ func _assert_overlay_eats_clicks_at(game_root, click_point: Vector2, label: Stri
 	release.pressed = false
 	game_root.get_viewport().push_input(release, true)
 	await process_frame
-	_assert_eq(
-		str(game_root.game.view_state),
-		view_before,
-		"%s should eat clicks" % label
-	)
 
 
 func _assert_world_hotkeys_inert(game_root, label: String) -> void:

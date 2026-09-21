@@ -24,6 +24,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	_language_overlay = Control.new()
 	_language_overlay.name = "LanguageSelectionOverlay"
 	_language_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_language_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_language_overlay.z_index = 190
 	parent.add_child(_language_overlay)
 
@@ -31,6 +32,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	blackout.name = "LanguageSelectionBackdrop"
 	blackout.color = Color(_theme_color_fn.call("ink"), 0.92)
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
+	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
 	_language_overlay.add_child(blackout)
 
 	var center := CenterContainer.new()
