@@ -34,7 +34,7 @@ $env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
 
 ## Modes
 
-**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (18 files after the harness split). Use after small module-only changes.
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (22 files after the harness split). Use after small module-only changes.
 
 ```powershell
 .\tools\run_tests.ps1 -Fast
@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (56 tests)
+## What runs (60 tests)
 
-### GDScript (54)
+### GDScript (58)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -122,6 +122,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
+| `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility |
 | `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |
 | `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing, polluted menu |
 | `test_doll_ui_flow` | **adapter** | 3D doll interaction (craft → `test_doll_system`) |

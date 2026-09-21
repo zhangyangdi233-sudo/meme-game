@@ -20,7 +20,7 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 func render(state: Dictionary) -> void:
 	if _parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
-	_clear_parent(_parent)
+	_clear_ending_screen()
 	_build_screen(_parent, state)
 
 
@@ -34,10 +34,14 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 
 
-func _clear_parent(parent: Control) -> void:
-	for child in parent.get_children():
-		parent.remove_child(child)
-		child.free()
+func _clear_ending_screen() -> void:
+	if _parent == null:
+		return
+	var existing := _parent.get_node_or_null("EndingScreen")
+	if existing == null:
+		return
+	_parent.remove_child(existing)
+	existing.free()
 
 
 func _build_screen(parent: Control, state: Dictionary) -> void:
@@ -45,6 +49,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	screen.name = "EndingScreen"
 	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
 	screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	screen.z_index = 120
 	screen.set_meta("empty_tower", true)
 	parent.add_child(screen)
 

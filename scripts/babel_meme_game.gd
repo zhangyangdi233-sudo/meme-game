@@ -206,14 +206,14 @@ func _narrative_overlay_deps() -> Dictionary:
 	return {
 		"game": game,
 		"ui_root": _ui_root,
-		"render": _render,
+		"render": _refresh_play_surfaces,
 		"request_narrative": func() -> void:
 			_request_session_mode("narrative"),
 		"request_gameplay_from_narrative": func() -> void:
 			if session_mode() != "narrative":
 				return
 			if _request_ending_if_unlocked():
-				_render()
+				_refresh_ending()
 			else:
 				_request_session_mode("gameplay"),
 		"sync_audio_state": _sync_audio_state,
@@ -681,52 +681,57 @@ func _connect_game_state_signals() -> void:
 
 
 func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
 	_refresh_phone_shell()
 
 
 func _on_phone_shell_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
 
 
 func _on_action_economy_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
 	_refresh_phone_shell()
 
 
 func _on_settings_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
-	_render()
+	_refresh_settings_menu_labels()
 
 
 func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
 	_refresh_reality_hud()
 
 
 func _on_day_progress_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
-	_render()
+	_refresh_play_surfaces()
 
 
 func _on_inventory_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
-	_render()
+	_refresh_phone_shell()
+	_refresh_reality_hud()
 
 
 func _on_progression_changed(_snapshot: Dictionary) -> void:
-	if not _game_started:
+	if not _session_is_in_run():
 		return
-	_render()
+	if _request_ending_if_unlocked():
+		_refresh_ending()
+		return
+	_render_status()
+	_refresh_phone_shell()
 
 
 func _phone_shell_snapshot() -> Dictionary:
@@ -1209,7 +1214,7 @@ func _on_language_selected(locale_code: String) -> void:
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
 	if game != null:
 		game.free_sentence_clear()
-	if _game_started:
+	if _session_is_in_run():
 		_render()
 	else:
 		_build_main_menu()
@@ -1617,7 +1622,7 @@ func _layout_hud_rail() -> void:
 		return
 	var hud_reveal_zone: Control = _apple_hud_panel.get_reveal_zone() if _apple_hud_panel != null else null
 	var viewport_size := _viewport_size()
-	var uses_cinematic_frame: bool = _game_started and game != null and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
+	var uses_cinematic_frame: bool = _session_shows_play_chrome() and game != null and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
 	var frame_inset := 0.0
 	if uses_cinematic_frame and _cinematic_bars != null:
 		frame_inset = _cinematic_bars.bar_height(viewport_size)
@@ -1881,7 +1886,7 @@ func _on_camera_consent_source_selected(index: int) -> void:
 func _on_prologue_finished() -> void:
 	if _request_ending_if_unlocked():
 		_set_reality_mouse_look(false)
-		_render()
+		_refresh_ending()
 	else:
 		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
 		_request_session_mode("gameplay")
@@ -1975,8 +1980,8 @@ func _connect_language_material() -> void:
 		_language_material.sfx_requested.connect(_on_language_material_sfx)
 	if not _language_material.effective_action.is_connected(_after_effective_action):
 		_language_material.effective_action.connect(_after_effective_action)
-	if not _language_material.ui_refresh_requested.is_connected(_render):
-		_language_material.ui_refresh_requested.connect(_render)
+	if not _language_material.ui_refresh_requested.is_connected(_on_language_ui_refresh_requested):
+		_language_material.ui_refresh_requested.connect(_on_language_ui_refresh_requested)
 	if not _language_material.log_requested.is_connected(_on_language_material_log):
 		_language_material.log_requested.connect(_on_language_material_log)
 	if not _language_material.notebook_home_requested.is_connected(_ensure_notebook_window_home):
@@ -1987,6 +1992,11 @@ func _connect_language_material() -> void:
 		_language_material.place_flight_requested.connect(_on_language_place_flight)
 	if not _language_material.status_refresh_requested.is_connected(_render_status):
 		_language_material.status_refresh_requested.connect(_render_status)
+
+
+func _on_language_ui_refresh_requested() -> void:
+	_refresh_phone_shell()
+	_render_status()
 
 
 func _social_feed_mount_deps() -> Dictionary:
@@ -2527,6 +2537,31 @@ func _refresh_reality_hud() -> void:
 	_update_reality_hud_visibility()
 
 
+func _refresh_ending() -> void:
+	if session_mode() != "ending":
+		return
+	_render_ending()
+	_update_visibility()
+	var ending := _ending_screen_control()
+	if ending != null:
+		_ui_theme_helper.refresh_localized_ui(ending)
+
+
+func _refresh_play_surfaces() -> void:
+	if session_mode() == "ending":
+		return
+	_ensure_reality_floor_current()
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
+	_render_status()
+	_refresh_phone_shell()
+	_refresh_reality_hud()
+	_update_visibility()
+	_apply_world_theme()
+	_apply_ui_theme()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
+
+
 func _apply_phone_shell_theme() -> void:
 	var targets: Array[Node] = []
 	if _phone_launcher_panel != null:
@@ -2547,19 +2582,9 @@ func _render() -> void:
 	if session_mode() == "gameplay":
 		_request_ending_if_unlocked()
 	if session_mode() == "ending":
-		_render_ending()
-		_ui_theme_helper.refresh_localized_ui(_ui_root)
+		_refresh_ending()
 		return
-	_ensure_reality_floor_current()
-	if _reality_scene_adapter != null:
-		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
-	_render_status()
-	_render_app()
-	_refresh_reality_hud()
-	_update_visibility()
-	_apply_world_theme()
-	_apply_ui_theme()
-	_ui_theme_helper.refresh_localized_ui(_ui_root)
+	_refresh_play_surfaces()
 
 
 func _render_status() -> void:
@@ -2583,7 +2608,7 @@ func _render_playtest_assist() -> void:
 
 func _playtest_assist_snapshot() -> Dictionary:
 	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
-	var visible := _game_started and not _settings_is_open() and _playtest_assist_enabled
+	var visible := _session_shows_play_chrome() and not _settings_is_open() and _playtest_assist_enabled
 	var lines: Array[String] = []
 	if not visible or not _playtest_assist_enabled or game == null:
 		return {"visible": visible, "lines": lines}
@@ -2885,22 +2910,55 @@ func _update_visibility() -> void:
 	_update_phone_shell_visibility()
 	_update_world_for_phone_view()
 	var in_phone := _phone_view_is_down()
+	var show_play := _session_shows_play_chrome()
 	if _camera_session != null and _camera_session.hand_xray_overlay != null:
-		_camera_session.hand_xray_overlay.visible = _camera_session.enabled and _game_started and not in_phone
+		_camera_session.hand_xray_overlay.visible = _camera_session.enabled and show_play and not in_phone
 	if _settings_window != null:
-		_settings_window.visible = _settings_is_open() and _game_started
+		_settings_window.visible = _settings_is_open() and show_play
 	if _desk_log != null:
-		_desk_log.visible = in_phone
+		_desk_log.visible = show_play and in_phone
 	if _vhs_overlay != null:
-		_vhs_overlay.visible = _vhs_enabled and _game_started
+		_vhs_overlay.visible = _vhs_enabled and show_play
+	if _apple_hud_panel != null:
+		var rail: PanelContainer = _apple_hud_panel.get_rail()
+		if rail != null:
+			rail.visible = show_play
+		var reveal_zone: Control = _apple_hud_panel.get_reveal_zone()
+		if reveal_zone != null:
+			reveal_zone.visible = show_play
+		var tooltip: PanelContainer = _apple_hud_panel.get_tooltip()
+		if tooltip != null and not show_play:
+			tooltip.visible = false
 	_update_reality_hud_visibility()
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。
 	_render_playtest_assist()
+	_update_doll_guide()
 	_layout_hud_rail()
+	_update_ending_visibility()
+
+
+func _update_ending_visibility() -> void:
+	var ending := _ending_screen_control()
+	if ending != null:
+		ending.visible = session_mode() == "ending"
+
+
+func _ending_screen_control() -> Control:
+	if _ui_root == null:
+		return null
+	return _ui_root.get_node_or_null("EndingScreen") as Control
 
 
 func _update_reality_hud_visibility() -> void:
+	if not _session_shows_play_chrome():
+		if _world_prompt != null:
+			_world_prompt.visible = false
+		if _reality_conversation_panel != null:
+			_reality_conversation_panel.update_visibility(false, "", "")
+		if _reality_language_composer_panel != null:
+			_reality_language_composer_panel.update_visibility(false, "", "")
+		return
 	var hud := _reality_hud_snapshot()
 	var in_phone := str(hud.get("view_state", "phone_down")) == "phone_down"
 	var interaction_active := bool(hud.get("interaction_active", false))
@@ -2925,46 +2983,47 @@ func _phone_view_is_down() -> bool:
 
 func _update_phone_shell_visibility() -> void:
 	var in_phone := _phone_view_is_down()
+	var show_play := _session_shows_play_chrome()
 	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
-	var show_phone_home := in_phone
+	var show_phone_home := show_play and in_phone
 	if _phone_popup_expanded != show_phone_home:
 		_phone_popup_expanded = show_phone_home
 		if _phone_launcher_panel != null:
 			_phone_launcher_panel.layout_popup(show_phone_home)
 	var phone_panel: PanelContainer = _phone_launcher_panel.get_phone_panel() if _phone_launcher_panel != null else null
 	if phone_panel != null:
-		phone_panel.visible = _game_started and show_phone_home
+		phone_panel.visible = show_phone_home
 	if _phone_tab != null:
 		_phone_tab.visible = false
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.set_content_visible(show_phone_home)
-	if in_phone:
+	if show_phone_home:
 		var foreground_app := str(_phone_shell_snapshot().get("active_app_window", ""))
 		if not foreground_app.is_empty():
 			_open_app_windows[foreground_app] = true
 	for app_id in _app_windows.keys():
 		var app_window := _app_windows[app_id] as Control
 		if app_window != null:
-			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
+			app_window.visible = show_phone_home and bool(_open_app_windows.get(app_id, false))
 	if _social_feed_panel != null:
-		_social_feed_panel.update_visibility(in_phone, bool(_open_app_windows.get("social", false)))
+		_social_feed_panel.update_visibility(show_phone_home, bool(_open_app_windows.get("social", false)))
 	if _phone_down_backdrop_image != null:
-		_phone_down_backdrop_image.visible = in_phone or _phone_art_alpha > 0.03
+		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 	if _hand_phone_image != null:
-		_hand_phone_image.visible = in_phone or _phone_art_alpha > 0.03
+		_hand_phone_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 
 
 func _update_world_for_phone_view() -> void:
 	var in_phone := _phone_view_is_down()
 	if _view_toggle_button != null:
-		_view_toggle_button.visible = _game_started and not _settings_is_open() and (in_phone or not _reality_interaction_active)
+		_view_toggle_button.visible = _session_shows_play_chrome() and not _settings_is_open() and (in_phone or not _reality_interaction_active)
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
 		_reality_scene_adapter.floor.visible = not in_phone
 	if _reality_scene_adapter != null and _reality_scene_adapter.player != null:
 		_reality_scene_adapter.player.visible = not in_phone
 	if _cinematic_bars != null:
-		_cinematic_bars.set_bars_visible(_game_started and not in_phone)
+		_cinematic_bars.set_bars_visible(_session_shows_play_chrome() and not in_phone)
 
 
 func _animate_world(delta: float) -> void:
@@ -3186,6 +3245,14 @@ func has_session_state(id: String) -> bool:
 	return _flow.has(id)
 
 
+func _session_is_in_run() -> bool:
+	return session_mode() in ["prologue", "gameplay", "narrative", "ending"]
+
+
+func _session_shows_play_chrome() -> bool:
+	return session_mode() in ["prologue", "gameplay", "narrative"]
+
+
 func _ensure_flow_manager() -> void:
 	if _flow != null:
 		return
@@ -3204,6 +3271,7 @@ func _request_session_mode(id: String) -> bool:
 	var changed := _flow.transition_to(id)
 	if changed:
 		_sync_window_manager_enabled()
+		_update_visibility()
 	return changed
 
 
@@ -3265,8 +3333,7 @@ func _connect_ending_screen_panel_signals() -> void:
 
 
 func _on_ending_language_selected(choice_id: String) -> void:
-	if game.choose_ending_language(choice_id):
-		_render_ending()
+	game.choose_ending_language(choice_id)
 
 
 func _on_app_pressed(app_id: String) -> void:
@@ -3322,7 +3389,7 @@ func _update_doll_guide() -> void:
 		_doll_guide_panel = null
 		return
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
-	var should_show := _game_started and game != null and not _reality_interaction_active
+	var should_show := _session_shows_play_chrome() and game != null and not _reality_interaction_active
 	_doll_guide_panel.refresh(should_show, _doll_guide_current_line() if should_show else "")
 
 
@@ -3578,7 +3645,7 @@ func _squash_notebook_window() -> void:
 func _on_language_token_pressed(token_id: String) -> void:
 	_selected_language_token_id = token_id
 	log_text = "选中了一个带到医生面前的词。"
-	_render()
+	_refresh_reality_hud()
 
 
 func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
@@ -3590,7 +3657,7 @@ func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
 		log_text = "词已经进入医生句槽。"
 	else:
 		log_text = "这个词不能放在句子的这个位置。"
-	_render()
+	_refresh_reality_hud()
 
 
 func _on_language_slot_pressed(slot_id: String) -> void:
@@ -3600,7 +3667,7 @@ func _on_language_slot_pressed(slot_id: String) -> void:
 		log_text = "词已经进入医生句槽。"
 	else:
 		log_text = "这个词不能放在句子的这个位置。"
-	_render()
+	_refresh_reality_hud()
 
 
 func _on_confirm_doctor_sentence_pressed() -> void:
@@ -3611,7 +3678,7 @@ func _on_confirm_doctor_sentence_pressed() -> void:
 		_after_effective_action(actions_before)
 	else:
 		log_text = "句子还不完整，或者这些词还没有在手机里发布。"
-		_render()
+		_refresh_reality_hud()
 
 
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
@@ -3621,7 +3688,7 @@ func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 		log_text = "旧梗已放入融合槽。"
 	else:
 		log_text = "两个融合槽必须放入不同的完整梗。"
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
@@ -3631,7 +3698,7 @@ func _on_fusion_slot_pressed(slot_id: String) -> void:
 		log_text = "旧梗已放入融合槽。"
 	else:
 		log_text = "两个融合槽不能使用同一个梗。"
-	_render()
+	_refresh_phone_shell()
 
 
 func _on_confirm_fusion_pressed() -> void:
@@ -3645,7 +3712,7 @@ func _on_confirm_fusion_pressed() -> void:
 		_after_effective_action(actions_before)
 	else:
 		log_text = "需要两个不同且尚未融合过的完整梗。"
-		_render()
+		_refresh_phone_shell()
 
 
 func _on_confirm_dialogue_pressed() -> void:
@@ -3656,7 +3723,7 @@ func _on_confirm_dialogue_pressed() -> void:
 		_after_effective_action(actions_before)
 	else:
 		log_text = "发布空格里还没有完整梗。"
-		_render()
+		_refresh_phone_shell()
 
 
 func _after_effective_action(actions_before: int = -1) -> void:
@@ -3676,7 +3743,7 @@ func _after_effective_action(actions_before: int = -1) -> void:
 		if not game.event_log.is_empty():
 			log_text = game.event_log[0]
 		return
-	_render()
+	_refresh_play_surfaces()
 
 
 func _settle_day_and_present_rewards() -> bool:
