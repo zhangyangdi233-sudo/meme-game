@@ -99,7 +99,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 		"npcs": npc_textures,
 		"doll": _load_texture(load_texture, str(deps.get("guide_doll_path", ""))),
 	}
-	var cast: Dictionary = FloorComposerScript.compose(deps)
+	var composed: Dictionary = FloorComposerScript.compose(deps)
 	var prerequisite_item: Dictionary = deps.get("prerequisite_item", {})
 	floor.rebuild(
 		tower_floor,
@@ -108,8 +108,8 @@ func rebuild_floor(deps: Dictionary) -> void:
 		day_number,
 		bool(deps.get("cover_watcher_seen", false)),
 		prerequisite_item,
-		cast.get("people", []),
-		cast.get("display_names", {}),
+		composed.get("people", []),
+		composed.get("display_names", {}),
 	)
 	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
 	sync_world_state(deps)

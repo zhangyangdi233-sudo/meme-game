@@ -1,6 +1,7 @@
 extends SceneTree
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
+const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 
@@ -27,13 +28,12 @@ func _run() -> void:
 		var floor_root := RealityFloorGeneratorScript.new()
 		root.add_child(floor_root)
 		await process_frame
+		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number}})
 		floor_root.rebuild(floor_number, palette, {
 			"key_npc": texture,
-			"key_npc_label": "关键住户",
 			"npcs": [texture],
 			"doll": doll_texture,
-			"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(floor_number),
-		}, 1, false, item)
+		}, 1, false, item, composed.get("people", []), composed.get("display_names", {}))
 		var key_npc := _find_actor(floor_root, "key_npc")
 		_assert_true(key_npc != null, "floor %d should place one key NPC at the authored nearby test position" % floor_number)
 		_assert_true(_find_actor(floor_root, "merchant") == null, "floor %d should contain no merchant actor" % floor_number)

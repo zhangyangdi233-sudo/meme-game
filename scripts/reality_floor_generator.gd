@@ -5,8 +5,6 @@ class_name RealityFloorGenerator
 signal cover_watcher_appeared(floor_number: int)
 signal cover_watcher_vanished(floor_number: int)
 
-const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
-const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
 const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
@@ -37,6 +35,7 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
+const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const NIGHT_TERRACE_END_MARGIN := 8.0
 const NIGHT_TERRACE_GAP := 1.2
 const NIGHT_FACADE_BAY := 7.6
@@ -135,7 +134,8 @@ static func room_count_for_floor(floor_number: int) -> int:
 
 
 static func npc_count_for_floor(floor_number: int) -> int:
-	return FloorComposerScript.ordinary_npc_count(floor_number)
+	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
+	return int(ORDINARY_NPC_COUNTS[floor_index])
 
 
 static func district_style_for_floor(floor_number: int) -> String:
@@ -166,10 +166,6 @@ func rebuild(
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
-	if people.is_empty() and display_names.is_empty():
-		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": built_floor}})
-		people = composed.get("people", [])
-		display_names = composed.get("display_names", {})
 	district_style = district_style_for_floor(built_floor)
 	room_count = room_count_for_floor(built_floor)
 	ordinary_npc_count = _count_kind(people, "npc")
@@ -2523,18 +2519,17 @@ func _doll_position_for_floor(spawn: Vector3) -> Vector3:
 
 func _make_doll_actor(doll_id: String, display_name: String, doll_position: Vector3, doll_texture: Texture2D) -> Area3D:
 	var doll := Area3D.new()
-	var encounter: Dictionary = LanguageCorruptionContentScript.get_doll_encounter_by_id(doll_id)
 	doll.name = "DollEncounter"
 	doll.position = doll_position
 	doll.collision_layer = 2
 	doll.collision_mask = 0
 	doll.set_meta("actor_id", doll_id)
 	doll.set_meta("actor_type", "doll")
-	doll.set_meta("display_name", display_name if not display_name.is_empty() else str(encounter.get("actor_label", "缝线布偶")))
+	doll.set_meta("display_name", display_name if not display_name.is_empty() else "缝线布偶")
 	doll.set_meta("doll_id", doll_id)
 	doll.set_meta("guide_character", true)
 	doll.set_meta("discovery_style", "partially_hidden_near_existing_cover")
-	doll.set_meta("world_hint", str(encounter.get("world_hint", "")))
+	doll.set_meta("world_hint", "")
 	doll.set_meta("claimed", false)
 	doll.set_meta("face_veil", false)
 	doll.set_meta("camera_facing_layer", true)
