@@ -4,8 +4,8 @@ class_name RealitySceneAdapter
 ## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
+const FloorComposerScript = preload("res://scripts/world/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
-const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 
 const MOVE_SPEED := 3.3
 const SPRINT_MULTIPLIER := 1.85
@@ -91,17 +91,15 @@ func rebuild_floor(deps: Dictionary) -> void:
 		var texture := _load_texture(load_texture, str(texture_path))
 		if texture != null:
 			npc_textures.append(texture)
-	var key_dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(clampi(tower_floor, 1, 3))
 	var key_npc_texture: Texture2D = null
 	if not npc_textures.is_empty():
 		key_npc_texture = npc_textures[posmod(tower_floor - 1, npc_textures.size())]
 	var actor_textures := {
 		"key_npc": key_npc_texture,
-		"key_npc_label": str(key_dialogue.get("actor_label", "关键住户")),
 		"npcs": npc_textures,
 		"doll": _load_texture(load_texture, str(deps.get("guide_doll_path", ""))),
-		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(tower_floor, 1, 3)),
 	}
+	var cast: Dictionary = FloorComposerScript.compose(progress)
 	var prerequisite_item: Dictionary = deps.get("prerequisite_item", {})
 	floor.rebuild(
 		tower_floor,
@@ -110,6 +108,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 		day_number,
 		bool(deps.get("cover_watcher_seen", false)),
 		prerequisite_item,
+		cast,
 	)
 	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
 	sync_world_state(deps)
@@ -144,7 +143,7 @@ static func room_count_for_floor(floor_number: int) -> int:
 
 
 static func npc_count_for_floor(floor_number: int) -> int:
-	return RealityFloorGeneratorScript.npc_count_for_floor(floor_number)
+	return FloorComposerScript.npc_count_for_floor(floor_number)
 
 
 func update_player(delta: float, deps: Dictionary) -> void:
