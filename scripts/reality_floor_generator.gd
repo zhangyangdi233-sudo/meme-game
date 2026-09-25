@@ -72,24 +72,7 @@ const FULL_MAP_GRASS_SPACING := 0.44
 const FULL_MAP_GRASS_BLADE_HEIGHT := 0.32
 const FULL_MAP_GRASS_BLADE_WIDTH := 0.24
 const SUSPENSE_CLEAR_PATH_WIDTH := 5.6
-const DISTANT_MIRAGE_DAYS := [4, 9]
-const AUTHORED_EVENT_TABLE := {
-	2: [
-		["light_memory", "dead_sign"],
-		["light_memory"],
-		["dead_sign"],
-	],
-	3: [
-		["dead_sign"],
-		["light_memory", "dead_sign"],
-		["light_memory"],
-	],
-	4: [
-		["light_memory"],
-		["dead_sign"],
-		["light_memory", "dead_sign"],
-	],
-}
+const REPLACEABLE_SCENE_KINDS := ["light_memory", "dead_sign", "distant_mirage"]
 const DISTRICT_STYLES := ["sunlit_brick_street", "night_white_blocks", "overgrown_gallery"]
 const DISTRICT_REFERENCE_TEXTURES := {
 	"sunlit_brick_street": "res://assets/generated/world/reference_districts/sunlit_brick_street.png",
@@ -142,18 +125,6 @@ static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
 
-static func authored_event_kinds_for_floor_day(floor_number: int, day_number: int) -> PackedStringArray:
-	var floor_schedules: Array = AUTHORED_EVENT_TABLE.get(clampi(floor_number, 1, 4), [])
-	if floor_schedules.is_empty():
-		return PackedStringArray()
-	var normalized_day := maxi(1, day_number)
-	var selected_schedule: Array = floor_schedules[posmod(normalized_day - 1, floor_schedules.size())]
-	var event_kinds := PackedStringArray(selected_schedule)
-	if floor_number >= 2 and normalized_day in DISTANT_MIRAGE_DAYS:
-		event_kinds.append("distant_mirage")
-	return event_kinds
-
-
 func rebuild(
 	floor_number: int,
 	palette: Dictionary,
@@ -162,7 +133,8 @@ func rebuild(
 	cover_watcher_seen: bool = false,
 	items: Array = [],
 	people: Array = [],
-	display_names: Dictionary = {}
+	display_names: Dictionary = {},
+	events: Array = []
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
@@ -244,7 +216,7 @@ func rebuild(
 	_build_prerequisite_items(items, display_names, palette)
 	_build_actors(actor_textures, people, display_names)
 	_refresh_playtest_markers()
-	configure_authored_events(day_number, palette)
+	configure_authored_events(day_number, palette, events)
 	_build_cover_watcher_event(palette, cover_watcher_seen)
 	set_meta("useful_item_count", useful_item_count)
 
@@ -361,7 +333,7 @@ func sync_claimed_dolls(claimed_ids: Array[String]) -> void:
 			sprite.modulate = Color(0.82, 0.90, 0.82, 1.0) if claimed else Color.WHITE
 
 
-func configure_authored_events(day_number: int, palette: Dictionary) -> void:
+func configure_authored_events(day_number: int, palette: Dictionary, events: Array = []) -> void:
 	if _authored_event_root != null and is_instance_valid(_authored_event_root):
 		remove_child(_authored_event_root)
 		_authored_event_root.free()
@@ -374,9 +346,13 @@ func configure_authored_events(day_number: int, palette: Dictionary) -> void:
 	_authored_event_root.set_meta("authored_event_collection", true)
 	_authored_event_root.set_meta("non_jumpscare", true)
 	add_child(_authored_event_root)
-	var event_kinds := authored_event_kinds_for_floor_day(built_floor, _authored_event_day)
-	for event_kind in event_kinds:
-		match str(event_kind):
+	var event_kinds := PackedStringArray()
+	for event_entry in events:
+		var event_kind := str((event_entry as Dictionary).get("kind", ""))
+		if event_kind not in REPLACEABLE_SCENE_KINDS:
+			continue
+		event_kinds.append(event_kind)
+		match event_kind:
 			"light_memory":
 				_build_light_memory_event(palette)
 			"dead_sign":

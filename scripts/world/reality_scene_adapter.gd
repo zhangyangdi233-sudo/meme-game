@@ -109,6 +109,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 		composed.get("items", []),
 		composed.get("people", []),
 		composed.get("display_names", {}),
+		composed.get("events", []),
 	)
 	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
 	sync_world_state(deps)
@@ -134,7 +135,8 @@ func ensure_floor_current(deps: Dictionary) -> void:
 	if _built_floor != tower_floor:
 		rebuild_floor(deps)
 	elif _built_day != day_number:
-		floor.configure_authored_events(day_number, deps.get("palette", {}))
+		var composed: Dictionary = FloorComposerScript.compose(deps)
+		floor.configure_authored_events(day_number, deps.get("palette", {}), composed.get("events", []))
 		_built_day = day_number
 
 

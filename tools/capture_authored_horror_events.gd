@@ -1,5 +1,7 @@
 extends SceneTree
 
+const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
+
 const VIEW_SIZE := Vector2i(1280, 900)
 const PROJECT_DIR := "/Users/zhang/Documents/游戏/babel-meme-game"
 const HEADLESS_CAPTURE_ERROR := "Authored horror event screenshots require a rendered display. Run this tool without --headless."
@@ -59,7 +61,7 @@ func _capture() -> void:
 	_frame_event(camera, sign_event, Vector3(3.0, 0.0, 5.5), 2.0)
 	await _save_after_frames("current_horror_dead_sign.png")
 
-	floor_root.configure_authored_events(2, main._ui_theme_helper.active_palette())
+	floor_root.configure_authored_events(2, main._ui_theme_helper.active_palette(), _scene_events(floor_root, 2))
 	var light_event := _find_node_by_name(floor_root, "LightMemoryEvent") as Node3D
 	if light_event == null:
 		push_error("Unable to locate light-memory event")
@@ -71,7 +73,7 @@ func _capture() -> void:
 	_frame_event(camera, light_event, Vector3(3.2, -0.40, 6.4), 2.75)
 	await _save_after_frames("current_horror_light_memory.png")
 
-	floor_root.configure_authored_events(4, main._ui_theme_helper.active_palette())
+	floor_root.configure_authored_events(4, main._ui_theme_helper.active_palette(), _scene_events(floor_root, 4))
 	var mirage_event := _find_node_by_name(floor_root, "DistantMirageEvent") as Node3D
 	if mirage_event == null:
 		push_error("Unable to locate distant-mirage event")
@@ -154,6 +156,12 @@ func _save_after_frames(file_name: String) -> void:
 		quit(1)
 		return
 	print("saved screenshot: %s" % output_path)
+
+
+func _scene_events(floor_root: Node, day_number: int) -> Array:
+	return FloorComposerScript.compose({
+		"day_progress": {"tower_floor": int(floor_root.built_floor), "day": day_number},
+	}).get("events", [])
 
 
 func _find_node_by_name(node: Node, node_name: String) -> Node:

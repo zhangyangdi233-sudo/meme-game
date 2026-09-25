@@ -16,6 +16,8 @@ func _init() -> void:
 	_test_prerequisite_item_is_one_id_and_kind()
 	_test_hidden_floor_item_list_is_empty()
 	_test_street_props_stay_off_the_item_list()
+	_test_scene_schedule_matches_the_old_floor_day_table()
+	_test_scene_entries_hold_only_id_and_kind()
 	if _failures.is_empty():
 		print("floor composer tests passed")
 		quit(0)
@@ -107,6 +109,46 @@ func _test_street_props_stay_off_the_item_list() -> void:
 		_assert_true(kind == "prerequisite", "street props should not enter the item list")
 		var item_id := str((item_data as Dictionary).get("id", ""))
 		_assert_true(item_id != "water_cooler" and item_id != "street_lamp", "street furniture should stay part of the street")
+
+
+func _test_scene_schedule_matches_the_old_floor_day_table() -> void:
+	_assert_eq(_scene_kinds(1, 1), [], "floor one should preserve a calm baseline")
+	_assert_eq(_scene_kinds(1, 4), [], "the calm baseline should suppress the rare mirage even on a scheduled day")
+	_assert_eq(_scene_kinds(2, 1), ["light_memory", "dead_sign"], "floor two day one should use the authored light/sign pair")
+	_assert_eq(_scene_kinds(2, 2), ["light_memory"], "floor two day two should retain only the finite light event")
+	_assert_eq(_scene_kinds(2, 4), ["light_memory", "dead_sign", "distant_mirage"], "day four should add the first rare image mirage")
+	_assert_eq(_scene_kinds(3, 1), ["dead_sign"], "floor three day one should use only the sign event")
+	_assert_eq(_scene_kinds(4, 9), ["light_memory", "dead_sign", "distant_mirage"], "hidden floor four day nine should add the final rare image mirage")
+	_assert_eq(_scene_kinds(2, 1), _scene_kinds(2, 1), "the same floor and day should always return the same events")
+	_assert_true(_scene_kinds(2, 1) != _scene_kinds(2, 2), "day changes should rotate the authored event schedule")
+	_assert_true(_scene_kinds(3, 1) != _scene_kinds(2, 1), "floor changes should alter the event composition")
+	var mirage_days := 0
+	for day_number in range(1, 13):
+		if "distant_mirage" in _scene_kinds(3, day_number):
+			mirage_days += 1
+	_assert_eq(mirage_days, 2, "a twelve-day run should schedule the distant image mirage at most twice")
+
+
+func _test_scene_entries_hold_only_id_and_kind() -> void:
+	var events: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 2, "day": 4}}).get("events", [])
+	_assert_eq(events.size(), 3, "floor two day four should list light, sign, and mirage")
+	for event_entry in events:
+		var entry: Dictionary = event_entry
+		var keys: Array = entry.keys()
+		keys.sort()
+		_assert_eq(keys, ["id", "kind"], "a scene entry should hold only id and kind")
+		_assert_eq(str(entry.get("id", "")), str(entry.get("kind", "")), "each scene id should name that one scene")
+		_assert_true(str(entry.get("kind", "")) in ["light_memory", "dead_sign", "distant_mirage"], "kind should be one of the three self-playing scenes")
+
+
+func _scene_kinds(floor_number: int, day_number: int) -> Array:
+	var events: Array = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": floor_number, "day": day_number},
+	}).get("events", [])
+	var kinds: Array = []
+	for event_entry in events:
+		kinds.append(str((event_entry as Dictionary).get("kind", "")))
+	return kinds
 
 
 func _test_hidden_floor_has_nobody() -> void:

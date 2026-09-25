@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_refresh_exposes_nearby_outcome()
 	_test_look_delta_updates_pose()
 	_test_rebuild_uses_intent_snapshot_not_live_game()
+	_test_day_change_replaces_scenes_without_rebuilding_the_floor()
 	_test_collect_item_by_id_clears_nearby_item()
 	_test_face_actor_by_id_updates_pose()
 
@@ -154,6 +155,41 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	_assert_true(not textures.has("doll_encounter"), "the doll encounter should not ride inside the texture bag")
 	_assert_eq(fake.last_sync_collected, ["floor1_key"] as Array[String], "rebuild should sync collected item ids from the snapshot")
 	_assert_eq(fake.last_sync_dolls, ["guide_doll"] as Array[String], "rebuild should sync claimed doll ids from the snapshot")
+	var events: Array = fake.last_rebuild.get("events", [])
+	_assert_eq(events.size(), 1, "rebuild should place the composer's scene list")
+	_assert_eq(str((events[0] as Dictionary).get("kind", "")), "dead_sign", "floor two day three should schedule only the dead sign")
+	setup["host"].free()
+
+
+func _test_day_change_replaces_scenes_without_rebuilding_the_floor() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	var day_one := {
+		"day_progress": {"tower_floor": 2, "day": 1},
+		"palette": {"ink": Color.BLACK},
+	}
+	adapter.rebuild_floor(day_one)
+	adapter.player.position = Vector3(3.0, 0.08, 4.0)
+	adapter.yaw = 12.0
+	adapter.pitch = -3.0
+	var rebuilds_before_day := fake.rebuild_count
+	var day_two := day_one.duplicate(true)
+	(day_two["day_progress"] as Dictionary)["day"] = 2
+	adapter.ensure_floor_current(day_two)
+	_assert_eq(fake.rebuild_count, rebuilds_before_day, "a day change should not rebuild the floor")
+	_assert_eq(fake.scene_replacements.size(), 1, "a day change should ask the generator to replace scenes")
+	var replaced: Array = fake.scene_replacements[0]
+	_assert_eq(str((replaced[0] as Dictionary).get("id", "")), "light_memory", "day two should replace the list with the light memory")
+	_assert_eq(str((replaced[0] as Dictionary).get("kind", "")), "light_memory", "the replaced scene kind should stay light_memory")
+	_assert_true(adapter.player.position.is_equal_approx(Vector3(3.0, 0.08, 4.0)), "a day change should leave the player where they stand")
+	_assert_true(is_equal_approx(adapter.yaw, 12.0), "a day change should leave look yaw alone")
+	_assert_true(is_equal_approx(adapter.pitch, -3.0), "a day change should leave look pitch alone")
+	var next_floor := day_two.duplicate(true)
+	(next_floor["day_progress"] as Dictionary)["tower_floor"] = 3
+	adapter.ensure_floor_current(next_floor)
+	_assert_eq(fake.rebuild_count, rebuilds_before_day + 1, "a floor change should still rebuild the whole floor")
+	_assert_eq(int(fake.last_rebuild.get("floor_number", 0)), 3, "the floor rebuild should use the new tower floor")
 	setup["host"].free()
 
 
@@ -226,6 +262,8 @@ class FakeFloor extends RealityFloorGenerator:
 	var last_rebuild: Dictionary = {}
 	var last_sync_collected: Array[String] = []
 	var last_sync_dolls: Array[String] = []
+	var rebuild_count := 0
+	var scene_replacements: Array = []
 
 	func rebuild(
 		floor_number: int,
@@ -235,8 +273,10 @@ class FakeFloor extends RealityFloorGenerator:
 		cover_watcher_seen: bool = false,
 		items: Array = [],
 		people: Array = [],
-		display_names: Dictionary = {}
+		display_names: Dictionary = {},
+		events: Array = []
 	) -> void:
+		rebuild_count += 1
 		last_rebuild = {
 			"floor_number": floor_number,
 			"palette": palette,
@@ -246,7 +286,13 @@ class FakeFloor extends RealityFloorGenerator:
 			"items": items,
 			"people": people,
 			"display_names": display_names,
+			"events": events,
 		}
+
+	func configure_authored_events(day_number: int, palette: Dictionary, events: Array = []) -> void:
+		scene_replacements.append(events)
+		set_meta("authored_event_day", day_number)
+		set_meta("palette_present", not palette.is_empty())
 
 	func get_interactable_actors() -> Array[Area3D]:
 		return fake_actors

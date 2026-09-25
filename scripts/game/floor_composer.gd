@@ -1,13 +1,33 @@
 extends RefCounted
 class_name FloorComposer
-## Decides who stands on one tower floor, and which prerequisite item is there.
+## Decides who stands on one tower floor, which prerequisite item is there,
+## and which of the three self-playing scenes run that day.
 ## Rosters are id and kind only. Display names sit beside them. Images stay out.
+## The scene schedule lives here, not in the content catalog.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 
 const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const PEDESTRIAN_LABELS := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
+const DISTANT_MIRAGE_DAYS := [4, 9]
+const SCENE_SCHEDULE := {
+	2: [
+		["light_memory", "dead_sign"],
+		["light_memory"],
+		["dead_sign"],
+	],
+	3: [
+		["dead_sign"],
+		["light_memory", "dead_sign"],
+		["light_memory"],
+	],
+	4: [
+		["light_memory"],
+		["dead_sign"],
+		["light_memory", "dead_sign"],
+	],
+}
 
 
 static func ordinary_npc_count(floor_number: int) -> int:
@@ -30,11 +50,28 @@ static func compose(snapshot: Dictionary) -> Dictionary:
 		display_names[pedestrian_id] = PEDESTRIAN_LABELS[index % PEDESTRIAN_LABELS.size()]
 	var items: Array = []
 	_add_prerequisite_item(items, display_names, floor_number, str(snapshot.get("locale", "zh")))
+	var day_number := int(progress.get("day", 1))
 	return {
 		"people": people,
 		"display_names": display_names,
 		"items": items,
+		"events": _scene_events(floor_number, day_number),
 	}
+
+
+static func _scene_events(floor_number: int, day_number: int) -> Array:
+	var floor_schedules: Array = SCENE_SCHEDULE.get(floor_number, [])
+	if floor_schedules.is_empty():
+		return []
+	var normalized_day := maxi(1, day_number)
+	var selected_schedule: Array = floor_schedules[posmod(normalized_day - 1, floor_schedules.size())]
+	var events: Array = []
+	for scene_kind in selected_schedule:
+		var kind := str(scene_kind)
+		events.append({"id": kind, "kind": kind})
+	if floor_number >= 2 and normalized_day in DISTANT_MIRAGE_DAYS:
+		events.append({"id": "distant_mirage", "kind": "distant_mirage"})
+	return events
 
 
 static func _add_key_resident(people: Array, display_names: Dictionary, floor_number: int) -> void:

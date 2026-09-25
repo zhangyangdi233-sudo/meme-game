@@ -1,6 +1,7 @@
 extends SceneTree
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
+const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 
 const TEST_PALETTE := {
 	"bg": "B7D957",
@@ -32,23 +33,20 @@ func _run_async() -> void:
 
 
 func _run() -> void:
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(1, 1), PackedStringArray(), "floor one should preserve a calm baseline")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(1, 4), PackedStringArray(), "the calm baseline should suppress the rare mirage even on a scheduled day")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), PackedStringArray(["light_memory", "dead_sign"]), "floor two day one should use the authored light/sign pair")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 4), PackedStringArray(["light_memory", "dead_sign", "distant_mirage"]), "day four should add the first rare image mirage")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(4, 9), PackedStringArray(["light_memory", "dead_sign", "distant_mirage"]), "hidden floor four day nine should add the final rare image mirage")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), "the same floor and day should always return the same events")
-	_assert_true(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1) != RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 2), "day changes should rotate the authored event schedule")
-	_assert_true(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(3, 1) != RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), "floor changes should alter the event composition")
-	var mirage_days := 0
-	for day_number in range(1, 13):
-		if "distant_mirage" in RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(3, day_number):
-			mirage_days += 1
-	_assert_eq(mirage_days, 2, "a twelve-day run should schedule the distant image mirage at most twice")
-
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
-	floor_root.rebuild(2, TEST_PALETTE, {}, 1)
+	var floor_two_day_one := _composed(2, 1)
+	floor_root.rebuild(
+		2,
+		TEST_PALETTE,
+		{},
+		1,
+		false,
+		floor_two_day_one.get("items", []),
+		floor_two_day_one.get("people", []),
+		floor_two_day_one.get("display_names", {}),
+		floor_two_day_one.get("events", [])
+	)
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 2, "floor two should instantiate its two scheduled events")
 	_assert_true(not bool(floor_root.get_meta("authored_event_randomized", true)), "authored events should not depend on random timers")
 	_assert_eq(str(floor_root.get_meta("authored_event_trigger_mode", "")), "movement_then_observation_then_look_away", "event metadata should expose the slow-burn trigger grammar")
@@ -101,17 +99,36 @@ func _run() -> void:
 		if sign_label != null:
 			_assert_eq(sign_label.text, "EX_T", "the failed EXIT sign should retain a restrained one-letter absence")
 
-	floor_root.configure_authored_events(2, TEST_PALETTE)
+	var resident := floor_root.get_interactable_actors()[0]
+	var street := floor_root.get_node_or_null("RealityWorldEnvironment")
+	var watcher := _find_node_by_name(floor_root, "CoverWatcherEvent")
+	var prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor2")
+	floor_root.configure_authored_events(2, TEST_PALETTE, _composed(2, 2).get("events", []))
+	_assert_true(resident == floor_root.get_interactable_actors()[0], "a day change should leave the resident in place")
+	_assert_true(prerequisite != null and prerequisite == _find_node_by_name(floor_root, "PrerequisiteItemFloor2"), "a day change should leave the prerequisite item in place")
+	_assert_true(street != null and street == floor_root.get_node_or_null("RealityWorldEnvironment"), "a day change should leave the street in place")
+	_assert_true(watcher != null and watcher == _find_node_by_name(floor_root, "CoverWatcherEvent"), "a day change should leave the cover watcher in place")
 	_assert_eq(floor_root.get_meta("authored_event_kinds", PackedStringArray()), PackedStringArray(["light_memory"]), "floor two day two should retain only the finite light event")
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 1, "a single-event day should instantiate exactly one event root")
 	_assert_true(_find_node_by_name(floor_root, "DeadSignEvent") == null, "an unscheduled sign should not remain in the scene tree")
 
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1)
+	var floor_three_day_one := _composed(3, 1)
+	floor_root.rebuild(
+		3,
+		TEST_PALETTE,
+		{},
+		1,
+		false,
+		floor_three_day_one.get("items", []),
+		floor_three_day_one.get("people", []),
+		floor_three_day_one.get("display_names", {}),
+		floor_three_day_one.get("events", [])
+	)
 	_assert_eq(floor_root.get_meta("authored_event_kinds", PackedStringArray()), PackedStringArray(["dead_sign"]), "floor three day one should use only the sign event")
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 1, "floor three day one should remain deliberately sparse")
 	_assert_true(_find_node_by_name(floor_root, "LightMemoryEvent") == null, "rebuilding the floor should remove events that are no longer scheduled")
 
-	floor_root.configure_authored_events(4, TEST_PALETTE)
+	floor_root.configure_authored_events(4, TEST_PALETTE, _composed(3, 4).get("events", []))
 	var mirage_event := _find_node_by_name(floor_root, "DistantMirageEvent") as Node3D
 	var mirage_sprite := _find_node_by_name(floor_root, "MiragePrimary") as Sprite3D
 	_assert_true(mirage_event != null and mirage_sprite != null, "the rare sighting should use an image billboard instead of block-model geometry")
@@ -128,6 +145,10 @@ func _run() -> void:
 
 	floor_root.queue_free()
 	await process_frame
+
+
+func _composed(floor_number: int, day_number: int) -> Dictionary:
+	return FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": day_number}})
 
 
 func _collect_nodes_with_meta(node: Node, meta_name: String, output: Array[Node]) -> void:
