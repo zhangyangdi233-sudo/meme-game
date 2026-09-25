@@ -2328,7 +2328,7 @@ func _build_prerequisite_items(items: Array, display_names: Dictionary, palette:
 		if str(entry.get("kind", "")) != "prerequisite":
 			continue
 		var item_id := str(entry.get("id", "")).strip_edges()
-		if item_id.is_empty() or built_floor > 3:
+		if item_id.is_empty():
 			continue
 		_build_prerequisite_item(item_id, str(display_names.get(item_id, "未登记物")), palette)
 
