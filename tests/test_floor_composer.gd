@@ -13,6 +13,9 @@ func _init() -> void:
 	_test_roster_entries_hold_only_id_and_kind()
 	_test_display_names_sit_beside_the_roster()
 	_test_hidden_floor_has_nobody()
+	_test_prerequisite_item_is_one_id_and_kind()
+	_test_hidden_floor_item_list_is_empty()
+	_test_street_props_stay_off_the_item_list()
 	if _failures.is_empty():
 		print("floor composer tests passed")
 		quit(0)
@@ -68,7 +71,42 @@ func _test_display_names_sit_beside_the_roster() -> void:
 		_assert_true(not (person as Dictionary).has("texture"), "images should not live inside the roster")
 	var names: Dictionary = composed.get("display_names", {})
 	_assert_eq(str(names.get("key_npc_2_keynpc", "")), "两醒者", "the composer should look up the key resident label")
-	_assert_eq(names.size(), people.size(), "each person should have a display name beside the roster")
+	for person in people:
+		_assert_true(names.has(str((person as Dictionary).get("id", ""))), "each person should have a display name beside the roster")
+
+
+func _test_prerequisite_item_is_one_id_and_kind() -> void:
+	var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": 1}, "locale": "zh"})
+	var items: Array = composed.get("items", [])
+	_assert_eq(items.size(), 1, "floor one should list one prerequisite item")
+	var entry: Dictionary = items[0]
+	var keys: Array = entry.keys()
+	keys.sort()
+	_assert_eq(keys, ["id", "kind"], "an item entry should hold only id and kind")
+	_assert_eq(str(entry.get("id", "")), "artifact_named_lamp_tag", "floor one item id should come from the catalog")
+	_assert_eq(str(entry.get("kind", "")), "prerequisite", "the pickup should be a prerequisite")
+	_assert_true(not entry.has("label"), "the display name should not live inside the item list")
+	_assert_true(not entry.has("texture"), "images should not live inside the item list")
+	var names: Dictionary = composed.get("display_names", {})
+	_assert_eq(str(names.get("artifact_named_lamp_tag", "")), "写着“小月亮”的旧名牌", "the item label should sit beside the list")
+	var floor_two: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 2}, "locale": "en"}).get("items", [])
+	_assert_eq(str((floor_two[0] as Dictionary).get("id", "")), "artifact_reversed_tape", "floor two should keep its catalog item")
+	var floor_three: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 3}}).get("items", [])
+	_assert_eq(str((floor_three[0] as Dictionary).get("id", "")), "artifact_missing_subject_page", "floor three should keep its catalog item")
+
+
+func _test_hidden_floor_item_list_is_empty() -> void:
+	var items: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 4, "day": 9}}).get("items", [])
+	_assert_eq(items.size(), 0, "hidden floor four should place no prerequisite item")
+
+
+func _test_street_props_stay_off_the_item_list() -> void:
+	var items: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 3}}).get("items", [])
+	for item_data in items:
+		var kind := str((item_data as Dictionary).get("kind", ""))
+		_assert_true(kind == "prerequisite", "street props should not enter the item list")
+		var item_id := str((item_data as Dictionary).get("id", ""))
+		_assert_true(item_id != "water_cooler" and item_id != "street_lamp", "street furniture should stay part of the street")
 
 
 func _test_hidden_floor_has_nobody() -> void:

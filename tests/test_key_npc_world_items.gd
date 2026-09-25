@@ -33,7 +33,7 @@ func _run() -> void:
 			"key_npc": texture,
 			"npcs": [texture],
 			"doll": doll_texture,
-		}, 1, false, item, composed.get("people", []), composed.get("display_names", {}))
+		}, 1, false, composed.get("items", []), composed.get("people", []), composed.get("display_names", {}))
 		var key_npc := _find_actor(floor_root, "key_npc")
 		_assert_true(key_npc != null, "floor %d should place one key NPC at the authored nearby test position" % floor_number)
 		_assert_true(_find_actor(floor_root, "merchant") == null, "floor %d should contain no merchant actor" % floor_number)
@@ -54,6 +54,7 @@ func _run() -> void:
 		_assert_true(prerequisite != null, "floor %d should build exactly one authored prerequisite" % floor_number)
 		if prerequisite != null:
 			_assert_eq(str(prerequisite.get_meta("item_id", "")), str(item.get("id", "")), "world item should use the state-owned prerequisite ID")
+			_assert_eq(str(prerequisite.get_meta("display_name", "")), str(item.get("label", "")), "world item should keep the catalog label for pickup")
 			_assert_true(floor_root.contains_playable_position(prerequisite.position, 1.0), "floor %d prerequisite must be inside the traversable map" % floor_number)
 			_assert_true(not prerequisite.visible, "the item should remain hidden before the key NPC clue")
 			floor_root.sync_prerequisite_items([str(item.get("id", ""))], [])

@@ -1,9 +1,10 @@
 extends RefCounted
 class_name FloorComposer
-## Decides who stands on one tower floor. The roster is id and kind only.
-## Display names sit beside that roster. Images stay with the Reality scene adapter.
+## Decides who stands on one tower floor, and which prerequisite item is there.
+## Rosters are id and kind only. Display names sit beside them. Images stay out.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 
 const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const PEDESTRIAN_LABELS := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
@@ -27,9 +28,12 @@ static func compose(snapshot: Dictionary) -> Dictionary:
 		var pedestrian_id := "npc_%d_npc%d" % [floor_number, index]
 		people.append({"id": pedestrian_id, "kind": "npc"})
 		display_names[pedestrian_id] = PEDESTRIAN_LABELS[index % PEDESTRIAN_LABELS.size()]
+	var items: Array = []
+	_add_prerequisite_item(items, display_names, floor_number, str(snapshot.get("locale", "zh")))
 	return {
 		"people": people,
 		"display_names": display_names,
+		"items": items,
 	}
 
 
@@ -38,6 +42,17 @@ static func _add_key_resident(people: Array, display_names: Dictionary, floor_nu
 	people.append({"id": resident_id, "kind": "key_npc"})
 	var dialogue: Dictionary = LanguageCorruptionContentScript.get_key_npc_dialogue_for_floor(floor_number)
 	display_names[resident_id] = str(dialogue.get("actor_label", "关键住户"))
+
+
+static func _add_prerequisite_item(items: Array, display_names: Dictionary, floor_number: int, locale_code: String) -> void:
+	if floor_number > 3:
+		return
+	var catalog_item: Dictionary = NarrativeSessionCatalogScript.prerequisite_item(floor_number, locale_code)
+	var item_id := str(catalog_item.get("id", "")).strip_edges()
+	if item_id.is_empty():
+		return
+	items.append({"id": item_id, "kind": "prerequisite"})
+	display_names[item_id] = str(catalog_item.get("label", ""))
 
 
 static func _add_doll(people: Array, display_names: Dictionary, floor_number: int) -> void:

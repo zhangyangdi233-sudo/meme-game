@@ -130,7 +130,6 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 		"guide_doll_path": "",
 		"playtest_assist_enabled": false,
 		"locale": "zh",
-		"prerequisite_item": {"id": "floor2_key"},
 		"cover_watcher_seen": true,
 		"collected_world_item_ids": ["floor1_key"],
 		"revealed_prerequisite_item_ids": ["floor2_key"],
@@ -140,7 +139,10 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	_assert_eq(int(fake.last_rebuild.get("floor_number", 0)), 2, "rebuild should use tower_floor from day_progress")
 	_assert_eq(int(fake.last_rebuild.get("day_number", 0)), 3, "rebuild should use day from day_progress")
 	_assert_true(bool(fake.last_rebuild.get("cover_watcher_seen", false)), "rebuild should use cover_watcher_seen from the snapshot")
-	_assert_eq(str((fake.last_rebuild.get("prerequisite_item", {}) as Dictionary).get("id", "")), "floor2_key", "rebuild should use prerequisite_item from the snapshot")
+	var items: Array = fake.last_rebuild.get("items", [])
+	_assert_eq(items.size(), 1, "rebuild should place the composer's item list")
+	_assert_eq(str((items[0] as Dictionary).get("id", "")), "artifact_reversed_tape", "the item id should come from the composer, not the host")
+	_assert_eq(str((items[0] as Dictionary).get("kind", "")), "prerequisite", "the placed item should be a prerequisite")
 	var people: Array = fake.last_rebuild.get("people", [])
 	_assert_eq(people.size(), 5, "rebuild should place the floor-two cast from the composer")
 	_assert_eq(str((people[0] as Dictionary).get("id", "")), "key_npc_2_keynpc", "rebuild should forward the key resident id")
@@ -231,7 +233,7 @@ class FakeFloor extends RealityFloorGenerator:
 		actor_textures: Dictionary,
 		day_number: int = 1,
 		cover_watcher_seen: bool = false,
-		prerequisite_item: Dictionary = {},
+		items: Array = [],
 		people: Array = [],
 		display_names: Dictionary = {}
 	) -> void:
@@ -241,7 +243,7 @@ class FakeFloor extends RealityFloorGenerator:
 			"actor_textures": actor_textures,
 			"day_number": day_number,
 			"cover_watcher_seen": cover_watcher_seen,
-			"prerequisite_item": prerequisite_item,
+			"items": items,
 			"people": people,
 			"display_names": display_names,
 		}

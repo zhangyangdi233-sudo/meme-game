@@ -100,14 +100,13 @@ func rebuild_floor(deps: Dictionary) -> void:
 		"doll": _load_texture(load_texture, str(deps.get("guide_doll_path", ""))),
 	}
 	var composed: Dictionary = FloorComposerScript.compose(deps)
-	var prerequisite_item: Dictionary = deps.get("prerequisite_item", {})
 	floor.rebuild(
 		tower_floor,
 		deps.get("palette", {}),
 		actor_textures,
 		day_number,
 		bool(deps.get("cover_watcher_seen", false)),
-		prerequisite_item,
+		composed.get("items", []),
 		composed.get("people", []),
 		composed.get("display_names", {}),
 	)

@@ -160,7 +160,7 @@ func rebuild(
 	actor_textures: Dictionary,
 	day_number: int = 1,
 	cover_watcher_seen: bool = false,
-	prerequisite_item: Dictionary = {},
+	items: Array = [],
 	people: Array = [],
 	display_names: Dictionary = {}
 ) -> void:
@@ -241,7 +241,7 @@ func rebuild(
 
 	_build_environment(palette)
 	_build_architecture(palette)
-	_build_prerequisite_item(prerequisite_item, palette)
+	_build_prerequisite_items(items, display_names, palette)
 	_build_actors(actor_textures, people, display_names)
 	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette)
@@ -2320,12 +2320,20 @@ func _prerequisite_item_position_for_floor() -> Vector3:
 			return clamp_to_playable_position(start_position() + Vector3(0.0, 0.0, -18.0), 2.0)
 
 
-func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> void:
-	if item_data.is_empty() or built_floor > 3:
-		return
-	var item_id := str(item_data.get("id", "")).strip_edges()
-	if item_id.is_empty():
-		return
+func _build_prerequisite_items(items: Array, display_names: Dictionary, palette: Dictionary) -> void:
+	for item_data in items:
+		if not item_data is Dictionary:
+			continue
+		var entry: Dictionary = item_data
+		if str(entry.get("kind", "")) != "prerequisite":
+			continue
+		var item_id := str(entry.get("id", "")).strip_edges()
+		if item_id.is_empty() or built_floor > 3:
+			continue
+		_build_prerequisite_item(item_id, str(display_names.get(item_id, "未登记物")), palette)
+
+
+func _build_prerequisite_item(item_id: String, display_name: String, palette: Dictionary) -> void:
 	useful_item_count += 1
 	var item := Area3D.new()
 	item.name = "PrerequisiteItemFloor%d" % built_floor
@@ -2339,7 +2347,7 @@ func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> voi
 	item.set_meta("revealed", false)
 	item.set_meta("collected", false)
 	item.set_meta("item_id", item_id)
-	item.set_meta("display_name", str(item_data.get("label", "未登记物")))
+	item.set_meta("display_name", display_name)
 	item.set_meta("item_effect", "prerequisite")
 	item.set_meta("item_value", built_floor)
 	item.set_meta("item_description", "这不是奖励。它只是证明你来过这里。")

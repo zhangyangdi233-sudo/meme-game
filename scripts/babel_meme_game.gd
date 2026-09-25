@@ -929,7 +929,6 @@ func _reality_scene_deps() -> Dictionary:
 		"interaction_active": _reality_interaction_active,
 		"locale": locale_code,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
-		"prerequisite_item": game.get_prerequisite_item_for_floor(tower_floor, locale_code) if game != null else {},
 		"cover_watcher_seen": game.has_seen_cover_watcher(tower_floor) if game != null else false,
 		"collected_world_item_ids": game.collected_world_item_ids.duplicate() if game != null else [],
 		"revealed_prerequisite_item_ids": game.revealed_prerequisite_item_ids.duplicate() if game != null else [],
