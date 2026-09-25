@@ -141,6 +141,13 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	_assert_eq(int(fake.last_rebuild.get("day_number", 0)), 3, "rebuild should use day from day_progress")
 	_assert_true(bool(fake.last_rebuild.get("cover_watcher_seen", false)), "rebuild should use cover_watcher_seen from the snapshot")
 	_assert_eq(str((fake.last_rebuild.get("prerequisite_item", {}) as Dictionary).get("id", "")), "floor2_key", "rebuild should use prerequisite_item from the snapshot")
+	var cast: Dictionary = fake.last_rebuild.get("cast", {})
+	var roster: Array = cast.get("roster", [])
+	var kinds: Array[String] = []
+	for person in roster:
+		kinds.append(str((person as Dictionary).get("kind", "")))
+	_assert_eq(kinds, ["key_npc", "doll", "npc", "npc", "npc"], "rebuild should place the floor-two roster from the composer")
+	_assert_true(not (fake.last_rebuild.get("actor_textures", {}) as Dictionary).has("doll_encounter"), "images passed to placement should not carry the catalog encounter")
 	_assert_eq(fake.last_sync_collected, ["floor1_key"] as Array[String], "rebuild should sync collected item ids from the snapshot")
 	_assert_eq(fake.last_sync_dolls, ["guide_doll"] as Array[String], "rebuild should sync claimed doll ids from the snapshot")
 	setup["host"].free()
@@ -222,7 +229,8 @@ class FakeFloor extends RealityFloorGenerator:
 		actor_textures: Dictionary,
 		day_number: int = 1,
 		cover_watcher_seen: bool = false,
-		prerequisite_item: Dictionary = {}
+		prerequisite_item: Dictionary = {},
+		cast: Dictionary = {}
 	) -> void:
 		last_rebuild = {
 			"floor_number": floor_number,
@@ -231,6 +239,7 @@ class FakeFloor extends RealityFloorGenerator:
 			"day_number": day_number,
 			"cover_watcher_seen": cover_watcher_seen,
 			"prerequisite_item": prerequisite_item,
+			"cast": cast,
 		}
 
 	func get_interactable_actors() -> Array[Area3D]:

@@ -35,7 +35,6 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
-const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const NIGHT_TERRACE_END_MARGIN := 8.0
 const NIGHT_TERRACE_GAP := 1.2
 const NIGHT_FACADE_BAY := 7.6
@@ -133,11 +132,6 @@ static func room_count_for_floor(floor_number: int) -> int:
 	return BASE_ROOM_COUNT + normalized * 2 + int(normalized / 2)
 
 
-static func npc_count_for_floor(floor_number: int) -> int:
-	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
-	return int(ORDINARY_NPC_COUNTS[floor_index])
-
-
 static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
@@ -160,13 +154,14 @@ func rebuild(
 	actor_textures: Dictionary,
 	day_number: int = 1,
 	cover_watcher_seen: bool = false,
-	prerequisite_item: Dictionary = {}
+	prerequisite_item: Dictionary = {},
+	cast: Dictionary = {}
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
 	room_count = room_count_for_floor(built_floor)
-	ordinary_npc_count = npc_count_for_floor(built_floor)
+	ordinary_npc_count = _roster_kind_count(cast.get("roster", []), "npc")
 	useful_item_count = 0
 	var lot_rows := int(ceil(float(room_count) / 2.0))
 	if built_floor == 2:
@@ -240,7 +235,7 @@ func rebuild(
 	_build_environment(palette)
 	_build_architecture(palette)
 	_build_prerequisite_item(prerequisite_item, palette)
-	_build_actors(actor_textures)
+	_build_actors(actor_textures, cast)
 	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette)
 	_build_cover_watcher_event(palette, cover_watcher_seen)
@@ -2430,7 +2425,15 @@ func _build_page_prerequisite(parent: Node3D, palette: Dictionary) -> void:
 		_add_box(parent, "PageLine%d" % line_index, Vector3(line_width, 0.025, 0.018), Vector3(-0.04, 0.94 - float(line_index) * 0.11, -0.03), "ink", palette, false)
 
 
-func _build_actors(actor_textures: Dictionary) -> void:
+func _roster_kind_count(roster: Array, kind: String) -> int:
+	var count := 0
+	for person in roster:
+		if str((person as Dictionary).get("kind", "")) == kind:
+			count += 1
+	return count
+
+
+func _build_actors(actor_textures: Dictionary, cast: Dictionary) -> void:
 	var actors := Node3D.new()
 	actors.name = "Actors"
 	add_child(actors)
@@ -2443,48 +2446,53 @@ func _build_actors(actor_textures: Dictionary) -> void:
 	var fallback_texture := key_npc_texture
 	if not npc_textures.is_empty() and npc_textures[0] is Texture2D:
 		fallback_texture = npc_textures[0]
-	if built_floor <= 3:
-		var key_npc_label := str(actor_textures.get("key_npc_label", "关键住户"))
-		var key_npc := _make_actor("KeyNPC", "key_npc", key_npc_label, key_npc_position, key_npc_texture if key_npc_texture != null else fallback_texture, built_floor - 1)
-		actors.add_child(key_npc)
-		_actors.append(key_npc)
-
-	var doll_texture := actor_textures.get("doll") as Texture2D
-	var doll_encounter: Dictionary = actor_textures.get("doll_encounter", {})
-	if built_floor <= 3 and doll_texture != null and not doll_encounter.is_empty():
-		var doll_position := _doll_position_for_floor(spawn)
-		var doll := _make_doll_actor(doll_encounter, doll_position, doll_texture)
-		actors.add_child(doll)
-		_actors.append(doll)
-		set_meta("doll_encounter_count", 1)
-
-	var labels := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
-	var street_south := map_length * 0.5 - 12.5
-	var street_north := -map_length * 0.5 + 8.0
-	var lateral_positions := [3.4, -3.0, 1.6, -3.3, 0.5]
-	for index in ordinary_npc_count:
-		var progress := float(index + 1) / float(ordinary_npc_count + 1)
-		var actor_position: Vector3
-		if built_floor == 2:
-			var disc_angle := 0.72 + TAU * float(index + 1) / float(ordinary_npc_count + 2) + sin(float(index) * 1.7) * 0.16
-			var disc_radius := 0.30 + float(posmod(index * 3, 4)) * 0.14
-			actor_position = _floor_two_disc_point(disc_angle, disc_radius)
-		else:
-			actor_position = Vector3(
-				float(lateral_positions[index % lateral_positions.size()]),
-				0.0,
-				lerpf(street_south, street_north, progress)
-			)
-		var npc_texture: Texture2D = fallback_texture
-		if not npc_textures.is_empty() and npc_textures[index % npc_textures.size()] is Texture2D:
-			npc_texture = npc_textures[index % npc_textures.size()]
-		# 医生复述机制已移除:街区里不再生成医生角色,全部为普通 NPC。
-		var actor_type := "npc"
-		var actor_label: String = str(labels[index % labels.size()])
-		var actor := _make_actor("NPC%d" % index, actor_type, actor_label, actor_position, npc_texture, index % 3)
-		actor.set_meta("language_bridge_actor", false)
-		actors.add_child(actor)
-		_actors.append(actor)
+	var display_names: Dictionary = cast.get("display_names", {})
+	var world_hints: Dictionary = cast.get("world_hints", {})
+	var roster: Array = cast.get("roster", [])
+	var pedestrian_index := 0
+	for person in roster:
+		var record: Dictionary = person
+		var actor_id := str(record.get("id", ""))
+		var kind := str(record.get("kind", ""))
+		var display_name := str(display_names.get(actor_id, ""))
+		match kind:
+			"key_npc":
+				var key_npc := _make_actor("KeyNPC", "key_npc", display_name if not display_name.is_empty() else "关键住户", key_npc_position, key_npc_texture if key_npc_texture != null else fallback_texture, built_floor - 1)
+				key_npc.set_meta("actor_id", actor_id)
+				actors.add_child(key_npc)
+				_actors.append(key_npc)
+			"doll":
+				var doll_texture := actor_textures.get("doll") as Texture2D
+				var doll := _make_doll_actor(actor_id, display_name, str(world_hints.get(actor_id, "")), _doll_position_for_floor(spawn), doll_texture)
+				actors.add_child(doll)
+				_actors.append(doll)
+				set_meta("doll_encounter_count", 1)
+			"npc":
+				var index := pedestrian_index
+				pedestrian_index += 1
+				var street_south := map_length * 0.5 - 12.5
+				var street_north := -map_length * 0.5 + 8.0
+				var lateral_positions := [3.4, -3.0, 1.6, -3.3, 0.5]
+				var progress := float(index + 1) / float(ordinary_npc_count + 1)
+				var actor_position: Vector3
+				if built_floor == 2:
+					var disc_angle := 0.72 + TAU * float(index + 1) / float(ordinary_npc_count + 2) + sin(float(index) * 1.7) * 0.16
+					var disc_radius := 0.30 + float(posmod(index * 3, 4)) * 0.14
+					actor_position = _floor_two_disc_point(disc_angle, disc_radius)
+				else:
+					actor_position = Vector3(
+						float(lateral_positions[index % lateral_positions.size()]),
+						0.0,
+						lerpf(street_south, street_north, progress)
+					)
+				var npc_texture: Texture2D = fallback_texture
+				if not npc_textures.is_empty() and npc_textures[index % npc_textures.size()] is Texture2D:
+					npc_texture = npc_textures[index % npc_textures.size()]
+				var actor := _make_actor("NPC%d" % index, "npc", display_name, actor_position, npc_texture, index % 3)
+				actor.set_meta("actor_id", actor_id)
+				actor.set_meta("language_bridge_actor", false)
+				actors.add_child(actor)
+				_actors.append(actor)
 
 
 func _doll_position_for_floor(spawn: Vector3) -> Vector3:
@@ -2498,20 +2506,19 @@ func _doll_position_for_floor(spawn: Vector3) -> Vector3:
 	return spawn
 
 
-func _make_doll_actor(encounter: Dictionary, doll_position: Vector3, doll_texture: Texture2D) -> Area3D:
+func _make_doll_actor(doll_id: String, display_name: String, world_hint: String, doll_position: Vector3, doll_texture: Texture2D) -> Area3D:
 	var doll := Area3D.new()
-	var doll_id := str(encounter.get("doll_id", "doll_unknown"))
 	doll.name = "DollEncounter"
 	doll.position = doll_position
 	doll.collision_layer = 2
 	doll.collision_mask = 0
 	doll.set_meta("actor_id", doll_id)
 	doll.set_meta("actor_type", "doll")
-	doll.set_meta("display_name", str(encounter.get("actor_label", "缝线布偶")))
+	doll.set_meta("display_name", display_name if not display_name.is_empty() else "缝线布偶")
 	doll.set_meta("doll_id", doll_id)
 	doll.set_meta("guide_character", true)
 	doll.set_meta("discovery_style", "partially_hidden_near_existing_cover")
-	doll.set_meta("world_hint", str(encounter.get("world_hint", "")))
+	doll.set_meta("world_hint", world_hint)
 	doll.set_meta("claimed", false)
 	doll.set_meta("face_veil", false)
 	doll.set_meta("camera_facing_layer", true)
@@ -2529,7 +2536,7 @@ func _make_doll_actor(encounter: Dictionary, doll_position: Vector3, doll_textur
 	var sprite := Sprite3D.new()
 	sprite.name = "Billboard"
 	sprite.texture = doll_texture
-	var source_height := float(doll_texture.get_height())
+	var source_height := float(doll_texture.get_height()) if doll_texture != null else 1536.0
 	sprite.pixel_size = DOLL_PORTRAIT_WORLD_HEIGHT / maxf(1.0, source_height)
 	sprite.position.y = DOLL_PORTRAIT_WORLD_HEIGHT * 0.5
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
