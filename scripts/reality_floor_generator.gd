@@ -35,7 +35,6 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
-const FloorComposerScript = preload("res://scripts/world/floor_composer.gd")
 const NIGHT_TERRACE_END_MARGIN := 8.0
 const NIGHT_TERRACE_GAP := 1.2
 const NIGHT_FACADE_BAY := 7.6
@@ -131,10 +130,6 @@ var _playtest_assist_enabled := false
 static func room_count_for_floor(floor_number: int) -> int:
 	var normalized := maxi(1, floor_number) - 1
 	return BASE_ROOM_COUNT + normalized * 2 + int(normalized / 2)
-
-
-static func npc_count_for_floor(floor_number: int) -> int:
-	return FloorComposerScript.npc_count_for_floor(floor_number)
 
 
 static func district_style_for_floor(floor_number: int) -> String:
@@ -2468,8 +2463,6 @@ func _build_actors(actor_textures: Dictionary, cast: Dictionary) -> void:
 				_actors.append(key_npc)
 			"doll":
 				var doll_texture := actor_textures.get("doll") as Texture2D
-				if doll_texture == null:
-					continue
 				var doll := _make_doll_actor(actor_id, display_name, str(world_hints.get(actor_id, "")), _doll_position_for_floor(spawn), doll_texture)
 				actors.add_child(doll)
 				_actors.append(doll)
@@ -2543,7 +2536,7 @@ func _make_doll_actor(doll_id: String, display_name: String, world_hint: String,
 	var sprite := Sprite3D.new()
 	sprite.name = "Billboard"
 	sprite.texture = doll_texture
-	var source_height := float(doll_texture.get_height())
+	var source_height := float(doll_texture.get_height()) if doll_texture != null else 1536.0
 	sprite.pixel_size = DOLL_PORTRAIT_WORLD_HEIGHT / maxf(1.0, source_height)
 	sprite.position.y = DOLL_PORTRAIT_WORLD_HEIGHT * 0.5
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
