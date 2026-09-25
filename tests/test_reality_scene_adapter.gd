@@ -141,6 +141,15 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	_assert_eq(int(fake.last_rebuild.get("day_number", 0)), 3, "rebuild should use day from day_progress")
 	_assert_true(bool(fake.last_rebuild.get("cover_watcher_seen", false)), "rebuild should use cover_watcher_seen from the snapshot")
 	_assert_eq(str((fake.last_rebuild.get("prerequisite_item", {}) as Dictionary).get("id", "")), "floor2_key", "rebuild should use prerequisite_item from the snapshot")
+	var people: Array = fake.last_rebuild.get("people", [])
+	_assert_eq(people.size(), 5, "rebuild should place the floor-two cast from the composer")
+	_assert_eq(str((people[0] as Dictionary).get("id", "")), "key_npc_2_keynpc", "rebuild should forward the key resident id")
+	_assert_eq(str((people[1] as Dictionary).get("kind", "")), "doll", "rebuild should forward the doll")
+	var names: Dictionary = fake.last_rebuild.get("display_names", {})
+	_assert_eq(str(names.get("key_npc_2_keynpc", "")), "两醒者", "display names should travel beside the roster")
+	var textures: Dictionary = fake.last_rebuild.get("actor_textures", {})
+	_assert_true(not textures.has("key_npc_label"), "names should not ride inside the texture bag")
+	_assert_true(not textures.has("doll_encounter"), "the doll encounter should not ride inside the texture bag")
 	_assert_eq(fake.last_sync_collected, ["floor1_key"] as Array[String], "rebuild should sync collected item ids from the snapshot")
 	_assert_eq(fake.last_sync_dolls, ["guide_doll"] as Array[String], "rebuild should sync claimed doll ids from the snapshot")
 	setup["host"].free()
@@ -222,7 +231,9 @@ class FakeFloor extends RealityFloorGenerator:
 		actor_textures: Dictionary,
 		day_number: int = 1,
 		cover_watcher_seen: bool = false,
-		prerequisite_item: Dictionary = {}
+		prerequisite_item: Dictionary = {},
+		people: Array = [],
+		display_names: Dictionary = {}
 	) -> void:
 		last_rebuild = {
 			"floor_number": floor_number,
@@ -231,6 +242,8 @@ class FakeFloor extends RealityFloorGenerator:
 			"day_number": day_number,
 			"cover_watcher_seen": cover_watcher_seen,
 			"prerequisite_item": prerequisite_item,
+			"people": people,
+			"display_names": display_names,
 		}
 
 	func get_interactable_actors() -> Array[Area3D]:
