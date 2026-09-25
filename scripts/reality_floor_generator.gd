@@ -130,7 +130,7 @@ func rebuild(
 	palette: Dictionary,
 	actor_textures: Dictionary,
 	day_number: int = 1,
-	cover_watcher_seen: bool = false,
+	_cover_watcher_seen: bool = false,
 	items: Array = [],
 	people: Array = [],
 	display_names: Dictionary = {},
@@ -217,7 +217,7 @@ func rebuild(
 	_build_actors(actor_textures, people, display_names)
 	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette, events)
-	_build_cover_watcher_event(palette, cover_watcher_seen)
+	_build_cover_watcher_event(palette, not _events_include_kind(events, "cover_watcher"))
 	set_meta("useful_item_count", useful_item_count)
 
 
@@ -389,6 +389,13 @@ func get_authored_event_state(event_kind: String) -> Dictionary:
 
 func get_cover_watcher_state() -> Dictionary:
 	return _cover_watcher_state.duplicate(true)
+
+
+func _events_include_kind(events: Array, event_kind: String) -> bool:
+	for event_entry in events:
+		if str((event_entry as Dictionary).get("kind", "")) == event_kind:
+			return true
+	return false
 
 
 func _cover_watcher_position() -> Vector3:

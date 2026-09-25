@@ -51,13 +51,15 @@ static func compose(snapshot: Dictionary) -> Dictionary:
 	var items: Array = []
 	_add_prerequisite_item(items, display_names, floor_number, str(snapshot.get("locale", "zh")))
 	var day_number := int(progress.get("day", 1))
+	var events := _scene_events(floor_number, day_number)
+	if not bool(snapshot.get("cover_watcher_seen", false)):
+		events.append({"id": "cover_watcher", "kind": "cover_watcher"})
 	return {
 		"people": people,
 		"display_names": display_names,
 		"items": items,
-		"events": _scene_events(floor_number, day_number),
+		"events": events,
 	}
-
 
 static func _scene_events(floor_number: int, day_number: int) -> Array:
 	var floor_schedules: Array = SCENE_SCHEDULE.get(floor_number, [])

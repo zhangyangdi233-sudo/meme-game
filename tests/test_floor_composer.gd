@@ -18,6 +18,8 @@ func _init() -> void:
 	_test_street_props_stay_off_the_item_list()
 	_test_scene_schedule_matches_the_old_floor_day_table()
 	_test_scene_entries_hold_only_id_and_kind()
+	_test_unseen_floor_lists_one_cover_watcher()
+	_test_seen_floor_omits_cover_watcher()
 	if _failures.is_empty():
 		print("floor composer tests passed")
 		quit(0)
@@ -130,7 +132,10 @@ func _test_scene_schedule_matches_the_old_floor_day_table() -> void:
 
 
 func _test_scene_entries_hold_only_id_and_kind() -> void:
-	var events: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 2, "day": 4}}).get("events", [])
+	var events: Array = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": 2, "day": 4},
+		"cover_watcher_seen": true,
+	}).get("events", [])
 	_assert_eq(events.size(), 3, "floor two day four should list light, sign, and mirage")
 	for event_entry in events:
 		var entry: Dictionary = event_entry
@@ -141,9 +146,47 @@ func _test_scene_entries_hold_only_id_and_kind() -> void:
 		_assert_true(str(entry.get("kind", "")) in ["light_memory", "dead_sign", "distant_mirage"], "kind should be one of the three self-playing scenes")
 
 
+func _test_unseen_floor_lists_one_cover_watcher() -> void:
+	var day_one: Array = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": 2, "day": 1},
+		"cover_watcher_seen": false,
+	}).get("events", [])
+	var day_four: Array = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": 2, "day": 4},
+	}).get("events", [])
+	var watcher_day_one := _entries_of_kind(day_one, "cover_watcher")
+	var watcher_day_four := _entries_of_kind(day_four, "cover_watcher")
+	_assert_eq(watcher_day_one.size(), 1, "an unseen floor should list one cover watcher")
+	_assert_eq(watcher_day_four.size(), 1, "a later day should keep the cover watcher on the list until it has been seen")
+	var entry: Dictionary = watcher_day_one[0]
+	var keys: Array = entry.keys()
+	keys.sort()
+	_assert_eq(keys, ["id", "kind"], "the cover watcher entry should hold only id and kind")
+	_assert_eq(str(entry.get("id", "")), "cover_watcher", "the cover watcher id should name that one event")
+	_assert_eq(str(entry.get("kind", "")), "cover_watcher", "the cover watcher kind should be cover_watcher")
+
+
+func _test_seen_floor_omits_cover_watcher() -> void:
+	var events: Array = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": 3, "day": 1},
+		"cover_watcher_seen": true,
+	}).get("events", [])
+	_assert_eq(_entries_of_kind(events, "cover_watcher").size(), 0, "a floor already seen should omit the cover watcher")
+	_assert_eq(_scene_kinds(3, 1), ["dead_sign"], "omitting the watcher should leave the day's other scenes in place")
+
+
+func _entries_of_kind(events: Array, kind: String) -> Array:
+	var matches: Array = []
+	for event_entry in events:
+		if str((event_entry as Dictionary).get("kind", "")) == kind:
+			matches.append(event_entry)
+	return matches
+
+
 func _scene_kinds(floor_number: int, day_number: int) -> Array:
 	var events: Array = FloorComposerScript.compose({
 		"day_progress": {"tower_floor": floor_number, "day": day_number},
+		"cover_watcher_seen": true,
 	}).get("events", [])
 	var kinds: Array = []
 	for event_entry in events:

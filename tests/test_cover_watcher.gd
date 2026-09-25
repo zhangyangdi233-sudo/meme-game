@@ -36,7 +36,7 @@ func _run() -> void:
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	for floor_number in range(1, 6):
-		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false)
+		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
 		var event_root := _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
 		var sprite := _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
 		var cover := _find_node_by_name(floor_root, "WatcherCover") as StaticBody3D
@@ -69,7 +69,7 @@ func _run() -> void:
 	var vanished_floors: Array[int] = []
 	floor_root.cover_watcher_appeared.connect(func(floor_number: int) -> void: appeared_floors.append(floor_number))
 	floor_root.cover_watcher_vanished.connect(func(floor_number: int) -> void: vanished_floors.append(floor_number))
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false)
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
 	var event_root := _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
 	var sprite := _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
 	var spawn := floor_root.start_position()
@@ -103,9 +103,28 @@ func _run() -> void:
 		floor_root.update_authored_events(1.0, near_position, Vector3(0.0, 0.0, -1.0))
 		_assert_eq(appeared_floors.size(), 1, "a vanished watcher must not reappear on the same floor")
 
-	floor_root.rebuild(3, TEST_PALETTE, {}, 2, true)
-	_assert_true(_find_node_by_name(floor_root, "CoverWatcherEvent") == null, "a floor recorded as seen should suppress later watcher rebuilds")
+	floor_root.rebuild(3, TEST_PALETTE, {}, 2, false)
+	_assert_true(_find_node_by_name(floor_root, "CoverWatcherEvent") == null, "a floor with no cover watcher entry should not place the figure")
 	_assert_eq(int(floor_root.get_meta("cover_watcher_event_count", -1)), 0, "suppressed watcher state should be visible to scene tests")
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
+	event_root = _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
+	sprite = _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
+	spawn = floor_root.start_position()
+	toward_watcher = (event_root.global_position - spawn).normalized() if event_root != null else Vector3(0.0, 0.0, -1.0)
+	floor_root.update_authored_events(0.80, spawn, toward_watcher)
+	var watcher_before_day := floor_root.get_cover_watcher_state()
+	var replayed_floors: Array[int] = []
+	floor_root.cover_watcher_appeared.connect(func(floor_number: int) -> void: replayed_floors.append(floor_number))
+	floor_root.configure_authored_events(2, TEST_PALETTE, [
+		{"id": "light_memory", "kind": "light_memory"},
+		{"id": "cover_watcher", "kind": "cover_watcher"},
+	])
+	_assert_true(event_root != null and event_root == _find_node_by_name(floor_root, "CoverWatcherEvent"), "a day change should leave the cover watcher in place")
+	_assert_true(sprite != null and sprite.visible, "a day change should not hide a watcher that has already appeared")
+	_assert_eq(floor_root.get_cover_watcher_state().get("triggered", false), watcher_before_day.get("triggered", false), "a day change should not replay the cover watcher")
+	_assert_true(replayed_floors.is_empty(), "a day change should not emit cover watcher appearance again")
+	floor_root.configure_authored_events(3, TEST_PALETTE, [{"id": "dead_sign", "kind": "dead_sign"}])
+	_assert_true(event_root == _find_node_by_name(floor_root, "CoverWatcherEvent"), "dropping the entry from a day list should not tear the watcher down")
 
 	var game := MemeGameStateScript.new()
 	game.new_run()
@@ -118,6 +137,10 @@ func _run() -> void:
 
 	floor_root.queue_free()
 	await process_frame
+
+
+func _unseen_watcher_events() -> Array:
+	return [{"id": "cover_watcher", "kind": "cover_watcher"}]
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:
