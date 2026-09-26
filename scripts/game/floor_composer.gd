@@ -1,9 +1,10 @@
 extends RefCounted
 class_name FloorComposer
 ## Decides who stands on one tower floor, which prerequisite item is there,
-## and which of the three self-playing scenes run that day.
+## which of the three self-playing scenes run that day, and the neutral street layout.
 ## Rosters are id and kind only. Display names sit beside them. Images stay out.
 ## The scene schedule lives here, not in the content catalog.
+## Layout is room count, shape name, and map size. It does not name the tower floor.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
@@ -11,6 +12,28 @@ const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_sess
 const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const PEDESTRIAN_LABELS := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
 const DISTANT_MIRAGE_DAYS := [4, 9]
+const FLOOR_LAYOUTS := {
+	1: {
+		"room_count": 4,
+		"shape": "shared_street",
+		"map_size": {"width": 34.0, "length": 230.0},
+	},
+	2: {
+		"room_count": 6,
+		"shape": "irregular_disc",
+		"map_size": {"width": 252.0, "length": 264.0},
+	},
+	3: {
+		"room_count": 9,
+		"shape": "skylit_overgrown_gallery",
+		"map_size": {"width": 37.0, "length": 355.0},
+	},
+	4: {
+		"room_count": 11,
+		"shape": "shared_street",
+		"map_size": {"width": 38.5, "length": 402.0},
+	},
+}
 const SCENE_SCHEDULE := {
 	2: [
 		["light_memory", "dead_sign"],
@@ -59,7 +82,13 @@ static func compose(snapshot: Dictionary) -> Dictionary:
 		"display_names": display_names,
 		"items": items,
 		"events": events,
+		"layout": _layout_for(floor_number),
 	}
+
+static func _layout_for(floor_number: int) -> Dictionary:
+	var source: Dictionary = FLOOR_LAYOUTS.get(floor_number, FLOOR_LAYOUTS[1])
+	return source.duplicate(true)
+
 
 static func _scene_events(floor_number: int, day_number: int) -> Array:
 	var floor_schedules: Array = SCENE_SCHEDULE.get(floor_number, [])

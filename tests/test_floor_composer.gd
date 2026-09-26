@@ -20,6 +20,7 @@ func _init() -> void:
 	_test_scene_entries_hold_only_id_and_kind()
 	_test_unseen_floor_lists_one_cover_watcher()
 	_test_seen_floor_omits_cover_watcher()
+	_test_plan_carries_neutral_layout()
 	if _failures.is_empty():
 		print("floor composer tests passed")
 		quit(0)
@@ -173,6 +174,36 @@ func _test_seen_floor_omits_cover_watcher() -> void:
 	}).get("events", [])
 	_assert_eq(_entries_of_kind(events, "cover_watcher").size(), 0, "a floor already seen should omit the cover watcher")
 	_assert_eq(_scene_kinds(3, 1), ["dead_sign"], "omitting the watcher should leave the day's other scenes in place")
+
+
+func _test_plan_carries_neutral_layout() -> void:
+	var expected := {
+		1: {"room_count": 4, "shape": "shared_street", "width": 34.0, "length": 230.0},
+		2: {"room_count": 6, "shape": "irregular_disc", "width": 252.0, "length": 264.0},
+		3: {"room_count": 9, "shape": "skylit_overgrown_gallery", "width": 37.0, "length": 355.0},
+		4: {"room_count": 11, "shape": "shared_street", "width": 38.5, "length": 402.0},
+	}
+	for floor_number in [1, 2, 3, 4]:
+		var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 1}})
+		var layout: Dictionary = composed.get("layout", {})
+		var spec: Dictionary = expected[floor_number]
+		_assert_eq(int(layout.get("room_count", -1)), int(spec["room_count"]), "floor %d room count should stay on the plan" % floor_number)
+		_assert_eq(str(layout.get("shape", "")), str(spec["shape"]), "floor %d shape name should stay on the plan" % floor_number)
+		var map_size: Dictionary = layout.get("map_size", {})
+		_assert_true(is_equal_approx(float(map_size.get("width", -1.0)), float(spec["width"])), "floor %d map width should stay on the plan" % floor_number)
+		_assert_true(is_equal_approx(float(map_size.get("length", -1.0)), float(spec["length"])), "floor %d map length should stay on the plan" % floor_number)
+		var keys: Array = layout.keys()
+		keys.sort()
+		_assert_eq(keys, ["map_size", "room_count", "shape"], "layout should hold only room count, shape, and map size")
+		_assert_true(not layout.has("tower_floor"), "layout should not name the tower floor")
+		var people: Array = composed.get("people", [])
+		var items: Array = composed.get("items", [])
+		if floor_number == 1:
+			_assert_eq(people.size(), 6, "floor one cast should stay beside the new layout")
+			_assert_eq(items.size(), 1, "floor one prerequisite should stay beside the new layout")
+		elif floor_number == 4:
+			_assert_eq(people.size(), 0, "hidden floor four should still place nobody")
+			_assert_eq(items.size(), 0, "hidden floor four should still place no prerequisite")
 
 
 func _entries_of_kind(events: Array, kind: String) -> Array:

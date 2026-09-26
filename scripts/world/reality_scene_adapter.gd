@@ -110,6 +110,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 		composed.get("people", []),
 		composed.get("display_names", {}),
 		composed.get("events", []),
+		composed.get("layout", {}),
 	)
 	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
 	sync_world_state(deps)

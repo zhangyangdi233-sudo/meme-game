@@ -158,6 +158,12 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	var events: Array = fake.last_rebuild.get("events", [])
 	_assert_eq(events.size(), 1, "rebuild should place the composer's scene list")
 	_assert_eq(str((events[0] as Dictionary).get("kind", "")), "dead_sign", "floor two day three should schedule only the dead sign")
+	var layout: Dictionary = fake.last_rebuild.get("layout", {})
+	_assert_eq(int(layout.get("room_count", 0)), 6, "rebuild should forward the floor-two room count")
+	_assert_eq(str(layout.get("shape", "")), "irregular_disc", "rebuild should forward the floor-two shape")
+	var map_size: Dictionary = layout.get("map_size", {})
+	_assert_true(is_equal_approx(float(map_size.get("width", 0.0)), 252.0), "rebuild should forward the floor-two map width")
+	_assert_true(is_equal_approx(float(map_size.get("length", 0.0)), 264.0), "rebuild should forward the floor-two map length")
 	setup["host"].free()
 
 
@@ -274,7 +280,8 @@ class FakeFloor extends RealityFloorGenerator:
 		items: Array = [],
 		people: Array = [],
 		display_names: Dictionary = {},
-		events: Array = []
+		events: Array = [],
+		layout: Dictionary = {}
 	) -> void:
 		rebuild_count += 1
 		last_rebuild = {
@@ -287,6 +294,7 @@ class FakeFloor extends RealityFloorGenerator:
 			"people": people,
 			"display_names": display_names,
 			"events": events,
+			"layout": layout,
 		}
 
 	func configure_authored_events(day_number: int, palette: Dictionary, events: Array = []) -> void:

@@ -125,6 +125,54 @@ static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
 
+func _street_from_layout(floor_number: int, layout: Dictionary) -> Dictionary:
+	if _layout_is_neutral(layout):
+		var map_size: Dictionary = layout.get("map_size", {})
+		return {
+			"room_count": int(layout.get("room_count", 0)),
+			"shape": str(layout.get("shape", "")),
+			"map_width": float(map_size.get("width", MIN_MAP_WIDTH)),
+			"map_length": float(map_size.get("length", MIN_MAP_LENGTH)),
+		}
+	return _street_from_floor_number(floor_number)
+
+
+func _street_from_floor_number(floor_number: int) -> Dictionary:
+	var rooms := room_count_for_floor(floor_number)
+	var width: float
+	var length: float
+	if floor_number == 2:
+		width = (FLOOR_TWO_DISC_RADIUS_X + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
+		length = (FLOOR_TWO_DISC_RADIUS_Z + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
+	else:
+		var lot_rows := int(ceil(float(rooms) / 2.0))
+		width = MIN_MAP_WIDTH + float(floor_number - 1) * 1.5
+		length = maxf(MIN_MAP_LENGTH, float(lot_rows) * LOT_SPACING + MAP_END_MARGIN * 2.0)
+	var shape := "shared_street"
+	if floor_number == 2:
+		shape = "irregular_disc"
+	elif floor_number == 3:
+		shape = "skylit_overgrown_gallery"
+	return {
+		"room_count": rooms,
+		"shape": shape,
+		"map_width": width,
+		"map_length": length,
+	}
+
+
+func _layout_is_neutral(layout: Dictionary) -> bool:
+	if not layout.has("room_count") or not layout.has("shape") or not layout.has("map_size"):
+		return false
+	if str(layout.get("shape", "")).is_empty():
+		return false
+	var map_size: Variant = layout.get("map_size", {})
+	if not (map_size is Dictionary):
+		return false
+	var size := map_size as Dictionary
+	return size.has("width") and size.has("length")
+
+
 func rebuild(
 	floor_number: int,
 	palette: Dictionary,
@@ -134,27 +182,24 @@ func rebuild(
 	items: Array = [],
 	people: Array = [],
 	display_names: Dictionary = {},
-	events: Array = []
+	events: Array = [],
+	layout: Dictionary = {}
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
-	room_count = room_count_for_floor(built_floor)
+	var street := _street_from_layout(built_floor, layout)
+	room_count = int(street["room_count"])
 	ordinary_npc_count = _count_kind(people, "npc")
 	useful_item_count = 0
-	var lot_rows := int(ceil(float(room_count) / 2.0))
-	if built_floor == 2:
-		map_width = (FLOOR_TWO_DISC_RADIUS_X + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-		map_length = (FLOOR_TWO_DISC_RADIUS_Z + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-	else:
-		map_width = MIN_MAP_WIDTH + float(built_floor - 1) * 1.5
-		map_length = maxf(MIN_MAP_LENGTH, float(lot_rows) * LOT_SPACING + MAP_END_MARGIN * 2.0)
+	map_width = float(street["map_width"])
+	map_length = float(street["map_length"])
 	set_meta("built_floor", built_floor)
 	set_meta("room_count", room_count)
 	set_meta("logical_room_count", room_count)
 	set_meta("ordinary_npc_count", ordinary_npc_count)
 	set_meta("doll_encounter_count", 0)
-	set_meta("layout_mode", "irregular_disc" if built_floor == 2 else ("skylit_overgrown_gallery" if built_floor == 3 else "shared_street"))
+	set_meta("layout_mode", str(street["shape"]))
 	set_meta("map_width", map_width)
 	set_meta("map_length", map_length)
 	set_meta("world_length_scale", WORLD_LENGTH_SCALE)
