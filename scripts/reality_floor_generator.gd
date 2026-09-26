@@ -2373,12 +2373,12 @@ func _build_prerequisite_item(item_id: String, display_name: String, palette: Di
 	halo.material_override = _material("item", palette, true)
 	item.add_child(halo)
 
-	match built_floor:
-		1:
+	match item_id:
+		"artifact_named_lamp_tag":
 			_build_nameplate_prerequisite(item, palette)
-		2:
+		"artifact_reversed_tape":
 			_build_cassette_prerequisite(item, palette)
-		3:
+		"artifact_missing_subject_page":
 			_build_page_prerequisite(item, palette)
 
 	var collision := CollisionShape3D.new()
