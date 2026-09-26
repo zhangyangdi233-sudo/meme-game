@@ -1,6 +1,6 @@
 extends SceneTree
-## Missing layout still builds today's street from the floor number.
-## A complete layout supplies room count, shape, and map size beside that path.
+## The street still comes from the floor number.
+## A layout on the plan sits beside that path and does not replace it.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
@@ -36,11 +36,11 @@ func _run() -> void:
 		floor_root.rebuild(floor_number, TEST_PALETTE, {})
 		_assert_street(floor_root, CURRENT_STREETS[floor_number], "floor %d without a layout should keep the floor-number street" % floor_number)
 	floor_root.rebuild(1, TEST_PALETTE, {}, 1, false, [], [], {}, [], {
-		"room_count": 4,
-		"shape": "shared_street",
+		"room_count": 8,
+		"shape": "irregular_disc",
 		"map_size": {"width": 40.0, "length": 240.0},
 	})
-	_assert_street(floor_root, {"room_count": 4, "shape": "shared_street", "width": 40.0, "length": 240.0}, "a complete layout should supply the street size")
+	_assert_street(floor_root, CURRENT_STREETS[1], "a complete layout should sit beside the floor-number street")
 	floor_root.rebuild(1, TEST_PALETTE, {}, 1, false, [], [], {}, [], {"room_count": 99})
 	_assert_street(floor_root, CURRENT_STREETS[1], "an incomplete layout should stay on the floor-number path")
 	floor_root.free()
