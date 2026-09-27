@@ -3213,8 +3213,8 @@ func _find_control_by_name(node: Node, node_name: String) -> Control:
 
 
 func _apply_world_theme() -> void:
-	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
-		_reality_scene_adapter.floor.apply_palette(_ui_theme_helper.active_palette())
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.apply_palette(_ui_theme_helper.active_palette())
 
 
 func _apply_ui_theme(node: Node = null) -> void:

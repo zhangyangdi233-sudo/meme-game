@@ -45,6 +45,8 @@ func _run() -> void:
 	_test_collect_item_by_id_clears_nearby_item()
 	_test_face_actor_by_id_updates_pose()
 	_test_hiding_the_street_hides_characters_until_restored()
+	_test_theme_palette_recolors_the_street()
+	_test_host_does_not_paint_floor_nodes()
 
 
 func _test_nearby_actor_returns_converse_outcome() -> void:
@@ -211,6 +213,49 @@ func _test_collect_item_by_id_clears_nearby_item() -> void:
 	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "none", "collecting by id should clear the nearby item")
 	_assert_eq(str(adapter.probe_interaction(_walk_deps()).get("action", "")), "none", "a collected item should no longer probe as collect")
 	setup["host"].free()
+
+
+func _test_theme_palette_recolors_the_street() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	var road := _add_street_road(fake)
+	adapter.apply_palette({"name": "palette_1", "accent": "365B2D"})
+	_assert_eq(_road_hex(road), "192a15", "the calm theme should paint the street road")
+	adapter.apply_palette({"name": "pollution_palette_5", "accent": "2F6B1F"})
+	_assert_eq(_road_hex(road), "16310e", "switching theme should repaint the street road")
+	setup["host"].free()
+
+
+func _test_host_does_not_paint_floor_nodes() -> void:
+	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(
+		not main_source.contains("_reality_scene_adapter.floor.apply_palette"),
+		"the host should not paint floor nodes"
+	)
+	_assert_true(
+		main_source.contains("_reality_scene_adapter.apply_palette("),
+		"the host should ask the reality scene adapter to apply the theme palette"
+	)
+
+
+func _add_street_road(parent: Node3D) -> MeshInstance3D:
+	var road := MeshInstance3D.new()
+	road.name = "StreetRoad"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(4.0, 0.08, 12.0)
+	road.mesh = mesh
+	road.set_meta("theme_role", "road")
+	road.material_override = StandardMaterial3D.new()
+	parent.add_child(road)
+	return road
+
+
+func _road_hex(road: MeshInstance3D) -> String:
+	var material := road.material_override as StandardMaterial3D
+	if material == null:
+		return ""
+	return material.albedo_color.to_html(false)
 
 
 func _test_hiding_the_street_hides_characters_until_restored() -> void:

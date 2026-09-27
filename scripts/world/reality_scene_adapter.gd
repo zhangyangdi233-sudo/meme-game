@@ -317,6 +317,11 @@ func active_actor_outcome() -> Dictionary:
 	return actor_data
 
 
+func apply_palette(palette: Dictionary) -> void:
+	if floor != null and is_instance_valid(floor):
+		floor.apply_palette(palette)
+
+
 func set_street_shown(shown: bool) -> void:
 	if floor != null and is_instance_valid(floor):
 		floor.visible = shown
