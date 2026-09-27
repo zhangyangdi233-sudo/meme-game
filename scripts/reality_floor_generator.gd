@@ -35,7 +35,6 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
-const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
 const NIGHT_TERRACE_END_MARGIN := 8.0
 const NIGHT_TERRACE_GAP := 1.2
 const NIGHT_FACADE_BAY := 7.6
@@ -114,11 +113,6 @@ var _playtest_assist_enabled := false
 static func room_count_for_floor(floor_number: int) -> int:
 	var normalized := maxi(1, floor_number) - 1
 	return BASE_ROOM_COUNT + normalized * 2 + int(normalized / 2)
-
-
-static func npc_count_for_floor(floor_number: int) -> int:
-	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
-	return int(ORDINARY_NPC_COUNTS[floor_index])
 
 
 static func district_style_for_floor(floor_number: int) -> String:

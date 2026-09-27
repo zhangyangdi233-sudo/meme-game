@@ -146,7 +146,15 @@ static func room_count_for_floor(floor_number: int) -> int:
 
 
 static func npc_count_for_floor(floor_number: int) -> int:
-	return RealityFloorGeneratorScript.npc_count_for_floor(floor_number)
+	var composed: Dictionary = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": floor_number},
+	})
+	var people: Array = composed.get("people", [])
+	var count := 0
+	for person in people:
+		if person is Dictionary and str((person as Dictionary).get("kind", "")) == "npc":
+			count += 1
+	return count
 
 
 func update_player(delta: float, deps: Dictionary) -> void:
