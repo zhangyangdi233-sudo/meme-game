@@ -1,5 +1,5 @@
 extends "res://framework/flow/flow_state.gd"
-## In-run world. Enter installs the world hotkey pack; exit removes it.
+## In-run world. Declares the play chrome; the host still applies it. Enter installs the world hotkey pack; exit removes it.
 
 var _host: Node
 
@@ -22,3 +22,7 @@ func exit() -> void:
 func handle_input(event: InputEvent) -> void:
 	if _host != null:
 		_host.handle_gameplay_unhandled_input(event)
+
+
+func screen_set() -> PackedStringArray:
+	return PackedStringArray(["play"])

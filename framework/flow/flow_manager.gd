@@ -1,6 +1,6 @@
 class_name FlowManager
 extends RefCounted
-## Injects FlowState objects, transitions (exit then enter), forwards input to the current state, and exposes current identity.
+## Injects FlowState objects, transitions (exit then enter), forwards input to the current state, and exposes that state.
 
 var _states: Dictionary = {}
 var _current: FlowState = null
@@ -20,6 +20,10 @@ func current_id() -> String:
 	if _current == null:
 		return ""
 	return _current.id
+
+
+func current_state() -> FlowState:
+	return _current
 
 
 func handle_input(event: InputEvent) -> void:

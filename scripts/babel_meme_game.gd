@@ -571,6 +571,7 @@ func show_main_menu() -> void:
 	_build_main_menu()
 	if _locale.language_selected and not _camera_session_decided:
 		_build_camera_consent_overlay()
+	_apply_declared_screens()
 	_sync_audio_state(true)
 
 
@@ -2934,13 +2935,23 @@ func _update_visibility() -> void:
 	_render_playtest_assist()
 	_update_doll_guide()
 	_layout_hud_rail()
-	_update_ending_visibility()
+	_apply_declared_screens()
 
 
-func _update_ending_visibility() -> void:
+func _apply_declared_screens() -> void:
+	# Play chrome is the many in-run controls gated by _session_shows_play_chrome.
+	# Narrative overlays stay with the director; this only switches the single full-screen controls.
 	var ending := _ending_screen_control()
 	if ending != null:
-		ending.visible = session_mode() == "ending"
+		ending.visible = _session_shows_screen("ending")
+	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
+		var title := _main_menu_panel.get_layer() as CanvasItem
+		if title != null and is_instance_valid(title):
+			title.visible = _session_shows_screen("title")
+	if _prologue_panel != null and is_instance_valid(_prologue_panel):
+		var prologue := _prologue_panel.get_overlay() as CanvasItem
+		if prologue != null and is_instance_valid(prologue):
+			prologue.visible = _session_shows_screen("prologue")
 
 
 func _ending_screen_control() -> Control:
@@ -3249,7 +3260,19 @@ func _session_is_in_run() -> bool:
 
 
 func _session_shows_play_chrome() -> bool:
-	return session_mode() in ["prologue", "gameplay", "narrative"]
+	return _session_shows_screen("play")
+
+
+func _session_shows_screen(screen_id: String) -> bool:
+	return screen_id in session_screen_set()
+
+
+func session_screen_set() -> PackedStringArray:
+	_ensure_flow_manager()
+	var state: FlowState = _flow.current_state()
+	if state != null and state.has_method("screen_set"):
+		return state.screen_set()
+	return PackedStringArray()
 
 
 func _ensure_flow_manager() -> void:

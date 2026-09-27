@@ -13,6 +13,7 @@ func _init() -> void:
 	test_input_reaches_only_current_state()
 	test_unknown_id_fails_without_changing_current()
 	test_has_registered_ids()
+	test_current_state_is_the_entered_object()
 	if _failures.is_empty():
 		print("flow manager tests passed")
 		quit(0)
@@ -72,6 +73,19 @@ func test_unknown_id_fails_without_changing_current() -> void:
 	_assert_true(not manager.transition_to("missing"), "unknown id should fail")
 	_assert_eq(manager.current_id(), "alpha", "failed transition should keep the current state")
 	_assert_eq(log, [], "failed transition should not exit or enter any state")
+
+
+func test_current_state_is_the_entered_object() -> void:
+	var manager = FlowManagerScript.new()
+	var log: Array[String] = []
+	var alpha = RecordingStateScript.new("alpha", log)
+	manager.register(alpha)
+	if not manager.has_method("current_state"):
+		_failures.append("flow manager should expose the current state object")
+		return
+	_assert_true(manager.current_state() == null, "current state should be empty before the first transition")
+	manager.transition_to("alpha")
+	_assert_true(manager.current_state() == alpha, "current state should be the object that was entered")
 
 
 func test_has_registered_ids() -> void:

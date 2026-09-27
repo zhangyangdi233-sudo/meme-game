@@ -57,11 +57,13 @@ func _run() -> void:
 	_assert_true(not game_root.has_session_state("language_picker"), "language picker is not a Session mode")
 	_assert_true(not game_root.has_session_state("camera_consent"), "camera consent is not a Session mode")
 	_assert_eq(game_root.session_mode(), "main_menu", "boot should start on the main menu")
+	_assert_host_applied_screens(game_root, ["title"], "boot title")
 	await _assert_world_hotkeys_inert(game_root, "boot title")
 
 	game_root._build_language_selection_overlay(true)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "language picker should stay on the main menu")
+	_assert_host_applied_screens(game_root, ["title"], "language picker")
 	await _assert_world_hotkeys_inert(game_root, "language picker")
 	var language_overlay := _find_node_by_name(game_root, "LanguageSelectionOverlay") as Control
 	await _assert_fullscreen_overlay_eats_clicks(game_root, language_overlay, "language picker overlay")
@@ -72,6 +74,7 @@ func _run() -> void:
 	game_root._build_camera_consent_overlay()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "camera consent should stay on the main menu")
+	_assert_host_applied_screens(game_root, ["title"], "camera consent")
 	await _assert_world_hotkeys_inert(game_root, "camera consent")
 	if game_root.has_method("_resolve_camera_consent"):
 		game_root._resolve_camera_consent(false)
@@ -80,17 +83,20 @@ func _run() -> void:
 	game_root.new_game()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "prologue", "a new run should set Session mode to prologue")
+	_assert_host_applied_screens(game_root, ["prologue", "play"], "prologue")
 	await _assert_world_hotkeys_inert(game_root, "prologue")
 	await _assert_prologue_overlay_eats_phone_clicks(game_root)
 
 	game_root._skip_prologue()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
+	_assert_host_applied_screens(game_root, ["play"], "gameplay after prologue")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 	await _assert_gameplay_phone_toggle_click(game_root)
 	game_root._toggle_settings_window()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "in-run settings should stay in gameplay")
+	_assert_screen_set(game_root, ["play"], "in-run settings")
 	_assert_true(not game_root.has_session_state("settings"), "opening settings should not add a sixth Session mode")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 	game_root._close_settings_window()
@@ -102,12 +108,14 @@ func _run() -> void:
 	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a flashback should set Session mode to narrative")
+	_assert_host_applied_screens(game_root, ["narrative", "play"], "flashback")
 	await _assert_world_hotkeys_inert(game_root, "flashback")
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, flashback_overlay, "flashback overlay")
 	game_root._narrative_director.finish_pollution_flashback()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
+	_assert_host_applied_screens(game_root, ["play"], "gameplay after flashback")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
 	game_root.game.actions_remaining = 1
@@ -115,12 +123,14 @@ func _run() -> void:
 	game_root._narrative_director.play_action_spend_animation(1, 0)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "spending an action should set Session mode to narrative")
+	_assert_host_applied_screens(game_root, ["narrative", "play"], "action spend")
 	await _assert_world_hotkeys_inert(game_root, "action spend")
 	var spend_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, spend_overlay, "action spend overlay")
 	game_root._narrative_director.finish_action_spend_animation()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative")
+	_assert_host_applied_screens(game_root, ["narrative", "play"], "day transition")
 	await _assert_world_hotkeys_inert(game_root, "day transition")
 	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, day_overlay, "day transition overlay")
@@ -134,12 +144,14 @@ func _run() -> void:
 	game_root.show_main_menu()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "main_menu", "returning to title should set Session mode to main menu")
+	_assert_host_applied_screens(game_root, ["title"], "returned title")
 	await _assert_world_hotkeys_inert(game_root, "returned title")
 	await _assert_main_menu_overlay_eats_clicks(game_root)
 
 	_assert_true(game_root.continue_game(), "continue should load the non-ending save")
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "continuing a non-ending save should set Session mode to gameplay")
+	_assert_host_applied_screens(game_root, ["play"], "continued gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
 	_assert_true(
@@ -159,10 +171,12 @@ func _run() -> void:
 	game_root._narrative_director.finish_action_spend_animation()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative after ending unlock")
+	_assert_host_applied_screens(game_root, ["narrative", "play"], "ending-pending narrative")
 	await _assert_world_hotkeys_inert(game_root, "ending-pending narrative")
 	game_root._narrative_director.finish_day_transition()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "ending", "finishing narrative with ending unlocked should set Session mode to ending")
+	_assert_host_applied_screens(game_root, ["ending"], "ending unlock")
 	await _assert_world_hotkeys_inert(game_root, "ending unlock")
 	await _assert_ending_overlay_eats_clicks(game_root)
 
@@ -175,6 +189,7 @@ func _run() -> void:
 	_assert_true(game_root.continue_game(), "continue should load the ending-unlocked save")
 	await process_frame
 	_assert_eq(game_root.session_mode(), "ending", "continuing an ending-unlocked save should set Session mode to ending")
+	_assert_host_applied_screens(game_root, ["ending"], "ending continue")
 	await _assert_world_hotkeys_inert(game_root, "ending continue")
 	await _assert_ending_overlay_eats_clicks(game_root)
 	var ending_floor := _find_node_by_name(game_root, "RealityFloor")
@@ -188,6 +203,34 @@ func _run() -> void:
 
 	game_root.queue_free()
 	await process_frame
+
+
+func _assert_screen_set(game_root, expected: Array, label: String) -> void:
+	_assert_true(game_root.has_method("session_screen_set"), "adapter should expose the declared screen set")
+	if not game_root.has_method("session_screen_set"):
+		return
+	var declared: PackedStringArray = game_root.session_screen_set()
+	var ids: Array[String] = []
+	for screen_id in declared:
+		ids.append(str(screen_id))
+	_assert_eq(ids, expected, "%s should declare its screen set" % label)
+
+
+func _assert_host_applied_screens(game_root, expected: Array, label: String) -> void:
+	_assert_screen_set(game_root, expected, label)
+	_assert_screen_node(game_root, "MainMenuLayer", "title" in expected, label)
+	_assert_screen_node(game_root, "PrologueOverlay", "prologue" in expected, label)
+	_assert_screen_node(game_root, "PhoneViewToggleButton", "play" in expected, label)
+	_assert_screen_node(game_root, "EndingScreen", "ending" in expected, label)
+
+
+func _assert_screen_node(game_root, node_name: String, should_show: bool, label: String) -> void:
+	var node := _find_node_by_name(game_root, node_name) as CanvasItem
+	var showing := node != null and node.visible
+	if should_show:
+		_assert_true(showing, "%s should show %s" % [label, node_name])
+	else:
+		_assert_true(not showing, "%s should hide %s" % [label, node_name])
 
 
 func _assert_gameplay_phone_toggle_click(game_root) -> void:
