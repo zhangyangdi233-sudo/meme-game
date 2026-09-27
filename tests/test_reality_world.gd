@@ -62,10 +62,18 @@ func _run() -> void:
 			_assert_near(camera_attributes.dof_blur_amount, 0.08, 0.001, "far blur should obscure silhouettes without erasing navigation")
 		_assert_eq(str(camera.get_meta("fixed_focus_profile", "")), "near_clear_far_soft", "camera should expose its fixed-focus art direction")
 		_assert_near(camera.fov, 58.0, 0.01, "the shared first-person camera should start at the fixed authored FOV")
-		game_root._reality_interaction_active = true
-		game_root._animate_world(0.5)
-		_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
-		game_root._reality_interaction_active = false
+		var street_actors: Array = game_root._reality_scene_adapter.floor.get_interactable_actors()
+		_assert_true(not street_actors.is_empty(), "the street should have someone to talk to")
+		if not street_actors.is_empty():
+			var actor_id := str((street_actors[0] as Node).get_meta("actor_id", ""))
+			game_root._reality_scene_adapter.apply_interaction({
+				"action": "converse",
+				"actor_id": actor_id,
+				"accepted": true,
+			})
+			game_root._animate_world(0.5)
+			_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
+			game_root._reality_scene_adapter.apply_interaction({"action": "end"})
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
 		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
@@ -313,18 +321,21 @@ func _run() -> void:
 		game_root._update_reality_player(0.016)
 		_assert_true(player.position.y >= 0.0, "falling below the street should recover the player onto a safe spawn")
 	if player != null and doll != null:
+		var pitch_before_dialogue := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 		game_root._refresh_nearby_reality_actor()
 		_assert_eq(str(game_root._reality_scene_adapter.nearby_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "approaching the stitched doll should select it as the nearby actor")
 		_assert_true(game_root._try_reality_interaction(), "F interaction path should open the nearby actor")
-		_assert_true(game_root._reality_interaction_active, "world interaction should enter the dialogue state")
+		_assert_true(game_root._reality_interaction_is_active(), "world interaction should enter the dialogue state")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), -30.0), "starting a doll conversation should face the doll")
 		_assert_eq(str(game_root._reality_scene_adapter.active_actor_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "world interaction should remember the discovered doll")
 		var leave_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
 		var actions_before_leave := int(game_root.game.actions_remaining)
 		_assert_true(leave_button != null and leave_button.visible and leave_button.text == "离开", "doll and NPC conversations should expose an immediate Leave button")
 		if leave_button != null:
 			leave_button.pressed.emit()
-		_assert_true(not game_root._reality_interaction_active, "Leave should close a conversation before the player speaks")
+		_assert_true(not game_root._reality_interaction_is_active(), "Leave should close a conversation before the player speaks")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "leaving a conversation should restore the look pitch")
 		_assert_eq(game_root.game.actions_remaining, actions_before_leave, "leaving without speaking should not spend an action")
 		game_root._refresh_nearby_reality_actor()
 		_assert_true(game_root._try_reality_interaction(), "the same actor should remain available after leaving")
@@ -340,7 +351,8 @@ func _run() -> void:
 		_assert_eq(game_root.game.conversation_reveal_index, 1, "an arbitrary physical key should reveal exactly one spoken character")
 		_assert_eq(game_root.game.actions_remaining, 5, "partial typed speech should remain action-free")
 		game_root._exit_reality_interaction()
-		_assert_true(not game_root._reality_interaction_active, "leaving dialogue should return to free walking")
+		_assert_true(not game_root._reality_interaction_is_active(), "leaving dialogue should return to free walking")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "ending dialogue should restore the look pitch")
 
 	game_root.game.tower_floor = 2
 	game_root._ensure_reality_floor_current()

@@ -30,6 +30,8 @@ var _built_floor := 0
 var _built_day := 0
 var _last_safe_position := Vector3.ZERO
 var _host: Node3D
+var _interaction_active := false
+var _gaze_before_interaction: Dictionary = {}
 
 
 func attach_to(host: Node3D) -> void:
@@ -70,7 +72,7 @@ func reset_session_state() -> void:
 		yaw = floor.start_yaw_degrees()
 	pitch = 0.0
 	clear_nearby_targets()
-	active_actor = null
+	_drop_interaction(false)
 
 
 func clear_nearby_targets() -> void:
@@ -118,7 +120,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 	_built_floor = tower_floor
 	_built_day = day_number
 	clear_nearby_targets()
-	clear_active_actor()
+	_drop_interaction(false)
 	if player != null:
 		_last_safe_position = floor.start_position()
 		player.position = _last_safe_position
@@ -163,10 +165,7 @@ func update_player(delta: float, deps: Dictionary) -> void:
 	if _should_recover_player():
 		_recover_player()
 		return
-	var can_walk: bool = (
-		str(deps.get("view_state", "")) == "npc_up"
-		and not bool(deps.get("interaction_active", false))
-	)
+	var can_walk: bool = str(deps.get("view_state", "")) == "npc_up" and not _interaction_active
 	var input_vector := Vector2.ZERO
 	if can_walk:
 		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
@@ -184,7 +183,8 @@ func update_player(delta: float, deps: Dictionary) -> void:
 	else:
 		player.velocity.y = 0.0
 	player.rotation.y = deg_to_rad(yaw)
-	player.move_and_slide()
+	if player.is_inside_tree() and player.get_world_3d() != null:
+		player.move_and_slide()
 	if _should_recover_player():
 		_recover_player()
 	elif player.is_on_floor() and floor != null and floor.contains_playable_position(player.position, SAFE_INSET):
@@ -201,7 +201,7 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_item := nearby_item
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
-		or bool(deps.get("interaction_active", false))
+		or _interaction_active
 		or floor == null
 		or player == null
 	):
@@ -262,6 +262,58 @@ func probe_interaction(deps: Dictionary) -> Dictionary:
 			actor_label = str(locale_translate.call(actor_label))
 		nearby["actor_label"] = actor_label
 	return nearby
+
+
+func interaction_outcome() -> Dictionary:
+	if not _interaction_active:
+		return {
+			"kind": "none",
+			"action": "none",
+			"interaction_active": false,
+		}
+	var actor_data := active_actor_outcome()
+	actor_data["interaction_active"] = true
+	if str(actor_data.get("action", "none")) == "none":
+		actor_data["action"] = "converse"
+	return actor_data
+
+
+func apply_interaction(intent: Dictionary) -> Dictionary:
+	var action := str(intent.get("action", "none"))
+	if action == "end":
+		return _drop_interaction(true)
+	if action == "collect":
+		apply_item_collected(str(intent.get("item_id", "")))
+		var collected := nearby_outcome()
+		collected["interaction_active"] = _interaction_active
+		return collected
+	if action == "converse":
+		if not bool(intent.get("accepted", false)):
+			return _drop_interaction(true)
+		var actor_id := str(intent.get("actor_id", "")).strip_edges()
+		if actor_id.is_empty() or _find_actor(actor_id) == null:
+			return _drop_interaction(true)
+		if not _interaction_active:
+			_gaze_before_interaction = {"yaw": yaw, "pitch": pitch}
+		face_actor(actor_id)
+		remember_actor(actor_id)
+		_interaction_active = true
+		return interaction_outcome()
+	return interaction_outcome()
+
+
+func _drop_interaction(restore_gaze: bool) -> Dictionary:
+	if restore_gaze and not _gaze_before_interaction.is_empty():
+		yaw = float(_gaze_before_interaction.get("yaw", yaw))
+		pitch = float(_gaze_before_interaction.get("pitch", pitch))
+	_gaze_before_interaction = {}
+	clear_active_actor()
+	_interaction_active = false
+	return {
+		"kind": "none",
+		"action": "end",
+		"interaction_active": false,
+	}
 
 
 func apply_item_collected(item_id: String) -> void:

@@ -103,8 +103,6 @@ var _camera: Camera3D
 var _reality_scene_adapter
 var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
-var _reality_interaction_active := false
-
 var _canvas: CanvasLayer
 var _ui_root: Control
 var _texture_cache: Dictionary = {}
@@ -245,7 +243,7 @@ func _audio_controller_deps() -> Dictionary:
 		"game_started": _game_started,
 		"day_progress": _day_progress_snapshot(),
 		"phone_shell": _phone_shell_snapshot(),
-		"reality_interaction_active": _reality_interaction_active,
+		"reality_interaction_active": _reality_interaction_is_active(),
 		"reality_conversation": _reality_conversation_snapshot(),
 		"pollution_stage": _pollution_stage_snapshot(),
 	}
@@ -363,7 +361,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _handle_reality_touch_look(event: InputEvent) -> bool:
-	var can_touch_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
+	var can_touch_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_is_active()
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if not touch.pressed:
@@ -395,7 +393,7 @@ func _handle_reality_touch_look(event: InputEvent) -> bool:
 func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 	if not event is InputEventPanGesture:
 		return false
-	var can_trackpad_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_active
+	var can_trackpad_look: bool = str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_is_active()
 	if not can_trackpad_look:
 		return false
 	var pan := event as InputEventPanGesture
@@ -414,7 +412,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if _reality_interaction_active and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
+		if _reality_interaction_is_active() and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
 				get_viewport().set_input_as_handled()
 				return
@@ -427,13 +425,13 @@ func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_ESCAPE:
-			if _reality_interaction_active:
+			if _reality_interaction_is_active():
 				_exit_reality_interaction()
 			else:
 				_set_reality_mouse_look(false)
 			get_viewport().set_input_as_handled()
 			return
-	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up" or _reality_interaction_active:
+	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up" or _reality_interaction_is_active():
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_set_reality_mouse_look(true)
@@ -501,7 +499,6 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.reset_session_state()
 	_set_reality_mouse_look(false)
-	_reality_interaction_active = false
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
 	_build_world(not _ending_is_unlocked())
 	_restore_saved_world(world_data)
@@ -523,7 +520,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 
 func show_main_menu() -> void:
 	if _game_started:
-		if _reality_interaction_active:
+		if _reality_interaction_is_active():
 			_exit_reality_interaction(false)
 		_save_progress()
 	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
@@ -532,9 +529,8 @@ func show_main_menu() -> void:
 		_settings_history_panel.close_settings()
 	_phone_art_alpha = 0.0
 	_phone_launcher_open = false
-	_reality_interaction_active = false
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.clear_active_actor()
+		_reality_scene_adapter.apply_interaction({"action": "end"})
 		_reality_scene_adapter.clear_nearby_targets()
 	_set_reality_mouse_look(false)
 	_request_session_mode("main_menu")
@@ -758,6 +754,12 @@ func _reality_conversation_snapshot() -> Dictionary:
 	return game.get_reality_conversation_snapshot()
 
 
+func _reality_interaction_is_active() -> bool:
+	if _reality_scene_adapter == null:
+		return false
+	return bool(_reality_scene_adapter.interaction_outcome().get("interaction_active", false))
+
+
 func _reality_hud_snapshot() -> Dictionary:
 	var nearby: Dictionary = {}
 	var look_pose: Dictionary = {}
@@ -780,7 +782,7 @@ func _reality_hud_snapshot() -> Dictionary:
 		"pose": look_pose,
 		"active_actor": active_actor,
 		"conversation": _reality_conversation_snapshot(),
-		"interaction_active": _reality_interaction_active,
+		"interaction_active": _reality_interaction_is_active(),
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")),
 		"day_progress": _day_progress_snapshot(),
 	}
@@ -828,9 +830,8 @@ func set_view_state(value: String) -> void:
 	if value == "npc_up" and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
-		_reality_interaction_active = false
 		if _reality_scene_adapter != null:
-			_reality_scene_adapter.clear_active_actor()
+			_reality_scene_adapter.apply_interaction({"action": "end"})
 			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		game.reset_typed_reality_conversation()
@@ -899,7 +900,6 @@ func _reality_scene_deps() -> Dictionary:
 		"guide_doll_path": GUIDE_DOLL_CHARACTER_PATH,
 		"playtest_assist_enabled": _playtest_assist_enabled,
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
-		"interaction_active": _reality_interaction_active,
 		"locale": locale_code,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 		"cover_watcher_seen": game.has_seen_cover_watcher(tower_floor) if game != null else false,
@@ -1016,8 +1016,6 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 
 func _rebuild_reality_floor() -> void:
 	_ensure_reality_scene_adapter()
-	_reality_interaction_active = false
-	_reality_scene_adapter.clear_active_actor()
 	_reality_scene_adapter.rebuild_floor(_reality_scene_deps())
 
 
@@ -1039,7 +1037,7 @@ func _refresh_nearby_reality_actor() -> void:
 func _try_reality_interaction() -> bool:
 	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		return false
-	if _reality_interaction_active:
+	if _reality_interaction_is_active():
 		_exit_reality_interaction()
 		return true
 	_ensure_reality_scene_adapter()
@@ -1058,16 +1056,20 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 		return false
 	var actor_type := str(outcome.get("actor_type", "npc"))
 	var actor_label := str(outcome.get("actor_label", "对方"))
-	if not game.start_typed_reality_conversation(actor_id, actor_type, actor_label):
-		_reality_scene_adapter.clear_active_actor()
+	var started := game.start_typed_reality_conversation(actor_id, actor_type, actor_label)
+	_ensure_reality_scene_adapter()
+	var applied: Dictionary = _reality_scene_adapter.apply_interaction({
+		"action": "converse",
+		"actor_id": actor_id,
+		"accepted": started,
+	})
+	if not bool(applied.get("interaction_active", false)):
+		if started:
+			game.reset_typed_reality_conversation()
 		return false
 	if actor_type == "doll":
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
-	_ensure_reality_scene_adapter()
-	_reality_scene_adapter.remember_actor(actor_id)
-	_reality_scene_adapter.face_actor(actor_id)
-	_reality_interaction_active = true
 	_reality_hover_choice_id = ""
 	_set_reality_mouse_look(false)
 	log_text = "你停在%s面前。" % _active_actor_display_name()
@@ -1089,7 +1091,10 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 	if not game.collect_world_item(item_data):
 		return false
 	_ensure_reality_scene_adapter()
-	_reality_scene_adapter.apply_item_collected(str(item_data.get("id", "")))
+	_reality_scene_adapter.apply_interaction({
+		"action": "collect",
+		"item_id": str(item_data.get("id", "")),
+	})
 	if not game.event_log.is_empty():
 		log_text = game.event_log[0]
 	_refresh_reality_hud()
@@ -1097,9 +1102,8 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 
 
 func _exit_reality_interaction(should_render: bool = true) -> void:
-	_reality_interaction_active = false
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.clear_active_actor()
+		_reality_scene_adapter.apply_interaction({"action": "end"})
 	_reality_hover_choice_id = ""
 	_selected_language_token_id = ""
 	game.reset_typed_reality_conversation()
@@ -2379,7 +2383,7 @@ func _apply_master_volume() -> void:
 func _on_settings_language_selected(locale_code: String) -> void:
 	if locale_code.is_empty():
 		return
-	if _reality_interaction_active:
+	if _reality_interaction_is_active():
 		_exit_reality_interaction(false)
 	if not _locale.select_language(locale_code):
 		return
@@ -2860,16 +2864,15 @@ func _on_reality_continue_pressed() -> void:
 
 
 func _advance_typed_reality_character() -> bool:
-	if not _reality_interaction_active:
+	if not _reality_interaction_is_active():
 		return false
 	var actions_before := int(game.actions_remaining)
 	var result: Dictionary = game.advance_typed_reality_character()
 	if not bool(result.get("advanced", false)):
 		return false
 	if bool(result.get("locked_out", false)):
-		_reality_interaction_active = false
 		if _reality_scene_adapter != null:
-			_reality_scene_adapter.clear_active_actor()
+			_reality_scene_adapter.apply_interaction({"action": "end"})
 			_reality_scene_adapter.clear_nearby_targets()
 		_set_reality_mouse_look(true)
 	if bool(result.get("action_spent", false)):
@@ -3001,7 +3004,7 @@ func _update_phone_shell_visibility() -> void:
 func _update_world_for_phone_view() -> void:
 	var in_phone := _phone_view_is_down()
 	if _view_toggle_button != null:
-		_view_toggle_button.visible = _session_shows_play_chrome() and not _settings_is_open() and (in_phone or not _reality_interaction_active)
+		_view_toggle_button.visible = _session_shows_play_chrome() and not _settings_is_open() and (in_phone or not _reality_interaction_is_active())
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.set_street_shown(not in_phone)
@@ -3395,7 +3398,7 @@ func _update_doll_guide() -> void:
 		_doll_guide_panel = null
 		return
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
-	var should_show := _session_shows_play_chrome() and game != null and not _reality_interaction_active
+	var should_show := _session_shows_play_chrome() and game != null and not _reality_interaction_is_active()
 	_doll_guide_panel.refresh(should_show, _doll_guide_current_line() if should_show else "")
 
 
@@ -3688,9 +3691,8 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 	if not settled and not from_flashback:
 		return false
 	if settled:
-		_reality_interaction_active = false
 		if _reality_scene_adapter != null:
-			_reality_scene_adapter.clear_active_actor()
+			_reality_scene_adapter.apply_interaction({"action": "end"})
 			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		_sync_audio_state(false)

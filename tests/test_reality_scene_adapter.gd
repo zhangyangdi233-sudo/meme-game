@@ -44,6 +44,12 @@ func _run() -> void:
 	_test_day_change_replaces_scenes_without_rebuilding_the_floor()
 	_test_collect_item_by_id_clears_nearby_item()
 	_test_face_actor_by_id_updates_pose()
+	_test_collect_outcome_picks_up_without_opening_a_conversation()
+	_test_accepted_conversation_faces_the_actor()
+	_test_ending_conversation_restores_gaze_and_walking()
+	_test_rejected_conversation_leaves_no_stuck_state()
+	_test_rebuilding_the_floor_drops_a_conversation_without_restoring_old_gaze()
+	_test_host_applies_interaction_outcomes_instead_of_orchestrating_them()
 	_test_hiding_the_street_hides_characters_until_restored()
 	_test_theme_palette_recolors_the_street()
 	_test_host_does_not_paint_floor_nodes()
@@ -371,6 +377,177 @@ func _test_face_actor_by_id_updates_pose() -> void:
 	_assert_eq(str(active.get("actor_id", "")), "latecomer", "remembered actor should be readable as an outcome")
 	_assert_true(active.get("actor") == null, "active actor outcome must not leak the live Area3D")
 	setup["host"].free()
+
+
+func _test_collect_outcome_picks_up_without_opening_a_conversation() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_item("floor1_key", "荧光钥匙", Vector3(0.0, 0.0, 1.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.yaw = 12.0
+	adapter.pitch = -6.0
+	var outcome: Dictionary = adapter.apply_interaction({"action": "collect", "item_id": "floor1_key"})
+	_assert_eq(str(outcome.get("interaction_active", true)), "false", "picking up should not open a conversation")
+	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "a pickup should leave the street idle")
+	_assert_eq(str(adapter.probe_interaction(_walk_deps()).get("action", "")), "none", "the collected item should leave the approach")
+	_assert_true(is_equal_approx(adapter.yaw, 12.0), "picking up should leave look yaw alone")
+	_assert_true(is_equal_approx(adapter.pitch, -6.0), "picking up should leave look pitch alone")
+	setup["host"].free()
+
+
+func _test_accepted_conversation_faces_the_actor() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(2.0, 0.0, 0.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.yaw = 12.0
+	adapter.pitch = -6.0
+	var outcome: Dictionary = adapter.apply_interaction({
+		"action": "converse",
+		"actor_id": "latecomer",
+		"accepted": true,
+	})
+	_assert_true(bool(outcome.get("interaction_active", false)), "an accepted conversation should report interaction active")
+	_assert_eq(str(outcome.get("action", "")), "converse", "an accepted conversation should stay a converse outcome")
+	_assert_eq(str(outcome.get("actor_id", "")), "latecomer", "the conversation outcome should identify the actor")
+	_assert_true(outcome.get("actor") == null, "the conversation outcome must not leak the live Area3D")
+	var look_pose: Dictionary = adapter.pose()
+	_assert_true(is_equal_approx(float(look_pose.get("yaw", 0.0)), -90.0), "starting a conversation should face the actor")
+	_assert_true(is_equal_approx(float(look_pose.get("pitch", 0.0)), -2.0), "starting a conversation should use the conversation pitch")
+	_assert_eq(str(adapter.active_actor_outcome().get("actor_id", "")), "latecomer", "starting a conversation should remember the actor")
+	setup["host"].free()
+
+
+func _test_ending_conversation_restores_gaze_and_walking() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(2.0, 0.0, 0.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.yaw = 12.0
+	adapter.pitch = -6.0
+	_press_reality_forward()
+	adapter.apply_interaction({"action": "converse", "actor_id": "latecomer", "accepted": true})
+	adapter.player.velocity = Vector3.ZERO
+	adapter.update_player(0.5, {"view_state": "npc_up", "interaction_active": false})
+	var blocked_speed: float = Vector2(adapter.player.velocity.x, adapter.player.velocity.z).length()
+	_assert_true(blocked_speed < 0.01, "a host idle flag should not let the player walk during a conversation")
+	var ended: Dictionary = adapter.apply_interaction({"action": "end"})
+	_assert_true(not bool(ended.get("interaction_active", true)), "ending a conversation should report the street idle")
+	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "the street should stay idle after the conversation ends")
+	_assert_eq(str(adapter.active_actor_outcome().get("kind", "")), "none", "ending a conversation should forget the actor")
+	var look_pose: Dictionary = adapter.pose()
+	_assert_true(is_equal_approx(float(look_pose.get("yaw", 0.0)), 12.0), "ending a conversation should restore look yaw")
+	_assert_true(is_equal_approx(float(look_pose.get("pitch", 0.0)), -6.0), "ending a conversation should restore look pitch")
+	adapter.player.velocity = Vector3.ZERO
+	adapter.update_player(0.5, {"view_state": "npc_up", "interaction_active": true})
+	var restored_speed: float = Vector2(adapter.player.velocity.x, adapter.player.velocity.z).length()
+	_assert_true(restored_speed > 0.5, "a host interaction flag should not keep the player stuck after the conversation ends")
+	_release_reality_forward()
+	setup["host"].free()
+
+
+func _test_rejected_conversation_leaves_no_stuck_state() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(2.0, 0.0, 0.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.yaw = 12.0
+	adapter.pitch = -6.0
+	var rejected: Dictionary = adapter.apply_interaction({
+		"action": "converse",
+		"actor_id": "latecomer",
+		"accepted": false,
+	})
+	_assert_true(not bool(rejected.get("interaction_active", true)), "a rejected conversation should not become active")
+	_assert_true(is_equal_approx(adapter.yaw, 12.0), "a rejected conversation should not turn the view")
+	_assert_true(is_equal_approx(adapter.pitch, -6.0), "a rejected conversation should not pitch the view")
+	_assert_eq(str(adapter.active_actor_outcome().get("kind", "")), "none", "a rejected conversation should not remember an actor")
+	adapter.apply_interaction({"action": "converse", "actor_id": "missing", "accepted": true})
+	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "a missing actor should not leave the street interacting")
+	_assert_true(is_equal_approx(adapter.yaw, 12.0), "a missing actor should not leave the view turned")
+	adapter.apply_interaction({"action": "converse", "actor_id": "latecomer", "accepted": true})
+	adapter.apply_interaction({"action": "converse", "actor_id": "latecomer", "accepted": false})
+	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "failing after a conversation starts should clear the interaction")
+	_assert_true(is_equal_approx(adapter.yaw, 12.0), "failing after a conversation starts should restore look yaw")
+	_assert_true(is_equal_approx(adapter.pitch, -6.0), "failing after a conversation starts should restore look pitch")
+	_assert_eq(str(adapter.active_actor_outcome().get("kind", "")), "none", "failing after a conversation starts should forget the actor")
+	setup["host"].free()
+
+
+func _test_rebuilding_the_floor_drops_a_conversation_without_restoring_old_gaze() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	fake.add_actor("latecomer", "npc", "迟到者", Vector3(2.0, 0.0, 0.0))
+	adapter.player.position = Vector3.ZERO
+	adapter.yaw = 15.0
+	adapter.pitch = -4.0
+	adapter.apply_interaction({"action": "converse", "actor_id": "latecomer", "accepted": true})
+	adapter.rebuild_floor({"day_progress": {"tower_floor": 1, "day": 1}})
+	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "rebuilding the floor should drop the conversation")
+	_assert_true(is_equal_approx(adapter.yaw, 0.0), "rebuilding the floor should reset look yaw")
+	adapter.apply_interaction({"action": "end"})
+	_assert_true(is_equal_approx(adapter.yaw, 0.0), "ending after a rebuild should not snap back to the old gaze")
+	_assert_true(is_equal_approx(adapter.pitch, 0.0), "ending after a rebuild should not snap back to the old pitch")
+	setup["host"].free()
+
+
+func _test_host_applies_interaction_outcomes_instead_of_orchestrating_them() -> void:
+	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(
+		main_source.contains("_reality_scene_adapter.apply_interaction("),
+		"the host should apply pickup and conversation through an interaction outcome"
+	)
+	_assert_true(
+		not main_source.contains("var _reality_interaction_active"),
+		"the host should not remember an interaction flag to run the street lifecycle"
+	)
+	_assert_true(
+		not main_source.contains("_reality_scene_adapter.face_actor("),
+		"the host should not face actors itself"
+	)
+	_assert_true(
+		not main_source.contains("_reality_scene_adapter.remember_actor("),
+		"the host should not remember actors itself"
+	)
+	_assert_true(
+		not main_source.contains("_reality_scene_adapter.clear_active_actor("),
+		"the host should not clear the active actor itself"
+	)
+	_assert_true(
+		not main_source.contains("_reality_scene_adapter.apply_item_collected("),
+		"the host should not collect items outside the interaction outcome"
+	)
+
+
+func _press_reality_forward() -> void:
+	_ensure_reality_walk_actions()
+	Input.action_press("reality_forward")
+
+
+func _release_reality_forward() -> void:
+	if InputMap.has_action("reality_forward"):
+		Input.action_release("reality_forward")
+
+
+func _ensure_reality_walk_actions() -> void:
+	var keys := {
+		"reality_forward": KEY_W,
+		"reality_back": KEY_S,
+		"reality_left": KEY_A,
+		"reality_right": KEY_D,
+		"reality_sprint": KEY_SHIFT,
+	}
+	for action_name in keys.keys():
+		if not InputMap.has_action(action_name):
+			InputMap.add_action(action_name)
+			var key_event := InputEventKey.new()
+			key_event.physical_keycode = int(keys[action_name])
+			InputMap.action_add_event(action_name, key_event)
 
 
 func _make_adapter_with_fake_floor() -> Dictionary:

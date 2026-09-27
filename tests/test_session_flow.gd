@@ -430,7 +430,7 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	)
 	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var view_before := str(game_root.game.view_state) if game_root.game != null else ""
-	var interacting_before: bool = game_root._reality_interaction_active
+	var interacting_before: bool = game_root._reality_interaction_is_active()
 	game_root._unhandled_input(_key_event(KEY_F))
 	game_root._unhandled_input(_key_event(KEY_TAB))
 	var look := InputEventMouseMotion.new()
@@ -448,7 +448,7 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 		"%s should ignore the phone hotkey" % label
 	)
 	_assert_true(
-		game_root._reality_interaction_active == interacting_before,
+		game_root._reality_interaction_is_active() == interacting_before,
 		"%s should ignore the interact hotkey" % label
 	)
 	var player := game_root.get_node_or_null("RealityPlayer") as CharacterBody3D

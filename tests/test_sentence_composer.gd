@@ -221,10 +221,20 @@ func _test_ui_flow() -> void:
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
 	_assert_true(_is_bottom_left_docked(doll_panel), "the guide should dock to the bottom-left corner")
 	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
-	game_root._reality_interaction_active = true
+	var guide_actor_id := ""
+	var reality_floor := game_root.get_node_or_null("RealityFloor")
+	if reality_floor != null and reality_floor.has_method("get_interactable_actors"):
+		var street_actors: Array = reality_floor.get_interactable_actors()
+		if not street_actors.is_empty():
+			guide_actor_id = str((street_actors[0] as Node).get_meta("actor_id", ""))
+	game_root._reality_scene_adapter.apply_interaction({
+		"action": "converse",
+		"actor_id": guide_actor_id,
+		"accepted": true,
+	})
 	game_root._update_doll_guide()
 	_assert_true(not doll_panel.visible, "the guide should vanish during NPC interactions")
-	game_root._reality_interaction_active = false
+	game_root._reality_scene_adapter.apply_interaction({"action": "end"})
 	game_root._update_doll_guide()
 	_assert_true(doll_panel.visible, "the guide should return after the interaction ends")
 
