@@ -119,6 +119,32 @@ static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
 
+func _street_for(floor_number: int, layout: Dictionary) -> Dictionary:
+	# Disc and gallery stay on the floor-number path. A shared street comes from the plan.
+	if floor_number != 2 and floor_number != 3 and _is_complete_shared_street(layout):
+		var map_size: Dictionary = layout.get("map_size", {})
+		return {
+			"room_count": int(layout.get("room_count", 0)),
+			"shape": "shared_street",
+			"map_width": float(map_size.get("width", 0.0)),
+			"map_length": float(map_size.get("length", 0.0)),
+		}
+	return _street_from_floor_number(floor_number)
+
+
+func _is_complete_shared_street(layout: Dictionary) -> bool:
+	if str(layout.get("shape", "")) != "shared_street":
+		return false
+	var room_count_value = layout.get("room_count", null)
+	if not (room_count_value is int or room_count_value is float):
+		return false
+	var map_size = layout.get("map_size", null)
+	if not map_size is Dictionary:
+		return false
+	var size: Dictionary = map_size
+	return size.has("width") and size.has("length")
+
+
 func _street_from_floor_number(floor_number: int) -> Dictionary:
 	var rooms := room_count_for_floor(floor_number)
 	var width: float
@@ -153,12 +179,12 @@ func rebuild(
 	people: Array = [],
 	display_names: Dictionary = {},
 	events: Array = [],
-	_layout: Dictionary = {}
+	layout: Dictionary = {}
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
-	var street := _street_from_floor_number(built_floor)
+	var street := _street_for(built_floor, layout)
 	room_count = int(street["room_count"])
 	ordinary_npc_count = _count_kind(people, "npc")
 	useful_item_count = 0
