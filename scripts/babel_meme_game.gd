@@ -3282,9 +3282,8 @@ func _request_ending_if_unlocked() -> bool:
 
 
 func _complete_narrative_beat(exit_mode: String) -> void:
-	var go_ending := exit_mode == "ending" or _ending_is_unlocked()
 	_sync_audio_state(false)
-	if go_ending:
+	if exit_mode == "ending":
 		_request_session_mode("ending")
 		_refresh_ending()
 		return
