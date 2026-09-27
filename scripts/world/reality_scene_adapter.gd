@@ -306,6 +306,86 @@ func sync_world_state(deps: Dictionary) -> void:
 	floor.sync_claimed_dolls(_string_ids(deps.get("claimed_doll_ids", [])))
 
 
+func sync_ultimate_task_props(deps: Dictionary) -> void:
+	if floor == null or not is_instance_valid(floor):
+		return
+	var progress: Dictionary = deps.get("day_progress", {})
+	var tower_floor := int(progress.get("tower_floor", 1))
+	if tower_floor == 3:
+		var floor3_complete := bool(deps.get("floor3_task_complete", false))
+		var sealed_door := _ensure_task_prop_body("FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0), deps)
+		var open_frame := _ensure_task_prop_mesh("FloorThreeDoorOpenFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -7.0), true, deps)
+		if sealed_door != null:
+			sealed_door.visible = not floor3_complete
+			var door_shape := sealed_door.get_node_or_null("DoorCollision") as CollisionShape3D
+			if door_shape != null:
+				# An opened door no longer blocks passage.
+				door_shape.disabled = floor3_complete
+		if open_frame != null:
+			open_frame.visible = floor3_complete
+	elif tower_floor == 4:
+		var floor4_complete := bool(deps.get("floor4_task_complete", false))
+		var exit_frame := _ensure_task_prop_mesh("FloorFourExitFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -6.0), true, deps)
+		if exit_frame != null:
+			exit_frame.visible = floor4_complete
+
+
+func _ensure_task_prop_body(node_name: String, body_size: Vector3, body_position: Vector3, deps: Dictionary) -> StaticBody3D:
+	var existing := floor.get_node_or_null(node_name) as StaticBody3D
+	if existing != null:
+		return existing
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.position = body_position
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "DoorMesh"
+	var box := BoxMesh.new()
+	box.size = body_size
+	var material := StandardMaterial3D.new()
+	material.albedo_color = _task_prop_color(deps, "ink")
+	box.material = material
+	mesh_instance.mesh = box
+	body.add_child(mesh_instance)
+	var collision := CollisionShape3D.new()
+	collision.name = "DoorCollision"
+	var shape := BoxShape3D.new()
+	shape.size = body_size
+	collision.shape = shape
+	body.add_child(collision)
+	floor.add_child(body)
+	return body
+
+
+func _ensure_task_prop_mesh(node_name: String, mesh_size: Vector3, mesh_position: Vector3, emissive: bool, deps: Dictionary) -> MeshInstance3D:
+	var existing := floor.get_node_or_null(node_name) as MeshInstance3D
+	if existing != null:
+		return existing
+	var prop := MeshInstance3D.new()
+	prop.name = node_name
+	var box := BoxMesh.new()
+	box.size = mesh_size
+	var material := StandardMaterial3D.new()
+	if emissive:
+		var flash := _task_prop_color(deps, "flash_text")
+		material.albedo_color = flash
+		material.emission_enabled = true
+		material.emission = flash
+		material.emission_energy_multiplier = 1.4
+	else:
+		material.albedo_color = _task_prop_color(deps, "ink")
+	box.material = material
+	prop.mesh = box
+	prop.position = mesh_position
+	floor.add_child(prop)
+	return prop
+
+
+func _task_prop_color(deps: Dictionary, key: String) -> Color:
+	var palette: Dictionary = deps.get("palette", {})
+	var fallbacks := {"ink": "10140F", "flash_text": "9CFF24"}
+	return Color(str(palette.get(key, fallbacks.get(key, "FFF1C9"))))
+
+
 func active_actor_outcome() -> Dictionary:
 	if active_actor == null or not is_instance_valid(active_actor):
 		return {

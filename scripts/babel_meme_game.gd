@@ -919,6 +919,7 @@ func _reality_scene_deps() -> Dictionary:
 	var locale_code: String = "zh"
 	if _locale != null:
 		locale_code = str(_locale.current_locale)
+	var progression := _progression_snapshot()
 	return {
 		"day_progress": progress,
 		"palette": _ui_theme_helper.active_palette(),
@@ -935,6 +936,8 @@ func _reality_scene_deps() -> Dictionary:
 		"revealed_prerequisite_item_ids": game.revealed_prerequisite_item_ids.duplicate() if game != null else [],
 		"collected_prerequisite_item_ids": game.collected_prerequisite_item_ids.duplicate() if game != null else [],
 		"claimed_doll_ids": game.claimed_doll_ids.duplicate() if game != null else [],
+		"floor3_task_complete": bool(progression.get("floor3_task_complete", false)),
+		"floor4_task_complete": bool(progression.get("floor4_task_complete", false)),
 	}
 
 
@@ -2596,7 +2599,8 @@ func _render_status() -> void:
 		_render_history_window()
 	_render_playtest_assist()
 	_update_doll_guide()
-	_sync_ultimate_task_props()
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.sync_ultimate_task_props(_reality_scene_deps())
 
 
 func _render_playtest_assist() -> void:
@@ -3436,86 +3440,6 @@ func _doll_guide_current_line() -> String:
 	if tower_floor == 4 and floor4_complete:
 		return "出口存在了。这里不会记下我们。"
 	return str(step.get("guide_line", "你已经会自己走了。至少现在是。"))
-
-
-## ============ 终极任务的世界侧道具(第三层封门 / 第四层出口)============
-
-func _sync_ultimate_task_props() -> void:
-	if game == null:
-		return
-	var floor_root := get_node_or_null("RealityFloor")
-	if floor_root == null:
-		return
-	var day_progress := _day_progress_snapshot()
-	var progression := _progression_snapshot()
-	var tower_floor := int(day_progress.get("tower_floor", 1))
-	var floor3_complete := bool(progression.get("floor3_task_complete", false))
-	var floor4_complete := bool(progression.get("floor4_task_complete", false))
-	if tower_floor == 3:
-		var sealed_door := _ensure_task_prop_body(floor_root, "FloorThreeSealedDoor", Vector3(2.6, 3.2, 0.34), Vector3(0.0, 1.6, -7.0))
-		var open_frame := _ensure_task_prop_mesh(floor_root, "FloorThreeDoorOpenFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -7.0), true)
-		if sealed_door != null:
-			sealed_door.visible = not floor3_complete
-			var door_shape := sealed_door.get_node_or_null("DoorCollision") as CollisionShape3D
-			if door_shape != null:
-				# 门开之后不再阻挡通行。
-				door_shape.disabled = floor3_complete
-		if open_frame != null:
-			open_frame.visible = floor3_complete
-	elif tower_floor == 4:
-		var exit_frame := _ensure_task_prop_mesh(floor_root, "FloorFourExitFrame", Vector3(2.8, 3.4, 0.08), Vector3(0.0, 1.7, -6.0), true)
-		if exit_frame != null:
-			exit_frame.visible = floor4_complete
-
-
-## 有碰撞的封门:StaticBody3D + 网格 + 碰撞盒,玩家在门开前无法穿过。
-func _ensure_task_prop_body(floor_root: Node, node_name: String, body_size: Vector3, body_position: Vector3) -> StaticBody3D:
-	var existing := floor_root.get_node_or_null(node_name) as StaticBody3D
-	if existing != null:
-		return existing
-	var body := StaticBody3D.new()
-	body.name = node_name
-	body.position = body_position
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.name = "DoorMesh"
-	var box := BoxMesh.new()
-	box.size = body_size
-	var material := StandardMaterial3D.new()
-	material.albedo_color = _ui_theme_helper.theme_color("ink")
-	box.material = material
-	mesh_instance.mesh = box
-	body.add_child(mesh_instance)
-	var collision := CollisionShape3D.new()
-	collision.name = "DoorCollision"
-	var shape := BoxShape3D.new()
-	shape.size = body_size
-	collision.shape = shape
-	body.add_child(collision)
-	floor_root.add_child(body)
-	return body
-
-
-func _ensure_task_prop_mesh(floor_root: Node, node_name: String, mesh_size: Vector3, mesh_position: Vector3, emissive: bool) -> MeshInstance3D:
-	var existing := floor_root.get_node_or_null(node_name) as MeshInstance3D
-	if existing != null:
-		return existing
-	var prop := MeshInstance3D.new()
-	prop.name = node_name
-	var box := BoxMesh.new()
-	box.size = mesh_size
-	var material := StandardMaterial3D.new()
-	if emissive:
-		material.albedo_color = _ui_theme_helper.theme_color("flash_text")
-		material.emission_enabled = true
-		material.emission = _ui_theme_helper.theme_color("flash_text")
-		material.emission_energy_multiplier = 1.4
-	else:
-		material.albedo_color = _ui_theme_helper.theme_color("ink")
-	box.material = material
-	prop.mesh = box
-	prop.position = mesh_position
-	floor_root.add_child(prop)
-	return prop
 
 
 ## ============ 自由造句台(多邻国式:tap 入句、tap 撤回、随时投稿)============

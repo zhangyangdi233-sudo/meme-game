@@ -47,6 +47,10 @@ func _run() -> void:
 	_test_hiding_the_street_hides_characters_until_restored()
 	_test_theme_palette_recolors_the_street()
 	_test_host_does_not_paint_floor_nodes()
+	_test_floor_three_door_follows_task_progress()
+	_test_floor_four_exit_follows_task_progress()
+	_test_other_floors_omit_ultimate_task_props()
+	_test_host_asks_adapter_to_sync_ultimate_task_props()
 
 
 func _test_nearby_actor_returns_converse_outcome() -> void:
@@ -225,6 +229,81 @@ func _test_theme_palette_recolors_the_street() -> void:
 	adapter.apply_palette({"name": "pollution_palette_5", "accent": "2F6B1F"})
 	_assert_eq(_road_hex(road), "16310e", "switching theme should repaint the street road")
 	setup["host"].free()
+
+
+func _test_floor_three_door_follows_task_progress() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	if not adapter.has_method("sync_ultimate_task_props"):
+		_failures.append("the reality scene adapter should sync ultimate task props")
+		setup["host"].free()
+		return
+	adapter.sync_ultimate_task_props(_task_prop_deps(3, false, false))
+	var sealed := fake.get_node_or_null("FloorThreeSealedDoor") as StaticBody3D
+	var open_frame := fake.get_node_or_null("FloorThreeDoorOpenFrame") as MeshInstance3D
+	_assert_true(sealed != null and sealed.visible, "floor three should show the sealed door before the task")
+	_assert_true(sealed != null and sealed.position.is_equal_approx(Vector3(0.0, 1.6, -7.0)), "the sealed door should stand at the floor-three threshold")
+	var door_collision: CollisionShape3D = null
+	if sealed != null:
+		door_collision = sealed.get_node_or_null("DoorCollision") as CollisionShape3D
+	_assert_true(door_collision != null and not door_collision.disabled, "the sealed door must physically block the player")
+	_assert_true(open_frame != null and not open_frame.visible, "the open frame should wait for the rule")
+	_assert_true(open_frame != null and open_frame.position.is_equal_approx(Vector3(0.0, 1.7, -7.0)), "the open frame should stand in the sealed door's place")
+	adapter.sync_ultimate_task_props(_task_prop_deps(3, true, false))
+	_assert_true(sealed != null and not sealed.visible, "completing the task should retire the sealed door")
+	_assert_true(door_collision != null and door_collision.disabled, "the opened door must stop blocking")
+	_assert_true(open_frame != null and open_frame.visible, "completing the task should reveal the open door frame")
+	setup["host"].free()
+
+
+func _test_floor_four_exit_follows_task_progress() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	adapter.sync_ultimate_task_props(_task_prop_deps(4, true, false))
+	var exit_frame := fake.get_node_or_null("FloorFourExitFrame") as MeshInstance3D
+	_assert_true(exit_frame != null and not exit_frame.visible, "the floor-four exit should not exist before its rule")
+	_assert_true(exit_frame != null and exit_frame.position.is_equal_approx(Vector3(0.0, 1.7, -6.0)), "the exit frame should stand at the floor-four threshold")
+	_assert_true(fake.get_node_or_null("FloorThreeSealedDoor") == null, "floor four should not raise the floor-three door")
+	adapter.sync_ultimate_task_props(_task_prop_deps(4, true, true))
+	_assert_true(exit_frame != null and exit_frame.visible, "the exit frame should appear the moment the rule holds")
+	setup["host"].free()
+
+
+func _test_other_floors_omit_ultimate_task_props() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	adapter.sync_ultimate_task_props(_task_prop_deps(2, false, false))
+	_assert_true(fake.get_node_or_null("FloorThreeSealedDoor") == null, "floor two should not raise the sealed door")
+	_assert_true(fake.get_node_or_null("FloorFourExitFrame") == null, "floor two should not raise the exit frame")
+	setup["host"].free()
+
+
+func _test_host_asks_adapter_to_sync_ultimate_task_props() -> void:
+	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(
+		not main_source.contains('get_node_or_null("RealityFloor")'),
+		"the host should not find the floor by node name to place ultimate task props"
+	)
+	_assert_true(
+		not main_source.contains("func _ensure_task_prop_body") and not main_source.contains("func _ensure_task_prop_mesh"),
+		"the host should not build ultimate task props itself"
+	)
+	_assert_true(
+		main_source.contains("_reality_scene_adapter.sync_ultimate_task_props("),
+		"the host should ask the reality scene adapter to sync ultimate task props"
+	)
+
+
+func _task_prop_deps(tower_floor: int, floor3_complete: bool, floor4_complete: bool) -> Dictionary:
+	return {
+		"day_progress": {"tower_floor": tower_floor},
+		"floor3_task_complete": floor3_complete,
+		"floor4_task_complete": floor4_complete,
+		"palette": {"ink": "10140F", "flash_text": "9CFF24"},
+	}
 
 
 func _test_host_does_not_paint_floor_nodes() -> void:
