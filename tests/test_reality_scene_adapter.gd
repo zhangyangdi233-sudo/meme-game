@@ -44,6 +44,7 @@ func _run() -> void:
 	_test_day_change_replaces_scenes_without_rebuilding_the_floor()
 	_test_collect_item_by_id_clears_nearby_item()
 	_test_face_actor_by_id_updates_pose()
+	_test_hiding_the_street_hides_characters_until_restored()
 
 
 func _test_nearby_actor_returns_converse_outcome() -> void:
@@ -209,6 +210,25 @@ func _test_collect_item_by_id_clears_nearby_item() -> void:
 	adapter.apply_item_collected("floor1_key")
 	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "none", "collecting by id should clear the nearby item")
 	_assert_eq(str(adapter.probe_interaction(_walk_deps()).get("action", "")), "none", "a collected item should no longer probe as collect")
+	setup["host"].free()
+
+
+func _test_hiding_the_street_hides_characters_until_restored() -> void:
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	var actor := fake.add_actor("latecomer", "npc", "迟到者", Vector3(1.0, 0.0, 1.0))
+	_assert_true(fake.visible, "the street should start shown")
+	_assert_true(adapter.player.visible, "the player should start shown")
+	adapter.set_street_shown(false)
+	_assert_true(not fake.visible, "hiding the street should hide the floor")
+	_assert_true(not adapter.player.visible, "hiding the street should hide the player")
+	var look_pose: Dictionary = adapter.pose()
+	_assert_true(bool(look_pose.get("has_player", false)), "hiding the street should leave look pose readable")
+	adapter.set_street_shown(true)
+	_assert_true(fake.visible, "showing the street should restore the floor")
+	_assert_true(adapter.player.visible, "showing the street should restore the player")
+	_assert_true(actor.visible, "showing the street should leave the character's own visibility alone")
 	setup["host"].free()
 
 

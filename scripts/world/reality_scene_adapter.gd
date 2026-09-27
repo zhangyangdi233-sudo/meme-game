@@ -317,6 +317,13 @@ func active_actor_outcome() -> Dictionary:
 	return actor_data
 
 
+func set_street_shown(shown: bool) -> void:
+	if floor != null and is_instance_valid(floor):
+		floor.visible = shown
+	if player != null and is_instance_valid(player):
+		player.visible = shown
+
+
 func pose() -> Dictionary:
 	return {
 		"player_position": player.position if player != null else Vector3.ZERO,

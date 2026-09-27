@@ -3028,10 +3028,8 @@ func _update_world_for_phone_view() -> void:
 	if _view_toggle_button != null:
 		_view_toggle_button.visible = _session_shows_play_chrome() and not _settings_is_open() and (in_phone or not _reality_interaction_active)
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
-	if _reality_scene_adapter != null and _reality_scene_adapter.floor != null:
-		_reality_scene_adapter.floor.visible = not in_phone
-	if _reality_scene_adapter != null and _reality_scene_adapter.player != null:
-		_reality_scene_adapter.player.visible = not in_phone
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.set_street_shown(not in_phone)
 	if _cinematic_bars != null:
 		_cinematic_bars.set_bars_visible(_session_shows_play_chrome() and not in_phone)
 

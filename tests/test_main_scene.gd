@@ -29,6 +29,7 @@ func _run_async() -> void:
 	_test_phone_apps(game_root)
 	_test_social_feed(game_root)
 	_test_physical_doll_entry(game_root)
+	_test_phone_hides_street(game_root)
 	_test_language_and_playtest_contract(game_root)
 
 	game_root.queue_free()
@@ -207,6 +208,29 @@ func _test_physical_doll_entry(game_root: Node) -> void:
 	_assert_eq(game_root.game.conversation_actor_type, "doll", "doll should use its own conversation type")
 	_assert_eq(game_root.game.get_typed_reality_choices().size(), 3, "doll encounter should offer three authored intentions")
 	game_root._exit_reality_interaction()
+
+
+func _test_phone_hides_street(game_root: Node) -> void:
+	var floor: Node3D = game_root._reality_scene_adapter.floor
+	var player: Node3D = game_root._reality_scene_adapter.player
+	var doll := _find_actor_by_type(game_root, "doll")
+	_assert_true(floor != null and player != null and doll != null, "gameplay should have a street, a player, and a character")
+	if floor == null or player == null or doll == null:
+		return
+	game_root.set_view_state("npc_up")
+	_assert_eq(game_root.session_mode(), "gameplay", "closing the phone should stay in gameplay")
+	_assert_true(floor.is_visible_in_tree(), "closing the phone should show the street")
+	_assert_true(player.is_visible_in_tree(), "closing the phone should show the player")
+	_assert_true(doll.is_visible_in_tree(), "closing the phone should show street characters")
+	game_root.set_view_state("phone_down")
+	_assert_eq(game_root.session_mode(), "gameplay", "opening the phone should stay in gameplay")
+	_assert_true(not game_root.has_session_state("phone"), "the phone should not be a Session mode")
+	_assert_true(not floor.is_visible_in_tree(), "opening the phone should hide the street")
+	_assert_true(not player.is_visible_in_tree(), "opening the phone should hide the player")
+	_assert_true(not doll.is_visible_in_tree(), "opening the phone should hide street characters")
+	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(not main_source.contains("_reality_scene_adapter.floor.visible"), "the host should not set floor node visibility")
+	_assert_true(not main_source.contains("_reality_scene_adapter.player.visible"), "the host should not set character node visibility")
 
 
 func _test_language_and_playtest_contract(game_root: Node) -> void:
