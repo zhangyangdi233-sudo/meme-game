@@ -148,6 +148,21 @@ func sync_state(deps: Dictionary, immediate: bool = false) -> void:
 	_audio_tween.tween_property(pollution_ambience, "volume_db", pollution_target, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+func play_action_tick() -> void:
+	if action_tick_audio != null and action_tick_audio.stream != null and action_tick_audio.is_inside_tree():
+		action_tick_audio.play()
+
+
+func play_flashback() -> void:
+	if flashback_audio != null and flashback_audio.stream != null and flashback_audio.is_inside_tree():
+		flashback_audio.play()
+
+
+func stop_flashback() -> void:
+	if flashback_audio != null:
+		flashback_audio.stop()
+
+
 func duck_ambience_for_flashback() -> void:
 	if _audio_tween != null and _audio_tween.is_valid():
 		_audio_tween.kill()

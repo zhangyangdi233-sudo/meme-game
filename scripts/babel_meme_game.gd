@@ -206,20 +206,12 @@ func _narrative_overlay_deps() -> Dictionary:
 	return {
 		"game": game,
 		"ui_root": _ui_root,
-		"render": _refresh_play_surfaces,
+		"audio": _audio_controller,
 		"request_narrative": func() -> void:
 			_request_session_mode("narrative"),
-		"request_gameplay_from_narrative": func() -> void:
-			if session_mode() != "narrative":
-				return
-			if _request_ending_if_unlocked():
-				_refresh_ending()
-			else:
-				_request_session_mode("gameplay"),
-		"sync_audio_state": _sync_audio_state,
+		"complete_beat": _complete_narrative_beat,
+		"ending_unlocked": _ending_is_unlocked,
 		"settle_day": _settle_day_and_present_rewards,
-		"consume_pollution_flashback": func() -> bool:
-			return game != null and game.consume_pollution_flashback(),
 		"hud_actions_label": _hud_actions_label_ref,
 		"action_text": _action_text,
 		"theme_color": _ui_theme_helper.theme_color,
@@ -228,27 +220,6 @@ func _narrative_overlay_deps() -> Dictionary:
 		"level_display_name": _locale.level_display_name,
 		"day_progress": _day_progress_snapshot,
 		"capture_frozen_frame": _capture_frozen_frame_texture,
-		"duck_ambience": func() -> void:
-			if _audio_controller != null:
-				_audio_controller.duck_ambience_for_flashback(),
-		"play_action_tick": func() -> void:
-			if _audio_controller != null and _audio_controller.action_tick_audio != null and _audio_controller.action_tick_audio.stream != null and _audio_controller.action_tick_audio.is_inside_tree():
-				_audio_controller.action_tick_audio.play(),
-		"play_flashback_audio": func() -> void:
-			if _audio_controller != null and _audio_controller.flashback_audio != null and _audio_controller.flashback_audio.stream != null and _audio_controller.flashback_audio.is_inside_tree():
-				_audio_controller.flashback_audio.play(),
-		"stop_flashback_audio": func() -> void:
-			if _audio_controller != null and _audio_controller.flashback_audio != null:
-				_audio_controller.flashback_audio.stop(),
-		"on_day_settled": func() -> void:
-			selected_meme_id = ""
-			if game != null and not game.event_log.is_empty():
-				log_text = game.event_log[0],
-		"on_flashback_settled": func() -> void:
-			selected_meme_id = ""
-			log_text = "黑屏之后，已经是第二天。"
-			if game != null and not game.event_log.is_empty():
-				log_text = "%s\n%s" % [log_text, game.event_log[0]],
 	}
 
 
@@ -3310,6 +3281,18 @@ func _request_ending_if_unlocked() -> bool:
 	return true
 
 
+func _complete_narrative_beat(exit_mode: String) -> void:
+	var go_ending := exit_mode == "ending" or _ending_is_unlocked()
+	_sync_audio_state(false)
+	if go_ending:
+		_request_session_mode("ending")
+		_refresh_ending()
+		return
+	if session_mode() == "narrative":
+		_request_session_mode("gameplay")
+	_refresh_play_surfaces()
+
+
 func _render_ending() -> void:
 	if _canvas == null:
 		_build_world(not _ending_is_unlocked())
@@ -3671,36 +3654,55 @@ func _on_confirm_dialogue_pressed() -> void:
 
 
 func _after_effective_action(actions_before: int = -1) -> void:
-	if game.pollution_flashback_pending:
-		_bind_narrative_director()
-		_narrative_director.play_pollution_flashback()
-		return
-	if actions_before >= 0 and game.actions_remaining < actions_before:
+	var settlement := _narrative_settlement(actions_before)
+	if not settlement.is_empty():
 		var hud_actions_label := _hud_actions_label_ref()
-		if hud_actions_label != null:
-			hud_actions_label.text = _action_text(actions_before)
+		if hud_actions_label != null and settlement.has("actions_before"):
+			hud_actions_label.text = _action_text(int(settlement.get("actions_before", 0)))
 		_bind_narrative_director()
-		_narrative_director.play_action_spend_animation(actions_before, game.actions_remaining)
+		_narrative_director.play_beat(settlement, _ending_is_unlocked())
 		return
 	if _settle_day_and_present_rewards():
-		selected_meme_id = ""
-		if not game.event_log.is_empty():
-			log_text = game.event_log[0]
 		return
 	_refresh_play_surfaces()
 
 
-func _settle_day_and_present_rewards() -> bool:
-	if not game.settle_day_if_needed():
+func _narrative_settlement(actions_before: int) -> Dictionary:
+	if game == null:
+		return {}
+	var spent := actions_before >= 0 and int(game.actions_remaining) < actions_before
+	var flashback := bool(game.pollution_flashback_pending)
+	if not spent and not flashback:
+		return {}
+	var settlement := {
+		"day_transition": bool(game.needs_day_settlement),
+		"flashback": flashback,
+	}
+	if spent:
+		settlement["actions_before"] = actions_before
+		settlement["actions_after"] = int(game.actions_remaining)
+	return settlement
+
+
+func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
+	var settled := game != null and game.settle_day_if_needed()
+	if not settled and not from_flashback:
 		return false
-	_reality_interaction_active = false
-	if _reality_scene_adapter != null:
-		_reality_scene_adapter.clear_active_actor()
-		_reality_scene_adapter.clear_nearby_targets()
-	_reality_hover_choice_id = ""
+	if settled:
+		_reality_interaction_active = false
+		if _reality_scene_adapter != null:
+			_reality_scene_adapter.clear_active_actor()
+			_reality_scene_adapter.clear_nearby_targets()
+		_reality_hover_choice_id = ""
+		_sync_audio_state(false)
 	selected_meme_id = ""
-	_sync_audio_state(false)
-	return true
+	if from_flashback:
+		log_text = "黑屏之后，已经是第二天。"
+		if game != null and not game.event_log.is_empty():
+			log_text = "%s\n%s" % [log_text, game.event_log[0]]
+	elif game != null and not game.event_log.is_empty():
+		log_text = game.event_log[0]
+	return settled
 
 
 func _day_plan() -> Dictionary:

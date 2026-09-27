@@ -201,8 +201,81 @@ func _run() -> void:
 			"continuing an ending-unlocked save should not generate a playable floor behind the ending screen"
 		)
 
+	await _run_narrative_beat(game_root)
+
 	game_root.queue_free()
 	await process_frame
+
+
+func _run_narrative_beat(game_root) -> void:
+	game_root.new_game()
+	await process_frame
+	game_root._skip_prologue()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "narrative beat should start from gameplay")
+	await _assert_gameplay_world_hotkeys_live(game_root)
+
+	game_root.game.actions_remaining = 2
+	_assert_true(game_root.game.spend_action("narrative-beat"), "the beat should spend an action")
+	game_root.game.pollution = 60
+	game_root.game.check_pollution_flashback(59)
+	var action_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
+	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
+	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
+	game_root._after_effective_action(2)
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "the beat should enter narrative when the action is spent")
+	_assert_true(action_overlay != null and action_overlay.visible, "the beat should show the action pulse")
+	_assert_true(day_overlay != null and not day_overlay.visible, "the day transition should wait until the action pulse finishes")
+	_assert_true(flashback_overlay != null and not flashback_overlay.visible, "the flashback should wait until the day transition finishes")
+	await _assert_world_hotkeys_inert(game_root, "narrative beat action")
+
+	game_root._narrative_director.finish_action_spend_animation()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "the day transition should stay in narrative")
+	_assert_true(day_overlay != null and day_overlay.visible, "the beat should show the day transition after the action pulse")
+	_assert_true(flashback_overlay != null and not flashback_overlay.visible, "the flashback should still be waiting during the day transition")
+	await _assert_world_hotkeys_inert(game_root, "narrative beat day")
+	_assert_eq(game_root.game.day, 1, "day settlement should wait for the transition midpoint")
+	game_root._narrative_director.commit_day_transition_settlement()
+	_assert_eq(game_root.game.day, 2, "the transition midpoint should settle the day")
+	game_root._narrative_director.finish_day_transition()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "the flashback should stay in narrative after the day transition")
+	_assert_true(day_overlay != null and not day_overlay.visible, "the day transition should hide before the flashback")
+	_assert_true(flashback_overlay != null and flashback_overlay.visible, "the beat should show the flashback after the day transition")
+	await _assert_world_hotkeys_inert(game_root, "narrative beat flashback")
+	_assert_eq(game_root.game.day, 2, "the flashback should not settle a second day")
+	game_root._narrative_director.finish_pollution_flashback()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "finishing the beat should return to gameplay")
+	_assert_host_applied_screens(game_root, ["play"], "gameplay after narrative beat")
+	await _assert_gameplay_world_hotkeys_live(game_root)
+
+	game_root.new_game()
+	await process_frame
+	game_root._skip_prologue()
+	await process_frame
+	game_root.game.actions_remaining = 1
+	_assert_true(game_root.game.spend_action("narrative-beat-ending"), "the ending beat should spend the last action")
+	game_root.game.pollution = 60
+	game_root.game.pollution_flashback_seen = false
+	game_root.game.check_pollution_flashback(59)
+	game_root._after_effective_action(1)
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "the ending beat should open in narrative")
+	game_root._narrative_director.finish_action_spend_animation()
+	await process_frame
+	game_root._narrative_director.finish_day_transition()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "narrative", "the ending should wait until the flashback finishes")
+	await _assert_world_hotkeys_inert(game_root, "narrative beat before ending")
+	game_root.game.ending_unlocked = true
+	game_root._narrative_director.finish_pollution_flashback()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "ending", "finishing the beat with the ending unlocked should enter the ending")
+	_assert_host_applied_screens(game_root, ["ending"], "narrative beat ending")
+	await _assert_world_hotkeys_inert(game_root, "narrative beat ending")
 
 
 func _assert_screen_set(game_root, expected: Array, label: String) -> void:
