@@ -144,7 +144,11 @@ func ensure_floor_current(deps: Dictionary) -> void:
 
 
 static func room_count_for_floor(floor_number: int) -> int:
-	return RealityFloorGeneratorScript.room_count_for_floor(floor_number)
+	var composed: Dictionary = FloorComposerScript.compose({
+		"day_progress": {"tower_floor": floor_number},
+	})
+	var layout: Dictionary = composed.get("layout", {})
+	return int(layout.get("room_count", 0))
 
 
 static func npc_count_for_floor(floor_number: int) -> int:

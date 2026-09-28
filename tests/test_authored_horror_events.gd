@@ -45,7 +45,8 @@ func _run() -> void:
 		floor_two_day_one.get("items", []),
 		floor_two_day_one.get("people", []),
 		floor_two_day_one.get("display_names", {}),
-		floor_two_day_one.get("events", [])
+		floor_two_day_one.get("events", []),
+		floor_two_day_one.get("layout", {})
 	)
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 2, "floor two should instantiate its two scheduled events")
 	_assert_true(not bool(floor_root.get_meta("authored_event_randomized", true)), "authored events should not depend on random timers")
@@ -122,7 +123,8 @@ func _run() -> void:
 		floor_three_day_one.get("items", []),
 		floor_three_day_one.get("people", []),
 		floor_three_day_one.get("display_names", {}),
-		floor_three_day_one.get("events", [])
+		floor_three_day_one.get("events", []),
+		floor_three_day_one.get("layout", {})
 	)
 	_assert_eq(floor_root.get_meta("authored_event_kinds", PackedStringArray()), PackedStringArray(["dead_sign"]), "floor three day one should use only the sign event")
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 1, "floor three day one should remain deliberately sparse")

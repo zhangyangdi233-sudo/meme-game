@@ -18,7 +18,6 @@ const ACTOR_PORTRAIT_WORLD_HEIGHT := 1.90
 const ACTOR_CAMERA_EYE_HEIGHT := 1.56
 const DOLL_PORTRAIT_WORLD_HEIGHT := 0.96
 
-const BASE_ROOM_COUNT := 4
 const WORLD_LENGTH_SCALE := 5.0
 const LOT_SPACING := 9.4 * WORLD_LENGTH_SCALE
 const LOT_WIDTH := 7.4
@@ -35,9 +34,6 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
-const NIGHT_TERRACE_END_MARGIN := 8.0
-const NIGHT_TERRACE_GAP := 1.2
-const NIGHT_FACADE_BAY := 7.6
 const FLOOR_TWO_DISC_SEGMENTS := 96
 const FLOOR_TWO_DISC_RADIAL_SEGMENTS := 24
 const FLOOR_TWO_DISC_RADIUS_X := 112.0
@@ -71,6 +67,7 @@ const FULL_MAP_GRASS_SPACING := 0.44
 const FULL_MAP_GRASS_BLADE_HEIGHT := 0.32
 const FULL_MAP_GRASS_BLADE_WIDTH := 0.24
 const SUSPENSE_CLEAR_PATH_WIDTH := 5.6
+const PLANNED_SHAPES := ["shared_street", "irregular_disc", "skylit_overgrown_gallery"]
 const REPLACEABLE_SCENE_KINDS := ["light_memory", "dead_sign", "distant_mirage"]
 const DISTRICT_STYLES := ["sunlit_brick_street", "night_white_blocks", "overgrown_gallery"]
 const DISTRICT_REFERENCE_TEXTURES := {
@@ -110,26 +107,23 @@ var _cover_watcher_root: Node3D
 var _cover_watcher_sprite: Sprite3D
 var _cover_watcher_state: Dictionary = {}
 var _playtest_assist_enabled := false
-
-
-static func room_count_for_floor(floor_number: int) -> int:
-	var normalized := maxi(1, floor_number) - 1
-	return BASE_ROOM_COUNT + normalized * 2 + int(normalized / 2)
+var _layout_shape := "shared_street"
 
 
 static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
 
-func _street_for(floor_number: int, layout: Dictionary) -> Dictionary:
-	# A complete disc, gallery, or shared street comes from the plan. Anything else stays on the floor number.
-	if floor_number == 2 and _is_complete_layout(layout, "irregular_disc"):
-		return _street_from_layout(layout, "irregular_disc")
-	if floor_number == 3 and _is_complete_layout(layout, "skylit_overgrown_gallery"):
-		return _street_from_layout(layout, "skylit_overgrown_gallery")
-	if floor_number != 2 and floor_number != 3 and _is_complete_layout(layout, "shared_street"):
-		return _street_from_layout(layout, "shared_street")
-	return _street_from_floor_number(floor_number)
+func _street_for(layout: Dictionary) -> Dictionary:
+	var shape := str(layout.get("shape", ""))
+	if shape in PLANNED_SHAPES and _is_complete_layout(layout, shape):
+		return _street_from_layout(layout, shape)
+	return {
+		"room_count": 0,
+		"shape": "shared_street",
+		"map_width": MIN_MAP_WIDTH,
+		"map_length": MIN_MAP_LENGTH,
+	}
 
 
 func _street_from_layout(layout: Dictionary, shape: String) -> Dictionary:
@@ -163,28 +157,16 @@ func _apply_disc_extent(street: Dictionary) -> void:
 	_disc_radius_z = float(street["map_length"]) * 0.5 - FLOOR_TWO_DISC_IRREGULARITY - FLOOR_TWO_DISC_MAP_MARGIN
 
 
-func _street_from_floor_number(floor_number: int) -> Dictionary:
-	var rooms := room_count_for_floor(floor_number)
-	var width: float
-	var length: float
-	if floor_number == 2:
-		width = (FLOOR_TWO_DISC_RADIUS_X + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-		length = (FLOOR_TWO_DISC_RADIUS_Z + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-	else:
-		var lot_rows := int(ceil(float(rooms) / 2.0))
-		width = MIN_MAP_WIDTH + float(floor_number - 1) * 1.5
-		length = maxf(MIN_MAP_LENGTH, float(lot_rows) * LOT_SPACING + MAP_END_MARGIN * 2.0)
-	var shape := "shared_street"
-	if floor_number == 2:
-		shape = "irregular_disc"
-	elif floor_number == 3:
-		shape = "skylit_overgrown_gallery"
-	return {
-		"room_count": rooms,
-		"shape": shape,
-		"map_width": width,
-		"map_length": length,
-	}
+func _is_disc_layout() -> bool:
+	return _layout_shape == "irregular_disc"
+
+
+func _air_wall_count_for_layout() -> int:
+	if _is_disc_layout():
+		return FLOOR_TWO_DISC_AIR_WALL_SEGMENTS
+	if _layout_shape == "shared_street":
+		return 12
+	return 4
 
 
 func rebuild(
@@ -202,7 +184,8 @@ func rebuild(
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
-	var street := _street_for(built_floor, layout)
+	var street := _street_for(layout)
+	_layout_shape = str(street["shape"])
 	room_count = int(street["room_count"])
 	ordinary_npc_count = _count_kind(people, "npc")
 	useful_item_count = 0
@@ -218,7 +201,7 @@ func rebuild(
 	set_meta("map_width", map_width)
 	set_meta("map_length", map_length)
 	set_meta("world_length_scale", WORLD_LENGTH_SCALE)
-	set_meta("air_wall_count", 12 if district_style == "sunlit_brick_street" else (FLOOR_TWO_DISC_AIR_WALL_SEGMENTS if built_floor == 2 else 4))
+	set_meta("air_wall_count", _air_wall_count_for_layout())
 	set_meta("district_style", district_style)
 	set_meta("npc_population_rule", "strictly_descending")
 	set_meta("atmosphere_mode", "open_daylight" if built_floor == 1 else "slow_burn_suspense")
@@ -462,7 +445,7 @@ func _cover_watcher_position() -> Vector3:
 	var origin := start_position()
 	var lateral_sign := -1.0 if built_floor in [2, 4] else 1.0
 	var target := origin + Vector3(lateral_sign * (4.1 + float(built_floor % 2) * 0.7), 0.08, -15.0 - float(built_floor % 3))
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _clamp_to_floor_two_disc(target, 4.5)
 	return clamp_to_playable_position(target, 4.0)
 
@@ -576,7 +559,7 @@ func _update_cover_watcher_event(delta: float, player_position: Vector3, camera_
 
 func _authored_event_position(event_kind: String) -> Vector3:
 	var event_index := ["light_memory", "dead_sign", "distant_mirage"].find(event_kind)
-	if built_floor == 2:
+	if _is_disc_layout():
 		var angles := [PI * 0.5 - 0.11, PI * 0.5 + 0.18, PI * 0.5 - 0.28]
 		var radii := [0.65, 0.55, 0.39]
 		var disc_position := _floor_two_disc_point(float(angles[event_index]), float(radii[event_index]))
@@ -588,7 +571,7 @@ func _authored_event_position(event_kind: String) -> Vector3:
 
 
 func _orient_event_toward_origin(event_root: Node3D) -> void:
-	if built_floor != 2:
+	if not _is_disc_layout():
 		return
 	var target := Vector3(_authored_event_origin.x, event_root.position.y, _authored_event_origin.z)
 	var direction := target - event_root.position
@@ -806,7 +789,7 @@ func _update_distant_mirage_event(delta: float, horizontal_travel: float, player
 
 
 func start_position() -> Vector3:
-	if built_floor == 2:
+	if _is_disc_layout():
 		var disc_spawn := _floor_two_disc_point(PI * 0.5, 0.82)
 		disc_spawn.y += 0.08
 		return disc_spawn
@@ -818,12 +801,12 @@ func start_yaw_degrees() -> float:
 
 
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _floor_two_disc_contains(position, inset)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
 	var inside_trunk := absf(position.x) <= half_width and absf(position.z) <= half_length
-	if district_style != "sunlit_brick_street":
+	if _layout_shape != "shared_street":
 		return inside_trunk
 	var branch_half_span := maxf(0.5, _sunlit_crossroad_span() * 0.5 - inset)
 	var branch_half_width := maxf(0.5, SUNLIT_CROSSROAD_OPENING * 0.5 - inset)
@@ -831,7 +814,7 @@ func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 
 
 func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector3:
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _clamp_to_floor_two_disc(position, inset)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
@@ -840,7 +823,7 @@ func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector
 		maxf(0.08, position.y),
 		clampf(position.z, -half_length, half_length)
 	)
-	if district_style != "sunlit_brick_street":
+	if _layout_shape != "shared_street":
 		return trunk_candidate
 	var branch_half_span := maxf(0.5, _sunlit_crossroad_span() * 0.5 - inset)
 	var branch_half_width := maxf(0.5, SUNLIT_CROSSROAD_OPENING * 0.5 - inset)
@@ -1044,10 +1027,10 @@ func _build_architecture(palette: Dictionary) -> void:
 	var architecture := Node3D.new()
 	architecture.name = "Architecture"
 	add_child(architecture)
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_ground(architecture, palette)
 	else:
-		var ground_role := "grass_ground" if built_floor == 3 else ("grass" if district_style == "night_white_blocks" else ("gallery_floor" if district_style == "overgrown_gallery" else "sunlit_paving"))
+		var ground_role := "grass_ground" if _layout_shape == "skylit_overgrown_gallery" else ("grass" if district_style == "night_white_blocks" else ("gallery_floor" if district_style == "overgrown_gallery" else "sunlit_paving"))
 		var street_ground := _add_box(
 			architecture,
 			"StreetGround",
@@ -1058,7 +1041,7 @@ func _build_architecture(palette: Dictionary) -> void:
 			true
 		)
 		street_ground.set_meta("continuous_ground", true)
-	if district_style == "sunlit_brick_street" and built_floor != 2:
+	if _layout_shape == "shared_street":
 		var branch_ground := _add_box(
 			architecture,
 			"CrossroadGround",
@@ -1070,12 +1053,10 @@ func _build_architecture(palette: Dictionary) -> void:
 		)
 		branch_ground.set_meta("continuous_ground", true)
 		branch_ground.set_meta("crossroad_extension", true)
-	match district_style:
-		"night_white_blocks" when built_floor == 2:
+	match _layout_shape:
+		"irregular_disc":
 			_build_floor_two_scattered_district(architecture, palette)
-		"night_white_blocks":
-			_build_night_white_blocks(architecture, palette)
-		"overgrown_gallery":
+		"skylit_overgrown_gallery":
 			_build_overgrown_gallery(architecture, palette)
 		_:
 			_build_sunlit_brick_street(architecture, palette)
@@ -1431,84 +1412,6 @@ func _build_crossroad_markings(parent: Node3D, palette: Dictionary) -> void:
 		_add_box(parent, "CrossroadStripe%02d" % dash_index, Vector3(2.1, 0.018, 0.14), Vector3(x, 0.088, 0.0), "accent", palette, false)
 
 
-func _build_night_white_blocks(parent: Node3D, palette: Dictionary) -> void:
-	_add_box(parent, "NightWalk", Vector3(4.8, 0.035, map_length - 1.2), Vector3(-2.35, 0.018, 0.0), "night_path", palette, false)
-	var lot_rows := int(ceil(float(room_count) / 2.0))
-	var terrace_span := map_length - NIGHT_TERRACE_END_MARGIN * 2.0
-	var segment_pitch := terrace_span / float(lot_rows)
-	var segment_length := segment_pitch - NIGHT_TERRACE_GAP
-	var facade_bay_count := 0
-	for room_index in room_count:
-		var row := int(room_index / 2)
-		var side := -1.0 if room_index % 2 == 0 else 1.0
-		var center_z := (float(lot_rows - 1) * segment_pitch * 0.5) - float(row) * segment_pitch
-		facade_bay_count += _build_night_house(parent, room_index, row, side, center_z, segment_length, palette)
-	set_meta("night_house_segment_count", room_count)
-	set_meta("night_house_coverage_ratio", segment_length / segment_pitch)
-	set_meta("night_house_max_gap", NIGHT_TERRACE_GAP)
-	set_meta("night_facade_bay_count", facade_bay_count)
-	_build_reference_portal(parent, str(DISTRICT_REFERENCE_TEXTURES[district_style]), palette)
-
-
-func _build_night_house(parent: Node3D, room_index: int, row: int, side: float, center_z: float, segment_length: float, palette: Dictionary) -> int:
-	var room := _new_room(parent, room_index)
-	var height := 4.5 + float((room_index + built_floor) % 3) * 0.8
-	var depth := 5.4
-	var center_x := side * (4.35 + depth * 0.5)
-	var house := _add_box(room, "WhiteHouse", Vector3(depth, height, segment_length), Vector3(center_x, height * 0.5, center_z), "white_wall", palette, true)
-	house.set_meta("continuous_house_segment", true)
-	house.set_meta("segment_length", segment_length)
-	_add_box(room, "TerraceParapet", Vector3(depth + 0.18, 0.22, segment_length), Vector3(center_x, height + 0.11, center_z), "white_wall", palette, false)
-	var face_x := center_x - side * (depth * 0.5 + 0.025)
-	var module_count := maxi(4, int(floor(segment_length / NIGHT_FACADE_BAY)))
-	var module_spacing := segment_length / float(module_count)
-	var anomaly_bay := posmod(room_index * 3 + built_floor, module_count)
-	for module_index in module_count:
-		var module_z := center_z - segment_length * 0.5 + module_spacing * (float(module_index) + 0.5)
-		if module_index > 0:
-			_add_box(
-				room,
-				"FacadeJoint%02d" % module_index,
-				Vector3(0.075, height - 0.34, 0.09),
-				Vector3(face_x - side * 0.04, height * 0.5, module_z - module_spacing * 0.5),
-				"window",
-				palette,
-				false
-			)
-		for storey_index in 2:
-			var controlled_anomaly := module_index == anomaly_bay and storey_index == 1
-			var window_height := 0.48 if controlled_anomaly else 0.82
-			var window_y := 1.38 + float(storey_index) * 1.72 + (0.18 if controlled_anomaly else 0.0)
-			var window := _add_box(
-				room,
-				"Window%02d_%d" % [module_index, storey_index],
-				Vector3(0.065, window_height, 0.84),
-				Vector3(face_x - side * 0.045, window_y, module_z),
-				"window",
-				palette,
-				false
-			)
-			if controlled_anomaly:
-				window.set_meta("controlled_repeat_anomaly", true)
-		if module_index % 4 == 1:
-			var repeated_door := _add_box(
-				room,
-				"RepeatedDoor%02d" % module_index,
-				Vector3(0.07, 2.18, 1.08),
-				Vector3(face_x - side * 0.055, 1.09, module_z + module_spacing * 0.22),
-				"window",
-				palette,
-				false
-			)
-			repeated_door.set_meta("architectural_repeat", true)
-	if row % 2 == 0:
-		_build_street_lamp(room, Vector3(side * 3.55, 0.0, center_z - minf(2.2, segment_length * 0.18)), palette, false)
-	if room_index % 4 == 2:
-		_build_mood_panel(room, room_index, Vector3(face_x - side * 0.04, 2.4, center_z + 1.4), side, palette)
-	_place_room_reward(room, room_index, Vector3(side * 3.65, 0.0, center_z), palette)
-	return module_count
-
-
 func _build_overgrown_gallery(parent: Node3D, palette: Dictionary) -> void:
 	_add_box(parent, "GalleryWalk", Vector3(6.2, 0.05, map_length - 1.0), Vector3(0.0, 0.025, 0.0), "gallery_floor", palette, false)
 	_build_full_map_grass(parent, palette)
@@ -1691,7 +1594,7 @@ func _build_dreamcore_artifacts(parent: Node3D, palette: Dictionary) -> void:
 		artifact.set_meta("pickup_kind", "none")
 		var artifact_scale := 0.82 + float(posmod(artifact_index * 5, 4)) * 0.11
 		artifact.scale = Vector3.ONE * artifact_scale
-		if built_floor == 2:
+		if _is_disc_layout():
 			var angle := 0.18 + TAU * float(artifact_index) / float(artifact_count) + sin(float(artifact_index) * 2.3) * 0.12
 			var radial_ratio := 0.24 + float(posmod(artifact_index * 5, 7)) * 0.075
 			artifact.position = _floor_two_disc_point(angle, radial_ratio)
@@ -1931,7 +1834,7 @@ func _add_low_poly_cylinder(parent: Node3D, node_name: String, top_radius: float
 
 
 func _build_suspense_layer(parent: Node3D, palette: Dictionary) -> void:
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_suspense(parent, palette)
 		return
 	var suspense := Node3D.new()
@@ -2259,10 +2162,10 @@ func _build_air_walls(parent: Node3D) -> void:
 	var walls := Node3D.new()
 	walls.name = "AirWalls"
 	parent.add_child(walls)
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_air_walls(walls)
 		return
-	if district_style == "sunlit_brick_street":
+	if _layout_shape == "shared_street":
 		_build_sunlit_air_walls(walls)
 		return
 	_add_air_wall(walls, "WestAirWall", Vector3(AIR_WALL_THICKNESS, AIR_WALL_HEIGHT, map_length + AIR_WALL_THICKNESS * 2.0), Vector3(-map_width * 0.5, AIR_WALL_HEIGHT * 0.5, 0.0))
@@ -2505,7 +2408,7 @@ func _build_actors(actor_textures: Dictionary, people: Array, display_names: Dic
 		match kind:
 			"key_npc":
 				var key_npc_position := Vector3(-3.4, 0.0, spawn.z - 8.0)
-				if built_floor == 2:
+				if _is_disc_layout():
 					key_npc_position = _floor_two_disc_point(PI * 0.5 + 0.12, 0.72)
 				if label.is_empty():
 					label = "关键住户"
@@ -2537,7 +2440,7 @@ func _pedestrian_position(index: int, pedestrian_count: int) -> Vector3:
 	var street_south := map_length * 0.5 - 12.5
 	var street_north := -map_length * 0.5 + 8.0
 	var lateral_positions := [3.4, -3.0, 1.6, -3.3, 0.5]
-	if built_floor == 2:
+	if _is_disc_layout():
 		var disc_angle := 0.72 + TAU * float(index + 1) / float(pedestrian_count + 2) + sin(float(index) * 1.7) * 0.16
 		var disc_radius := 0.30 + float(posmod(index * 3, 4)) * 0.14
 		return _floor_two_disc_point(disc_angle, disc_radius)
@@ -2734,7 +2637,7 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 		material.metallic = 0.54
 	if role == "grass":
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	if role == "night_path" and built_floor == 2:
+	if role == "night_path" and _is_disc_layout():
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.emission_enabled = true
 		material.emission = Color("28453A")

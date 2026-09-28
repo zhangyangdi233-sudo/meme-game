@@ -43,7 +43,9 @@ func _run() -> void:
 			false,
 			composed.get("items", []),
 			[],
-			composed.get("display_names", {})
+			composed.get("display_names", {}),
+			[],
+			composed.get("layout", {})
 		)
 		var prop := _find_prerequisite_item(floor_root)
 		var item_id := str(expected["id"])
@@ -66,7 +68,9 @@ func _run() -> void:
 		false,
 		tape_plan.get("items", []),
 		[],
-		tape_plan.get("display_names", {})
+		tape_plan.get("display_names", {}),
+		[],
+		tape_plan.get("layout", {})
 	)
 	var swapped := _find_prerequisite_item(floor_root)
 	_assert_eq(int(floor_root.built_floor), 1, "swapping the listed prop should keep floor 1")

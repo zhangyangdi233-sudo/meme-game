@@ -1,6 +1,7 @@
 extends SceneTree
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
+const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 
 const TEST_PALETTE := {
@@ -36,7 +37,7 @@ func _run() -> void:
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	for floor_number in range(1, 6):
-		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
+		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events(), _layout_for(floor_number))
 		var event_root := _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
 		var sprite := _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
 		var cover := _find_node_by_name(floor_root, "WatcherCover") as StaticBody3D
@@ -69,7 +70,7 @@ func _run() -> void:
 	var vanished_floors: Array[int] = []
 	floor_root.cover_watcher_appeared.connect(func(floor_number: int) -> void: appeared_floors.append(floor_number))
 	floor_root.cover_watcher_vanished.connect(func(floor_number: int) -> void: vanished_floors.append(floor_number))
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events(), _layout_for(3))
 	var event_root := _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
 	var sprite := _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
 	var spawn := floor_root.start_position()
@@ -103,10 +104,10 @@ func _run() -> void:
 		floor_root.update_authored_events(1.0, near_position, Vector3(0.0, 0.0, -1.0))
 		_assert_eq(appeared_floors.size(), 1, "a vanished watcher must not reappear on the same floor")
 
-	floor_root.rebuild(3, TEST_PALETTE, {}, 2, false)
+	floor_root.rebuild(3, TEST_PALETTE, {}, 2, false, [], [], {}, [], _layout_for(3))
 	_assert_true(_find_node_by_name(floor_root, "CoverWatcherEvent") == null, "a floor with no cover watcher entry should not place the figure")
 	_assert_eq(int(floor_root.get_meta("cover_watcher_event_count", -1)), 0, "suppressed watcher state should be visible to scene tests")
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events())
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, _unseen_watcher_events(), _layout_for(3))
 	event_root = _find_node_by_name(floor_root, "CoverWatcherEvent") as Node3D
 	sprite = _find_node_by_name(floor_root, "CoverWatcherSprite") as Sprite3D
 	spawn = floor_root.start_position()
@@ -137,6 +138,12 @@ func _run() -> void:
 
 	floor_root.queue_free()
 	await process_frame
+
+
+func _layout_for(floor_number: int) -> Dictionary:
+	var clamped_floor := clampi(floor_number, 1, 4)
+	var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": clamped_floor}})
+	return composed.get("layout", {})
 
 
 func _unseen_watcher_events() -> Array:

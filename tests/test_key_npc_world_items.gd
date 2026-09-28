@@ -33,7 +33,7 @@ func _run() -> void:
 			"key_npc": texture,
 			"npcs": [texture],
 			"doll": doll_texture,
-		}, 1, false, composed.get("items", []), composed.get("people", []), composed.get("display_names", {}))
+		}, 1, false, composed.get("items", []), composed.get("people", []), composed.get("display_names", {}), [], composed.get("layout", {}))
 		var key_npc := _find_actor(floor_root, "key_npc")
 		_assert_true(key_npc != null, "floor %d should place one key NPC at the authored nearby test position" % floor_number)
 		_assert_true(_find_actor(floor_root, "merchant") == null, "floor %d should contain no merchant actor" % floor_number)

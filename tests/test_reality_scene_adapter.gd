@@ -57,6 +57,7 @@ func _run() -> void:
 	_test_floor_four_exit_follows_task_progress()
 	_test_other_floors_omit_ultimate_task_props()
 	_test_host_asks_adapter_to_sync_ultimate_task_props()
+	_test_adapter_does_not_ask_the_generator_for_counts()
 
 
 func _test_nearby_actor_returns_converse_outcome() -> void:
@@ -285,6 +286,22 @@ func _test_other_floors_omit_ultimate_task_props() -> void:
 	_assert_true(fake.get_node_or_null("FloorThreeSealedDoor") == null, "floor two should not raise the sealed door")
 	_assert_true(fake.get_node_or_null("FloorFourExitFrame") == null, "floor two should not raise the exit frame")
 	setup["host"].free()
+
+
+func _test_adapter_does_not_ask_the_generator_for_counts() -> void:
+	var adapter_source := FileAccess.get_file_as_string("res://scripts/world/reality_scene_adapter.gd")
+	_assert_true(
+		not adapter_source.contains("RealityFloorGeneratorScript.room_count_for_floor"),
+		"the adapter should not ask the floor generator for a room count"
+	)
+	_assert_true(
+		not adapter_source.contains("ordinary_npc_count"),
+		"the adapter should not ask the floor generator for a pedestrian count"
+	)
+	_assert_true(
+		adapter_source.contains("FloorComposerScript.compose"),
+		"room and pedestrian counts should be read from the floor composer"
+	)
 
 
 func _test_host_asks_adapter_to_sync_ultimate_task_props() -> void:
