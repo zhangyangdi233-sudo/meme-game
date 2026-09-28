@@ -122,9 +122,11 @@ static func district_style_for_floor(floor_number: int) -> String:
 
 
 func _street_for(floor_number: int, layout: Dictionary) -> Dictionary:
-	# Gallery stays on the floor-number path. A complete disc or shared street comes from the plan.
+	# A complete disc, gallery, or shared street comes from the plan. Anything else stays on the floor number.
 	if floor_number == 2 and _is_complete_layout(layout, "irregular_disc"):
 		return _street_from_layout(layout, "irregular_disc")
+	if floor_number == 3 and _is_complete_layout(layout, "skylit_overgrown_gallery"):
+		return _street_from_layout(layout, "skylit_overgrown_gallery")
 	if floor_number != 2 and floor_number != 3 and _is_complete_layout(layout, "shared_street"):
 		return _street_from_layout(layout, "shared_street")
 	return _street_from_floor_number(floor_number)

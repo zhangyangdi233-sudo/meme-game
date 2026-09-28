@@ -1,7 +1,8 @@
 extends SceneTree
 ## Floors one and four take a complete shared-street layout from the plan.
 ## Floor two takes a complete irregular-disc layout from the plan.
-## The gallery, and any incomplete layout, still come from the floor number.
+## Floor three takes a complete skylit gallery layout from the plan.
+## Any incomplete layout still comes from the floor number.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
@@ -76,6 +77,25 @@ func _run() -> void:
 	for floor_number in [3, 4]:
 		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
 		_assert_street(floor_root, CURRENT_STREETS[floor_number], "floor %d should ignore a disc layout" % floor_number)
+	var gallery_layout := {
+		"room_count": 5,
+		"shape": "skylit_overgrown_gallery",
+		"width": 50.0,
+		"length": 180.0,
+	}
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(gallery_layout))
+	_assert_street(floor_root, gallery_layout, "floor 3 should take its gallery from a skylit layout")
+	_assert_eq(_logical_room_count(floor_root), 5, "floor 3 rooms should follow the gallery layout")
+	_assert_true(floor_root.contains_playable_position(Vector3(20.0, 0.08, 0.0)), "a point inside the layout gallery should stay walkable")
+	_assert_true(not floor_root.contains_playable_position(Vector3(30.0, 0.08, 0.0)), "a point outside the layout gallery should stay outside")
+	_assert_walkable(floor_root, "floor 3 gallery layout")
+	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "natural_skylight", "a layout gallery should stay a daylight corridor")
+	_assert_true(bool(floor_root.get_meta("gallery_continuous", false)), "a layout gallery should stay one continuous corridor")
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, [], {"shape": "skylit_overgrown_gallery", "room_count": 5})
+	_assert_street(floor_root, CURRENT_STREETS[3], "an incomplete gallery layout should stay on the floor-number path")
+	for other_floor in [1, 2, 4]:
+		floor_root.rebuild(other_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(gallery_layout))
+		_assert_street(floor_root, CURRENT_STREETS[other_floor], "floor %d should ignore a gallery layout" % other_floor)
 	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[2]))
 	_assert_street(floor_root, CURRENT_STREETS[2], "floor 2 plan layout should keep today's disc")
 	_assert_eq(_logical_room_count(floor_root), 6, "floor 2 plan layout should keep today's six rooms")
@@ -94,6 +114,15 @@ func _run() -> void:
 			_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "open_daylight", "floor 1 atmosphere should stay open daylight")
 		else:
 			_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "slow_burn_suspense", "floor 4 should keep its existing street light")
+	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[3]))
+	_assert_street(floor_root, CURRENT_STREETS[3], "floor 3 plan layout should keep today's gallery")
+	_assert_eq(_logical_room_count(floor_root), 9, "floor 3 plan layout should keep today's nine rooms")
+	_assert_walkable(floor_root, "floor 3 plan layout")
+	_assert_true(floor_root.contains_playable_position(Vector3(10.0, 0.08, 0.0)), "today's gallery should still include the inner walk")
+	_assert_true(not floor_root.contains_playable_position(Vector3(30.0, 0.08, 0.0)), "today's gallery should still exclude the outer walk")
+	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "natural_skylight", "floor 3 should stay a daylight corridor")
+	_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "slow_burn_suspense", "floor 3 atmosphere should stay slow-burn suspense")
+	_assert_true(bool(floor_root.get_meta("gallery_continuous", false)), "floor 3 plan layout should stay one continuous corridor")
 	floor_root.free()
 	if _failures.is_empty():
 		print("floor layout tests passed")
