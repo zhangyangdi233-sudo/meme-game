@@ -17,6 +17,15 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
 
 
+func unmount() -> void:
+	if _parent != null and is_instance_valid(_parent):
+		var existing := _parent.get_node_or_null("EndingScreen")
+		if existing != null and is_instance_valid(existing):
+			existing.visible = false
+			existing.queue_free()
+	_parent = null
+
+
 func render(state: Dictionary) -> void:
 	if _parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return

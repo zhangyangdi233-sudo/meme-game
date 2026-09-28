@@ -502,12 +502,10 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_set_reality_mouse_look(false)
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
 	_session_world_data = world_data
-	# Leave the title mounted until main-menu exit. Prologue enter mounts the in-run scene itself.
+	# Leave the title mounted until main-menu exit. Prologue and ending enter mount the in-run scene.
 	if show_prologue:
 		_request_session_mode("prologue")
-	elif _request_ending_if_unlocked():
-		_mount_in_run_scene()
-	else:
+	elif not _request_ending_if_unlocked():
 		if session_mode() != "gameplay":
 			_request_session_mode("gameplay")
 		_mount_in_run_scene()
@@ -548,7 +546,6 @@ func show_main_menu() -> void:
 		_request_session_mode("main_menu")
 	if _locale.language_selected and not _camera_session_decided:
 		_build_camera_consent_overlay()
-	_apply_declared_screens()
 	_sync_audio_state(true)
 
 
@@ -1031,6 +1028,18 @@ func install_prologue_screen() -> void:
 func uninstall_prologue_screen() -> void:
 	if _prologue_panel != null and is_instance_valid(_prologue_panel):
 		_prologue_panel.unmount()
+
+
+func install_ending_screen() -> void:
+	# Continue from the title has no play chrome yet. An in-run unlock must not rebuild it.
+	if _view_toggle_button == null or not is_instance_valid(_view_toggle_button):
+		_mount_in_run_scene()
+	_render_ending()
+
+
+func uninstall_ending_screen() -> void:
+	if _ending_screen_panel != null and is_instance_valid(_ending_screen_panel):
+		_ending_screen_panel.unmount()
 
 
 func _set_key_action(action_name: StringName, keycodes: Array) -> void:
@@ -2945,15 +2954,6 @@ func _update_visibility() -> void:
 	_render_playtest_assist()
 	_update_doll_guide()
 	_layout_hud_rail()
-	_apply_declared_screens()
-
-
-func _apply_declared_screens() -> void:
-	# Play chrome is gated by _session_shows_play_chrome. Title and prologue are
-	# installed by those states. Ending still follows the declared screen set.
-	var ending := _ending_screen_control()
-	if ending != null:
-		ending.visible = _session_shows_screen("ending")
 
 
 func _ending_screen_control() -> Control:

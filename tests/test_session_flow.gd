@@ -183,8 +183,9 @@ func _run() -> void:
 	_assert_true(game_root._save_progress(), "an ending run should still save")
 	game_root.show_main_menu()
 	await process_frame
-	_assert_eq(game_root.session_mode(), "main_menu", "returning to title after continue should restore the main menu")
-	await _assert_world_hotkeys_inert(game_root, "title after continue")
+	_assert_eq(game_root.session_mode(), "main_menu", "returning to title after the ending should restore the main menu")
+	_assert_host_applied_screens(game_root, ["title"], "title after ending")
+	await _assert_world_hotkeys_inert(game_root, "title after ending")
 
 	_assert_true(game_root.continue_game(), "continue should load the ending-unlocked save")
 	await process_frame
@@ -202,6 +203,7 @@ func _run() -> void:
 		)
 
 	await _run_narrative_beat(game_root)
+	await _run_ending_screen_install(game_root)
 
 	game_root.queue_free()
 	await process_frame
@@ -278,6 +280,43 @@ func _run_narrative_beat(game_root) -> void:
 	await _assert_world_hotkeys_inert(game_root, "narrative beat ending")
 
 
+func _run_ending_screen_install(game_root) -> void:
+	game_root.new_game()
+	await process_frame
+	game_root._skip_prologue()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "ending install should start from gameplay")
+
+	game_root.game.ending_unlocked = true
+	_assert_true(game_root._request_session_mode("ending"), "requesting the ending should enter it")
+	await process_frame
+	_assert_eq(game_root.session_mode(), "ending", "entering the ending should set Session mode to ending")
+	_assert_host_applied_screens(game_root, ["ending"], "ending enter")
+	await _assert_world_hotkeys_inert(game_root, "ending enter")
+	await _assert_ending_overlay_eats_clicks(game_root)
+	var play_toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as CanvasItem
+	_assert_true(
+		play_toggle != null and not play_toggle.visible,
+		"entering the ending should leave play chrome mounted but hidden"
+	)
+
+	_assert_true(game_root._request_session_mode("gameplay"), "leaving the ending should exit that state")
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "leaving the ending for gameplay should restore gameplay")
+	_assert_true(
+		_find_node_by_name(game_root, "EndingScreen") == null,
+		"leaving the ending should unload the ending screen"
+	)
+
+	game_root._request_session_mode("ending")
+	await process_frame
+	game_root.show_main_menu()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "main_menu", "returning from the ending should set Session mode to the main menu")
+	_assert_host_applied_screens(game_root, ["title"], "title after ending install")
+	await _assert_world_hotkeys_inert(game_root, "title after ending install")
+
+
 func _assert_screen_set(game_root, expected: Array, label: String) -> void:
 	_assert_true(game_root.has_method("session_screen_set"), "adapter should expose the declared screen set")
 	if not game_root.has_method("session_screen_set"):
@@ -302,8 +341,8 @@ func _assert_screen_node(game_root, node_name: String, should_show: bool, label:
 	if should_show:
 		_assert_true(node != null and node.visible, "%s should show %s" % [label, node_name])
 		return
-	# Title and opening are installed on enter and unloaded on exit, so the node is gone.
-	if node_name == "MainMenuLayer" or node_name == "PrologueOverlay":
+	# Title, opening, and ending are installed on enter and unloaded on exit, so the node is gone.
+	if node_name == "MainMenuLayer" or node_name == "PrologueOverlay" or node_name == "EndingScreen":
 		_assert_true(node == null, "%s should unload %s" % [label, node_name])
 		return
 	_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])

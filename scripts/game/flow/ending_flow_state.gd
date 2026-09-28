@@ -1,8 +1,22 @@
 extends "res://framework/flow/flow_state.gd"
-## Ending screen. Declares only the ending; the host still shows and hides it. World hotkeys stay unloaded.
+## Ending screen. Enter installs it; exit unloads it. World hotkeys stay unloaded.
 
-func _init(_host: Node) -> void:
+var _host: Node
+
+
+func _init(host: Node) -> void:
 	id = "ending"
+	_host = host
+
+
+func enter() -> void:
+	if _host != null:
+		_host.install_ending_screen()
+
+
+func exit() -> void:
+	if _host != null:
+		_host.uninstall_ending_screen()
 
 
 func screen_set() -> PackedStringArray:
