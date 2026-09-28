@@ -174,6 +174,7 @@ var _master_volume := 80.0
 var _camera_session_decided := false
 var _phone_art_alpha := 0.0
 var _save_path := SAVE_PATH
+var _session_world_data: Dictionary = {}
 
 
 func _ensure_camera_session() -> void:
@@ -500,22 +501,28 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_reality_scene_adapter.reset_session_state()
 	_set_reality_mouse_look(false)
 	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
-	_build_world(not _ending_is_unlocked())
-	_restore_saved_world(world_data)
-	_build_ui()
-	if not show_prologue:
-		_skip_prologue()
+	_session_world_data = world_data
+	# Leave the title mounted until main-menu exit. Prologue enter mounts the in-run scene itself.
 	if show_prologue:
-		_set_reality_mouse_look(false)
 		_request_session_mode("prologue")
 	elif _request_ending_if_unlocked():
-		_set_reality_mouse_look(false)
+		_mount_in_run_scene()
 	else:
-		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
 		if session_mode() != "gameplay":
 			_request_session_mode("gameplay")
+		_mount_in_run_scene()
+	if not show_prologue:
+		_skip_prologue()
+	var look_in_world := session_mode() == "gameplay" and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
+	_set_reality_mouse_look(look_in_world)
 	_render()
 	_sync_audio_state(true)
+
+
+func _mount_in_run_scene() -> void:
+	_build_world(not _ending_is_unlocked())
+	_restore_saved_world(_session_world_data)
+	_build_ui()
 
 
 func show_main_menu() -> void:
@@ -533,8 +540,12 @@ func show_main_menu() -> void:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 		_reality_scene_adapter.clear_nearby_targets()
 	_set_reality_mouse_look(false)
+	var staying_on_title := session_mode() == "main_menu"
 	_build_world()
-	_request_session_mode("main_menu")
+	if staying_on_title:
+		install_title_screen()
+	else:
+		_request_session_mode("main_menu")
 	if _locale.language_selected and not _camera_session_decided:
 		_build_camera_consent_overlay()
 	_apply_declared_screens()
@@ -1013,6 +1024,7 @@ func uninstall_title_screen() -> void:
 
 
 func install_prologue_screen() -> void:
+	_mount_in_run_scene()
 	_build_prologue_overlay()
 
 
