@@ -1,5 +1,5 @@
 extends SceneTree
-## Each Session mode declares the screen set the player already sees. The host still applies it.
+## Each Session mode declares the screen set its enter installs. The host does not apply that set from the current mode string.
 
 const MainMenuFlowStateScript = preload("res://scripts/game/flow/main_menu_flow_state.gd")
 const PrologueFlowStateScript = preload("res://scripts/game/flow/prologue_flow_state.gd")

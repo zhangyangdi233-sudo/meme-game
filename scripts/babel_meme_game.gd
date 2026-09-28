@@ -170,6 +170,7 @@ var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
 var _flow: FlowManager
 var _play_screen_installed := false
+var _ending_screen_installed := false
 var _world_hotkeys_installed := false
 var _vhs_enabled := true
 var _master_volume := 80.0
@@ -329,7 +330,7 @@ func _process(delta: float) -> void:
 	if _camera == null:
 		return
 	if _game_started:
-		if session_mode() != "ending":
+		if not _ending_screen_installed:
 			_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
 		_apply_responsive_layouts_if_needed()
@@ -1045,6 +1046,7 @@ func uninstall_narrative_screen() -> void:
 
 func install_title_screen() -> void:
 	_build_main_menu()
+	_update_visibility()
 
 
 func uninstall_title_screen() -> void:
@@ -1065,13 +1067,16 @@ func uninstall_prologue_screen() -> void:
 
 
 func install_ending_screen() -> void:
+	_ending_screen_installed = true
 	# Continue from the title has no play chrome yet. An in-run unlock must not rebuild it.
 	if _view_toggle_button == null or not is_instance_valid(_view_toggle_button):
 		_mount_in_run_scene()
 	_render_ending()
+	_update_visibility()
 
 
 func uninstall_ending_screen() -> void:
+	_ending_screen_installed = false
 	if _ending_screen_panel != null and is_instance_valid(_ending_screen_panel):
 		_ending_screen_panel.unmount()
 
@@ -2575,7 +2580,7 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 
 
 func _refresh_phone_shell() -> void:
-	if session_mode() == "ending":
+	if _ending_screen_installed:
 		return
 	_render_app()
 	_update_phone_shell_visibility()
@@ -2583,7 +2588,7 @@ func _refresh_phone_shell() -> void:
 
 
 func _refresh_reality_hud() -> void:
-	if session_mode() == "ending":
+	if _ending_screen_installed:
 		return
 	_render_world_prompt()
 	_render_reality()
@@ -2591,7 +2596,7 @@ func _refresh_reality_hud() -> void:
 
 
 func _refresh_ending() -> void:
-	if session_mode() != "ending":
+	if not _ending_screen_installed:
 		return
 	_render_ending()
 	_update_visibility()
@@ -2601,7 +2606,7 @@ func _refresh_ending() -> void:
 
 
 func _refresh_play_surfaces() -> void:
-	if session_mode() == "ending":
+	if _ending_screen_installed:
 		return
 	_ensure_reality_floor_current()
 	if _reality_scene_adapter != null:
@@ -2634,7 +2639,7 @@ func _apply_phone_shell_theme() -> void:
 func _render() -> void:
 	if _world_hotkeys_installed:
 		_request_ending_if_unlocked()
-	if session_mode() == "ending":
+	if _ending_screen_installed:
 		_refresh_ending()
 		return
 	_refresh_play_surfaces()
@@ -3323,7 +3328,6 @@ func _request_session_mode(id: String) -> bool:
 	var changed := _flow.transition_to(id)
 	if changed:
 		_sync_window_manager_enabled()
-		_update_visibility()
 	return changed
 
 
