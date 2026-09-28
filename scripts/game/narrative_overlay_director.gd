@@ -25,6 +25,7 @@ var _host: Node
 var _deps: Dictionary = {}
 var _beat = null
 var _beat_settlement: Dictionary = {}
+var _installed_presentation := false
 
 
 func attach_to(host: Node) -> void:
@@ -38,12 +39,34 @@ func apply_deps(deps: Dictionary) -> void:
 		_deps = deps
 
 
+func present_installed_screen() -> void:
+	_installed_presentation = true
+	_play_beat_segment()
+
+
+func consume_installed_presentation() -> bool:
+	var presented := _installed_presentation
+	_installed_presentation = false
+	return presented
+
+
+func dismiss_installed_screen() -> void:
+	kill_day_transition_tween()
+	if action_spend_panel != null and is_instance_valid(action_spend_panel):
+		action_spend_panel.finish()
+	if day_transition_panel != null and is_instance_valid(day_transition_panel):
+		day_transition_panel.hide_overlay()
+	if flashback_panel != null and is_instance_valid(flashback_panel):
+		flashback_panel.stop()
+
+
 func reset_session() -> void:
 	if action_spend_panel != null and is_instance_valid(action_spend_panel):
 		action_spend_panel.reset_state()
 	day_transition_settled = false
 	_beat = null
 	_beat_settlement = {}
+	_installed_presentation = false
 	kill_day_transition_tween()
 
 
@@ -103,7 +126,8 @@ func play_beat(settlement: Dictionary, ending_unlocked: bool) -> void:
 		_beat_settlement = {}
 		return
 	_request_narrative()
-	_play_beat_segment()
+	if not consume_installed_presentation():
+		_play_beat_segment()
 
 
 func play_action_spend_animation(before_actions: int, after_actions: int) -> void:

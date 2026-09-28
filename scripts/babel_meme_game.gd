@@ -1035,22 +1035,12 @@ func _play_chrome_is_live() -> bool:
 
 func install_narrative_screen() -> void:
 	_bind_narrative_director()
+	_narrative_director.present_installed_screen()
 
 
 func uninstall_narrative_screen() -> void:
-	_hide_installed_narrative_overlays()
-
-
-func _hide_installed_narrative_overlays() -> void:
-	if _narrative_director == null:
-		return
-	_narrative_director.kill_day_transition_tween()
-	if _narrative_director.action_spend_panel != null and is_instance_valid(_narrative_director.action_spend_panel):
-		_narrative_director.action_spend_panel.finish()
-	if _narrative_director.day_transition_panel != null and is_instance_valid(_narrative_director.day_transition_panel):
-		_narrative_director.day_transition_panel.hide_overlay()
-	if _narrative_director.flashback_panel != null and is_instance_valid(_narrative_director.flashback_panel):
-		_narrative_director.flashback_panel.stop()
+	if _narrative_director != null:
+		_narrative_director.dismiss_installed_screen()
 
 
 func install_title_screen() -> void:
