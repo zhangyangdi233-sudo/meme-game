@@ -1,6 +1,7 @@
 extends SceneTree
 ## Floors one and four take a complete shared-street layout from the plan.
-## Disc and gallery floors, and any incomplete layout, still come from the floor number.
+## Floor two takes a complete irregular-disc layout from the plan.
+## The gallery, and any incomplete layout, still come from the floor number.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
@@ -58,6 +59,31 @@ func _run() -> void:
 	for numbered_floor in [2, 3]:
 		floor_root.rebuild(numbered_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(layout_street))
 		_assert_street(floor_root, CURRENT_STREETS[numbered_floor], "floor %d should keep the floor-number street" % numbered_floor)
+	var disc_layout := {
+		"room_count": 8,
+		"shape": "irregular_disc",
+		"width": 120.0,
+		"length": 140.0,
+	}
+	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
+	_assert_street(floor_root, disc_layout, "floor 2 should take its disc from an irregular-disc layout")
+	_assert_eq(_logical_room_count(floor_root), 8, "floor 2 rooms should follow the irregular-disc layout")
+	_assert_true(floor_root.contains_playable_position(Vector3(20.0, 0.08, 0.0)), "a point inside the layout disc should stay walkable")
+	_assert_true(not floor_root.contains_playable_position(Vector3(100.0, 0.08, 0.0)), "a point outside the layout disc should stay outside")
+	_assert_disc_walkable(floor_root, "floor 2 disc layout")
+	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], {"shape": "irregular_disc", "room_count": 8})
+	_assert_street(floor_root, CURRENT_STREETS[2], "an incomplete disc layout should stay on the floor-number path")
+	for floor_number in [3, 4]:
+		floor_root.rebuild(floor_number, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
+		_assert_street(floor_root, CURRENT_STREETS[floor_number], "floor %d should ignore a disc layout" % floor_number)
+	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[2]))
+	_assert_street(floor_root, CURRENT_STREETS[2], "floor 2 plan layout should keep today's disc")
+	_assert_eq(_logical_room_count(floor_root), 6, "floor 2 plan layout should keep today's six rooms")
+	_assert_disc_walkable(floor_root, "floor 2 plan layout")
+	_assert_true(floor_root.contains_playable_position(Vector3(100.0, 0.08, 0.0)), "today's disc should still include the inner clearing")
+	_assert_true(not floor_root.contains_playable_position(Vector3(200.0, 0.08, 0.0)), "today's disc should still exclude the outer clearing")
+	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "near_black_disc", "floor 2 should keep its near-black disc light")
+	_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "slow_burn_suspense", "floor 2 atmosphere should stay slow-burn suspense")
 	for street_floor in [1, 4]:
 		floor_root.rebuild(street_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[street_floor]))
 		_assert_street(floor_root, CURRENT_STREETS[street_floor], "floor %d plan layout should keep today's street" % street_floor)
@@ -98,6 +124,13 @@ func _assert_walkable(floor_root, message: String) -> void:
 	_assert_true(floor_root.contains_playable_position(floor_root.start_position()), "%s should keep the start inside the street" % message)
 	var ground := floor_root.find_child("StreetGround", true, false) as StaticBody3D
 	_assert_true(ground != null and ground.get_node_or_null("Collision") != null, "%s should keep a walkable ground" % message)
+
+
+func _assert_disc_walkable(floor_root, message: String) -> void:
+	_assert_true(floor_root.contains_playable_position(floor_root.start_position()), "%s should keep the start inside the disc" % message)
+	_assert_true(floor_root.contains_playable_position(Vector3.ZERO), "%s should keep the center walkable" % message)
+	var ground := floor_root.find_child("IrregularDiscGround", true, false) as StaticBody3D
+	_assert_true(ground != null and ground.get_node_or_null("Collision") != null, "%s should keep a walkable disc" % message)
 
 
 func _assert_street(floor_root: Node, expected: Dictionary, message: String) -> void:

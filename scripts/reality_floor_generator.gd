@@ -95,6 +95,8 @@ var ordinary_npc_count: int = 0
 var useful_item_count: int = 0
 var map_width: float = MIN_MAP_WIDTH
 var map_length: float = MIN_MAP_LENGTH
+var _disc_radius_x := FLOOR_TWO_DISC_RADIUS_X
+var _disc_radius_z := FLOOR_TWO_DISC_RADIUS_Z
 var district_style := DISTRICT_STYLES[0]
 var _actors: Array[Area3D] = []
 var _items: Array[Area3D] = []
@@ -120,20 +122,26 @@ static func district_style_for_floor(floor_number: int) -> String:
 
 
 func _street_for(floor_number: int, layout: Dictionary) -> Dictionary:
-	# Disc and gallery stay on the floor-number path. A shared street comes from the plan.
-	if floor_number != 2 and floor_number != 3 and _is_complete_shared_street(layout):
-		var map_size: Dictionary = layout.get("map_size", {})
-		return {
-			"room_count": int(layout.get("room_count", 0)),
-			"shape": "shared_street",
-			"map_width": float(map_size.get("width", 0.0)),
-			"map_length": float(map_size.get("length", 0.0)),
-		}
+	# Gallery stays on the floor-number path. A complete disc or shared street comes from the plan.
+	if floor_number == 2 and _is_complete_layout(layout, "irregular_disc"):
+		return _street_from_layout(layout, "irregular_disc")
+	if floor_number != 2 and floor_number != 3 and _is_complete_layout(layout, "shared_street"):
+		return _street_from_layout(layout, "shared_street")
 	return _street_from_floor_number(floor_number)
 
 
-func _is_complete_shared_street(layout: Dictionary) -> bool:
-	if str(layout.get("shape", "")) != "shared_street":
+func _street_from_layout(layout: Dictionary, shape: String) -> Dictionary:
+	var map_size: Dictionary = layout.get("map_size", {})
+	return {
+		"room_count": int(layout.get("room_count", 0)),
+		"shape": shape,
+		"map_width": float(map_size.get("width", 0.0)),
+		"map_length": float(map_size.get("length", 0.0)),
+	}
+
+
+func _is_complete_layout(layout: Dictionary, shape: String) -> bool:
+	if str(layout.get("shape", "")) != shape:
 		return false
 	var room_count_value = layout.get("room_count", null)
 	if not (room_count_value is int or room_count_value is float):
@@ -143,6 +151,14 @@ func _is_complete_shared_street(layout: Dictionary) -> bool:
 		return false
 	var size: Dictionary = map_size
 	return size.has("width") and size.has("length")
+
+
+func _apply_disc_extent(street: Dictionary) -> void:
+	if str(street.get("shape", "")) != "irregular_disc":
+		return
+	# The plan's map size is the disc's bounding box, radius plus the fixed rim and margin.
+	_disc_radius_x = float(street["map_width"]) * 0.5 - FLOOR_TWO_DISC_IRREGULARITY - FLOOR_TWO_DISC_MAP_MARGIN
+	_disc_radius_z = float(street["map_length"]) * 0.5 - FLOOR_TWO_DISC_IRREGULARITY - FLOOR_TWO_DISC_MAP_MARGIN
 
 
 func _street_from_floor_number(floor_number: int) -> Dictionary:
@@ -190,6 +206,7 @@ func rebuild(
 	useful_item_count = 0
 	map_width = float(street["map_width"])
 	map_length = float(street["map_length"])
+	_apply_disc_extent(street)
 	set_meta("built_floor", built_floor)
 	set_meta("room_count", room_count)
 	set_meta("logical_room_count", room_count)
@@ -862,8 +879,8 @@ func _floor_two_disc_point(angle: float, radial_ratio: float = 1.0) -> Vector3:
 	var cosine := cos(angle)
 	var sine := sin(angle)
 	var ellipse_radius := 1.0 / sqrt(
-		(cosine * cosine) / (FLOOR_TWO_DISC_RADIUS_X * FLOOR_TWO_DISC_RADIUS_X)
-		+ (sine * sine) / (FLOOR_TWO_DISC_RADIUS_Z * FLOOR_TWO_DISC_RADIUS_Z)
+		(cosine * cosine) / (_disc_radius_x * _disc_radius_x)
+		+ (sine * sine) / (_disc_radius_z * _disc_radius_z)
 	)
 	var boundary_radius := ellipse_radius + _floor_two_disc_irregularity(angle)
 	var x := cosine * boundary_radius * safe_ratio
@@ -1117,8 +1134,8 @@ func _build_floor_two_disc_ground(parent: Node3D, palette: Dictionary) -> void:
 	set_meta("terrain_profile", "undulating_irregular_disc")
 	set_meta("disc_angular_segment_count", FLOOR_TWO_DISC_SEGMENTS)
 	set_meta("disc_radial_segment_count", FLOOR_TWO_DISC_RADIAL_SEGMENTS)
-	set_meta("disc_radius_x", FLOOR_TWO_DISC_RADIUS_X)
-	set_meta("disc_radius_z", FLOOR_TWO_DISC_RADIUS_Z)
+	set_meta("disc_radius_x", _disc_radius_x)
+	set_meta("disc_radius_z", _disc_radius_z)
 	set_meta("disc_height_variation", max_height - min_height)
 	set_meta("disc_mound_count", FLOOR_TWO_HILL_MOUNDS.size())
 
