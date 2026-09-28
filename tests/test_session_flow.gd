@@ -299,11 +299,14 @@ func _assert_host_applied_screens(game_root, expected: Array, label: String) -> 
 
 func _assert_screen_node(game_root, node_name: String, should_show: bool, label: String) -> void:
 	var node := _find_node_by_name(game_root, node_name) as CanvasItem
-	var showing := node != null and node.visible
 	if should_show:
-		_assert_true(showing, "%s should show %s" % [label, node_name])
-	else:
-		_assert_true(not showing, "%s should hide %s" % [label, node_name])
+		_assert_true(node != null and node.visible, "%s should show %s" % [label, node_name])
+		return
+	# Title and opening are installed on enter and unloaded on exit, so the node is gone.
+	if node_name == "MainMenuLayer" or node_name == "PrologueOverlay":
+		_assert_true(node == null, "%s should unload %s" % [label, node_name])
+		return
+	_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])
 
 
 func _assert_gameplay_phone_toggle_click(game_root) -> void:

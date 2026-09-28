@@ -86,7 +86,7 @@ func _run() -> void:
 	_assert_true(planar_error < 0.05, "Continue should return the player to the saved world position (got %s)" % str(restored_position))
 	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
 	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
-	_assert_true(prologue != null and not prologue.visible, "Continue should not replay the prologue")
+	_assert_true(prologue == null, "Continue should not replay the prologue")
 	game_root.queue_free()
 	await process_frame
 

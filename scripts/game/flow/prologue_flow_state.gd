@@ -1,8 +1,22 @@
 extends "res://framework/flow/flow_state.gd"
-## Opening transmission. Declares the opening and the play chrome under it. The host still applies that set.
+## Opening transmission. Enter installs the opening; exit unloads it. Play chrome stays declared underneath.
 
-func _init(_host: Node) -> void:
+var _host: Node
+
+
+func _init(host: Node) -> void:
 	id = "prologue"
+	_host = host
+
+
+func enter() -> void:
+	if _host != null:
+		_host.install_prologue_screen()
+
+
+func exit() -> void:
+	if _host != null:
+		_host.uninstall_prologue_screen()
 
 
 func screen_set() -> PackedStringArray:

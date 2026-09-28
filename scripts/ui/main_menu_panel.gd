@@ -23,6 +23,14 @@ func get_layer() -> Control:
 	return _main_menu_layer
 
 
+func unmount() -> void:
+	if _main_menu_layer != null and is_instance_valid(_main_menu_layer):
+		_main_menu_layer.visible = false
+		_main_menu_layer.queue_free()
+	_main_menu_layer = null
+	_continue_button = null
+
+
 func refresh_continue_state() -> void:
 	if _continue_button == null or not is_instance_valid(_continue_button):
 		return

@@ -533,9 +533,8 @@ func show_main_menu() -> void:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 		_reality_scene_adapter.clear_nearby_targets()
 	_set_reality_mouse_look(false)
-	_request_session_mode("main_menu")
 	_build_world()
-	_build_main_menu()
+	_request_session_mode("main_menu")
 	if _locale.language_selected and not _camera_session_decided:
 		_build_camera_consent_overlay()
 	_apply_declared_screens()
@@ -1004,6 +1003,24 @@ func uninstall_world_hotkeys() -> void:
 	_clear_reality_input_map()
 
 
+func install_title_screen() -> void:
+	_build_main_menu()
+
+
+func uninstall_title_screen() -> void:
+	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
+		_main_menu_panel.unmount()
+
+
+func install_prologue_screen() -> void:
+	_build_prologue_overlay()
+
+
+func uninstall_prologue_screen() -> void:
+	if _prologue_panel != null and is_instance_valid(_prologue_panel):
+		_prologue_panel.unmount()
+
+
 func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 	if not InputMap.has_action(action_name):
 		InputMap.add_action(action_name)
@@ -1155,6 +1172,10 @@ func _pollution_stage_snapshot() -> Dictionary:
 func _build_main_menu() -> void:
 	if _canvas == null:
 		return
+	# The play canvas is gone. Drop window refs before the next visibility pass.
+	_app_windows.clear()
+	_app_titles.clear()
+	_app_bodies.clear()
 	for child in _canvas.get_children():
 		child.queue_free()
 
@@ -1195,7 +1216,7 @@ func _on_language_selected(locale_code: String) -> void:
 	if _session_is_in_run():
 		_render()
 	else:
-		_build_main_menu()
+		install_title_screen()
 		if not _camera_session_decided:
 			_build_camera_consent_overlay()
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
@@ -1397,7 +1418,6 @@ func _build_ui() -> void:
 	_build_pickup_flight_layer()
 	_build_doll_guide_overlay()
 	_narrative_director.build_flashback_overlay()
-	_build_prologue_overlay()
 	_apply_responsive_layouts_if_needed(true)
 
 
@@ -1428,13 +1448,13 @@ func _build_prologue_overlay() -> void:
 
 
 func _advance_prologue() -> void:
-	if _prologue_panel == null:
+	if _prologue_panel == null or not is_instance_valid(_prologue_panel):
 		return
 	_prologue_panel.advance()
 
 
 func _skip_prologue() -> void:
-	if _prologue_panel == null:
+	if _prologue_panel == null or not is_instance_valid(_prologue_panel):
 		return
 	_prologue_panel.skip()
 
@@ -2917,19 +2937,11 @@ func _update_visibility() -> void:
 
 
 func _apply_declared_screens() -> void:
-	# Play chrome is the many in-run controls gated by _session_shows_play_chrome.
-	# Narrative overlays stay with the director; this only switches the single full-screen controls.
+	# Play chrome is gated by _session_shows_play_chrome. Title and prologue are
+	# installed by those states. Ending still follows the declared screen set.
 	var ending := _ending_screen_control()
 	if ending != null:
 		ending.visible = _session_shows_screen("ending")
-	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
-		var title := _main_menu_panel.get_layer() as CanvasItem
-		if title != null and is_instance_valid(title):
-			title.visible = _session_shows_screen("title")
-	if _prologue_panel != null and is_instance_valid(_prologue_panel):
-		var prologue := _prologue_panel.get_overlay() as CanvasItem
-		if prologue != null and is_instance_valid(prologue):
-			prologue.visible = _session_shows_screen("prologue")
 
 
 func _ending_screen_control() -> Control:

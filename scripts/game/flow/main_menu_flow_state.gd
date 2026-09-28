@@ -1,8 +1,22 @@
 extends "res://framework/flow/flow_state.gd"
-## Title screen. Declares the title; the host still shows and hides it. World hotkeys stay unloaded.
+## Title screen. Enter installs the title; exit unloads it. World hotkeys stay unloaded.
 
-func _init(_host: Node) -> void:
+var _host: Node
+
+
+func _init(host: Node) -> void:
 	id = "main_menu"
+	_host = host
+
+
+func enter() -> void:
+	if _host != null:
+		_host.install_title_screen()
+
+
+func exit() -> void:
+	if _host != null:
+		_host.uninstall_title_screen()
 
 
 func screen_set() -> PackedStringArray:

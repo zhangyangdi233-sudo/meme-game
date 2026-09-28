@@ -30,6 +30,16 @@ func get_overlay() -> Control:
 	return _prologue_overlay
 
 
+func unmount() -> void:
+	if _prologue_overlay != null and is_instance_valid(_prologue_overlay):
+		_prologue_overlay.visible = false
+		_prologue_overlay.queue_free()
+	_prologue_overlay = null
+	_prologue_line_label = null
+	_prologue_counter_label = null
+	_prologue_continue_button = null
+
+
 func advance() -> void:
 	if _prologue_overlay == null or not _prologue_overlay.visible:
 		return
