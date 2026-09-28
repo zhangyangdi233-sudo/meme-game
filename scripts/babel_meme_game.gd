@@ -169,6 +169,8 @@ var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
 var _flow: FlowManager
+var _play_screen_installed := false
+var _world_hotkeys_installed := false
 var _vhs_enabled := true
 var _master_volume := 80.0
 var _camera_session_decided := false
@@ -342,13 +344,13 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if session_mode() != "gameplay" or _reality_scene_adapter == null or not bool(_reality_scene_adapter.pose().get("has_player", false)):
+	if not _world_hotkeys_installed or _reality_scene_adapter == null or not bool(_reality_scene_adapter.pose().get("has_player", false)):
 		return
 	_update_reality_player(delta)
 
 
 func _input(event: InputEvent) -> void:
-	if session_mode() != "gameplay":
+	if not _world_hotkeys_installed:
 		_reality_touch_look_index = -1
 		return
 	if _edge_drawer != null and _edge_drawer.handle_global_input(event):
@@ -511,7 +513,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 		_mount_in_run_scene()
 	if not show_prologue:
 		_skip_prologue()
-	var look_in_world := session_mode() == "gameplay" and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
+	var look_in_world := _world_hotkeys_installed and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
 	_set_reality_mouse_look(look_in_world)
 	_render()
 	_sync_audio_state(true)
@@ -1004,11 +1006,51 @@ func _clear_reality_input_map() -> void:
 
 
 func install_world_hotkeys() -> void:
+	_world_hotkeys_installed = true
 	_ensure_reality_input_map()
+	_sync_window_manager_enabled()
 
 
 func uninstall_world_hotkeys() -> void:
+	_world_hotkeys_installed = false
 	_clear_reality_input_map()
+	_sync_window_manager_enabled()
+
+
+func install_play_screen() -> void:
+	_play_screen_installed = true
+	if _play_chrome_is_live():
+		_update_visibility()
+
+
+func uninstall_play_screen() -> void:
+	_play_screen_installed = false
+	if _play_chrome_is_live():
+		_update_visibility()
+
+
+func _play_chrome_is_live() -> bool:
+	return _view_toggle_button != null and is_instance_valid(_view_toggle_button)
+
+
+func install_narrative_screen() -> void:
+	_bind_narrative_director()
+
+
+func uninstall_narrative_screen() -> void:
+	_hide_installed_narrative_overlays()
+
+
+func _hide_installed_narrative_overlays() -> void:
+	if _narrative_director == null:
+		return
+	_narrative_director.kill_day_transition_tween()
+	if _narrative_director.action_spend_panel != null and is_instance_valid(_narrative_director.action_spend_panel):
+		_narrative_director.action_spend_panel.finish()
+	if _narrative_director.day_transition_panel != null and is_instance_valid(_narrative_director.day_transition_panel):
+		_narrative_director.day_transition_panel.hide_overlay()
+	if _narrative_director.flashback_panel != null and is_instance_valid(_narrative_director.flashback_panel):
+		_narrative_director.flashback_panel.stop()
 
 
 func install_title_screen() -> void:
@@ -1023,11 +1065,13 @@ func uninstall_title_screen() -> void:
 func install_prologue_screen() -> void:
 	_mount_in_run_scene()
 	_build_prologue_overlay()
+	install_play_screen()
 
 
 func uninstall_prologue_screen() -> void:
 	if _prologue_panel != null and is_instance_valid(_prologue_panel):
 		_prologue_panel.unmount()
+	uninstall_play_screen()
 
 
 func install_ending_screen() -> void:
@@ -1600,7 +1644,7 @@ func _ensure_edge_drawer() -> void:
 
 func _sync_edge_drawer_enabled() -> void:
 	if _edge_drawer != null:
-		_edge_drawer.enabled = session_mode() == "gameplay"
+		_edge_drawer.enabled = _world_hotkeys_installed
 
 
 func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: String) -> Label:
@@ -2598,7 +2642,7 @@ func _apply_phone_shell_theme() -> void:
 
 
 func _render() -> void:
-	if session_mode() == "gameplay":
+	if _world_hotkeys_installed:
 		_request_ending_if_unlocked()
 	if session_mode() == "ending":
 		_refresh_ending()
@@ -3183,7 +3227,7 @@ func _ensure_window_manager() -> void:
 
 func _sync_window_manager_enabled() -> void:
 	if _window_manager != null:
-		_window_manager.enabled = session_mode() == "gameplay"
+		_window_manager.enabled = _world_hotkeys_installed
 	_sync_edge_drawer_enabled()
 
 
@@ -3260,11 +3304,7 @@ func _session_is_in_run() -> bool:
 
 
 func _session_shows_play_chrome() -> bool:
-	return _session_shows_screen("play")
-
-
-func _session_shows_screen(screen_id: String) -> bool:
-	return screen_id in session_screen_set()
+	return _play_screen_installed
 
 
 func session_screen_set() -> PackedStringArray:
@@ -3314,7 +3354,7 @@ func _complete_narrative_beat(exit_mode: String) -> void:
 		_request_session_mode("ending")
 		_refresh_ending()
 		return
-	if session_mode() == "narrative":
+	if exit_mode == "gameplay":
 		_request_session_mode("gameplay")
 	_refresh_play_surfaces()
 
