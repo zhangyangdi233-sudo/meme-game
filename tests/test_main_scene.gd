@@ -44,6 +44,24 @@ func _test_main_menu(game_root: Node) -> void:
 	_assert_true(main_menu != null and main_menu.visible, "launch should expose the main menu")
 	_assert_true(start_button != null, "main menu should expose start")
 	_assert_true(exit_button != null, "main menu should retain a direct system exit")
+	exit_button.pressed.emit()
+	var confirmation := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
+	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation")
+	game_root._cancel_quit_game()
+	var language_button := _find_node_by_name(game_root, "MainMenuLanguageButton") as Button
+	language_button.pressed.emit()
+	_assert_true(_find_node_by_name(game_root, "LanguageSelectionOverlay") != null, "language should still open the picker")
+	game_root._close_language_selection_overlay()
+	var ui_root := _find_node_by_name(game_root, "UIRoot") as Control
+	var sibling := Control.new()
+	sibling.name = "UiLayerSibling"
+	ui_root.add_child(sibling)
+	var menu_id := main_menu.get_instance_id()
+	game_root.uninstall_title_screen()
+	_assert_true(is_instance_valid(main_menu) and not main_menu.visible, "leaving the title should hide the same menu")
+	game_root.install_title_screen()
+	_assert_true(main_menu.get_instance_id() == menu_id and main_menu.visible, "re-entering the title should reuse the same menu")
+	_assert_true(is_instance_valid(sibling) and sibling.get_parent() == ui_root, "re-entering the title should keep other UI layer children")
 
 
 func _test_scene_contract(game_root: Node) -> void:

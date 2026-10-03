@@ -13,7 +13,9 @@ const DraggableWindowManagerScript = preload("res://framework/ui/draggable_windo
 const EdgeDrawerScript = preload("res://framework/ui/edge_drawer.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
-const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
+const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const MainMenuScreenScript = preload("res://scripts/ui/main_menu_screen.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
@@ -126,7 +128,8 @@ var _apple_hud_panel
 var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
-var _main_menu_panel: MainMenuPanel
+var _screen_manager: ScreenManager
+var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
 var _prologue_panel: ProloguePanel
 var _camera_consent_panel: CameraConsentPanel
@@ -949,8 +952,10 @@ func _build_world(build_playable_floor: bool = true) -> void:
 	if _phone_camera_connection_panel != null:
 		_phone_camera_connection_panel.close()
 	_phone_camera_connection_panel = null
+	if _screen_manager != null and is_instance_valid(_screen_manager):
+		_screen_manager.retain()
 	for child in get_children():
-		if child == _reality_scene_adapter or child == _narrative_director:
+		if child == _reality_scene_adapter or child == _narrative_director or child == _screen_manager:
 			continue
 		remove_child(child)
 		child.free()
@@ -970,6 +975,7 @@ func _build_world(build_playable_floor: bool = true) -> void:
 	_canvas = CanvasLayer.new()
 	_canvas.name = "CanvasLayer"
 	add_child(_canvas)
+	_ui_root = null
 	_ensure_audio_controller()
 	_audio_controller.build_players(_audio_controller_deps())
 
@@ -1045,13 +1051,28 @@ func uninstall_narrative_screen() -> void:
 
 
 func install_title_screen() -> void:
-	_build_main_menu()
+	if _canvas == null:
+		return
+	# Play windows lived on the previous canvas. Drop the refs before the next visibility pass.
+	_app_windows.clear()
+	_app_titles.clear()
+	_app_bodies.clear()
+	_ensure_title_ui_root()
+	_ensure_screen_manager()
+	_screen_manager.open(MainMenuScreenScript, _canvas, {
+		"palette": _ui_theme_helper.active_palette(),
+		"has_save": _has_save_progress(),
+	})
+	_apply_ui_theme()
+	_ui_theme_helper.refresh_localized_ui(_ui_root)
+	_ensure_settings_history_panel()
+	_settings_history_panel.build_exit_confirmation_overlay(_ui_root, _settings_history_mount_deps())
 	_update_visibility()
 
 
 func uninstall_title_screen() -> void:
-	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
-		_main_menu_panel.unmount()
+	if _screen_manager != null and is_instance_valid(_screen_manager):
+		_screen_manager.close(MainMenuScreenScript)
 
 
 func install_prologue_screen() -> void:
@@ -1229,29 +1250,16 @@ func _pollution_stage_snapshot() -> Dictionary:
 	return PollutionStageScript.stage(int(progress.get("pollution", 0)), int(progress.get("day", 1)))
 
 
-func _build_main_menu() -> void:
+func _ensure_title_ui_root() -> void:
 	if _canvas == null:
 		return
-	# The play canvas is gone. Drop window refs before the next visibility pass.
-	_app_windows.clear()
-	_app_titles.clear()
-	_app_bodies.clear()
-	for child in _canvas.get_children():
-		child.queue_free()
-
+	if _ui_root != null and is_instance_valid(_ui_root):
+		return
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_ui_theme_helper.apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
-
-	_ensure_main_menu_panel()
-	_main_menu_panel.mount(_ui_root, _main_menu_mount_deps())
-
-	_apply_ui_theme()
-	_ui_theme_helper.refresh_localized_ui(_ui_root)
-	_ensure_settings_history_panel()
-	_settings_history_panel.build_exit_confirmation_overlay(_ui_root, _settings_history_mount_deps())
 
 
 func _build_language_selection_overlay(first_run: bool = false) -> void:
@@ -1776,38 +1784,26 @@ func _layout_settings_window() -> void:
 	_settings_history_panel.layout_settings(_viewport_size())
 
 
-func _ensure_main_menu_panel() -> void:
-	if _main_menu_panel != null and is_instance_valid(_main_menu_panel):
+func _ensure_screen_manager() -> void:
+	if _screen_manager != null and is_instance_valid(_screen_manager):
 		return
-	_main_menu_panel = MainMenuPanelScript.new()
-	_main_menu_panel.name = "MainMenuPanel"
-	add_child(_main_menu_panel)
-	_connect_main_menu_panel_signals()
+	_ui_event_bus = GameEventBusScript.new()
+	_ui_event_bus.intent_emitted.connect(_on_ui_intent)
+	_screen_manager = ScreenManagerScript.new(_ui_event_bus)
+	_screen_manager.name = "ScreenManager"
+	add_child(_screen_manager)
 
 
-func _main_menu_mount_deps() -> Dictionary:
-	return {
-		"active_palette": _ui_theme_helper.active_palette,
-		"has_save": _has_save_progress,
-	}
-
-
-func _connect_main_menu_panel_signals() -> void:
-	var panel := _main_menu_panel
-	if panel == null:
-		return
-	if not panel.start_game_requested.is_connected(new_game):
-		panel.start_game_requested.connect(new_game, CONNECT_DEFERRED)
-	if not panel.continue_game_requested.is_connected(continue_game):
-		panel.continue_game_requested.connect(continue_game, CONNECT_DEFERRED)
-	if not panel.exit_game_requested.is_connected(_request_quit_game):
-		panel.exit_game_requested.connect(_request_quit_game)
-	if not panel.language_picker_requested.is_connected(_on_main_menu_language_picker_requested):
-		panel.language_picker_requested.connect(_on_main_menu_language_picker_requested)
-
-
-func _on_main_menu_language_picker_requested() -> void:
-	_build_language_selection_overlay(false)
+func _on_ui_intent(intent_name: String) -> void:
+	match intent_name:
+		"start_game":
+			new_game.call_deferred()
+		"continue_game":
+			continue_game.call_deferred()
+		"exit_game":
+			_request_quit_game()
+		"language_picker":
+			_build_language_selection_overlay(false)
 
 
 func _ensure_language_selection_panel() -> void:

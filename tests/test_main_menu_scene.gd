@@ -1,7 +1,9 @@
 extends SceneTree
 ## Main menu layout scene: node contract, palette roles under both palettes, and isolation from the global UI theme walk.
 
-const MainMenuPanelScript = preload("res://scripts/ui/main_menu_panel.gd")
+const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const MainMenuScreenScript = preload("res://scripts/ui/main_menu_screen.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -30,7 +32,6 @@ func _run() -> void:
 	_test_global_theme_walk_skips_menu()
 	_test_misspelled_palette_role_is_reported()
 	_test_off_grid_font_size_is_reported()
-	_test_language_button_emits_intent()
 
 
 func _test_palettes_define_menu_bg() -> void:
@@ -42,8 +43,7 @@ func _test_palettes_define_menu_bg() -> void:
 func _test_mount_keeps_node_contract() -> void:
 	var mounted := _mount({}, false)
 	var host: Control = mounted["host"]
-	var panel = mounted["panel"]
-	var layer: Control = panel.get_layer()
+	var layer: Control = mounted["screen"]
 	_assert_true(layer != null and layer.name == "MainMenuLayer", "mount should expose the MainMenuLayer root")
 	for node_name in [
 		"MainMenuGreenBackground",
@@ -71,8 +71,8 @@ func _test_mount_keeps_node_contract() -> void:
 	var exit_button := Harness.find_node_by_name(host, "MainMenuExitButton") as Button
 	_assert_true(exit_button != null and bool(exit_button.get_meta("skip_localization", false)), "exit button should skip localization")
 
-	panel.unmount()
-	_assert_true(panel.get_layer() == null, "unmount should drop the layer")
+	mounted["manager"].close(MainMenuScreenScript)
+	_assert_true(is_instance_valid(layer) and not layer.visible, "closing the title should hide the same layer")
 	_dispose(mounted)
 
 
@@ -119,7 +119,7 @@ func _test_global_theme_walk_skips_menu() -> void:
 
 func _test_misspelled_palette_role_is_reported() -> void:
 	var mounted := _mount({}, false)
-	var layer = mounted["panel"].get_layer()
+	var layer = mounted["screen"]
 	_assert_true(layer.palette_role_errors().is_empty(), "shipped main menu should have no palette role errors")
 	var title := Harness.find_node_by_name(layer, "MainMenuTitle")
 	title.set_meta("palette_role", "surfce")
@@ -132,7 +132,7 @@ func _test_misspelled_palette_role_is_reported() -> void:
 
 func _test_off_grid_font_size_is_reported() -> void:
 	var mounted := _mount({}, false)
-	var layer = mounted["panel"].get_layer()
+	var layer = mounted["screen"]
 	_assert_true(layer.font_size_errors().is_empty(), "shipped main menu should have no font size errors")
 	var title := Harness.find_node_by_name(layer, "MainMenuTitle") as Label
 	title.add_theme_font_size_override("font_size", 95)
@@ -147,32 +147,28 @@ func _test_off_grid_font_size_is_reported() -> void:
 	_dispose(mounted)
 
 
-func _test_language_button_emits_intent() -> void:
-	var mounted := _mount({}, false)
-	var emitted := [false]
-	mounted["panel"].language_picker_requested.connect(func() -> void: emitted[0] = true)
-	var language_button := Harness.find_node_by_name(mounted["host"], "MainMenuLanguageButton") as Button
-	language_button.pressed.emit()
-	_assert_true(emitted[0], "language button should request the picker")
-	_dispose(mounted)
-
-
 func _mount(stage: Dictionary, has_save: bool) -> Dictionary:
 	var host := Control.new()
+	host.name = "UIRoot"
 	root.add_child(host)
-	var panel := MainMenuPanelScript.new()
-	root.add_child(panel)
+	var bus: GameEventBus = GameEventBusScript.new()
+	var manager: ScreenManager = ScreenManagerScript.new(bus)
+	root.add_child(manager)
 	var ui_theme := GameUiThemeScript.new()
-	panel.mount(host, {
-		"active_palette": func() -> Dictionary: return ui_theme.active_palette(stage),
-		"has_save": func() -> bool: return has_save,
+	var screen: Control = manager.open(MainMenuScreenScript, host, {
+		"palette": ui_theme.active_palette(stage),
+		"has_save": has_save,
 	})
-	return {"host": host, "panel": panel}
+	return {"host": host, "manager": manager, "screen": screen}
 
 
 func _dispose(mounted: Dictionary) -> void:
-	(mounted["panel"] as Node).free()
-	(mounted["host"] as Node).free()
+	var manager: Node = mounted["manager"]
+	if is_instance_valid(manager):
+		manager.free()
+	var host: Node = mounted["host"]
+	if is_instance_valid(host):
+		host.free()
 
 
 func _font_size(host: Node, node_name: String) -> int:

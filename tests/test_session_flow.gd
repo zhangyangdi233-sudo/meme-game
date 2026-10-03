@@ -341,8 +341,12 @@ func _assert_screen_node(game_root, node_name: String, should_show: bool, label:
 	if should_show:
 		_assert_true(node != null and node.visible, "%s should show %s" % [label, node_name])
 		return
-	# Title, opening, and ending are installed on enter and unloaded on exit, so the node is gone.
-	if node_name == "MainMenuLayer" or node_name == "PrologueOverlay" or node_name == "EndingScreen":
+	# Opening and ending are installed on enter and freed on exit.
+	# The title screen stays in the tree and is only hidden.
+	if node_name == "MainMenuLayer":
+		_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])
+		return
+	if node_name == "PrologueOverlay" or node_name == "EndingScreen":
 		_assert_true(node == null, "%s should unload %s" % [label, node_name])
 		return
 	_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])
