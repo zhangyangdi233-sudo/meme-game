@@ -29,6 +29,7 @@ func _run() -> void:
 	_test_mount_tints_with_polluted_palette()
 	_test_global_theme_walk_skips_menu()
 	_test_misspelled_palette_role_is_reported()
+	_test_off_grid_font_size_is_reported()
 	_test_language_button_emits_intent()
 
 
@@ -126,6 +127,23 @@ func _test_misspelled_palette_role_is_reported() -> void:
 	_assert_true(errors.size() == 1, "a misspelled role should be reported once")
 	if errors.size() == 1:
 		_assert_true(errors[0].contains("MainMenuTitle") and errors[0].contains("surfce"), "the report should name the node and the bad role")
+	_dispose(mounted)
+
+
+func _test_off_grid_font_size_is_reported() -> void:
+	var mounted := _mount({}, false)
+	var layer = mounted["panel"].get_layer()
+	_assert_true(layer.font_size_errors().is_empty(), "shipped main menu should have no font size errors")
+	var title := Harness.find_node_by_name(layer, "MainMenuTitle") as Label
+	title.add_theme_font_size_override("font_size", 95)
+	var errors: PackedStringArray = layer.font_size_errors()
+	_assert_true(errors.size() == 1, "an off-grid, over-cap size should be reported once")
+	if errors.size() == 1:
+		_assert_true(errors[0].contains("MainMenuTitle") and errors[0].contains("95"), "the report should name the node and the size")
+	title.add_theme_font_size_override("font_size", 99)
+	_assert_true(layer.font_size_errors().size() == 1, "an on-grid size above 90 should still be reported")
+	title.add_theme_font_size_override("font_size", 50)
+	_assert_true(layer.font_size_errors().size() == 1, "an off-grid size under the cap should be reported")
 	_dispose(mounted)
 
 
