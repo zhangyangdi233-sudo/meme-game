@@ -54,6 +54,14 @@ _Avoid_: per-feature JSON loader, new parser
 Locale-native phrases that *are* the language mechanic (pickup units, echo templates). Each locale writes its own; they do not go through the UI catalog.
 _Avoid_: UI copy, translation entry, content catalog (when meaning pickup or echo text)
 
+**Layout scene**:
+An editor-authored `.tscn` that owns a fixed screen's layout and look; its panel script only mounts it, tints it, and wires intents. Build UI from code only when the item count is decided at runtime. The main menu (`scenes/ui/main_menu.tscn`) is the first one.
+_Avoid_: fixed layouts built from `Control.new()` and pixel offsets, @tool scripts that generate the layout, the global UI theme walk repainting a layout scene
+
+**Palette role**:
+A named color slot of the UI palette (`surface`, `ink`, `menu_bg`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor.
+_Avoid_: literal colors on palette-driven nodes, one node group per color
+
 ## Development
 
 **Primary platform**: Windows (Godot 4.6+ editor and headless tests).

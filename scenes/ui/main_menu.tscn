@@ -1,0 +1,280 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/palette_scene_root.gd" id="1_root"]
+[ext_resource type="FontFile" uid="uid://cqyei842slvok" path="res://assets/fonts/BoutiqueBitmap9x9.ttf" id="2_font"]
+
+[sub_resource type="Theme" id="Theme_pixel"]
+default_font = ExtResource("2_font")
+default_font_size = 18
+
+[node name="MainMenuLayer" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_pixel")
+script = ExtResource("1_root")
+
+[node name="MainMenuGreenBackground" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.364706, 0.682353, 0.419608, 1)
+metadata/palette_role = "menu_bg"
+
+[node name="MainMenuPosterStripe0" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 74.0
+offset_top = 322.0
+offset_right = 196.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0.96)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut0" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 84.0
+offset_top = 322.0
+offset_right = 202.0
+offset_bottom = 344.0
+rotation = -0.383972
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe1" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 218.0
+offset_top = 322.0
+offset_right = 340.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut1" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 228.0
+offset_top = 340.0
+offset_right = 346.0
+offset_bottom = 362.0
+rotation = -0.226893
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe2" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 362.0
+offset_top = 322.0
+offset_right = 484.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0.96)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut2" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 372.0
+offset_top = 358.0
+offset_right = 490.0
+offset_bottom = 380.0
+rotation = -0.0698132
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe3" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 506.0
+offset_top = 322.0
+offset_right = 628.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut3" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 516.0
+offset_top = 322.0
+offset_right = 634.0
+offset_bottom = 344.0
+rotation = 0.0872665
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe4" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 650.0
+offset_top = 322.0
+offset_right = 772.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0.96)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut4" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 660.0
+offset_top = 340.0
+offset_right = 778.0
+offset_bottom = 362.0
+rotation = 0.244346
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe5" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 794.0
+offset_top = 322.0
+offset_right = 916.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut5" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 804.0
+offset_top = 358.0
+offset_right = 922.0
+offset_bottom = 380.0
+rotation = 0.401426
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuPosterStripe6" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 938.0
+offset_top = 322.0
+offset_right = 1060.0
+offset_bottom = 430.0
+color = Color(1, 0.945098, 0.788235, 0.96)
+metadata/palette_role = "surface"
+
+[node name="MainMenuBlackCut6" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 948.0
+offset_top = 322.0
+offset_right = 1066.0
+offset_bottom = 344.0
+rotation = 0.558505
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuTextStack" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 218.0
+offset_right = 1040.0
+offset_bottom = 560.0
+theme_override_constants/separation = 18
+
+[node name="MainMenuChapter" type="Label" parent="MainMenuTextStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 0.82)
+theme_override_font_sizes/font_size = 54
+text = "Cartridge 3"
+metadata/palette_role = "surface"
+
+[node name="MainMenuTitle" type="Label" parent="MainMenuTextStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 1)
+theme_override_colors/font_shadow_color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 0
+theme_override_font_sizes/font_size = 90
+text = "HAJIMI"
+metadata/palette_role = "surface"
+metadata/palette_shadow_role = "ink"
+
+[node name="MainMenuSubtitle" type="Label" parent="MainMenuTextStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 0.78)
+theme_override_font_sizes/font_size = 27
+text = "Die Grenzen meiner Sprache bedeuten die Grenzen meiner Welt."
+metadata/palette_role = "surface"
+
+[node name="MainMenuButtons" type="HBoxContainer" parent="MainMenuTextStack"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="MainMenuContinueButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 54)
+layout_mode = 2
+text = "继续游戏"
+
+[node name="MainMenuStartButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 54)
+layout_mode = 2
+text = "新游戏"
+
+[node name="MainMenuExitButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 54)
+layout_mode = 2
+text = "退出游戏"
+metadata/skip_localization = true
+
+[node name="MainMenuLanguageButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 54)
+layout_mode = 2
+text = "语言"
+
+[node name="MainMenuCornerMark" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -126.0
+offset_right = -56.0
+offset_bottom = -36.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="MainMenuCornerMarkCircle" type="ColorRect" parent="MainMenuCornerMark"]
+layout_mode = 0
+offset_left = 28.0
+offset_right = 62.0
+offset_bottom = 34.0
+color = Color(1, 0.945098, 0.788235, 1)
+metadata/palette_role = "surface"
+
+[node name="MainMenuCornerMarkStem" type="ColorRect" parent="MainMenuCornerMark"]
+layout_mode = 0
+offset_left = 46.0
+offset_right = 62.0
+offset_bottom = 34.0
+color = Color(0.0627451, 0.0784314, 0.0588235, 1)
+metadata/palette_role = "ink"
+
+[node name="MainMenuCornerMarkBase0" type="ColorRect" parent="MainMenuCornerMark"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 54.0
+offset_right = 76.0
+offset_bottom = 58.0
+color = Color(1, 0.945098, 0.788235, 1)
+metadata/palette_role = "surface"
+
+[node name="MainMenuCornerMarkBase1" type="ColorRect" parent="MainMenuCornerMark"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 64.0
+offset_right = 78.0
+offset_bottom = 68.0
+color = Color(1, 0.945098, 0.788235, 1)
+metadata/palette_role = "surface"
+
+[node name="MainMenuCornerMarkBase2" type="ColorRect" parent="MainMenuCornerMark"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 74.0
+offset_right = 80.0
+offset_bottom = 78.0
+color = Color(1, 0.945098, 0.788235, 1)
+metadata/palette_role = "surface"

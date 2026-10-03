@@ -1787,8 +1787,7 @@ func _ensure_main_menu_panel() -> void:
 
 func _main_menu_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
+		"active_palette": _ui_theme_helper.active_palette,
 		"has_save": _has_save_progress,
 	}
 

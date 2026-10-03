@@ -3,29 +3,8 @@ class_name GameUiTheme
 ## Palette, pixel-font theme, panel factories, and control-tree styling for the main scene adapter.
 
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
-
-const PALETTE_1 := {
-	"name": "palette_1",
-	"bg": "B7D957",
-	"surface": "FFF1C9",
-	"text": "10140F",
-	"ink": "10140F",
-	"accent": "365B2D",
-	"muted": "DDEB8A",
-	"danger_stripe": "10140F",
-	"flash_text": "9CFF24",
-}
-const POLLUTION_PALETTE_5 := {
-	"name": "pollution_palette_5",
-	"bg": "9CFF24",
-	"surface": "FFF2B8",
-	"text": "0D1009",
-	"ink": "0D1009",
-	"accent": "2F6B1F",
-	"muted": "D8FF66",
-	"danger_stripe": "0D1009",
-	"flash_text": "39FF14",
-}
+const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
+const PaletteSceneRootScript = preload("res://scripts/ui/palette_scene_root.gd")
 
 var ui_font_path := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 var ui_font_grid := 9
@@ -57,14 +36,11 @@ func _stage(pollution_stage = null) -> Dictionary:
 
 
 func active_palette(pollution_stage = null) -> Dictionary:
-	if str(_stage(pollution_stage).get("palette_key", "palette_1")) == "pollution_palette_5":
-		return POLLUTION_PALETTE_5
-	return PALETTE_1
+	return UiPaletteScript.palette(str(_stage(pollution_stage).get("palette_key", "palette_1")))
 
 
 func theme_color(key: String, pollution_stage = null) -> Color:
-	var palette := active_palette(_stage(pollution_stage))
-	return Color(str(palette.get(key, PALETTE_1.get(key, "FFF1C9"))))
+	return UiPaletteScript.color(active_palette(_stage(pollution_stage)), key)
 
 
 func ensure_ui_font_theme() -> Theme:
@@ -145,13 +121,7 @@ func set_localized_property(control: Control, property_name: String) -> void:
 
 
 func style(bg: Color, border: Color) -> StyleBoxFlat:
-	var style_box := StyleBoxFlat.new()
-	style_box.bg_color = bg
-	style_box.border_color = border
-	style_box.set_border_width_all(1)
-	style_box.set_corner_radius_all(5)
-	style_box.set_content_margin_all(10)
-	return style_box
+	return UiPaletteScript.flat_style(bg, border)
 
 
 func soft_style(bg: Color, border: Color) -> StyleBoxFlat:
@@ -273,7 +243,7 @@ func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage = n
 
 
 func apply_ui_theme(node: Node, pollution_stage = null) -> void:
-	if node == null:
+	if node == null or node is PaletteSceneRootScript:
 		return
 	pollution_stage = _stage(pollution_stage)
 	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
@@ -328,14 +298,7 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 			button.add_theme_stylebox_override("hover", flat_button_state_style(Color(theme_color("muted", pollution_stage), 0.24)))
 			button.add_theme_stylebox_override("pressed", flat_button_state_style(Color(theme_color("muted", pollution_stage), 0.40)))
 		else:
-			button.add_theme_color_override("font_color", theme_color("ink", pollution_stage))
-			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
-			button.add_theme_color_override("font_pressed_color", theme_color("surface", pollution_stage))
-			button.add_theme_color_override("font_disabled_color", theme_color("accent", pollution_stage).lightened(0.22))
-			button.add_theme_stylebox_override("normal", style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
-			button.add_theme_stylebox_override("hover", style(theme_color("muted", pollution_stage), theme_color("ink", pollution_stage)))
-			button.add_theme_stylebox_override("pressed", style(theme_color("accent", pollution_stage), theme_color("ink", pollution_stage)))
-			button.add_theme_stylebox_override("disabled", style(theme_color("surface", pollution_stage).darkened(0.10), theme_color("accent", pollution_stage).lightened(0.20)))
+			UiPaletteScript.apply_button_style(button, active_palette(pollution_stage))
 	elif node is PanelContainer:
 		if node.has_meta("phone_shell"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", phone_shell_style(pollution_stage))
