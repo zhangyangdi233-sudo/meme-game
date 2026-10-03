@@ -23,3 +23,7 @@ Primary dev is **Windows**. Run `tools\run_tests.bat` or `.\tools\run_tests.ps1`
 ### Commit messages
 
 Conventional Commits prefixes (`feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `build`). See `docs/agents/commit-messages.md`.
+
+### GDScript contracts
+
+New or edited call sites use an `@abstract` contract or a `signal`. Do not type the other side as `Node` and call a method it does not declare. Interaction outcomes and the Framework `FlowState` seam stay as documented. See `docs/agents/gdscript-contracts.md`.
