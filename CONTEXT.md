@@ -58,6 +58,14 @@ _Avoid_: UI copy, translation entry, content catalog (when meaning pickup or ech
 An editor-authored `.tscn` that owns a fixed screen's layout and look; its panel script only mounts it, tints it, and wires intents. Build UI from code only when the item count is decided at runtime. The main menu (`scenes/ui/main_menu.tscn`) is the first one.
 _Avoid_: fixed layouts built from `Control.new()` and pixel offsets, @tool scripts that generate the layout, the global UI theme walk repainting a layout scene
 
+**Screen manager**:
+Host-created opener for one fixed screen. The host builds it at boot (not an autoload). The screen script declares the scene path, layer name, and button intents. The first open instantiates; close hides; the next open reuses that instance. Only the main menu is opened this way today.
+_Avoid_: autoload, a manager that also closes other screens
+
+**UI intent**:
+How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
+_Avoid_: a private signal or callback per panel, a second channel for runtime-built controls, dropping the answer because today's bus only carries a name
+
 **Palette role**:
 A named color slot of the UI palette (`surface`, `ink`, `menu_bg`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor.
 _Avoid_: literal colors on palette-driven nodes, one node group per color
