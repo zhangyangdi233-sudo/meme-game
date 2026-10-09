@@ -29,3 +29,10 @@ enabled=PackedStringArray("res://addons/richtext2/plugin.cfg")
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+
+[richer_text_label]
+
+fonts={
+&"BoutiqueBitmap9x9": "res://assets/fonts/BoutiqueBitmap9x9.ttf"
+}
+colors={}
