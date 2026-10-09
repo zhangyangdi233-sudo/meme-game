@@ -4,7 +4,7 @@
   "title": "steps_carpet.wav",
   "source": "https://freesound.org/people/Mihacappy/sounds/848210/",
   "download": "https://cdn.freesound.org/previews/848/848210_10594370-lq.ogg",
-  "note": "Public compressed preview, mono excerpts with gain normalization and edge fades.",
+  "note": "Public compressed preview, mono excerpts normalized before soft filtering. No post-filter gain normalization. Thick-pile damping: 1150 Hz soft low-pass, 65 Hz rumble reduction, 45 ms edge fades. Playback -20 dB.",
   "sample_rate": 48000,
   "segments": [
     {

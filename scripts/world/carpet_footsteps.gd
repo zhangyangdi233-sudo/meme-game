@@ -14,7 +14,8 @@ var _steps: Array[AudioStreamWAV] = []
 func _ready() -> void:
 	_audio = AudioStreamPlayer.new()
 	_audio.name = "CarpetStepAudio"
-	_audio.volume_db = -15.0
+	# A thick pile absorbs the heel click; footsteps sit beneath the room tone.
+	_audio.volume_db = -20.0
 	add_child(_audio)
 	for index in range(1, 5):
 		var stream := AudioStreamWAV.load_from_file("res://assets/audio/foley/carpet_step_%02d.wav" % index)

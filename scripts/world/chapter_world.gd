@@ -70,6 +70,8 @@ var _destination_frame := Transform3D.IDENTITY
 var _destination_mapping := Transform3D.IDENTITY
 var _destination_material: ShaderMaterial
 var _destination_viewport: SubViewport
+var _destination_preview_mode := false
+var _using_injected_asset := false
 
 
 func _process(_delta: float) -> void:
@@ -85,6 +87,7 @@ func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: N
 	_clear_stage()
 	_progress = progress.duplicate(true)
 	_actor_textures = actor_textures.duplicate()
+	_using_injected_asset = imported_root != null
 	_palette = palette.duplicate(true)
 	stage = str(progress.get("phase", ""))
 	_bound_token = int(progress.get("transition_serial", -1))
@@ -128,7 +131,8 @@ func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: N
 		var switch_actor: Area3D = _atmosphere.interaction_actor()
 		if switch_actor != null:
 			_actors.append(switch_actor)
-		_build_next_room_preview()
+		if not _destination_preview_mode:
+			_build_next_room_preview()
 	stage_ready = true
 	sync_progress(progress)
 	return true
@@ -299,72 +303,58 @@ func _open_exit_pocket() -> bool:
 
 
 func _build_next_room_preview() -> void:
-	if _bound_round == 4:
-		_build_crossroads_portal()
-		return
-	# Align a visual copy of the next entrance with this exit. It has no gameplay
-	# actors or collision and is replaced with the real next visit at its spawn.
-	_next_room_preview = _asset.duplicate() as Node3D
-	_next_room_preview.name = "NextBasementThroughDoor"
-	add_child(_next_room_preview)
-	if is_instance_valid(_atmosphere):
-		for child in _atmosphere.get_children():
-			if child is Node3D and not child is CollisionObject3D:
-				_next_room_preview.add_child(child.duplicate())
-	# The preview is scenery for a door cinematic, never another source of live
-	# clues. Keep both authored arrows and atmospheric X-ray marks in this visit.
-	for geometry: GeometryInstance3D in _next_room_preview.find_children("*", "GeometryInstance3D", true, false):
-		if is_instance_valid(geometry) and (geometry.layers & XRAY_RENDER_LAYER) != 0:
-			geometry.free()
-	var entry_data: Dictionary = _contract.doors.entry
-	var exit_data: Dictionary = _contract.doors.exit
-	var entry_pivot := Binding.find_node(_asset, str(entry_data.pivot_node)) as Node3D
-	var exit_pivot := Binding.find_node(_asset, str(exit_data.pivot_node)) as Node3D
-	# Door pivots may already be opened. Their contract centre is closed-space.
-	var entry_center := entry_pivot.position + Binding.blender_vector(entry_data.closed_leaf_local_center)
-	var exit_center := exit_pivot.position + Binding.blender_vector(exit_data.closed_leaf_local_center)
-	var turn := Basis(Vector3.UP, PI)
-	_next_room_preview.global_transform = _asset.global_transform * Transform3D(turn, exit_center - turn * entry_center)
-	for body: CollisionObject3D in _next_room_preview.find_children("*", "CollisionObject3D", true, false):
-		body.collision_layer = 0
-		body.collision_mask = 0
-	for light: Light3D in _next_room_preview.find_children("*", "Light3D", true, false):
-		if not bool(light.get_meta("fixture_bound", false)):
-			light.hide()
-	var preview_entry := Binding.find_node(_next_room_preview, str(entry_data.pivot_node)) as Node3D
-	if preview_entry != null:
-		preview_entry.hide()
-	var eye := _asset.to_local(_spawn) + Vector3(0, 1.56, 0)
-	var direction := Basis(Vector3.UP, deg_to_rad(_spawn_yaw) - _asset.global_rotation.y) * Vector3.FORWARD
-	var arrival_basis := Basis.looking_at(direction, Vector3.UP) * Basis(Vector3.RIGHT, deg_to_rad(-28.0))
-	_exit_camera_pose = _next_room_preview.global_transform * Transform3D(arrival_basis, eye)
-
-
-func _build_crossroads_portal() -> void:
-	# The final door opens into the actual destination renderer. A portal-sized
-	# frustum keeps this wide outdoor world inside the physical door aperture;
-	# its camera reaches the exact receiving spawn as our camera reaches the leaf.
+	# Every destination lives in its own World3D. A transformed full-room copy
+	# in the current world lets its entry vestibule cut across the exit corridor.
+	# Only this door-sized aperture may contribute pixels to the current room.
+	var is_crossroads := _bound_round == 4
 	_next_room_preview = Node3D.new()
 	_next_room_preview.name = "NextBasementThroughDoor"
-	_next_room_preview.set_meta("destination", "crossroads")
+	_next_room_preview.set_meta("destination", "crossroads" if is_crossroads else "basement")
 	add_child(_next_room_preview)
 	var viewport := SubViewport.new()
 	_destination_viewport = viewport
-	viewport.name = "CrossroadsPortalViewport"
+	viewport.name = "DestinationViewport"
 	viewport.size = Vector2i(384, 800)
 	viewport.own_world_3d = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_next_room_preview.add_child(viewport)
-	var destination := Generator.new()
-	viewport.add_child(destination)
-	destination.rebuild(1, _palette, {}, 1, true, {}, false)
+	var destination: Node3D
+	var arrival_pose: Transform3D
+	if is_crossroads:
+		destination = Generator.new()
+		viewport.add_child(destination)
+		destination.rebuild(1, _palette, {}, 1, true, {}, false)
+		arrival_pose = Transform3D(Basis(Vector3.UP, deg_to_rad(destination.start_yaw_degrees())), destination.start_position() + Vector3(0, 1.56, 0))
+	else:
+		# Build the actual next visit from fresh source geometry, so its clock
+		# variant, lamps and seeded table prop match the room at arrival.
+		var next_progress := _progress.duplicate(true)
+		next_progress.round_index = _bound_round + 1
+		next_progress.transition_serial = _bound_token + 1
+		next_progress.entrance_locked = false
+		next_progress.completed_task_ids = Director.TASK_IDS.slice(0, _bound_round + 1)
+		next_progress = Director.normalize_progress(next_progress)
+		destination = get_script().new()
+		destination.set("_destination_preview_mode", true)
+		destination.name = "NextVisitScenery"
+		viewport.add_child(destination)
+		var injected := _asset.duplicate() as Node3D if _using_injected_asset else null
+		destination.configure_stage(next_progress, _palette, injected, _contract, _actor_textures)
+		destination.set_process(false)
+		var arrival_basis := Basis(Vector3.UP, deg_to_rad(destination.start_yaw_degrees())) * Basis(Vector3.RIGHT, deg_to_rad(-28.0))
+		arrival_pose = Transform3D(arrival_basis, destination.start_position() + Vector3(0, 1.56, 0))
+	# Destination previews never supply collision or live X-ray clues to the
+	# current visit, including atmospheric marks and the imported guide arrows.
+	for body: CollisionObject3D in destination.find_children("*", "CollisionObject3D", true, false):
+		body.collision_layer = 0
+		body.collision_mask = 0
+	for geometry: GeometryInstance3D in destination.find_children("*", "GeometryInstance3D", true, false):
+		if is_instance_valid(geometry) and (geometry.layers & XRAY_RENDER_LAYER) != 0:
+			geometry.free()
 	_destination_camera = Camera3D.new()
-	destination.add_child(_destination_camera)
+	viewport.add_child(_destination_camera)
 	_destination_camera.current = true
 	_destination_camera.cull_mask = 0xFFFFF & ~XRAY_RENDER_LAYER
-	var arrival_eye: Vector3 = destination.start_position() + Vector3(0, 1.56, 0)
-	var arrival_basis := Basis(Vector3.UP, deg_to_rad(destination.start_yaw_degrees()))
-	var arrival_pose := Transform3D(arrival_basis, arrival_eye)
 	var exit_data: Dictionary = _contract.doors.exit
 	var pivot := Binding.find_node(_asset, str(exit_data.pivot_node)) as Node3D
 	var center := pivot.position + Binding.blender_vector(exit_data.closed_leaf_local_center)
@@ -373,7 +363,7 @@ func _build_crossroads_portal() -> void:
 	_exit_camera_pose = _destination_frame * Transform3D(Basis.IDENTITY, Vector3(0, 0.46, 0.03))
 	_destination_mapping = arrival_pose * _exit_camera_pose.affine_inverse()
 	var aperture := MeshInstance3D.new()
-	aperture.name = "CrossroadsDoorAperture"
+	aperture.name = "DestinationDoorAperture"
 	var mesh := QuadMesh.new()
 	mesh.size = Vector2(1.055, 2.195)
 	aperture.mesh = mesh

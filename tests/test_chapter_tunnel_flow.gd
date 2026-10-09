@@ -36,12 +36,14 @@ func _run() -> void:
 		var world = main._reality_floor
 		var destination_pose: Transform3D
 		var exit_pose: Transform3D = world.get("_exit_camera_pose")
-		if visit < 4:
-			destination_pose = world.get_node("NextBasementThroughDoor").global_transform.affine_inverse() * exit_pose
-		else:
-			destination_pose = world.get("_destination_mapping") * exit_pose
+		destination_pose = world.get("_destination_mapping") * exit_pose
 		_check(world.get_node_or_null("BasementExitTunnel") == null, "visit has no detached tunnel")
 		_check(world.get_node_or_null("NextBasementThroughDoor") != null, "ordinary exit reveals aligned next entrance")
+		if visit == 2:
+			main._reality_player.position = Vector3(1.45, 0.02, -3.3)
+			main._camera.position = Vector3(1.45, 1.56, -3.3)
+			main._camera.look_at(Vector3(-3.2, 1.1, -3.43))
+			await _capture("03a_third_visit_corridor")
 		_place_at_exit(world)
 		if visit == 0:
 			await _capture("01_ordinary_exit")

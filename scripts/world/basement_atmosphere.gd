@@ -11,6 +11,7 @@ const BLACKOUT_VISIT := 2
 const CLOCK_WALL_VISIT := 3
 const BROKEN_CLOCK_VISIT := 4
 const FLICKER_SECONDS := 3.6
+const WALL_WEAR_SEED := 604213 # Authoring seed, independent of run decorations.
 
 var _asset: Node3D
 var _switch: Area3D
@@ -233,28 +234,145 @@ func _apply_surface_materials() -> void:
 			mesh.material_override = wall
 		elif "Carpet" in node_name or node_name == "Room_Floor" or node_name == "Stair_UpperLanding":
 			mesh.material_override = carpet
-	var decal := StandardMaterial3D.new()
-	decal.albedo_texture = _texture("damp_crack_decal")
-	decal.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	decal.cull_mode = BaseMaterial3D.CULL_DISABLED
-	decal.roughness = 1.0
-	# Separate, non-repeating wall wear: damp corners, wallpaper peel/cracks.
-	for data: Array in [
-		[Vector3(2.25, 1.6, 4.188), Vector2(1.65, 1.8), PI],
-		[Vector3(-0.25, 0.95, -2.408), Vector2(1.4, 1.7), 0.0],
-		[Vector3(3.188, 1.28, 1.15), Vector2(1.6, 2.2), -PI * 0.5],
-		[Vector3(-2.6, 1.3, -4.188), Vector2(1.1, 2.0), 0.0],
-	]:
-		var patch := MeshInstance3D.new()
-		patch.name = "WallDampCrack"
-		var quad := QuadMesh.new()
-		quad.size = data[1]
-		patch.mesh = quad
-		patch.material_override = decal
-		patch.position = data[0]
-		patch.rotation.y = data[2]
-		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(patch)
+	_build_wall_wear()
+
+
+func _build_wall_wear() -> void:
+	# Strokes are actual thin irregular ribbons, not rectangular decal cards.
+	# Each wall receives a different reproducible sequence. Nothing updates each
+	# frame, and the per-run flower/book seed never changes authored wall damage.
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.roughness = 1.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	var plans := [
+		["Front", Vector3(0, 0, 4.188), Vector3.RIGHT, Vector3.FORWARD, Rect2(-3.02, 0.23, 6.03, 2.28), 11,
+			[Rect2(1.17, 1.58, 0.94, 0.92), Rect2(0.82, 0.68, 1.85, 0.75)]],
+		["Partition", Vector3(0, 0, -2.408), Vector3.RIGHT, Vector3.BACK, Rect2(-1.60, 0.23, 3.12, 2.29), 8,
+			[Rect2(-0.95, 0.88, 1.20, 0.99)]],
+		["East", Vector3(3.188, 0, 0), Vector3.BACK, Vector3.LEFT, Rect2(-3.95, 0.24, 7.85, 2.29), 16, []],
+		["Rear", Vector3(0, 0, -4.188), Vector3.RIGHT, Vector3.BACK, Rect2(-3.02, 0.23, 6.04, 2.28), 10,
+			[Rect2(-2.02, 0.92, 1.01, 0.97)]],
+		["West", Vector3(-3.188, 0, 0), Vector3.BACK, Vector3.RIGHT, Rect2(-1.15, 0.24, 5.04, 2.27), 9,
+			[Rect2(2.87, 0.80, 0.58, 0.66)]],
+	]
+	for index in plans.size():
+		var plan: Array = plans[index]
+		var rng := RandomNumberGenerator.new()
+		rng.seed = WALL_WEAR_SEED + index * 1009
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var bounds: Rect2 = plan[4]
+		var exclusions: Array = plan[6]
+		var stroke_count := 0
+		var smudge_count := 0
+		for group_index in int(plan[5]):
+			var center := Vector2(rng.randf_range(bounds.position.x + 0.18, bounds.end.x - 0.18), rng.randf_range(bounds.position.y + 0.12, bounds.end.y - 0.12))
+			var kind := rng.randi_range(0, 4)
+			var angle := rng.randf_range(-PI, PI)
+			var cluster_size := rng.randf_range(0.07, 0.24)
+			# A few local concentrations amid many separate marks, not a uniform
+			# grid or repeated patch size. Most wall area stays untouched.
+			var count := rng.randi_range(4, 7) if group_index % 5 == 0 else rng.randi_range(1, 3)
+			for stroke_index in count:
+				var start := center + Vector2(rng.randf_range(-cluster_size, cluster_size), rng.randf_range(-cluster_size * 0.65, cluster_size * 0.65))
+				var points := PackedVector2Array()
+				var length := rng.randf_range(0.06, 0.34)
+				var stroke_angle := angle + rng.randf_range(-0.4, 0.4)
+				var direction := Vector2.from_angle(stroke_angle)
+				var across := direction.orthogonal()
+				var width := rng.randf_range(0.0017, 0.0038)
+				var alpha := rng.randf_range(0.18, 0.34)
+				if kind <= 1:
+					# Short scratched lines, kinked in slightly different directions.
+					for step in 7:
+						var t := float(step) / 6.0
+						points.append(start + direction * length * t + across * rng.randf_range(-0.007, 0.007))
+				elif kind <= 3:
+					# Uneven pen/graphite sweeps: asymmetric arcs with occasional
+					# reversals. No repeated letter, rune, cross, or closed icon.
+					length *= rng.randf_range(1.0, 1.8)
+					width *= rng.randf_range(1.1, 1.6)
+					var bend := rng.randf_range(0.025, 0.10)
+					var frequency := rng.randf_range(0.55, 1.65)
+					var phase := rng.randf_range(-0.45, 0.45)
+					for step in 15:
+						var t := float(step) / 14.0
+						var sweep := sin((t * frequency + phase) * TAU) * bend * (0.45 + 0.55 * t)
+						points.append(start + direction * length * t + across * (sweep + rng.randf_range(-0.0035, 0.0035)))
+				else:
+					var radius := Vector2(rng.randf_range(0.025, 0.095), rng.randf_range(0.06, 0.19))
+					if _wear_smudge(surface, start, radius, plan[1], plan[2], plan[3], bounds, exclusions, rng):
+						smudge_count += 1
+					continue
+				if _wear_stroke(surface, points, width, alpha, plan[1], plan[2], plan[3], bounds, exclusions, rng):
+					stroke_count += 1
+		var mesh := MeshInstance3D.new()
+		mesh.name = "WallWear" + str(plan[0])
+		mesh.mesh = surface.commit()
+		mesh.material_override = material
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mesh.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		mesh.set_meta("authoring_seed", WALL_WEAR_SEED + index * 1009)
+		mesh.set_meta("stroke_count", stroke_count)
+		mesh.set_meta("smudge_count", smudge_count)
+		mesh.set_meta("protected_areas", exclusions)
+		add_child(mesh)
+
+
+func _wear_clear(points: PackedVector2Array, bounds: Rect2, exclusions: Array, padding: float = 0.01) -> bool:
+	for point in points:
+		if not bounds.has_point(point):
+			return false
+		for excluded: Rect2 in exclusions:
+			if excluded.grow(padding).has_point(point):
+				return false
+	return true
+
+
+func _wear_stroke(surface: SurfaceTool, points: PackedVector2Array, width: float, alpha: float, origin: Vector3, horizontal: Vector3, normal: Vector3, bounds: Rect2, exclusions: Array, rng: RandomNumberGenerator) -> bool:
+	if not _wear_clear(points, bounds, exclusions):
+		return false
+	for index in points.size() - 1:
+		var from := points[index]
+		var to := points[index + 1]
+		var tangent := (to - from).normalized()
+		var side := tangent.orthogonal() * width * rng.randf_range(0.65, 1.25)
+		var start_alpha := alpha * minf(1.0, float(index + 1) * 0.45) * rng.randf_range(0.65, 1.0)
+		var end_alpha := alpha * minf(1.0, float(points.size() - index - 1) * 0.4)
+		# Uneven translucent edges surround a darker hairline centre.
+		for half in [-1.0, 1.0]:
+			_wear_vertex(surface, from, Color(0.11, 0.12, 0.09, start_alpha), origin, horizontal, normal)
+			_wear_vertex(surface, to, Color(0.11, 0.12, 0.09, end_alpha), origin, horizontal, normal)
+			_wear_vertex(surface, to + side * half, Color(0.11, 0.12, 0.09, 0.0), origin, horizontal, normal)
+			_wear_vertex(surface, from, Color(0.11, 0.12, 0.09, start_alpha), origin, horizontal, normal)
+			_wear_vertex(surface, to + side * half, Color(0.11, 0.12, 0.09, 0.0), origin, horizontal, normal)
+			_wear_vertex(surface, from + side * half, Color(0.11, 0.12, 0.09, 0.0), origin, horizontal, normal)
+	return true
+
+
+func _wear_smudge(surface: SurfaceTool, center: Vector2, radius: Vector2, origin: Vector3, horizontal: Vector3, normal: Vector3, bounds: Rect2, exclusions: Array, rng: RandomNumberGenerator) -> bool:
+	var rim := PackedVector2Array()
+	for index in 13:
+		var angle := float(index) * TAU / 13.0
+		rim.append(center + Vector2(cos(angle), sin(angle)) * radius * rng.randf_range(0.65, 1.35))
+	if not _wear_clear(rim, bounds, exclusions, 0.04):
+		return false
+	var alpha := rng.randf_range(0.05, 0.13)
+	for index in rim.size():
+		_wear_vertex(surface, center, Color(0.15, 0.16, 0.10, alpha), origin, horizontal, normal)
+		_wear_vertex(surface, rim[index], Color(0.15, 0.16, 0.10, 0.0), origin, horizontal, normal)
+		_wear_vertex(surface, rim[(index + 1) % rim.size()], Color(0.15, 0.16, 0.10, 0.0), origin, horizontal, normal)
+	return true
+
+
+func _wear_vertex(surface: SurfaceTool, point: Vector2, color: Color, origin: Vector3, horizontal: Vector3, normal: Vector3) -> void:
+	surface.set_normal(normal)
+	surface.set_color(color)
+	surface.add_vertex(origin + horizontal * point.x + Vector3.UP * point.y)
 
 
 func _surface_material(prefix: String, density: float, relief: float) -> StandardMaterial3D:

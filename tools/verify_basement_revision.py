@@ -8,6 +8,7 @@ import time
 
 TESTS = [
     'test_revision_progression', 'test_carpet_footsteps', 'test_basement_atmosphere',
+    'test_basement_wall_wear', 'test_chapter_exit_preview',
     'test_basement_loop_director', 'test_chapter_app_permissions',
     'test_word_physics_canvas', 'test_notebook_canvas_reload',
     'test_ui_revision_regressions', 'test_localization', 'test_social_feed_layout',
