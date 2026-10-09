@@ -29,6 +29,7 @@ var _world_rules_fn: Callable
 var _char_canvas_position_fn: Callable
 var _can_spend_action_fn: Callable
 var _fusion_ready_fn: Callable
+var _word_canvas: WordPhysicsCanvas
 
 
 func configure(deps: Dictionary) -> void:
@@ -49,9 +50,19 @@ func configure(deps: Dictionary) -> void:
 	_fusion_ready_fn = deps.get("fusion_ready", Callable())
 
 
+func commit_canvas_positions() -> void:
+	if _word_canvas == null or not is_instance_valid(_word_canvas):
+		return
+	var positions: Dictionary = _word_canvas.settled_tile_positions()
+	for unit in positions.keys():
+		canvas_tile_moved.emit(str(unit), positions[unit])
+
+
 func render(app_body: VBoxContainer, active_tab: String) -> void:
 	if app_body == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
+	commit_canvas_positions()
+	_word_canvas = null
 	_clear_fn.call(app_body)
 
 	var notebook_page := VBoxContainer.new()
@@ -113,7 +124,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	canvas_frame.add_child(canvas)
-	canvas.tile_settled.connect(_on_canvas_tile_moved)
+	_word_canvas = canvas
 	canvas.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
 	canvas.tile_tapped.connect(_on_composer_bank_tapped)
 
@@ -212,10 +223,6 @@ func _on_craft_pressed() -> void:
 
 func _on_fusion_pressed() -> void:
 	fusion_requested.emit()
-
-
-func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
-	canvas_tile_moved.emit(unit, tile_position)
 
 
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:

@@ -71,6 +71,36 @@ func _run() -> void:
 	canvas.clear_tiles()
 	_assert_true(canvas.get_tile_count() == 0, "clearing should remove every tile")
 
+	# 位置留在方塊上。速度為零可以讀回；還在動或被抓住時不往外送。閒置的畫面也不推送。
+	canvas.add_tile("靜", Vector2(80.0, 220.0), Color.WHITE, StyleBoxFlat.new(), false)
+	var resting_positions: Dictionary = canvas.settled_tile_positions()
+	_assert_true(resting_positions.has("靜"), "a resting tile should be readable from the canvas")
+	var pushed: Array = []
+	if canvas.has_signal("tile_settled"):
+		canvas.tile_settled.connect(func(unit: String, _tile_position: Vector2) -> void: pushed.append(unit))
+	for _step in 8:
+		await process_frame
+	_assert_true(pushed.is_empty(), "idle frames must not push tile positions")
+	var resting_body := canvas.get_node_or_null("WordPhysicsRoot/WordBody_靜") as RigidBody2D
+	_assert_true(resting_body != null, "the resting tile should have a body")
+	if resting_body != null:
+		resting_body.linear_velocity = Vector2(280.0, 0.0)
+	var moving_positions: Dictionary = canvas.settled_tile_positions()
+	_assert_true(not moving_positions.has("靜"), "a moving tile must stay on the canvas until it rests")
+	if resting_body != null:
+		resting_body.linear_velocity = Vector2.ZERO
+		resting_body.sleeping = false
+	var held_positions: Dictionary = canvas.settled_tile_positions()
+	_assert_true(held_positions.has("靜"), "a stopped tile should be readable again")
+	var grab := InputEventMouseButton.new()
+	grab.button_index = MOUSE_BUTTON_LEFT
+	grab.pressed = true
+	grab.position = canvas.get_tile_position("靜") + Vector2(22.0, 20.0)
+	canvas._gui_input(grab)
+	_assert_true(canvas.is_dragging(), "pressing a tile should grab it")
+	var dragged_positions: Dictionary = canvas.settled_tile_positions()
+	_assert_true(not dragged_positions.has("靜"), "a grabbed tile must not be reported while dragging")
+
 	host.queue_free()
 	await process_frame
 

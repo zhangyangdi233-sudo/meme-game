@@ -6,7 +6,6 @@ extends Control
 ## 用 RigidBody2D + 矩形碰撞体实现;拖动时切成 FREEZE(运动学)跟随指针,
 ## 松手后恢复动力学并把当时的速度交给物理,手感接近真实抓放。
 
-signal tile_settled(unit: String, position: Vector2)
 signal tile_dropped_outside(unit: String, global_position: Vector2)
 signal tile_tapped(unit: String)
 
@@ -14,6 +13,7 @@ const WALL_THICKNESS := 64.0
 const TILE_SIZE := Vector2(44.0, 40.0)
 const DRAG_THRESHOLD := 6.0
 const THROW_SPEED_LIMIT := 900.0
+const SETTLED_SPEED := 4.0
 
 var _physics_root: Node2D
 var _bodies: Dictionary = {}
@@ -33,7 +33,6 @@ func _ready() -> void:
 	add_child(_physics_root)
 	_rebuild_walls()
 	resized.connect(_rebuild_walls)
-	set_process(true)
 
 
 ## 画布四壁:底边接住下坠的字,两侧与顶部防止字被挤出可活动区域。
@@ -150,14 +149,17 @@ func is_dragging() -> bool:
 	return _dragging_body != null
 
 
-func _process(_delta: float) -> void:
-	# 落定的字把位置回报给存档层,重开游戏时字堆保持原样。
+## 静止、且没被抓住的字。还在动或拖曳中的位置留在方块上，不往外送。
+func settled_tile_positions() -> Dictionary:
+	var positions := {}
 	for unit in _bodies.keys():
 		var body: RigidBody2D = _bodies[unit]
 		if not is_instance_valid(body) or body == _dragging_body:
 			continue
-		if body.linear_velocity.length() < 4.0:
-			tile_settled.emit(str(unit), body.position - TILE_SIZE * 0.5)
+		if body.linear_velocity.length() >= SETTLED_SPEED:
+			continue
+		positions[str(unit)] = body.position - TILE_SIZE * 0.5
+	return positions
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -210,8 +212,6 @@ func _end_drag(release_global: Vector2) -> void:
 		return
 	if not get_global_rect().has_point(release_global):
 		tile_dropped_outside.emit(unit, release_global)
-	else:
-		tile_settled.emit(unit, body.position - TILE_SIZE * 0.5)
 
 
 func _body_at(local_position: Vector2) -> RigidBody2D:

@@ -142,7 +142,7 @@ var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel
 var _language_material
 var _phone_launcher_panel
-var _notebook_app_panel
+var _notebook_app_panel: NotebookAppPanel
 var _babel_app_panel
 var _language_overlay: Control
 var _view_toggle_button: Button
@@ -563,6 +563,7 @@ func show_main_menu() -> void:
 func _save_progress() -> bool:
 	if not _game_started or game == null:
 		return false
+	_commit_notebook_canvas_positions()
 	var world_pose: Dictionary = _reality_scene_adapter.world_save_pose() if _reality_scene_adapter != null else {}
 	var world_data := {
 		"player_position": world_pose.get("player_position", Vector3.ZERO),
@@ -3504,6 +3505,12 @@ func _doll_guide_current_line() -> String:
 
 func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
+
+
+func _commit_notebook_canvas_positions() -> void:
+	if _notebook_app_panel == null or not is_instance_valid(_notebook_app_panel):
+		return
+	_notebook_app_panel.commit_canvas_positions()
 
 
 ## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
