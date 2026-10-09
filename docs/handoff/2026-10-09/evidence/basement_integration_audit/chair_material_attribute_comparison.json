@@ -1,0 +1,4341 @@
+{
+  "generated_utc": "2026-10-07T12:35:04.409803+00:00",
+  "method": "Compare confirmed old exports to new source without relying on mesh indices.\n\nCanonical expanded triangles retain winding and exact non-UV attributes. UVs are\ncompared numerically at corresponding corners, allowing only 1e-6 absolute error.\nThis supplements, and never overwrites, the pre-copy target baseline.\n",
+  "files": {
+    "basement": {
+      "old_backup": "D:\\aphasia\\outputs\\blender_basement_loop_v2\\revisions\\before_kids_wood_export_20261007\\Basement_Loop_v2.glb",
+      "old_backup_matches_baseline_hash": true,
+      "old_sha256": "283a739e40ed402403eb5d0ad1fa32cec7e420f1f95e783cdbe4d50566cacf11",
+      "new_source": "D:\\aphasia\\outputs\\blender_basement_loop_v2\\Basement_Loop_v2.glb",
+      "new_sha256": "2a23945d767b028877c11211676885effb1a9bafbb6d79b78c05beb7935d01ac",
+      "node_count": 548,
+      "geometry_node_count": 507,
+      "node_fields_transforms_hierarchy_extras_exact": true,
+      "non_uv_geometry_exact": true,
+      "decoded_indices_exact": true,
+      "uv_max_abs_error": 4.76837158203125e-07,
+      "uv_tolerance": 1e-06,
+      "uv_changed_node_count": 215,
+      "changed_material_node_count": 16,
+      "only_chair_materials_changed": true,
+      "chair_wood_parts": 16,
+      "chair_material_names": [
+        "PBR_AgedWalnut.001"
+      ],
+      "chair_base_texture_names": [
+        "walnut_base"
+      ],
+      "collisions": {
+        "count": 40,
+        "names": [
+          "Room_Floor-colonly",
+          "Wall_Front-colonly",
+          "Wall_East-colonly",
+          "Wall_Rear-colonly",
+          "Wall_West_Main-colonly",
+          "Wall_West_BelowEntry-colonly",
+          "Wall_West_BetweenDoors-colonly",
+          "Wall_West_ExitEnd-colonly",
+          "Exit_Lintel-colonly",
+          "NPC_Partition-colonly",
+          "Stairwell_West-colonly",
+          "Stairwell_EntryLintel-colonly",
+          "Stairwell_RearPier-colonly",
+          "Stairwell_UpperEast-colonly",
+          "Stairwell_UpperRear-colonly",
+          "Ceiling_Main-colonly",
+          "Ceiling_FrontLeft-colonly",
+          "Ceiling_RearLeft-colonly",
+          "Ceiling_Stairwell-colonly",
+          "Entry_VestibuleFloor-colonly",
+          "Entry_VestibuleBack-colonly",
+          "Entry_VestibuleSide-colonly",
+          "Entry_VestibuleSide_001-colonly",
+          "Entry_VestibuleCeiling-colonly",
+          "Exit_VestibuleFloor-colonly",
+          "Exit_VestibuleBack-colonly",
+          "Exit_VestibuleSide-colonly",
+          "Exit_VestibuleSide_001-colonly",
+          "Exit_VestibuleCeiling-colonly",
+          "Stair_UpperLanding-colonly",
+          "Stair_WalkRamp-colonly",
+          "Stair_RailBarrier-colonly",
+          "Landing_RailBarrier-colonly",
+          "Stairwell_UpperFront-colonly",
+          "PropCollision_MediaConsole-colonly",
+          "PropCollision_WindsorA-colonly",
+          "PropCollision_WindsorB-colonly",
+          "PropCollision_RearSideTable-colonly",
+          "PropCollision_ChildTable-colonly",
+          "PropCollision_TealChair-colonly"
+        ],
+        "passed": true
+      },
+      "anchors": {
+        "count": 7,
+        "names": [
+          "EntrySpawn",
+          "EntrySealTrigger",
+          "NPCAnchor",
+          "ExitThreshold",
+          "TVAnchor",
+          "MainLightAnchor",
+          "RearLightAnchor"
+        ],
+        "passed": true
+      },
+      "door_axes": {
+        "count": 2,
+        "names": [
+          "EntryDoorPivot",
+          "ExitDoorPivot"
+        ],
+        "passed": true
+      },
+      "xray_paint": {
+        "count": 3,
+        "names": [
+          "XRAY_EXIT_GUIDE_01_Paint",
+          "XRAY_EXIT_GUIDE_02_Paint",
+          "XRAY_EXIT_GUIDE_03_Paint"
+        ],
+        "passed": true
+      },
+      "per_geometry_node": {
+        "Room_Floor": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_Front": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_East.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_Rear": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_Main": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_BelowEntry": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_BetweenDoors": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_ExitEnd": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_Lintel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "NPC_Partition": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_West": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_EntryLintel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_RearPier": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperEast": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperRear": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleFloor": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleBack": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleSide": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleSide.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleFloor": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleBack": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleSide": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleSide.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperFront": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Room_Floor-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_Front-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_East-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_Rear-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_Main-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_BelowEntry-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_BetweenDoors-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Wall_West_ExitEnd-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_Lintel-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "NPC_Partition-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_West-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_EntryLintel-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_RearPier-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperEast-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperRear-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_Main-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_FrontLeft-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_RearLeft-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_Stairwell-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleFloor-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleBack-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleSide-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleSide_001-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleCeiling-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleFloor-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleBack-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleSide-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleSide_001-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleCeiling-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_UpperLanding-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_WalkRamp-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_RailBarrier-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_RailBarrier-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stairwell_UpperFront-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_Main": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_FrontLeft": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_RearLeft": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Ceiling_Stairwell": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_VestibuleCeiling": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_VestibuleCeiling": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 51,
+          "passed": true
+        },
+        "Carpet_Riser_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 36,
+          "passed": true
+        },
+        "Carpet_Riser_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Carpet_Riser_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Carpet_Riser_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Carpet_Riser_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Carpet_Riser_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Carpet_Riser_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 42,
+          "passed": true
+        },
+        "Carpet_Riser_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Carpet_Riser_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 28,
+          "passed": true
+        },
+        "Carpet_Riser_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_11": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_11": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 42,
+          "passed": true
+        },
+        "Carpet_Riser_11": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_12": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_12": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Carpet_Riser_12": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_13": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_13": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 42,
+          "passed": true
+        },
+        "Carpet_Riser_13": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_14": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_14": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 23,
+          "passed": true
+        },
+        "Carpet_Riser_14": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_Step_15": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Carpet_Tread_15": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Carpet_Riser_15": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Stair_UpperLanding": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_00": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_11": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_12": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_13": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_14": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_15": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_16": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_17": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_18": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_19": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_20": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_21": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_22": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_Spindle_23": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Newel_Post": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Newel_WoodCap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Newel_Post.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Newel_WoodCap.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Newel_Post.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Newel_WoodCap.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Walnut_Handrail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "White_LowerRail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Handrail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Spindle_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Spindle_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Spindle_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Spindle_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Landing_Spindle_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Skirting_Front": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.384185791015625e-07,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Skirting_East.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.76837158203125e-07,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Skirting_Rear": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.384185791015625e-07,
+          "uv_changed_components": 17,
+          "passed": true
+        },
+        "Skirting_West.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Skirting_PartitionFront": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.384185791015625e-07,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Skirting_PartitionRear": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.384185791015625e-07,
+          "uv_changed_components": 35,
+          "passed": true
+        },
+        "Entry_Jamb": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Entry_Jamb.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Entry_CasingTop": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Exit_Jamb": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1175870895385742e-08,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Exit_Jamb.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Exit_CasingTop": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Entry_BrassKnob": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_BrassKnob.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Entry_RaisedPanel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Entry_RaisedPanel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Entry_RaisedPanel.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.3283064365386963e-10,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Entry_RaisedPanel.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 51,
+          "passed": true
+        },
+        "Entry_RaisedPanel.004": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Entry_RaisedPanel.005": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.656612873077393e-10,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Entry_RaisedPanel.006": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Entry_RaisedPanel.007": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.656612873077393e-10,
+          "uv_changed_components": 15,
+          "passed": true
+        },
+        "Entry_RaisedPanel.008": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Entry_RaisedPanel.009": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Entry_RaisedPanel.010": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Entry_RaisedPanel.011": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 29,
+          "passed": true
+        },
+        "EntryDoor_Leaf": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 35,
+          "passed": true
+        },
+        "Exit_BrassKnob": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_BrassKnob.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Exit_RaisedPanel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 44,
+          "passed": true
+        },
+        "Exit_RaisedPanel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 32,
+          "passed": true
+        },
+        "Exit_RaisedPanel.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.656612873077393e-10,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Exit_RaisedPanel.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 34,
+          "passed": true
+        },
+        "Exit_RaisedPanel.004": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 22,
+          "passed": true
+        },
+        "Exit_RaisedPanel.005": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.551115123125783e-17,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Exit_RaisedPanel.006": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 44,
+          "passed": true
+        },
+        "Exit_RaisedPanel.007": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.551115123125783e-17,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Exit_RaisedPanel.008": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.3283064365386963e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Exit_RaisedPanel.009": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 46,
+          "passed": true
+        },
+        "Exit_RaisedPanel.010": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Exit_RaisedPanel.011": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "ExitDoor_Leaf": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 74,
+          "passed": true
+        },
+        "Main_CeilingRose": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Main_OpalGlobe": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Rear_CeilingRose": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Rear_OpalGlobe": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Back.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_BayWall_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 48,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_BayWall_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_DVDButton.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_DVDDeck.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_DVDDisplay.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_DVDTray.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 36,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_00_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1641532182693481e-10,
+          "uv_changed_components": 23,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_00_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.820766091346741e-11,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_01_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1641532182693481e-10,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_01_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1641532182693481e-10,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_02_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_02_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1641532182693481e-10,
+          "uv_changed_components": 39,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_03_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1641532182693481e-10,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Flute_03_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.820766091346741e-11,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Foot_-0.842_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Foot_-0.842_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Foot_0.842_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Foot_0.842_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftArchedCarving.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftBrassPull.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftDoor.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftHandlePlate.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 11,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftRail_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftRaisedPanel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftStile_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LeftStile_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_LowerPlinth.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaCase_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 36,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaCase_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaCase_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 16,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaSpine_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaSpine_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_MediaSpine_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_OpenShelf_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_OpenShelf_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Pilaster_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Pilaster_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Pilaster_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 5,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Pilaster_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 31,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_00_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_00_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_01_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_01_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_02_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_02_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_03_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PilasterCap_03_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 30,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_PlinthLip.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RecessedToe.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightArchedCarving.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightBrassPull.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightDoor.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightHandlePlate.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 23,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightRail_0.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightRaisedPanel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightStile_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_RightStile_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Side_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 23,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Side_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 29,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_SideInset_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_SideInset_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_Top.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_MediaConsole_Furniture_Console_TopMoulding.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 24,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Blank_Maker_Plate": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Channel_Knob": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Coiled_Power_Cable": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Control_0": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Control_1": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Control_2": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.862645149230957e-09,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Cover_Screw": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Cover_Screw.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Cover_Screw.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Cover_Screw.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Dark_Inner_Bezel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Knob_Indicator": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Power_Button": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Power_Plug": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Service_Cover": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_00": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rear_Vent_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rubber_Foot": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rubber_Foot.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rubber_Foot.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Rubber_Foot.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 50,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_00": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Side_Vent_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_00": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 124,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_01": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 95,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_02": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 92,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_03": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 84,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_04": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 84,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_05": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 59,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_06": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 106,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_07": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 140,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_08": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 131,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_09": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 129,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_10": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 113,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_11": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 142,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Speaker_Slot_12": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 77,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Tapered_Housing": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 80,
+          "passed": true
+        },
+        "Prop_CRT_TV_CRT_Unlit_Indicator": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_CRT_TV_Screen_Video": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Body": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_0": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_1": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_2": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_3": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_4": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_5": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Edge_Rib_6": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Hub": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Hub.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Reel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Reel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Screw": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Screw.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Screw.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Screw.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Spine_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Tape_Flap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 83,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Top_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 39,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Window": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_0_Window.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Body": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 65,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_0": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_1": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_2": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_3": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_4": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_5": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Edge_Rib_6": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Hub": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Hub.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Reel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Reel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Screw": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Screw.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Screw.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Screw.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Spine_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 33,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Tape_Flap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 104,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Top_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 51,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Window": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_1_Window.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Body": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 38,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_0": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_1": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_2": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_3": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_4": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_5": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Edge_Rib_6": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Hub": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Hub.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Reel": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Reel.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Screw": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Screw.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Screw.002": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Screw.003": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Spine_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Tape_Flap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 86,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Top_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Window": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Prop_VHS_Console_VHS_2_Window.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 58,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_BentBow.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_CrossStretcher.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_DishedSeat.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 525,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Foot_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Foot_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Foot_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Foot_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SideStretcher_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SideStretcher_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_04.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_05.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_Spindle_06.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SplayedLeg_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SplayedLeg_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SplayedLeg_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_A_Furniture_Windsor_SplayedLeg_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_BentBow.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_CrossStretcher.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_DishedSeat.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 485,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Foot_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Foot_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Foot_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Foot_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SideStretcher_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SideStretcher_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_04.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_05.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_Spindle_06.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SplayedLeg_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SplayedLeg_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SplayedLeg_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Windsor_B_Furniture_Windsor_SplayedLeg_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_CabrioleLeg_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 266,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_CabrioleLeg_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 290,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_CabrioleLeg_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 300,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_CabrioleLeg_03.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 216,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_DrawerFace.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 124,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_EndApron_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 100,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_EndApron_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 105,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_LongApron_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 195,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_LongApron_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 178,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_Pull.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_PullPlate.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_Top.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 102,
+          "passed": true
+        },
+        "Prop_RearSideTable_Furniture_SideTable_TopLip.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 123,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_EndApron_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 169,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_EndApron_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 165,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_Leg_-0.448_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 57,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_Leg_-0.448_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 53,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_Leg_0.448_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_Leg_0.448_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 12,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_LongApron_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_LongApron_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_ChildTable_Furniture_KidsTable_Top.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_BackPost_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_BackPost_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_BackSlat_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 6.984919309616089e-10,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_BackSlat_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_BackSlat_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_FrontLeg_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_FrontLeg_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 32,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_LowerBackRail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_Seat.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_SideRail_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 37,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_SideRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_SideStretcher_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.656612873077393e-10,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_SideStretcher_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_TopRail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_UnderSeatRail_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.656612873077393e-10,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_TealChair_Furniture_KidsChair_UnderSeatRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.2351741790771484e-08,
+          "uv_changed_components": 18,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Blank_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Fold_Edge": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Fold_Edge.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Lid_Centre_Seam": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Lid_Flap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Lid_Flap.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Main": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Tape_End": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 14,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Tape_End.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_UnderStairs_Box_Tape_Top": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Blank_Label": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 3.725290298461914e-09,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Fold_Edge": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Fold_Edge.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Lid_Centre_Seam": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Lid_Flap": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 4.470348358154297e-08,
+          "uv_changed_components": 20,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Lid_Flap.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 13,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Main": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Tape_End": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Tape_End.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Box_Rear_Box_Tape_Top": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 19,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Backboard": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Horizontal_Rail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 6,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Horizontal_Rail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 5.960464477539063e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Paper_Mat": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Picture_Surface": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Vertical_Rail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Partition_Frame_Vertical_Rail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Backboard": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Horizontal_Rail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Horizontal_Rail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.9802322387695312e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Paper_Mat": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Picture_Surface": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Vertical_Rail": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_Frame_Rear_Frame_Vertical_Rail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Back_Shadow": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Faceplate": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Screw": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Screw.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Screw_Slot": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Screw_Slot.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Toggle": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.3283064365386963e-10,
+          "uv_changed_components": 26,
+          "passed": true
+        },
+        "Prop_LightSwitch_Switch_Toggle_Socket": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 7,
+          "passed": true
+        },
+        "PropCollision_MediaConsole-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "PropCollision_WindsorA-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "PropCollision_WindsorB-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "PropCollision_RearSideTable-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "PropCollision_ChildTable-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "PropCollision_TealChair-colonly": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "XRAY_EXIT_GUIDE_01_Paint": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "XRAY_EXIT_GUIDE_02_Paint": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        },
+        "XRAY_EXIT_GUIDE_03_Paint": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 0.0,
+          "uv_changed_components": 0,
+          "passed": true
+        }
+      },
+      "passed": true
+    },
+    "kids_chair": {
+      "old_backup": "D:\\aphasia\\outputs\\blender_basement_loop_v2\\revisions\\before_kids_wood_export_20261007\\kids_chair.glb",
+      "old_backup_matches_baseline_hash": true,
+      "old_sha256": "8be0b41b243c9e353700088533a149cdd2b9b80cb2f80daa76216c3e36a9b2d4",
+      "new_source": "D:\\aphasia\\outputs\\blender_basement_loop_v2\\asset_library\\kids_chair.glb",
+      "new_sha256": "78646c398848116cad75a24102018e33cdfd688105e1485b5d79be7c92d3e195",
+      "node_count": 17,
+      "geometry_node_count": 16,
+      "node_fields_transforms_hierarchy_extras_exact": true,
+      "non_uv_geometry_exact": true,
+      "decoded_indices_exact": true,
+      "uv_max_abs_error": 1.1920928955078125e-07,
+      "uv_tolerance": 1e-06,
+      "uv_changed_node_count": 16,
+      "changed_material_node_count": 16,
+      "only_chair_materials_changed": true,
+      "chair_wood_parts": 16,
+      "chair_material_names": [
+        "PBR_AgedWalnut.001"
+      ],
+      "chair_base_texture_names": [
+        "walnut_base"
+      ],
+      "collisions": {
+        "count": 0,
+        "names": [],
+        "passed": true
+      },
+      "anchors": {
+        "count": 0,
+        "names": [],
+        "passed": true
+      },
+      "door_axes": {
+        "count": 0,
+        "names": [],
+        "passed": true
+      },
+      "xray_paint": {
+        "count": 0,
+        "names": [],
+        "passed": true
+      },
+      "per_geometry_node": {
+        "Furniture_KidsChair_BackPost_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 62,
+          "passed": true
+        },
+        "Furniture_KidsChair_BackPost_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 25,
+          "passed": true
+        },
+        "Furniture_KidsChair_BackSlat_00.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 27,
+          "passed": true
+        },
+        "Furniture_KidsChair_BackSlat_01.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 125,
+          "passed": true
+        },
+        "Furniture_KidsChair_BackSlat_02.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 9.313225746154785e-10,
+          "uv_changed_components": 145,
+          "passed": true
+        },
+        "Furniture_KidsChair_FrontLeg_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 78,
+          "passed": true
+        },
+        "Furniture_KidsChair_FrontLeg_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 43,
+          "passed": true
+        },
+        "Furniture_KidsChair_LowerBackRail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.2351741790771484e-08,
+          "uv_changed_components": 183,
+          "passed": true
+        },
+        "Furniture_KidsChair_Seat.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 110,
+          "passed": true
+        },
+        "Furniture_KidsChair_SideRail_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 178,
+          "passed": true
+        },
+        "Furniture_KidsChair_SideRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.1920928955078125e-07,
+          "uv_changed_components": 166,
+          "passed": true
+        },
+        "Furniture_KidsChair_SideStretcher_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 180,
+          "passed": true
+        },
+        "Furniture_KidsChair_SideStretcher_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 7.450580596923828e-09,
+          "uv_changed_components": 173,
+          "passed": true
+        },
+        "Furniture_KidsChair_TopRail.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 1.4901161193847656e-08,
+          "uv_changed_components": 137,
+          "passed": true
+        },
+        "Furniture_KidsChair_UnderSeatRail_-0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.2351741790771484e-08,
+          "uv_changed_components": 124,
+          "passed": true
+        },
+        "Furniture_KidsChair_UnderSeatRail_0.001": {
+          "non_uv_expanded_geometry_exact": true,
+          "attribute_names_exact": true,
+          "decoded_indices_exact": true,
+          "uv_max_abs_error": 2.2351741790771484e-08,
+          "uv_changed_components": 136,
+          "passed": true
+        }
+      },
+      "passed": true
+    }
+  },
+  "passed": true
+}

@@ -1,0 +1,52 @@
+《Aphasia》Windows 本机环境
+准备日期：2026-10-05
+
+双击启动
+1. 启动游戏.cmd：直接运行游戏。
+2. 打开Godot编辑器.cmd：在 Godot 4.6.3 中打开工程，之后可用 F6/F5 调试。
+这两个入口会自动传入本机手部追踪 Python 路径。若直接打开 project.godot，摄像头辅助程序的环境变量不会自动设置，建议使用上述编辑器入口。
+
+位置与版本
+工程：D:\aphasia\meme-game\project.godot
+引擎：D:\aphasia\tools\godot-4.6.3\Godot_v4.6.3-stable_win64.exe
+已验证版本：4.6.3.stable.official.7d41c59c4
+Python：D:\aphasia\tools\hand-tracking-venv\Scripts\python.exe
+运行日志：D:\aphasia\outputs\local_runtime\game_latest.log
+编辑器日志：D:\aphasia\outputs\local_runtime\editor_latest.log
+存档：C:\Users\15340\AppData\Roaming\Godot\app_userdata\Babel Meme Game
+
+仓库状态
+来源：https://github.com/zhangyangdi233-sudo/meme-game
+只克隆 main，基准提交 7951a0e6e5f17523ccdb39d41a801fa6f9d07ee4。
+当前本地工作分支：codex/windows-local-setup。
+dev 未检出、未修改。没有推送或合并任何远程分支。
+本地修改未提交，集中在手部追踪的 Windows 退出检测及两份相关/过期测试。
+Git 的 SSL 后端和换行处理仅在此仓库本地配置，不修改全局配置。
+
+操作
+WASD / 方向键：移动；鼠标：观察；Tab：拿起/放下手机；F：交互；Esc：释放鼠标。
+首次运行选择语言，然后选择新游戏。当前仍使用仓库原有内容和游戏名称 Babel Meme Game。
+
+验证结果
+实际使用 NVIDIA RTX 4070 Ti、Vulkan Forward+ 渲染了语言选择、菜单、序章、第一层及手机界面。
+12 组现有 Godot 测试通过：状态、主场景、流程、现实场景、存档、多语言、音频、拖拽、规则、造句、日结及物理字块。
+7 项 Python 手部追踪测试通过，MediaPipe 模型加载自检和 pip check 通过。
+测试与截图：D:\aphasia\outputs\local_runtime
+实际摄像头没有开启，真实镜头识别仍需在游戏内启用后验证。
+部分编辑器/测试进程退出时仍输出原有 CanvasItem、字体、Texture 等资源未释放诊断；未观察到阻止启动、渲染或上述核心断言的错误。
+
+本地修复
+Windows 下原 os.kill(pid, 0) 不能可靠判断宿主已退出，已用 Windows 进程句柄的零等待状态检查替代；macOS/POSIX 路径保持原行为。
+原造句测试调用不存在的 get_anchors_preset，导致中途报错后仍显示通过；已改成实际锚点校验，并更新为仓库现有发布页和物理词块界面，完整执行后通过。
+
+Godot 下载来源与校验
+官方归档：https://godotengine.org/download/archive/4.6.3-stable/
+官方发布：https://github.com/godotengine/godot-builds/releases/tag/4.6.3-stable
+Godot_v4.6.3-stable_win64.exe.zip 的 SHA256：
+e39986a178d585ce7ac198fb8de6ea436366dc0cc00e594810c2e3e104c04b90
+已与官方 GitHub Release API 提供的 digest 比对一致。
+
+另外两个独立聊天
+Blender 场景资产：D:\aphasia\outputs\blender_subliminal
+文本研究和 Word 填写：D:\aphasia\outputs\narrative
+它们分别制作并交付供检查；尚未合入游戏工程。

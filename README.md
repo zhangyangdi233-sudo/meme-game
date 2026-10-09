@@ -1,5 +1,7 @@
 # Babel Meme Game
 
+**Aphasia · 2026-10-09 本机成果交接：** [交接说明与最终 Word](docs/handoff/2026-10-09/README.md) · [当前流程](GAME_FLOW_MEMORY.md) · [可编辑 Blender 源资产](source_assets/blender_basement_loop_v2/README.md) · [Windows 启动说明](support/windows_workspace/README.md)。此分支保留完整游戏工程、本机修改、当前模型与文字稿，供继续制作。
+
 Standalone Godot 4.6 psychological-horror game built from the third-chapter meme prototype. Its progression is intentionally narrow: publishing produces funds and language pollution; pollution changes floors, dialogue, history, and endings.
 
 ## Current Loop
@@ -23,11 +25,15 @@ The meme bank is a right-edge radial selector that appears contextually on the s
 ## Reality Controls
 
 - `WASD` or arrow keys: move freely through the shared street and its open lots.
-- Mouse: lowering the phone captures the cursor for free look; `Esc` releases it and a left click captures it again.
+- Mouse: lowering the phone captures the cursor for free look; opening Settings releases it, and closing Settings restores gameplay control.
 - Touchscreen: drag across the open reality view to turn and tilt the camera without spending an action.
 - Mac trackpad: two-finger pan follows the physical finger direction; sliding left looks left and sliding down looks down.
-- `F`: interact with the nearby NPC, doll, or revealed prerequisite object.
-- `Tab`: raise or lower the phone.
+- `F`: interact with the nearby NPC, doll, or revealed prerequisite object. At the opening white door, wait for the knock to finish, approach until the open-door prompt appears, then press `F` to begin the automatic door transition.
+- `Tab`: raise or lower the phone; unavailable during the opening and enabled from the basement onward.
+- `Esc` or `F10`: open or close Settings at any time, including the opening transition. Settings pauses the opening countdown, knock, and transition; closing it resumes the interrupted sequence. Return to Main Menu stays in the fixed bottom footer and cancels the opening audio and animation.
+- `F9`: show or hide the development panel when launched with `--chapter1-dev`; showing it releases the cursor, and hiding it restores mouse look.
+
+The opening knock begins after 10 seconds of active player control and lasts about 6.243 seconds. After it finishes, `F` at the door frames the full door, opens it, fades to black, and enters the basement; walking through the doorway is not required. A saved completed knock does not replay on Continue. Saving before it completes restarts the 10-second wait when that save is loaded. See [the chapter-one integration guide](docs/chapter1-integration.md) for sequence timings, development flow, and audio licensing.
 
 The first floor starts with four open street lots along a continuous street at least 230 meters long. Floor two is a near-black irregular disc shaped by broad, walkable hill mounds and scattered detached houses. Floor three is a naturally skylit green-gray gallery whose complete ground is covered by one batched meadow. Floors 1-3 retain their established geography; floor 4 is an unregistered hidden area. All floors keep tested collision, fall recovery, fixed-focus distance blur, cold fog, and no jump-scare trigger volumes.
 

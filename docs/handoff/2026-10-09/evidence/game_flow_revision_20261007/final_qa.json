@@ -1,0 +1,57 @@
+{
+  "output": "D:\\aphasia\\《Aphasia》游戏整体流程_当前修订.docx",
+  "sha256": "8ce62c134743e45bfbbb63d5169ea9c814a00eb5062b75181112e7346489ce34",
+  "page_count": 19,
+  "visual_inspection": {
+    "pages_reviewed": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "dpi": 144,
+    "result": "No clipped text, overlapping elements, missing Chinese glyphs or new orphan revision page. Original flowchart styling retained."
+  },
+  "renderer": "Packaged documents/render_docx.py using portable LibreOffice 26.2.4 headless and bundled Poppler",
+  "render_directory": "D:\\aphasia\\outputs\\game_flow_revision_20261007\\render",
+  "log": "D:\\aphasia\\outputs\\game_flow_revision_20261007\\render_final.log",
+  "source_unchanged": true,
+  "original_paragraphs_preserved": 403,
+  "local_supersession_notes": 11,
+  "editable": true,
+  "opened_word": false,
+  "started_game": false,
+  "limits": [
+    "LibreOffice render verified; Word desktop pagination was not tested.",
+    "Original story, later chapters, and original flowchart formatting were preserved rather than rewritten."
+  ],
+  "download_provenance": [
+    {
+      "url": "https://download.documentfoundation.org/libreoffice/portable/26.2.4/LibreOfficePortable_26.2.4_MultilingualStandard.paf.exe",
+      "sha256": "4bde93374aef4409243505b20d16561a4628ac7591457dd01fc6e1ccf571ba65",
+      "signature": "Valid Rare Ideas LLC"
+    },
+    {
+      "url": "https://github.com/ip7z/7zip/releases/download/26.04/7z2604-extra.7z"
+    },
+    {
+      "url": "https://github.com/ip7z/7zip/releases/download/26.04/7z2604-x64.exe"
+    }
+  ],
+  "temporary_files": "Retained; packaged renderer temp cleanup overridden to avoid recursive deletion. Only obsolete page-20.png from first render removed individually."
+}

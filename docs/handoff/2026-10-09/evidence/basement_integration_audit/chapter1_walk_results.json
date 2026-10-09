@@ -1,0 +1,375 @@
+{
+	"failures": [],
+	"passed": true,
+	"steps": [
+		{
+			"completed": true,
+			"ms": 16234,
+			"step": "wait for opening knock"
+		},
+		{
+			"ms": 4947,
+			"position": "(0.0, -0.019863, -16.08337)",
+			"step": "approach opening after knock"
+		},
+		{
+			"ms": 2927,
+			"phase": "basement",
+			"step": "opening F cinematic"
+		},
+		{
+			"ms": 1567,
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "visit 1 stairs"
+		},
+		{
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "save and continue: visit 1 sealed stairs"
+		},
+		{
+			"ms": 110,
+			"position": "(-2.495005, -0.019556, 3.392702)",
+			"step": "front of stairs"
+		},
+		{
+			"ms": 849,
+			"position": "(-0.065989, -0.019556, 3.507882)",
+			"step": "front TV zone"
+		},
+		{
+			"ms": 1228,
+			"position": "(2.468749, -0.019179, 2.662036)",
+			"step": "turn along TV"
+		},
+		{
+			"ms": 1987,
+			"position": "(2.553875, -0.019179, -3.616665)",
+			"step": "right passage"
+		},
+		{
+			"ms": 552,
+			"position": "(1.072598, -0.01916, -3.707499)",
+			"step": "approach current NPC"
+		},
+		{
+			"position": "(1.072598, -0.020256, -3.707499)",
+			"step": "save and continue: visit 1 completed help"
+		},
+		{
+			"ms": 1158,
+			"position": "(-2.437046, -0.019057, -3.416855)",
+			"step": "approach basement exit"
+		},
+		{
+			"ms": 496,
+			"position": "(-4.07945, -0.019057, -3.42949)",
+			"step": "visit 1 crosses old exit without transfer"
+		},
+		{
+			"ms": 1640,
+			"position": "(-9.469446, -0.019057, -3.42999)",
+			"step": "visit 1 walks to tunnel midpoint"
+		},
+		{
+			"position": "(-9.469446, -0.020307, -3.42999)",
+			"step": "save and continue: visit 1 tunnel midpoint"
+		},
+		{
+			"ms": 1600,
+			"position": "(-14.77281, -0.020307, -3.429999)",
+			"step": "visit 1 approaches white door"
+		},
+		{
+			"ms": 2440,
+			"phase": "basement",
+			"step": "visit 1 white-door F transfer",
+			"token": 2
+		},
+		{
+			"ms": 1555,
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "visit 2 stairs"
+		},
+		{
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "save and continue: visit 2 sealed stairs"
+		},
+		{
+			"ms": 110,
+			"position": "(-2.495005, -0.019556, 3.392702)",
+			"step": "front of stairs"
+		},
+		{
+			"ms": 856,
+			"position": "(-0.065989, -0.019556, 3.507882)",
+			"step": "front TV zone"
+		},
+		{
+			"ms": 1235,
+			"position": "(2.468749, -0.019179, 2.662036)",
+			"step": "turn along TV"
+		},
+		{
+			"ms": 1987,
+			"position": "(2.553875, -0.019179, -3.616665)",
+			"step": "right passage"
+		},
+		{
+			"ms": 546,
+			"position": "(1.072598, -0.01916, -3.707499)",
+			"step": "approach current NPC"
+		},
+		{
+			"position": "(1.072598, -0.020256, -3.707499)",
+			"step": "save and continue: visit 2 completed help"
+		},
+		{
+			"ms": 1159,
+			"position": "(-2.437046, -0.019057, -3.416855)",
+			"step": "approach basement exit"
+		},
+		{
+			"ms": 504,
+			"position": "(-4.07945, -0.019057, -3.42949)",
+			"step": "visit 2 crosses old exit without transfer"
+		},
+		{
+			"ms": 1632,
+			"position": "(-9.469446, -0.019057, -3.42999)",
+			"step": "visit 2 walks to tunnel midpoint"
+		},
+		{
+			"position": "(-9.469446, -0.020307, -3.42999)",
+			"step": "save and continue: visit 2 tunnel midpoint"
+		},
+		{
+			"ms": 1607,
+			"position": "(-14.77281, -0.020307, -3.429999)",
+			"step": "visit 2 approaches white door"
+		},
+		{
+			"ms": 2452,
+			"phase": "basement",
+			"step": "visit 2 white-door F transfer",
+			"token": 3
+		},
+		{
+			"ms": 1564,
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "visit 3 stairs"
+		},
+		{
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "save and continue: visit 3 sealed stairs"
+		},
+		{
+			"ms": 104,
+			"position": "(-2.495005, -0.019556, 3.392702)",
+			"step": "front of stairs"
+		},
+		{
+			"ms": 862,
+			"position": "(-0.065989, -0.019556, 3.507882)",
+			"step": "front TV zone"
+		},
+		{
+			"ms": 1235,
+			"position": "(2.468749, -0.019179, 2.662036)",
+			"step": "turn along TV"
+		},
+		{
+			"ms": 1980,
+			"position": "(2.553875, -0.019179, -3.616665)",
+			"step": "right passage"
+		},
+		{
+			"ms": 552,
+			"position": "(1.072598, -0.01916, -3.707499)",
+			"step": "approach current NPC"
+		},
+		{
+			"position": "(1.072598, -0.020256, -3.707499)",
+			"step": "save and continue: visit 3 completed help"
+		},
+		{
+			"ms": 1165,
+			"position": "(-2.437046, -0.019057, -3.416855)",
+			"step": "approach basement exit"
+		},
+		{
+			"ms": 496,
+			"position": "(-4.07945, -0.019057, -3.42949)",
+			"step": "visit 3 crosses old exit without transfer"
+		},
+		{
+			"ms": 1639,
+			"position": "(-9.469446, -0.019057, -3.42999)",
+			"step": "visit 3 walks to tunnel midpoint"
+		},
+		{
+			"position": "(-9.469446, -0.020307, -3.42999)",
+			"step": "save and continue: visit 3 tunnel midpoint"
+		},
+		{
+			"ms": 1600,
+			"position": "(-14.77281, -0.020307, -3.429999)",
+			"step": "visit 3 approaches white door"
+		},
+		{
+			"ms": 2437,
+			"phase": "basement",
+			"step": "visit 3 white-door F transfer",
+			"token": 4
+		},
+		{
+			"ms": 1566,
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "visit 4 stairs"
+		},
+		{
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "save and continue: visit 4 sealed stairs"
+		},
+		{
+			"ms": 110,
+			"position": "(-2.495005, -0.019556, 3.392702)",
+			"step": "front of stairs"
+		},
+		{
+			"ms": 849,
+			"position": "(-0.065989, -0.019556, 3.507882)",
+			"step": "front TV zone"
+		},
+		{
+			"ms": 1235,
+			"position": "(2.468749, -0.019179, 2.662036)",
+			"step": "turn along TV"
+		},
+		{
+			"ms": 1981,
+			"position": "(2.553875, -0.019179, -3.616665)",
+			"step": "right passage"
+		},
+		{
+			"ms": 552,
+			"position": "(1.072598, -0.01916, -3.707499)",
+			"step": "approach current NPC"
+		},
+		{
+			"position": "(1.072598, -0.020256, -3.707499)",
+			"step": "save and continue: visit 4 completed help"
+		},
+		{
+			"ms": 1180,
+			"position": "(-2.437046, -0.019057, -3.416855)",
+			"step": "approach basement exit"
+		},
+		{
+			"ms": 497,
+			"position": "(-4.07945, -0.019057, -3.42949)",
+			"step": "visit 4 crosses old exit without transfer"
+		},
+		{
+			"ms": 1640,
+			"position": "(-9.469446, -0.019057, -3.42999)",
+			"step": "visit 4 walks to tunnel midpoint"
+		},
+		{
+			"position": "(-9.469446, -0.020307, -3.42999)",
+			"step": "save and continue: visit 4 tunnel midpoint"
+		},
+		{
+			"ms": 1601,
+			"position": "(-14.77281, -0.020307, -3.429999)",
+			"step": "visit 4 approaches white door"
+		},
+		{
+			"ms": 2449,
+			"phase": "basement",
+			"step": "visit 4 white-door F transfer",
+			"token": 5
+		},
+		{
+			"ms": 1570,
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "visit 5 stairs"
+		},
+		{
+			"position": "(-2.495062, -0.019556, 2.984371)",
+			"step": "save and continue: visit 5 sealed stairs"
+		},
+		{
+			"ms": 110,
+			"position": "(-2.495005, -0.019556, 3.392702)",
+			"step": "front of stairs"
+		},
+		{
+			"ms": 848,
+			"position": "(-0.065989, -0.019556, 3.507882)",
+			"step": "front TV zone"
+		},
+		{
+			"ms": 1229,
+			"position": "(2.468749, -0.019179, 2.662036)",
+			"step": "turn along TV"
+		},
+		{
+			"ms": 1987,
+			"position": "(2.553875, -0.019179, -3.616665)",
+			"step": "right passage"
+		},
+		{
+			"ms": 552,
+			"position": "(1.072598, -0.01916, -3.707499)",
+			"step": "approach current NPC"
+		},
+		{
+			"position": "(1.072598, -0.020256, -3.707499)",
+			"step": "save and continue: visit 5 completed help"
+		},
+		{
+			"ms": 1166,
+			"position": "(-2.437046, -0.019058, -3.416855)",
+			"step": "approach basement exit"
+		},
+		{
+			"ms": 496,
+			"position": "(-4.07945, -0.019058, -3.42949)",
+			"step": "visit 5 crosses old exit without transfer"
+		},
+		{
+			"ms": 1637,
+			"position": "(-9.469446, -0.019058, -3.42999)",
+			"step": "visit 5 walks to tunnel midpoint"
+		},
+		{
+			"position": "(-9.469446, -0.019058, -3.42999)",
+			"step": "save and continue: visit 5 tunnel midpoint"
+		},
+		{
+			"ms": 1601,
+			"position": "(-14.77281, -0.019058, -3.429999)",
+			"step": "visit 5 approaches white door"
+		},
+		{
+			"ms": 2439,
+			"phase": "crossroads",
+			"step": "visit 5 white-door F transfer",
+			"token": 6
+		},
+		{
+			"position": "(0.0, 0.065, 106.0)",
+			"step": "save and continue: crossroads with all app permissions"
+		},
+		{
+			"ms": 62003,
+			"position": "(0.0, -0.01916, -98.62434)",
+			"step": "crossroads far gate"
+		},
+		{
+			"ms": 886,
+			"step": "enter next layer",
+			"transition": "tower"
+		}
+	]
+}

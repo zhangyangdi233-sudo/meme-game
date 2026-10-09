@@ -31,3 +31,18 @@ exports/
 *.exe
 *.pck
 *.zip
+
+# Local authoring backups, Python environments, credentials, and runtime data
+*.blend1
+*.blend2
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+local-data/
+outputs/
+source_assets/**/revisions/

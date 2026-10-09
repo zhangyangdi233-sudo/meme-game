@@ -23,6 +23,17 @@ var _press_global := Vector2.ZERO
 var _drag_started := false
 var _last_drag_position := Vector2.ZERO
 var _last_drag_delta := Vector2.ZERO
+var _tile_size := TILE_SIZE
+var _tile_font_size := 0
+var _tile_font: Font
+
+
+## Configure subsequently added tiles. Existing tiles retain their own measured
+## footprints, so layout changes never reinterpret their saved top-left position.
+func configure_tile_metrics(tile_size: Vector2, font_size: int, font: Font = null) -> void:
+	_tile_size = Vector2(maxf(1.0, tile_size.x), maxf(1.0, tile_size.y))
+	_tile_font_size = maxi(1, font_size)
+	_tile_font = font
 
 
 func _ready() -> void:
@@ -81,9 +92,15 @@ func clear_tiles() -> void:
 func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool) -> void:
 	if _bodies.has(unit):
 		return
+	var actual_size := _tile_size
+	var reading_font := _tile_font if _tile_font != null else get_theme_font("font")
+	if _tile_font_size > 0:
+		var text_size := reading_font.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, _tile_font_size)
+		actual_size.x = maxf(actual_size.x, ceilf(text_size.x) + 18.0)
+		actual_size.y = maxf(actual_size.y, ceilf(reading_font.get_height(_tile_font_size)) + 12.0)
 	var body := RigidBody2D.new()
 	body.name = "WordBody_%s" % unit
-	body.position = spawn_position + TILE_SIZE * 0.5
+	body.position = spawn_position + actual_size * 0.5
 	body.gravity_scale = 1.0
 	body.mass = 0.6
 	body.physics_material_override = PhysicsMaterial.new()
@@ -93,18 +110,19 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 	body.angular_damp = 4.0
 	body.contact_monitor = false
 	body.set_meta("word_unit", unit)
+	body.set_meta("tile_size", actual_size)
 
 	var shape := CollisionShape2D.new()
 	shape.name = "TileShape"
 	var rectangle := RectangleShape2D.new()
-	rectangle.size = TILE_SIZE
+	rectangle.size = actual_size
 	shape.shape = rectangle
 	body.add_child(shape)
 
 	var panel := Panel.new()
 	panel.name = "TileFace"
-	panel.size = TILE_SIZE
-	panel.position = -TILE_SIZE * 0.5
+	panel.size = actual_size
+	panel.position = -actual_size * 0.5
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if panel_style != null:
 		panel.add_theme_stylebox_override("panel", panel_style)
@@ -113,12 +131,15 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 	var label := Label.new()
 	label.name = "TileLabel"
 	label.text = unit
-	label.size = TILE_SIZE
-	label.position = -TILE_SIZE * 0.5
+	label.size = actual_size
+	label.position = -actual_size * 0.5
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_color_override("font_color", label_color)
+	if _tile_font_size > 0:
+		label.add_theme_font_size_override("font_size", _tile_font_size)
+		label.add_theme_font_override("font", reading_font)
 	label.set_meta("skip_localization", true)
 	body.add_child(label)
 
@@ -135,7 +156,11 @@ func get_tile_position(unit: String) -> Vector2:
 	var body: RigidBody2D = _bodies[unit]
 	if not is_instance_valid(body):
 		return Vector2.ZERO
-	return body.position - TILE_SIZE * 0.5
+	return body.position - _body_tile_size(body) * 0.5
+
+
+func _body_tile_size(body: RigidBody2D) -> Vector2:
+	return body.get_meta("tile_size", TILE_SIZE)
 
 
 func get_tile_count() -> int:
@@ -157,7 +182,7 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(body) or body == _dragging_body:
 			continue
 		if body.linear_velocity.length() < 4.0:
-			tile_settled.emit(str(unit), body.position - TILE_SIZE * 0.5)
+			tile_settled.emit(str(unit), body.position - _body_tile_size(body) * 0.5)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -211,7 +236,7 @@ func _end_drag(release_global: Vector2) -> void:
 	if not get_global_rect().has_point(release_global):
 		tile_dropped_outside.emit(unit, release_global)
 	else:
-		tile_settled.emit(unit, body.position - TILE_SIZE * 0.5)
+		tile_settled.emit(unit, body.position - _body_tile_size(body) * 0.5)
 
 
 func _body_at(local_position: Vector2) -> RigidBody2D:
@@ -221,7 +246,8 @@ func _body_at(local_position: Vector2) -> RigidBody2D:
 		var body: RigidBody2D = _bodies[unit]
 		if not is_instance_valid(body):
 			continue
-		var rect := Rect2(body.position - TILE_SIZE * 0.5, TILE_SIZE)
+		var actual_size := _body_tile_size(body)
+		var rect := Rect2(body.position - actual_size * 0.5, actual_size)
 		if rect.has_point(local_position) and body.z_index >= best_z:
 			hit = body
 			best_z = body.z_index

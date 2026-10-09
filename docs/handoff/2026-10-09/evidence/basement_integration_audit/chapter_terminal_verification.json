@@ -1,0 +1,127 @@
+{
+  "scope": "Physical CRT tutorial, shared application state, five NPC hand-ins, phone permissions at 1/3/5, independent hidden clue route and local VHS. Opening timing/knock remains the separately authorized route.",
+  "status": "passed_with_shutdown_cleanup_diagnostics",
+  "implementation_sha256": {
+    "scripts/babel_meme_game.gd": "62168B97832E5AD09E3610485A780D1132D99E918E9843C439D2D1D479086710",
+    "scripts/meme_game_state.gd": "5107643C3B21AF65A23DD19949216E61F10D858E11E725187902B1120B11CB4A",
+    "scripts/progression/basement_loop_director.gd": "F2CFE39A8D76F769AADD16B8B94675D6249A7CEC19C53CCD61582247229E989D",
+    "scripts/world/chapter_world.gd": "432A9C066438E53C6FC1406E5A6DC0CA7154BC6AF1CA60504F9B125C0C14203E",
+    "scripts/world/chapter_terminal.gd": "D77FA7773677559EFAB51698E407C70EB83659B874DC8739D543F8988A4FEF30",
+    "scripts/world/chapter_video_screen.gd": "6EEE249695BFB06BC4F01E13960C3D10EF4EAA7B3B1580F6B63C44E47BAA74D5",
+    "scripts/ui/chapter_terminal_session.gd": "B9092FCD99F99830AD7B484343A69176E14D08ACC8C6521D4D06CAABE7A2704A",
+    "scripts/localization/game_locale.gd": "171C9B32BFA684F86FE1BE9483FFA4B65AC53BEDB29F190274D5DD8D1254BC82",
+    "shaders/chapter_crt.gdshader": "0356ADE28257B7D3DE6B7BF760737B1A8E998EBB8A14791DD7A2C98FB93F2656",
+    "assets/chapter1/asset_contract.json": "E4D4F0833DC49830750FFE34E859A1207E4762467CF87E21478C00EE9ED4B35A"
+  },
+  "renderer_capture": {
+    "report": "chapter1_terminal_capture_results.json",
+    "checks": 62,
+    "failures": [],
+    "composition": {
+      "craft_font_size": 27,
+      "craft_rect": "[P: (828.0, 1084.0), S: (736.0, 56.0)]",
+      "draft_before_submission": [
+        "门"
+      ],
+      "picked_unit": "门",
+      "publish_font_size": 27,
+      "publish_rect": "[P: (48.0, 998.0), S: (712.0, 56.0)]",
+      "social_page": "publish",
+      "submitted_by_uv_click": true
+    },
+    "text_pickup": {
+      "mode": "actual RichTextLabel hover and UV mouse click",
+      "normal_font_size": 27,
+      "pixel": "(121.0, 595.0)",
+      "unit": "门"
+    },
+    "vhs_difference": {
+      "inside_changed_samples": 2611,
+      "inside_edge_exclusion_px": 8,
+      "inside_samples": 56580,
+      "outside_changed_samples": 0,
+      "outside_edge_exclusion_px": 14,
+      "outside_samples": 95889,
+      "rgb_difference_threshold": 0.025
+    }
+  },
+  "focused_checks": {
+    "terminal_component": 60,
+    "terminal_session": 57,
+    "tutorial_world": 105,
+    "chapter_xray_ui": 45,
+    "preferences": "passed",
+    "original_video_components": 89,
+    "sentence_composer": "passed",
+    "development_panel": "passed",
+    "main_terminal_flow": {
+      "checks": 302,
+      "exit_code": 0,
+      "log": "test_chapter_terminal_flow.final.log",
+      "coverage": "five real UI-handler visits, 25 first-visit retries, three save/continues, NPC task hand-ins, existing key clue route, permissions, held-click settings cancellation, scene cleanup and layout restoration"
+    }
+  },
+  "limitations": [
+    "Main-scene/capture shutdown still emits RID/ObjectDB/resource cleanup diagnostics. Component-only suites are clean.",
+    "No physical camera or user media decoding validation in this task.",
+    "Renderer business-click evidence is one NPC visit; five-visit state/actual UI-handler walkthrough is a separate automated check.",
+    "No new performance measurement."
+  ],
+  "asset_contract_matches_source": true,
+  "state_and_bridge_logs": [
+    {
+      "file": "test_basement_loop_director.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": false
+    },
+    {
+      "file": "test_chapter1_main_bridge.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": true
+    },
+    {
+      "file": "test_chapter_app_permissions.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": false
+    },
+    {
+      "file": "test_meme_game_state.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": false
+    },
+    {
+      "file": "test_playthrough_flow.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": false
+    },
+    {
+      "file": "test_rule_engine.chapter_budget_final.log",
+      "passing_marker": true,
+      "shutdown_diagnostics": false
+    }
+  ],
+  "final_chair_material_revision": {
+    "room_sha256": "2A23945D767B028877C11211676885EFFB1A9BAFBB6D79B78C05BEB7935D01AC",
+    "standalone_chair_sha256": "78646C398848116CAD75A24102018E33CDFD688105E1485B5D79BE7C92D3E195",
+    "contract_sha256": "E4D4F0833DC49830750FFE34E859A1207E4762467CF87E21478C00EE9ED4B35A",
+    "import_exit_code": 0,
+    "runtime_material_report": "verify_kids_chair_pbr_runtime.json",
+    "runtime_material_checks": 454,
+    "runtime_material_result": "passed, clean log; both scenes have 16 wooden mesh surfaces with PBR_AgedWalnut.001 and 1024x1024 albedo textures, no Paint_Teal",
+    "scope": "Two GLBs synchronized; source and game contract updated only status/latest_runtime_validation. Gameplay code unchanged; prior 302/62 results retained, not rerun for material-only patch.",
+    "geometry_comparison": {
+      "report": "chair_material_attribute_comparison.json",
+      "result": "passed",
+      "positions_normals_indices_transforms_exact": true,
+      "room_uv_max_error": 4.76837158203125e-07,
+      "chair_uv_max_error": 1.1920928955078125e-07,
+      "uv_tolerance": 1e-06,
+      "unchanged": {
+        "collision_meshes": 40,
+        "anchors": 7,
+        "door_pivots": 2,
+        "xray_marks": 3
+      }
+    }
+  }
+}

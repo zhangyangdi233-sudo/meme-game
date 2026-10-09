@@ -1,0 +1,8 @@
+# Preserve exact bytes of handoff snapshots so archive_manifest SHA-256 values
+# match both the original workspace and a fresh clone on any operating system.
+/GAME_FLOW_MEMORY.md -text
+/source_assets/** -text
+/support/windows_workspace/** -text
+/docs/handoff/** -text
+/docs/narrative/** -text
+/docs/design_originals/** -text

@@ -5,6 +5,7 @@ const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
 const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
+const BasementLoopDirectorScript = preload("res://scripts/progression/basement_loop_director.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
@@ -83,7 +84,7 @@ const SAVE_FIELD_NAMES := [
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"history_entries",
-	"language_sentence_slots", "sentence_records", "tutorial_progress",
+	"language_sentence_slots", "sentence_records", "tutorial_progress", "chapter1_progress",
 	"collected_char_units", "last_char_pick_day", "char_canvas_positions",
 	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
 	"last_clean_sentence", "last_polluted_sentence",
@@ -141,6 +142,7 @@ var history_entries: Array = []
 var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
 var tutorial_progress: Dictionary = {}
+var chapter1_progress: Dictionary = {}
 var collected_char_units: Array = []
 var last_char_pick_day: int = 0
 var char_canvas_positions: Dictionary = {}
@@ -241,6 +243,7 @@ func new_run() -> void:
 	floor3_task_complete = false
 	floor4_task_complete = false
 	tutorial_progress = TutorialDirectorScript.initial_progress()
+	chapter1_progress = {}
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
 	npc_understanding = 100
@@ -250,6 +253,48 @@ func new_run() -> void:
 	last_relationship_money_loss = 0
 	reality_dialogue_count = 0
 	reset_typed_reality_conversation()
+
+
+func start_chapter1() -> void:
+	chapter1_progress = BasementLoopDirectorScript.initial_progress()
+	_normalize_phone_app_window()
+
+
+func notify_chapter1(event_id: String, payload: Dictionary = {}) -> Dictionary:
+	if chapter1_progress.is_empty():
+		return {"accepted": false, "progress": {}, "transition": ""}
+	var result := BasementLoopDirectorScript.dispatch(chapter1_progress, event_id, payload)
+	chapter1_progress = (result.progress as Dictionary).duplicate(true)
+	_normalize_phone_app_window()
+	return result
+
+
+func has_current_chapter_submission() -> bool:
+	if not _is_basement_practice():
+		return false
+	var progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
+	var current := BasementLoopDirectorScript.get_current_round(progress)
+	for value in sentence_records:
+		if not value is Dictionary:
+			continue
+		var record: Dictionary = value
+		var token: Variant = record.get("chapter_round_token")
+		if not (token is int or token is float) or token != progress.transition_serial:
+			continue
+		if record.get("chapter_task_id") != current.task_id or record.get("kind") != "free_sentence":
+			continue
+		var text_value: Variant = record.get("text")
+		var units: Variant = record.get("units")
+		if not text_value is String or text_value.strip_edges().is_empty() or not units is Array or units.is_empty():
+			continue
+		var valid_units := true
+		for unit in units:
+			if not unit is String or unit.strip_edges().is_empty():
+				valid_units = false
+				break
+		if valid_units:
+			return true
+	return false
 
 
 func notify_tutorial(event_id: String, payload: Dictionary = {}) -> Dictionary:
@@ -273,7 +318,11 @@ func to_save_data() -> Dictionary:
 	var state_data := {}
 	for field_name in SAVE_FIELD_NAMES:
 		var value: Variant = get(field_name)
+		if field_name == "chapter1_progress" and not chapter1_progress.is_empty():
+			value = BasementLoopDirectorScript.normalize_progress(chapter1_progress)
 		state_data[field_name] = value.duplicate(true) if value is Array or value is Dictionary else value
+	if not is_phone_app_unlocked(active_app_window):
+		state_data["active_app_window"] = ""
 	return {
 		"version": SAVE_DATA_VERSION,
 		"state": state_data,
@@ -293,12 +342,16 @@ func load_save_data(save_data: Dictionary) -> bool:
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
+		if field_name == "chapter1_progress":
+			chapter1_progress = BasementLoopDirectorScript.normalize_progress(value) if value is Dictionary and not value.is_empty() else {}
+			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
 	day = maxi(1, day)
 	tower_floor = clampi(tower_floor, 1, MAX_TOWER_FLOOR)
 	max_actions_per_day = maxi(1, max_actions_per_day)
 	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
+	_migrate_legacy_chapter_action_budget(state_data.get("chapter1_progress", {}))
 	if loaded_version < 4 and saved_floor >= 4:
 		tower_floor = 3
 		ending_unlocked = false
@@ -317,12 +370,33 @@ func load_save_data(save_data: Dictionary) -> bool:
 	_normalize_doll_state()
 	_normalize_language_bridge_state(loaded_version)
 	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
+	_normalize_phone_app_window()
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	reset_typed_reality_conversation()
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
 	return true
+
+
+func _migrate_legacy_chapter_action_budget(raw: Variant) -> void:
+	# Old chapter saves have no action-origin marker. This deliberately narrow
+	# schema migration repairs their exhausted tutorial budget on the same day;
+	# ordinary saves and explicit new-schema budget records remain unchanged.
+	if not raw is Dictionary or raw.has("unlocked_app_ids"):
+		return
+	var config: Variant = raw.get("reward_config", {})
+	if config is Dictionary and config.has("task_app_unlocks"):
+		return
+	var phase: Variant = raw.get("phase", "")
+	if phase not in ["basement", "crossroads"] or phase != chapter1_progress.get("phase", ""):
+		return
+	if actions_remaining != 0 or not needs_day_settlement:
+		return
+	actions_remaining = max_actions_per_day
+	needs_day_settlement = false
+	day_ended_reason = ""
+	pollution_flashback_pending = false
 
 
 func _normalize_language_bridge_state(loaded_version: int) -> void:
@@ -428,6 +502,8 @@ func set_phone_open(value: bool) -> void:
 	phone_visible = value
 	if not value:
 		active_app_window = ""
+	else:
+		_normalize_phone_app_window()
 
 
 func set_view_state(value: String) -> bool:
@@ -437,7 +513,8 @@ func set_view_state(value: String) -> bool:
 	if view_state == "phone_down":
 		phone_visible = true
 		phone_open = true
-		if active_app_window.is_empty():
+		_normalize_phone_app_window()
+		if active_app_window.is_empty() and can_use_app(active_app):
 			active_app_window = active_app
 	else:
 		phone_visible = false
@@ -598,13 +675,52 @@ func get_ending_language_output() -> String:
 	return ""
 
 
-func set_active_app(app_id: String) -> void:
+func is_phone_app_unlocked(app_id: String) -> bool:
+	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
+		return false
+	if chapter1_progress.is_empty():
+		return true
+	var progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
+	return app_id in progress.unlocked_app_ids
+
+
+func can_use_app(app_id: String, context: String = "phone") -> bool:
+	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
+		return false
+	if context == "phone":
+		return is_phone_app_unlocked(app_id)
+	if context == "terminal":
+		return _is_basement_practice()
+	return false
+
+
+func set_active_app(app_id: String, context: String = "phone") -> bool:
+	if not can_use_app(app_id, context):
+		return false
 	active_app = app_id
-	if view_state == "phone_down":
+	if context == "phone" and view_state == "phone_down":
 		active_app_window = app_id
+	return true
+
+
+func _normalize_phone_app_window() -> void:
+	if not is_phone_app_unlocked(active_app_window):
+		active_app_window = ""
+
+
+func _is_basement_practice() -> bool:
+	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase == "basement"
+
+
+func _is_chapter_practice() -> bool:
+	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase in ["basement", "crossroads"]
 
 
 func spend_action(action_type: String) -> bool:
+	# Chapter practice allows retries until the tower, sharing words and drafts.
+	# The normal day budget and any earlier settlement record stay untouched.
+	if _is_chapter_practice():
+		return true
 	if actions_remaining <= 0:
 		actions_remaining = 0
 		needs_day_settlement = true
@@ -618,7 +734,7 @@ func spend_action(action_type: String) -> bool:
 
 
 func can_spend_action() -> bool:
-	return actions_remaining > 0
+	return _is_chapter_practice() or actions_remaining > 0
 
 
 func is_social_following(handle: String) -> bool:
@@ -652,6 +768,10 @@ func toggle_social_like(post_id: String) -> bool:
 
 
 func check_pollution_flashback(previous_pollution: int) -> bool:
+	# Tutorial retries share pollution records, but cannot end the normal day
+	# or queue a forced-day cutscene to run after entering the tower.
+	if _is_chapter_practice():
+		return false
 	if pollution_flashback_seen:
 		return false
 	if previous_pollution >= POLLUTION_FLASHBACK_THRESHOLD:
@@ -1263,10 +1383,11 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 		if not can_spend_action():
 			result["reason"] = "no-actions"
 			return result
+		var previous_actions := actions_remaining
 		if not spend_action("pick-char"):
 			result["reason"] = "no-actions"
 			return result
-		result["action_spent"] = true
+		result["action_spent"] = actions_remaining < previous_actions
 	collected_char_units.append({
 		"unit": normalized_unit,
 		"locale": locale_code,
@@ -1391,6 +1512,10 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		"pollution_gain": pollution_gain,
 		"content_locale": locale_code,
 	}
+	if _is_basement_practice():
+		var chapter_progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
+		record["chapter_task_id"] = BasementLoopDirectorScript.get_current_round(chapter_progress).task_id
+		record["chapter_round_token"] = chapter_progress.transition_serial
 	published_memes.push_front(record)
 	sentence_records.append(record.duplicate(true))
 	last_clean_sentence = sentence

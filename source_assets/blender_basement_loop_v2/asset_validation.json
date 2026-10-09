@@ -1,0 +1,1226 @@
+{
+  "generated_at_utc": "2026-10-07T12:28:05.910286+00:00",
+  "method": "Read-only GLB binary, JSON, all accessors, hierarchy and numeric geometry inspection; no Blender/Godot execution",
+  "status": "static_validation_passed_runtime_validation_separate",
+  "asset_contract_sha256": "8f8df90da13294563058d40de25820efdc606214e4dc1509e3306452adcfb677",
+  "files": [
+    {
+      "path": "Basement_Loop_v2.glb",
+      "bytes": 20054224,
+      "sha256": "2a23945d767b028877c11211676885effb1a9bafbb6d79b78c05beb7935d01ac",
+      "nodes": 548,
+      "meshes": 482,
+      "mesh_instances": 507,
+      "unique_mesh_triangles": 56386,
+      "scene_triangles_including_collision": 57704,
+      "render_triangles": 57228,
+      "collision_triangles": 476,
+      "unique_mesh_vertices": 77106,
+      "materials": 33,
+      "textures": 18,
+      "embedded_images": [
+        {
+          "name": "carpet_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2919665,
+          "sha256": "3bae96a1a3238675615c2b06b1d698361863222785990755911273f99209cde4"
+        },
+        {
+          "name": "APH3_Moss_Carpet",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 1637136,
+          "sha256": "d49cb991e9b51e993c169e0f0a5c98f8a578d1a4fd50d83306cdec605f0b285a"
+        },
+        {
+          "name": "carpet_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 996323,
+          "sha256": "e54f93174192358a98bda693633e8c2fb0f5560ff07c26a7616b7b6e19284bcc"
+        },
+        {
+          "name": "wallpaper_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2835430,
+          "sha256": "8819923a36d76e9328c580717bc35925e69da4f9d9dd96cb7a1920214863c2ea"
+        },
+        {
+          "name": "wallpaper_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 619588,
+          "sha256": "77cef9a3f4e281bfb03784b9c85de38f2079f6ff0ed24f1d43d9e94906c4557b"
+        },
+        {
+          "name": "ceiling_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2448752,
+          "sha256": "15516856602227b8d60d220fc41672e67c02e5f20815a87bd57f4a2d64b055cf"
+        },
+        {
+          "name": "ceiling_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 1490817,
+          "sha256": "8421e5a43c5de3f8ca805f9a5b478fadaa1036b69ece7975314e9f16c67be3a5"
+        },
+        {
+          "name": "ceiling_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 812346,
+          "sha256": "6134cad5e822badff4727482f3416405a7f767b13cce0979eb642457519cd4e3"
+        },
+        {
+          "name": "carpet_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2105228,
+          "sha256": "0c7f7805571dfa9f6c7df03d822fe8df0fc548a9c3140c6891e9379aae58a57a"
+        },
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        },
+        {
+          "name": "framed_art",
+          "width": 640,
+          "height": 800,
+          "bytes": 6918,
+          "sha256": "bc13342a0cbf0d60d5c60f459fdc5b38fc0b75aa31c65571c0620eb9373356ca"
+        }
+      ],
+      "collision_nodes": [
+        "Room_Floor-colonly",
+        "Wall_Front-colonly",
+        "Wall_East-colonly",
+        "Wall_Rear-colonly",
+        "Wall_West_Main-colonly",
+        "Wall_West_BelowEntry-colonly",
+        "Wall_West_BetweenDoors-colonly",
+        "Wall_West_ExitEnd-colonly",
+        "Exit_Lintel-colonly",
+        "NPC_Partition-colonly",
+        "Stairwell_West-colonly",
+        "Stairwell_EntryLintel-colonly",
+        "Stairwell_RearPier-colonly",
+        "Stairwell_UpperEast-colonly",
+        "Stairwell_UpperRear-colonly",
+        "Ceiling_Main-colonly",
+        "Ceiling_FrontLeft-colonly",
+        "Ceiling_RearLeft-colonly",
+        "Ceiling_Stairwell-colonly",
+        "Entry_VestibuleFloor-colonly",
+        "Entry_VestibuleBack-colonly",
+        "Entry_VestibuleSide-colonly",
+        "Entry_VestibuleSide_001-colonly",
+        "Entry_VestibuleCeiling-colonly",
+        "Exit_VestibuleFloor-colonly",
+        "Exit_VestibuleBack-colonly",
+        "Exit_VestibuleSide-colonly",
+        "Exit_VestibuleSide_001-colonly",
+        "Exit_VestibuleCeiling-colonly",
+        "Stair_UpperLanding-colonly",
+        "Stair_WalkRamp-colonly",
+        "Stair_RailBarrier-colonly",
+        "Landing_RailBarrier-colonly",
+        "Stairwell_UpperFront-colonly",
+        "PropCollision_MediaConsole-colonly",
+        "PropCollision_WindsorA-colonly",
+        "PropCollision_WindsorB-colonly",
+        "PropCollision_RearSideTable-colonly",
+        "PropCollision_ChildTable-colonly",
+        "PropCollision_TealChair-colonly"
+      ],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -4.58,
+        -0.2,
+        -4.36
+      ],
+      "aabb_gltf_max": [
+        3.36,
+        5.29,
+        4.36
+      ],
+      "dimensions_xyz_gltf": [
+        7.94,
+        5.49,
+        8.72
+      ],
+      "extensions_used": [
+        "KHR_materials_emissive_strength",
+        "KHR_lights_punctual"
+      ],
+      "external_references": [],
+      "accessors_checked": 1539,
+      "result": "passed"
+    },
+    {
+      "path": "Basement_Architecture_v2.glb",
+      "bytes": 18048920,
+      "sha256": "239eb8d9ab5affdf45600d83d901f4ba185de0c51c4756a1d834bf53dcbc3551",
+      "nodes": 212,
+      "meshes": 197,
+      "mesh_instances": 197,
+      "unique_mesh_triangles": 23672,
+      "scene_triangles_including_collision": 23672,
+      "render_triangles": 23268,
+      "collision_triangles": 404,
+      "unique_mesh_vertices": 25686,
+      "materials": 9,
+      "textures": 14,
+      "embedded_images": [
+        {
+          "name": "carpet_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2919665,
+          "sha256": "3bae96a1a3238675615c2b06b1d698361863222785990755911273f99209cde4"
+        },
+        {
+          "name": "APH3_Moss_Carpet",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 1637136,
+          "sha256": "d49cb991e9b51e993c169e0f0a5c98f8a578d1a4fd50d83306cdec605f0b285a"
+        },
+        {
+          "name": "carpet_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 996323,
+          "sha256": "e54f93174192358a98bda693633e8c2fb0f5560ff07c26a7616b7b6e19284bcc"
+        },
+        {
+          "name": "wallpaper_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2835430,
+          "sha256": "8819923a36d76e9328c580717bc35925e69da4f9d9dd96cb7a1920214863c2ea"
+        },
+        {
+          "name": "wallpaper_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 619588,
+          "sha256": "77cef9a3f4e281bfb03784b9c85de38f2079f6ff0ed24f1d43d9e94906c4557b"
+        },
+        {
+          "name": "ceiling_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2448752,
+          "sha256": "15516856602227b8d60d220fc41672e67c02e5f20815a87bd57f4a2d64b055cf"
+        },
+        {
+          "name": "ceiling_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 1490817,
+          "sha256": "8421e5a43c5de3f8ca805f9a5b478fadaa1036b69ece7975314e9f16c67be3a5"
+        },
+        {
+          "name": "ceiling_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 812346,
+          "sha256": "6134cad5e822badff4727482f3416405a7f767b13cce0979eb642457519cd4e3"
+        },
+        {
+          "name": "carpet_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 2105228,
+          "sha256": "0c7f7805571dfa9f6c7df03d822fe8df0fc548a9c3140c6891e9379aae58a57a"
+        },
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [
+        "Room_Floor-colonly",
+        "Wall_Front-colonly",
+        "Wall_East-colonly",
+        "Wall_Rear-colonly",
+        "Wall_West_Main-colonly",
+        "Wall_West_BelowEntry-colonly",
+        "Wall_West_BetweenDoors-colonly",
+        "Wall_West_ExitEnd-colonly",
+        "Exit_Lintel-colonly",
+        "NPC_Partition-colonly",
+        "Stairwell_West-colonly",
+        "Stairwell_EntryLintel-colonly",
+        "Stairwell_RearPier-colonly",
+        "Stairwell_UpperEast-colonly",
+        "Stairwell_UpperRear-colonly",
+        "Ceiling_Main-colonly",
+        "Ceiling_FrontLeft-colonly",
+        "Ceiling_RearLeft-colonly",
+        "Ceiling_Stairwell-colonly",
+        "Entry_VestibuleFloor-colonly",
+        "Entry_VestibuleBack-colonly",
+        "Entry_VestibuleSide-colonly",
+        "Entry_VestibuleSide_001-colonly",
+        "Entry_VestibuleCeiling-colonly",
+        "Exit_VestibuleFloor-colonly",
+        "Exit_VestibuleBack-colonly",
+        "Exit_VestibuleSide-colonly",
+        "Exit_VestibuleSide_001-colonly",
+        "Exit_VestibuleCeiling-colonly",
+        "Stair_UpperLanding-colonly",
+        "Stair_WalkRamp-colonly",
+        "Stair_RailBarrier-colonly",
+        "Landing_RailBarrier-colonly",
+        "Stairwell_UpperFront-colonly"
+      ],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -4.58,
+        -0.2,
+        -4.36
+      ],
+      "aabb_gltf_max": [
+        3.36,
+        5.29,
+        4.36
+      ],
+      "dimensions_xyz_gltf": [
+        7.94,
+        5.49,
+        8.72
+      ],
+      "extensions_used": [
+        "KHR_lights_punctual"
+      ],
+      "external_references": [],
+      "accessors_checked": 566,
+      "result": "passed"
+    },
+    {
+      "path": "Opening_WhiteDoor_v2.glb",
+      "bytes": 3891052,
+      "sha256": "a318b980649425f053ba17a00d35a97ce38aa829485efaf37b89bd507392fe85",
+      "nodes": 37,
+      "meshes": 32,
+      "mesh_instances": 32,
+      "unique_mesh_triangles": 160014,
+      "scene_triangles_including_collision": 160014,
+      "render_triangles": 159966,
+      "collision_triangles": 48,
+      "unique_mesh_vertices": 81432,
+      "materials": 9,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [
+        "Opening_Ground-colonly",
+        "DoorFrame_Left-colonly",
+        "DoorFrame_Right-colonly",
+        "DoorFrame_Top-colonly"
+      ],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -40.0,
+        -0.12,
+        -52.0
+      ],
+      "aabb_gltf_max": [
+        40.0,
+        2.42,
+        28.0
+      ],
+      "dimensions_xyz_gltf": [
+        80.0,
+        2.54,
+        80.0
+      ],
+      "extensions_used": [
+        "KHR_materials_emissive_strength",
+        "KHR_lights_punctual"
+      ],
+      "external_references": [],
+      "accessors_checked": 104,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/box.glb",
+      "bytes": 62184,
+      "sha256": "852fd61f89f74e4ecc07f37f1a97c4a5e6a0479c67d9380608f4c899dfc5f926",
+      "nodes": 11,
+      "meshes": 10,
+      "mesh_instances": 10,
+      "unique_mesh_triangles": 792,
+      "scene_triangles_including_collision": 792,
+      "render_triangles": 792,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 1584,
+      "materials": 4,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.22,
+        0.0,
+        -0.16175
+      ],
+      "aabb_gltf_max": [
+        0.22,
+        0.288,
+        0.16175
+      ],
+      "dimensions_xyz_gltf": [
+        0.44,
+        0.288,
+        0.3235
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 35,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/chair.glb",
+      "bytes": 1351636,
+      "sha256": "89519e9e2ff304583d8255028c951ccbf1981762cbefbfc486d4ea98ae28cb7e",
+      "nodes": 21,
+      "meshes": 20,
+      "mesh_instances": 20,
+      "unique_mesh_triangles": 1836,
+      "scene_triangles_including_collision": 1836,
+      "render_triangles": 1836,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 2450,
+      "materials": 2,
+      "textures": 3,
+      "embedded_images": [
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.229702,
+        0.0,
+        -0.227938
+      ],
+      "aabb_gltf_max": [
+        0.229702,
+        1.079315,
+        0.227938
+      ],
+      "dimensions_xyz_gltf": [
+        0.459403,
+        1.079315,
+        0.455875
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 74,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/console.glb",
+      "bytes": 1851344,
+      "sha256": "5f1404303228864254b75a4850284407a8c229437fd8ebfabd73eea2027bbf89",
+      "nodes": 67,
+      "meshes": 66,
+      "mesh_instances": 66,
+      "unique_mesh_triangles": 10860,
+      "scene_triangles_including_collision": 10860,
+      "render_triangles": 10860,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 16126,
+      "materials": 7,
+      "textures": 3,
+      "embedded_images": [
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.975,
+        0.0,
+        -0.25
+      ],
+      "aabb_gltf_max": [
+        0.975,
+        0.78,
+        0.25
+      ],
+      "dimensions_xyz_gltf": [
+        1.95,
+        0.78,
+        0.5
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 230,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/crt.glb",
+      "bytes": 365216,
+      "sha256": "9570ffe51156a488dc7c04c1c52e75c2a7cf762aa8376b50f25ed075c66e204e",
+      "nodes": 56,
+      "meshes": 55,
+      "mesh_instances": 55,
+      "unique_mesh_triangles": 5992,
+      "scene_triangles_including_collision": 5992,
+      "render_triangles": 5992,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 9249,
+      "materials": 9,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.323665,
+        0.0,
+        -0.264494
+      ],
+      "aabb_gltf_max": [
+        0.323637,
+        0.548851,
+        0.277
+      ],
+      "dimensions_xyz_gltf": [
+        0.647302,
+        0.548851,
+        0.541494
+      ],
+      "extensions_used": [
+        "KHR_materials_emissive_strength"
+      ],
+      "external_references": [],
+      "accessors_checked": 192,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/frame.glb",
+      "bytes": 43732,
+      "sha256": "3b3d03925e45c4775963e928a5180fe89bf6caecd56a47aa46decdad7844578d",
+      "nodes": 8,
+      "meshes": 7,
+      "mesh_instances": 7,
+      "unique_mesh_triangles": 458,
+      "scene_triangles_including_collision": 458,
+      "render_triangles": 458,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 916,
+      "materials": 4,
+      "textures": 1,
+      "embedded_images": [
+        {
+          "name": "framed_art",
+          "width": 640,
+          "height": 800,
+          "bytes": 6918,
+          "sha256": "bc13342a0cbf0d60d5c60f459fdc5b38fc0b75aa31c65571c0620eb9373356ca"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.17,
+        0.0,
+        -0.013
+      ],
+      "aabb_gltf_max": [
+        0.17,
+        0.42,
+        0.013
+      ],
+      "dimensions_xyz_gltf": [
+        0.34,
+        0.42,
+        0.026
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 24,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/kids_chair.glb",
+      "bytes": 1402124,
+      "sha256": "78646c398848116cad75a24102018e33cdfd688105e1485b5d79be7c92d3e195",
+      "nodes": 17,
+      "meshes": 16,
+      "mesh_instances": 16,
+      "unique_mesh_triangles": 2848,
+      "scene_triangles_including_collision": 2848,
+      "render_triangles": 2848,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 4126,
+      "materials": 1,
+      "textures": 3,
+      "embedded_images": [
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.175,
+        0.0,
+        -0.18
+      ],
+      "aabb_gltf_max": [
+        0.175,
+        0.68,
+        0.18
+      ],
+      "dimensions_xyz_gltf": [
+        0.35,
+        0.68,
+        0.36
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 57,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/kids_table.glb",
+      "bytes": 1331620,
+      "sha256": "bbb9e04e955b8c1f36a83adf13943cad67f43615660eaf6ab8ea563fae34541c",
+      "nodes": 10,
+      "meshes": 9,
+      "mesh_instances": 9,
+      "unique_mesh_triangles": 1372,
+      "scene_triangles_including_collision": 1372,
+      "render_triangles": 1372,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 2302,
+      "materials": 1,
+      "textures": 3,
+      "embedded_images": [
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.525,
+        0.0,
+        -0.31
+      ],
+      "aabb_gltf_max": [
+        0.525,
+        0.57,
+        0.31
+      ],
+      "dimensions_xyz_gltf": [
+        1.05,
+        0.57,
+        0.62
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 31,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/side_table.glb",
+      "bytes": 1408824,
+      "sha256": "861ec26f6db7dc47653273e95a73916adbf4aa5dc6eb3b0cc3fd96472f1fc2ae",
+      "nodes": 14,
+      "meshes": 13,
+      "mesh_instances": 13,
+      "unique_mesh_triangles": 2824,
+      "scene_triangles_including_collision": 2824,
+      "render_triangles": 2824,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 4241,
+      "materials": 3,
+      "textures": 3,
+      "embedded_images": [
+        {
+          "name": "walnut_normal",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 510684,
+          "sha256": "aa025b9e6e89ec001a7842b1928c42a9171e6bacd5c5cceade5c4ff5824c831d"
+        },
+        {
+          "name": "walnut_base",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 482984,
+          "sha256": "61a80dd0509370073ca96e405a722fd81d1f2fdc55e2047a8d5c2627be333948"
+        },
+        {
+          "name": "walnut_rough",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 251825,
+          "sha256": "05ddada210cee3debdde2a6fcf94404124d90de278e6b5fa36ee10f44db8cd3c"
+        }
+      ],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.325,
+        0.0,
+        -0.19
+      ],
+      "aabb_gltf_max": [
+        0.325,
+        0.74,
+        0.19
+      ],
+      "dimensions_xyz_gltf": [
+        0.65,
+        0.74,
+        0.38
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 50,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/switch.glb",
+      "bytes": 42628,
+      "sha256": "c3be724608086defe021c908224d0ecdacf50d05433b6e402040c3763d877ff1",
+      "nodes": 9,
+      "meshes": 8,
+      "mesh_instances": 8,
+      "unique_mesh_triangles": 544,
+      "scene_triangles_including_collision": 544,
+      "render_triangles": 544,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 1024,
+      "materials": 4,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.0405,
+        0.0,
+        -0.0105
+      ],
+      "aabb_gltf_max": [
+        0.0405,
+        0.126,
+        0.015
+      ],
+      "dimensions_xyz_gltf": [
+        0.081,
+        0.126,
+        0.0255
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 29,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/vhs.glb",
+      "bytes": 244276,
+      "sha256": "2605f417b12e2b7521adb18f8d4ef58740e01b9329995a69868c2e8262e580b6",
+      "nodes": 64,
+      "meshes": 63,
+      "mesh_instances": 63,
+      "unique_mesh_triangles": 3348,
+      "scene_triangles_including_collision": 3348,
+      "render_triangles": 3348,
+      "collision_triangles": 0,
+      "unique_mesh_vertices": 5786,
+      "materials": 7,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.095,
+        0.0,
+        -0.0533
+      ],
+      "aabb_gltf_max": [
+        0.094,
+        0.0843,
+        0.0527
+      ],
+      "dimensions_xyz_gltf": [
+        0.189,
+        0.0843,
+        0.106
+      ],
+      "extensions_used": [],
+      "external_references": [],
+      "accessors_checked": 209,
+      "result": "passed"
+    },
+    {
+      "path": "asset_library/white_door.glb",
+      "bytes": 133620,
+      "sha256": "3c5757c2313e3ec47f6cb0d867718ebb65def8f96244a773570db9bdf5f90735",
+      "nodes": 32,
+      "meshes": 30,
+      "mesh_instances": 30,
+      "unique_mesh_triangles": 4154,
+      "scene_triangles_including_collision": 4154,
+      "render_triangles": 4118,
+      "collision_triangles": 36,
+      "unique_mesh_vertices": 2919,
+      "materials": 8,
+      "textures": 0,
+      "embedded_images": [],
+      "collision_nodes": [
+        "AssetWhite_DoorFrame_Left-colonly",
+        "AssetWhite_DoorFrame_Right-colonly",
+        "AssetWhite_DoorFrame_Top-colonly"
+      ],
+      "malformed_collision_suffixes": [],
+      "aabb_gltf_min": [
+        -0.7,
+        0.0,
+        -0.12
+      ],
+      "aabb_gltf_max": [
+        0.7,
+        2.42,
+        0.145001
+      ],
+      "dimensions_xyz_gltf": [
+        1.4,
+        2.42,
+        0.265001
+      ],
+      "extensions_used": [
+        "KHR_materials_emissive_strength"
+      ],
+      "external_references": [],
+      "accessors_checked": 98,
+      "result": "passed"
+    }
+  ],
+  "anchors": {
+    "EntrySpawn": {
+      "position_gltf": [
+        -2.5,
+        2.7200000286102295,
+        -1.850000023841858
+      ],
+      "matches_contract": true
+    },
+    "EntrySealTrigger": {
+      "position_gltf": [
+        -2.5,
+        2.4600000381469727,
+        -1.2200000286102295
+      ],
+      "matches_contract": true
+    },
+    "NPCAnchor": {
+      "position_gltf": [
+        0.0,
+        0.019999999552965164,
+        -3.700000047683716
+      ],
+      "matches_contract": true
+    },
+    "ExitThreshold": {
+      "position_gltf": [
+        -3.5799999237060547,
+        0.019999999552965164,
+        -3.430000066757202
+      ],
+      "matches_contract": true
+    },
+    "TVAnchor": {
+      "position_gltf": [
+        2.0,
+        0.7850000262260437,
+        3.690000057220459
+      ],
+      "matches_contract": true
+    },
+    "MainLightAnchor": {
+      "position_gltf": [
+        0.30000001192092896,
+        2.5,
+        1.5
+      ],
+      "matches_contract": true
+    },
+    "RearLightAnchor": {
+      "position_gltf": [
+        0.0,
+        2.5,
+        -3.4000000953674316
+      ],
+      "matches_contract": true
+    }
+  },
+  "doors": {
+    "entry": {
+      "pivot": "EntryDoorPivot",
+      "children": [
+        "Entry_BrassKnob",
+        "Entry_BrassKnob.001",
+        "Entry_RaisedPanel",
+        "Entry_RaisedPanel.001",
+        "Entry_RaisedPanel.002",
+        "Entry_RaisedPanel.003",
+        "Entry_RaisedPanel.004",
+        "Entry_RaisedPanel.005",
+        "Entry_RaisedPanel.006",
+        "Entry_RaisedPanel.007",
+        "Entry_RaisedPanel.008",
+        "Entry_RaisedPanel.009",
+        "Entry_RaisedPanel.010",
+        "Entry_RaisedPanel.011",
+        "EntryDoor_Leaf"
+      ],
+      "leaf_local_center_gltf": [
+        0.0,
+        1.1,
+        -0.53
+      ],
+      "leaf_dimensions_xyz_gltf": [
+        0.054999999701976776,
+        2.200000047683716,
+        1.059999942779541
+      ],
+      "static_collision_under_pivot": false,
+      "matches_contract": true
+    },
+    "exit": {
+      "pivot": "ExitDoorPivot",
+      "children": [
+        "Exit_BrassKnob",
+        "Exit_BrassKnob.001",
+        "Exit_RaisedPanel",
+        "Exit_RaisedPanel.001",
+        "Exit_RaisedPanel.002",
+        "Exit_RaisedPanel.003",
+        "Exit_RaisedPanel.004",
+        "Exit_RaisedPanel.005",
+        "Exit_RaisedPanel.006",
+        "Exit_RaisedPanel.007",
+        "Exit_RaisedPanel.008",
+        "Exit_RaisedPanel.009",
+        "Exit_RaisedPanel.010",
+        "Exit_RaisedPanel.011",
+        "ExitDoor_Leaf"
+      ],
+      "leaf_local_center_gltf": [
+        0.0,
+        1.1,
+        -0.53
+      ],
+      "leaf_dimensions_xyz_gltf": [
+        0.054999999701976776,
+        2.200000047683716,
+        1.059999942779541
+      ],
+      "static_collision_under_pivot": false,
+      "matches_contract": true
+    }
+  },
+  "screens": {
+    "dressed_basement": {
+      "node": "Prop_CRT_TV_Screen_Video",
+      "vertices": 825,
+      "triangles": 1536,
+      "local_dimensions_xyz_gltf": [
+        0.4659999907016754,
+        0.34950000047683716,
+        0.019999999552965164
+      ],
+      "uv_min": [
+        0.0,
+        0.0
+      ],
+      "uv_max": [
+        1.0,
+        1.0
+      ],
+      "uv_export_convention": "glTF top-left texture origin: exported V decreases as local height increases; expected Blender glTF conversion, not a flipped mesh",
+      "normal_length_max_error": 1.1920928955078125e-07,
+      "minimum_local_forward_dot": 0.976857602596283,
+      "world_front_direction_gltf": [
+        -0.605186,
+        0.0,
+        -0.796084
+      ],
+      "triangle_winding": "outward, glTF local +Z",
+      "material": {
+        "doubleSided": true,
+        "emissiveFactor": [
+          0.07227185368537903,
+          1,
+          0.13286831974983215
+        ],
+        "extensions": {
+          "KHR_materials_emissive_strength": {
+            "emissiveStrength": 2.200000047683716
+          }
+        },
+        "name": "APH3_CRT_Green_Standby",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.002428215928375721,
+            0.020288562402129173,
+            0.004024717025458813,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.2800000011920929
+        }
+      },
+      "KHR_materials_unlit_exported": false,
+      "runtime_requirement": "Replace this surface with unshaded video material during playback. Exported green standby is emissive PBR, not KHR_materials_unlit.",
+      "result": "passed"
+    },
+    "standalone_crt": {
+      "node": "Screen_Video",
+      "vertices": 825,
+      "triangles": 1536,
+      "local_dimensions_xyz_gltf": [
+        0.4659999907016754,
+        0.34950000047683716,
+        0.019999999552965164
+      ],
+      "uv_min": [
+        0.0,
+        0.0
+      ],
+      "uv_max": [
+        1.0,
+        1.0
+      ],
+      "uv_export_convention": "glTF top-left texture origin: exported V decreases as local height increases; expected Blender glTF conversion, not a flipped mesh",
+      "normal_length_max_error": 1.1920928955078125e-07,
+      "minimum_local_forward_dot": 0.976857602596283,
+      "world_front_direction_gltf": [
+        -0.0,
+        0.0,
+        1.0
+      ],
+      "triangle_winding": "outward, glTF local +Z",
+      "material": {
+        "doubleSided": true,
+        "emissiveFactor": [
+          0.07227185368537903,
+          1,
+          0.13286831974983215
+        ],
+        "extensions": {
+          "KHR_materials_emissive_strength": {
+            "emissiveStrength": 2.200000047683716
+          }
+        },
+        "name": "APH3_CRT_Green_Standby",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.002428215928375721,
+            0.020288562402129173,
+            0.004024717025458813,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.2800000011920929
+        }
+      },
+      "KHR_materials_unlit_exported": false,
+      "runtime_requirement": "Replace this surface with unshaded video material during playback. Exported green standby is emissive PBR, not KHR_materials_unlit.",
+      "result": "passed"
+    }
+  },
+  "architecture_props_found": [],
+  "standalone_asset_count": 11,
+  "opening": {
+    "pivot": "OpeningDoorPivot",
+    "moving_descendants": [
+      "Handle_RoundKnob",
+      "Handle_RoundRose",
+      "Handle_Shaft",
+      "OpeningDoor_Leaf",
+      "Panel_1_Left",
+      "Panel_1_Left_Recess",
+      "Panel_1_Right",
+      "Panel_1_Right_Recess",
+      "Panel_2_Left",
+      "Panel_2_Left_Recess",
+      "Panel_2_Right",
+      "Panel_2_Right_Recess",
+      "Panel_3_Left",
+      "Panel_3_Left_Recess",
+      "Panel_3_Right",
+      "Panel_3_Right_Recess"
+    ],
+    "spawn_feet_gltf": [
+      0.0,
+      0.03999999910593033,
+      0.0
+    ],
+    "spawn_explicitly_marked_as_feet": true,
+    "horizontal_spawn_to_door_centre_m": 18.0,
+    "leaf_local_center_gltf": [
+      0.56,
+      1.125,
+      0.0
+    ],
+    "visual_leaf_dimensions_xyz_gltf": [
+      1.1200000047683716,
+      2.25,
+      0.07800000160932541
+    ],
+    "contract_blocker_dimensions_xyz_gltf": [
+      1.12,
+      2.25,
+      0.08
+    ],
+    "light_plane_under_pivot": false,
+    "standalone_white_door_pivot_descendants": 16,
+    "result": "passed"
+  },
+  "static_geometry_notes": {
+    "coordinate_conversion": "Blender (x,y,z) -> glTF/Godot (x,z,-y)",
+    "player_capsule_radius_m": 0.34,
+    "player_capsule_height_m": 1.72,
+    "door_clear_width_m": 1.06,
+    "door_side_margin_for_centered_player_m": 0.19,
+    "right_passage_width_m": 1.55,
+    "landing_headroom_m": 2.43,
+    "ramp_angle_degrees": 32.07652859309861,
+    "ramp_visual_tread_nose_difference_m": [
+      0.1248,
+      0.188
+    ],
+    "ramp_choice": "Smooth ramp deliberately retained for first-person movement. Visible feet/IK would need a separate stair-aware solution.",
+    "NPC_anchor_y_blender": 3.7,
+    "tv_anchor_blender": [
+      2,
+      -3.69,
+      0.785
+    ]
+  },
+  "limitations": [
+    "No interactive walk, physics import, light/video playback, GPU performance, game progress or saved-game test performed by this static script.",
+    "Asset Browser preference registration and .blend embedded image/preview persistence are outside GLB binary validation; parent live Blender task owns those checks.",
+    "GLB screen off-state exports emissive PBR rather than KHR_materials_unlit; runtime unshaded video material override is required and documented."
+  ]
+}

@@ -204,7 +204,9 @@ func _draw_horizontal_tear(destination: Rect2, source: Rect2) -> void:
 			Vector2(source.position.x + source.size.x * inset / maxf(destination.size.x, 1.0), source_y),
 			Vector2(source.size.x * tear_destination.size.x / maxf(destination.size.x, 1.0), source_height)
 		)
-		draw_texture_rect_region(_layer_texture, tear_destination, tear_source, Color(0.89, 0.96, 0.73, 0.52 + strength * 0.30))
+		var clipped := _clip_texture_region(tear_destination, tear_source, destination)
+		if not clipped.is_empty():
+			draw_texture_rect_region(_layer_texture, clipped[0], clipped[1], Color(0.89, 0.96, 0.73, 0.52 + strength * 0.30))
 		draw_line(
 			Vector2(destination.position.x + inset, tear_y - 1.0),
 			Vector2(destination.end.x - inset * 0.35, tear_y - 1.0),
@@ -212,6 +214,19 @@ func _draw_horizontal_tear(destination: Rect2, source: Rect2) -> void:
 			1.0 + strength,
 			true
 		)
+
+
+func _clip_texture_region(destination: Rect2, source: Rect2, bounds: Rect2) -> Array[Rect2]:
+	if destination.size.x <= 0.0 or destination.size.y <= 0.0:
+		return []
+	var clipped := destination.intersection(bounds)
+	if not clipped.has_area():
+		return []
+	# Crop both rectangles by the same ratio so shifted texture detail stays
+	# inside the hand frame without changing its scale or texel alignment.
+	var source_scale := source.size / destination.size
+	var clipped_source := Rect2(source.position + (clipped.position - destination.position) * source_scale, clipped.size * source_scale)
+	return [clipped, clipped_source]
 
 
 func _draw_chromatic_signal_frame(rect: Rect2, pulse: float) -> void:

@@ -1,0 +1,674 @@
+{
+  "date": "2026-10-09T23:11:52.310095+09:00",
+  "state": "final_source_copy",
+  "branch": "codex/chapter1-tunnel-handoff-20261009",
+  "base_commit": "7951a0e6e5f17523ccdb39d41a801fa6f9d07ee4",
+  "original_workspace": "D:/aphasia",
+  "copies": [
+    {
+      "source": "outputs/blender_basement_loop_v2/Basement_Loop_v2.blend",
+      "destination": "source_assets/blender_basement_loop_v2/Basement_Loop_v2.blend",
+      "bytes": 55246545,
+      "sha256": "c6474cab3e9655cdf8b9f5829b2b99524c240843bb6ecc8dce96f0926ceaba88"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/Opening_WhiteDoor_v2.blend",
+      "destination": "source_assets/blender_basement_loop_v2/Opening_WhiteDoor_v2.blend",
+      "bytes": 38944373,
+      "sha256": "14af0e4c37de39f3e862f6ca63bf31cfbaf04166a617bb75c0ade81bb4924494"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_contract.json",
+      "destination": "source_assets/blender_basement_loop_v2/asset_contract.json",
+      "bytes": 9757,
+      "sha256": "e4d4f0833dc49830750ffe34e859a1207e4762467cf87e21478c00ee9ed4b35a"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_validation.json",
+      "destination": "source_assets/blender_basement_loop_v2/asset_validation.json",
+      "bytes": 35406,
+      "sha256": "231da0480bd82a28af7ba3c61c65961bc17d0540644649e738154f8a539458bb"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_validation.md",
+      "destination": "source_assets/blender_basement_loop_v2/asset_validation.md",
+      "bytes": 3713,
+      "sha256": "719e615812157daf8e00d7aab96ff768a64ee4282b2d9b6ded26c2d11c75a4d6"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_preview_sources.json",
+      "destination": "source_assets/blender_basement_loop_v2/asset_preview_sources.json",
+      "bytes": 1176,
+      "sha256": "cd393fd77868878f4eafe55e5c9cc53142047b5b745fb288181de05fb3a6b06a"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_preview_validation.json",
+      "destination": "source_assets/blender_basement_loop_v2/asset_preview_validation.json",
+      "bytes": 1269,
+      "sha256": "f183191a611b1753b10b431bf2fa3a02c49e2f1a5996146c83f4a2fe84ce01ff"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/BUILD_PLAN.md",
+      "destination": "source_assets/blender_basement_loop_v2/BUILD_PLAN.md",
+      "bytes": 1885,
+      "sha256": "016546b6cb51a62f709d49c3e34de655c1f29ab561b8a564390c9a5c4a00297c"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/CRT_TUTORIAL_CONTRACT.md",
+      "destination": "source_assets/blender_basement_loop_v2/CRT_TUTORIAL_CONTRACT.md",
+      "bytes": 3750,
+      "sha256": "e3bea7b5fd28c504ea1d02992ea0dcce67d228b5465d457859a39cb7b0945213"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/README.md",
+      "destination": "source_assets/blender_basement_loop_v2/ORIGINAL_README.md",
+      "bytes": 10938,
+      "sha256": "26a90b7ec6bbf64ad30d6ff6ab76a226b0d80a5498f341e654db0835551de8d9"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/Basement_All_Props_v2.blend",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/Basement_All_Props_v2.blend",
+      "bytes": 2399256,
+      "sha256": "ea23cd6ec5ed4e3a9c3b340e87232129e4455d0d3efd366e676273e243269ae8"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/blender_assets.cats.txt",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/blender_assets.cats.txt",
+      "bytes": 275,
+      "sha256": "aa15e6b84b12235b0ae710efe23469f4f338134943da33e879114b4192353a57"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/box.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/box.glb",
+      "bytes": 62184,
+      "sha256": "852fd61f89f74e4ecc07f37f1a97c4a5e6a0479c67d9380608f4c899dfc5f926"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/chair.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/chair.glb",
+      "bytes": 1351636,
+      "sha256": "89519e9e2ff304583d8255028c951ccbf1981762cbefbfc486d4ea98ae28cb7e"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/console.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/console.glb",
+      "bytes": 1851344,
+      "sha256": "5f1404303228864254b75a4850284407a8c229437fd8ebfabd73eea2027bbf89"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/frame.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/frame.glb",
+      "bytes": 43732,
+      "sha256": "3b3d03925e45c4775963e928a5180fe89bf6caecd56a47aa46decdad7844578d"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/kids_table.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/kids_table.glb",
+      "bytes": 1331620,
+      "sha256": "bbb9e04e955b8c1f36a83adf13943cad67f43615660eaf6ab8ea563fae34541c"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/side_table.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/side_table.glb",
+      "bytes": 1408824,
+      "sha256": "861ec26f6db7dc47653273e95a73916adbf4aa5dc6eb3b0cc3fd96472f1fc2ae"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/switch.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/switch.glb",
+      "bytes": 42628,
+      "sha256": "c3be724608086defe021c908224d0ecdacf50d05433b6e402040c3763d877ff1"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/vhs.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/vhs.glb",
+      "bytes": 244276,
+      "sha256": "2605f417b12e2b7521adb18f8d4ef58740e01b9329995a69868c2e8262e580b6"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/white_door.glb",
+      "destination": "source_assets/blender_basement_loop_v2/asset_library/white_door.glb",
+      "bytes": 133620,
+      "sha256": "3c5757c2313e3ec47f6cb0d867718ebb65def8f96244a773570db9bdf5f90735"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/add_door_asset_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/add_door_asset_live.py",
+      "bytes": 2154,
+      "sha256": "e7f9f6f777830de89c17f065163883bb91fba9499c4696c1c561caacef02f993"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/add_xray_exit_arrows_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/add_xray_exit_arrows_live.py",
+      "bytes": 4295,
+      "sha256": "8d97acd29eb99c643d13f67a4b7a9c944f06e1581eaa1267c87b60a15713cbe9"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/build_basement_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/build_basement_live.py",
+      "bytes": 13560,
+      "sha256": "267557f07c2cf2bd48749ef0cf1de00987ac6fa5ff8162453bf69a682e122745"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/build_crt_assets.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/build_crt_assets.py",
+      "bytes": 17306,
+      "sha256": "2bdfb4d946b2a2b7f07a833abdd0f03fb1ab353d578e8d2c66c7e6de84c87fc5"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/dress_basement_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/dress_basement_live.py",
+      "bytes": 3506,
+      "sha256": "19525bbc094b2198f2593bbf16345efc26541a3832d17011b2da58bcbd2ef733"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/export_basement_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/export_basement_live.py",
+      "bytes": 3681,
+      "sha256": "a453b63b83d5deb5acd9487871ad0f9b6b9cf16523c246fc07daf44cd99f0b1f"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/fix_asset_previews.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/fix_asset_previews.py",
+      "bytes": 810,
+      "sha256": "82c15b6fada1c9c8256dfb33e0fe3216e5a51303a93022ca97d340a2d593235f"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/fix_kids_wood_export_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/fix_kids_wood_export_live.py",
+      "bytes": 4383,
+      "sha256": "38921b44affbdb03cffaa429fffafd6a15a1eceab063a343a0400356724304a8"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/grade_green_basement_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/grade_green_basement_live.py",
+      "bytes": 17339,
+      "sha256": "d68ef3e77a31bd51c4ed284f96eb537e1dae643f49f4f9a30e4dac915e765644"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/prepare_opening_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/prepare_opening_live.py",
+      "bytes": 3162,
+      "sha256": "4a99b240777af2bd061f917a3e20c4a8ffdcb31ae7f319b8cb141ef015f4df7b"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/render_plan_live.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/render_plan_live.py",
+      "bytes": 1307,
+      "sha256": "7394d43e4d3b2f083db229d79b560271a3565e4b300ca9db93bcaf0acf5211d8"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/validate_exported_assets.py",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/validate_exported_assets.py",
+      "bytes": 23304,
+      "sha256": "b937eeab4a3d12d0d4a517ad1bf846b548654dba52c98ceeacfb06123da5a8a8"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/scripts/CRT_ASSET_HANDOFF.md",
+      "destination": "source_assets/blender_basement_loop_v2/scripts/CRT_ASSET_HANDOFF.md",
+      "bytes": 4343,
+      "sha256": "4285a5f27dae229da2aae9351e6b2473ba19663fbf1cef11893b36fcf5b8f2e5"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/APH3_Green_Artwork.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/APH3_Green_Artwork.png",
+      "bytes": 45252,
+      "sha256": "914b8978e4994ad5e05c0b2bc59f9cbb96073ce1e10e51eb81e3a3032a9e6074"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/APH3_Green_StainedWood.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/APH3_Green_StainedWood.png",
+      "bytes": 537728,
+      "sha256": "b75ce563e809866990d141fe2e4f43bd48a3124dc3cacf1cf8e6c218755a8695"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/APH3_Moss_Carpet.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/APH3_Moss_Carpet.png",
+      "bytes": 1637136,
+      "sha256": "d49cb991e9b51e993c169e0f0a5c98f8a578d1a4fd50d83306cdec605f0b285a"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/APH3_Ochre_Carpet.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/APH3_Ochre_Carpet.png",
+      "bytes": 1556036,
+      "sha256": "e2348fc583d5ff791dea72078066496bc7b3ce47d9fadc44ae8646a348f2a138"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/APH3_Ochre_Ceiling.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/APH3_Ochre_Ceiling.png",
+      "bytes": 1180110,
+      "sha256": "f41710af0aeec0e1c47c4614d3036feb0f731e1d37cf8af4124ff26db13f7d30"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/wallpaper_base.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/wallpaper_base.png",
+      "bytes": 619588,
+      "sha256": "77cef9a3f4e281bfb03784b9c85de38f2079f6ff0ed24f1d43d9e94906c4557b"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/textures_green/wallpaper_normal.png",
+      "destination": "source_assets/blender_basement_loop_v2/textures_green/wallpaper_normal.png",
+      "bytes": 2835430,
+      "sha256": "8819923a36d76e9328c580717bc35925e69da4f9d9dd96cb7a1920214863c2ea"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_box.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_box.png",
+      "bytes": 6862,
+      "sha256": "c35a9a9b01a79759f29c3519f2439f59d86a0ad188456f0ebc6ef04cdb5c6478"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_chair.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_chair.png",
+      "bytes": 82592,
+      "sha256": "42e6c7a6f5281e396a50614c41876084e3ff141f1f0f9dc34986025b801aee21"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_console.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_console.png",
+      "bytes": 87941,
+      "sha256": "b1cda3d4c992b4633fd4d69afe9a58a7bca451b6702cb9df602423f64d5e9257"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_crt.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_crt.png",
+      "bytes": 13296,
+      "sha256": "ab5f1096fdb176c73451ecd5068c5d5ca2b58701b1b67c9d86d06972cb752db8"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_frame.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_frame.png",
+      "bytes": 10779,
+      "sha256": "1838d4329a1e7f7da49f071f979ca0060844ea4aa85e6043b6834a257d2f553c"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_kids_chair.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_kids_chair.png",
+      "bytes": 11536,
+      "sha256": "4a054549eb253cf59e8b4674219cdca6d0e62ec1b4af97771d04999d36befde6"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_kids_table.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_kids_table.png",
+      "bytes": 83560,
+      "sha256": "5ffb9773be1b01d3a07e2b88659052fc79e2474424a36005857a7d9ae75bbdbe"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_side_table.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_side_table.png",
+      "bytes": 81400,
+      "sha256": "f70d79bb5f85407d53210e1f55088b08635396b8dadacf7621190e27b36bcac1"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_switch.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_switch.png",
+      "bytes": 6000,
+      "sha256": "016a16a61b2379d2e61b5a0924b56840a5501aaaf8e4188c819d15682719ced9"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_vhs.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_vhs.png",
+      "bytes": 8933,
+      "sha256": "a88cd11c0a9bb6118e89a4845fb7db1f6b4c420ef569b5062a339fa537db53c0"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/Asset_white_door.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/Asset_white_door.png",
+      "bytes": 11035,
+      "sha256": "48f570680a935954f0eef18b6536cfe7411d2153f694f725861116b8a146695f"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/03_Approved_Floorplan.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/03_Approved_Floorplan.png",
+      "bytes": 1425003,
+      "sha256": "6ee2a0f832a2c6f1e74c3c13e098a3ecdc79da24e7e54d9d6e1fc51c0c8e25ef"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/06_Reference_Green_CRT.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/06_Reference_Green_CRT.png",
+      "bytes": 1525093,
+      "sha256": "ba93cd4c5bfdde2c003a47448a6f1d26b7bc285c723d4f16dc7e492388a70bfc"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/previews/07_Reference_Green_Stairs.png",
+      "destination": "source_assets/blender_basement_loop_v2/previews/07_Reference_Green_Stairs.png",
+      "bytes": 1681658,
+      "sha256": "3b1820aedd502b0716d35bc8234a4f6be446eef55ed776f90f98e47be334a7b4"
+    },
+    {
+      "source": "Start-Aphasia.ps1",
+      "destination": "support/windows_workspace/Start-Aphasia.ps1",
+      "bytes": 1233,
+      "sha256": "0b6bb2d254fa22438643ae7c7a64fdb5c22abc6fe40b243b1e8e51580dcf8cd8"
+    },
+    {
+      "source": "Start-Chapter1-Dev.ps1",
+      "destination": "support/windows_workspace/Start-Chapter1-Dev.ps1",
+      "bytes": 1255,
+      "sha256": "2591ee673581381d71f199c719ca27cedad740306a9e306dc8b19451e3c9a4ba"
+    },
+    {
+      "source": "启动游戏.cmd",
+      "destination": "support/windows_workspace/启动游戏.cmd",
+      "bytes": 114,
+      "sha256": "120d8dc11f1c31ec539cba3ce4322b3936c8884714684502f662974cab83134b"
+    },
+    {
+      "source": "打开Godot编辑器.cmd",
+      "destination": "support/windows_workspace/打开Godot编辑器.cmd",
+      "bytes": 121,
+      "sha256": "8d3a30fa288a1b5d696b4d26c0b10267a41ef88bcc7226c074b2117cab179467"
+    },
+    {
+      "source": "本机启动说明.txt",
+      "destination": "support/windows_workspace/本机启动说明.txt",
+      "bytes": 3210,
+      "sha256": "26482efebf5f1a9fc881faf509872508d55f54435172f7e62c0c39530093a9f8"
+    },
+    {
+      "source": "GAME_FLOW_MEMORY.md",
+      "destination": "GAME_FLOW_MEMORY.md",
+      "bytes": 11785,
+      "sha256": "1eb89564721a0636abba6c0ad966559f44d00905b96326fea313900ab0720afd"
+    },
+    {
+      "source": "《Aphasia》游戏整体流程_当前修订.docx",
+      "destination": "docs/handoff/2026-10-09/《Aphasia》游戏整体流程_当前修订.docx",
+      "bytes": 25354,
+      "sha256": "8ce62c134743e45bfbbb63d5169ea9c814a00eb5062b75181112e7346489ce34"
+    },
+    {
+      "source": "《Aphasia》企划案.docx",
+      "destination": "docs/design_originals/《Aphasia》企划案.docx",
+      "bytes": 12995,
+      "sha256": "8faf516be9279549111024335846aab0e1efa641cc13212cb93ea74b84efaeaa"
+    },
+    {
+      "source": "《Aphasia》游戏整体流程.docx",
+      "destination": "docs/design_originals/《Aphasia》游戏整体流程.docx",
+      "bytes": 20288,
+      "sha256": "be5134451968413b0ac414620f60cc55fc54dfcdbe334f4d2c6c2e3e2ab846e2"
+    },
+    {
+      "source": "7c3a05fad90517280cb8df67aa2f100.jpg",
+      "destination": "docs/design_originals/basement_layout_sketch.jpg",
+      "bytes": 96203,
+      "sha256": "dc72fe29c34aff163b1375eb2f37c670dccee4d553996952d2b746de0a2ae513"
+    },
+    {
+      "source": "outputs/narrative/Aphasia_中文对白修订版.docx",
+      "destination": "docs/narrative/Aphasia_中文对白修订版.docx",
+      "bytes": 2523566,
+      "sha256": "50a2392297abb7aaebd68b807d728746cafd4b66e1eca62acd67a4ade101136d"
+    },
+    {
+      "source": "outputs/narrative/创作与接入说明.txt",
+      "destination": "docs/narrative/创作与接入说明.txt",
+      "bytes": 13093,
+      "sha256": "860e37c43e45826b7d6460a9072e2a7b2e58a91ca09ec6a99f789544bc95b60e"
+    },
+    {
+      "source": "outputs/narrative/教程接入顺序.txt",
+      "destination": "docs/narrative/教程接入顺序.txt",
+      "bytes": 4125,
+      "sha256": "3d9d96662daeda394f7600e620e1e538868941c1e38cb781dc69eb95db42ff14"
+    },
+    {
+      "source": "outputs/narrative/任务动机提示链.txt",
+      "destination": "docs/narrative/任务动机提示链.txt",
+      "bytes": 21470,
+      "sha256": "eabc03d1e3cad5d1c539407197c9a49fc63fb30e9de54191e552c0990192d856"
+    },
+    {
+      "source": "outputs/narrative/中文对白_逐句原文对照.html",
+      "destination": "docs/narrative/中文对白_逐句原文对照.html",
+      "bytes": 1053342,
+      "sha256": "83b83bebb0424c5fec476247ba1c39d43701f62653c92a78591004d0b65e1f86"
+    },
+    {
+      "source": "outputs/narrative/research_dialogue_craft.md",
+      "destination": "docs/narrative/research_dialogue_craft.md",
+      "bytes": 5353,
+      "sha256": "23ecf9e6447266b39be86e45f8a5b4882a84739a247311aa80d0b7de27111321"
+    },
+    {
+      "source": "outputs/narrative/research_external.md",
+      "destination": "docs/narrative/research_external.md",
+      "bytes": 11177,
+      "sha256": "56bacc13792b68c642b2b13c95dad3335a243afd1c8ec26a55be76e0f023a4be"
+    },
+    {
+      "source": "outputs/narrative/research_structure.md",
+      "destination": "docs/narrative/research_structure.md",
+      "bytes": 13158,
+      "sha256": "cb9ef40126da15d1d7abcd862c64d5696bf785411d38b1c43b86c7d17cc929ad"
+    },
+    {
+      "source": "outputs/narrative/research_voices.md",
+      "destination": "docs/narrative/research_voices.md",
+      "bytes": 10260,
+      "sha256": "ffe892b7009078bbfc022acc83c4938ff44638f96ff032318ef4ac38e6786e4a"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/verification_summary.json",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/verification_summary.json",
+      "bytes": 4063,
+      "sha256": "bab6fbd1055708f0481f94ee2eff1eb5aee5f0b5624a625aad73bb9ad6722d72"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_flow_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_flow_results.json",
+      "bytes": 565,
+      "sha256": "d77abc6cf038dd1bf65bf229811f98767404907ed0d13ad05555345b5606a32d"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_01_exit_reveals_tunnel.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_01_exit_reveals_tunnel.png",
+      "bytes": 70154,
+      "sha256": "880b9533c15e86e52819bdcc478b3fc03a5df34daf3b32ba66d2a30d99bd49bd"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_02_dark_corridor.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_02_dark_corridor.png",
+      "bytes": 128618,
+      "sha256": "041b40317bfd0b3214cf1e1769ae54ab13544a8fedfaa5a1e814b981d0f817d3"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_03_white_door_ready.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_03_white_door_ready.png",
+      "bytes": 769270,
+      "sha256": "7c8a975ad62c5d520f5189d301bec66fe1b612535a2bf7218e8855a9fd178c55"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_04_white_door_opening.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_04_white_door_opening.png",
+      "bytes": 777756,
+      "sha256": "eaa1765c451d52ecfcd464a1428dc4f3c2dc7f4576e73b09c78269986c557858"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_05_opaque_swap.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_05_opaque_swap.png",
+      "bytes": 6410,
+      "sha256": "f0f30ee876b8a4d76ef8a47eb56dd21a4035d339326381e5c28e6f1ec60db850"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_06_next_basement.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_06_next_basement.png",
+      "bytes": 815800,
+      "sha256": "cbfbc012815edd41b846575286ec8ac256f4931e1a08a69fc350e04f9385b5bd"
+    },
+    {
+      "source": "outputs/tunnel_readability_20261009/tunnel_07_crossroads_arrival.png",
+      "destination": "docs/handoff/2026-10-09/evidence/tunnel_readability_20261009/tunnel_07_crossroads_arrival.png",
+      "bytes": 788520,
+      "sha256": "4d11422e12b22594cac21556f3fd836d8ae7f7d477c0ebacf270a669b8c43b40"
+    },
+    {
+      "source": "outputs/basement_readability_20261009/chapter1_terminal_capture_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_readability_20261009/chapter1_terminal_capture_results.json",
+      "bytes": 9964,
+      "sha256": "4fe270296a57441792efd5b47ddf4cc640f8528080cf98818ec38d81996ae400"
+    },
+    {
+      "source": "outputs/basement_readability_20261009/chapter1_terminal_02_apps_vhs_on.png",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_readability_20261009/chapter1_terminal_02_apps_vhs_on.png",
+      "bytes": 726537,
+      "sha256": "8b9a40337f864b5b54e63dfcd716d9d0c5c663dad2d67fc4543d0dbeec0ac28b"
+    },
+    {
+      "source": "outputs/basement_readability_20261009/chapter1_terminal_03_apps_vhs_off.png",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_readability_20261009/chapter1_terminal_03_apps_vhs_off.png",
+      "bytes": 662080,
+      "sha256": "090a09a7f542e4dc04a0c592697672273116a3e1c3d3898e4e6266885c540a6c"
+    },
+    {
+      "source": "outputs/basement_readability_20261009/chapter1_terminal_05_sentence_preview.png",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_readability_20261009/chapter1_terminal_05_sentence_preview.png",
+      "bytes": 462244,
+      "sha256": "b16598a73093ef1da3b4d37f84d478466a850cd9eac663479567925311376129"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter_final_verification.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter_final_verification.json",
+      "bytes": 1090,
+      "sha256": "45efd913d27d00933e062ffff0c42e3a333f506d6c7f69a0a6a87b9b6397ef87"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter_terminal_verification.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter_terminal_verification.json",
+      "bytes": 5698,
+      "sha256": "76c96e8941a70b14fbd6d466e2e82979f0250e480c4d7aa4ea5698d92dc9063b"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter_regression_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter_regression_results.json",
+      "bytes": 12605,
+      "sha256": "3645b43396353f99fcb8d99df06d1d4eae0f4f72bb4008aa47c89fc174c82d97"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter1_walk_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter1_walk_results.json",
+      "bytes": 8366,
+      "sha256": "774e2faf6b8e8efe18f568caad8c9c3971e8a028d69db11a4a9c1c290cd0ea6f"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter1_xray_capture_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter1_xray_capture_results.json",
+      "bytes": 1289,
+      "sha256": "558424574a3ec5aa45837da8c0153419a00f75e9f6eb8aeaab686bb0004beaf4"
+    },
+    {
+      "source": "outputs/basement_integration_audit/vhs_softening_results.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/vhs_softening_results.json",
+      "bytes": 371,
+      "sha256": "709a4dd81a4a27ac07a3864fa0c605e5cbc03748f3d54dbdc3ab28d1f1d8c868"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chair_material_attribute_comparison.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chair_material_attribute_comparison.json",
+      "bytes": 164126,
+      "sha256": "993b555fcaf2a27881980d79e16ce66ae5b1b22b3b137e798cec4480e6c62019"
+    },
+    {
+      "source": "outputs/basement_integration_audit/verify_kids_chair_pbr_runtime.json",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/verify_kids_chair_pbr_runtime.json",
+      "bytes": 27211,
+      "sha256": "f45a8c0f513a0e504d8635e3b6b0c8d29ef75d4b65a7c16d8aac07307f698afd"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter1_xray_02_active.png",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter1_xray_02_active.png",
+      "bytes": 363441,
+      "sha256": "7d6f9af8830a4dd38eb74d8d2ce3584d0a585bd983e1340950092f9e0b64f8bb"
+    },
+    {
+      "source": "outputs/basement_integration_audit/chapter1_opening_18m.png",
+      "destination": "docs/handoff/2026-10-09/evidence/basement_integration_audit/chapter1_opening_18m.png",
+      "bytes": 70854,
+      "sha256": "a14616dab839dd8892cbf1c72f44e964ccaece51ee30df8ef29b4e8e2e278d22"
+    },
+    {
+      "source": "outputs/game_flow_revision_20261007/final_qa.json",
+      "destination": "docs/handoff/2026-10-09/evidence/game_flow_revision_20261007/final_qa.json",
+      "bytes": 1964,
+      "sha256": "1dbc0eec87c98e4c028db077deab156129cc03fa6abe33c0718f258c29fc2fe4"
+    },
+    {
+      "source": "outputs/game_flow_revision_20261007/structural_verification.json",
+      "destination": "docs/handoff/2026-10-09/evidence/game_flow_revision_20261007/structural_verification.json",
+      "bytes": 567,
+      "sha256": "8d333a0f5108d764183609ebdbd827cfa54c6ef6d690e17344cf57e230c7ea49"
+    },
+    {
+      "source": "outputs/handoff_20261009/Aphasia_本机修改与流程交接说明_20261009.docx",
+      "destination": "docs/handoff/2026-10-09/Aphasia_本机修改与流程交接说明_20261009.docx",
+      "bytes": 50114,
+      "sha256": "defc2fa12f81c7997b01ccc6bfba7fbae8142fbab8639659c9f76ce01c1a55a1"
+    },
+    {
+      "source": "outputs/handoff_20261009/final_qa.json",
+      "destination": "docs/handoff/2026-10-09/final_qa.json",
+      "bytes": 3019,
+      "sha256": "0bd67de45958ede889c3cb9944b5dbda62e614e7cca0c6f38353fb7e3df02cf1"
+    }
+  ],
+  "identical_sources_not_duplicated": [
+    {
+      "source": "outputs/blender_basement_loop_v2/Basement_Architecture_v2.glb",
+      "same_bytes_at": "assets/chapter1/Basement_Architecture_v2.glb",
+      "bytes": 18048920,
+      "sha256": "239eb8d9ab5affdf45600d83d901f4ba185de0c51c4756a1d834bf53dcbc3551"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/Basement_Loop_v2.glb",
+      "same_bytes_at": "assets/chapter1/Basement_Loop_v2.glb",
+      "bytes": 20054224,
+      "sha256": "2a23945d767b028877c11211676885effb1a9bafbb6d79b78c05beb7935d01ac"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/Opening_WhiteDoor_v2.glb",
+      "same_bytes_at": "assets/chapter1/Opening_WhiteDoor_v2.glb",
+      "bytes": 3891052,
+      "sha256": "a318b980649425f053ba17a00d35a97ce38aa829485efaf37b89bd507392fe85"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/crt.glb",
+      "same_bytes_at": "assets/chapter1/asset_library/crt.glb",
+      "bytes": 365216,
+      "sha256": "9570ffe51156a488dc7c04c1c52e75c2a7cf762aa8376b50f25ed075c66e204e"
+    },
+    {
+      "source": "outputs/blender_basement_loop_v2/asset_library/kids_chair.glb",
+      "same_bytes_at": "assets/chapter1/asset_library/kids_chair.glb",
+      "bytes": 1402124,
+      "sha256": "78646c398848116cad75a24102018e33cdfd688105e1485b5d79be7c92d3e195"
+    },
+    {
+      "source": "Aphasia_文本分区编辑版.docx",
+      "same_bytes_at": "docs/narrative/Aphasia_中文对白修订版.docx",
+      "bytes": 2523566,
+      "sha256": "50a2392297abb7aaebd68b807d728746cafd4b66e1eca62acd67a4ade101136d"
+    },
+    {
+      "source": "outputs/narrative/Aphasia_文本分区完整编辑版.docx",
+      "same_bytes_at": "docs/narrative/Aphasia_中文对白修订版.docx",
+      "bytes": 2523566,
+      "sha256": "50a2392297abb7aaebd68b807d728746cafd4b66e1eca62acd67a4ade101136d"
+    }
+  ],
+  "excluded": [
+    "reference game installations/downloads",
+    "tools runtimes and virtual environments",
+    "Godot cache",
+    "personal saves and preferences",
+    "logs and temporary renders",
+    "Blender .blend1 backups and historical revisions",
+    "secrets and credential stores"
+  ],
+  "notes": [
+    "Existing tracked game files and all current intended game edits are retained.",
+    "The model source README, contract, and older evidence preserve their original context; current flow is in GAME_FLOW_MEMORY.md.",
+    "Narrative drafts are authoring material; they are not all integrated into the game.",
+    "No source was deleted. Source GLB aliases point to byte-identical files already in game assets."
+  ]
+}

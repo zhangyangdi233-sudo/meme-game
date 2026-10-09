@@ -1,0 +1,22 @@
+{
+	"new_clean": {
+		"mean_abs_error": 0.145935567927126,
+		"save_error": 0
+	},
+	"new_polluted": {
+		"mean_abs_error": 0.192648713727543,
+		"save_error": 0
+	},
+	"old_clean": {
+		"mean_abs_error": 0.185880055734463,
+		"save_error": 0
+	},
+	"old_polluted": {
+		"mean_abs_error": 0.234204491105286,
+		"save_error": 0
+	},
+	"passed": true,
+	"reference": {
+		"save_error": 0
+	}
+}

@@ -10,9 +10,11 @@ const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generat
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const HandTrackingReceiverScript = preload("res://scripts/integrations/hand_tracking_receiver.gd")
 const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
+const ChapterXRayViewScript = preload("res://scripts/world/chapter_xray_view.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
+const ChapterDevelopmentPanelScript = preload("res://scripts/ui/chapter_development_panel.gd")
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
@@ -349,6 +351,11 @@ var _reality_player: CharacterBody3D
 var _reality_floor
 var _reality_built_floor := 0
 var _reality_built_day := 0
+var _reality_built_route := ""
+var _chapter_world_ready := false
+var _chapter_dev_panel: PanelContainer
+var _chapter_dev_enabled := OS.is_debug_build() and "--chapter1-dev" in OS.get_cmdline_user_args()
+var _chapter_dev_collapsed := false
 var _reality_yaw := 0.0
 var _reality_pitch := 0.0
 var _reality_last_safe_position := Vector3.ZERO
@@ -365,6 +372,7 @@ var _phone_down_backdrop_image: TextureRect
 var _hand_phone_image: TextureRect
 var _hand_tracking_receiver
 var _hand_xray_overlay: Control
+var _chapter_xray_view: Node
 var _second_layer_texture: Texture2D
 var _camera_consent_overlay: Control
 var _camera_access_toggle: CheckButton
@@ -402,6 +410,7 @@ var _prologue_counter_label: Label
 var _prologue_continue_button: Button
 var _prologue_index := 0
 var _settings_window: PanelContainer
+var _chapter_door_transition: Node
 var _settings_content: VBoxContainer
 var _settings_title_label: Label
 var _settings_volume_label: Label
@@ -522,6 +531,12 @@ var _camera_tracking_status := "摄像头未启用"
 var _camera_ready_source := ""
 var _camera_ready_index := -1
 var _phone_art_alpha := 0.0
+var _chapter_terminal_session: Node
+var _chapter_task_panel: Control
+var _chapter_task_actor: Area3D
+var _chapter_task_payload: Dictionary = {}
+var _crt_vhs_enabled := true
+var _crt_vhs_toggle: CheckButton
 var _save_path := SAVE_PATH
 
 
@@ -529,6 +544,7 @@ func _ready() -> void:
 	var preferences := _locale.load_preferences(_master_volume, _vhs_enabled)
 	_master_volume = float(preferences.get("master_volume", _master_volume))
 	_vhs_enabled = bool(preferences.get("vhs_enabled", _vhs_enabled))
+	_crt_vhs_enabled = bool(preferences.get("crt_vhs_enabled", true))
 	_camera_enabled = bool(preferences.get("camera_enabled", false))
 	_camera_source = str(preferences.get("camera_source", "computer"))
 	_camera_session_decided = false
@@ -547,10 +563,12 @@ func _process(delta: float) -> void:
 	if _game_started:
 		_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
+		_update_chapter_development_panel()
 		_apply_responsive_layouts_if_needed()
 		_update_hud_drawer_auto_close(delta)
 		_update_doll_companion(delta)
 	_animate_world(delta)
+	_sync_chapter_xray_view()
 
 
 func _exit_tree() -> void:
@@ -565,11 +583,24 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _handle_settings_shortcut(event):
+		return
+	if _settings_open:
+		return
 	if _prologue_overlay != null and _prologue_overlay.visible:
 		_reality_touch_look_index = -1
 		return
 	if _input_locked:
 		_reality_touch_look_index = -1
+		return
+	if _chapter_terminal_active():
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+			_end_chapter_terminal()
+		else:
+			_chapter_terminal_session.route_input(event, _camera)
+		get_viewport().set_input_as_handled()
+		return
+	if _chapter_task_active():
 		return
 	if _handle_hud_drawer_global_input(event):
 		return
@@ -641,9 +672,17 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _input_locked or not _game_started:
+	if _handle_settings_shortcut(event):
+		return
+	if _input_locked or not _game_started or _settings_open or _chapter_terminal_active() or _chapter_task_active():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F9 and _chapter_active() and _chapter_dev_enabled:
+			_chapter_dev_collapsed = not _chapter_dev_collapsed
+			_set_reality_mouse_look(_chapter_dev_collapsed and game.view_state == "npc_up" and not _reality_interaction_active)
+			_update_chapter_development_panel()
+			get_viewport().set_input_as_handled()
+			return
 		if _reality_interaction_active and game.conversation_phase == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
 				get_viewport().set_input_as_handled()
@@ -656,14 +695,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_view_state()
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_ESCAPE:
-			if _reality_interaction_active:
-				_exit_reality_interaction()
-			else:
-				_set_reality_mouse_look(false)
-			get_viewport().set_input_as_handled()
-			return
-	if game.view_state != "npc_up" or _reality_interaction_active:
+	if game.view_state != "npc_up" or _reality_interaction_active or _settings_open:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_set_reality_mouse_look(true)
@@ -678,10 +710,363 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _handle_settings_shortcut(event: InputEvent) -> bool:
+	if not _game_started or not event is InputEventKey or not event.pressed or event.echo:
+		return false
+	if event.keycode != KEY_ESCAPE and event.keycode != KEY_F10:
+		return false
+	_toggle_settings_window()
+	get_viewport().set_input_as_handled()
+	return true
+
+
 func new_game() -> void:
 	var fresh_state: MemeGameState = MemeGameStateScript.new()
 	fresh_state.new_run()
 	_begin_game_session(fresh_state, {}, true)
+
+
+## Main-menu entry. new_game() remains the legacy fixture/preview entry so
+## pre-chapter tools and tests continue to exercise their original game route.
+func start_chapter1_game() -> void:
+	var fresh_state: MemeGameState = MemeGameStateScript.new()
+	fresh_state.new_run()
+	fresh_state.start_chapter1()
+	fresh_state.view_state = "npc_up"
+	fresh_state.active_app_window = ""
+	_begin_game_session(fresh_state, {}, false)
+
+
+func _chapter_active() -> bool:
+	return _game_started and game != null and not game.chapter1_progress.is_empty() and str(game.chapter1_progress.get("phase", "tower")) != "tower"
+
+
+func _chapter_route_key() -> String:
+	if not _chapter_active():
+		return "legacy:%d" % game.tower_floor if game != null else "legacy:1"
+	return "%s:%d" % [game.chapter1_progress.phase, int(game.chapter1_progress.round_index)]
+
+
+## Trusted chapter events include the completed opening knock and door transition.
+func notify_chapter1(event_id: String, payload: Dictionary = {}) -> Dictionary:
+	if not _chapter_active():
+		return {"accepted": false, "progress": {}, "transition": ""}
+	var result: Dictionary = game.notify_chapter1(event_id, payload)
+	if not bool(result.get("accepted", false)):
+		return result
+	if str(result.transition) == "enter_tower":
+		# Tutorial practice keeps the ordinary day and action budget intact.
+		game.pending_floor_transition = 0
+		game.tower_floor = 2
+		game.pending_floor_transition = 0
+	_ensure_reality_floor_current()
+	if _chapter_active() and _reality_floor != null:
+		_reality_floor.sync_progress(game.chapter1_progress)
+	_render()
+	_save_progress()
+	return result
+
+
+func _on_chapter_world_event(event_id: String, payload: Dictionary, source_id: int) -> void:
+	if not is_instance_valid(_reality_floor) or _reality_floor.get_instance_id() != source_id:
+		return
+	if event_id == "npc_help_requested":
+		_show_chapter_task(payload)
+		return
+	if event_id == "terminal_requested":
+		if payload.get("round_token", -1) == game.chapter1_progress.get("transition_serial", -2):
+			_begin_chapter_terminal()
+		return
+	if event_id == "opening_door_requested":
+		_start_chapter_door_transition(source_id)
+		return
+	if event_id == "tunnel_door_requested":
+		if payload.get("round_token", -1) == game.chapter1_progress.get("transition_serial", -2) and bool(game.chapter1_progress.get("exit_tunnel_entered", false)):
+			_start_chapter_door_transition(source_id, true)
+		return
+	notify_chapter1(event_id, payload)
+
+
+func _chapter_terminal_active() -> bool:
+	return is_instance_valid(_chapter_terminal_session) and _chapter_terminal_session.is_active()
+
+
+func _chapter_task_active() -> bool:
+	return is_instance_valid(_chapter_task_panel)
+
+
+func _chapter_app_access(app_id: String) -> bool:
+	if game == null:
+		return false
+	# Legacy fixtures and tower play retain their existing callback behavior.
+	if game.chapter1_progress.is_empty():
+		return true
+	return game.can_use_app(app_id, "terminal" if _chapter_terminal_active() else "phone")
+
+
+func _chapter_pointer_position() -> Vector2:
+	return _chapter_terminal_session.get_pointer_position() if _chapter_terminal_active() else get_viewport().get_mouse_position()
+
+
+func _chapter_actor(actor_type: String) -> Area3D:
+	if not is_instance_valid(_reality_floor):
+		return null
+	for actor: Area3D in _reality_floor.get_interactable_actors():
+		if str(actor.get_meta("actor_type", "")) == actor_type:
+			return actor
+	return null
+
+
+func _begin_chapter_terminal() -> bool:
+	if _chapter_terminal_active():
+		return true
+	if not _chapter_active() or str(game.chapter1_progress.phase) != "basement" or not _chapter_world_ready or _input_locked or _settings_open:
+		return false
+	var actor := _chapter_actor("chapter1_terminal")
+	if actor == null or not _reality_floor.is_actor_reachable(actor, _reality_player.global_position):
+		return false
+	_close_chapter_task(false)
+	if _reality_interaction_active:
+		_exit_reality_interaction(false)
+	game.set_view_state("npc_up")
+	game.active_app_window = ""
+	var session_script := load("res://scripts/ui/chapter_terminal_session.gd") as Script
+	_chapter_terminal_session = session_script.new()
+	add_child(_chapter_terminal_session)
+	if not _chapter_terminal_session.begin(self, _reality_floor, _crt_vhs_enabled):
+		_chapter_terminal_session.queue_free()
+		_chapter_terminal_session = null
+		return false
+	game.set_active_app("social", "terminal")
+	_reality_player.velocity = Vector3.ZERO
+	_dragged_window = null
+	_set_reality_mouse_look(false)
+	_camera.fov = 58.0
+	_camera.global_position = _reality_floor.terminal_camera_position()
+	_camera.look_at(_reality_floor.terminal_camera_target(), Vector3.UP)
+	_render()
+	return true
+
+
+func _end_chapter_terminal(render_after: bool = true) -> void:
+	if not is_instance_valid(_chapter_terminal_session):
+		_chapter_terminal_session = null
+		return
+	var session := _chapter_terminal_session
+	session.end()
+	_chapter_terminal_session = null
+	session.queue_free()
+	if render_after and _game_started and is_instance_valid(_camera):
+		_animate_world(1.0)
+		_set_reality_mouse_look(game.view_state == "npc_up" and not _settings_open)
+		_render()
+		_save_progress()
+
+
+func _on_chapter_terminal_app_pressed(app_id: String) -> void:
+	if not _chapter_terminal_active() or not game.set_active_app(app_id, "terminal"):
+		return
+	if app_id == "notebook":
+		_social_screen = "publish"
+		_social_detail_open = false
+	elif app_id == "social":
+		_social_screen = "home"
+		_social_detail_open = false
+	_chapter_terminal_session.select_app(app_id)
+	_render()
+
+
+func _show_chapter_task(payload: Dictionary) -> void:
+	if not _chapter_active() or str(game.chapter1_progress.phase) != "basement":
+		return
+	if payload.get("round_token", -1) != game.chapter1_progress.get("transition_serial", -2):
+		return
+	var actor := _chapter_actor("chapter1_npc")
+	if actor == null or not _reality_floor.is_actor_reachable(actor, _reality_player.global_position):
+		return
+	_end_chapter_terminal(false)
+	_close_chapter_task(false)
+	_chapter_task_actor = actor
+	_chapter_task_payload = payload.duplicate(true)
+	var panel := PanelContainer.new()
+	panel.name = "ChapterTaskPanel"
+	panel.z_index = 28
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -290
+	panel.offset_right = 290
+	panel.offset_top = -170
+	panel.offset_bottom = 170
+	_ui_root.add_child(panel)
+	_chapter_task_panel = panel
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	panel.add_child(box)
+	box.add_child(_label(str(actor.get_meta("display_name", "")), 26, _theme_color("ink")))
+	box.add_child(_label("教程操作（开发）", 18, _theme_color("muted")))
+	var goal := _label("在 CRT 拾字并投稿一句话，再回到这里交付。已拾取的字可以继续使用。", 18, _theme_color("ink"))
+	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(goal)
+	var completed: bool = game.chapter1_progress.get("completed_task_ids", []).has(str(payload.get("task_id", "")))
+	var submit := Button.new()
+	submit.name = "ChapterTaskSubmitButton"
+	submit.text = "本轮已交付" if completed else "交付本轮投稿"
+	submit.disabled = completed or not game.has_current_chapter_submission()
+	submit.custom_minimum_size.y = 44
+	submit.pressed.connect(_complete_chapter_tutorial_task)
+	box.add_child(submit)
+	var talk := Button.new()
+	talk.name = "ChapterTaskTalkButton"
+	talk.text = "交谈"
+	talk.custom_minimum_size.y = 44
+	talk.pressed.connect(_start_chapter_source_dialogue)
+	box.add_child(talk)
+	var item: Dictionary = game.get_prerequisite_item_for_floor(1)
+	var item_id := str(item.get("id", ""))
+	var collect := Button.new()
+	collect.name = "ChapterHiddenClueCollectButton"
+	collect.text = "拾取已显形的线索"
+	collect.visible = game.is_prerequisite_item_revealed(item_id) and not game.collected_prerequisite_item_ids.has(item_id)
+	collect.custom_minimum_size.y = 44
+	collect.pressed.connect(_collect_chapter_hidden_clue)
+	box.add_child(collect)
+	var dismiss := Button.new()
+	dismiss.name = "ChapterTaskDismissButton"
+	dismiss.text = "离开"
+	dismiss.custom_minimum_size.y = 44
+	dismiss.pressed.connect(_close_chapter_task)
+	box.add_child(dismiss)
+	_reality_player.velocity = Vector3.ZERO
+	_set_reality_mouse_look(false)
+	_apply_ui_theme(panel)
+	_update_visibility()
+
+
+func _close_chapter_task(restore_look: bool = true) -> void:
+	if is_instance_valid(_chapter_task_panel):
+		_chapter_task_panel.get_parent().remove_child(_chapter_task_panel)
+		_chapter_task_panel.queue_free()
+	_chapter_task_panel = null
+	_chapter_task_actor = null
+	_chapter_task_payload = {}
+	if restore_look and _game_started:
+		_set_reality_mouse_look(game.view_state == "npc_up" and not _settings_open)
+		_update_visibility()
+
+
+func _complete_chapter_tutorial_task() -> void:
+	if not _chapter_task_active() or not is_instance_valid(_chapter_task_actor) or not game.has_current_chapter_submission():
+		return
+	if not _reality_floor.is_actor_reachable(_chapter_task_actor, _reality_player.global_position):
+		return
+	var payload := _chapter_task_payload.duplicate(true)
+	if payload.get("round_token", -1) != game.chapter1_progress.get("transition_serial", -2):
+		return
+	var result := notify_chapter1("npc_help_completed", payload)
+	if bool(result.get("accepted", false)):
+		_close_chapter_task()
+
+
+func _start_chapter_source_dialogue() -> void:
+	if not is_instance_valid(_chapter_task_actor):
+		return
+	var actor := _chapter_task_actor
+	_close_chapter_task(false)
+	var source_id := str(actor.get_meta("source_actor_id", ""))
+	var source_type := str(actor.get_meta("source_actor_type", "npc"))
+	if not game.start_typed_reality_conversation(source_id, source_type, str(actor.get_meta("display_name", ""))):
+		_set_reality_mouse_look(true)
+		return
+	_active_reality_actor = actor
+	_localize_active_conversation()
+	_reality_interaction_active = true
+	_reality_hover_choice_id = ""
+	_set_reality_mouse_look(false)
+	_render()
+
+
+func _collect_chapter_hidden_clue() -> void:
+	if not _chapter_task_active() or not is_instance_valid(_chapter_task_actor):
+		return
+	if not _reality_floor.is_actor_reachable(_chapter_task_actor, _reality_player.global_position):
+		return
+	var item_id := str(game.get_prerequisite_item_for_floor(1).get("id", ""))
+	if game.collect_prerequisite_item(item_id):
+		_save_progress()
+		_show_chapter_task(_chapter_task_payload.duplicate(true))
+
+
+func _start_chapter_door_transition(source_id: int, from_tunnel: bool = false) -> void:
+	if is_instance_valid(_chapter_door_transition) or not _chapter_active():
+		return
+	var transition_script := load("res://scripts/world/chapter_door_transition.gd") as Script
+	_chapter_door_transition = transition_script.new()
+	add_child(_chapter_door_transition)
+	var event_id := "basement_exit_requested" if from_tunnel else "opening_door_opened"
+	var payload := {"round_token": int(game.chapter1_progress.transition_serial)} if from_tunnel else {}
+	_chapter_door_transition.room_requested.connect(_on_chapter_world_event.bind(event_id, payload, source_id))
+	_chapter_door_transition.finished.connect(_finish_chapter_door_transition)
+	_chapter_door_transition.cancelled.connect(_recover_cancelled_chapter_transition.bind(_chapter_door_transition.get_instance_id()), CONNECT_DEFERRED)
+	_input_locked = true
+	_reality_player.velocity = Vector3.ZERO
+	_world_prompt.visible = false
+	var door_id := "tunnel" if from_tunnel else "opening"
+	var camera_position: Vector3 = _reality_floor.tunnel_camera_position() if from_tunnel else _reality_floor.opening_camera_position()
+	var camera_target: Vector3 = _reality_floor.tunnel_camera_target() if from_tunnel else _reality_floor.opening_camera_target()
+	if not _chapter_door_transition.begin(_camera, _ui_root, _reality_floor.get_door(door_id), camera_position, camera_target, Color.WHITE if from_tunnel else Color.BLACK):
+		_recover_cancelled_chapter_transition.call_deferred(_chapter_door_transition.get_instance_id())
+	elif _settings_open:
+		_chapter_door_transition.set_paused(true)
+
+
+func _finish_chapter_door_transition() -> void:
+	if is_instance_valid(_chapter_door_transition):
+		_chapter_door_transition.queue_free()
+	_chapter_door_transition = null
+	_input_locked = false
+	_set_reality_mouse_look(_game_started and game.view_state == "npc_up" and not _settings_open)
+
+
+func _recover_cancelled_chapter_transition(transition_id: int) -> void:
+	# A participant can disappear or reject opening between the F request and
+	# the tween callback. Rebuild the same visit so the door can be tried again.
+	if not is_instance_valid(_chapter_door_transition) or _chapter_door_transition.get_instance_id() != transition_id:
+		return
+	var feet: Vector3 = _reality_player.position
+	var yaw := _reality_yaw
+	var pitch := _reality_pitch
+	_finish_chapter_door_transition()
+	if not _game_started or not _chapter_active():
+		return
+	if not is_instance_valid(_camera) or not is_instance_valid(_ui_root):
+		_begin_game_session(game, {"route_key": _chapter_route_key(), "player_position": feet, "yaw": yaw, "pitch": pitch}, false)
+		return
+	_rebuild_reality_floor()
+	_reality_player.position = _reality_floor.clamp_to_playable_position(feet)
+	_reality_yaw = yaw
+	_reality_pitch = pitch
+	_camera.position = _reality_player.position + Vector3(0, 1.56, 0)
+	_camera.rotation_degrees = Vector3(pitch, yaw, 0)
+	_set_chapter_exploration_paused(_settings_open)
+
+
+func _on_chapter_development_event(event_id: String, payload: Dictionary) -> void:
+	if not _chapter_dev_enabled or not _chapter_active():
+		return
+	if event_id == "npc_help_completed":
+		_refresh_nearby_reality_actor()
+		if _nearby_reality_actor == null or str(_nearby_reality_actor.get_meta("actor_type", "")) != "chapter1_npc":
+			return
+	notify_chapter1(event_id, payload)
+
+
+func _update_chapter_development_panel() -> void:
+	if not is_instance_valid(_chapter_dev_panel):
+		return
+	_chapter_dev_panel.visible = _chapter_active() and _chapter_dev_enabled and not _chapter_dev_collapsed and not _settings_open and not _chapter_terminal_active() and not _chapter_task_active()
+	if not _chapter_dev_panel.visible:
+		return
+	_chapter_dev_panel.show_progress(game.chapter1_progress)
+	_chapter_dev_panel.set_help_available(_nearby_reality_actor != null and str(_nearby_reality_actor.get_meta("actor_type", "")) == "chapter1_npc")
 
 
 func continue_game() -> bool:
@@ -697,7 +1082,10 @@ func continue_game() -> bool:
 
 
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
+	_end_chapter_terminal(false)
+	_close_chapter_task(false)
 	_game_started = true
+	_input_locked = false
 	_settings_open = false
 	_phone_art_alpha = 1.0
 	_second_layer_texture = null
@@ -735,7 +1123,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_last_responsive_layout_size = Vector2.ZERO
 	_reality_built_floor = 0
 	_reality_built_day = 0
-	_reality_yaw = _reality_floor.start_yaw_degrees()
+	_reality_built_route = ""
+	_reality_yaw = 0.0
 	_reality_pitch = 0.0
 	_set_reality_mouse_look(false)
 	_nearby_reality_actor = null
@@ -747,6 +1136,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_build_world()
 	_restore_saved_world(world_data)
 	_build_ui()
+	if _chapter_active():
+		_phone_art_alpha = 0.0
 	if not show_prologue:
 		_skip_prologue()
 	_render()
@@ -755,6 +1146,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 
 
 func show_main_menu() -> void:
+	_end_chapter_terminal(false)
+	_close_chapter_task(false)
 	if _game_started:
 		if _reality_interaction_active:
 			_exit_reality_interaction(false)
@@ -781,6 +1174,7 @@ func _save_progress() -> bool:
 	if not _game_started or game == null:
 		return false
 	var world_data := {
+		"route_key": _chapter_route_key(),
 		"player_position": _reality_player.position if _reality_player != null else Vector3.ZERO,
 		"yaw": _reality_yaw,
 		"pitch": _reality_pitch,
@@ -822,6 +1216,8 @@ func _has_save_progress() -> bool:
 
 func _restore_saved_world(world_data: Dictionary) -> void:
 	if world_data.is_empty():
+		return
+	if _chapter_active() and str(world_data.get("route_key", "")) != _chapter_route_key():
 		return
 	var saved_position: Variant = world_data.get("player_position", Vector3.ZERO)
 	if saved_position is Vector3 and _reality_player != null and _reality_floor != null:
@@ -865,7 +1261,12 @@ func _migrate_social_author_ids() -> void:
 
 
 func set_view_state(value: String) -> void:
+	if _chapter_terminal_active():
+		_end_chapter_terminal(false)
+	_close_chapter_task(false)
 	if _input_locked:
+		return
+	if _chapter_active() and str(game.chapter1_progress.phase) == "opening" and value != "npc_up":
 		return
 	if value == "npc_up" and game.view_state == "phone_down":
 		_capture_phone_layer_for_xray()
@@ -901,6 +1302,9 @@ func _toggle_view_state() -> void:
 
 
 func _capture_phone_layer_for_xray() -> bool:
+	# Basement X-ray samples its live World3D, never a phone UI screenshot.
+	if _chapter_active() and str(game.chapter1_progress.phase) == "basement":
+		return false
 	if not _game_started or get_viewport() == null or DisplayServer.get_name().to_lower() == "headless":
 		return false
 	var viewport_texture := get_viewport().get_texture()
@@ -915,7 +1319,43 @@ func _capture_phone_layer_for_xray() -> bool:
 	return true
 
 
+func _sync_chapter_xray_view() -> void:
+	var in_basement := _chapter_active() and _chapter_world_ready and str(game.chapter1_progress.phase) == "basement"
+	if not in_basement or not is_instance_valid(_camera) or not is_instance_valid(_hand_xray_overlay):
+		_release_chapter_xray_view()
+		return
+	if not is_instance_valid(_chapter_xray_view):
+		_chapter_xray_view = ChapterXRayViewScript.new()
+		_chapter_xray_view.name = "ChapterXRayView"
+		add_child(_chapter_xray_view)
+		_chapter_xray_view.bind_camera(_camera)
+		_hand_xray_overlay.set_layer_texture(_chapter_xray_view.get_texture())
+	var allowed := _camera_enabled and game.view_state == "npc_up" and not _settings_open and not _input_locked and not _chapter_terminal_active() and not _chapter_task_active()
+	if is_instance_valid(_chapter_door_transition) and _chapter_door_transition.is_active():
+		allowed = false
+	_hand_xray_overlay.visible = allowed
+	_chapter_xray_view.update_view(allowed and _hand_xray_overlay.is_frame_active(), Vector2i(_viewport_size()))
+
+
+func _release_chapter_xray_view() -> void:
+	if not is_instance_valid(_chapter_xray_view):
+		_chapter_xray_view = null
+		return
+	if is_instance_valid(_hand_xray_overlay):
+		# A fresh room must wait for fresh tracking; saved/runtime frame state is
+		# not a license to show a frame from the previous room.
+		_hand_xray_overlay.set_tracking_enabled(false)
+		var legacy_texture := _second_layer_texture
+		if legacy_texture == null and is_instance_valid(_phone_down_backdrop_image):
+			legacy_texture = _phone_down_backdrop_image.texture
+		_hand_xray_overlay.set_layer_texture(legacy_texture)
+		_hand_xray_overlay.set_tracking_enabled(_camera_enabled)
+	_chapter_xray_view.free()
+	_chapter_xray_view = null
+
+
 func _set_reality_mouse_look(enabled: bool) -> void:
+	enabled = enabled and not _chapter_terminal_active() and not _chapter_task_active()
 	_reality_mouse_look_enabled = enabled
 	if not enabled or game.view_state != "npc_up":
 		_reality_touch_look_index = -1
@@ -928,6 +1368,13 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 
 
 func _build_world() -> void:
+	_end_chapter_terminal(false)
+	_close_chapter_task(false)
+	_crt_vhs_toggle = null
+	_release_chapter_xray_view()
+	if is_instance_valid(_chapter_door_transition):
+		_chapter_door_transition.cancel(false)
+	_chapter_door_transition = null
 	if _day_transition_tween != null and _day_transition_tween.is_valid():
 		_day_transition_tween.kill()
 	_day_transition_tween = null
@@ -957,6 +1404,7 @@ func _build_world() -> void:
 	_camera.name = "Camera3D"
 	add_child(_camera)
 	_camera.current = true
+	_camera.cull_mask &= ~ChapterXRayViewScript.XRAY_RENDER_LAYER
 	_camera.fov = 58.0
 	_configure_reality_depth_of_field()
 	_ensure_reality_input_map()
@@ -976,11 +1424,7 @@ func _build_world() -> void:
 	player_collision.position.y = 0.88
 	_reality_player.add_child(player_collision)
 
-	_reality_floor = RealityFloorGeneratorScript.new()
-	_reality_floor.name = "RealityFloor"
-	_reality_floor.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
-	_reality_floor.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
-	add_child(_reality_floor)
+	_create_reality_host()
 	_rebuild_reality_floor()
 
 	_road = Node3D.new()
@@ -1088,6 +1532,10 @@ func _set_key_action(action_name: StringName, keycodes: Array) -> void:
 func _rebuild_reality_floor() -> void:
 	if _reality_floor == null or game == null:
 		return
+	_release_chapter_xray_view()
+	_end_chapter_terminal(false)
+	_close_chapter_task(false)
+	_reality_built_route = _chapter_route_key()
 	var npc_textures: Array[Texture2D] = []
 	for texture_path in NPC_CHARACTER_PATHS:
 		var texture := _load_runtime_texture(str(texture_path))
@@ -1104,6 +1552,12 @@ func _rebuild_reality_floor() -> void:
 		"doll": _load_runtime_texture(GUIDE_DOLL_CHARACTER_PATH),
 		"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(clampi(game.tower_floor, 1, 3)),
 	}
+	if _chapter_active():
+		_chapter_world_ready = _reality_floor.configure_stage(game.chapter1_progress, _active_palette(), null, {}, actor_textures)
+		_reality_built_floor = game.tower_floor
+		_reality_built_day = game.day
+		_reset_chapter_player()
+		return
 	var prerequisite_item: Dictionary = game.get_prerequisite_item_for_floor(game.tower_floor)
 	_reality_floor.rebuild(game.tower_floor, _active_palette(), actor_textures, game.day, game.has_seen_cover_watcher(game.tower_floor), prerequisite_item)
 	_reality_floor.set_playtest_assist_enabled(_playtest_assist_enabled)
@@ -1127,11 +1581,51 @@ func _rebuild_reality_floor() -> void:
 func _ensure_reality_floor_current() -> void:
 	if _reality_floor == null or game == null:
 		return
+	if _reality_built_route != _chapter_route_key():
+		# Ordinary legacy floor changes keep their existing rebuilding behavior.
+		if _chapter_active() or _reality_floor.has_method("configure_stage"):
+			remove_child(_reality_floor)
+			_reality_floor.queue_free()
+			_create_reality_host()
+		_rebuild_reality_floor()
+		return
+	if _chapter_active():
+		return
 	if _reality_built_floor != game.tower_floor:
 		_rebuild_reality_floor()
 	elif _reality_built_day != game.day:
 		_reality_floor.configure_authored_events(game.day, _active_palette())
 		_reality_built_day = game.day
+
+
+func _create_reality_host() -> void:
+	_chapter_world_ready = false
+	if _chapter_active():
+		var stage_script := load("res://scripts/world/chapter_world.gd") as Script
+		_reality_floor = stage_script.new()
+		_reality_floor.event_requested.connect(_on_chapter_world_event.bind(_reality_floor.get_instance_id()), CONNECT_DEFERRED)
+	else:
+		_reality_floor = RealityFloorGeneratorScript.new()
+	_reality_floor.name = "RealityFloor"
+	_reality_floor.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
+	_reality_floor.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
+	add_child(_reality_floor)
+
+
+func _reset_chapter_player() -> void:
+	_nearby_reality_actor = null
+	_nearby_reality_item = null
+	_active_reality_actor = null
+	_reality_interaction_active = false
+	if _reality_player != null:
+		_reality_last_safe_position = _reality_floor.start_position()
+		_reality_player.position = _reality_last_safe_position
+		_reality_player.velocity = Vector3.ZERO
+	_reality_yaw = _reality_floor.start_yaw_degrees()
+	_reality_pitch = -28.0 if str(game.chapter1_progress.phase) == "basement" else 0.0
+	if _camera != null and _reality_player != null:
+		_camera.position = _reality_player.position + Vector3(0.0, 1.56, 0.0)
+		_camera.rotation_degrees = Vector3(_reality_pitch, _reality_yaw, 0.0)
 
 
 func _room_count_for_floor(floor_number: int) -> int:
@@ -1143,10 +1637,15 @@ func _npc_count_for_floor(floor_number: int) -> int:
 
 
 func _update_reality_player(delta: float) -> void:
+	if _chapter_terminal_active() or _chapter_task_active():
+		_reality_player.velocity = Vector3.ZERO
+		return
+	if _chapter_active() and not _chapter_world_ready:
+		return
 	if _should_recover_reality_player():
 		_recover_reality_player()
 		return
-	var can_walk: bool = game.view_state == "npc_up" and not _reality_interaction_active and not _input_locked
+	var can_walk: bool = game.view_state == "npc_up" and not _reality_interaction_active and not _input_locked and not _settings_open
 	var input_vector := Vector2.ZERO
 	if can_walk:
 		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
@@ -1174,6 +1673,8 @@ func _update_reality_player(delta: float) -> void:
 func _should_recover_reality_player() -> bool:
 	if _reality_player == null or _reality_floor == null:
 		return false
+	if _chapter_active():
+		return not _reality_floor.contains_playable_position(_reality_player.position, -0.5)
 	if _reality_player.position.y < REALITY_FALL_RECOVERY_Y:
 		return true
 	return not _reality_floor.contains_playable_position(_reality_player.position, -2.0)
@@ -1181,6 +1682,10 @@ func _should_recover_reality_player() -> bool:
 
 func _recover_reality_player() -> void:
 	if _reality_player == null or _reality_floor == null:
+		return
+	if _chapter_active():
+		_reality_player.position = _reality_floor.recovery_position(_reality_last_safe_position)
+		_reality_player.velocity = Vector3.ZERO
 		return
 	var recovery_position := _reality_last_safe_position
 	if not _reality_floor.contains_playable_position(recovery_position, REALITY_SAFE_INSET):
@@ -1206,8 +1711,11 @@ func _refresh_nearby_reality_actor() -> void:
 	var nearest_kind := ""
 	var nearest_distance := REALITY_INTERACTION_DISTANCE
 	for actor in _reality_floor.get_interactable_actors():
-		var offset: Vector3 = actor.position - _reality_player.position
-		offset.y = 0.0
+		if _chapter_active() and not _reality_floor.is_actor_reachable(actor, _reality_player.global_position):
+			continue
+		var offset: Vector3 = actor.global_position - _reality_player.global_position
+		if not _chapter_active():
+			offset.y = 0.0
 		var distance: float = offset.length()
 		if distance <= nearest_distance:
 			nearest = actor
@@ -1230,11 +1738,16 @@ func _refresh_nearby_reality_actor() -> void:
 
 
 func _try_reality_interaction() -> bool:
-	if game.view_state != "npc_up":
+	if game.view_state != "npc_up" or _settings_open or _input_locked:
+		return false
+	if _chapter_terminal_active() or _chapter_task_active():
 		return false
 	if _reality_interaction_active:
 		_exit_reality_interaction()
 		return true
+	if _chapter_active():
+		_refresh_nearby_reality_actor()
+		return _reality_floor.interact(_nearby_reality_actor) if _nearby_reality_actor != null else false
 	_refresh_nearby_reality_actor()
 	if _nearby_reality_item != null:
 		return _collect_nearby_reality_item()
@@ -1562,7 +2075,7 @@ func _build_main_menu() -> void:
 	start_button.name = "MainMenuStartButton"
 	start_button.text = "新游戏"
 	start_button.custom_minimum_size = Vector2(168, 54)
-	start_button.pressed.connect(new_game, CONNECT_DEFERRED)
+	start_button.pressed.connect(start_chapter1_game, CONNECT_DEFERRED)
 	buttons.add_child(start_button)
 
 	var exit_button := Button.new()
@@ -1842,6 +2355,7 @@ func _set_camera_enabled(value: bool, persist: bool = true) -> void:
 	_refresh_phone_camera_connection_ui()
 	if persist:
 		_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_sync_chapter_xray_view()
 
 
 func _set_camera_source(value: String, persist: bool = true) -> void:
@@ -1851,6 +2365,9 @@ func _set_camera_source(value: String, persist: bool = true) -> void:
 	if changed:
 		_camera_ready_source = ""
 		_camera_ready_index = -1
+		if is_instance_valid(_hand_xray_overlay):
+			_hand_xray_overlay.set_tracking_enabled(false)
+			_hand_xray_overlay.set_tracking_enabled(_camera_enabled)
 	_ensure_hand_tracking_receiver()
 	_hand_tracking_receiver.camera_source = _camera_source
 	if changed and _camera_enabled:
@@ -1867,6 +2384,7 @@ func _set_camera_source(value: String, persist: bool = true) -> void:
 	_refresh_phone_camera_connection_ui()
 	if persist:
 		_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	_sync_chapter_xray_view()
 
 
 func _populate_camera_source_option(option: OptionButton) -> void:
@@ -1944,6 +2462,7 @@ func _on_hand_tracking_frame(hands: Array, _timestamp_msec: int) -> void:
 	else:
 		_camera_tracking_status = "等待双手四指框选"
 	_refresh_camera_status_ui()
+	_sync_chapter_xray_view()
 
 
 func _on_hand_tracking_status_changed(status: String) -> void:
@@ -1951,9 +2470,13 @@ func _on_hand_tracking_status_changed(status: String) -> void:
 	if status in ["摄像头不可用或权限被拒绝", "手部追踪程序发生错误", "无法启动手部追踪程序"]:
 		_camera_ready_source = ""
 		_camera_ready_index = -1
+		if is_instance_valid(_hand_xray_overlay):
+			_hand_xray_overlay.set_tracking_enabled(false)
+			_hand_xray_overlay.set_tracking_enabled(_camera_enabled)
 	_refresh_camera_source_buttons()
 	_refresh_camera_status_ui()
 	_refresh_phone_camera_connection_ui()
+	_sync_chapter_xray_view()
 
 
 func _on_camera_source_ready(source: String, selected_index: int) -> void:
@@ -1979,11 +2502,14 @@ func _build_ui() -> void:
 
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
+	# Empty UI space must let world input reach _unhandled_input().
+	_ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
 	var vignette := ColorRect.new()
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vignette.color = _theme_color("ink").darkened(0.15)
 	vignette.modulate.a = 0.16
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2132,6 +2658,8 @@ func _build_ui() -> void:
 		button.name = "PhoneAppIcon%s" % str(app["id"]).capitalize()
 		button.text = app["label"]
 		button.set_meta("phone_app_icon", true)
+		button.set_meta("phone_app_id", app["id"])
+		button.set_meta("unlocked_label", app["label"])
 		button.custom_minimum_size = Vector2(156, 126)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_app_pressed.bind(app["id"]))
@@ -2355,6 +2883,13 @@ func _build_ui() -> void:
 	_build_doll_guide_overlay()
 	_build_flashback_overlay()
 	_build_prologue_overlay()
+	_chapter_dev_panel = null
+	if _chapter_active():
+		_prologue_overlay.visible = false
+		_chapter_dev_panel = ChapterDevelopmentPanelScript.new()
+		_ui_root.add_child(_chapter_dev_panel)
+		_chapter_dev_panel.configure(_chapter_dev_enabled)
+		_chapter_dev_panel.event_requested.connect(_on_chapter_development_event)
 	_apply_responsive_layouts_if_needed(true)
 
 
@@ -2837,7 +3372,7 @@ func _build_vhs_overlay() -> void:
 	_vhs_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shader_material := ShaderMaterial.new()
 	shader_material.shader = load("res://shaders/vhs_screen.gdshader") as Shader
-	shader_material.set_shader_parameter("intensity", 0.62)
+	shader_material.set_shader_parameter("intensity", 0.46)
 	shader_material.set_shader_parameter("pollution", 0.0)
 	_vhs_shader_rect.material = shader_material
 	_vhs_overlay.add_child(_vhs_shader_rect)
@@ -2923,7 +3458,7 @@ func _build_settings_window() -> void:
 	_settings_window.offset_top = 16
 	_settings_window.offset_right = 610
 	_settings_window.offset_bottom = 884
-	_settings_window.z_index = 30
+	_settings_window.z_index = 200
 	_settings_window.visible = false
 	_ui_root.add_child(_settings_window)
 	_layout_settings_window()
@@ -2957,7 +3492,7 @@ func _build_settings_window() -> void:
 	settings_scroll.name = "SettingsScroll"
 	settings_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	settings_scroll.offset_top = 66
-	settings_scroll.offset_bottom = -108
+	settings_scroll.offset_bottom = -166
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	settings_shell.add_child(settings_scroll)
 
@@ -2987,11 +3522,18 @@ func _build_settings_window() -> void:
 
 	_vhs_toggle = CheckButton.new()
 	_vhs_toggle.name = "SettingsVHSToggle"
-	_vhs_toggle.text = "开启 VHS 质感"
+	_vhs_toggle.text = "全局画面 VHS"
 	_vhs_toggle.button_pressed = _vhs_enabled
 	_vhs_toggle.custom_minimum_size.y = 48
 	_vhs_toggle.toggled.connect(_on_vhs_toggled)
 	_settings_content.add_child(_vhs_toggle)
+	_crt_vhs_toggle = CheckButton.new()
+	_crt_vhs_toggle.name = "SettingsCRTVHSToggle"
+	_crt_vhs_toggle.text = "开启 CRT 屏幕 VHS 质感"
+	_crt_vhs_toggle.button_pressed = _crt_vhs_enabled
+	_crt_vhs_toggle.custom_minimum_size.y = 48
+	_crt_vhs_toggle.toggled.connect(_on_crt_vhs_toggled)
+	_settings_content.add_child(_crt_vhs_toggle)
 
 	var camera_rule := HSeparator.new()
 	_settings_content.add_child(camera_rule)
@@ -3089,12 +3631,11 @@ func _build_settings_window() -> void:
 	main_menu_button.text = "退回主画面"
 	main_menu_button.custom_minimum_size.y = 50
 	main_menu_button.pressed.connect(_on_return_main_menu_pressed)
-	_settings_content.add_child(main_menu_button)
 
 	var system_footer := VBoxContainer.new()
 	system_footer.name = "SettingsSystemFooter"
 	system_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	system_footer.offset_top = -100
+	system_footer.offset_top = -158
 	system_footer.add_theme_constant_override("separation", 6)
 	settings_shell.add_child(system_footer)
 	var system_rule := HSeparator.new()
@@ -3103,6 +3644,7 @@ func _build_settings_window() -> void:
 	var system_label := _label("系统", 14, _theme_color("accent"))
 	system_label.name = "SettingsSystemLabel"
 	system_footer.add_child(system_label)
+	system_footer.add_child(main_menu_button)
 	_settings_exit_button = Button.new()
 	_settings_exit_button.name = "SettingsExitGameButton"
 	_settings_exit_button.text = "退出游戏"
@@ -3432,10 +3974,16 @@ func _on_autoplay_toggled(value: bool) -> void:
 func _toggle_settings_window() -> void:
 	if _settings_window == null:
 		return
-	_settings_open = not _settings_open
-	_settings_window.visible = _settings_open
 	if _settings_open:
-		_settings_window.move_to_front()
+		_close_settings_window()
+		return
+	_settings_open = true
+	_set_reality_mouse_look(false)
+	_settings_window.visible = true
+	_settings_window.move_to_front()
+	_set_chapter_exploration_paused(true)
+	if _chapter_terminal_active():
+		_chapter_terminal_session.get_terminal().set_active(false)
 	_hide_hud_tooltip()
 	_update_visibility()
 
@@ -3444,7 +3992,19 @@ func _close_settings_window() -> void:
 	_settings_open = false
 	if _settings_window != null:
 		_settings_window.visible = false
+	_set_chapter_exploration_paused(false)
+	if _chapter_terminal_active():
+		_chapter_terminal_session.get_terminal().set_active(true)
+	var prologue_visible := is_instance_valid(_prologue_overlay) and _prologue_overlay.visible
+	_set_reality_mouse_look(_game_started and game.view_state == "npc_up" and not _reality_interaction_active and not _input_locked and not prologue_visible)
 	_update_visibility()
+
+
+func _set_chapter_exploration_paused(value: bool) -> void:
+	if _chapter_active() and is_instance_valid(_reality_floor):
+		_reality_floor.set_exploration_paused(value)
+	if is_instance_valid(_chapter_door_transition):
+		_chapter_door_transition.set_paused(value)
 
 
 func _on_volume_changed(value: float) -> void:
@@ -3491,6 +4051,16 @@ func _on_vhs_toggled(value: bool) -> void:
 	_vhs_enabled = value
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = value
+
+
+func _on_crt_vhs_toggled(value: bool) -> void:
+	_crt_vhs_enabled = value
+	_locale.set_crt_vhs_enabled(value)
+	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_enabled, _camera_source)
+	if is_instance_valid(_crt_vhs_toggle):
+		_crt_vhs_toggle.set_pressed_no_signal(value)
+	if _chapter_terminal_active():
+		_chapter_terminal_session.get_terminal().set_vhs_enabled(value)
 
 
 func _on_camera_access_toggled(value: bool) -> void:
@@ -3884,6 +4454,9 @@ func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	_layout_settings_window()
 	_layout_cinematic_bars()
 	_layout_hud_rail()
+	if _chapter_terminal_active():
+		_chapter_terminal_session.refresh_layout()
+
 
 
 func _render() -> void:
@@ -3904,6 +4477,9 @@ func _render() -> void:
 	_update_visibility()
 	_apply_world_theme()
 	_apply_ui_theme()
+	if _chapter_terminal_active():
+		_apply_ui_theme(_chapter_terminal_session.get_terminal().get_content_root())
+		_chapter_terminal_session.refresh_layout()
 	_refresh_localized_ui()
 
 
@@ -3922,6 +4498,9 @@ func _render_status() -> void:
 
 func _render_playtest_assist() -> void:
 	if _playtest_assist_panel == null or _playtest_assist_label == null:
+		return
+	if _chapter_active():
+		_playtest_assist_panel.visible = false
 		return
 	var step: Dictionary = game.get_tutorial_step()
 	var tutorial_complete := bool(step.get("is_complete", false))
@@ -3964,6 +4543,12 @@ func _action_pips(actions: int) -> String:
 
 
 func _render_world_prompt() -> void:
+	if _chapter_active():
+		if _nearby_reality_actor != null and str(_nearby_reality_actor.get_meta("actor_type", "")) == "chapter1_opening":
+			_world_prompt.text = "F  " + _locale.translate("打开门")
+			return
+		_world_prompt.text = "F  " + str(_nearby_reality_actor.get_meta("display_name", "")) if _nearby_reality_actor != null else ""
+		return
 	var plan := _day_plan()
 	if game.view_state == "phone_down":
 		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [game.day, plan["title"]]
@@ -4630,7 +5215,7 @@ func _render_social_publish_page(parent: VBoxContainer) -> void:
 	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outcome_row.add_child(pollution_outcome)
 
-	var hint := _label("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color("accent"))
+	var hint := _label("教程练习不消耗每日行动，可继续修改与投稿。" if _chapter_active() and str(game.chapter1_progress.phase) in ["basement", "crossroads"] else "确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color("accent"))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	publish_content.add_child(hint)
 
@@ -4785,6 +5370,8 @@ func _render_social_bottom_nav(phone_box: VBoxContainer) -> void:
 
 
 func _set_social_screen(screen: String) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	_social_screen = screen
@@ -4796,6 +5383,8 @@ func _set_social_screen(screen: String) -> void:
 
 
 func _on_social_channel_pressed(channel: String) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	_social_channel = channel
@@ -4810,6 +5399,8 @@ func _on_social_channel_pressed(channel: String) -> void:
 
 
 func _on_social_follow_pressed(author_id: String) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	var followed := game.toggle_social_follow(author_id)
@@ -4819,6 +5410,8 @@ func _on_social_follow_pressed(author_id: String) -> void:
 
 
 func _on_social_like_pressed(post_id: String) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	var liked := game.toggle_social_like(post_id)
@@ -4827,6 +5420,8 @@ func _on_social_like_pressed(post_id: String) -> void:
 
 
 func _open_social_post(post_index: int) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	_social_detail_post_index = post_index
@@ -4901,6 +5496,7 @@ func _render_notebook_app() -> void:
 	notebook_page.add_child(notebook_scroll)
 
 	var notebook_content := VBoxContainer.new()
+	notebook_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	notebook_content.name = "NotebookCraftContent"
 	notebook_content.add_theme_constant_override("separation", 10)
 	notebook_scroll.add_child(notebook_content)
@@ -4954,6 +5550,8 @@ func _render_notebook_fusion_tab(notebook_content: VBoxContainer) -> void:
 
 
 func _set_notebook_crafting_tab(tab_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked or tab_id not in ["frame", "fusion"]:
 		return
 	_notebook_crafting_tab = tab_id
@@ -5274,9 +5872,9 @@ func _update_visibility() -> void:
 	for app_id in _app_windows.keys():
 		var app_window := _app_windows[app_id] as Control
 		if app_window != null:
-			app_window.visible = in_phone and bool(_open_app_windows.get(app_id, false))
+			app_window.visible = in_phone and game.is_phone_app_unlocked(app_id) and bool(_open_app_windows.get(app_id, false))
 	if _social_detail_window != null:
-		_social_detail_window.visible = in_phone and _social_detail_open and bool(_open_app_windows.get("social", false))
+		_social_detail_window.visible = in_phone and game.is_phone_app_unlocked("social") and _social_detail_open and bool(_open_app_windows.get("social", false))
 	if _publish_panel != null:
 		_publish_panel.visible = false
 	var show_meme_bank := _should_show_meme_bank()
@@ -5311,7 +5909,7 @@ func _update_visibility() -> void:
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and _game_started
 	if _world_prompt != null:
-		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and (_nearby_reality_actor != null or _nearby_reality_item != null)
+		_world_prompt.visible = (not in_phone) and (not _reality_interaction_active) and not _input_locked and (_nearby_reality_actor != null or _nearby_reality_item != null)
 	var interaction_visible := (not in_phone) and _reality_interaction_active
 	if _reality_subtitle_panel != null:
 		_reality_subtitle_panel.visible = interaction_visible
@@ -5343,6 +5941,40 @@ func _update_visibility() -> void:
 	if _cinematic_bottom_bar != null:
 		_cinematic_bottom_bar.visible = _game_started and not in_phone
 	_layout_hud_rail()
+	_hud_panel.visible = true
+	_hud_reveal_zone.visible = true
+	if _chapter_active():
+		# Chapter exploration has an unobstructed viewport. The existing phone
+		# and settings remain available through their normal keyboard controls.
+		_hud_panel.visible = in_phone or _settings_open
+		_hud_reveal_zone.visible = in_phone or _settings_open
+		_view_toggle_button.visible = in_phone and not _settings_open
+		_cinematic_top_bar.visible = false
+		_cinematic_bottom_bar.visible = false
+		if _playtest_assist_panel != null:
+			_playtest_assist_panel.visible = false
+		if _doll_guide_panel != null:
+			_doll_guide_panel.visible = false
+		if _road != null:
+			_road.visible = false
+		if str(game.chapter1_progress.phase) == "opening":
+			_phone_art_alpha = 0.0
+			_view_toggle_button.visible = false
+			_hud_panel.visible = _settings_open
+			_phone_down_backdrop_image.visible = false
+		_update_chapter_development_panel()
+	if _chapter_terminal_active():
+		_chapter_terminal_session.refresh_layout()
+		_world_prompt.hide()
+	if _chapter_task_active():
+		_chapter_task_panel.visible = not _settings_open
+		_world_prompt.hide()
+	for app_id in ["social", "notebook", "babel"]:
+		var icon := _find_control_by_name(_ui_root, "PhoneAppIcon%s" % app_id.capitalize()) as Button
+		if icon != null:
+			icon.disabled = not game.is_phone_app_unlocked(app_id)
+			icon.text = str(icon.get_meta("unlocked_label", "")) + ("\n未解锁" if icon.disabled else "")
+	_sync_chapter_xray_view()
 
 
 func _animate_world(delta: float) -> void:
@@ -5350,6 +5982,12 @@ func _animate_world(delta: float) -> void:
 		if _camera != null:
 			_camera.position = _camera.position.lerp(Vector3(0.0, 1.54, 2.55), minf(1.0, delta * 3.0))
 			_camera.rotation_degrees = _camera.rotation_degrees.lerp(Vector3(-18.0, 0.0, 0.0), minf(1.0, delta * 3.0))
+		_animate_vhs(delta)
+		return
+	if is_instance_valid(_chapter_door_transition) and _chapter_door_transition.is_active():
+		_animate_vhs(delta)
+		return
+	if _chapter_terminal_active():
 		_animate_vhs(delta)
 		return
 	var phone_target := Vector3(0.0, 0.15, -1.15) if game.view_state == "phone_down" else Vector3(1.45, -0.8, -1.0)
@@ -5386,7 +6024,7 @@ func _animate_world(delta: float) -> void:
 		for index in _road.get_child_count():
 			var tile := _road.get_child(index) as Node3D
 			tile.position.z = -2.0 - index * 3.8 + fmod(_road_scroll, 3.8)
-	if game.view_state == "npc_up" and _reality_floor != null and _reality_player != null:
+	if game.view_state == "npc_up" and _reality_floor != null and _reality_player != null and not _settings_open:
 		_reality_floor.update_authored_events(delta, _reality_player.global_position, -_camera.global_basis.z)
 	_animate_vhs(delta)
 
@@ -5398,7 +6036,7 @@ func _animate_vhs(delta: float) -> void:
 	if _vhs_shader_rect != null and _vhs_shader_rect.material is ShaderMaterial:
 		var material := _vhs_shader_rect.material as ShaderMaterial
 		material.set_shader_parameter("pollution", clampf(float(game.pollution) / 100.0, 0.0, 1.0))
-		material.set_shader_parameter("intensity", 0.58 + minf(0.22, float(game.pollution) * 0.0022))
+		material.set_shader_parameter("intensity", 0.44 + minf(0.16, float(game.pollution) * 0.0016))
 
 
 func _active_palette() -> Dictionary:
@@ -5592,6 +6230,9 @@ func _meme_bank_motion_profile(opening: bool) -> Dictionary:
 
 
 func _close_app_window(app_id: String) -> void:
+	if _chapter_terminal_active():
+		_end_chapter_terminal()
+		return
 	if _input_locked:
 		return
 	_open_app_windows[app_id] = false
@@ -5600,7 +6241,7 @@ func _close_app_window(app_id: String) -> void:
 	if game.active_app_window == app_id:
 		game.active_app_window = ""
 		for candidate in ["social", "babel", "notebook"]:
-			if bool(_open_app_windows.get(candidate, false)):
+			if game.is_phone_app_unlocked(candidate) and bool(_open_app_windows.get(candidate, false)):
 				game.active_app = candidate
 				game.active_app_window = candidate
 				break
@@ -5615,6 +6256,11 @@ func _close_app_window(app_id: String) -> void:
 
 
 func _open_phone_launcher() -> void:
+	if _chapter_terminal_active():
+		_end_chapter_terminal()
+	_close_chapter_task(false)
+	if _chapter_active() and str(game.chapter1_progress.phase) == "opening":
+		return
 	if _input_locked:
 		return
 	game.set_view_state("phone_down")
@@ -5766,7 +6412,7 @@ func _meme_bank_conflicts_at(position: Vector2, targets: Array[Control]) -> bool
 
 
 func _on_window_handle_gui_input(event: InputEvent, _window_id: String, window: Control, handle: Control) -> void:
-	if _input_locked:
+	if _input_locked or _chapter_terminal_active():
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -6361,7 +7007,7 @@ func _render_ending() -> void:
 	restart.text = "重开"
 	restart.custom_minimum_size = Vector2(172, 54)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	restart.pressed.connect(new_game, CONNECT_DEFERRED)
+	restart.pressed.connect(start_chapter1_game, CONNECT_DEFERRED)
 	center.add_child(restart)
 
 
@@ -6371,6 +7017,13 @@ func _on_ending_language_selected(choice_id: String) -> void:
 
 
 func _on_app_pressed(app_id: String) -> void:
+	if _chapter_terminal_active():
+		_on_chapter_terminal_app_pressed(app_id)
+		return
+	if not game.can_use_app(app_id, "phone"):
+		return
+	if _chapter_active() and str(game.chapter1_progress.phase) == "opening":
+		return
 	if _input_locked:
 		return
 	game.set_view_state("phone_down")
@@ -6457,7 +7110,7 @@ func _update_doll_guide() -> void:
 		_doll_guide_panel = null
 		return
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
-	_doll_guide_panel.visible = _game_started and game != null and not _reality_interaction_active
+	_doll_guide_panel.visible = _game_started and game != null and not _reality_interaction_active and not _chapter_active()
 	if not _doll_guide_panel.visible or _doll_guide_line_label == null or not is_instance_valid(_doll_guide_line_label):
 		return
 	_doll_guide_line_label.text = _doll_guide_current_line()
@@ -6497,6 +7150,8 @@ func _doll_guide_current_line() -> String:
 
 func _sync_ultimate_task_props() -> void:
 	if game == null:
+		return
+	if _chapter_active():
 		return
 	var floor_root := get_node_or_null("RealityFloor")
 	if floor_root == null:
@@ -6618,6 +7273,8 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	notebook_content.add_child(canvas_frame)
 	var canvas := WordPhysicsCanvasScript.new()
 	canvas.name = "NotebookWordCanvas"
+	if _chapter_terminal_active():
+		canvas.configure_tile_metrics(Vector2(54, 54), 36, _chapter_terminal_session.get_terminal().get_content_root().theme.default_font)
 	canvas.custom_minimum_size = MemeGameStateScript.CHAR_CANVAS_SIZE
 	canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -6632,8 +7289,13 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 	if collected_units.is_empty():
 		var empty_hint := _label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color("muted"))
 		empty_hint.name = "NotebookCharEmptyHint"
-		empty_hint.position = Vector2(10.0, 10.0)
+		empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		canvas.add_child(empty_hint)
+		empty_hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		empty_hint.offset_left = 10.0
+		empty_hint.offset_top = 10.0
+		empty_hint.offset_right = -10.0
+		empty_hint.offset_bottom = -10.0
 	for unit in collected_units:
 		var is_ghost := str(unit) in placed_units
 		canvas.add_tile(
@@ -6659,12 +7321,16 @@ func _render_sentence_composer(notebook_content: VBoxContainer) -> void:
 
 
 func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
 
 
 ## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
-	var answer_panel := _find_control_by_name(_ui_root, "ComposerAnswerPanel")
+	if not _chapter_app_access("notebook"):
+		return
+	var answer_panel := _find_control_by_name(_app_windows.get("social", _ui_root), "ComposerAnswerPanel")
 	var dropped_into_sentence := false
 	if answer_panel != null and is_instance_valid(answer_panel) and answer_panel.is_visible_in_tree():
 		if answer_panel.get_global_rect().has_point(release_global):
@@ -6675,17 +7341,21 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("notebook"):
 		return
 	if game.free_sentence_place(unit, _locale.current_locale):
+		if _chapter_terminal_active():
+			_social_screen = "publish"
+			_social_detail_open = false
+			_chapter_terminal_session.select_app("notebook")
 		if _pickup_flight_layer != null:
-			_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _theme_color("accent"))
+			_pickup_flight_layer.play_place_flight(unit, _chapter_pointer_position(), _composer_answer_target, _theme_color("accent"))
 		log_text = "字进入了句子。"
 		_render()
 
 
 func _on_composer_answer_tapped(unit_index: int) -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("notebook"):
 		return
 	if game.free_sentence_remove(unit_index):
 		_render()
@@ -6700,7 +7370,7 @@ func _on_composer_tile_drop(data: Dictionary, before_index: int) -> void:
 
 
 func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("notebook"):
 		return
 	match str(data.get("kind", "")):
 		"composer_unit":
@@ -6717,14 +7387,14 @@ func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
 
 
 func _composer_answer_target() -> Vector2:
-	var answer_flow := _find_control_by_name(_ui_root, "ComposerAnswerFlow")
+	var answer_flow := _find_control_by_name(_app_windows.get("social", _ui_root), "ComposerAnswerFlow")
 	if answer_flow != null and is_instance_valid(answer_flow):
 		return answer_flow.get_global_position() + Vector2(answer_flow.size.x * 0.5, 20.0)
 	return _notebook_flight_target()
 
 
 func _on_composer_submit_pressed() -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("notebook"):
 		return
 	var actions_before: int = int(game.actions_remaining)
 	var submit_result: Dictionary = game.submit_free_sentence(_locale.current_locale)
@@ -6764,6 +7434,11 @@ func _build_pickup_flight_layer() -> void:
 
 ## 拾字时把笔记本窗口召回左上角初始位置并打开,让玩家看见字飞进去。
 func _ensure_notebook_window_home() -> void:
+	if _chapter_terminal_active():
+		_chapter_terminal_session.refresh_layout()
+		return
+	if not game.is_phone_app_unlocked("notebook"):
+		return
 	_open_app_windows["notebook"] = true
 	var window := _notebook_window_control()
 	if window == null:
@@ -6843,11 +7518,11 @@ func _pickup_word_boundary_ok(text: String, start_index: int, unit_length: int) 
 
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("social"):
 		return
 	var unit := str(meta)
 	var actions_before: int = int(game.actions_remaining)
-	var origin: Vector2 = get_viewport().get_mouse_position()
+	var origin: Vector2 = _chapter_pointer_position()
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
 	if bool(pick_result.get("picked", false)):
 		log_text = "一个字进入了笔记本。"
@@ -6900,6 +7575,8 @@ func _notebook_flight_target() -> Vector2:
 
 
 func _squash_notebook_window() -> void:
+	if _chapter_terminal_active():
+		return
 	var window := _notebook_window_control()
 	if window == null or not window.visible:
 		return
@@ -6913,7 +7590,7 @@ func _squash_notebook_window() -> void:
 
 
 func _on_token_pressed(post_id: String, token: Dictionary) -> void:
-	if _input_locked:
+	if _input_locked or not _chapter_app_access("social"):
 		return
 	var actions_before: int = int(game.actions_remaining)
 	var localized_token := token.duplicate(true)
@@ -6930,6 +7607,8 @@ func _on_token_pressed(post_id: String, token: Dictionary) -> void:
 
 
 func _on_note_token_pressed(token_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	selected_token_id = token_id
@@ -6938,6 +7617,8 @@ func _on_note_token_pressed(token_id: String) -> void:
 
 
 func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	var token_id := str(data.get("id", ""))
@@ -6950,6 +7631,8 @@ func _on_slot_token_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_slot_pressed(slot_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	if selected_token_id.is_empty():
@@ -7008,6 +7691,8 @@ func _on_confirm_doctor_sentence_pressed() -> void:
 
 
 func _on_confirm_craft_pressed() -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	var actions_before: int = int(game.actions_remaining)
@@ -7021,6 +7706,8 @@ func _on_confirm_craft_pressed() -> void:
 
 
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	var meme_id := str(data.get("id", ""))
@@ -7033,6 +7720,8 @@ func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	if selected_meme_id.is_empty():
@@ -7045,6 +7734,8 @@ func _on_fusion_slot_pressed(slot_id: String) -> void:
 
 
 func _on_confirm_fusion_pressed() -> void:
+	if not _chapter_app_access("notebook"):
+		return
 	if _input_locked:
 		return
 	var actions_before := int(game.actions_remaining)
@@ -7066,6 +7757,8 @@ func _on_meme_pressed(meme_id: String) -> void:
 
 
 func _on_dialogue_blank_pressed() -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	if selected_meme_id.is_empty():
@@ -7077,6 +7770,8 @@ func _on_dialogue_blank_pressed() -> void:
 
 
 func _on_dialogue_meme_dropped(data: Dictionary, blank_id: String) -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	var meme_id := str(data.get("id", ""))
@@ -7089,6 +7784,8 @@ func _on_dialogue_meme_dropped(data: Dictionary, blank_id: String) -> void:
 
 
 func _on_confirm_dialogue_pressed() -> void:
+	if not _chapter_app_access("social"):
+		return
 	if _input_locked:
 		return
 	var actions_before: int = int(game.actions_remaining)
@@ -7102,6 +7799,9 @@ func _on_confirm_dialogue_pressed() -> void:
 
 
 func _after_effective_action(actions_before: int = -1) -> void:
+	if _chapter_active():
+		_render()
+		return
 	if game.pollution_flashback_pending:
 		_play_pollution_flashback()
 		return
@@ -7120,6 +7820,8 @@ func _after_effective_action(actions_before: int = -1) -> void:
 
 
 func _settle_day_and_present_rewards() -> bool:
+	if _chapter_active():
+		return false
 	if not game.settle_day_if_needed():
 		return false
 	_reality_interaction_active = false
@@ -7252,6 +7954,8 @@ func _ensure_ui_font_theme() -> Theme:
 
 ## 把任意字号吸附到点阵网格(9 的整数倍),保证像素笔画等宽。
 func _ui_font_size(requested_size: int) -> int:
+	if _chapter_terminal_active():
+		return clampi(int(round(float(requested_size) * 1.7 / float(UI_FONT_GRID))) * UI_FONT_GRID, 36, 63)
 	var snapped := int(round(float(requested_size) / float(UI_FONT_GRID))) * UI_FONT_GRID
 	return clampi(snapped, UI_FONT_MIN_SIZE, UI_FONT_MAX_SIZE)
 

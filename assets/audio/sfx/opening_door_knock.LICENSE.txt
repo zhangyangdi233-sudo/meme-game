@@ -1,0 +1,50 @@
+Asset: opening_door_knock.ogg
+Title: Knocking on Wood or Door
+Author: stephan (audio metadata: Stephan)
+Recorded/published: 2007-04-26
+Retrieved and verified: 2026-10-07
+
+Source page:
+https://commons.wikimedia.org/wiki/File:Knocking_on_wood_or_door.ogg
+Permanent source revision:
+https://commons.wikimedia.org/w/index.php?title=File:Knocking_on_wood_or_door.ogg&oldid=900632405
+Original download:
+https://upload.wikimedia.org/wikipedia/commons/1/1c/Knocking_on_wood_or_door.ogg
+Original PDSounds record: 198 (archived by Wikimedia Commons)
+http://www.pdsounds.org/sounds/knocking_on_wood_or_door
+
+License: Public domain, dedicated by the author; this is not a CC-BY asset.
+License evidence:
+https://commons.wikimedia.org/wiki/File:Knocking_on_wood_or_door.ogg#Licensing
+The file's Licensing section identifies stephan as the author and states that
+the author released the work into the public domain worldwide. It also provides
+an unrestricted permission fallback where a public-domain dedication is not
+legally possible, subject only to conditions required by law.
+The Permission section explains the PDSounds public-domain policy and expressly
+allows commercial use: "use them for commercial purposes too".
+No attribution is required by the stated permission; this record is retained
+for provenance. The Commons website text license is separate from the audio's
+public-domain status.
+
+Changes:
+- Renamed the file to opening_door_knock.ogg.
+- Removed only the non-audio Ogg Skeleton metadata stream for audio importer
+  compatibility. Copied all 36 Vorbis pages byte for byte; no transcoding,
+  trimming, resampling, normalization, or other audio changes.
+
+Technical information:
+Format: Ogg Vorbis
+Sample rate: 44100 Hz
+Channels: 2 (stereo)
+Duration: 6.243265306 seconds (275328 samples per channel)
+Description from source: natural wooden-door/wood knocking, three variants.
+
+Verification:
+Original download size: 155680 bytes
+Original SHA-1: 7fae9ee6914c84f37bdf558643a07efc5f7587b0
+The original SHA-1 matches the checksum published on the source page.
+Original SHA-256: f65a210f76fd6e76757ac632585b1bbf9ffeaf35b9c3aa1466eb9dd6c7ca9590
+Final asset size: 155303 bytes
+Final SHA-1: 01f75f2ec3a577e35a60a0dc4b4842dd5305b244
+Final SHA-256: 7d285218dc22813baa577d984edc53efda3c820e50528aa9b961b7d186431232
+All retained Ogg pages passed CRC verification.

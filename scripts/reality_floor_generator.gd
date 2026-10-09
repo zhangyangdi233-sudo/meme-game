@@ -160,7 +160,8 @@ func rebuild(
 	actor_textures: Dictionary,
 	day_number: int = 1,
 	cover_watcher_seen: bool = false,
-	prerequisite_item: Dictionary = {}
+	prerequisite_item: Dictionary = {},
+	populate: bool = true
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
@@ -239,11 +240,16 @@ func rebuild(
 
 	_build_environment(palette)
 	_build_architecture(palette)
-	_build_prerequisite_item(prerequisite_item, palette)
-	_build_actors(actor_textures)
+	if populate:
+		_build_prerequisite_item(prerequisite_item, palette)
+		_build_actors(actor_textures)
+	else:
+		ordinary_npc_count = 0
+		set_meta("ordinary_npc_count", 0)
 	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette)
-	_build_cover_watcher_event(palette, cover_watcher_seen)
+	if populate:
+		_build_cover_watcher_event(palette, cover_watcher_seen)
 	set_meta("useful_item_count", useful_item_count)
 
 

@@ -1,0 +1,247 @@
+{
+  "timestamp": "2026-10-07T15:56:50.4159952+09:00",
+  "appdata": "D:\\aphasia\\outputs\\basement_integration_audit\\test_profile",
+  "execution": "Sequential native Godot runs, isolated APPDATA; no source edits",
+  "preexisting_hashes_unchanged": true,
+  "preexisting_before": [
+    {
+      "Path": "D:\\aphasia\\meme-game\\tests\\test_hand_tracker_lifecycle.py",
+      "Hash": "36077605A7779AFE7A6C7C804FF5DDDE24759DD95118D1BCFE825F428494B847"
+    },
+    {
+      "Path": "D:\\aphasia\\meme-game\\tests\\test_sentence_composer.gd",
+      "Hash": "00862688D046BFCFDE3AA993B68C9C579217A86ECA96C629E6A41F12A64D0BE2"
+    },
+    {
+      "Path": "D:\\aphasia\\meme-game\\tools\\hand_tracking\\hand_tracker.py",
+      "Hash": "904B32F3D9FC3D659785F47E35E64A870A0727BF905470858DE9D28C23EB0B7B"
+    }
+  ],
+  "preexisting_after": [
+    {
+      "Path": "D:\\aphasia\\meme-game\\tests\\test_hand_tracker_lifecycle.py",
+      "Hash": "36077605A7779AFE7A6C7C804FF5DDDE24759DD95118D1BCFE825F428494B847"
+    },
+    {
+      "Path": "D:\\aphasia\\meme-game\\tests\\test_sentence_composer.gd",
+      "Hash": "00862688D046BFCFDE3AA993B68C9C579217A86ECA96C629E6A41F12A64D0BE2"
+    },
+    {
+      "Path": "D:\\aphasia\\meme-game\\tools\\hand_tracking\\hand_tracker.py",
+      "Hash": "904B32F3D9FC3D659785F47E35E64A870A0727BF905470858DE9D28C23EB0B7B"
+    }
+  ],
+  "results": [
+    {
+      "test": "test_basement_loop_director",
+      "exit_code": 0,
+      "seconds": 0.28,
+      "pass_markers": [
+        "basement loop director tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_basement_loop_director.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_basement_loop_director.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_chapter_components",
+      "exit_code": 0,
+      "seconds": 1.59,
+      "pass_markers": [
+        "chapter component tests passed (73 checks; synthetic nodes, no video playback claim)"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_components.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_components.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_chapter_development_panel",
+      "exit_code": 0,
+      "seconds": 0.17,
+      "pass_markers": [
+        "chapter development panel tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_development_panel.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_development_panel.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_chapter_crossroads",
+      "exit_code": 0,
+      "seconds": 0.27,
+      "pass_markers": [
+        "chapter crossroads tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_crossroads.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_chapter_crossroads.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_meme_game_state",
+      "exit_code": 0,
+      "seconds": 0.27,
+      "pass_markers": [
+        "meme_game_state tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_meme_game_state.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_meme_game_state.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_playthrough_flow",
+      "exit_code": 0,
+      "seconds": 0.28,
+      "pass_markers": [
+        "playthrough flow tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_playthrough_flow.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_playthrough_flow.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_reality_world",
+      "exit_code": 0,
+      "seconds": 3.81,
+      "pass_markers": [
+        "reality world tests passed"
+      ],
+      "diagnostics": [
+        "ERROR: 5 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_reality_world.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_reality_world.regression.engine.log",
+      "shutdown_diagnostics": [
+        "ERROR: 5 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "runtime_errors": [],
+      "baseline_comparison": "Shutdown categories and counts match recorded pre-integration baseline"
+    },
+    {
+      "test": "test_save_progress",
+      "exit_code": 0,
+      "seconds": 1.85,
+      "pass_markers": [
+        "save progress tests passed"
+      ],
+      "diagnostics": [
+        "ERROR: 5 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "WARNING: 4 RIDs of type \"CanvasItem\" were leaked.",
+        "ERROR: 6 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_save_progress.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_save_progress.regression.engine.log",
+      "shutdown_diagnostics": [
+        "ERROR: 5 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "WARNING: 4 RIDs of type \"CanvasItem\" were leaked.",
+        "ERROR: 6 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "runtime_errors": [],
+      "baseline_comparison": "Shutdown categories and counts match recorded pre-integration baseline"
+    },
+    {
+      "test": "test_key_npc_world_items",
+      "exit_code": 0,
+      "seconds": 0.56,
+      "pass_markers": [
+        "key NPC world item tests passed"
+      ],
+      "diagnostics": [],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_key_npc_world_items.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_key_npc_world_items.regression.engine.log",
+      "shutdown_diagnostics": [],
+      "runtime_errors": [],
+      "baseline_comparison": "No diagnostics"
+    },
+    {
+      "test": "test_main_scene",
+      "exit_code": 0,
+      "seconds": 1.76,
+      "pass_markers": [
+        "main scene tests passed"
+      ],
+      "diagnostics": [
+        "ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_main_scene.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_main_scene.regression.engine.log",
+      "shutdown_diagnostics": [
+        "ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "runtime_errors": [],
+      "baseline_comparison": "Shutdown-only diagnostics; this suite has no recorded pre-integration baseline"
+    },
+    {
+      "test": "test_localization",
+      "exit_code": 0,
+      "seconds": 1.39,
+      "pass_markers": [
+        "localization tests passed"
+      ],
+      "diagnostics": [
+        "ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "console_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_localization.regression.console.log",
+      "engine_log": "D:\\aphasia\\outputs\\basement_integration_audit\\test_localization.regression.engine.log",
+      "shutdown_diagnostics": [
+        "ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.",
+        "ERROR: 4 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.",
+        "ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.",
+        "WARNING: 3 RIDs of type \"CanvasItem\" were leaked.",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "runtime_errors": [],
+      "baseline_comparison": "Shutdown-only diagnostics; this suite has no recorded pre-integration baseline"
+    }
+  ],
+  "diagnostic_source": "Console logs include shutdown diagnostics emitted after Godot engine log closes; checked both log types."
+}
