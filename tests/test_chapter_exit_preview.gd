@@ -76,8 +76,9 @@ func _run() -> void:
 		world.free()
 		await process_frame
 	viewport.free()
-	var report := {"checks": checks, "failures": failures, "rooms": rows, "renderer": RenderingServer.get_current_rendering_method()}
-	FileAccess.open(OUTPUT.path_join("exit_preview_results.json"), FileAccess.WRITE).store_string(JSON.stringify(report, "\t"))
+	var report := {"checks": checks, "failures": failures, "rooms": rows, "renderer": RenderingServer.get_current_rendering_method(), "display_server": DisplayServer.get_name()}
+	var report_name := "exit_preview_headless_results.json" if DisplayServer.get_name() == "headless" else "exit_preview_results.json"
+	FileAccess.open(OUTPUT.path_join(report_name), FileAccess.WRITE).store_string(JSON.stringify(report, "\t"))
 	for failure in failures:
 		push_error(failure)
 	print("chapter exit preview: %d checks, %d failures" % [checks, failures.size()])
