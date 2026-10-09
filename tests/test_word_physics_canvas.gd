@@ -25,7 +25,7 @@ func _run() -> void:
 	var host := Control.new()
 	host.size = Vector2(520, 300)
 	root.add_child(host)
-	var canvas: Control = CanvasScript.new()
+	var canvas: WordPhysicsCanvas = CanvasScript.new()
 	canvas.size = Vector2(520, 300)
 	canvas.custom_minimum_size = Vector2(520, 300)
 	host.add_child(canvas)
@@ -77,7 +77,7 @@ func _run() -> void:
 	_assert_true(resting_positions.has("靜"), "a resting tile should be readable from the canvas")
 	var pushed: Array = []
 	if canvas.has_signal("tile_settled"):
-		canvas.tile_settled.connect(func(unit: String, _tile_position: Vector2) -> void: pushed.append(unit))
+		canvas.connect("tile_settled", func(unit: String, _tile_position: Vector2) -> void: pushed.append(unit))
 	for _step in 8:
 		await process_frame
 	_assert_true(pushed.is_empty(), "idle frames must not push tile positions")

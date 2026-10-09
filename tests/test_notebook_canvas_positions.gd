@@ -27,7 +27,7 @@ func _run_async() -> void:
 func _run() -> void:
 	var game: MemeGameState = StateScript.new()
 	game.new_run()
-	var panel = PanelScript.new()
+	var panel: NotebookAppPanel = PanelScript.new()
 	panel.name = "NotebookAppPanel"
 	root.add_child(panel)
 	panel.configure(_deps(game))
@@ -43,7 +43,7 @@ func _run() -> void:
 	panel.render(app_body, "frame")
 	await process_frame
 
-	var canvas := Harness.find_node_by_name(app_body, "NotebookWordCanvas")
+	var canvas := Harness.find_node_by_name(app_body, "NotebookWordCanvas") as WordPhysicsCanvas
 	_assert_true(canvas != null, "the notebook should mount a word canvas")
 	if canvas == null:
 		return
@@ -82,7 +82,7 @@ func _run() -> void:
 	var live_door: Vector2 = canvas.get_tile_position("门")
 	panel.render(app_body, "frame")
 	await process_frame
-	var reopened := Harness.find_node_by_name(app_body, "NotebookWordCanvas")
+	var reopened := Harness.find_node_by_name(app_body, "NotebookWordCanvas") as WordPhysicsCanvas
 	_assert_true(reopened != null, "reopening the notebook should mount the canvas again")
 	if reopened == null:
 		return

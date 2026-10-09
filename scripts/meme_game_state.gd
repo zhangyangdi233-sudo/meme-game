@@ -1720,7 +1720,13 @@ func set_char_canvas_position(unit: String, position: Vector2, locale_code: Stri
 		clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
 		clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
 	)
-	char_canvas_positions["%s|%s" % [locale_code, unit]] = [clamped.x, clamped.y]
+	var key := "%s|%s" % [locale_code, unit]
+	var stored: Variant = char_canvas_positions.get(key, null)
+	if stored is Array and (stored as Array).size() == 2:
+		var current := Vector2(float(stored[0]), float(stored[1]))
+		if current.is_equal_approx(clamped):
+			return
+	char_canvas_positions[key] = [clamped.x, clamped.y]
 
 
 ## 新拾取的字从画布上方落下:横向按顺序错开,纵向给一点高度差,
