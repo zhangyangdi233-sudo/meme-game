@@ -66,6 +66,18 @@ _Avoid_: autoload, a manager that also closes other screens
 How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
 _Avoid_: a private signal or callback per panel, a second channel for runtime-built controls, dropping the answer because today's bus only carries a name
 
+**Service registry**:
+Global table from a string to one shared object. The host binds services at boot. Callers resolve by that string. Service names live in `ServiceKeys`.
+_Avoid_: autoload, passing the same object down through every panel, binding one string twice
+
+**Property manager**:
+The service that stores models by name. It does not hold raw values and it does not notify. Screens resolve it from the service registry. See ADR 0008.
+_Avoid_: a bag pushed into each screen, a second copy of a fact on the host or on `MemeGameState`
+
+**Model**:
+One single-copy value with its observers. An open screen registers and is told the current value; a later write tells every listener. Callers fetch the model from the property manager each time. Lists and maps are copied on read and changed only through the model's methods. Names and save categories live in `PropertyKeys`.
+_Avoid_: keeping a model in a field, writing a list or map in place, storing a derived label or palette as its own model, a screen opening itself because a model changed
+
 **Palette role**:
 A named color slot of the UI palette (`surface`, `ink`, `menu_bg`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor.
 _Avoid_: literal colors on palette-driven nodes, one node group per color
