@@ -29,3 +29,7 @@ func _raise_intent(bus: GameEventBus, intent_name: String) -> void:
 
 @abstract
 func present(_context: Dictionary) -> void
+
+
+func dismiss() -> void:
+	pass

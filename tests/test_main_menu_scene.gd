@@ -29,6 +29,9 @@ func _run() -> void:
 	_test_mount_keeps_node_contract()
 	_test_mount_tints_with_clean_palette()
 	_test_mount_tints_with_polluted_palette()
+	_test_open_menu_follows_pollution_and_save()
+	_test_closed_menu_keeps_its_last_look()
+	_test_two_open_menus_follow_the_same_facts()
 	_test_global_theme_walk_skips_menu()
 	_test_misspelled_palette_role_is_reported()
 	_test_off_grid_font_size_is_reported()
@@ -41,7 +44,7 @@ func _test_palettes_define_menu_bg() -> void:
 
 
 func _test_mount_keeps_node_contract() -> void:
-	var mounted := _mount({}, false)
+	var mounted := _mount(0, false)
 	var host: Control = mounted["host"]
 	var layer: Control = mounted["screen"]
 	_assert_true(layer != null and layer.name == "MainMenuLayer", "mount should expose the MainMenuLayer root")
@@ -78,7 +81,7 @@ func _test_mount_keeps_node_contract() -> void:
 
 func _test_mount_tints_with_clean_palette() -> void:
 	var palette := UiPaletteScript.palette("palette_1")
-	var mounted := _mount({}, true)
+	var mounted := _mount(0, true)
 	var host: Control = mounted["host"]
 	_assert_color(host, "MainMenuGreenBackground", UiPaletteScript.color(palette, "menu_bg"), 1.0, "clean background")
 	_assert_label_color(host, "MainMenuTitle", UiPaletteScript.color(palette, "surface"), 1.0, "clean title")
@@ -98,7 +101,7 @@ func _test_mount_tints_with_clean_palette() -> void:
 
 func _test_mount_tints_with_polluted_palette() -> void:
 	var palette := UiPaletteScript.palette("pollution_palette_5")
-	var mounted := _mount(POLLUTED_STAGE, false)
+	var mounted := _mount(60, false)
 	var host: Control = mounted["host"]
 	_assert_color(host, "MainMenuGreenBackground", UiPaletteScript.color(palette, "menu_bg"), 1.0, "polluted background")
 	_assert_label_color(host, "MainMenuSubtitle", UiPaletteScript.color(palette, "surface"), 0.78, "polluted subtitle keeps its alpha")
@@ -108,7 +111,7 @@ func _test_mount_tints_with_polluted_palette() -> void:
 
 
 func _test_global_theme_walk_skips_menu() -> void:
-	var mounted := _mount({}, false)
+	var mounted := _mount(0, false)
 	var host: Control = mounted["host"]
 	var ui_theme := GameUiThemeScript.new()
 	ui_theme.apply_ui_theme(host, {})
@@ -118,7 +121,7 @@ func _test_global_theme_walk_skips_menu() -> void:
 
 
 func _test_misspelled_palette_role_is_reported() -> void:
-	var mounted := _mount({}, false)
+	var mounted := _mount(0, false)
 	var layer = mounted["screen"]
 	_assert_true(layer.palette_role_errors().is_empty(), "shipped main menu should have no palette role errors")
 	var title := Harness.find_node_by_name(layer, "MainMenuTitle")
@@ -131,7 +134,7 @@ func _test_misspelled_palette_role_is_reported() -> void:
 
 
 func _test_off_grid_font_size_is_reported() -> void:
-	var mounted := _mount({}, false)
+	var mounted := _mount(0, false)
 	var layer = mounted["screen"]
 	_assert_true(layer.font_size_errors().is_empty(), "shipped main menu should have no font size errors")
 	var title := Harness.find_node_by_name(layer, "MainMenuTitle") as Label
@@ -147,28 +150,71 @@ func _test_off_grid_font_size_is_reported() -> void:
 	_dispose(mounted)
 
 
-func _mount(stage: Dictionary, has_save: bool) -> Dictionary:
+func _test_open_menu_follows_pollution_and_save() -> void:
+	var mounted := _mount(0, false)
+	var host: Control = mounted["host"]
+	var clean := UiPaletteScript.palette("palette_1")
+	_assert_color(host, "MainMenuGreenBackground", UiPaletteScript.color(clean, "menu_bg"), 1.0, "open menu starts clean")
+	var continue_button := Harness.find_node_by_name(host, "MainMenuContinueButton") as Button
+	_assert_true(continue_button.disabled, "continue starts disabled")
+	_assert_eq(continue_button.tooltip_text, "暂无自动存档", "continue starts without a save")
+
+	Harness.publish_title_facts(60, true)
+	var polluted := UiPaletteScript.palette("pollution_palette_5")
+	_assert_color(host, "MainMenuGreenBackground", UiPaletteScript.color(polluted, "menu_bg"), 1.0, "open menu retints when pollution changes")
+	_assert_true(not continue_button.disabled, "continue enables when a save appears")
+	_assert_eq(continue_button.tooltip_text, "回到上次离开的位置", "continue explains the save")
+	_dispose(mounted)
+
+
+func _test_closed_menu_keeps_its_last_look() -> void:
+	var mounted := _mount(0, false)
+	var screen: Control = mounted["screen"]
+	var background := Harness.find_node_by_name(screen, "MainMenuGreenBackground") as ColorRect
+	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
+	var clean := background.color
+	mounted["manager"].close()
+	Harness.publish_title_facts(60, true)
+	_assert_true(is_instance_valid(screen) and not screen.visible, "a property change must not show a closed menu")
+	_assert_eq(Color(background.color, 1.0), Color(clean, 1.0), "a closed menu keeps its last background")
+	_assert_true(continue_button != null and continue_button.disabled, "a closed menu keeps continue disabled")
+	_assert_eq(continue_button.tooltip_text, "暂无自动存档", "a closed menu keeps the empty-save tooltip")
+	_dispose(mounted)
+
+
+func _test_two_open_menus_follow_the_same_facts() -> void:
+	var first := _mount(0, false)
+	var second := _mount(0, false)
+	Harness.publish_title_facts(60, true)
+	var polluted := UiPaletteScript.color(UiPaletteScript.palette("pollution_palette_5"), "menu_bg")
+	_assert_color(first["host"], "MainMenuGreenBackground", polluted, 1.0, "first menu follows pollution")
+	_assert_color(second["host"], "MainMenuGreenBackground", polluted, 1.0, "second menu follows pollution")
+	var first_continue := Harness.find_node_by_name(first["host"], "MainMenuContinueButton") as Button
+	var second_continue := Harness.find_node_by_name(second["host"], "MainMenuContinueButton") as Button
+	_assert_true(not first_continue.disabled and not second_continue.disabled, "both menus enable continue")
+	_dispose(first)
+	_dispose(second)
+
+
+func _mount(pollution_value: int, has_save: bool) -> Dictionary:
+	Harness.publish_title_facts(pollution_value, has_save)
+	var bucket := Node.new()
+	bucket.name = "MenuMount"
+	root.add_child(bucket)
 	var host := Control.new()
 	host.name = "UIRoot"
-	root.add_child(host)
+	bucket.add_child(host)
 	var bus: GameEventBus = GameEventBusScript.new()
 	var manager: ScreenManager = ScreenManagerScript.new(bus, MainMenuScreenScript, host)
-	root.add_child(manager)
-	var ui_theme := GameUiThemeScript.new()
-	var screen: Control = manager.open({
-		"palette": ui_theme.active_palette(stage),
-		"has_save": has_save,
-	})
-	return {"host": host, "manager": manager, "screen": screen}
+	bucket.add_child(manager)
+	var screen: Control = manager.open({})
+	return {"bucket": bucket, "host": host, "manager": manager, "screen": screen}
 
 
 func _dispose(mounted: Dictionary) -> void:
-	var manager: Node = mounted["manager"]
-	if is_instance_valid(manager):
-		manager.free()
-	var host: Node = mounted["host"]
-	if is_instance_valid(host):
-		host.free()
+	var bucket: Node = mounted.get("bucket")
+	if is_instance_valid(bucket):
+		bucket.free()
 
 
 func _font_size(host: Node, node_name: String) -> int:

@@ -21,6 +21,10 @@ const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.g
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
@@ -60,7 +64,11 @@ const SAVE_FIELD_NAMES := [
 ]
 
 var day: int = 1
-var pollution: int = 0
+var pollution: int:
+	get:
+		return _read_pollution()
+	set(value):
+		_write_pollution(value)
 var tower_floor: int = 1
 var ending_unlocked: bool = false
 var ending_language_choice: String = ""
@@ -157,7 +165,7 @@ var conversation_reward: Dictionary = {}
 
 func new_run() -> void:
 	day = 1
-	pollution = 0
+	PropertyBootScript.reset_run()
 	tower_floor = 1
 	ending_unlocked = false
 	ending_language_choice = ""
@@ -220,6 +228,34 @@ func new_run() -> void:
 	reset_typed_reality_conversation()
 
 
+func _read_save_field(field_name: String) -> Variant:
+	if field_name == PropertyKeysScript.POLLUTION:
+		return pollution
+	return get(field_name)
+
+
+func _read_pollution() -> int:
+	var model = _pollution_model()
+	if model == null:
+		return 0
+	return int(model.read())
+
+
+func _write_pollution(value: int) -> void:
+	var model = _pollution_model()
+	if model == null:
+		return
+	model.write(value)
+
+
+func _pollution_model():
+	PropertyBootScript.install()
+	var manager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
+	if manager == null:
+		return null
+	return manager.model(PropertyKeysScript.POLLUTION)
+
+
 func notify_tutorial(event_id: String, payload: Dictionary = {}) -> Dictionary:
 	tutorial_progress = TutorialDirectorScript.notify(tutorial_progress, StringName(event_id), payload)
 	return get_tutorial_step()
@@ -240,7 +276,7 @@ func replay_tutorial() -> void:
 func to_save_data() -> Dictionary:
 	var state_data := {}
 	for field_name in SAVE_FIELD_NAMES:
-		var value: Variant = get(field_name)
+		var value: Variant = _read_save_field(str(field_name))
 		state_data[field_name] = value.duplicate(true) if value is Array or value is Dictionary else value
 	return {
 		"version": SAVE_DATA_VERSION,
@@ -261,6 +297,9 @@ func load_save_data(save_data: Dictionary) -> bool:
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
+		if str(field_name) == PropertyKeysScript.POLLUTION:
+			pollution = int(value)
+			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
 	day = maxi(1, day)
 	tower_floor = clampi(tower_floor, 1, MAX_TOWER_FLOOR)

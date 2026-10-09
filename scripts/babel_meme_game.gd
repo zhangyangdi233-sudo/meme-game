@@ -39,6 +39,10 @@ const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const FlowManagerScript = preload("res://framework/flow/flow_manager.gd")
 const MainMenuFlowStateScript = preload("res://scripts/game/flow/main_menu_flow_state.gd")
 const PrologueFlowStateScript = preload("res://scripts/game/flow/prologue_flow_state.gd")
@@ -302,6 +306,7 @@ func _on_camera_source_ready(source: String, selected_index: int) -> void:
 
 
 func _ready() -> void:
+	PropertyBootScript.install()
 	_ui_theme_helper.configure({
 		"ui_font_path": UI_FONT_PATH,
 		"ui_font_grid": UI_FONT_GRID,
@@ -578,6 +583,8 @@ func _save_progress() -> bool:
 		return false
 	file.store_var(payload)
 	file.flush()
+	file.close()
+	_publish_has_save()
 	return true
 
 
@@ -597,6 +604,17 @@ func _load_save_payload() -> Dictionary:
 
 func _has_save_progress() -> bool:
 	return not _load_save_payload().is_empty()
+
+
+func _publish_has_save() -> void:
+	PropertyBootScript.install()
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return
+	var has_save := manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
+	if has_save == null:
+		return
+	has_save.write(_has_save_progress())
 
 
 func _restore_saved_world(world_data: Dictionary) -> void:
@@ -1059,10 +1077,8 @@ func install_title_screen() -> void:
 	_app_bodies.clear()
 	_ensure_title_ui_root()
 	_ensure_screen_manager()
-	_screen_manager.open({
-		"palette": _ui_theme_helper.active_palette(),
-		"has_save": _has_save_progress(),
-	})
+	_publish_has_save()
+	_screen_manager.open({})
 	_apply_ui_theme()
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
 	_ensure_settings_history_panel()

@@ -44,6 +44,8 @@ func close() -> void:
 	var screen := _live()
 	if screen == null:
 		return
+	if screen is UIBase:
+		(screen as UIBase).dismiss()
 	screen.visible = false
 	_keep(screen)
 

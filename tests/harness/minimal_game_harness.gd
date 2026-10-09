@@ -2,6 +2,10 @@ extends RefCounted
 ## Shared helpers for module-only tests: MemeGameState setup and Control-tree probes.
 
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 
 static func new_state() -> RefCounted:
@@ -50,3 +54,10 @@ static func craft_token(
 		"tags": ["test"],
 		"rarity": 1,
 	}
+
+
+static func publish_title_facts(pollution_value: int, has_save: bool) -> void:
+	PropertyBootScript.install()
+	var manager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
+	manager.model(PropertyKeysScript.POLLUTION).write(pollution_value)
+	manager.model(PropertyKeysScript.HAS_SAVE).write(has_save)

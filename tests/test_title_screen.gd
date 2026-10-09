@@ -29,7 +29,7 @@ func _run() -> void:
 
 
 func _test_first_open_attaches_without_clearing_the_layer() -> void:
-	var mounted := _mount(UiPaletteScript.palette("palette_1"), false)
+	var mounted := _mount(0, false)
 	var layer: Control = mounted["layer"]
 	var sibling: Control = mounted["sibling"]
 	var screen: Control = mounted["screen"]
@@ -38,17 +38,14 @@ func _test_first_open_attaches_without_clearing_the_layer() -> void:
 	_assert_true(is_instance_valid(sibling) and sibling.get_parent() == layer and sibling.visible, "opening the menu should leave other layer children in place")
 	_assert_eq(_count_named(mounted["host"], "MainMenuLayer"), 1, "first open should add one menu")
 
-	var again: Control = mounted["manager"].open({
-		"palette": UiPaletteScript.palette("palette_1"),
-		"has_save": false,
-	})
+	var again: Control = mounted["manager"].open({})
 	_assert_true(again == screen, "opening again should not create a second menu")
 	_assert_eq(_count_named(mounted["host"], "MainMenuLayer"), 1, "a second open should keep a single menu")
 	_dispose(mounted)
 
 
 func _test_buttons_raise_the_four_intents() -> void:
-	var mounted := _mount(UiPaletteScript.palette("palette_1"), true)
+	var mounted := _mount(0, true)
 	var heard: Array[String] = []
 	mounted["bus"].intent_emitted.connect(func(intent_name: String) -> void:
 		heard.append(intent_name)
@@ -69,7 +66,7 @@ func _test_buttons_raise_the_four_intents() -> void:
 
 
 func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
-	var mounted := _mount(UiPaletteScript.palette("palette_1"), false)
+	var mounted := _mount(0, false)
 	var screen: Control = mounted["screen"]
 	var screen_id := screen.get_instance_id()
 	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
@@ -80,11 +77,9 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 	mounted["manager"].close()
 	_assert_true(is_instance_valid(screen) and not screen.visible, "closing the title should hide the same screen")
 
+	Harness.publish_title_facts(60, true)
 	var polluted := UiPaletteScript.palette("pollution_palette_5")
-	var reopened: Control = mounted["manager"].open({
-		"palette": polluted,
-		"has_save": true,
-	})
+	var reopened: Control = mounted["manager"].open({})
 	_assert_true(reopened == screen and screen.get_instance_id() == screen_id, "reopening should reuse the hidden screen")
 	_assert_true(screen.visible and screen.get_parent() == mounted["layer"], "reopening should show the menu on the same UI layer")
 	_assert_true(not continue_button.disabled, "reopening should enable continue when a save exists")
@@ -95,7 +90,7 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 
 
 func _test_same_screen_survives_a_new_ui_layer() -> void:
-	var mounted := _mount(UiPaletteScript.palette("palette_1"), false)
+	var mounted := _mount(0, false)
 	var screen: Control = mounted["screen"]
 	var screen_id := screen.get_instance_id()
 	mounted["manager"].close()
@@ -103,10 +98,7 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	var replacement := Control.new()
 	replacement.name = "UIRoot"
 	(mounted["host"] as Node).add_child(replacement)
-	var reopened: Control = mounted["manager"].open({
-		"palette": UiPaletteScript.palette("palette_1"),
-		"has_save": false,
-	})
+	var reopened: Control = mounted["manager"].open({})
 	_assert_true(reopened == screen and screen.get_instance_id() == screen_id, "a new UI layer should still show the hidden menu")
 	_assert_true(screen.visible and screen.get_parent() == replacement, "the hidden menu should attach to the replacement UI layer")
 
@@ -115,10 +107,8 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	var rebuilt := Control.new()
 	rebuilt.name = "UIRoot"
 	(mounted["host"] as Node).add_child(rebuilt)
-	var kept: Control = mounted["manager"].open({
-		"palette": UiPaletteScript.palette("pollution_palette_5"),
-		"has_save": true,
-	})
+	Harness.publish_title_facts(0, true)
+	var kept: Control = mounted["manager"].open({})
 	_assert_true(kept == screen and screen.get_instance_id() == screen_id, "rebuilding the UI layer should keep the open menu")
 	_assert_true(screen.visible and screen.get_parent() == rebuilt, "the kept menu should attach to the rebuilt UI layer")
 	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
@@ -126,7 +116,8 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	_dispose(mounted)
 
 
-func _mount(palette: Dictionary, has_save: bool) -> Dictionary:
+func _mount(pollution_value: int, has_save: bool) -> Dictionary:
+	Harness.publish_title_facts(pollution_value, has_save)
 	var host := Node.new()
 	host.name = "LayerHost"
 	root.add_child(host)
@@ -139,10 +130,7 @@ func _mount(palette: Dictionary, has_save: bool) -> Dictionary:
 	var bus: GameEventBus = GameEventBusScript.new()
 	var manager: ScreenManager = ScreenManagerScript.new(bus, MainMenuScreenScript, host)
 	root.add_child(manager)
-	var screen: Control = manager.open({
-		"palette": palette,
-		"has_save": has_save,
-	})
+	var screen: Control = manager.open({})
 	return {
 		"host": host,
 		"layer": layer,
