@@ -35,8 +35,8 @@ func _run() -> void:
 	receiver.frame_received.connect(main._on_hand_tracking_frame)
 	receiver.status_changed.connect(main._on_hand_tracking_status_changed)
 	receiver.source_ready.connect(main._on_camera_source_ready)
-	main._save_path = "user://test_chapter_terminal_flow.dat"
-	main._locale.preferences_path = "user://test_chapter_terminal_flow_preferences.cfg"
+	main._save_path = "res://artifacts/test_chapter_terminal_flow.dat"
+	main._locale.preferences_path = "res://artifacts/test_chapter_terminal_flow_preferences.cfg"
 	main._locale.set_crt_vhs_enabled(true)
 	main._locale.save_preferences(80, true, false, "computer")
 	root.add_child(main)
@@ -144,7 +144,7 @@ func _test_five_visits(main: Node) -> void:
 			# callbacks must cease working after that temporary context closes.
 			main._on_pickup_unit_meta("开", "floor_13")
 			main.call("_end_chapter_terminal")
-			await _frames()
+			await create_timer(0.75).timeout
 			var draft_before: Array = main.game.get_free_sentence_units()
 			var locked_records: int = main.game.sentence_records.size()
 			main._on_composer_bank_tapped("开")
@@ -172,9 +172,11 @@ func _test_five_visits(main: Node) -> void:
 			_check(main.game.pollution >= State.POLLUTION_FLASHBACK_THRESHOLD, "repeated terminal practice really crosses the ordinary pollution flashback threshold")
 		_check(not main.game.chapter1_progress.completed_task_ids.has(task_id), "a submission alone does not deliver the NPC task")
 		_check(main.game.actions_remaining == 5 and not main.game.needs_day_settlement, "tutorial retries do not consume the normal daily action budget")
+		var screen_pose: Transform3D = main._camera.global_transform
 		main.call("_end_chapter_terminal")
 		var player_at_exit: Vector3 = main._reality_player.position
-		_check(main._camera.position.is_equal_approx(player_at_exit + Vector3(0.0, 1.56, 0.0)), "leaving CRT immediately restores camera position to the player's first-person eye point")
+		_check(main._camera.global_transform.is_equal_approx(screen_pose) and main._chapter_terminal_session.is_camera_moving(), "leaving CRT starts a continuous return from the screen camera")
+		await create_timer(0.75).timeout
 		await _frames()
 		_check(not main.call("_chapter_terminal_active") and main.game.view_state == "npc_up", "leaving CRT returns to first-person world interaction")
 		_check(main._camera.current and main._camera.get_viewport() == main.get_viewport(), "leaving CRT restores the main first-person camera")
@@ -197,9 +199,7 @@ func _test_five_visits(main: Node) -> void:
 		var expected_apps: Array = ["social"]
 		if visit >= 2:
 			expected_apps.append("notebook")
-		if visit >= 4:
-			expected_apps.append("babel")
-		_check(main.game.chapter1_progress.unlocked_app_ids == expected_apps, "phone apps unlock exactly at deliveries 1, 3, and 5")
+		_check(main.game.chapter1_progress.unlocked_app_ids == expected_apps, "phone apps unlock at deliveries 1 and 3; the fifth delivery opens the exit")
 		_dismiss_task(main)
 		await _frames()
 		if visit in [0, 2, 4]:
@@ -210,7 +210,6 @@ func _test_five_visits(main: Node) -> void:
 			_check(main.game.chapter1_progress.unlocked_app_ids == expected_apps and main.game.is_social_char_collected("门", "zh"), "continue preserves earned phone permissions and the shared vocabulary")
 			_check(main.game.has_current_chapter_submission() and main.game.chapter1_progress.completed_task_ids.has(task_id), "continue preserves both expression provenance and delivered task")
 			_check(not main.call("_chapter_terminal_active"), "a terminal session never persists into a continued game")
-		_check(main.notify_chapter1("basement_tunnel_entered", {"round_token": token}).accepted, "completed-task fixture enters the tunnel before the white-door transition")
 		var departed: Dictionary = main.notify_chapter1("basement_exit_requested", {"round_token": token})
 		_check(departed.accepted, "normal completed-task exit advances visit %d" % (visit + 1))
 		await _frames()
@@ -244,8 +243,8 @@ func _test_settings_lifecycle() -> void:
 	receiver.frame_received.connect(main._on_hand_tracking_frame)
 	receiver.status_changed.connect(main._on_hand_tracking_status_changed)
 	receiver.source_ready.connect(main._on_camera_source_ready)
-	main._save_path = "user://test_chapter_terminal_settings.dat"
-	main._locale.preferences_path = "user://test_chapter_terminal_flow_preferences.cfg"
+	main._save_path = "res://artifacts/test_chapter_terminal_settings.dat"
+	main._locale.preferences_path = "res://artifacts/test_chapter_terminal_flow_preferences.cfg"
 	root.add_child(main)
 	main._resolve_camera_consent(false)
 	main._begin_game_session(_basement_state(), {}, false)
@@ -414,9 +413,14 @@ func _interact(main: Node, actor_type: String) -> bool:
 	main._reality_player.global_position = actor.global_position + Vector3(0.0, 0.05, 0.35)
 	main._reality_player.velocity = Vector3.ZERO
 	main._reality_last_safe_position = main._reality_player.position
+	main._animate_world(1.0)
 	main._refresh_nearby_reality_actor()
+	var starting_pose: Transform3D = main._camera.global_transform
 	var accepted: bool = main._try_reality_interaction()
 	_check(accepted, "nearby F interaction reaches %s through the real world event" % actor_type)
+	if accepted and actor_type == "chapter1_terminal":
+		_check(main._camera.global_transform.is_equal_approx(starting_pose), "CRT approach starts at the current player pose without a snap")
+		await create_timer(0.90).timeout
 	await _frames()
 	return accepted
 

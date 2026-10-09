@@ -111,6 +111,15 @@ func _test_actual_ui_drives_chapter_window() -> void:
 	var xray_camera := viewport.get_node("XRayCamera") as Camera3D
 	var authored_marks: Array[Node] = main._reality_floor.find_children("XRAY_EXIT_GUIDE_*_Paint", "MeshInstance3D", true, false)
 	_check(authored_marks.size() == 3, "current imported basement provides exactly three authored arrow paint meshes")
+	var preview: Node = main._reality_floor.get_node_or_null("NextBasementThroughDoor")
+	_check(preview != null, "ordinary door has a destination preview")
+	if preview != null:
+		_check(preview.find_children("XRAY_EXIT_GUIDE_*_Paint", "MeshInstance3D", true, false).is_empty(), "next-room preview cannot duplicate current room's authored X-ray arrows")
+		var preview_marker_count := 0
+		for geometry: GeometryInstance3D in preview.find_children("*", "GeometryInstance3D", true, false):
+			if (geometry.layers & MARKER_LAYER) != 0:
+				preview_marker_count += 1
+		_check(preview_marker_count == 0, "preview geometry cannot render future clues through the current X-ray camera")
 	for mark: MeshInstance3D in authored_marks:
 		_check(mark.layers == MARKER_LAYER and (mark.layers & main._camera.cull_mask) == 0 and (mark.layers & xray_camera.cull_mask) != 0, "%s is excluded by the actual normal camera and included only by the actual X-ray camera" % mark.name)
 	_check(not view.is_rendering(), "loading a basement starts with hidden X-ray markers")

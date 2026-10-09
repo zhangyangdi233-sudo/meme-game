@@ -21,9 +21,12 @@ var _overlay: ColorRect
 var _tween: Tween
 var _camera_start: Transform3D
 var _camera_destination: Transform3D
+var _camera_approach: Transform3D
+var _seamless := false
+var _camera_original_near := 0.05
 
 
-func begin(camera: Camera3D, ui_root: Control, door: Node3D, camera_position: Vector3, look_target: Vector3, cover_color: Color = Color.BLACK) -> bool:
+func begin(camera: Camera3D, ui_root: Control, door: Node3D, camera_position: Vector3, look_target: Vector3, cover_color: Color = Color.BLACK, seamless: bool = false) -> bool:
 	if is_active() or not is_inside_tree():
 		return false
 	for participant in [camera, ui_root, door]:
@@ -42,7 +45,11 @@ func begin(camera: Camera3D, ui_root: Control, door: Node3D, camera_position: Ve
 	_paused = false
 	_phase = Phase.APPROACH
 	_camera_start = camera.global_transform
+	_camera_original_near = camera.near
+	camera.near = 0.005
 	_camera_destination = Transform3D(Basis.looking_at(view_direction, Vector3.UP), camera_position)
+	_camera_approach = _camera_start.interpolate_with(_camera_destination, 0.12)
+	_seamless = seamless
 	_camera.tree_exiting.connect(_participant_exiting)
 	_ui_root.tree_exiting.connect(_participant_exiting)
 	_door.tree_exiting.connect(_participant_exiting)
@@ -56,7 +63,7 @@ func begin(camera: Camera3D, ui_root: Control, door: Node3D, camera_position: Ve
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_tween = create_tween()
 	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tween.tween_method(_move_camera, 0.0, 1.0, APPROACH_SECONDS)
+	_tween.tween_method(_move_approach, 0.0, 1.0, APPROACH_SECONDS)
 	_tween.tween_callback(_begin_opening)
 	return true
 
@@ -102,7 +109,12 @@ func cancel(notify_cancelled: bool = true) -> void:
 
 func _move_camera(weight: float) -> void:
 	if is_instance_valid(_camera):
-		_camera.global_transform = _camera_start.interpolate_with(_camera_destination, weight)
+		_camera.global_transform = _camera_approach.interpolate_with(_camera_destination, weight)
+
+
+func _move_approach(weight: float) -> void:
+	if is_instance_valid(_camera):
+		_camera.global_transform = _camera_start.interpolate_with(_camera_approach, weight)
 
 
 func _begin_opening() -> void:
@@ -111,12 +123,26 @@ func _begin_opening() -> void:
 		cancel()
 		return
 	_phase = Phase.OPENING
+	_tween = create_tween()
+	_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var duration: float = _door.get_open_duration() if _door.has_method("get_open_duration") else 1.6
+	_tween.tween_method(_move_camera, 0.0, 1.0, maxf(duration, 0.01))
 	if not _door.call("request_open"):
 		cancel()
 
 
 func _door_opened() -> void:
 	if _phase != Phase.OPENING:
+		return
+	_move_camera(1.0)
+	if _seamless:
+		# The next room is already visible through the physical doorway. Replace
+		# it at the matching entrance pose without a white flash or black cover.
+		_release_door()
+		_release_camera()
+		_phase = Phase.BLACK_HOLD
+		room_requested.emit()
+		_finish()
 		return
 	_phase = Phase.FADE_OUT
 	_tween = create_tween()
@@ -164,6 +190,8 @@ func _release_door() -> void:
 
 
 func _release_camera() -> void:
+	if is_instance_valid(_camera):
+		_camera.near = _camera_original_near
 	if is_instance_valid(_camera) and _camera.tree_exiting.is_connected(_participant_exiting):
 		_camera.tree_exiting.disconnect(_participant_exiting)
 	_camera = null

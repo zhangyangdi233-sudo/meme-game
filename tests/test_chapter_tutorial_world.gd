@@ -4,7 +4,7 @@ const World = preload("res://scripts/world/chapter_world.gd")
 const Binding = preload("res://scripts/world/chapter_asset_binding.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
 const LABELS := ["护灯人", "迟到者", "回声住户", "抄写员", "无名信徒"]
-const APP_IDS := ["social", "notebook", "babel"]
+const APP_IDS := ["social", "notebook"]
 
 var failures: Array[String] = []
 var checks := 0
@@ -98,7 +98,7 @@ func _test_terminal(contract: Dictionary) -> void:
 			_check(is_equal_approx(terminal.global_position.y, world.global_position.y + 0.02), "terminal interaction origin stays at floor feet")
 			_check(world.contains_playable_position(terminal.global_position), "terminal stand point stays in basement")
 			_check(world.is_actor_reachable(terminal, terminal.global_position + forward * 0.5), "terminal is reachable from its walk-up side")
-			_check(not world.is_actor_reachable(terminal, terminal.global_position + forward * 4.0), "terminal respects interaction reach")
+			_check(not world.is_actor_reachable(terminal, terminal.global_position + forward * 1.2), "terminal requires the player inside the reduced 1.15 metre reach")
 			_check(terminal.find_children("*", "StaticBody3D", true, false).is_empty(), "terminal adds no blocking cabinet/body collider")
 			_check(world.interact(terminal), "F requests CRT tutorial")
 			_check(events.size() == 1 and events[0].id == "terminal_requested" and events[0].payload.get("round_token") == 3, "terminal event binds current round token")
@@ -117,9 +117,10 @@ func _test_crossroads_gate() -> void:
 	progress.completed_task_ids = Director.TASK_IDS.duplicate()
 	var cases := [
 		{"apps": [], "items": ["chapter1_gate_item_01", "chapter1_gate_item_02", "chapter1_gate_item_03"], "tasks": Director.TASK_IDS.duplicate(), "ready": false, "label": "legacy gate items cannot grant phone permissions"},
-		{"apps": ["social", "notebook"], "items": [], "tasks": Director.TASK_IDS.duplicate(), "ready": false, "label": "missing Babel app keeps gate closed"},
+		{"apps": ["social"], "items": [], "tasks": Director.TASK_IDS.duplicate(), "ready": false, "label": "missing notebook permission keeps gate closed"},
+		{"apps": ["notebook"], "items": [], "tasks": Director.TASK_IDS.duplicate(), "ready": false, "label": "missing social permission keeps gate closed"},
 		{"apps": APP_IDS.duplicate(), "items": [], "tasks": Director.TASK_IDS.slice(0, 4), "ready": false, "label": "permissions without all five tasks keep gate closed"},
-		{"apps": APP_IDS.duplicate(), "items": [], "tasks": Director.TASK_IDS.duplicate(), "ready": true, "label": "all three app permissions and five tasks open gate without keys"},
+		{"apps": APP_IDS.duplicate(), "items": [], "tasks": Director.TASK_IDS.duplicate(), "ready": true, "label": "both app permissions and five tasks open gate without keys or retired Babel app"},
 	]
 	for scenario in cases:
 		progress.unlocked_app_ids = scenario.apps

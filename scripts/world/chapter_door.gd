@@ -64,6 +64,7 @@ func request_open() -> bool:
 		_finish_open()
 	else:
 		_tween = create_tween()
+		_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		_tween.tween_property(_pivot, "rotation:y", _open_angle, _duration)
 		_tween.tween_callback(_finish_open)
 	return true
@@ -77,6 +78,10 @@ func close_and_lock() -> void:
 
 func is_passable() -> bool:
 	return _motion == Motion.OPEN and not _locked and not _sealed and is_instance_valid(_blocker) and _blocker.disabled
+
+
+func get_open_duration() -> float:
+	return _duration
 
 
 func _close() -> void:

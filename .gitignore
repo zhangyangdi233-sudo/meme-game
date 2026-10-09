@@ -45,4 +45,5 @@ venv/
 *.pfx
 local-data/
 outputs/
+artifacts/
 source_assets/**/revisions/

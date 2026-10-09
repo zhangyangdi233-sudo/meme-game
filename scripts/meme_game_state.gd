@@ -102,7 +102,7 @@ var formal_floor_three_complete: bool = false
 var pending_floor_transition: int = 0
 var autoplay_enabled: bool = false
 var exit_prompt_seen: bool = false
-var money: int = 18
+var money: int = 0 # Legacy save field; no longer a gameplay resource.
 var actions_remaining: int = 5
 var max_actions_per_day: int = 5
 var needs_day_settlement: bool = false
@@ -200,7 +200,7 @@ func new_run() -> void:
 	pending_floor_transition = 0
 	autoplay_enabled = false
 	exit_prompt_seen = false
-	money = 18
+	money = 0
 	max_actions_per_day = BASE_ACTIONS_PER_DAY
 	actions_remaining = max_actions_per_day
 	needs_day_settlement = false
@@ -352,6 +352,12 @@ func load_save_data(save_data: Dictionary) -> bool:
 	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
 	_migrate_legacy_chapter_action_budget(state_data.get("chapter1_progress", {}))
+	# Retired resources cannot block a continued save or restore removed UI.
+	money = 0
+	actions_remaining = max_actions_per_day
+	needs_day_settlement = false
+	day_ended_reason = ""
+	autoplay_enabled = false
 	if loaded_version < 4 and saved_floor >= 4:
 		tower_floor = 3
 		ending_unlocked = false
@@ -452,9 +458,9 @@ func _migrate_legacy_hidden_route_data(state_data: Dictionary) -> void:
 
 
 func _normalize_removed_shop_state() -> void:
-	if active_app == "shop":
+	if active_app in ["shop", "babel"]:
 		active_app = "social"
-	if active_app_window == "shop":
+	if active_app_window in ["shop", "babel"]:
 		active_app_window = "social" if phone_open else ""
 
 
@@ -716,25 +722,15 @@ func _is_chapter_practice() -> bool:
 	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase in ["basement", "crossroads"]
 
 
-func spend_action(action_type: String) -> bool:
-	# Chapter practice allows retries until the tower, sharing words and drafts.
-	# The normal day budget and any earlier settlement record stay untouched.
-	if _is_chapter_practice():
-		return true
-	if actions_remaining <= 0:
-		actions_remaining = 0
-		needs_day_settlement = true
-		day_ended_reason = "actions-depleted"
-		return false
-	actions_remaining = maxi(0, actions_remaining - 1)
-	if actions_remaining == 0:
-		needs_day_settlement = true
-		day_ended_reason = action_type
+func spend_action(_action_type: String) -> bool:
+	# Compatibility for authored interactions: all actions are unlimited.
+	needs_day_settlement = false
+	day_ended_reason = ""
 	return true
 
 
 func can_spend_action() -> bool:
-	return _is_chapter_practice() or actions_remaining > 0
+	return true
 
 
 func is_social_following(handle: String) -> bool:
@@ -780,9 +776,6 @@ func check_pollution_flashback(previous_pollution: int) -> bool:
 		return false
 	pollution_flashback_seen = true
 	pollution_flashback_pending = true
-	actions_remaining = 0
-	needs_day_settlement = true
-	day_ended_reason = "pollution-flashback"
 	return true
 
 
@@ -1292,21 +1285,20 @@ func _conversation_roll(channel: String, character_index: int, check_index: int)
 
 
 func settle_day_if_needed() -> bool:
-	if not needs_day_settlement:
-		return false
-	_resolve_tower_step()
-	day += 1
-	actions_remaining = max_actions_per_day
+	# A completed interaction is now the story boundary; there is no daily
+	# budget, reset or forced discard of the player's notebook draft.
 	needs_day_settlement = false
 	day_ended_reason = ""
-	pollution_flashback_pending = false
-	draft_slots.clear()
-	fusion_slots.clear()
-	dialogue_blanks.clear()
-	language_sentence_slots.clear()
-	reset_reality_phase_for_day()
-	reset_typed_reality_conversation()
-	return true
+	if _is_chapter_practice():
+		return false
+	var previous_floor := tower_floor
+	var previous_ending := ending_unlocked
+	_resolve_tower_step()
+	if previous_floor != tower_floor:
+		day += 1 # Legacy narrative visit index, never an action allowance.
+		reset_reality_phase_for_day()
+		reset_typed_reality_conversation()
+	return previous_floor != tower_floor or previous_ending != ending_unlocked
 
 
 func pick_token(post_id: String, token: Dictionary) -> bool:
@@ -1494,9 +1486,8 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		return result
 	var unit_count := free_sentence_units.size()
 	var tier := str(parsed.get("tier", "noise"))
-	var money_gain := 1 + int(unit_count / 2.0) + (2 if tier == "rule" else 0)
+	var money_gain := 0
 	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
-	money += money_gain
 	var record := {
 		"id": "free-%d-%d" % [day, published_memes.size() + 1],
 		"kind": "free_sentence",
@@ -1593,11 +1584,10 @@ func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vecto
 
 
 func set_char_canvas_position(unit: String, position: Vector2, locale_code: String = "zh") -> void:
-	var clamped := Vector2(
-		clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
-		clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
-	)
-	char_canvas_positions["%s|%s" % [locale_code, unit]] = [clamped.x, clamped.y]
+	# Phone and CRT have different live dimensions. The canvas, not this
+	# legacy spawn-layout constant, owns its actual collision boundaries.
+	if position.is_finite():
+		char_canvas_positions["%s|%s" % [locale_code, unit]] = [maxf(0.0, position.x), maxf(0.0, position.y)]
 
 
 ## 新拾取的字从画布上方落下:横向按顺序错开,纵向给一点高度差,
@@ -1797,7 +1787,6 @@ func confirm_dialogue() -> bool:
 	if not spend_action("confirm-dialogue"):
 		return false
 	last_publish_result = publish_result.duplicate(true)
-	money += int(publish_result.get("money_gain", 0))
 	change_pollution(int(publish_result.get("pollution_gain", 0)))
 	var record: Dictionary = meme.duplicate(true)
 	record["floor"] = tower_floor
@@ -1809,10 +1798,7 @@ func confirm_dialogue() -> bool:
 	if not published_token_ids.is_empty():
 		notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, published_token_ids, "phone")
 	dialogue_blanks.clear()
-	event_log.push_front("发布完成：资金 +%d，污染 +%d%%。" % [
-		int(publish_result.get("money_gain", 0)),
-		int(publish_result.get("pollution_gain", 0)),
-	])
+	event_log.push_front("发布完成。")
 	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
 	return true
 
@@ -2005,7 +1991,7 @@ func get_publish_result(meme: Dictionary) -> Dictionary:
 	var fusion_level := clampi(int(meme.get("fusion_level", 0)), 0, 3)
 	var pollution_bias := maxi(0, int(meme.get("pollution_bias", 0)))
 	return {
-		"money_gain": 2 + rarity * 2 + fusion_level,
+		"money_gain": 0,
 		"pollution_gain": clampi(2 + rarity + fusion_level * 2 + pollution_bias, 1, 30),
 	}
 

@@ -13,7 +13,7 @@ func _run() -> void:
 	root.size = Vector2i(1600, 900)
 	main = load("res://scenes/babel_meme_game.tscn").instantiate()
 	root.add_child(main)
-	main._save_path = "user://test_opening_door_flow.dat"
+	main._save_path = "D:/aphasia/outputs/test_opening_door_flow.dat"
 	main.start_chapter1_game()
 	main.set_process(false)
 	main.set_physics_process(false)
@@ -35,17 +35,17 @@ func _run() -> void:
 		return
 	var door = world.get_door("opening")
 	main._reality_player.position = world.anchor_world_position("DoorArrival") + Vector3(0, 0.04, 1.0)
-	main._animate_world(9.9)
-	_check(not knock.playing, "knocking cannot begin before ten active seconds")
+	main._animate_world(6.4)
+	_check(not knock.playing, "knocking cannot begin before 6.5 active seconds")
 	_press(KEY_F)
 	await process_frame
 	_check(main.game.chapter1_progress.phase == "opening" and not door.is_passable(), "F cannot open the door before the knock")
 	_press(KEY_ESCAPE)
 	main._animate_world(30.0)
-	_check(not knock.playing, "settings pauses the ten-second opening wait")
+	_check(not knock.playing, "settings pauses the 6.5-second opening wait")
 	_press(KEY_ESCAPE)
 	main._animate_world(0.1)
-	_check(knock.playing, "the door knocks at ten active seconds")
+	_check(knock.playing, "the door knocks at 6.5 active seconds")
 	_check(knock.global_position.distance_to(world.anchor_world_position("DoorArrival")) < 3.0, "the sound comes from the door")
 	_press(KEY_F)
 	_check(not door.is_passable(), "the whole knock plays before opening becomes available")

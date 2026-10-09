@@ -5,11 +5,10 @@ const OPENING_SEQUENCE_ID := "chapter1_opening"
 const TASK_IDS := ["basement_help_01", "basement_help_02", "basement_help_03", "basement_help_04", "basement_help_05"]
 const NPC_IDS := ["basement_npc_01", "basement_npc_02", "basement_npc_03", "basement_npc_04", "basement_npc_05"]
 const REQUIRED_GATE_ITEM_IDS := ["chapter1_gate_item_01", "chapter1_gate_item_02", "chapter1_gate_item_03"]
-const REQUIRED_APP_IDS := ["social", "notebook", "babel"]
+const REQUIRED_APP_IDS := ["social", "notebook"]
 const DEFAULT_TASK_APP_UNLOCKS := {
 	"basement_help_01": ["social"],
 	"basement_help_03": ["notebook"],
-	"basement_help_05": ["babel"],
 }
 # Temporary integration configuration, not an authored story/reward decision.
 # A caller may replace reward_config before starting the chapter. Saves retain it.
@@ -21,7 +20,7 @@ const DEVELOPMENT_REWARD_CONFIG := {
 }
 
 
-static func initial_progress() -> Dictionary:
+static func initial_progress(randomize_decoration: bool = true) -> Dictionary:
 	return {
 		"phase": "opening",
 		"round_index": 0,
@@ -33,12 +32,14 @@ static func initial_progress() -> Dictionary:
 		"gate_item_ids": [],
 		"unlocked_app_ids": [],
 		"transition_serial": 0,
+		"decoration_seed": randi_range(1, 2147483646) if randomize_decoration else 1701,
 		"reward_config": DEVELOPMENT_REWARD_CONFIG.duplicate(true),
 	}
 
 
 static func normalize_progress(raw: Dictionary) -> Dictionary:
-	var progress := initial_progress()
+	var progress := initial_progress(false)
+	progress.decoration_seed = clampi(_integer_or(raw.get("decoration_seed", 1701), 1701), 1, 2147483646)
 	var raw_config: Variant = raw.get("reward_config", {})
 	var legacy_app_schema: bool = not raw.has("unlocked_app_ids") and not (raw_config is Dictionary and raw_config.has("task_app_unlocks"))
 	progress.reward_config = _normalize_reward_config(raw.get("reward_config", DEVELOPMENT_REWARD_CONFIG), legacy_app_schema)
@@ -74,7 +75,8 @@ static func normalize_progress(raw: Dictionary) -> Dictionary:
 	# Entering the continuous exit tunnel does not create a new visit. Missing
 	# fields in older saves remain false; only a completed current visit may
 	# retain this checkpoint. Other reached phases never inherit it.
-	progress.exit_tunnel_entered = phase == "basement" and locked and TASK_IDS[round_index] in completed and _is_true(raw.get("exit_tunnel_entered", false))
+	# Retired tunnel saves resume on the safe basement platform.
+	progress.exit_tunnel_entered = false
 
 	var claimed_items := _known_ids(raw.get("gate_item_ids", []), REQUIRED_GATE_ITEM_IDS)
 	var earned_items: Array = []
@@ -145,7 +147,7 @@ static func dispatch(progress: Dictionary, event_id: String, payload: Dictionary
 				next.exit_tunnel_entered = true
 				transition = "basement_tunnel_entered"
 		"basement_exit_requested":
-			if next.phase == "basement" and next.entrance_locked and next.exit_tunnel_entered and _matches_round_token(next, payload) and TASK_IDS[next.round_index] in next.completed_task_ids:
+			if next.phase == "basement" and next.entrance_locked and _matches_round_token(next, payload) and TASK_IDS[next.round_index] in next.completed_task_ids:
 				next.exit_tunnel_entered = false
 				next.transition_serial += 1
 				if next.round_index < 4:

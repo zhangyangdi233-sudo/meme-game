@@ -2587,7 +2587,17 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	var source_height := float(npc_texture.get_height()) if npc_texture != null else 1536.0
 	sprite.pixel_size = ACTOR_PORTRAIT_WORLD_HEIGHT / maxf(1.0, source_height)
 	sprite.position.y = ACTOR_PORTRAIT_WORLD_HEIGHT * 0.5
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# Keep the feet on their authored ground plane even when the player looks
+	# down at close range. Transparent canvas below the shoes is not floor.
+	var bottom_padding := 0.0
+	if npc_texture != null:
+		var source_image := npc_texture.get_image()
+		if source_image != null and not source_image.is_empty():
+			bottom_padding = float(source_image.get_height() - source_image.get_used_rect().end.y) * sprite.pixel_size
+	sprite.position.y -= bottom_padding
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	actor.set_meta("grounded_horizontal_billboard", true)
+	actor.set_meta("portrait_bottom_padding", bottom_padding)
 	sprite.shaded = false
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2606,7 +2616,7 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	scribble_overlay.pixel_size = sprite.pixel_size
 	scribble_overlay.position = sprite.position
 	scribble_overlay.scale = sprite.scale
-	scribble_overlay.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	scribble_overlay.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	scribble_overlay.shaded = false
 	scribble_overlay.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	scribble_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

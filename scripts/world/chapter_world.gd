@@ -9,15 +9,18 @@ signal event_requested(event_id: String, payload: Dictionary)
 const Binding = preload("res://scripts/world/chapter_asset_binding.gd")
 const Door = preload("res://scripts/world/chapter_door.gd")
 const VideoScreen = preload("res://scripts/world/chapter_video_screen.gd")
-const ExitTunnel = preload("res://scripts/world/chapter_exit_tunnel.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
 const Generator = preload("res://scripts/reality_floor_generator.gd")
+const Atmosphere = preload("res://scripts/world/basement_atmosphere.gd")
 const CONTRACT_PATH := "res://assets/chapter1/asset_contract.json"
 const OPENING_MANIFEST_PATH := "res://assets/chapter1/opening_manifest.json"
 const MODEL_PATHS := {"opening": "res://assets/chapter1/Opening_WhiteDoor_v2.glb", "basement": "res://assets/chapter1/Basement_Loop_v2.glb"}
 const BODY_CENTER := Vector3(0, 0.88, 0)
 const REACH_DISTANCE := 3.0
-const OPENING_WAIT_SECONDS := 10.0
+const OPENING_WAIT_SECONDS := 6.5
+const OPENING_BLACK_SECONDS := 2.0
+const OPENING_WALK_DISTANCE := 29.5
+const TERMINAL_REACH_DISTANCE := 1.15
 const OPENING_KNOCK_PATH := "res://assets/audio/sfx/opening_door_knock.ogg"
 const XRAY_RENDER_LAYER := 1 << 19
 const BASEMENT_NPC_NAMES := ["护灯人", "迟到者", "回声住户", "抄写员", "无名信徒"]
@@ -57,9 +60,16 @@ var _opening_requested := false
 var _exploration_paused := false
 var _opening_knock: AudioStreamPlayer3D
 var _opening_actor: Area3D
-var _exit_tunnel: Node3D
-var _tunnel_actor: Area3D
-var _tunnel_requested := false
+var _exit_requested := false
+var _next_room_preview: Node3D
+var _exit_camera_pose := Transform3D.IDENTITY
+var _atmosphere: Node3D
+var _palette: Dictionary = {}
+var _destination_camera: Camera3D
+var _destination_frame := Transform3D.IDENTITY
+var _destination_mapping := Transform3D.IDENTITY
+var _destination_material: ShaderMaterial
+var _destination_viewport: SubViewport
 
 
 func _process(_delta: float) -> void:
@@ -67,12 +77,15 @@ func _process(_delta: float) -> void:
 	# frame as play() must also be applied once the audio playback exists.
 	if _opening_knock_started and is_instance_valid(_opening_knock) and _opening_knock.stream_paused != _exploration_paused:
 		_opening_knock.stream_paused = _exploration_paused
+	if is_instance_valid(_destination_camera):
+		_update_destination_portal()
 
 
 func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: Node3D = null, injected_contract: Dictionary = {}, actor_textures: Dictionary = {}) -> bool:
 	_clear_stage()
 	_progress = progress.duplicate(true)
 	_actor_textures = actor_textures.duplicate()
+	_palette = palette.duplicate(true)
 	stage = str(progress.get("phase", ""))
 	_bound_token = int(progress.get("transition_serial", -1))
 	_bound_round = int(progress.get("round_index", -1))
@@ -107,6 +120,15 @@ func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: N
 	if not configured:
 		return false
 	_build_environment()
+	if stage == "basement":
+		_atmosphere = Atmosphere.new()
+		_atmosphere.name = "BasementAtmosphere"
+		add_child(_atmosphere)
+		_atmosphere.configure(_asset, _contract, _progress)
+		var switch_actor: Area3D = _atmosphere.interaction_actor()
+		if switch_actor != null:
+			_actors.append(switch_actor)
+		_build_next_room_preview()
 	stage_ready = true
 	sync_progress(progress)
 	return true
@@ -169,9 +191,6 @@ func sync_progress(progress: Dictionary) -> void:
 		if bool(progress.get("entrance_locked", false)):
 			_doors.entry.close_and_lock()
 		_doors.exit.set_locked(not _help_completed())
-		if bool(progress.get("exit_tunnel_entered", false)):
-			_doors.exit.close_and_lock()
-		_doors.tunnel.set_locked(not bool(progress.get("exit_tunnel_entered", false)))
 
 
 func _build_basement() -> bool:
@@ -188,7 +207,7 @@ func _build_basement() -> bool:
 	var exit_local := _asset.to_local(_anchor("ExitThreshold"))
 	_bounds.append(AABB(Vector3(exit_local.x - 0.8, -0.3, exit_local.z - 0.64), Vector3(1.3, 2.8, 1.28)))
 	for door_id in ["entry", "exit"]:
-		if not _bind_door(door_id, _contract.doors[door_id], 0.0 if door_id == "entry" else 0.35):
+		if not _bind_door(door_id, _contract.doors[door_id], 0.0 if door_id == "entry" else 2.1):
 			return false
 	_doors.entry.set_locked(false)
 	_doors.entry.request_open()
@@ -222,7 +241,7 @@ func _build_basement() -> bool:
 	var screen_glow := OmniLight3D.new()
 	screen_glow.name = "ChapterCRTGreenGlow"
 	screen_glow.light_color = crt_color
-	screen_glow.light_energy = 0.20
+	screen_glow.light_energy = 0.48
 	screen_glow.omni_range = 2.25
 	# This represents broad phosphor spill, not a small hard-shadow bulb in
 	# front of the cabinet. Room lamps retain their normal scene shadows.
@@ -245,25 +264,16 @@ func _build_basement() -> bool:
 	_make_actor("chapter1_terminal", "chapter1_terminal", _asset.to_global(terminal_feet), "CRT 教学端（开发）")
 	if not _open_exit_pocket():
 		return false
-	_exit_tunnel = ExitTunnel.new()
-	_exit_tunnel.name = "BasementExitTunnel"
-	add_child(_exit_tunnel)
-	_exit_tunnel.global_transform = _asset.global_transform * Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(exit_local.x, 0, exit_local.z))
-	_exit_tunnel.build()
-	_doors.tunnel = _exit_tunnel.door
-	_tunnel_actor = _make_actor("chapter1_tunnel_white_door", "chapter1_tunnel_door", _exit_tunnel.interaction_position(), "打开白光门")
 	return true
 
 
 func _open_exit_pocket() -> bool:
-	# The old instant-return export ended the tiny exterior vestibule with a
-	# back wall. Open precisely that wall in this runtime instance; retain the
-	# Blender asset, vestibule sides/floor/ceiling and all other room collision.
-	var back := Binding.find_node(_asset, "Exit_VestibuleBack") as MeshInstance3D
-	if back == null:
-		return true # Synthetic/custom contracts may have no exterior pocket.
-	var target: AABB = back.global_transform * back.get_aabb()
-	var matches: Array[CollisionShape3D] = []
+	# The extra exterior box is not a room. Remove its geometry and matching
+	# colliders in this instance, leaving the authored frame and door untouched.
+	var pocket_bounds: Array[AABB] = []
+	for mesh: MeshInstance3D in _asset.find_children("Exit_Vestibule*", "MeshInstance3D", true, false):
+		pocket_bounds.append(mesh.global_transform * mesh.get_aabb())
+		mesh.hide()
 	# Godot strips the -colonly source name on these imported siblings. Match
 	# the exact authored mesh bounds, not unstable generated @StaticBody IDs.
 	for collider: CollisionShape3D in _asset.find_children("*", "CollisionShape3D", true, false):
@@ -281,14 +291,123 @@ func _open_exit_pocket() -> bool:
 		else:
 			continue
 		var world_box: AABB = collider.global_transform * local_box
-		if world_box.position.distance_to(target.position) < 0.02 and world_box.size.distance_to(target.size) < 0.02:
-			matches.append(collider)
-	if matches.size() != 1:
-		return _fail("Exit vestibule back wall requires exactly one matching collider; found %d" % matches.size())
-	matches[0].disabled = true
-	back.hide()
+		for target in pocket_bounds:
+			if world_box.position.distance_to(target.position) < 0.02 and world_box.size.distance_to(target.size) < 0.02:
+				collider.disabled = true
 	set_meta("exit_pocket_opened", true)
 	return true
+
+
+func _build_next_room_preview() -> void:
+	if _bound_round == 4:
+		_build_crossroads_portal()
+		return
+	# Align a visual copy of the next entrance with this exit. It has no gameplay
+	# actors or collision and is replaced with the real next visit at its spawn.
+	_next_room_preview = _asset.duplicate() as Node3D
+	_next_room_preview.name = "NextBasementThroughDoor"
+	add_child(_next_room_preview)
+	if is_instance_valid(_atmosphere):
+		for child in _atmosphere.get_children():
+			if child is Node3D and not child is CollisionObject3D:
+				_next_room_preview.add_child(child.duplicate())
+	# The preview is scenery for a door cinematic, never another source of live
+	# clues. Keep both authored arrows and atmospheric X-ray marks in this visit.
+	for geometry: GeometryInstance3D in _next_room_preview.find_children("*", "GeometryInstance3D", true, false):
+		if is_instance_valid(geometry) and (geometry.layers & XRAY_RENDER_LAYER) != 0:
+			geometry.free()
+	var entry_data: Dictionary = _contract.doors.entry
+	var exit_data: Dictionary = _contract.doors.exit
+	var entry_pivot := Binding.find_node(_asset, str(entry_data.pivot_node)) as Node3D
+	var exit_pivot := Binding.find_node(_asset, str(exit_data.pivot_node)) as Node3D
+	# Door pivots may already be opened. Their contract centre is closed-space.
+	var entry_center := entry_pivot.position + Binding.blender_vector(entry_data.closed_leaf_local_center)
+	var exit_center := exit_pivot.position + Binding.blender_vector(exit_data.closed_leaf_local_center)
+	var turn := Basis(Vector3.UP, PI)
+	_next_room_preview.global_transform = _asset.global_transform * Transform3D(turn, exit_center - turn * entry_center)
+	for body: CollisionObject3D in _next_room_preview.find_children("*", "CollisionObject3D", true, false):
+		body.collision_layer = 0
+		body.collision_mask = 0
+	for light: Light3D in _next_room_preview.find_children("*", "Light3D", true, false):
+		if not bool(light.get_meta("fixture_bound", false)):
+			light.hide()
+	var preview_entry := Binding.find_node(_next_room_preview, str(entry_data.pivot_node)) as Node3D
+	if preview_entry != null:
+		preview_entry.hide()
+	var eye := _asset.to_local(_spawn) + Vector3(0, 1.56, 0)
+	var direction := Basis(Vector3.UP, deg_to_rad(_spawn_yaw) - _asset.global_rotation.y) * Vector3.FORWARD
+	var arrival_basis := Basis.looking_at(direction, Vector3.UP) * Basis(Vector3.RIGHT, deg_to_rad(-28.0))
+	_exit_camera_pose = _next_room_preview.global_transform * Transform3D(arrival_basis, eye)
+
+
+func _build_crossroads_portal() -> void:
+	# The final door opens into the actual destination renderer. A portal-sized
+	# frustum keeps this wide outdoor world inside the physical door aperture;
+	# its camera reaches the exact receiving spawn as our camera reaches the leaf.
+	_next_room_preview = Node3D.new()
+	_next_room_preview.name = "NextBasementThroughDoor"
+	_next_room_preview.set_meta("destination", "crossroads")
+	add_child(_next_room_preview)
+	var viewport := SubViewport.new()
+	_destination_viewport = viewport
+	viewport.name = "CrossroadsPortalViewport"
+	viewport.size = Vector2i(384, 800)
+	viewport.own_world_3d = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_next_room_preview.add_child(viewport)
+	var destination := Generator.new()
+	viewport.add_child(destination)
+	destination.rebuild(1, _palette, {}, 1, true, {}, false)
+	_destination_camera = Camera3D.new()
+	destination.add_child(_destination_camera)
+	_destination_camera.current = true
+	_destination_camera.cull_mask = 0xFFFFF & ~XRAY_RENDER_LAYER
+	var arrival_eye: Vector3 = destination.start_position() + Vector3(0, 1.56, 0)
+	var arrival_basis := Basis(Vector3.UP, deg_to_rad(destination.start_yaw_degrees()))
+	var arrival_pose := Transform3D(arrival_basis, arrival_eye)
+	var exit_data: Dictionary = _contract.doors.exit
+	var pivot := Binding.find_node(_asset, str(exit_data.pivot_node)) as Node3D
+	var center := pivot.position + Binding.blender_vector(exit_data.closed_leaf_local_center)
+	_destination_frame = _asset.global_transform * Transform3D(Basis(Vector3.UP, PI * 0.5), center)
+	_next_room_preview.global_transform = _destination_frame
+	_exit_camera_pose = _destination_frame * Transform3D(Basis.IDENTITY, Vector3(0, 0.46, 0.03))
+	_destination_mapping = arrival_pose * _exit_camera_pose.affine_inverse()
+	var aperture := MeshInstance3D.new()
+	aperture.name = "CrossroadsDoorAperture"
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(1.055, 2.195)
+	aperture.mesh = mesh
+	var material := ShaderMaterial.new()
+	material.shader = Shader.new()
+	material.shader.code = "shader_type spatial; render_mode unshaded, cull_back, shadows_disabled; uniform sampler2D destination_tex : filter_linear; uniform bool screen_space = false; void fragment() { ALBEDO = texture(destination_tex, screen_space ? SCREEN_UV : UV).rgb; }"
+	material.set_shader_parameter("destination_tex", viewport.get_texture())
+	_destination_material = material
+	aperture.material_override = material
+	aperture.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_next_room_preview.add_child(aperture)
+	_update_destination_portal()
+
+
+func _update_destination_portal() -> void:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null or camera == _destination_camera:
+		return
+	var eye := _destination_frame.affine_inverse() * camera.global_position
+	_destination_camera.global_position = _destination_mapping * camera.global_position
+	var fills_view := eye.z < 0.4 and absf(eye.x) < 0.05
+	_destination_material.set_shader_parameter("screen_space", fills_view)
+	if fills_view:
+		# Once the physical aperture fills the screen, capture the ordinary view
+		# directly. This avoids magnifying a handful of near-plane portal pixels.
+		_destination_viewport.size = Vector2i(get_viewport().get_visible_rect().size * 0.75)
+		_destination_camera.global_basis = _destination_mapping.basis * camera.global_basis
+		_destination_camera.set_perspective(camera.fov, 0.05, 400.0)
+		return
+	_destination_viewport.size = Vector2i(384, 800)
+	# Keep the capture parallel to the aperture. The offset frustum generates
+	# the correct perspective through the door even while the viewer approaches.
+	_destination_camera.global_basis = _destination_mapping.basis * _destination_frame.basis
+	_destination_camera.set_frustum(2.195, Vector2(-eye.x, -eye.y), maxf(eye.z, 0.005), 400.0)
 
 
 func _build_current_npc(current: Dictionary) -> void:
@@ -378,6 +497,14 @@ func _build_opening() -> bool:
 	var pivot := Binding.find_node(_asset, str(door_data.pivot_node)) as Node3D
 	_opening_plane_z = _asset.to_local(pivot.global_position).z - 0.08
 	var center := pivot.to_global(Binding.blender_vector(door_data.closed_leaf_local_center))
+	# Normal walking at 3.3 m/s takes roughly 8.5 seconds to interaction range.
+	var approach := _spawn - center
+	approach.y = 0.0
+	if approach.is_zero_approx():
+		approach = _asset.global_basis.z
+	_spawn = center + approach.normalized() * OPENING_WALK_DISTANCE
+	_spawn.y = (_anchor(spawn_name) - _asset.global_basis.y.normalized() * eye_height).y
+	_asset.visible = bool(_progress.get("opening_knock_completed", false))
 	_opening_actor = _make_actor("chapter1_opening_door", "chapter1_opening", Vector3(center.x, _spawn.y, center.z), "OpeningDoor")
 	_opening_knock = AudioStreamPlayer3D.new()
 	_opening_knock.name = "OpeningDoorKnock"
@@ -461,7 +588,16 @@ func _build_environment() -> void:
 		environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		environment.tonemap_white = 6.0
 		for light in _asset.find_children("*", "Light3D", true, false):
-			light.light_energy *= 0.01
+			light.light_energy *= 0.0055
+		for mesh: MeshInstance3D in _asset.find_children("*", "MeshInstance3D", true, false):
+			if mesh.mesh == null:
+				continue
+			for surface in mesh.mesh.get_surface_count():
+				var original := mesh.get_active_material(surface) as StandardMaterial3D
+				if original != null and original.emission_enabled:
+					var softened := original.duplicate() as StandardMaterial3D
+					softened.emission_energy_multiplier *= 0.62
+					mesh.set_surface_override_material(surface, softened)
 	else:
 		# GLB punctual lights retain authored physical intensities (4000-8700),
 		# which clip this project's nonphysical lighting. Runtime lights below own
@@ -521,16 +657,14 @@ func interact(actor: Area3D) -> bool:
 				return false
 			event_requested.emit("terminal_requested", _round_payload())
 			return true
+		"chapter1_light_switch":
+			return is_instance_valid(_atmosphere) and _atmosphere.toggle_lights()
 		"chapter1_exit":
-			if not _help_completed() or not bool(_progress.get("entrance_locked", false)):
+			if not _help_completed() or not bool(_progress.get("entrance_locked", false)) or _exit_requested:
 				return false
 			_doors.exit.set_locked(false)
-			return _doors.exit.request_open()
-		"chapter1_tunnel_door":
-			if not _help_completed() or not bool(_progress.get("exit_tunnel_entered", false)) or _tunnel_requested:
-				return false
-			_tunnel_requested = true
-			event_requested.emit("tunnel_door_requested", _round_payload())
+			_exit_requested = true
+			event_requested.emit("basement_door_requested", _round_payload())
 			return true
 		"chapter1_gate":
 			if not _gate_ready():
@@ -544,7 +678,10 @@ func is_actor_reachable(actor: Area3D, player_position: Vector3) -> bool:
 	if not stage_ready or not _current_visit() or not is_instance_valid(actor) or actor not in _actors:
 		return false
 	var displacement := actor.global_position - player_position
-	if absf(displacement.y) > 1.3 or Vector2(displacement.x, displacement.z).length() > REACH_DISTANCE:
+	var reach := float(actor.get_meta("interaction_radius", REACH_DISTANCE))
+	if str(actor.get_meta("actor_type", "")) == "chapter1_terminal":
+		reach = TERMINAL_REACH_DISTANCE
+	if absf(displacement.y) > 1.3 or Vector2(displacement.x, displacement.z).length() > reach:
 		return false
 	if stage == "basement":
 		var source := _asset.to_local(player_position)
@@ -563,8 +700,10 @@ func update_authored_events(delta: float, player_position: Vector3, _camera_forw
 	if not stage_ready or _exploration_paused or not _current_visit():
 		return
 	if stage == "opening":
+		_opening_elapsed += maxf(delta, 0.0)
+		if _opening_elapsed >= OPENING_BLACK_SECONDS:
+			_asset.show()
 		if not bool(_progress.get("opening_knock_completed", false)) and not _opening_knock_started:
-			_opening_elapsed += maxf(delta, 0.0)
 			if _opening_elapsed >= OPENING_WAIT_SECONDS:
 				_opening_knock_started = true
 				_opening_knock.play()
@@ -577,15 +716,13 @@ func update_authored_events(delta: float, player_position: Vector3, _camera_forw
 	var previous := _previous_position
 	_previous_position = local
 	if stage == "basement":
+		if is_instance_valid(_atmosphere):
+			_atmosphere.update_visit(delta, bool(_progress.get("entrance_locked", false)))
 		var entrance: AABB = _triggers.EntrySealTrigger
 		var seal_z := entrance.get_center().z
 		if not bool(_progress.get("entrance_locked", false)) and previous.z < seal_z and local.z >= seal_z and _crossed_plane("EntrySealTrigger", previous, local, 2, seal_z):
 			_doors.entry.close_and_lock()
 			_emit_once("entrance_threshold_crossed", _round_payload())
-		# Stay in this exact world while walking out. Seal only when the entire
-		# body has cleared the old hinge; the distant white door owns progression.
-		if _help_completed() and _doors.exit.is_passable() and _exit_tunnel.is_safely_inside(player_position):
-			_emit_once("basement_tunnel_entered", _round_payload())
 	elif stage == "crossroads":
 		if _gate_ready() and _doors.gate.is_passable() and previous.z > _gate_plane_z - 0.2 and local.z <= _gate_plane_z - 0.2 and _crossed_plane("gate", previous, local, 2, _gate_plane_z - 0.2):
 			_emit_once("crossroads_gate_requested", {})
@@ -661,8 +798,6 @@ func start_yaw_degrees() -> float:
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 	if not stage_ready:
 		return false
-	if is_instance_valid(_exit_tunnel) and _exit_tunnel.contains_position(position, inset):
-		return true
 	if _delegate != null:
 		var local := _delegate.to_local(position)
 		return local.y >= -3.0 and _delegate.contains_playable_position(local, inset)
@@ -696,9 +831,7 @@ func get_interactable_actors() -> Array[Area3D]:
 		return result
 	if stage_ready and _current_visit():
 		for actor in _actors:
-			if actor == _tunnel_actor and (not bool(_progress.get("exit_tunnel_entered", false)) or _tunnel_requested):
-				continue
-			if stage == "basement" and bool(_progress.get("exit_tunnel_entered", false)) and actor != _tunnel_actor:
+			if _exit_requested:
 				continue
 			result.append(actor)
 	return result
@@ -710,19 +843,27 @@ func _on_opening_knock_finished() -> void:
 
 
 func opening_camera_position() -> Vector3:
-	return _opening_actor.global_position + _asset.global_basis * Vector3(0, 1.25, 3.9)
+	return _opening_actor.global_position + _asset.global_basis * Vector3(0, 1.56, -0.45)
 
 
 func opening_camera_target() -> Vector3:
-	return _opening_actor.global_position + _asset.global_basis * Vector3(0, 1.125, 0)
+	return opening_camera_position() - _asset.global_basis.z * 2.0
+
+
+func exit_camera_position() -> Vector3:
+	return _exit_camera_pose.origin
+
+
+func exit_camera_target() -> Vector3:
+	return _exit_camera_pose.origin - _exit_camera_pose.basis.z * 2.0
 
 
 func tunnel_camera_position() -> Vector3:
-	return _exit_tunnel.camera_position()
+	return exit_camera_position()
 
 
 func tunnel_camera_target() -> Vector3:
-	return _exit_tunnel.camera_target()
+	return exit_camera_target()
 
 
 func set_exploration_paused(value: bool) -> void:
@@ -834,9 +975,12 @@ func _clear_stage() -> void:
 	_exploration_paused = false
 	_opening_knock = null
 	_opening_actor = null
-	_exit_tunnel = null
-	_tunnel_actor = null
-	_tunnel_requested = false
+	_exit_requested = false
+	_next_room_preview = null
+	_atmosphere = null
+	_destination_camera = null
+	_destination_material = null
+	_destination_viewport = null
 	_actors.clear()
 	_doors.clear()
 	_triggers.clear()

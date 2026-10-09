@@ -3,8 +3,8 @@ extends Node
 ## app instances and their signals remain owned by the main scene.
 
 const TERMINAL = preload("res://scripts/world/chapter_terminal.gd")
-const APP_IDS := ["social", "notebook", "babel"]
-const APP_LABELS := {"social": "信号瀑布", "notebook": "笔记本", "babel": "巴别塔"}
+const APP_IDS := ["social", "notebook"]
+const APP_LABELS := {"social": "信号瀑布", "notebook": "笔记本"}
 const DISPLAY_SIZE := Vector2(1600, 1200)
 const HIDDEN_FIELDS := ["_phone_panel", "_phone_tab", "_phone_content", "_phone_down_backdrop_image", "_hand_phone_image", "_meme_bank_window"]
 
@@ -19,6 +19,11 @@ var _hidden_controls: Array[Dictionary] = []
 var _tab_buttons: Dictionary = {}
 var _input_depth := 0
 var _retired_terminals: Array[Node] = []
+var _camera_tween: Tween
+var _camera_original := Transform3D.IDENTITY
+var _camera_original_fov := 58.0
+var _camera_saved := false
+var _camera_returning := false
 
 
 func _process(_delta: float) -> void:
@@ -39,7 +44,7 @@ func begin(host: Node, world: Node, vhs_enabled: bool) -> bool:
 	var ui_root := host.get("_ui_root") as Control
 	var controls := _collect_controls(host)
 	var screen := world.get_screen_mesh() as MeshInstance3D
-	if ui_root == null or controls.size() != 5 or screen == null:
+	if ui_root == null or controls.size() != 4 or screen == null:
 		return false
 	_terminal = TERMINAL.new()
 	_terminal.name = "ChapterTerminal"
@@ -78,6 +83,7 @@ func begin(host: Node, world: Node, vhs_enabled: bool) -> bool:
 
 
 func end() -> void:
+	_stop_camera_motion()
 	if _saved_controls.is_empty() and _terminal == null:
 		return
 	_active = false
@@ -123,6 +129,62 @@ func is_active() -> bool:
 	return _active
 
 
+func is_camera_moving() -> bool:
+	return _camera_tween != null and _camera_tween.is_valid()
+
+
+func animate_camera_to_screen(camera: Camera3D) -> void:
+	if not is_instance_valid(camera) or not is_instance_valid(_world):
+		return
+	_stop_camera_motion()
+	_camera_original = camera.global_transform
+	_camera_original_fov = camera.fov
+	_camera_saved = true
+	_camera_returning = false
+	var destination: Vector3 = _world.terminal_camera_position()
+	var direction: Vector3 = _world.terminal_camera_target() - destination
+	var pose := Transform3D(Basis.looking_at(direction, Vector3.UP), destination)
+	_tween_camera(camera, pose, 58.0, 0.8)
+
+
+func animate_camera_back(camera: Camera3D, callback: Callable) -> bool:
+	if _camera_returning or not _camera_saved or not is_instance_valid(camera):
+		return false
+	_stop_camera_motion()
+	_camera_returning = true
+	if is_instance_valid(_terminal):
+		_terminal.set_active(false)
+	_tween_camera(camera, _camera_original, _camera_original_fov, 0.65)
+	_camera_tween.tween_callback(callback)
+	return true
+
+
+func set_camera_paused(paused: bool) -> void:
+	if is_camera_moving():
+		if paused:
+			_camera_tween.pause()
+		else:
+			_camera_tween.play()
+
+
+func _tween_camera(camera: Camera3D, destination: Transform3D, fov: float, duration: float) -> void:
+	var start := camera.global_transform
+	var start_fov := camera.fov
+	_camera_tween = create_tween()
+	_camera_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_camera_tween.tween_method(func(weight: float):
+		if is_instance_valid(camera):
+			camera.global_transform = start.interpolate_with(destination, weight)
+			camera.fov = lerpf(start_fov, fov, weight)
+	, 0.0, 1.0, duration)
+
+
+func _stop_camera_motion() -> void:
+	if is_camera_moving():
+		_camera_tween.kill()
+	_camera_tween = null
+
+
 func select_app(app_id: String) -> void:
 	if not _active or app_id not in APP_IDS:
 		return
@@ -138,10 +200,8 @@ func refresh_layout() -> void:
 		if is_instance_valid(control) and control.get_parent() != _content:
 			control.reparent(_content, false)
 	var apps: Dictionary = _host.get("_app_windows")
-	var paired := _selected_app != "babel"
-	_place(apps.social, Rect2(16, 90, 776, 1070), paired, 10)
-	_place(apps.notebook, Rect2(808, 90, 776, 1070), paired, 10)
-	_place(apps.babel, Rect2(16, 90, 1568, 1070), not paired, 10)
+	_place(apps.social, Rect2(16, 90, 776, 1070), true, 10)
+	_place(apps.notebook, Rect2(808, 90, 776, 1070), true, 10)
 	var detail_open := _selected_app == "social" and bool(_host.get("_social_detail_open"))
 	_place(_host.get("_social_detail_window"), Rect2(16, 90, 776, 1070), detail_open, 20)
 	_place(_host.get("_pickup_flight_layer"), Rect2(Vector2.ZERO, DISPLAY_SIZE), true, 100)
@@ -153,7 +213,7 @@ func refresh_layout() -> void:
 
 
 func route_input(event: InputEvent, camera: Camera3D) -> bool:
-	if not _active or not is_instance_valid(_terminal):
+	if not _active or not is_instance_valid(_terminal) or is_camera_moving() or _camera_returning:
 		return false
 	_input_depth += 1
 	var handled: bool = _terminal.route_input(event, camera)

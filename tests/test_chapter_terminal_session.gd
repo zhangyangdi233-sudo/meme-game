@@ -66,7 +66,7 @@ func _test_session(script: Script) -> void:
 	host.add_child(session)
 	var original: Array[Dictionary] = []
 	var moved: Array[Control] = []
-	for app_id in ["social", "notebook", "babel"]:
+	for app_id in ["social", "notebook"]:
 		moved.append(host._app_windows[app_id])
 	moved.append(host._social_detail_window)
 	moved.append(host._pickup_flight_layer)
@@ -101,7 +101,7 @@ func _test_session(script: Script) -> void:
 	for index in moved.size():
 		_check(moved[index].get_instance_id() == original[index].instance_id and moved[index].get_parent() == content, "same app/detail/flight Control instance moves into screen viewport")
 	_check(host.game.view_state == "npc_up" and host.game.shared_words == ["灯"], "session never copies game state or lowers the phone")
-	_check(host._app_windows.social.visible and host._app_windows.notebook.visible and not host._app_windows.babel.visible, "default social view shows collection beside notebook")
+	_check(host._app_windows.social.visible and host._app_windows.notebook.visible, "default social view shows collection beside notebook")
 	_check(not host._social_detail_window.visible, "closed social detail stays hidden")
 	_check(_left(host._app_windows.social) and _right(host._app_windows.notebook), "collection and composition use bounded left/right columns")
 	_check(host._pickup_flight_layer.visible and host._pickup_flight_layer.size == Vector2(1600, 1200), "existing pickup flights share the screen coordinate space")
@@ -113,12 +113,10 @@ func _test_session(script: Script) -> void:
 	host._app_windows.social.hide()
 	host._app_windows.notebook.position = Vector2(-900, -800)
 	host._app_windows.notebook.size = Vector2(50, 40)
-	host._app_windows.babel.reparent(host._ui_root, false)
 	host._phone_panel.show()
 	host._meme_bank_window.show()
 	host._social_detail_open = true
 	session.refresh_layout()
-	_check(host._app_windows.babel.get_parent() == content and not host._app_windows.babel.visible, "refresh repairs parent and unwanted app visibility")
 	_check(_left(host._app_windows.social) and _right(host._app_windows.notebook), "refresh repairs legacy responsive window positions")
 	_check(host._social_detail_window.visible and _left(host._social_detail_window), "social detail opens only over the social region")
 	_check(not host._phone_panel.visible and not host._meme_bank_window.visible, "refresh suppresses legacy phone UI reappearance")
@@ -126,20 +124,15 @@ func _test_session(script: Script) -> void:
 	var notebook_tab := content.find_child("TerminalAppNotebook", true, false) as Button
 	var babel_tab := content.find_child("TerminalAppBabel", true, false) as Button
 	var exit_button := content.find_child("TerminalExit", true, false) as Button
-	_check(notebook_tab != null and babel_tab != null and exit_button != null, "three-app toolbar and explicit exit exist inside the screen")
+	_check(notebook_tab != null and babel_tab == null and exit_button != null, "two-app toolbar and explicit exit exist inside the screen")
 	if notebook_tab != null:
 		notebook_tab.pressed.emit()
 		_check(host.app_calls == ["notebook"] and notebook_tab.button_pressed, "tab selects app and invokes host callback exactly once")
-	if babel_tab != null:
-		babel_tab.pressed.emit()
-		_check(host.app_calls == ["notebook", "babel"], "Babel tab uses same host callback")
-	_check(host._app_windows.babel.visible and not host._app_windows.social.visible and not host._app_windows.notebook.visible and not host._social_detail_window.visible, "Babel fills the terminal and hides social detail")
-	_check(host._app_windows.babel.get_rect().end.x <= 1600 and host._app_windows.babel.size.x >= 1500, "Babel layout uses full bounded content width")
 	session.select_app("missing_app")
-	_check(host._app_windows.babel.visible, "unknown app selection cannot alter current session")
+	_check(host._app_windows.social.visible and host._app_windows.notebook.visible, "unknown app preserves paired workflow")
 	session.select_app("social")
 	_check(host._app_windows.social.visible and host._app_windows.notebook.visible, "select_app restores two-column workflow without invoking callbacks")
-	_check(host.app_calls.size() == 2, "programmatic app selection never recurses into host callbacks")
+	_check(host.app_calls.size() == 1, "programmatic app selection never recurses into host callbacks")
 	if exit_button != null:
 		exit_button.pressed.emit()
 		_check(host.end_calls == 1, "screen exit button delegates to host camera/input cleanup")
@@ -222,7 +215,7 @@ func _fixture() -> Dictionary:
 	host._ui_root.theme.set_constant("line_spacing", "Label", 2)
 	host._ui_root.size = Vector2(960, 720)
 	host.add_child(host._ui_root)
-	for app_id in ["social", "notebook", "babel"]:
+	for app_id in ["social", "notebook"]:
 		var control := PanelContainer.new()
 		control.name = app_id.to_pascal_case()
 		host._ui_root.add_child(control)

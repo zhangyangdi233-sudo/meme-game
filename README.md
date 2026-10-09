@@ -1,108 +1,68 @@
-# Babel Meme Game
+# Aphasia / Babel Meme Game
 
-**Aphasia · 2026-10-09 本机成果交接：** [交接说明与最终 Word](docs/handoff/2026-10-09/README.md) · [当前流程](GAME_FLOW_MEMORY.md) · [可编辑 Blender 源资产](source_assets/blender_basement_loop_v2/README.md) · [Windows 启动说明](support/windows_workspace/README.md)。此分支保留完整游戏工程、本机修改、当前模型与文字稿，供继续制作。
+Godot 4.6 心理恐怖游戏。玩家在重复的地下室中拾字、组句、投稿，再把本轮投稿交给 NPC；语言规则和房间异常逐渐改变体验。
 
-Standalone Godot 4.6 psychological-horror game built from the third-chapter meme prototype. Its progression is intentionally narrow: publishing produces funds and language pollution; pollution changes floors, dialogue, history, and endings.
+**当前说明更新于 2026-10-10。** 以 [合并交接目录](docs/handoff/2026-10-10/)、[当前流程](GAME_FLOW_MEMORY.md) 和 [第一章接入说明](docs/chapter1-integration.md) 为准。[2026-10-09 交接](docs/handoff/2026-10-09/README.md) 与更早文档保留作历史资料，其中隧道、三款 App、资金和每日行动的描述已被取代。
 
-## Current Loop
+## 当前玩法
 
-1. Browse image-led social posts and collect language-aware units: a Chinese character, a Japanese lexical unit, or an English word. Every post detail carries a seeded pickup line and an anonymous comment section in urban-legend register; units from a per-locale pool (20-30 Chinese characters guaranteeing at least two subject, verb, and object words after dictionary merge — see `scripts/narrative/pickup_char_pool.gd`) glow inside the text. Tapping one flies it to screen center for confirmation, then shrinks it into the upper-left notebook window, leaving a gray residue in the post. The first pickup each day costs one action; the rest of that day is free.
-2. Explore the physical floor and find the stitched guide doll. An authored conversation choice grants one Meme Frame once per encounter.
-3. Fuse two completed memes for higher propagation and higher pollution.
-4. Build around the day's signal hand, then publish for funds while accepting more pollution.
-5. Put the phone away and explore the current tower floor as a first-person 3D street district.
-6. Approach a billboard NPC, key NPC, physical clue object, or doll and press `F`. Every previous floor's hottest meme becomes a compulsory legacy phrase in reality dialogue.
-7. On each of floors 1-3, answer the key NPC's two questions correctly to reveal that floor's prerequisite object. Collecting all three keeps the hidden fourth floor possible when pollution reaches 80%.
+1. 开场全黑 2 秒，之后显出黑水和较暗的白光门。初始门距为 29.5 米，正常步速约 8–9 秒路程；开场有效计时到 6.5 秒时开始敲门，完整录音约 6.243 秒。听完并靠近后按 F，镜头随门开启向内推进，经短淡黑进入地下室。
+2. 地下室共五轮。每轮下楼，在真实 CRT 屏幕内浏览帖子、拾字、组句、投稿，然后退出屏幕，向当前 NPC 交付本轮成功投稿。已有字可以反复使用。
+3. 第 1 轮解锁手机“信号瀑布”，第 3 轮解锁“笔记本”。第 2、4、5 轮仍需交付，第 5 轮不再授予新 App。
+4. 交付后靠近左后方普通出口门按 F。门开时镜头持续推进，前四轮衔接下一轮楼梯入口；第五轮门内呈现真实十字路口视图，并进入该空间。循环没有黑隧道、白光门或白闪。
+5. 空旷十字路口的远门核验五轮完成与两款 App 权限，开门穿过后进入第二层。到达新楼层显示约 2.6 秒的大号无衬线标题，仍能看见世界画面。
 
-Each day has five effective actions. Navigation, window movement, preview placement, and editing do not spend actions.
+资金、每日行动限制、巴别塔 App、资源栏、自动播放和历史入口已移除。污染继续在后台影响语言和后续楼层，玩家界面不显示数值；后续推进在有效交互完成时检查。旧版隐藏物品与应用权限分别保存，不互相替代。
 
-After the fifth normal action, the inline action pulse hands off to a 3.6-second internationalist day transition before settlement restores five actions. The one-time 60% pollution flashback runs its own deterministic 3.55-second eight-beat sequence (frozen current frame, doll/doctor attribution swap over an identical protected sentence, triple echo, residue return, unregistered-area pre-memory) driven by `scripts/ui/pollution_flashback_director.gd`, then settles the day directly without stacking this transition. Its phase table, WCAG flash budget, and protected sentences are verified by `res://tests/test_flashback_sequence.gd`.
+笔记本字块松手后从当前位置继续参与物理模拟；CRT 与手机共享字库、句子、规则和保存位置。拾字高亮与正文同字号，滚轮已加快。设置支持中、英、日切换，全局 VHS 与 CRT 局部 VHS 独立控制。
 
-The phone launcher keeps three Apps in separate movable windows: Tower, Social, and Notebook. The social App uses a tall phone layout with an image-first, equal-width two-column feed, a separate draggable post-detail companion, and a mobile publish flow ordered as content, outcome preview, and signal hand. Following accounts and liking posts from Discover are free and persist across days; Nearby remains unavailable because the device has no location signal.
+## 房间变化
 
-The meme bank is a right-edge radial selector that appears contextually on the social Publish page and beside the notebook. Completed memes sit on the ring and can be selected with the mouse wheel, a Mac trackpad pan, clicking, or drag and drop. The notebook opens at the upper left and separates frame crafting from two-meme fusion with browser-style tabs.
+| 轮次 | 当前异常 |
+| --- | --- |
+| 1 | 正常灯光、单个墙钟 |
+| 2 | 进屋后短暂闪灯约 3.6 秒，然后恢复 |
+| 3 | 进屋后停电，可在墙上开关按 F 重新开灯；CRT 绿光保留 |
+| 4 | CRT 附近出现 18 个钟组成的钟墙 |
+| 5 | 墙钟缺半边，缺失的手写数字只在手势 X-ray 窗口内显示 |
 
-## Reality Controls
+每轮出口小桌出现花瓶或书，随每局种子变化，同一存档保持一致。三个 X-ray 出口箭头继续保留，普通画面不可见。
 
-- `WASD` or arrow keys: move freely through the shared street and its open lots.
-- Mouse: lowering the phone captures the cursor for free look; opening Settings releases it, and closing Settings restores gameplay control.
-- Touchscreen: drag across the open reality view to turn and tilt the camera without spending an action.
-- Mac trackpad: two-finger pan follows the physical finger direction; sliding left looks left and sliding down looks down.
-- `F`: interact with the nearby NPC, doll, or revealed prerequisite object. At the opening white door, wait for the knock to finish, approach until the open-door prompt appears, then press `F` to begin the automatic door transition.
-- `Tab`: raise or lower the phone; unavailable during the opening and enabled from the basement onward.
-- `Esc` or `F10`: open or close Settings at any time, including the opening transition. Settings pauses the opening countdown, knock, and transition; closing it resumes the interrupted sequence. Return to Main Menu stays in the fixed bottom footer and cancels the opening audio and animation.
-- `F9`: show or hide the development panel when launched with `--chapter1-dev`; showing it releases the cursor, and hiding it restores mouse look.
+## 启动与操作
 
-The opening knock begins after 10 seconds of active player control and lasts about 6.243 seconds. After it finishes, `F` at the door frames the full door, opens it, fades to black, and enters the basement; walking through the doorway is not required. A saved completed knock does not replay on Continue. Saving before it completes restarts the 10-second wait when that save is loaded. See [the chapter-one integration guide](docs/chapter1-integration.md) for sequence timings, development flow, and audio licensing.
+主场景为 `res://scenes/babel_meme_game.tscn`。在 Godot 4.6.3 导入仓库根的 `project.godot`，或在本机 PowerShell 运行：
 
-The first floor starts with four open street lots along a continuous street at least 230 meters long. Floor two is a near-black irregular disc shaped by broad, walkable hill mounds and scattered detached houses. Floor three is a naturally skylit green-gray gallery whose complete ground is covered by one batched meadow. Floors 1-3 retain their established geography; floor 4 is an unregistered hidden area. All floors keep tested collision, fall recovery, fixed-focus distance blur, cold fog, and no jump-scare trigger volumes.
+~~~powershell
+& 'D:\aphasia\Start-Aphasia.ps1'
+# 独立开发存档，F9 显示开发面板：
+& 'D:\aphasia\Start-Chapter1-Dev.ps1'
+~~~
 
-NPCs use front-facing faceless source portraits at the player's eye line. A separate animated 56 px black-marker layer redraws over the blank face while preserving the original portrait, color, and billboard transform. The stitched cat guide keeps the player's original artwork intact and is never covered by the NPC face effect. Once on every floor, a faceless image watcher may appear beside physical cover, play a 2.45-second non-looping cue, retreat when approached, and remain gone on that floor after saving.
+WASD/方向键移动，鼠标转向，F 交互，Tab 开关手机或退出 CRT，Esc/F10 打开设置。设置暂停开场计时、敲门及门/CRT 镜头；返回主菜单取消当前流程。Win/Alt-Tab 失焦释放鼠标，返回后点击游戏恢复视角。CRT 需靠近才能进入，进出均有缓动镜头。其他电脑配置见 [Windows 启动说明](support/windows_workspace/README.md)。
 
-## Adaptive Score
+## 继续制作
 
-The preserved 96-second reality loop is paired with a distinct 96-second phone loop for each active tower floor. Floors 1-4 use separate original signal arrangements. A five-note `E-G-B-F#-A` motif gives the score a recognizable identity while each floor changes its sound palette and structure. All source audio is deterministic local synthesis with no external samples or transcribed melody.
+| 工作 | 入口 |
+| --- | --- |
+| 五轮状态、权限与旧存档 | [meme_game_state.gd](scripts/meme_game_state.gd)、[basement_loop_director.gd](scripts/progression/basement_loop_director.gd) |
+| 场景、门和十字路口连接 | [chapter_world.gd](scripts/world/chapter_world.gd)、[chapter_door_transition.gd](scripts/world/chapter_door_transition.gd) |
+| 灯、钟、陈设和材质修补 | [basement_atmosphere.gd](scripts/world/basement_atmosphere.gd) |
+| UI、CRT 和字词物理 | [babel_meme_game.gd](scripts/babel_meme_game.gd)、[chapter_terminal_session.gd](scripts/ui/chapter_terminal_session.gd)、[word_physics_canvas.gd](scripts/ui/word_physics_canvas.gd) |
+| 正式任务与视频接入 API | [第一章接入说明](docs/chapter1-integration.md) |
+| 可编辑 Blender 源文件 | [source_assets/blender_basement_loop_v2](source_assets/blender_basement_loop_v2/README.md) |
+| 文字主稿与接入笔记 | [docs/narrative](docs/narrative/README.md) |
+| 原企划、流程原稿与房型草图 | [docs/design_originals](docs/design_originals/) |
 
-Regenerate or verify the committed score with NumPy available:
+原 Blender、GLB、旧文档和文字稿均保留。本轮房间修补、陈设和异常由运行时代码生成；游戏画面不能视为已经回写到 Blender 的版本。换模型时保留门轴、碰撞、锚点、独立 4:3 屏幕 UV 和 X-ray 标记，并同步 [资产合同](assets/chapter1/asset_contract.json)。五轮沿用已有角色贴图和对话，正式新任务正文与用户视频仍待接入。
 
-```sh
-python3 tools/generate_music_stems.py
-python3 tools/generate_music_stems.py --verify
-```
+## 验证和声音来源
 
-Reality conversations use a cursor-driven three-choice surface. Every ordinary NPC carries a three-turn arc that adds concrete district history and can be interrupted by failed understanding. Hovering previews the full clean intention; after selecting, any physical key reveals one language-aware unit. Pollution replaces units with red signal glyphs, while legacy phrases are inserted automatically. The first completed sentence costs one action and the remaining turns are free. NPC dialogue affects language, funds, and authored clue progress; it never grants a random Meme Frame.
+当前验证记录与渲染证据汇入 [2026-10-10 交接目录](docs/handoff/2026-10-10/)。主要回归入口为 `test_revision_progression.gd`、`test_ui_revision_regressions.gd`、`test_notebook_canvas_reload.gd`、`test_word_physics_canvas.gd`、`test_chapter_terminal_flow.gd`、`test_chapter_tunnel_flow.gd` 和 `test_opening_door_flow.gd`；其中 tunnel 测试文件名是历史名称，当前验证普通门接续。
 
-Meme Frames come only from physical doll discoveries. Each floor's doll has three authored intentions, stable encounter identity, one-time reward provenance, and save-state locking. Ordinary NPCs never sell or randomly drop a frame.
+~~~powershell
+& 'D:\aphasia\tools\godot-4.6.3\Godot_v4.6.3-stable_win64_console.exe' --headless --path 'D:\aphasia\meme-game' --log-file 'D:\aphasia\meme-game\artifacts\revision_progression.log' --script res://tests/test_revision_progression.gd
+~~~
 
-The notebook now hosts a Duolingo-style free composer: collected units sit in a bank whose slots never reflow (a placed unit leaves a ghost), tap-to-place builds a sentence with no fixed grammar slots, tapping an answer tile withdraws it, and a post can go out at any length for one action. Every post gets one of three world responses — a submitted sentence that parses into the supported rule table (`scripts/narrative/rule_engine.gd`: dictionary max-match merge, then subject × predicate × polarity extraction, Baba-style canonical rule strings with negation override) becomes a standing world rule; a recognizable-but-unsupported sentence is misread; anything else returns as noise. Active rules are listed in the notebook.
+真实摄像头识别、用户视频解码、Windows 系统键和耳机混音仍需实机体验；部分主场景测试退出时仍有 RID/ObjectDB 清理诊断。旧测试中的每日预算或三 App 断言不能作为现行规格。
 
-Rules are how the ultimate tasks resolve: floor 3 ends only after 门可以打开 (or its ja/en equivalent) holds — the sealed door prop retires and an open frame appears — and the hidden floor 4 ending unlocks only after 出口存在 makes the exit frame exist. Rules written early are redeemed on arrival; achieved tasks stay latched even if the rule is later negated. Finishing floor 3 without every prerequisite object enters the normal ending, even at 80% pollution. Reaching 80% after collecting all three revealed objects enters the hidden fourth floor and its special ending route. Neither route displays a hidden-condition checklist to the player.
-
-The stitched guide doll now also lives in a persistent draggable overlay (fold-only, never closable) that carries the tutorial lines and floor-task hints from the first frame to the last.
-
-## Localization and Saves
-
-The first launch opens a native-name language choice for Chinese, Japanese, and English before the main menu. Language can be changed again in Settings without restarting the run. Settings also provides manual save, audio, visual, and camera controls. During gameplay, `退出游戏` exists only in the fixed Settings system footer. Its only authored interruption is `真的要抛弃我吗？`; the exit commands never corrupt. At high pollution the volume label may change, but its slider remains visible and adjustable.
-
-Chinese remains the authored source language. English and Japanese use audited catalogs covering UI, feed posts, NPC dialogue, floor events, legacy phrases, ending copy, and formatted runtime messages. English collection and corruption operate on complete words, Japanese collection preserves kanji compounds, kana groups, loanwords, and numbered nouns, and Chinese retains character-level rhythm. `res://tests/test_localization.gd` scans the three gameplay scripts for untranslated Chinese literals in addition to exercising the first-run selector and settings controls.
-
-## Run
-
-Open this folder in Godot 4.6 or newer. The main scene is:
-
-```text
-res://scenes/babel_meme_game.tscn
-```
-
-On this machine, the project can be launched with:
-
-```sh
-/Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot --path /Users/zhang/Documents/游戏/babel-meme-game
-```
-
-## Tests
-
-Run the headless state tests with:
-
-```sh
-HOME=/Users/zhang/Documents/游戏/.godot_home /Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot --headless --path /Users/zhang/Documents/游戏/babel-meme-game --script res://tests/test_meme_game_state.gd
-```
-
-The rendered publish-layout capture tool is `res://tools/capture_publish_scene.gd`.
-Set `BABEL_CAPTURE_FLOOR=1`, `2`, or `3` and run `res://tools/capture_reality_district.gd` from a rendered Godot session to capture each district. Add `BABEL_CAPTURE_OVERVIEW=1` on floor two for the elevated structural QA view. Run `res://tools/capture_meme_bank_motion.gd` to save closed, opening, and open frames plus the measured scale/alpha trace. The generated-floor regression test is `res://tests/test_reality_world.gd`, and the transition/context test is `res://tests/test_day_transition.gd`. Doll evidence is captured by `capture_doll_discovery.gd`, `capture_doll_dialogue.gd`, and `capture_doll_reward.gd`.
-
-Run the localization audit with `res://tests/test_localization.gd`. It verifies catalog parity, dynamic format strings, language-specific text units, first-run language selection, settings language switching, and source-literal coverage.
-
-Run `res://tests/test_pickup_char_flow.gd` for the social pickup system: per-locale pool integrity (every unit seeded in a post, subject/verb/object words ≥2, rule-engine coverage), daily first-pickup action pricing, save round-trips, in-post highlight/gray states, comment sections, the notebook character bank, and the deterministic pickup flight layer.
-
-Run `res://tests/test_rule_engine.gd` for the sentence rule engine: dictionary merge, the three response tiers, free word order, negation polarity, and an exhaustive enumeration of every ≤3-word player sentence in all three locales proving the reachable rule set equals the supported table. Run `res://tests/test_sentence_composer.gd` for the composer state machine, posting economy, ultimate-task latching (including early rules redeemed on arrival and negation never revoking an achieved task), save round-trips, the doll guide overlay, and the floor 3/4 door and exit props.
-
-Run `res://tests/test_reality_world.gd` for continuous architecture, authored NPC population, suspense lighting, walkable clearance, and zero jump-scare trigger volumes.
-
-Reality floors two through four also use a deterministic, floor/day-authored horror table. Movement and camera observation drive a finite light failure, a one-letter EXIT-sign absence, and a transparent distant mirage scheduled only on days four and nine. `res://tests/test_authored_horror_events.gd` verifies the state sequences and confirms that no event is an `Area3D` jump-scare trigger.
-
-The requirement-to-evidence audit and rendered capture paths are recorded in `docs/goal_completion_matrix.md`.
-
-## Third-party Addon
-
-`addons/richtext2/` contains RichTextLabel2 v1.14 by chairfull under the MIT license. Its license is preserved at `addons/richtext2/LICENSE`.
+背景乐保留本地合成的 96 秒循环，生成与校验入口为 `tools/generate_music_stems.py`；本轮播放音量降低 5 dB。新增地毯实录脚步来源和许可见 [assets/audio/foley](assets/audio/foley/)，敲门许可见 [opening_door_knock.LICENSE.txt](assets/audio/sfx/opening_door_knock.LICENSE.txt)。研究出处见 [reference-research.md](docs/handoff/2026-10-10/reference-research.md)。RichTextLabel2 插件的 MIT 许可保存在 [addons/richtext2/LICENSE](addons/richtext2/LICENSE)。

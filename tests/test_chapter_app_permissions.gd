@@ -2,7 +2,7 @@ extends SceneTree
 
 const State = preload("res://scripts/meme_game_state.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
-const APPS := ["social", "notebook", "babel"]
+const APPS := ["social", "notebook"]
 const OLD_ITEMS := ["chapter1_gate_item_01", "chapter1_gate_item_02", "chapter1_gate_item_03"]
 var failures: Array[String] = []
 
@@ -33,18 +33,17 @@ func _test_default_rewards_and_gate() -> void:
 	var progress := _basement()
 	_check(progress.get("unlocked_app_ids", []) == [], "the phone starts with no unlocked chapter apps")
 	for index in range(5):
-		var expected_reward: Array = [APPS[index / 2]] if index % 2 == 0 else []
+		var expected_reward: Array = ["social"] if index == 0 else (["notebook"] if index == 2 else [])
 		_check(Director.get_current_round(progress).get("reward_app_ids", []) == expected_reward, "round %d exposes its configured app reward" % (index + 1))
 		progress = _event(progress, "entrance_threshold_crossed", {"round_token": progress.transition_serial})
 		var payload := _help(progress)
 		progress = _event(progress, "npc_help_completed", payload)
-		var expected_apps: Array = APPS.slice(0, index / 2 + 1)
-		_check(progress.get("unlocked_app_ids", []) == expected_apps, "rounds one, three and five unlock social, notebook and babel")
+		var expected_apps: Array = ["social"] if index < 2 else APPS.duplicate()
+		_check(progress.get("unlocked_app_ids", []) == expected_apps, "rounds one and three unlock the two retained apps; fifth help remains required")
 		_check(progress.get("gate_item_ids", []) == [], "new help completion must no longer issue old gate items")
 		_check(not Director.dispatch(progress, "npc_help_completed", payload).accepted, "duplicate help cannot issue permissions twice")
 		_check(not Director.dispatch(progress, "crossroads_gate_requested").accepted, "all five visits are required even when apps have already unlocked")
 		var old_token: int = progress.transition_serial
-		progress = _event(progress, "basement_tunnel_entered", {"round_token": old_token})
 		progress = _event(progress, "basement_exit_requested", {"round_token": old_token})
 		_check(not Director.dispatch(progress, "npc_help_completed", payload).accepted, "a stale help callback cannot unlock a new visit")
 	_check(progress.phase == "crossroads", "five visits still lead to the crossroads")
@@ -65,7 +64,6 @@ func _test_custom_rewards_and_legacy_migration() -> void:
 	progress = _event(progress, "opening_door_opened")
 	progress = _complete(progress)
 	_check(progress.get("unlocked_app_ids", []) == [], "a custom mapping removes the default first-round reward")
-	progress = _event(progress, "basement_tunnel_entered", {"round_token": progress.transition_serial})
 	progress = _event(progress, "basement_exit_requested", {"round_token": progress.transition_serial})
 	progress = _complete(progress)
 	_check(progress.get("unlocked_app_ids", []) == APPS, "custom rewards support all known app IDs and deduplicate")
@@ -111,9 +109,10 @@ func _test_phone_entry_and_terminal_scope() -> void:
 	_check(state.active_app_window.is_empty(), "raising the phone cannot automatically reopen a locked active app")
 	state.chapter1_progress = _basement()
 	for app_id in APPS:
-		_check(state.can_use_app(app_id, "terminal"), "basement terminal grants temporary access to all three apps")
+		_check(state.can_use_app(app_id, "terminal"), "basement terminal grants temporary access to both retained apps")
 		_check(bool(state.call("set_active_app", app_id, "terminal")), "terminal selection is accepted inside the basement")
 		_check(state.active_app_window.is_empty() and not state.is_phone_app_unlocked(app_id), "terminal selection must not open or unlock a phone window")
+	_check(not state.can_use_app("babel", "terminal") and not state.is_phone_app_unlocked("babel") and not state.set_active_app("babel"), "removed Babel is inaccessible on both surfaces")
 	_check(not state.can_use_app("unknown", "terminal") and not state.can_use_app("social", "unknown"), "unknown apps and contexts are denied")
 	state.chapter1_progress = _complete(state.chapter1_progress)
 	_check(bool(state.call("set_active_app", "social")) and state.active_app_window == "social", "earned permission enables direct phone selection")
@@ -136,11 +135,12 @@ func _test_save_permissions_and_hidden_inventory_are_independent() -> void:
 	var saved: Dictionary = state.to_save_data()
 	saved.state.active_app = "babel"
 	saved.state.active_app_window = "babel"
+	saved.state.phone_open = true
 	saved.state.chapter1_progress.unlocked_app_ids = ["social", "social", "babel", 5, "unknown"]
 	var restored = State.new()
 	_check(restored.load_save_data(saved), "permission state remains compatible with the existing save format")
 	_check(restored.chapter1_progress.unlocked_app_ids == ["social"], "save normalization removes duplicate and unearned permissions")
-	_check(restored.active_app_window.is_empty(), "loading clears a locked app window")
+	_check(restored.active_app == "social" and restored.active_app_window == "social", "loading migrates retired Babel to the earned social app")
 	_check(restored.collected_prerequisite_item_ids == hidden_items, "app rewards do not mutate old hidden-ending inventory")
 	_check(restored.collected_char_units == state.collected_char_units and restored.notebook_tokens.size() == 1, "phone and terminal retain the one shared saved word inventory")
 	_check(not restored.is_phone_app_unlocked("babel"), "old hidden items cannot unlock phone apps")
@@ -163,7 +163,6 @@ func _test_basement_practice_does_not_exhaust_actions() -> void:
 		_check(state.chapter1_progress.completed_task_ids.size() == visit, "practice action counts must not complete NPC help")
 		_check(state.actions_remaining == initial_actions and not state.needs_day_settlement, "basement practice preserves the normal daily action budget")
 		state.chapter1_progress = _complete(state.chapter1_progress)
-		state.chapter1_progress = _event(state.chapter1_progress, "basement_tunnel_entered", {"round_token": state.chapter1_progress.transition_serial})
 		state.chapter1_progress = _event(state.chapter1_progress, "basement_exit_requested", {"round_token": state.chapter1_progress.transition_serial})
 	_check(state.published_memes.size() == 10 and state.collected_char_units.size() == 1, "practice keeps normal shared publication and collection records")
 	_check(state.spend_action("crossroads-practice") and state.actions_remaining == initial_actions, "the tutorial budget stays free through the crossroads")
@@ -177,9 +176,9 @@ func _test_basement_practice_does_not_exhaust_actions() -> void:
 	_check(state.actions_remaining == 0 and not state.needs_day_settlement, "zero-budget practice must not schedule a day settlement")
 	state.needs_day_settlement = true
 	state.day_ended_reason = "prior-record"
-	_check(state.spend_action("practice-retry") and state.needs_day_settlement and state.day_ended_reason == "prior-record", "practice does not erase an existing pending settlement record")
+	_check(state.spend_action("practice-retry") and not state.needs_day_settlement and state.day_ended_reason.is_empty(), "an action clears a retired settlement lock")
 	state.chapter1_progress = _event(_crossroads(), "crossroads_gate_requested")
-	_check(not state.can_spend_action() and not state.spend_action("tower-action"), "tower restores legacy exhausted-budget behavior")
+	_check(state.can_spend_action() and state.spend_action("tower-action") and not state.needs_day_settlement, "tower actions remain unlimited even with an exhausted legacy counter")
 
 
 func _test_basement_pollution_preserves_day_budget() -> void:
@@ -201,7 +200,7 @@ func _test_basement_pollution_preserves_day_budget() -> void:
 	state.needs_day_settlement = false
 	state.pollution = 59
 	state.change_pollution(1)
-	_check(state.actions_remaining == 0 and state.needs_day_settlement and state.day_ended_reason == "pollution-flashback", "the same crossing in the tower retains ordinary forced settlement")
+	_check(state.actions_remaining == 2 and not state.needs_day_settlement, "tower pollution queues its story effect without consuming actions or scheduling a day")
 	_check(state.pollution_flashback_pending and state.pollution_flashback_seen, "tower pollution still queues its existing once-per-run flashback")
 
 
@@ -220,72 +219,49 @@ func _test_crossroads_practice_preserves_day_budget() -> void:
 	_check(not record.has("chapter_task_id") and not record.has("chapter_round_token"), "crossroads phone submissions do not receive basement task provenance")
 	_check(state.notify_chapter1("crossroads_gate_requested").accepted, "earned permissions still open the tower after repeated crossroads practice")
 	_check(state.day == original_day and state.actions_remaining == 5, "opening the tower gate never advances the day or alters the preserved budget")
-	_check(state.spend_action("tower-action") and state.actions_remaining == 4, "ordinary action charging resumes only inside the tower")
+	_check(state.spend_action("tower-action") and state.actions_remaining == 5, "tower actions remain unlimited after the chapter")
 
 
 func _test_old_chapter_budget_migration() -> void:
-	for phase in ["basement", "crossroads"]:
-		var source = State.new()
-		source.new_run()
-		source.chapter1_progress = _complete(_basement()) if phase == "basement" else _crossroads()
-		source.day = 4
-		source.pollution = 77
-		source.actions_remaining = 0
-		source.needs_day_settlement = true
-		source.day_ended_reason = "pollution-flashback"
-		source.pollution_flashback_pending = true
-		source.pollution_flashback_seen = true
-		var old_save: Dictionary = JSON.parse_string(JSON.stringify(source.to_save_data()))
-		var raw: Dictionary = old_save.state.chapter1_progress
-		raw.erase("unlocked_app_ids")
-		raw.reward_config.erase("task_app_unlocks")
-		var expected_progress := Director.normalize_progress(raw)
-		var restored = State.new()
-		_check(restored.load_save_data(old_save), "old %s chapter save loads through its ordinary serialized envelope" % phase)
-		_check(restored.day == 4 and restored.tower_floor == source.tower_floor and restored.actions_remaining == 5, "old exhausted %s chapter recovers its normal budget without advancing day or tower" % phase)
-		_check(not restored.needs_day_settlement and restored.day_ended_reason.is_empty() and not restored.pollution_flashback_pending, "old %s tutorial pending settlement and flashback are cleared by compatibility migration" % phase)
-		_check(restored.pollution == 77 and restored.pollution_flashback_seen and restored.chapter1_progress == expected_progress, "budget migration preserves shared pollution, seen flashback and exactly the earned normalized chapter rewards")
-		var again = State.new()
-		again.load_save_data(restored.to_save_data())
-		_check(again.actions_remaining == 5 and again.day == 4 and again.chapter1_progress == restored.chapter1_progress, "budget compatibility migration is stable after a new-schema save and reload")
-		var new_schema = State.new()
-		new_schema.load_save_data(source.to_save_data())
-		_check(new_schema.actions_remaining == 0 and new_schema.needs_day_settlement and new_schema.pollution_flashback_pending, "explicit exhausted new-schema state is preserved rather than silently refilled")
-		for changed_field in ["unlocked_app_ids", "task_app_unlocks", "phase", "needs_day_settlement", "actions_remaining"]:
-			var excluded := old_save.duplicate(true)
-			match changed_field:
-				"unlocked_app_ids":
-					excluded.state.chapter1_progress.unlocked_app_ids = []
-				"task_app_unlocks":
-					excluded.state.chapter1_progress.reward_config.task_app_unlocks = Director.DEFAULT_TASK_APP_UNLOCKS.duplicate(true)
-				"phase":
-					excluded.state.chapter1_progress.phase = "opening"
-				"needs_day_settlement":
-					excluded.state.needs_day_settlement = false
-				"actions_remaining":
-					excluded.state.actions_remaining = 2
-			var untouched = State.new()
-			untouched.load_save_data(excluded)
-			_check(untouched.actions_remaining == excluded.state.actions_remaining and untouched.needs_day_settlement == excluded.state.needs_day_settlement and untouched.pollution_flashback_pending, "budget migration excludes saves outside its explicit boundary: %s" % changed_field)
-		old_save.state.max_actions_per_day = 7
-		var custom_budget = State.new()
-		custom_budget.load_save_data(old_save)
-		_check(custom_budget.actions_remaining == 7, "old chapter migration restores the saved normal daily maximum rather than a hard-coded five")
-	var ordinary = State.new()
-	ordinary.new_run()
-	ordinary.actions_remaining = 0
-	ordinary.needs_day_settlement = true
-	ordinary.day_ended_reason = "free-sentence-publish"
-	var legacy = State.new()
-	legacy.load_save_data(ordinary.to_save_data())
-	_check(legacy.actions_remaining == 0 and legacy.needs_day_settlement and legacy.day_ended_reason == "free-sentence-publish", "ordinary legacy saves retain their real day settlement unchanged")
-	ordinary.chapter1_progress = _event(_crossroads(), "crossroads_gate_requested")
-	ordinary.tower_floor = 2
-	var old_tower := ordinary.to_save_data()
-	old_tower.state.chapter1_progress.erase("unlocked_app_ids")
-	old_tower.state.chapter1_progress.reward_config.erase("task_app_unlocks")
-	legacy.load_save_data(old_tower)
-	_check(legacy.actions_remaining == 0 and legacy.needs_day_settlement and legacy.tower_floor == 2 and legacy.chapter1_progress.phase == "tower", "old-schema chapter saves already in the tower retain ordinary exhausted-budget behavior")
+	# Every supported route discards retired resource locks, including old tower
+	# saves. Story pollution and independently earned chapter progress survive.
+	for phase in ["legacy", "opening", "basement", "crossroads", "tower"]:
+		for old_app_schema in [false, true]:
+			var source = State.new()
+			source.new_run()
+			match phase:
+				"opening": source.start_chapter1()
+				"basement": source.chapter1_progress = _complete(_basement())
+				"crossroads": source.chapter1_progress = _crossroads()
+				"tower": source.chapter1_progress = _event(_crossroads(), "crossroads_gate_requested")
+			source.day = 4
+			source.pollution = 77
+			source.actions_remaining = 0
+			source.max_actions_per_day = 7
+			source.money = 99
+			source.autoplay_enabled = true
+			source.needs_day_settlement = true
+			source.day_ended_reason = "pollution-flashback"
+			source.pollution_flashback_pending = true
+			source.pollution_flashback_seen = true
+			source.draft_slots = {"subject": "saved-word"}
+			var saved: Dictionary = JSON.parse_string(JSON.stringify(source.to_save_data()))
+			var raw: Dictionary = saved.state.chapter1_progress
+			if old_app_schema and not raw.is_empty():
+				raw.erase("unlocked_app_ids")
+				raw.reward_config.erase("task_app_unlocks")
+			var expected_progress: Dictionary = Director.normalize_progress(raw) if not raw.is_empty() else {}
+			var restored = State.new()
+			_check(restored.load_save_data(saved), "%s save loads with old_app_schema=%s" % [phase, old_app_schema])
+			_check(restored.actions_remaining == 7 and restored.can_spend_action() and not restored.needs_day_settlement and restored.day_ended_reason.is_empty(), "retired action locks cannot block any restored route")
+			_check(restored.money == 0 and not restored.autoplay_enabled, "restoring never reactivates removed money or autoplay")
+			_check(restored.day == 4 and restored.pollution == 77 and restored.pollution_flashback_seen, "resource migration preserves story time and background pollution")
+			_check(restored.chapter1_progress == expected_progress and restored.draft_slots == source.draft_slots, "resource migration preserves earned progression and an unfinished notebook draft")
+			var obsolete_tutorial_flashback: bool = old_app_schema and phase in ["basement", "crossroads"]
+			_check(restored.pollution_flashback_pending != obsolete_tutorial_flashback, "only obsolete tutorial flashbacks are cleared; ordinary story effects survive")
+			var again = State.new()
+			again.load_save_data(restored.to_save_data())
+			_check(again.chapter1_progress == restored.chapter1_progress and again.pollution == 77 and again.day == 4 and not again.needs_day_settlement, "new-schema save/load remains stable after migration")
 
 
 func _test_submission_belongs_to_current_visit_and_survives_save() -> void:
@@ -306,7 +282,6 @@ func _test_submission_belongs_to_current_visit_and_survives_save() -> void:
 	_check(restored.load_save_data(JSON.parse_string(JSON.stringify(state.to_save_data()))), "submission state roundtrips through an actual JSON save")
 	_check(bool(restored.call("has_current_chapter_submission")), "continuing a save retains the current expression for delivery")
 	state.chapter1_progress = _complete(state.chapter1_progress)
-	state.chapter1_progress = _event(state.chapter1_progress, "basement_tunnel_entered", {"round_token": state.chapter1_progress.transition_serial})
 	state.chapter1_progress = _event(state.chapter1_progress, "basement_exit_requested", {"round_token": state.chapter1_progress.transition_serial})
 	_check(not bool(state.call("has_current_chapter_submission")), "the previous visit's submission cannot satisfy the new NPC")
 	for invalid in [
@@ -337,7 +312,6 @@ func _crossroads() -> Dictionary:
 	var progress := _basement()
 	for index in range(5):
 		progress = _complete(progress)
-		progress = _event(progress, "basement_tunnel_entered", {"round_token": progress.transition_serial})
 		progress = _event(progress, "basement_exit_requested", {"round_token": progress.transition_serial})
 	return progress
 

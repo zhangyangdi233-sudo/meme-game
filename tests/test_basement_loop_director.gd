@@ -4,7 +4,7 @@ const DIRECTOR_PATH := "res://scripts/progression/basement_loop_director.gd"
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const TASK_IDS := ["basement_help_01", "basement_help_02", "basement_help_03", "basement_help_04", "basement_help_05"]
 const ITEM_IDS := ["chapter1_gate_item_01", "chapter1_gate_item_02", "chapter1_gate_item_03"]
-const APP_IDS := ["social", "notebook", "babel"]
+const APP_IDS := ["social", "notebook"]
 var _failures: Array[String] = []
 var _director: Script
 
@@ -21,6 +21,7 @@ func _init() -> void:
 		test_rewards_are_configurable_and_idempotent()
 		test_corrupted_progress_never_grants_prerequisites()
 		test_every_stage_survives_json_and_state_save()
+		test_retired_tunnel_save_normalizes_to_ordinary_door()
 	test_legacy_state_is_opt_in_and_independent()
 	if _failures.is_empty():
 		print("basement loop director tests passed")
@@ -116,14 +117,13 @@ func test_five_visits_require_sealing_and_current_help() -> void:
 		_assert_rejected(progress, "npc_help_completed", stale_help, "stale help cannot complete another visit")
 		progress = _accept(progress, "npc_help_completed", payload, "help_completed")
 		_assert_rejected(progress, "npc_help_completed", payload, "duplicate help cannot duplicate completion or rewards")
-		progress = _accept(progress, "basement_tunnel_entered", {"round_token": token}, "basement_tunnel_entered")
 		_assert_rejected(progress, "basement_exit_requested", {"round_token": token - 1}, "stale exits cannot advance")
 		progress = _accept(progress, "basement_exit_requested", {"round_token": token}, "basement_loop" if round_index < 4 else "enter_crossroads")
 		_assert_rejected(progress, "basement_exit_requested", {"round_token": token}, "duplicate exits cannot skip a round")
 	_assert_eq(progress.get("phase"), "crossroads", "the fifth successful exit reaches the crossroads")
 	_assert_eq(progress.get("round_index"), 4, "the fifth round remains the final round index")
 	_assert_eq(progress.get("completed_task_ids"), TASK_IDS, "all five distinct helpers must be recorded")
-	_assert_eq(progress.get("unlocked_app_ids"), APP_IDS, "development app permissions arrive on rounds one, three and five")
+	_assert_eq(progress.get("unlocked_app_ids"), APP_IDS, "development app permissions arrive on rounds one and three")
 	_assert_eq(progress.get("gate_item_ids"), [], "new rewards no longer grant old gate items")
 	_assert_eq(progress.get("transition_serial"), 6, "each scene transition invalidates old callbacks")
 	_assert_eq(_director.get_current_round(progress), {}, "there is no active NPC outside the basement")
@@ -137,7 +137,7 @@ func test_gate_requires_all_tasks_and_exact_apps() -> void:
 		incomplete.unlocked_app_ids.erase(missing_app)
 		incomplete.unlocked_app_ids.append("unrelated_app")
 		incomplete.gate_item_ids = ITEM_IDS.duplicate()
-		_assert_rejected(incomplete, "crossroads_gate_requested", {}, "old items or arbitrary app IDs cannot substitute for the three app permissions")
+		_assert_rejected(incomplete, "crossroads_gate_requested", {}, "old items or arbitrary app IDs cannot substitute for the two app permissions")
 	var incomplete_tasks := progress.duplicate(true)
 	incomplete_tasks.completed_task_ids.erase(TASK_IDS[2])
 	_assert_rejected(incomplete_tasks, "crossroads_gate_requested", {}, "the gate also requires every helper")
@@ -154,7 +154,6 @@ func test_rewards_are_configurable_and_idempotent() -> void:
 	progress = _accept(progress, "opening_door_opened", {}, "enter_basement")
 	progress = _complete_current_round(progress)
 	_assert_eq(progress.unlocked_app_ids, [], "a configured unrewarded task grants nothing")
-	progress = _accept(progress, "basement_tunnel_entered", {"round_token": progress.transition_serial}, "basement_tunnel_entered")
 	progress = _accept(progress, "basement_exit_requested", {"round_token": progress.transition_serial}, "basement_loop")
 	progress = _complete_current_round(progress)
 	_assert_eq(progress.unlocked_app_ids, APP_IDS, "a configured task can award the specified app permissions")
@@ -217,8 +216,6 @@ func test_every_stage_survives_json_and_state_save() -> void:
 		_check_roundtrip(state)
 		state.notify_chapter1("npc_help_completed", _help_payload(state.chapter1_progress))
 		_check_roundtrip(state)
-		state.notify_chapter1("basement_tunnel_entered", {"round_token": state.chapter1_progress.transition_serial})
-		_check_roundtrip(state)
 		state.notify_chapter1("basement_exit_requested", {"round_token": state.chapter1_progress.transition_serial})
 		_check_roundtrip(state)
 	state.notify_chapter1("crossroads_gate_requested")
@@ -233,6 +230,17 @@ func test_every_stage_survives_json_and_state_save() -> void:
 	state.chapter1_progress.unlocked_app_ids.clear()
 	var normalized_save: Dictionary = state.to_save_data()
 	_assert_eq(normalized_save.state.chapter1_progress.phase, "crossroads", "serialization also validates chapter state before persisting it")
+
+
+func test_retired_tunnel_save_normalizes_to_ordinary_door() -> void:
+	var old_tunnel := _complete_current_round(_basement_progress())
+	old_tunnel.exit_tunnel_entered = true
+	var normalized: Dictionary = _director.normalize_progress(old_tunnel)
+	_assert_eq(normalized.exit_tunnel_entered, false, "old tunnel flag cannot restore a removed corridor")
+	_assert_eq(normalized.completed_task_ids, old_tunnel.completed_task_ids, "retiring tunnel checkpoint preserves completed help")
+	_assert_eq(normalized.transition_serial, old_tunnel.transition_serial, "migration never skips a visit")
+	var next := _accept(normalized, "basement_exit_requested", {"round_token": normalized.transition_serial}, "basement_loop")
+	_assert_eq(next.round_index, 1, "ordinary door advances directly without a tunnel checkpoint")
 
 
 func test_legacy_state_is_opt_in_and_independent() -> void:
@@ -290,7 +298,6 @@ func _crossroads_progress() -> Dictionary:
 	var progress := _basement_progress()
 	for index in range(5):
 		progress = _complete_current_round(progress)
-		progress = _accept(progress, "basement_tunnel_entered", {"round_token": progress.transition_serial}, "basement_tunnel_entered")
 		progress = _accept(progress, "basement_exit_requested", {"round_token": progress.transition_serial}, "basement_loop" if index < 4 else "enter_crossroads")
 	return progress
 

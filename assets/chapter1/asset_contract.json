@@ -3,6 +3,7 @@
   "status": "asset_runtime_validated",
   "runtime_validation": {
     "date": "2026-10-07",
+    "historical_note": "Original integration evidence. Gameplay was revised on 2026-10-10; current rules are in gameplay and opening.runtime_override.",
     "engine": "Godot 4.6.3",
     "evidence": "D:/aphasia/outputs/basement_integration_audit/chapter1_walk_results.json",
     "scope": "Latest imported GLBs: five real-controller loops, eleven save/continue checks, three-item crossroads gate and next-layer transition.",
@@ -172,6 +173,22 @@
     "existing_model": "D:/aphasia/outputs/blender_subliminal/Opening_WhiteDoor.glb",
     "door_distance": 18.0,
     "gate_rule": "User-revised opening: wait at least 10 seconds, finish knocking sound, then nearby F interaction starts full-door opening cinematic and fade into basement; do not bypass before knocking completion",
+    "runtime_override": {
+      "updated": "2026-10-10",
+      "source": "res://scripts/world/chapter_world.gd",
+      "asset_distance_note": "door_distance=18.0 and the exported spawn/hinge coordinates in this opening section describe the unchanged GLB source. The values below override gameplay at runtime; the legacy 10-second gate_rule is superseded.",
+      "initial_black_seconds": 2.0,
+      "spawn_to_door_center_meters": 29.5,
+      "normal_walk_speed_meters_per_second": 3.3,
+      "interaction_reach_meters": 3.0,
+      "walk_to_interaction_seconds_approximately": "8-9",
+      "knock_starts_after_active_seconds": 6.5,
+      "interaction_unlock": "The entire positional knock must finish before nearby F can open the door.",
+      "opening_motion": "0.35-second camera approach, then 1.6-second door opening with continuous camera advance through the doorway.",
+      "imported_light_energy_scale": 0.0055,
+      "emissive_material_energy_scale": 0.62,
+      "pause_rule": "Settings pause the black reveal timer, knock audio, door and camera motion."
+    },
     "gate_rule_source_thread": "01a1153b-7aa5-77a1-8b05-1c7268199261",
     "moving_leaf": "All panels and handle parented to OpeningDoorPivot; frame and light seams remain fixed. Add dynamic leaf collision in Godot.",
     "model": "Opening_WhiteDoor_v2.glb",
@@ -209,15 +226,29 @@
   },
   "gameplay": {
     "loops": 5,
-    "rewards_required": 3,
+    "rewards_required": 2,
+    "required_app_ids": ["social", "notebook"],
+    "required_npc_help_count": 5,
     "purpose": "First-chapter tutorial; all first-chapter NPCs appear in basement rounds, no NPCs or quest hotspots at the crossroads",
     "reward_type": "phone_app_unlock",
     "app_unlock_rounds": {
       "1": "social",
-      "3": "notebook",
-      "5": "babel"
+      "3": "notebook"
     },
-    "terminal_rule": "Initial feed and word-pickup gameplay inside CRT; all tutorial-required tools available at terminal; phone apps individually unlock on corresponding NPC completion; shared progress and vocabulary",
+    "terminal_rule": "Social feed and notebook are available inside CRT from the first visit, sharing phone progress and vocabulary. Phone social unlocks after visit 1 help and notebook after visit 3 help. Babel is retired; visit 5 still requires NPC help before the exit opens.",
+    "crossroads_gate_rule": "Require both phone permissions and all five completed NPC tasks; legacy gate items or Babel permission cannot substitute for either requirement.",
+    "runtime_door_flow": {
+      "source": "res://scripts/world/chapter_world.gd",
+      "basement_exit": "The ordinary ExitDoorPivot door opens directly into the next room. No second white door, black tunnel, exterior pocket or intermediate scene.",
+      "white_door_scope": "Opening sequence only; never used between basement visits.",
+      "basement_tunnel_enabled": false,
+      "camera_approach_seconds": 0.35,
+      "door_opening_seconds": 2.1,
+      "transition_cover": "None: camera keeps moving during door opening and reaches the destination-matched pose before the room is replaced.",
+      "room_connection": "Visits 1-4 show the aligned next basement entrance. Visit 5 shows the live crossroads through the physical door aperture.",
+      "preview_xray_rule": "Destination scenery excludes all X-ray-only geometry; only the current room supplies live hand-window clues.",
+      "source_geometry_policy": "GLB dimensions, anchors and door hinges in the source geometry sections remain unchanged. At runtime Exit_Vestibule meshes and their matching colliders are disabled, retaining the door and frame. Legacy exit_tunnel_entered saves normalize to the safe current basement."
+    },
     "crt_vhs_rule": "Persistent settings toggle affecting CRT display content only; video interface retained",
     "exit_after_fifth": "existing crossroads",
     "formal_text": "deferred",
@@ -331,8 +362,24 @@
       }
     ]
   },
+  "current_runtime_validation": {
+    "date": "2026-10-10",
+    "engine": "Godot 4.6.3",
+    "headless_checks": {
+      "chapter_crossroads": "passed",
+      "chapter_tutorial_world": "111 checks passed: both app permissions plus five tasks, 1.15 m CRT reach, live imported room",
+      "chapter_asset_binding": "29 checks passed: unchanged source transforms and collision binding",
+      "chapter_components": "89 checks passed: door blockers, seals, pause and teardown",
+      "chapter_xray_view": "48 checks passed: exactly three current-room arrows, zero preview X-ray geometry, fake camera receiver only",
+      "chapter_app_permissions": "passed: two apps, visits 1/3 rewards, visit 5 help, legacy save normalization",
+      "basement_loop_director": "passed: five ordinary-door visits and legacy tunnel-save normalization"
+    },
+    "door_flow_render_validation": "54 checks passed headless and with OpenGL: all five door cinematics, destination camera pose continuity, no transition cover. Evidence: D:/aphasia/outputs/door_rendered_final.log and D:/aphasia/outputs/door_camera_revision/.",
+    "limitations": "No physical camera or user video decoding was tested. Main-scene shutdown retains the known RicherTextLabel static prototype resource diagnostics. Historical 2026-10-07 asset-import reports below remain source evidence only."
+  },
   "latest_runtime_validation": {
     "date": "2026-10-07",
+    "historical_note": "This is the latest pre-revision asset-import report, retained verbatim as historical evidence. Its visit 5 Babel reward no longer describes current gameplay; see current_runtime_validation and gameplay.",
     "engine": "Godot 4.6.3",
     "supersedes": "runtime_validation (retained as historical integration evidence)",
     "integration_report": "D:/aphasia/outputs/basement_integration_audit/chapter_terminal_verification.json",

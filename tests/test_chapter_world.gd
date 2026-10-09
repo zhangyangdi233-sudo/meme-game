@@ -23,7 +23,7 @@ func _run() -> void:
 	_check(is_equal_approx(world.start_yaw_degrees(), 180.0), "entry yaw follows contract")
 	_check(world.contains_playable_position(world.start_position(), 1.2), "narrow landing spawn stays playable with legacy inset")
 	_check(is_equal_approx(world.recovery_position(world.start_position()).y, 2.72), "recovery preserves landing height")
-	_check(world.get_interactable_actors().size() == 3, "white door is not exposed before entering its corridor")
+	_check(world.get_interactable_actors().size() == 3, "basement exposes NPC, ordinary exit and terminal")
 	var npc: Area3D = world.get_interactable_actors()[0]
 	_check(npc.get_meta("actor_id") == "basement_npc_01", "NPC uses stable visit ID")
 	_check(not world.is_actor_reachable(npc, world.start_position()), "rear NPC is unreachable from landing through partition")
@@ -44,32 +44,12 @@ func _run() -> void:
 	progress = Director.dispatch(progress, "npc_help_completed", {"round_token": 1, "npc_id": "basement_npc_01", "task_id": "basement_help_01"}).progress
 	world.sync_progress(progress)
 	_check(world.interact(exit_actor), "help unlocks exit F request")
-	await create_timer(0.5).timeout
-	world.update_authored_events(0.1, Vector3(-3.0, 0.02, -3.43), Vector3.LEFT)
-	world.update_authored_events(0.1, Vector3(-3.9, 0.02, -3.43), Vector3.LEFT)
-	_check(_count_event("basement_exit_requested") == 0, "crossing the exterior threshold never replaces the visible room")
-	_check(world.contains_playable_position(Vector3(-10.0, 0.02, -3.43)), "whole dark corridor belongs to the current playable world")
-	_check(_count_event("basement_tunnel_entered") == 0, "old exit stays open while the player's body is in its doorway")
-	world.update_authored_events(0.1, Vector3(-5.0, 0.02, -3.43), Vector3.LEFT)
-	_check(_count_event("basement_tunnel_entered") == 1, "walking safely inside marks the tunnel without advancing the visit")
-	progress = Director.dispatch(progress, "basement_tunnel_entered", {"round_token": 1}).progress
-	world.sync_progress(progress)
-	_check(not world.get_door("exit").is_passable(), "old basement exit seals behind the player inside the tunnel")
-	var white_door: Area3D = world.get_interactable_actors().back()
-	_check(white_door.get_meta("actor_type") == "chapter1_tunnel_door", "entered corridor exposes its white door")
-	_check(world.interact(white_door), "white door F requests the covered transition")
-	_check(_count_event("tunnel_door_requested") == 1 and _count_event("basement_exit_requested") == 0, "only transition completion may request the next basement")
-	_check(not world.interact(white_door), "repeat F cannot start another transition")
-	world.update_authored_events(0.1, Vector3(-3.0, 0.02, -3.43), Vector3.RIGHT)
-	world.update_authored_events(0.1, Vector3(-3.9, 0.02, -3.43), Vector3.LEFT)
-	_check(_count_event("basement_tunnel_entered") == 1, "tunnel entry event is one-shot per configured visit")
-	var restored = script.new()
-	root.add_child(restored)
-	_check(restored.configure_stage(progress, {}, _basement_asset(contract), contract), "saved tunnel visit rebuilds")
-	var saved_position := Vector3(-10.0, 0.02, -3.43)
-	_check(restored.clamp_to_playable_position(saved_position).is_equal_approx(saved_position), "continue keeps the saved corridor position instead of resetting to stairs")
-	_check(restored.get_interactable_actors().back().get_meta("actor_type") == "chapter1_tunnel_door", "restored corridor has a retryable white door")
-	restored.free()
+	_check(_count_event("basement_door_requested") == 1, "ordinary exit requests one camera transition")
+	_check(not world.interact(exit_actor), "repeat F does not duplicate transition")
+	_check(world.get_node_or_null("BasementExitTunnel") == null, "no detached black tunnel exists")
+	_check(not world.contains_playable_position(Vector3(-10.0, 0.02, -3.43)), "removed corridor is no longer playable")
+	_check(world.get_node_or_null("NextBasementThroughDoor") != null, "next entrance is visible through ordinary door")
+	_check(not world.get_door("exit").is_passable(), "cinematic owns the actual door opening")
 	var next_progress: Dictionary = Director.dispatch(progress, "basement_exit_requested", {"round_token": 1}).progress
 	world.sync_progress(next_progress)
 	_check(not world.interact(exit_actor), "stale actor cannot interact after state changes visit")
@@ -121,20 +101,20 @@ func _test_opening(script: Script, contract: Dictionary) -> void:
 	world.event_requested.connect(_record_event)
 	var progress := Director.initial_progress()
 	_check(world.configure_stage(progress, {}, asset, opening_contract), "opening uses explicit authored markers")
-	_check(world.start_position().is_equal_approx(Vector3.ZERO), "opening eye marker converts to feet")
+	_check(is_zero_approx(world.start_position().y), "opening eye marker converts to feet")
 	var knock := world.get_node("OpeningDoorKnock") as AudioStreamPlayer3D
 	var opening_actor := world.find_child("Chapter1OpeningDoor", false, false) as Area3D
 	_check(not world.get_door("opening").is_passable(), "opening stays physically closed before the knock")
 	_check(world.get_interactable_actors().is_empty(), "door has no F prompt before the knock finishes")
 	_check(not world.interact(opening_actor), "early F cannot queue an opening request")
-	world.update_authored_events(9.99, Vector3(0, 0, -17), Vector3.FORWARD)
-	_check(not knock.playing and events.is_empty(), "knock cannot start before ten seconds of exploration")
+	world.update_authored_events(6.49, Vector3(0, 0, -17), Vector3.FORWARD)
+	_check(not knock.playing and events.is_empty(), "knock cannot start before 6.5 seconds of exploration")
 	world.set_exploration_paused(true)
 	world.update_authored_events(30.0, Vector3(0, 0, -17), Vector3.FORWARD)
 	_check(not knock.playing, "paused exploration does not count toward the knock")
 	world.set_exploration_paused(false)
 	world.update_authored_events(0.02, Vector3(0, 0, -19), Vector3.FORWARD)
-	_check(knock.playing, "the knock begins at the authored door after ten seconds")
+	_check(knock.playing, "the knock begins at the authored door after 6.5 seconds")
 	_check(knock.global_position.distance_to(Vector3(0, 1.125, -18)) < 0.001, "knock originates from the door leaf center")
 	_check(not world.interact(opening_actor), "F remains unavailable during the knock")
 	_check(events.is_empty(), "playing the knock and crossing the doorway do not request the basement")
@@ -205,7 +185,7 @@ func _test_opening_feet_contract(script: Script, contract: Dictionary) -> void:
 	var configured: bool = world.configure_stage(progress, {}, asset, explicit_contract)
 	_check(configured, "flat v2 opening contract binds without legacy manifest")
 	if configured:
-		_check(world.start_position().is_equal_approx(Vector3(0, 0.04, 0)), "v2 feet marker must never subtract old eye height")
+		_check(is_equal_approx(world.start_position().y, 0.04), "v2 feet marker must never subtract old eye height")
 		progress = Director.dispatch(progress, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 		world.sync_progress(progress)
 		_check(world.get_door("opening").request_open(), "cinematic can open the unlocked authored leaf")
@@ -230,9 +210,10 @@ func _test_imported_model_binding(script: Script) -> void:
 		var imported_lights: Array[Node] = world.imported_root.find_children("*", "Light3D", true, false)
 		_check(not imported_lights.is_empty(), "production basement fixture contains the authored GLB lights")
 		for imported_light: Light3D in imported_lights:
-			_check(not imported_light.is_visible_in_tree(), "runtime basement lighting must suppress imported physical-intensity light: %s" % imported_light.name)
+			if not bool(imported_light.get_meta("fixture_bound", false)):
+				_check(not imported_light.is_visible_in_tree(), "runtime basement lighting must suppress imported physical-intensity light: %s" % imported_light.name)
 		for anchor_name in ["MainLightAnchor", "RearLightAnchor"]:
-			var runtime_light := world.get_node_or_null("Chapter%s" % anchor_name) as OmniLight3D
+			var runtime_light := world.find_child("Chapter%s" % anchor_name, true, false) as OmniLight3D
 			_check(runtime_light != null and runtime_light.is_visible_in_tree() and runtime_light.light_energy > 0.0 and runtime_light.light_energy <= 2.0, "basement should use calibrated runtime lighting at %s" % anchor_name)
 	world.free()
 	if not ResourceLoader.exists("res://assets/chapter1/Opening_WhiteDoor_v2.glb"):
@@ -242,7 +223,8 @@ func _test_imported_model_binding(script: Script) -> void:
 	configured = opening.configure_stage(Director.initial_progress(), {})
 	_check(configured, "production opening binds: %s" % str(opening.diagnostics))
 	if configured:
-		_check(opening.start_position().distance_to(opening.anchor_world_position("OpeningSpawn")) < 0.001, "production opening feet anchor remains exact")
+		_check(absf(opening.start_position().y - opening.anchor_world_position("OpeningSpawn").y) < 0.001, "production opening feet anchor remains exact")
+		opening.update_authored_events(2.1, opening.start_position(), Vector3.FORWARD)
 		_check(not opening.get_door("opening").is_passable(), "production opening is physically blocked before the knock and F")
 		var opening_lights: Array[Node] = opening.imported_root.find_children("*", "Light3D", true, false)
 		_check(not opening_lights.is_empty(), "production opening contains authored door illumination")

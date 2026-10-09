@@ -4,7 +4,7 @@ var failures: Array[String] = []
 
 func _init() -> void:
 	var locale = load("res://scripts/localization/game_locale.gd").new()
-	locale.preferences_path = "user://test_crt_preferences.cfg"
+	locale.preferences_path = "res://artifacts/test_crt_preferences.cfg"
 	_check(locale.load_preferences(80, true).get("crt_vhs_enabled", null) is bool, "CRT VHS is present with a boolean default")
 	if locale.has_method("set_crt_vhs_enabled"):
 		locale.set_crt_vhs_enabled(false)

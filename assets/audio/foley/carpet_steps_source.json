@@ -1,0 +1,31 @@
+{
+  "author": "Mihacappy",
+  "license": "CC0 1.0",
+  "title": "steps_carpet.wav",
+  "source": "https://freesound.org/people/Mihacappy/sounds/848210/",
+  "download": "https://cdn.freesound.org/previews/848/848210_10594370-lq.ogg",
+  "note": "Public compressed preview, mono excerpts with gain normalization and edge fades.",
+  "sample_rate": 48000,
+  "segments": [
+    {
+      "file": "carpet_step_01.wav",
+      "start_seconds": 0.61,
+      "duration_seconds": 0.48
+    },
+    {
+      "file": "carpet_step_02.wav",
+      "start_seconds": 2.36,
+      "duration_seconds": 0.48
+    },
+    {
+      "file": "carpet_step_03.wav",
+      "start_seconds": 4.06,
+      "duration_seconds": 0.48
+    },
+    {
+      "file": "carpet_step_04.wav",
+      "start_seconds": 5.26,
+      "duration_seconds": 0.48
+    }
+  ]
+}

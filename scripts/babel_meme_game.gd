@@ -52,8 +52,6 @@ const NPC_CHARACTER_PATHS := [
 	"res://assets/generated/characters/npc_archive_witness.png",
 ]
 const NO_SIGNAL_ICON_PATH := "res://assets/generated/ui/no_signal_icon.png"
-const HUD_POLLUTION_ICON_PATH := "res://assets/generated/ui/hud_pollution_icon.png"
-const HUD_MONEY_ICON_PATH := "res://assets/generated/ui/hud_money_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
 const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"
 const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.png"
@@ -75,7 +73,7 @@ const COVER_WATCHER_STINGER_PATH := "res://assets/generated/audio/cover_watcher_
 const SOCIAL_POSTER_COLUMNS := 4
 const SOCIAL_POSTER_ROWS := 3
 const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
-const SOCIAL_FEED_WHEEL_STEP := 2
+const SOCIAL_FEED_WHEEL_STEP := 112
 const SOCIAL_FEED_POSTER_HEIGHTS := [
 	214.0, 176.0, 238.0, 194.0,
 	226.0, 184.0, 218.0, 202.0,
@@ -93,9 +91,8 @@ const REALITY_INTERACTION_DISTANCE := 2.25
 # 跟随玩偶:小体量 + 右后下方偏移,保证不遮挡前方视野与准心。
 const DOLL_COMPANION_PIXEL_SIZE := 0.0016
 const DOLL_COMPANION_OFFSET := Vector3(0.72, 0.95, 0.55)
-# 可拾取字的视觉可供性:脉动频率与字号(配合下划线,构成非颜色依赖的三重提示)。
+# 拾取提示使用颜色、下划线与脉动；字号始终继承正文。
 const PICKABLE_PULSE_FREQ := 0.5
-const PICKABLE_FONT_SIZE := 19
 # 句子单位软上限(参考 Bluesky 的 grapheme 计数语义;超过只提示不拦截)。
 const COMPOSER_SOFT_UNIT_LIMIT := 12
 # 点阵字体(Boutique Bitmap 9x9,OFL):三语共用一套字形,字号必须吸附到 9 的整数倍。
@@ -360,6 +357,7 @@ var _reality_yaw := 0.0
 var _reality_pitch := 0.0
 var _reality_last_safe_position := Vector3.ZERO
 var _reality_mouse_look_enabled := false
+var _application_focused := true
 var _reality_touch_look_index := -1
 var _nearby_reality_actor: Area3D
 var _nearby_reality_item: Area3D
@@ -411,6 +409,7 @@ var _prologue_continue_button: Button
 var _prologue_index := 0
 var _settings_window: PanelContainer
 var _chapter_door_transition: Node
+var _chapter_terminal_exiting := false
 var _settings_content: VBoxContainer
 var _settings_title_label: Label
 var _settings_volume_label: Label
@@ -574,6 +573,18 @@ func _process(delta: float) -> void:
 func _exit_tree() -> void:
 	if _hand_tracking_receiver != null:
 		_hand_tracking_receiver.stop()
+
+
+func _notification(what: int) -> void:
+	if what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_application_focused = false
+		_reality_mouse_look_enabled = false
+		_reality_touch_look_index = -1
+		_dragged_window = null
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	elif what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		# A click in the world is the only recapture after returning from the OS.
+		_application_focused = true
 
 
 func _physics_process(delta: float) -> void:
@@ -764,6 +775,8 @@ func notify_chapter1(event_id: String, payload: Dictionary = {}) -> Dictionary:
 		_reality_floor.sync_progress(game.chapter1_progress)
 	_render()
 	_save_progress()
+	if str(result.transition) == "enter_tower":
+		_play_floor_arrival(game.tower_floor)
 	return result
 
 
@@ -779,6 +792,10 @@ func _on_chapter_world_event(event_id: String, payload: Dictionary, source_id: i
 		return
 	if event_id == "opening_door_requested":
 		_start_chapter_door_transition(source_id)
+		return
+	if event_id == "basement_door_requested":
+		if payload.get("round_token", -1) == game.chapter1_progress.get("transition_serial", -2):
+			_start_chapter_door_transition(source_id, true)
 		return
 	if event_id == "tunnel_door_requested":
 		if payload.get("round_token", -1) == game.chapter1_progress.get("transition_serial", -2) and bool(game.chapter1_progress.get("exit_tunnel_entered", false)):
@@ -841,23 +858,39 @@ func _begin_chapter_terminal() -> bool:
 	_reality_player.velocity = Vector3.ZERO
 	_dragged_window = null
 	_set_reality_mouse_look(false)
-	_camera.fov = 58.0
-	_camera.global_position = _reality_floor.terminal_camera_position()
-	_camera.look_at(_reality_floor.terminal_camera_target(), Vector3.UP)
+	_chapter_terminal_exiting = false
 	_render()
+	_chapter_terminal_session.animate_camera_to_screen(_camera)
 	return true
 
 
 func _end_chapter_terminal(render_after: bool = true) -> void:
 	if not is_instance_valid(_chapter_terminal_session):
 		_chapter_terminal_session = null
+		_chapter_terminal_exiting = false
 		return
 	var session := _chapter_terminal_session
+	if render_after and _game_started and is_instance_valid(_camera):
+		if _chapter_terminal_exiting:
+			return
+		_chapter_terminal_exiting = true
+		if session.animate_camera_back(_camera, _complete_chapter_terminal_exit.bind(session.get_instance_id())):
+			return
 	session.end()
 	_chapter_terminal_session = null
+	_chapter_terminal_exiting = false
 	session.queue_free()
 	if render_after and _game_started and is_instance_valid(_camera):
-		_animate_world(1.0)
+		_set_reality_mouse_look(game.view_state == "npc_up" and not _settings_open)
+		_render()
+		_save_progress()
+
+
+func _complete_chapter_terminal_exit(session_id: int) -> void:
+	if not is_instance_valid(_chapter_terminal_session) or _chapter_terminal_session.get_instance_id() != session_id:
+		return
+	_end_chapter_terminal(false)
+	if _game_started and is_instance_valid(_camera):
 		_set_reality_mouse_look(game.view_state == "npc_up" and not _settings_open)
 		_render()
 		_save_progress()
@@ -1009,10 +1042,10 @@ func _start_chapter_door_transition(source_id: int, from_tunnel: bool = false) -
 	_input_locked = true
 	_reality_player.velocity = Vector3.ZERO
 	_world_prompt.visible = false
-	var door_id := "tunnel" if from_tunnel else "opening"
-	var camera_position: Vector3 = _reality_floor.tunnel_camera_position() if from_tunnel else _reality_floor.opening_camera_position()
-	var camera_target: Vector3 = _reality_floor.tunnel_camera_target() if from_tunnel else _reality_floor.opening_camera_target()
-	if not _chapter_door_transition.begin(_camera, _ui_root, _reality_floor.get_door(door_id), camera_position, camera_target, Color.WHITE if from_tunnel else Color.BLACK):
+	var door_id := "exit" if from_tunnel else "opening"
+	var camera_position: Vector3 = _reality_floor.exit_camera_position() if from_tunnel else _reality_floor.opening_camera_position()
+	var camera_target: Vector3 = _reality_floor.exit_camera_target() if from_tunnel else _reality_floor.opening_camera_target()
+	if not _chapter_door_transition.begin(_camera, _ui_root, _reality_floor.get_door(door_id), camera_position, camera_target, Color.BLACK, from_tunnel):
 		_recover_cancelled_chapter_transition.call_deferred(_chapter_door_transition.get_instance_id())
 	elif _settings_open:
 		_chapter_door_transition.set_paused(true)
@@ -1355,7 +1388,7 @@ func _release_chapter_xray_view() -> void:
 
 
 func _set_reality_mouse_look(enabled: bool) -> void:
-	enabled = enabled and not _chapter_terminal_active() and not _chapter_task_active()
+	enabled = enabled and _application_focused and not _chapter_terminal_active() and not _chapter_task_active()
 	_reality_mouse_look_enabled = enabled
 	if not enabled or game.view_state != "npc_up":
 		_reality_touch_look_index = -1
@@ -1699,7 +1732,7 @@ func _recover_reality_player() -> void:
 func _refresh_nearby_reality_actor() -> void:
 	var previous_actor := _nearby_reality_actor
 	var previous_item := _nearby_reality_item
-	if game.view_state != "npc_up" or _reality_interaction_active or _reality_floor == null or _reality_player == null:
+	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
 		_nearby_reality_actor = null
 		_nearby_reality_item = null
 		if previous_actor != null or previous_item != null:
@@ -1834,6 +1867,9 @@ func _active_actor_display_name() -> String:
 
 
 func _build_audio_players() -> void:
+	var footsteps := preload("res://scripts/world/carpet_footsteps.gd").new()
+	footsteps.name = "CarpetFootsteps"
+	add_child(footsteps)
 	var initial_floor := 1 if game == null else clampi(int(game.tower_floor), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
 	_phone_ambience = _make_audio_player("PhoneRoadAmbience", _phone_music_path_for_floor(initial_floor), true, -60.0)
 	_phone_ambience.set_meta("phone_music_floor", initial_floor)
@@ -1929,10 +1965,10 @@ func _sync_audio_state(immediate: bool = false) -> void:
 		return
 	_ensure_phone_music_for_floor(int(game.tower_floor))
 	var in_phone: bool = game.view_state == "phone_down"
-	var phone_target: float = -8.0 if in_phone else -42.0
+	var phone_target: float = -13.0 if in_phone else -47.0
 	var intimate_typing: bool = _reality_interaction_active and game.conversation_phase == "typing"
-	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
-	var pollution_target := _pollution_music_target(int(game.pollution))
+	var reality_target: float = -31.0 if in_phone else (-12.0 if intimate_typing else -15.0)
+	var pollution_target := maxf(-60.0, _pollution_music_target(int(game.pollution)) - 5.0)
 	_phone_ambience.set_meta("target_volume_db", phone_target)
 	_reality_ambience.set_meta("target_volume_db", reality_target)
 	_pollution_ambience.set_meta("target_volume_db", pollution_target)
@@ -2081,7 +2117,6 @@ func _build_main_menu() -> void:
 	var exit_button := Button.new()
 	exit_button.name = "MainMenuExitButton"
 	exit_button.text = "退出游戏"
-	exit_button.set_meta("skip_localization", true)
 	exit_button.custom_minimum_size = Vector2(168, 54)
 	exit_button.pressed.connect(_request_quit_game)
 	buttons.add_child(exit_button)
@@ -2650,7 +2685,6 @@ func _build_ui() -> void:
 	app_grid.add_theme_constant_override("v_separation", 10)
 	screen_box.add_child(app_grid)
 	for app in [
-		{"id": "babel", "label": "塔\n楼层档案"},
 		{"id": "social", "label": "帖\n信号瀑布"},
 		{"id": "notebook", "label": "本\n语言工坊"},
 	]:
@@ -2695,7 +2729,6 @@ func _build_ui() -> void:
 	_ui_root.add_child(_view_toggle_button)
 
 	_build_app_window("social", "社交媒体 App", "SocialAppWindow", -835.0, 18.0, -397.0, 910.0)
-	_build_app_window("babel", "巴别塔 App", "BabelAppWindow", -1032.0, 96.0, -592.0, 676.0)
 	_build_app_window("notebook", "笔记本 App", "NotebookAppWindow", -968.0, 152.0, -528.0, 732.0)
 	_build_social_detail_window()
 
@@ -2876,7 +2909,6 @@ func _build_ui() -> void:
 	_build_action_spend_overlay()
 	_build_settings_window()
 	_build_phone_camera_connection_overlay()
-	_build_history_window()
 	_build_exit_confirmation_overlay()
 	_build_day_transition_overlay()
 	_build_pickup_flight_layer()
@@ -3130,9 +3162,6 @@ func _build_apple_hud() -> void:
 	box.add_theme_constant_override("separation", 14)
 	center.add_child(box)
 
-	_add_hud_icon(box, "HUDPollutionIcon", "pollution", HUD_POLLUTION_ICON_PATH)
-	_add_hud_icon(box, "HUDMoneyIcon", "money", HUD_MONEY_ICON_PATH)
-
 	var action_divider := ColorRect.new()
 	action_divider.color = _theme_color("muted")
 	action_divider.modulate.a = 0.42
@@ -3193,10 +3222,6 @@ func _show_hud_tooltip(kind: String, source: Control) -> void:
 	if _hud_tooltip == null or _hud_tooltip_label == null or source == null:
 		return
 	match kind:
-		"pollution":
-			_hud_tooltip_label.text = "污染 %d%%" % game.pollution
-		"money":
-			_hud_tooltip_label.text = "资金 %d" % game.money
 		"settings":
 			_hud_tooltip_label.text = "设置"
 		_:
@@ -3601,30 +3626,12 @@ func _build_settings_window() -> void:
 	_settings_save_button = Button.new()
 	_settings_save_button.name = "SettingsManualSaveButton"
 	_settings_save_button.text = "保存"
-	_settings_save_button.set_meta("skip_localization", true)
 	_settings_save_button.custom_minimum_size.y = 50
 	_settings_save_button.pressed.connect(_on_manual_save_pressed)
 	_settings_content.add_child(_settings_save_button)
 	_settings_save_status = _label("", 14, _theme_color("accent"))
 	_settings_save_status.name = "SettingsSaveStatus"
 	_settings_content.add_child(_settings_save_status)
-
-	_settings_autoplay_button = CheckButton.new()
-	_settings_autoplay_button.name = "SettingsAutoplayButton"
-	_settings_autoplay_button.text = "自动播放"
-	_settings_autoplay_button.set_meta("skip_localization", true)
-	_settings_autoplay_button.button_pressed = game.autoplay_enabled
-	_settings_autoplay_button.custom_minimum_size.y = 50
-	_settings_autoplay_button.toggled.connect(_on_autoplay_toggled)
-	_settings_content.add_child(_settings_autoplay_button)
-
-	_settings_history_button = Button.new()
-	_settings_history_button.name = "SettingsHistoryButton"
-	_settings_history_button.text = "历史记录"
-	_settings_history_button.set_meta("skip_localization", true)
-	_settings_history_button.custom_minimum_size.y = 50
-	_settings_history_button.pressed.connect(_toggle_history_window)
-	_settings_content.add_child(_settings_history_button)
 
 	var main_menu_button := Button.new()
 	main_menu_button.name = "SettingsReturnMainButton"
@@ -3648,7 +3655,6 @@ func _build_settings_window() -> void:
 	_settings_exit_button = Button.new()
 	_settings_exit_button.name = "SettingsExitGameButton"
 	_settings_exit_button.text = "退出游戏"
-	_settings_exit_button.set_meta("skip_localization", true)
 	_settings_exit_button.set_meta("reliable_system_command", true)
 	_settings_exit_button.custom_minimum_size.y = 52
 	_settings_exit_button.pressed.connect(_request_quit_game)
@@ -4005,6 +4011,8 @@ func _set_chapter_exploration_paused(value: bool) -> void:
 		_reality_floor.set_exploration_paused(value)
 	if is_instance_valid(_chapter_door_transition):
 		_chapter_door_transition.set_paused(value)
+	if _chapter_terminal_active():
+		_chapter_terminal_session.set_camera_paused(value)
 
 
 func _on_volume_changed(value: float) -> void:
@@ -4099,7 +4107,6 @@ func _build_exit_confirmation_overlay() -> void:
 	panel.add_child(box)
 	var message := _label("真的要抛弃我吗？", 25, _theme_color("ink"))
 	message.name = "ExitConfirmationMessage"
-	message.set_meta("skip_localization", true)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(message)
 	var actions := HBoxContainer.new()
@@ -4109,14 +4116,12 @@ func _build_exit_confirmation_overlay() -> void:
 	var return_button := Button.new()
 	return_button.name = "ExitConfirmationReturnButton"
 	return_button.text = "返回"
-	return_button.set_meta("skip_localization", true)
 	return_button.custom_minimum_size = Vector2(180, 54)
 	return_button.pressed.connect(_cancel_quit_game)
 	actions.add_child(return_button)
 	var confirm_button := Button.new()
 	confirm_button.name = "ExitConfirmationConfirmButton"
 	confirm_button.text = "仍然退出"
-	confirm_button.set_meta("skip_localization", true)
 	confirm_button.custom_minimum_size = Vector2(180, 54)
 	confirm_button.pressed.connect(_confirm_quit_game)
 	actions.add_child(confirm_button)
@@ -4173,6 +4178,9 @@ func _build_app_window(app_id: String, title: String, node_name: String, left: f
 	if app_id == "social":
 		title_label.visible = false
 		window.add_child(title_label)
+		# The social page owns its own close control. Release this unused
+		# title-bar button instead of leaving an unattached Control alive.
+		close_button.free()
 	else:
 		var title_bar := HBoxContainer.new()
 		title_bar.name = "%sTitleBar" % node_name
@@ -4524,8 +4532,6 @@ func _render_playtest_assist() -> void:
 		lines.append("本层测试：关键 NPC %s / 前置物 %s" % [clue_state, item_state])
 		if bool(progress.get("solved", false)) and item_id not in game.collected_prerequisite_item_ids:
 			lines.append("目标：%s。%s" % [str(item.get("label", "前置物")), str(item.get("location_hint", "跟随荧光测试标记。"))])
-	var collected_count := game.collected_prerequisite_item_ids.size()
-	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, game.pollution])
 	_playtest_assist_label.text = "\n".join(lines)
 
 
@@ -4547,7 +4553,7 @@ func _render_world_prompt() -> void:
 		if _nearby_reality_actor != null and str(_nearby_reality_actor.get_meta("actor_type", "")) == "chapter1_opening":
 			_world_prompt.text = "F  " + _locale.translate("打开门")
 			return
-		_world_prompt.text = "F  " + str(_nearby_reality_actor.get_meta("display_name", "")) if _nearby_reality_actor != null else ""
+		_world_prompt.text = "F  " + _locale.translate(str(_nearby_reality_actor.get_meta("display_name", ""))) if _nearby_reality_actor != null else ""
 		return
 	var plan := _day_plan()
 	if game.view_state == "phone_down":
@@ -4566,15 +4572,12 @@ func _render_world_prompt() -> void:
 
 
 func _render_app() -> void:
-	for app_id in ["social", "babel", "notebook"]:
+	for app_id in ["social", "notebook"]:
 		if not _app_bodies.has(app_id):
 			continue
 		_app_body = _app_bodies[app_id] as VBoxContainer
 		_app_title = _app_titles[app_id] as Label
 		match app_id:
-			"babel":
-				_app_title.text = "巴别塔 App"
-				_render_babel_app()
 			"notebook":
 				_app_title.text = "笔记本 App"
 				_render_notebook_app()
@@ -4582,26 +4585,6 @@ func _render_app() -> void:
 				_app_title.text = "社交媒体 App"
 				_render_social_app()
 	_render_social_detail_companion()
-
-
-func _render_babel_app() -> void:
-	_clear(_app_body)
-	var displayed_floor := clampi(game.tower_floor, 1, 4)
-	var floor_heading := _locale.level_display_name(displayed_floor)
-	var heading := _label(floor_heading, 24, _theme_color("ink"))
-	heading.name = "BabelFloorHeading"
-	_app_body.add_child(heading)
-	var floor_card: Dictionary = LanguageCorruptionContentScript.get_floor_card_display(displayed_floor)
-	var floor_field_names := {"危险": "Danger", "提示": "Hint"}
-	for field_name in ["危险", "提示"]:
-		var card_line := _label("%s：%s" % [field_name, str(floor_card.get(field_name, ""))], 16, _theme_color("ink"))
-		card_line.name = "BabelFloor%sLabel" % floor_field_names[field_name]
-		card_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_app_body.add_child(card_line)
-	_app_body.add_child(_label("资金 %d  /  通过发布完整表达获得" % game.money, 16, _theme_color("accent")))
-	_app_body.add_child(_label("污染 %d%%  /  发布与现实表达会推进污染" % game.pollution, 16, _theme_color("accent")))
-	for item in game.event_log:
-		_app_body.add_child(_label(str(item), 15, _theme_color("accent")))
 
 
 func _render_social_app() -> void:
@@ -5059,7 +5042,7 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 	if not pickup_line.is_empty():
 		var pickup_rich := _make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id)
 		detail_box.add_child(pickup_rich)
-		var pickup_hint := _label("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color("muted"))
+		var pickup_hint := _label("拾到的字会留在笔记本里，可以反复使用。", 12, _theme_color("muted"))
 		pickup_hint.name = "SocialPickupCostHint"
 		pickup_hint.set_meta("on_dark", true)
 		pickup_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -5081,11 +5064,6 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 	detail_follow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_follow.pressed.connect(_on_social_follow_pressed.bind(_social_author_id(post)))
 	engagement.add_child(detail_follow)
-	var signal_profile := _label("拾取字词不增加污染；使用它才会改变语言。", 13, _theme_color("muted"))
-	signal_profile.name = "SocialCardSignalProfile"
-	signal_profile.set_meta("on_dark", true)
-	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	detail_box.add_child(signal_profile)
 	var post_comments: Array = PickupCharPoolScript.get_comments(post_card_id, _locale.current_locale)
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
@@ -5169,9 +5147,6 @@ func _render_social_publish_page(parent: VBoxContainer) -> void:
 	publish_content.add_theme_constant_override("separation", 8)
 	publish_scroll.add_child(publish_content)
 
-	var placed_meme := _placed_meme()
-	var publish_result: Dictionary = game.get_publish_result(placed_meme) if not placed_meme.is_empty() else game.last_publish_result
-
 	var composer := _panel()
 	composer.name = "SocialPublishComposer"
 	composer.set_meta("soft_panel", true)
@@ -5193,29 +5168,7 @@ func _render_social_publish_page(parent: VBoxContainer) -> void:
 	composer_box.add_child(_label("把笔记本里的字拖进来", 17, _theme_color("ink")))
 	_render_publish_sentence_area(composer_box, placed_sentence_units)
 
-	var result_panel := _panel()
-	result_panel.name = "SocialPublishOutcomePanel"
-	result_panel.set_meta("soft_panel", true)
-	publish_content.add_child(result_panel)
-	var result_box := VBoxContainer.new()
-	result_box.add_theme_constant_override("separation", 8)
-	result_panel.add_child(result_box)
-	result_box.add_child(_label("02  /  本次变化", 13, _theme_color("accent")))
-	var outcome_row := HBoxContainer.new()
-	outcome_row.add_theme_constant_override("separation", 12)
-	result_box.add_child(outcome_row)
-	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
-	var money_outcome := _label("资金  %s" % money_text, 22, _theme_color("ink"))
-	money_outcome.name = "SocialPublishMoneyOutcome"
-	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(money_outcome)
-	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
-	var pollution_outcome := _label("污染  %s" % pollution_text, 22, _theme_color("ink"))
-	pollution_outcome.name = "SocialPublishPollutionOutcome"
-	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(pollution_outcome)
-
-	var hint := _label("教程练习不消耗每日行动，可继续修改与投稿。" if _chapter_active() and str(game.chapter1_progress.phase) in ["basement", "crossroads"] else "确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color("accent"))
+	var hint := _label("发布的句子会成为另一个世界的规则。", 13, _theme_color("accent"))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	publish_content.add_child(hint)
 
@@ -5320,7 +5273,6 @@ func _render_social_profile_page(parent: VBoxContainer) -> void:
 	identity_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	identity_frame.add_child(identity_portrait)
 	profile_page.add_child(_label("已合成梗：%d" % game.completed_memes.size(), 17, _theme_color("ink")))
-	profile_page.add_child(_label("污染：%d%%" % game.pollution, 17, _theme_color("ink")))
 	var note := _label("你的语言档案会随着塔层上升变窄。", 16, _theme_color("accent"))
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_page.add_child(note)
@@ -5544,7 +5496,7 @@ func _render_notebook_fusion_tab(notebook_content: VBoxContainer) -> void:
 		fusion_slot.dropped.connect(_on_fusion_meme_dropped)
 		fusion_slot.pressed.connect(_on_fusion_slot_pressed.bind(fusion_slot_id))
 		fusion_row.add_child(fusion_slot)
-	var warning := _label("融合会保留两侧文字，并立即增加污染。发布前会显示资金与污染变化。", 14, _theme_color("accent"))
+	var warning := _label("融合会保留两侧文字。", 14, _theme_color("accent"))
 	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(warning)
 
@@ -5969,7 +5921,12 @@ func _update_visibility() -> void:
 	if _chapter_task_active():
 		_chapter_task_panel.visible = not _settings_open
 		_world_prompt.hide()
-	for app_id in ["social", "notebook", "babel"]:
+	# Settings are reached with Escape/F10; the retired status rail has no
+	# invisible edge target that can obstruct the notebook or world input.
+	_hud_panel.hide()
+	_hud_reveal_zone.hide()
+	_hide_hud_tooltip_immediately()
+	for app_id in ["social", "notebook"]:
 		var icon := _find_control_by_name(_ui_root, "PhoneAppIcon%s" % app_id.capitalize()) as Button
 		if icon != null:
 			icon.disabled = not game.is_phone_app_unlocked(app_id)
@@ -6240,7 +6197,7 @@ func _close_app_window(app_id: String) -> void:
 		_social_detail_open = false
 	if game.active_app_window == app_id:
 		game.active_app_window = ""
-		for candidate in ["social", "babel", "notebook"]:
+		for candidate in ["social", "notebook"]:
 			if game.is_phone_app_unlocked(candidate) and bool(_open_app_windows.get(candidate, false)):
 				game.active_app = candidate
 				game.active_app_window = candidate
@@ -6463,7 +6420,7 @@ func _clamp_window_to_viewport(window: Control) -> void:
 	var viewport_size := _viewport_size()
 	var visible_edge := 88.0
 	var min_x := -maxf(0.0, window.size.x - visible_edge)
-	if window == _meme_bank_window and _hud_panel != null:
+	if window == _meme_bank_window and _hud_panel != null and _hud_panel.visible:
 		min_x = _hud_panel.get_global_rect().end.x + 12.0
 	var max_x := viewport_size.x - visible_edge
 	var max_y := viewport_size.y - 56.0
@@ -6713,12 +6670,14 @@ func _build_day_transition_overlay() -> void:
 	_day_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_day_transition_overlay.visible = false
 	_day_transition_overlay.z_index = 95
-	_day_transition_overlay.set_meta("duration_seconds", 3.6)
+	_day_transition_overlay.set_meta("duration_seconds", 2.6)
+	_day_transition_overlay.set_meta("presentation", "floor_arrival")
 	_ui_root.add_child(_day_transition_overlay)
 
 	var background := ColorRect.new()
 	background.name = "DayTransitionBlack"
-	background.color = Color("050705")
+	background.color = Color(0.02, 0.03, 0.02, 0.16)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_day_transition_overlay.add_child(background)
 
@@ -6726,22 +6685,29 @@ func _build_day_transition_overlay() -> void:
 	_day_transition_rule.name = "DayTransitionRule"
 	_day_transition_rule.color = _theme_color("flash_text")
 	_day_transition_rule.set_anchors_preset(Control.PRESET_CENTER)
-	_day_transition_rule.offset_left = -620
-	_day_transition_rule.offset_top = -8
-	_day_transition_rule.offset_right = 620
-	_day_transition_rule.offset_bottom = 8
-	_day_transition_rule.pivot_offset = Vector2(620, 8)
-	_day_transition_rule.rotation = deg_to_rad(-5.0)
+	_day_transition_rule.offset_left = -180
+	_day_transition_rule.offset_top = 38
+	_day_transition_rule.offset_right = 180
+	_day_transition_rule.offset_bottom = 40
+	_day_transition_rule.pivot_offset = Vector2(180, 1)
+	_day_transition_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_day_transition_overlay.add_child(_day_transition_rule)
 
 	_day_transition_day_label = _label("第一层", 58, _theme_color("surface"))
 	_day_transition_day_label.name = "FloorTransitionAreaLabel"
+	var title_font := SystemFont.new()
+	title_font.font_names = PackedStringArray(["Arial", "Microsoft YaHei UI", "Noto Sans CJK SC", "Yu Gothic"])
+	title_font.font_weight = 700
+	_day_transition_day_label.add_theme_font_override("font", title_font)
+	_day_transition_day_label.add_theme_font_size_override("font_size", 96)
+	_day_transition_day_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_day_transition_day_label.add_theme_constant_override("shadow_offset_y", 3)
 	_day_transition_day_label.set_meta("on_dark", true)
 	_day_transition_day_label.set_anchors_preset(Control.PRESET_CENTER)
 	_day_transition_day_label.offset_left = -520
-	_day_transition_day_label.offset_top = -190
+	_day_transition_day_label.offset_top = -96
 	_day_transition_day_label.offset_right = 520
-	_day_transition_day_label.offset_bottom = -70
+	_day_transition_day_label.offset_bottom = 32
 	_day_transition_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_day_transition_day_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_day_transition_day_label.pivot_offset = Vector2(520, 70)
@@ -6749,6 +6715,7 @@ func _build_day_transition_overlay() -> void:
 
 	_day_transition_meta_label = _label("危险：B", 28, _theme_color("flash_text"))
 	_day_transition_meta_label.name = "FloorTransitionDangerLabel"
+	_day_transition_meta_label.visible = false
 	_day_transition_meta_label.set_meta("on_dark", true)
 	_day_transition_meta_label.set_anchors_preset(Control.PRESET_CENTER)
 	_day_transition_meta_label.offset_left = -440
@@ -6764,9 +6731,11 @@ func _build_day_transition_overlay() -> void:
 	_day_transition_hint_label.set_meta("on_dark", true)
 	_day_transition_hint_label.set_anchors_preset(Control.PRESET_CENTER)
 	_day_transition_hint_label.offset_left = -520
-	_day_transition_hint_label.offset_top = 62
+	_day_transition_hint_label.offset_top = 54
 	_day_transition_hint_label.offset_right = 520
-	_day_transition_hint_label.offset_bottom = 132
+	_day_transition_hint_label.offset_bottom = 110
+	_day_transition_hint_label.add_theme_font_override("font", title_font)
+	_day_transition_hint_label.add_theme_font_size_override("font_size", 24)
 	_day_transition_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_day_transition_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_day_transition_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -6778,36 +6747,38 @@ func _update_floor_transition_card(floor_number: int) -> void:
 	var card: Dictionary = LanguageCorruptionContentScript.get_floor_card_display(displayed_floor)
 	_day_transition_day_label.text = _locale.level_display_name(displayed_floor)
 	_day_transition_meta_label.text = "危险：%s" % str(card.get("危险", ""))
-	_day_transition_hint_label.text = "提示：%s" % str(card.get("提示", ""))
+	_day_transition_hint_label.text = _locale.translate(str(card.get("提示", "")))
 
 
 func _play_day_transition() -> void:
+	# Compatibility entry point for old tools/saves. Progress is event driven.
+	_settle_day_and_present_rewards()
+	_render()
+
+
+func _play_floor_arrival(floor_number: int) -> void:
 	if _day_transition_overlay == null:
-		_settle_day_and_present_rewards()
-		_set_input_locked(false)
-		_render()
 		return
 	if _day_transition_tween != null and _day_transition_tween.is_valid():
 		_day_transition_tween.kill()
-	_day_transition_settled = false
-	_set_input_locked(true)
+	_day_transition_settled = true
 	_day_transition_overlay.visible = true
 	_day_transition_overlay.modulate = Color(1, 1, 1, 0)
-	_update_floor_transition_card(game.tower_floor)
-	_day_transition_day_label.scale = Vector2(0.86, 0.86)
+	_day_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_update_floor_transition_card(floor_number)
+	_day_transition_day_label.scale = Vector2(1.08, 1.08)
 	_day_transition_rule.scale = Vector2(0.04, 1.0)
+	_refresh_localized_ui()
 	if not is_inside_tree():
 		return
 	_day_transition_tween = create_tween()
 	_day_transition_tween.set_parallel(true)
-	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.tween_property(_day_transition_rule, "scale:x", 1.0, 0.72).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
+	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 1.0, 0.30).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_day_transition_tween.tween_property(_day_transition_rule, "scale:x", 1.0, 0.60).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_day_transition_tween.tween_property(_day_transition_day_label, "scale", Vector2.ONE, 0.60).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	_day_transition_tween.set_parallel(false)
-	_day_transition_tween.tween_property(_day_transition_day_label, "scale", Vector2.ONE, 0.58).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	_day_transition_tween.tween_interval(0.55)
-	_day_transition_tween.tween_callback(_commit_day_transition_settlement)
-	_day_transition_tween.tween_interval(0.95)
-	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 0.0, 0.80).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
+	_day_transition_tween.tween_interval(1.25)
+	_day_transition_tween.tween_property(_day_transition_overlay, "modulate:a", 0.0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_day_transition_tween.tween_callback(_finish_day_transition)
 
 
@@ -6832,7 +6803,6 @@ func _finish_day_transition() -> void:
 	if _day_transition_overlay != null:
 		_day_transition_overlay.visible = false
 		_day_transition_overlay.modulate = Color.WHITE
-	_set_input_locked(false)
 	_sync_audio_state(false)
 	_render()
 
@@ -6891,13 +6861,12 @@ func _finish_pollution_flashback() -> void:
 	if _flashback_audio != null:
 		_flashback_audio.stop()
 	_set_input_locked(false)
-	var should_settle := game.consume_pollution_flashback()
-	if should_settle and _settle_day_and_present_rewards():
+	game.consume_pollution_flashback()
+	if _settle_day_and_present_rewards():
 		selected_token_id = ""
 		selected_meme_id = ""
-		log_text = "黑屏之后，已经是第二天。"
 		if not game.event_log.is_empty():
-			log_text = "%s\n%s" % [log_text, game.event_log[0]]
+			log_text = game.event_log[0]
 	_sync_audio_state(false)
 	_render()
 
@@ -7326,7 +7295,7 @@ func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
 
 
-## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
+## 命中发布区才重绘；其它落点继续由原来的物理刚体处理。
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
 	if not _chapter_app_access("notebook"):
 		return
@@ -7337,7 +7306,7 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 			dropped_into_sentence = game.free_sentence_place(unit, _locale.current_locale)
 	if dropped_into_sentence:
 		log_text = "字进入了句子。"
-	_render()
+		_render()
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
@@ -7499,10 +7468,9 @@ func _pickup_bbcode(source_text: String) -> String:
 			# 已拾取:灰、无下划线、无脉动 —— 与可拾取形成三重差异(色/线/动)。
 			result += "[color=#%s]%s[/color]" % [collected_color, _escape_bbcode(matched_display)]
 		else:
-			# 可拾取的多重可供性:颜色 + 下划线 + 缓慢脉动 + 略大字号,
-			# 不只靠颜色(色觉障碍与低对比屏幕下同样可辨)。
-			result += "[color=#%s][url=%s][u][pulse freq=%.1f color=#ffffff55 ease=-2.0][font_size=%d]%s[/font_size][/pulse][/u][/url][/color]" % [
-				pickable_color, matched, PICKABLE_PULSE_FREQ, PICKABLE_FONT_SIZE, _escape_bbcode(matched_display),
+			# Use the surrounding text size on both the phone and enlarged CRT.
+			result += "[color=#%s][url=%s][u][pulse freq=%.1f color=#ffffff55 ease=-2.0]%s[/pulse][/u][/url][/color]" % [
+				pickable_color, matched, PICKABLE_PULSE_FREQ, _escape_bbcode(matched_display),
 			]
 		index += matched.length()
 	return result
@@ -7791,25 +7759,19 @@ func _on_confirm_dialogue_pressed() -> void:
 	var actions_before: int = int(game.actions_remaining)
 	if game.confirm_dialogue():
 		selected_meme_id = ""
-		log_text = "句子发出去了。资金到账，污染留下。"
+		log_text = "句子发出去了。"
 		_after_effective_action(actions_before)
 	else:
 		log_text = "发布空格里还没有完整梗。"
 		_render()
 
 
-func _after_effective_action(actions_before: int = -1) -> void:
+func _after_effective_action(_actions_before: int = -1) -> void:
 	if _chapter_active():
 		_render()
 		return
 	if game.pollution_flashback_pending:
 		_play_pollution_flashback()
-		return
-	if actions_before >= 0 and game.actions_remaining < actions_before:
-		_render()
-		if _hud_actions_label != null:
-			_hud_actions_label.text = _action_text(actions_before)
-		_play_action_spend_animation(actions_before, game.actions_remaining)
 		return
 	if _settle_day_and_present_rewards():
 		selected_token_id = ""
@@ -7822,6 +7784,7 @@ func _after_effective_action(actions_before: int = -1) -> void:
 func _settle_day_and_present_rewards() -> bool:
 	if _chapter_active():
 		return false
+	var previous_floor: int = game.tower_floor
 	if not game.settle_day_if_needed():
 		return false
 	_reality_interaction_active = false
@@ -7832,6 +7795,8 @@ func _settle_day_and_present_rewards() -> bool:
 	selected_token_id = ""
 	selected_meme_id = ""
 	_sync_audio_state(false)
+	if previous_floor != game.tower_floor:
+		_play_floor_arrival(game.tower_floor)
 	return true
 
 
@@ -7979,6 +7944,8 @@ func _refresh_localized_ui() -> void:
 	if _ui_root == null or not is_instance_valid(_ui_root):
 		return
 	_localize_control_tree(_ui_root)
+	if _chapter_terminal_active():
+		_localize_control_tree(_chapter_terminal_session.get_terminal().get_content_root())
 
 
 func _localize_control_tree(node: Node) -> void:
