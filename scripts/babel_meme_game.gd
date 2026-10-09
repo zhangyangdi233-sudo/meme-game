@@ -583,6 +583,7 @@ func _save_progress() -> bool:
 		return false
 	file.store_var(payload)
 	file.flush()
+	# Close before has_save is read back from the same path.
 	file.close()
 	_publish_has_save()
 	return true

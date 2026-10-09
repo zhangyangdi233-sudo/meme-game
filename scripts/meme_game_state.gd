@@ -229,31 +229,45 @@ func new_run() -> void:
 
 
 func _read_save_field(field_name: String) -> Variant:
-	if field_name == PropertyKeysScript.POLLUTION:
-		return pollution
+	if PropertyKeysScript.RUN.has(field_name):
+		var model: PropertyModel = _run_model(field_name)
+		if model == null:
+			return null
+		return model.read()
 	return get(field_name)
 
 
+func _write_run_field(field_name: String, value: Variant) -> void:
+	var model: ValuePropertyModel = _run_model(field_name) as ValuePropertyModel
+	if model == null:
+		return
+	model.write(value)
+
+
 func _read_pollution() -> int:
-	var model = _pollution_model()
+	var model: ValuePropertyModel = _pollution_model()
 	if model == null:
 		return 0
 	return int(model.read())
 
 
 func _write_pollution(value: int) -> void:
-	var model = _pollution_model()
+	var model: ValuePropertyModel = _pollution_model()
 	if model == null:
 		return
 	model.write(value)
 
 
-func _pollution_model():
+func _pollution_model() -> ValuePropertyModel:
+	return _run_model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+
+
+func _run_model(property_name: String) -> PropertyModel:
 	PropertyBootScript.install()
-	var manager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
+	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	if manager == null:
 		return null
-	return manager.model(PropertyKeysScript.POLLUTION)
+	return manager.model(property_name)
 
 
 func notify_tutorial(event_id: String, payload: Dictionary = {}) -> Dictionary:
@@ -297,8 +311,8 @@ func load_save_data(save_data: Dictionary) -> bool:
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
-		if str(field_name) == PropertyKeysScript.POLLUTION:
-			pollution = int(value)
+		if PropertyKeysScript.RUN.has(str(field_name)):
+			_write_run_field(str(field_name), value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
 	day = maxi(1, day)

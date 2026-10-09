@@ -39,9 +39,9 @@ func _run() -> void:
 
 
 func _test_factory_picks_a_model_from_the_initial_value() -> void:
-	var counted = FactoryScript.create("heat", 150, 0, 100)
-	var listed = FactoryScript.create("bag", ["a"], 0, 100)
-	var mapped = FactoryScript.create("table", {"a": 1})
+	var counted: PropertyModel = FactoryScript.create("heat", 150, 0, 100)
+	var listed: PropertyModel = FactoryScript.create("bag", ["a"], 0, 100)
+	var mapped: PropertyModel = FactoryScript.create("table", {"a": 1})
 	_assert_true(counted.get_script() == ValueScript, "a number should become a single-value model")
 	_assert_eq(counted.read(), 100, "bounds should clamp the initial number")
 	_assert_true(listed.get_script() == ListScript, "an array should become a list model")
@@ -51,7 +51,7 @@ func _test_factory_picks_a_model_from_the_initial_value() -> void:
 
 
 func _test_value_keeps_bounds_and_rejects_the_wrong_type() -> void:
-	var model = FactoryScript.create("heat", 0, 0, 100)
+	var model: ValuePropertyModel = FactoryScript.create("heat", 0, 0, 100) as ValuePropertyModel
 	model.write(4)
 	model.write("nope")
 	_assert_eq(model.read(), 4, "a wrong type should keep the previous value")
@@ -62,7 +62,7 @@ func _test_value_keeps_bounds_and_rejects_the_wrong_type() -> void:
 
 
 func _test_list_and_map_reads_are_copies() -> void:
-	var listed = FactoryScript.create("bag", [{"n": 1}])
+	var listed: ListPropertyModel = FactoryScript.create("bag", [{"n": 1}]) as ListPropertyModel
 	var heard: Array = []
 	listed.register(func(value: Variant) -> void:
 		heard.append(value)
@@ -88,7 +88,7 @@ func _test_list_and_map_reads_are_copies() -> void:
 	listed.remove_at(1)
 	_assert_eq(listed.read().size(), 1, "remove_at should drop the stored item")
 
-	var mapped = FactoryScript.create("table", {"a": 1})
+	var mapped: MapPropertyModel = FactoryScript.create("table", {"a": 1}) as MapPropertyModel
 	var map_heard: Array = []
 	mapped.register(func(value: Variant) -> void:
 		map_heard.append(value.size())
@@ -111,7 +111,7 @@ func _test_list_and_map_reads_are_copies() -> void:
 
 
 func _test_register_syncs_and_notifies_every_listener() -> void:
-	var model = FactoryScript.create("score", 2)
+	var model: ValuePropertyModel = FactoryScript.create("score", 2) as ValuePropertyModel
 	var first: Array = []
 	var second: Array = []
 	var first_listener := func(value: Variant) -> void:
@@ -127,7 +127,7 @@ func _test_register_syncs_and_notifies_every_listener() -> void:
 
 
 func _test_unregister_stops_updates() -> void:
-	var model = FactoryScript.create("score", 1)
+	var model: ValuePropertyModel = FactoryScript.create("score", 1) as ValuePropertyModel
 	var heard: Array = []
 	var listener := func(value: Variant) -> void:
 		heard.append(int(value))
@@ -139,7 +139,7 @@ func _test_unregister_stops_updates() -> void:
 
 func _test_duplicate_names_keep_the_first_object() -> void:
 	RegistryScript.clear()
-	var manager = ManagerScript.new()
+	var manager: PropertyManager = ManagerScript.new()
 	var first = FactoryScript.create("score", 1)
 	var second = FactoryScript.create("score", 9)
 	manager.add(first)
@@ -159,9 +159,9 @@ func _test_duplicate_names_keep_the_first_object() -> void:
 func _test_boot_resets_the_same_pollution_model() -> void:
 	RegistryScript.clear()
 	BootScript.install()
-	var manager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
-	var pollution = manager.model(PropertyKeysScript.POLLUTION)
-	var has_save = manager.model(PropertyKeysScript.HAS_SAVE)
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+	var has_save: ValuePropertyModel = manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
 	var pollution_id: int = pollution.get_instance_id()
 	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
 	_assert_true(PropertyKeysScript.UNSAVED.has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
@@ -187,8 +187,8 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 func _test_save_and_load_go_through_the_pollution_model() -> void:
 	RegistryScript.clear()
 	BootScript.install()
-	var manager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
-	var pollution = manager.model(PropertyKeysScript.POLLUTION)
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
 	var pollution_id: int = pollution.get_instance_id()
 	var source = StateScript.new()
 	source.new_run()
@@ -209,7 +209,7 @@ func _test_save_and_load_go_through_the_pollution_model() -> void:
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:
 	var child_count := root.get_child_count()
-	var model = FactoryScript.create("score", 0)
+	var model: ValuePropertyModel = FactoryScript.create("score", 0) as ValuePropertyModel
 	model.register(func(_value: Variant) -> void:
 		pass
 	)

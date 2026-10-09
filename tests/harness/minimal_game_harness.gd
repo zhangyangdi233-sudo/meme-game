@@ -58,6 +58,12 @@ static func craft_token(
 
 static func publish_title_facts(pollution_value: int, has_save: bool) -> void:
 	PropertyBootScript.install()
-	var manager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
-	manager.model(PropertyKeysScript.POLLUTION).write(pollution_value)
-	manager.model(PropertyKeysScript.HAS_SAVE).write(has_save)
+	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return
+	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+	var saved: ValuePropertyModel = manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
+	if pollution != null:
+		pollution.write(pollution_value)
+	if saved != null:
+		saved.write(has_save)

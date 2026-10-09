@@ -21,10 +21,10 @@ static func install() -> void:
 
 static func reset_run() -> void:
 	install()
-	var manager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER)
+	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	if manager == null:
 		return
 	for property_name in PropertyKeysScript.RUN:
-		var found = manager.model(property_name)
+		var found: PropertyModel = manager.model(property_name)
 		if found != null:
 			found.reset()
