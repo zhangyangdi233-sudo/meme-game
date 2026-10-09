@@ -38,7 +38,7 @@ func _test_first_open_attaches_without_clearing_the_layer() -> void:
 	_assert_true(is_instance_valid(sibling) and sibling.get_parent() == layer and sibling.visible, "opening the menu should leave other layer children in place")
 	_assert_eq(_count_named(mounted["host"], "MainMenuLayer"), 1, "first open should add one menu")
 
-	var again: Control = mounted["manager"].open(MainMenuScreenScript, mounted["host"], {
+	var again: Control = mounted["manager"].open({
 		"palette": UiPaletteScript.palette("palette_1"),
 		"has_save": false,
 	})
@@ -77,11 +77,11 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 	_assert_eq(continue_button.tooltip_text, "暂无自动存档", "continue should explain the missing save")
 	_assert_color(screen, "MainMenuGreenBackground", UiPaletteScript.color(UiPaletteScript.palette("palette_1"), "menu_bg"))
 
-	mounted["manager"].close(MainMenuScreenScript)
+	mounted["manager"].close()
 	_assert_true(is_instance_valid(screen) and not screen.visible, "closing the title should hide the same screen")
 
 	var polluted := UiPaletteScript.palette("pollution_palette_5")
-	var reopened: Control = mounted["manager"].open(MainMenuScreenScript, mounted["host"], {
+	var reopened: Control = mounted["manager"].open({
 		"palette": polluted,
 		"has_save": true,
 	})
@@ -98,12 +98,12 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	var mounted := _mount(UiPaletteScript.palette("palette_1"), false)
 	var screen: Control = mounted["screen"]
 	var screen_id := screen.get_instance_id()
-	mounted["manager"].close(MainMenuScreenScript)
+	mounted["manager"].close()
 	(mounted["layer"] as Node).free()
 	var replacement := Control.new()
 	replacement.name = "UIRoot"
 	(mounted["host"] as Node).add_child(replacement)
-	var reopened: Control = mounted["manager"].open(MainMenuScreenScript, mounted["host"], {
+	var reopened: Control = mounted["manager"].open({
 		"palette": UiPaletteScript.palette("palette_1"),
 		"has_save": false,
 	})
@@ -115,7 +115,7 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	var rebuilt := Control.new()
 	rebuilt.name = "UIRoot"
 	(mounted["host"] as Node).add_child(rebuilt)
-	var kept: Control = mounted["manager"].open(MainMenuScreenScript, mounted["host"], {
+	var kept: Control = mounted["manager"].open({
 		"palette": UiPaletteScript.palette("pollution_palette_5"),
 		"has_save": true,
 	})
@@ -137,9 +137,9 @@ func _mount(palette: Dictionary, has_save: bool) -> Dictionary:
 	sibling.name = "UiLayerSibling"
 	layer.add_child(sibling)
 	var bus: GameEventBus = GameEventBusScript.new()
-	var manager: ScreenManager = ScreenManagerScript.new(bus)
+	var manager: ScreenManager = ScreenManagerScript.new(bus, MainMenuScreenScript, host)
 	root.add_child(manager)
-	var screen: Control = manager.open(MainMenuScreenScript, host, {
+	var screen: Control = manager.open({
 		"palette": palette,
 		"has_save": has_save,
 	})

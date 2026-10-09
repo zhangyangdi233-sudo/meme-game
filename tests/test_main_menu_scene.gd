@@ -71,7 +71,7 @@ func _test_mount_keeps_node_contract() -> void:
 	var exit_button := Harness.find_node_by_name(host, "MainMenuExitButton") as Button
 	_assert_true(exit_button != null and bool(exit_button.get_meta("skip_localization", false)), "exit button should skip localization")
 
-	mounted["manager"].close(MainMenuScreenScript)
+	mounted["manager"].close()
 	_assert_true(is_instance_valid(layer) and not layer.visible, "closing the title should hide the same layer")
 	_dispose(mounted)
 
@@ -152,10 +152,10 @@ func _mount(stage: Dictionary, has_save: bool) -> Dictionary:
 	host.name = "UIRoot"
 	root.add_child(host)
 	var bus: GameEventBus = GameEventBusScript.new()
-	var manager: ScreenManager = ScreenManagerScript.new(bus)
+	var manager: ScreenManager = ScreenManagerScript.new(bus, MainMenuScreenScript, host)
 	root.add_child(manager)
 	var ui_theme := GameUiThemeScript.new()
-	var screen: Control = manager.open(MainMenuScreenScript, host, {
+	var screen: Control = manager.open({
 		"palette": ui_theme.active_palette(stage),
 		"has_save": has_save,
 	})

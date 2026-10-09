@@ -1059,7 +1059,7 @@ func install_title_screen() -> void:
 	_app_bodies.clear()
 	_ensure_title_ui_root()
 	_ensure_screen_manager()
-	_screen_manager.open(MainMenuScreenScript, _canvas, {
+	_screen_manager.open({
 		"palette": _ui_theme_helper.active_palette(),
 		"has_save": _has_save_progress(),
 	})
@@ -1072,7 +1072,7 @@ func install_title_screen() -> void:
 
 func uninstall_title_screen() -> void:
 	if _screen_manager != null and is_instance_valid(_screen_manager):
-		_screen_manager.close(MainMenuScreenScript)
+		_screen_manager.close()
 
 
 func install_prologue_screen() -> void:
@@ -1789,7 +1789,7 @@ func _ensure_screen_manager() -> void:
 		return
 	_ui_event_bus = GameEventBusScript.new()
 	_ui_event_bus.intent_emitted.connect(_on_ui_intent)
-	_screen_manager = ScreenManagerScript.new(_ui_event_bus)
+	_screen_manager = ScreenManagerScript.new(_ui_event_bus, MainMenuScreenScript, self)
 	_screen_manager.name = "ScreenManager"
 	add_child(_screen_manager)
 

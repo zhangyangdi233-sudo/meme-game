@@ -1,30 +1,35 @@
 class_name ScreenManager
 extends Node
-## Opens and hides game screens. The host creates one; this is not an autoload.
-## Opening a screen never closes another. Closing only hides, and the next open reuses the instance.
+## Opens and hides one game screen. The host creates one; this is not an autoload.
+## The screen script and the stable layer host are fixed at init. open() only receives what changes each time the screen is shown.
 
 
 var _bus: GameEventBus
-var _screens: Dictionary = {}
+var _screen_script: Script
+var _layer_host: Node
+var _layer_name := ""
+var _screen: Control
 
 
-func _init(bus: GameEventBus) -> void:
+func _init(bus: GameEventBus, screen_script: Script, layer_host: Node) -> void:
 	_bus = bus
+	_screen_script = screen_script
+	_layer_host = layer_host
+	_layer_name = str(_constant(screen_script, "LAYER_NAME"))
 
 
-func open(screen_script: Script, layer_host: Node, context: Dictionary = {}) -> Control:
-	var layer_name := str(_constant(screen_script, "LAYER_NAME"))
-	var layer := _resolve_layer(layer_host, layer_name)
+func open(context: Dictionary = {}) -> Control:
+	var layer := _resolve_layer(_layer_host, _layer_name)
 	if layer == null:
-		push_error("ScreenManager missing UI layer %s" % layer_name)
+		push_error("ScreenManager missing UI layer %s" % _layer_name)
 		return null
 	var created := false
-	var screen := _live(screen_script)
+	var screen := _live()
 	if screen == null:
-		screen = _instantiate(screen_script)
+		screen = _instantiate()
 		if screen == null:
 			return null
-		_screens[screen_script] = screen
+		_screen = screen
 		created = true
 	_place(screen, layer)
 	if created and screen is UIBase:
@@ -35,8 +40,8 @@ func open(screen_script: Script, layer_host: Node, context: Dictionary = {}) -> 
 	return screen
 
 
-func close(screen_script: Script) -> void:
-	var screen := _live(screen_script)
+func close() -> void:
+	var screen := _live()
 	if screen == null:
 		return
 	screen.visible = false
@@ -44,15 +49,14 @@ func close(screen_script: Script) -> void:
 
 
 func retain() -> void:
-	for key in _screens.keys():
-		var screen := _live(key)
-		if screen == null:
-			continue
-		_keep(screen)
+	var screen := _live()
+	if screen == null:
+		return
+	_keep(screen)
 
 
-func _instantiate(screen_script: Script) -> Control:
-	var scene_path := str(_constant(screen_script, "SCENE_PATH"))
+func _instantiate() -> Control:
+	var scene_path := str(_constant(_screen_script, "SCENE_PATH"))
 	var packed := load(scene_path) as PackedScene
 	if packed == null:
 		push_error("ScreenManager could not load %s" % scene_path)
@@ -76,14 +80,11 @@ func _place(screen: Node, parent: Node) -> void:
 	parent.add_child(screen)
 
 
-func _live(screen_script: Variant) -> Control:
-	if not screen_script is Script or not _screens.has(screen_script):
+func _live() -> Control:
+	if not is_instance_valid(_screen):
+		_screen = null
 		return null
-	var screen: Variant = _screens[screen_script]
-	if not is_instance_valid(screen) or not screen is Control:
-		_screens.erase(screen_script)
-		return null
-	return screen as Control
+	return _screen
 
 
 func _resolve_layer(layer_host: Node, layer_name: String) -> Control:
