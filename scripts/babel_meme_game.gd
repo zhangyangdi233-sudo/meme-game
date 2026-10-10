@@ -1642,10 +1642,11 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_build_language_selection_overlay(false)
 		UiIntentsScript.LANGUAGE_SELECTED:
 			# The settings window picks a language mid-run; the picker only opens outside a run.
+			var locale_code := str(payload.get(UiIntentsScript.KEY_LOCALE, ""))
 			if _session_is_in_run():
-				_on_settings_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+				_on_settings_language_selected(locale_code)
 			else:
-				_on_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+				_on_language_selected(locale_code)
 		UiIntentsScript.VOLUME_CHANGED:
 			_on_volume_changed(float(payload.get(UiIntentsScript.KEY_VALUE, 0.0)))
 		UiIntentsScript.AUTOPLAY_TOGGLED:
