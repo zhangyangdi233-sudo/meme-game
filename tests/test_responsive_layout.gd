@@ -60,8 +60,8 @@ func _run() -> void:
 	if view_toggle != null:
 		_assert_true(_inside_rect(view_toggle, viewport_rect), "small-view put-phone button should stay reachable")
 	_assert_true(meme_bank == null, "small view must not mount the retired meme ring")
-	if game_root.has_method("_open_social_post"):
-		game_root._open_social_post(0)
+	if game_root._social_feed_panel != null:
+		game_root._social_feed_panel.open_post(0)
 		await process_frame
 		var detail_window := _find_node_by_name(game_root, "SocialDetailWindow") as PanelContainer
 		var detail_close := _find_node_by_name(game_root, "SocialDetailWindowCloseButton") as Button

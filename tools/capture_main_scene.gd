@@ -24,8 +24,8 @@ func _capture() -> void:
 	if main.has_method("new_game"):
 		main.new_game()
 		main._skip_prologue()
-	if main.has_method("_open_social_post"):
-		main._open_social_post(0)
+	if main._social_feed_panel != null:
+		main._social_feed_panel.open_post(0)
 	for frame in 6:
 		await process_frame
 	var viewport_texture := root.get_texture()

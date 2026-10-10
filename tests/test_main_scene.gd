@@ -182,12 +182,12 @@ func _test_phone_apps(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "BabelFloorHintLabel") is Label, "tower app should show the hint card line")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
-	game_root._set_social_screen("publish")
+	game_root._social_feed_panel.show_screen("publish")
 	game_root._render()
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the sentence area")
 	_assert_true(_find_node_by_name(game_root, "SocialPublishPostButton") is Button, "the publish page should expose one post command")
 	_assert_true(_find_node_by_name(game_root, "SocialPublishUnitCounter") != null, "the publish page should show a unit counter")
-	game_root._set_social_screen("home")
+	game_root._social_feed_panel.show_screen("home")
 
 
 func _test_social_feed(game_root: Node) -> void:
@@ -205,7 +205,7 @@ func _test_social_feed(game_root: Node) -> void:
 		_assert_true(absf(column_left.size.x - column_right.size.x) <= 1.0, "masonry columns should use equal widths")
 	_assert_true(_find_node_by_name(game_root, "SocialPostCard0") is Control, "feed should contain image-led cards")
 	_assert_true(_find_node_by_name(game_root, "SocialPostTexture0") is TextureRect, "feed cards should render generated poster art")
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	_assert_true(_find_node_by_name(game_root, "SocialPostDetailPage") is VBoxContainer, "opening a feed card should reveal its detail page")
 
 

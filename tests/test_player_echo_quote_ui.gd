@@ -38,13 +38,13 @@ func _test_ui() -> void:
 	game_root.new_game()
 	await process_frame
 
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	_assert_true(Harness.find_node_by_name(game_root, "SocialEchoComment") == null, "no echo comment before the player has posted anything")
 
 	_post_door_sentence(game_root.game)
 	game_root.game.pollution = 10
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	var echo_text := Harness.find_node_by_name(game_root, "SocialEchoCommentText") as Label
 	_assert_true(echo_text != null, "after posting, a stranger quotes the player")
@@ -53,7 +53,7 @@ func _test_ui() -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "SocialEchoCommentMeta") != null, "the echo comment carries an anonymous handle and timestamp")
 
 	game_root.game.pollution = 70
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	echo_text = Harness.find_node_by_name(game_root, "SocialEchoCommentText") as Label
 	if echo_text != null:

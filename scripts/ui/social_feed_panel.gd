@@ -3,6 +3,8 @@ extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
 ## While the app is shown, it watches the followed authors, the liked posts, the held words and the finished memes,
 ## and repaints itself.
+## The page, the channel and the open post are this screen's own view and live only here.
+## Moving between them repaints the panel at once; the host hears page_changed only to re-theme the new nodes.
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
@@ -11,13 +13,13 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
-signal channel_pressed(channel: String)
-signal screen_requested(screen: String)
-signal card_clicked(post_index: int)
+## The panel already shows the new page, channel or open post.
+signal page_changed
+signal post_opened(post_index: int)
 signal like_pressed(post_id: String)
 signal follow_pressed(author_id: String)
 signal close_requested
-signal detail_close_requested
+signal detail_closed
 signal publish_confirm_requested
 signal pickup_unit_clicked(meta: Variant, post_id: String)
 signal composer_area_dropped(data: Dictionary)
@@ -26,6 +28,13 @@ signal composer_answer_tapped(unit_index: int)
 signal composer_submit_requested
 
 const SOCIAL_FEED_WHEEL_STEP := 2
+const SCREENS := ["home", "publish", "profile"]
+const DEFAULT_SCREEN := "home"
+const DEFAULT_CHANNEL := "discover"
+## Opening this channel opens its first post beside the feed.
+const TOWER_BASE_CHANNEL := "tower_base"
+## The open post's index, or this when no post is open.
+const NO_POST := -1
 const SOCIAL_FEED_POSTER_HEIGHTS := [
 	214.0, 176.0, 238.0, 194.0,
 	226.0, 184.0, 218.0, 202.0,
@@ -44,8 +53,7 @@ var _app_title: Label
 var _detail_window: PanelContainer
 var _detail_body: VBoxContainer
 var _detail_title: Label
-var _social_detail_post_index := 0
-var _social_detail_open := false
+var _detail_post_index := NO_POST
 var _panel_factory: Callable
 var _label_factory: Callable
 var _style_fn: Callable
@@ -80,9 +88,10 @@ var _channels: Array = []
 var _no_signal_icon_path := ""
 var _poster_sheet_path := ""
 var _poster_sheet_count := 0
-var _screen := ""
-var _channel := ""
+var _screen := DEFAULT_SCREEN
+var _channel := DEFAULT_CHANNEL
 var _rendered := false
+var _app_shown := false
 var _followed: Array = []
 var _liked: Array = []
 var _held_chars: Array = []
@@ -123,31 +132,55 @@ func get_app_title() -> Control:
 	return _app_title
 
 
-func get_detail_post_index() -> int:
-	return _social_detail_post_index
-
-
-func set_detail_post_index(post_index: int) -> void:
-	_social_detail_post_index = post_index
-
-
 func is_detail_open() -> bool:
-	return _social_detail_open
+	return _detail_post_index != NO_POST
 
 
 func get_confirm_publish_button() -> Button:
 	return _confirm_publish_button
 
 
-func open_detail(post_index: int) -> void:
-	_social_detail_post_index = post_index
-	_social_detail_open = true
+## Opens one post beside the feed and tells the host which one.
+func open_post(post_index: int) -> void:
+	_detail_post_index = post_index
 	if _detail_window != null:
 		_detail_window.move_to_front()
+	_show_detail_window()
+	render_companion()
+	post_opened.emit(post_index)
 
 
+## Shuts the open post, for example when the app window closes.
 func close_detail() -> void:
-	_social_detail_open = false
+	_detail_post_index = NO_POST
+	_show_detail_window()
+
+
+func show_screen(screen: String) -> void:
+	if screen not in SCREENS:
+		return
+	_screen = screen
+	_channel = DEFAULT_CHANNEL
+	close_detail()
+	_repaint_page()
+
+
+func select_channel(channel: String) -> void:
+	_channel = channel
+	_screen = DEFAULT_SCREEN
+	if channel == TOWER_BASE_CHANNEL:
+		_repaint_page()
+		open_post(0)
+	else:
+		close_detail()
+		_repaint_page()
+
+
+## A new run starts on the home feed with no post open.
+func reset_view() -> void:
+	_screen = DEFAULT_SCREEN
+	_channel = DEFAULT_CHANNEL
+	close_detail()
 
 
 func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
@@ -172,9 +205,9 @@ func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 
 ## The phone decides whether the social app shows. While it shows, the models decide who is followed and what is liked.
 func update_visibility(in_phone: bool, social_app_open: bool) -> void:
-	if _detail_window != null:
-		_detail_window.visible = in_phone and _social_detail_open and social_app_open
-	if in_phone and social_app_open:
+	_app_shown = in_phone and social_app_open
+	_show_detail_window()
+	if _app_shown:
 		# Registering delivers each list once; one repaint after all of them covers a list that changed while hidden.
 		if not _watch.is_active() and _watch.start():
 			_repaint_if_stale()
@@ -187,11 +220,11 @@ func render_companion() -> void:
 		return
 	_painted_held_chars = _held_chars
 	_clear(_detail_body)
-	if not _social_detail_open:
+	if not is_detail_open():
 		return
 	if _detail_title != null and _floor_label_fn.is_valid():
 		_detail_title.text = str(_floor_label_fn.call())
-	_render_detail_page(_detail_body, true)
+	_render_detail_page(_detail_body)
 
 
 func layout_window(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
@@ -218,11 +251,11 @@ func layout_window(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 	window.offset_bottom = viewport_size.y - 8.0
 
 
-func render_app(screen: String, channel: String) -> void:
+func render_app() -> void:
 	if _app_body == null:
 		return
-	_screen = screen
-	_channel = channel
+	var screen := _screen
+	var channel := _channel
 	_rendered = true
 	_painted_followed = _followed
 	_painted_liked = _liked
@@ -323,8 +356,6 @@ func render_app(screen: String, channel: String) -> void:
 	phone_box.add_child(page_host)
 
 	match screen:
-		"detail":
-			_render_detail_page(page_host, false)
 		"publish":
 			_render_publish_page(page_host)
 		"profile":
@@ -475,7 +506,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 
 	var visible_post_indices: Array = []
 	if _visible_post_indices_fn.is_valid():
-		visible_post_indices = _visible_post_indices_fn.call(_followed)
+		visible_post_indices = _visible_post_indices_fn.call(_followed, channel)
 	if channel == "following" and visible_post_indices.is_empty():
 		_render_channel_empty_state(
 			home_page,
@@ -752,11 +783,11 @@ func _on_close_pressed() -> void:
 
 
 func _on_channel_tab_pressed(channel_id: String) -> void:
-	channel_pressed.emit(channel_id)
+	select_channel(channel_id)
 
 
 func _on_nav_pressed(screen: String) -> void:
-	screen_requested.emit(screen)
+	show_screen(screen)
 
 
 func _on_like_pressed(post_id: String) -> void:
@@ -769,9 +800,9 @@ func _on_follow_pressed(author_id: String) -> void:
 
 func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		card_clicked.emit(post_index)
+		open_post(post_index)
 	elif event is InputEventScreenTouch and event.pressed:
-		card_clicked.emit(post_index)
+		open_post(post_index)
 
 
 func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) -> void:
@@ -791,7 +822,7 @@ func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) 
 			feed_scroll.accept_event()
 
 
-func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void:
+func _render_detail_page(parent: VBoxContainer) -> void:
 	var detail_page := VBoxContainer.new()
 	detail_page.name = "SocialPostDetailPage"
 	detail_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -800,45 +831,22 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 
 	var post: Dictionary = {}
 	if _post_for_index_fn.is_valid():
-		post = _post_for_index_fn.call(_social_detail_post_index)
+		post = _post_for_index_fn.call(_detail_post_index)
 
-	if companion:
-		var companion_meta := HBoxContainer.new()
-		companion_meta.add_theme_constant_override("separation", 8)
-		detail_page.add_child(companion_meta)
-		var handle_text := str(post.get("handle", ""))
-		if _translate_fn.is_valid():
-			handle_text = str(_translate_fn.call(handle_text))
-		var companion_handle := _label_factory.call("@%s" % handle_text, 15, _theme_color_fn.call("surface")) as Label
-		companion_handle.set_meta("on_dark", true)
-		companion_handle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		companion_meta.add_child(companion_handle)
-		var floor_marker := _label_factory.call("信号档案", 13, _theme_color_fn.call("muted")) as Label
-		floor_marker.name = "SocialDetailSignalArchive"
-		floor_marker.set_meta("on_dark", true)
-		companion_meta.add_child(floor_marker)
-	else:
-		var top_row := HBoxContainer.new()
-		top_row.add_theme_constant_override("separation", 8)
-		detail_page.add_child(top_row)
-		var back := Button.new()
-		back.name = "SocialBackToHome"
-		back.text = "‹"
-		back.custom_minimum_size = Vector2(76, 56)
-		back.pressed.connect(_on_detail_close_pressed)
-		top_row.add_child(back)
-		var handle_text := str(post.get("handle", ""))
-		if _translate_fn.is_valid():
-			handle_text = str(_translate_fn.call(handle_text))
-		var title := _label_factory.call("@%s" % handle_text, 18, _theme_color_fn.call("accent")) as Label
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		top_row.add_child(title)
-		var floor_text := ""
-		if _floor_label_fn.is_valid():
-			floor_text = str(_floor_label_fn.call())
-		var floor_label := _label_factory.call(floor_text, 16, _theme_color_fn.call("ink")) as Label
-		floor_label.name = "SocialDetailTowerFloor"
-		top_row.add_child(floor_label)
+	var companion_meta := HBoxContainer.new()
+	companion_meta.add_theme_constant_override("separation", 8)
+	detail_page.add_child(companion_meta)
+	var handle_text := str(post.get("handle", ""))
+	if _translate_fn.is_valid():
+		handle_text = str(_translate_fn.call(handle_text))
+	var companion_handle := _label_factory.call("@%s" % handle_text, 15, _theme_color_fn.call("surface")) as Label
+	companion_handle.set_meta("on_dark", true)
+	companion_handle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	companion_meta.add_child(companion_handle)
+	var floor_marker := _label_factory.call("信号档案", 13, _theme_color_fn.call("muted")) as Label
+	floor_marker.name = "SocialDetailSignalArchive"
+	floor_marker.set_meta("on_dark", true)
+	companion_meta.add_child(floor_marker)
 
 	var detail_card := _panel_factory.call() as PanelContainer
 	detail_card.name = "SocialPostDetailCard"
@@ -849,18 +857,18 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	detail_box.add_theme_constant_override("separation", 9)
 	detail_card.add_child(detail_box)
 	var media := PanelContainer.new()
-	media.custom_minimum_size.y = 320 if companion else 274
+	media.custom_minimum_size.y = 320
 	media.set_meta("poster_frame", true)
 	media.add_theme_stylebox_override("panel", _style_fn.call(_theme_color_fn.call("muted"), _theme_color_fn.call("accent")))
 	detail_box.add_child(media)
 	var media_texture := TextureRect.new()
 	media_texture.name = "SocialDetailPostTexture"
-	var poster_cell := int(post.get("poster_cell", _social_detail_post_index))
+	var poster_cell := int(post.get("poster_cell", _detail_post_index))
 	if _poster_texture_fn.is_valid():
 		media_texture.texture = _poster_texture_fn.call(poster_cell) as Texture2D
 	media_texture.set_meta("poster_sheet_path", _poster_sheet_path)
 	media_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _poster_sheet_count))
-	media_texture.custom_minimum_size = Vector2(300, 320 if companion else 274)
+	media_texture.custom_minimum_size = Vector2(300, 320)
 	media_texture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	media_texture.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	media_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -895,7 +903,7 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	detail_like.name = "SocialDetailLikeButton"
 	var like_text := ""
 	if _like_text_fn.is_valid():
-		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _social_detail_post_index)), _liked))
+		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _detail_post_index)), _liked))
 	detail_like.text = like_text
 	detail_like.custom_minimum_size = Vector2(120, 44)
 	detail_like.pressed.connect(_on_like_pressed.bind(post_card_id))
@@ -974,8 +982,28 @@ func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) 
 	echo_box.add_child(echo_text)
 
 
+## Shutting the tower base post leaves its channel too.
 func _on_detail_close_pressed() -> void:
-	detail_close_requested.emit()
+	close_detail()
+	if _channel == TOWER_BASE_CHANNEL:
+		_channel = DEFAULT_CHANNEL
+		_repaint_page()
+	render_companion()
+	detail_closed.emit()
+
+
+func _show_detail_window() -> void:
+	if _detail_window != null:
+		_detail_window.visible = _app_shown and is_detail_open()
+
+
+## A page that was never drawn is left to the host, like the model repaints.
+func _repaint_page() -> void:
+	if not _rendered:
+		return
+	render_app()
+	render_companion()
+	page_changed.emit()
 
 
 func _render_publish_page(parent: VBoxContainer) -> void:
@@ -1310,7 +1338,7 @@ func _repaint_if_stale() -> void:
 	var publish_stale := _screen == "publish" and _can_spend() != _painted_can_spend
 	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale or publish_stale
 	if feed_stale:
-		render_app(_screen, _channel)
+		render_app()
 	if feed_stale or _held_chars != _painted_held_chars:
 		render_companion()
 

@@ -256,7 +256,7 @@ func _test_ui_flow() -> void:
 	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 
 	game_root.game.set_active_app("social")
-	game_root._social_screen = "publish"
+	game_root._social_feed_panel.show_screen("publish")
 	game_root._render()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
@@ -279,7 +279,7 @@ func _test_ui_flow() -> void:
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
 
 	game_root.game.set_active_app("social")
-	game_root._social_screen = "publish"
+	game_root._social_feed_panel.show_screen("publish")
 	game_root._render()
 	await process_frame
 	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button

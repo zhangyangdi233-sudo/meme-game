@@ -47,7 +47,7 @@ func _run() -> void:
 	app_body.name = "NotebookAppBody"
 	app_body.size = Vector2(560, 640)
 	root.add_child(app_body)
-	panel.render(app_body, "frame")
+	panel.render(app_body)
 	await process_frame
 
 	var canvas := Harness.find_node_by_name(app_body, "NotebookWordCanvas") as WordPhysicsCanvas
@@ -88,7 +88,7 @@ func _run() -> void:
 	if moving != null and is_instance_valid(moving):
 		moving.linear_velocity = Vector2(320.0, 0.0)
 	var live_door: Vector2 = canvas.get_tile_position("门")
-	panel.render(app_body, "frame")
+	panel.render(app_body)
 	await process_frame
 	var reopened := Harness.find_node_by_name(app_body, "NotebookWordCanvas") as WordPhysicsCanvas
 	_assert_true(reopened != null, "reopening the notebook should mount the canvas again")

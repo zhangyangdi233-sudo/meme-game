@@ -41,7 +41,7 @@ func test_removed_systems_are_absent_from_runtime_ui() -> void:
 	_assert_true(Harness.find_node_by_name(root, "SocialPublishContractPanel") == null, "the card-hand panel should be gone")
 	_assert_true(Harness.find_node_by_name(root, "OldWebArchiveCodeInput") == null, "the archive code puzzle should be gone")
 	root.game.set_active_app("social")
-	root._set_social_screen("publish")
+	root._social_feed_panel.show_screen("publish")
 	root._render()
 	var publish_text := Harness.collect_control_text(root)
 	_assert_true(publish_text.contains("资金") and publish_text.contains("污染"), "the publish screen should preview the two remaining outcomes")

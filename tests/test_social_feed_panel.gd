@@ -1,5 +1,6 @@
 extends SceneTree
 ## Social feed panel watches the followed authors, liked posts, held words, finished memes and remaining actions on their property models.
+## It also keeps its own page, channel and open post, and repaints itself when the player moves between them.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -13,7 +14,6 @@ const POSTS := [
 ]
 
 var _failures: Array[String] = []
-var _content_channel := "discover"
 
 
 func _init() -> void:
@@ -42,6 +42,11 @@ func _run() -> void:
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
 	_test_the_open_publish_page_follows_remaining_actions()
+	_test_a_channel_tab_repaints_the_feed_by_itself()
+	_test_a_nav_button_switches_the_page_by_itself()
+	_test_a_card_opens_its_post_and_the_close_button_shuts_it()
+	_test_the_tower_base_channel_opens_the_first_post()
+	_test_reset_view_returns_to_the_first_page()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -54,7 +59,7 @@ func _test_showing_registers_once_and_syncs_both_models() -> void:
 
 	followed.replace_all(["post-a"])
 	liked.replace_all(["post-b"])
-	panel.render_app("home", "discover")
+	panel.render_app()
 	panel.update_visibility(true, true)
 	_assert_eq(_listener_count(followed), 1, "showing should register on the follow model")
 	_assert_eq(_listener_count(liked), 1, "showing should register on the like model")
@@ -73,7 +78,7 @@ func _test_following_and_liking_repaint_the_open_feed() -> void:
 	var panel := mounted["panel"] as SocialFeedPanel
 	var followed: ListPropertyModel = mounted["followed"]
 	var liked: ListPropertyModel = mounted["liked"]
-	panel.render_app("home", "discover")
+	panel.render_app()
 	panel.update_visibility(true, true)
 	_assert_eq(_follow_text(mounted, 0), "关注", "an unfollowed author should offer to follow")
 
@@ -92,9 +97,9 @@ func _test_the_following_channel_lists_followed_authors_only() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var followed: ListPropertyModel = mounted["followed"]
-	_content_channel = "following"
-	panel.render_app("home", "following")
+	panel.render_app()
 	panel.update_visibility(true, true)
+	_press(mounted, "SocialChannelTabfollowing")
 	_assert_true(_find(mounted, "SocialFollowingEmptyState") != null, "no follows should show the empty following channel")
 	followed.add("post-b")
 	_assert_true(_find(mounted, "SocialFollowingEmptyState") == null, "a follow should fill the following channel")
@@ -107,7 +112,7 @@ func _test_a_list_that_changed_while_hidden_is_painted_on_show() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var followed: ListPropertyModel = mounted["followed"]
-	panel.render_app("home", "discover")
+	panel.render_app()
 	followed.add("post-a")
 	_assert_eq(_follow_text(mounted, 0), "关注", "a hidden panel should not repaint")
 	panel.update_visibility(true, true)
@@ -120,7 +125,7 @@ func _test_hiding_unregisters_and_later_writes_are_ignored() -> void:
 	var panel := mounted["panel"] as SocialFeedPanel
 	var followed: ListPropertyModel = mounted["followed"]
 	var liked: ListPropertyModel = mounted["liked"]
-	panel.render_app("home", "discover")
+	panel.render_app()
 	panel.update_visibility(true, true)
 	panel.update_visibility(true, false)
 	_assert_eq(_listener_count(followed), 0, "closing the app should unregister from the follow model")
@@ -157,7 +162,6 @@ func _test_a_mounted_panel_is_not_opened_by_a_write() -> void:
 func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
-	_content_channel = "discover"
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	var parent := Control.new()
 	parent.name = "SocialTestParent"
@@ -192,13 +196,16 @@ func _deps() -> Dictionary:
 		"register_draggable": func(_window: Control, _id: String, _handle: Control) -> void: pass,
 		"load_texture": func(_path: String): return null,
 		"poster_texture": func(_post_index: int): return null,
-		"channels": [{"id": "discover", "label": "发现"}, {"id": "following", "label": "关注"}],
-		"visible_post_indices": func(followed_handles: Array) -> Array[int]:
+		"channels": [
+			{"id": "discover", "label": "发现"},
+			{"id": "following", "label": "关注"},
+			{"id": "tower_base", "label": "塔下"},
+		],
+		"visible_post_indices": func(followed_handles: Array, channel: String) -> Array[int]:
 			return SocialFeedContent.visible_post_indices({
-				"social_channel": _content_channel,
 				"post_cards": POSTS,
 				"author_id": author_id,
-			}, followed_handles),
+			}, followed_handles, channel),
 		"post_for_index": func(post_index: int) -> Dictionary: return POSTS[post_index],
 		"like_text": func(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
 			return SocialFeedContent.like_text(post, post_index, liked_post_ids),
@@ -220,7 +227,8 @@ func _test_showing_registers_the_holdings_and_syncs_the_profile_count() -> void:
 	_assert_eq(_listener_count(memes), 0, "a mounted panel should not listen to memes before it is shown")
 	memes.add({"id": "meme-1"})
 	memes.add({"id": "meme-2"})
-	panel.render_app("profile", "discover")
+	panel.render_app()
+	panel.show_screen("profile")
 	panel.update_visibility(true, true)
 	_assert_eq(_listener_count(held), 1, "showing should register on the held words")
 	_assert_eq(_listener_count(memes), 1, "showing should register on the memes")
@@ -234,7 +242,8 @@ func _test_a_new_meme_repaints_the_open_profile_by_itself() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var memes: ListPropertyModel = mounted["memes"]
-	panel.render_app("profile", "discover")
+	panel.render_app()
+	panel.show_screen("profile")
 	panel.update_visibility(true, true)
 	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "a fresh run should show no finished memes")
 	memes.add({"id": "meme-1"})
@@ -248,7 +257,7 @@ func _test_a_new_meme_leaves_the_other_pages_alone() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var memes: ListPropertyModel = mounted["memes"]
-	panel.render_app("home", "discover")
+	panel.render_app()
 	panel.update_visibility(true, true)
 	var feed := _find(mounted, "SocialPhoneView")
 	memes.add({"id": "meme-1"})
@@ -260,9 +269,8 @@ func _test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them() -> void
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var held: ListPropertyModel = mounted["held"]
-	panel.render_app("home", "discover")
-	panel.open_detail(2)
-	panel.render_companion()
+	panel.render_app()
+	panel.open_post(2)
 	panel.update_visibility(true, true)
 	_assert_true(_pickup_line(mounted).contains("[url=门]"), "a word nobody holds should be marked as pickable")
 
@@ -280,7 +288,8 @@ func _test_hiding_unregisters_the_holdings_and_later_writes_are_ignored() -> voi
 	var panel := mounted["panel"] as SocialFeedPanel
 	var held: ListPropertyModel = mounted["held"]
 	var memes: ListPropertyModel = mounted["memes"]
-	panel.render_app("profile", "discover")
+	panel.render_app()
+	panel.show_screen("profile")
 	panel.update_visibility(true, true)
 	panel.update_visibility(true, false)
 	_assert_eq(_listener_count(held), 0, "closing the app should unregister from the held words")
@@ -310,7 +319,8 @@ func _test_the_open_publish_page_follows_remaining_actions() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var actions: ValuePropertyModel = mounted["actions"]
-	panel.render_app("publish", "discover")
+	panel.render_app()
+	panel.show_screen("publish")
 	panel.update_visibility(true, true)
 	_assert_eq(_listener_count(actions), 1, "showing should register on remaining actions once")
 	_assert_eq(_post_button_text(mounted), "投稿", "a day with actions left should allow posting")
@@ -327,12 +337,134 @@ func _test_the_open_publish_page_follows_remaining_actions() -> void:
 	mounted = _mount()
 	panel = mounted["panel"] as SocialFeedPanel
 	actions = mounted["actions"]
-	panel.render_app("home", "discover")
+	panel.render_app()
 	panel.update_visibility(true, true)
 	var feed := _find(mounted, "SocialPhoneView")
 	actions.write(0)
 	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "an action write should not redraw a page without the post button")
 	_dispose(mounted)
+
+
+func _test_a_channel_tab_repaints_the_feed_by_itself() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_assert_true(_underline_shown(mounted, "discover"), "a fresh feed should select the discover channel")
+	var page_changes := _count_page_changes(panel)
+	_press(mounted, "SocialChannelTabfollowing")
+	_assert_true(_underline_shown(mounted, "following"), "pressing a channel tab should select it without the host")
+	_assert_true(not _underline_shown(mounted, "discover"), "pressing a channel tab should deselect the old channel")
+	_assert_true(_find(mounted, "SocialFollowingEmptyState") != null, "the following channel should list followed authors only")
+	_assert_eq(page_changes[0], 1, "a channel change should tell the host once that the page changed")
+	_press(mounted, "SocialChannelTabdiscover")
+	_assert_true(_find(mounted, "SocialPostFollowButton0") != null, "going back to discover should list every post again")
+	_dispose(mounted)
+
+
+func _test_a_nav_button_switches_the_page_by_itself() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_press(mounted, "SocialChannelTabfollowing")
+	_press(mounted, "SocialNavMine")
+	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "the profile button should open the profile page without the host")
+	_press(mounted, "SocialNavCreate")
+	_assert_eq(_post_button_text(mounted), "投稿", "the publish button should open the publish page without the host")
+	_press(mounted, "SocialNavHome")
+	_assert_true(_find(mounted, "SocialHomePage") != null, "the home button should bring the feed back")
+	_assert_true(_underline_shown(mounted, "discover"), "switching pages should land on the discover channel")
+	_dispose(mounted)
+
+
+func _test_a_card_opens_its_post_and_the_close_button_shuts_it() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var opened: Array = []
+	panel.post_opened.connect(func(post_index: int) -> void: opened.append(post_index))
+	panel.render_app()
+	panel.update_visibility(true, true)
+	var detail := panel.get_detail_window()
+	_assert_true(not panel.is_detail_open() and not detail.visible, "a fresh feed should keep the post detail shut")
+	_click_card(mounted, 2)
+	_assert_true(panel.is_detail_open(), "clicking a card should open its post")
+	_assert_true(detail.visible, "an open post should show its window while the app shows")
+	_assert_true(_find(mounted, "SocialPickupLineText") != null, "an open post should paint its detail by itself")
+	_assert_eq(opened, [2], "opening a post should tell the host which post")
+	_press(mounted, "SocialNavMine")
+	_assert_true(not panel.is_detail_open() and not detail.visible, "switching pages should shut the open post")
+
+	_click_card_after_home(mounted, 0)
+	_press(mounted, "SocialDetailWindowCloseButton")
+	_assert_true(not panel.is_detail_open(), "the close button should shut the post without the host")
+	_assert_true(not detail.visible, "a shut post should hide its window")
+	_dispose(mounted)
+
+
+func _test_the_tower_base_channel_opens_the_first_post() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_press(mounted, "SocialChannelTabtower_base")
+	_assert_true(panel.is_detail_open(), "the tower base channel should open the first post")
+	_assert_true(_underline_shown(mounted, "tower_base"), "the tower base channel should stay selected while its post is open")
+	_press(mounted, "SocialDetailWindowCloseButton")
+	_assert_true(_underline_shown(mounted, "discover"), "shutting the tower base post should go back to discover")
+	_dispose(mounted)
+
+
+func _test_reset_view_returns_to_the_first_page() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_press(mounted, "SocialChannelTabfollowing")
+	_press(mounted, "SocialNavMine")
+	panel.open_post(1)
+	panel.reset_view()
+	_assert_true(not panel.is_detail_open(), "a new run should shut the open post")
+	_assert_true(not panel.get_detail_window().visible, "a new run should hide the post window")
+	panel.render_app()
+	_assert_true(_find(mounted, "SocialHomePage") != null, "a new run should start on the home page")
+	_assert_true(_underline_shown(mounted, "discover"), "a new run should start on the discover channel")
+	_dispose(mounted)
+
+
+func _press(mounted: Dictionary, node_name: String) -> void:
+	var button := _find(mounted, node_name) as Button
+	if button == null:
+		_failures.append("missing button %s" % node_name)
+		return
+	button.pressed.emit()
+
+
+func _click_card(mounted: Dictionary, post_index: int) -> void:
+	var card := _find(mounted, "SocialPostCard%d" % post_index) as Control
+	if card == null:
+		_failures.append("missing card %d" % post_index)
+		return
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	card.gui_input.emit(press)
+
+
+func _click_card_after_home(mounted: Dictionary, post_index: int) -> void:
+	_press(mounted, "SocialNavHome")
+	_click_card(mounted, post_index)
+
+
+func _underline_shown(mounted: Dictionary, channel: String) -> bool:
+	var underline := _find(mounted, "SocialChannelTabUnderline%s" % channel) as ColorRect
+	return underline != null and underline.visible
+
+
+func _count_page_changes(panel: SocialFeedPanel) -> Array:
+	var count := [0]
+	panel.page_changed.connect(func() -> void: count[0] += 1)
+	return count
 
 
 func _post_button_text(mounted: Dictionary) -> String:

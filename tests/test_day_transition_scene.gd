@@ -78,7 +78,7 @@ func _run() -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the retired meme ring must not be mounted on the feed")
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPanel") == null, "the retired meme ring panel must not hang into the adapter")
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankRadialRing") == null, "the retired radial selector must not exist in the scene")
-	game_root._social_screen = "publish"
+	game_root._social_feed_panel.show_screen("publish")
 	game_root.game.open_app_window("social")
 	game_root._render()
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the retired meme ring must not appear on the publish page")
@@ -89,7 +89,7 @@ func _run() -> void:
 	game_root.set_view_state("npc_up")
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "reality walking should never show the ring")
 	game_root.set_view_state("phone_down")
-	game_root._social_screen = "home"
+	game_root._social_feed_panel.show_screen("home")
 	game_root._render()
 
 	game_root.new_game()

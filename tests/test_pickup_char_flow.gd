@@ -142,7 +142,7 @@ func _test_ui_flow() -> void:
 	var flight_layer := _find_node_by_name(game_root, "PickupFlightLayer")
 	_assert_true(flight_layer != null, "the pickup flight layer should exist in the scene")
 
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	var pickup_line := _find_node_by_name(game_root, "SocialPickupLineText") as RichTextLabel
 	_assert_true(pickup_line != null, "post detail should show the seeded pickup line")
@@ -190,7 +190,7 @@ func _test_ui_flow() -> void:
 	_assert_true(game_root._notebook_squash_tween != null, "landing must squash the notebook window")
 	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "the free same-day pickup should collect its unit")
 
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	pickup_line = _find_node_by_name(game_root, "SocialPickupLineText") as RichTextLabel
 	if pickup_line != null:
@@ -211,7 +211,7 @@ func _test_ui_flow() -> void:
 
 	# 英文与日文版本:埋字句存在且可拾取单位是完整单词/词汇单位。
 	game_root._locale.set_locale("en")
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	var english_line := _find_node_by_name(game_root, "SocialPickupLineText") as RichTextLabel
 	_assert_true(english_line != null and english_line.text.contains("[url=door]"), "the English line should offer whole-word pickups")
@@ -226,7 +226,7 @@ func _test_ui_flow() -> void:
 	_assert_true(bool(english_pick.get("picked", false)), "English word pickup should work")
 
 	game_root._locale.set_locale("ja")
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	await process_frame
 	var japanese_line := _find_node_by_name(game_root, "SocialPickupLineText") as RichTextLabel
 	_assert_true(japanese_line != null and japanese_line.text.contains("[url=ドア]"), "the Japanese line should offer lexical-unit pickups")

@@ -3,10 +3,10 @@ extends Node
 ## Game-side notebook app body: sentence header, word canvas, rules list, and fusion tab.
 ## While shown, it watches the held words and the finished memes and repaints itself.
 ## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
+## The open tab is this screen's own view and lives only here; selecting one repaints at once.
 
 signal craft_requested
 signal fusion_requested
-signal tab_changed(tab_id: String)
 signal canvas_positions_committed(tile_positions: Dictionary)
 signal canvas_tile_dropped_outside(unit: String, release_global: Vector2)
 signal composer_bank_tapped(unit: String)
@@ -19,6 +19,9 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+
+const TABS := ["frame", "fusion"]
+const DEFAULT_TAB := "frame"
 
 var _panel_factory: Callable
 var _label_factory: Callable
@@ -34,7 +37,7 @@ var _can_spend_action_fn: Callable
 var _fusion_ready_fn: Callable
 var _word_canvas: WordPhysicsCanvas
 var _app_body: VBoxContainer
-var _active_tab := "frame"
+var _active_tab := DEFAULT_TAB
 var _shown := false
 var _paint_queued := false
 var _painted_chars: Array = []
@@ -82,10 +85,21 @@ func commit_canvas_positions() -> void:
 	canvas_positions_committed.emit(positions)
 
 
-func render(app_body: VBoxContainer, active_tab: String) -> void:
+func render(app_body: VBoxContainer) -> void:
 	_app_body = app_body
-	_active_tab = active_tab
 	_paint()
+
+
+func select_tab(tab_id: String) -> void:
+	if tab_id not in TABS:
+		return
+	_active_tab = tab_id
+	_paint()
+
+
+## A new run opens the notebook on the frame tab.
+func reset_view() -> void:
+	_active_tab = DEFAULT_TAB
 
 
 func _paint() -> void:

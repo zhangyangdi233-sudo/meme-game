@@ -19,7 +19,7 @@ func _run() -> void:
 	game_root.new_game()
 	game_root._skip_prologue()
 	game_root.game.set_active_app("social")
-	game_root._set_social_screen("home")
+	game_root._social_feed_panel.show_screen("home")
 	for _frame in 8:
 		await process_frame
 
@@ -64,7 +64,7 @@ func _run() -> void:
 			release.pressed = false
 			game_root.get_viewport().push_input(release, true)
 			await process_frame
-			_assert_true(game_root._social_detail_open, "clicking a poster in the rendered feed should open its detail page")
+			_assert_true(game_root._social_feed_panel.is_detail_open(), "clicking a poster in the rendered feed should open its detail page")
 			_assert_true(_find_node_by_name(game_root, "SocialPostDetailPage") != null, "poster click should render the social detail page")
 
 	game_root.queue_free()

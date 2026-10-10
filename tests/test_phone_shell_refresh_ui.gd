@@ -26,6 +26,7 @@ func _run_async() -> void:
 	await _test_phone_popup_follows_the_phone_model()
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
+	await _test_a_new_run_resets_the_social_and_notebook_view()
 	if _failures.is_empty():
 		print("phone shell refresh UI tests passed")
 		quit(0)
@@ -75,7 +76,10 @@ func _test_channel_refreshes_phone_shell_not_hud() -> void:
 	_assert_true(discover != null and discover.visible, "discover channel should start selected")
 
 	var hud := _stamp_hud(game_root)
-	game_root._on_social_channel_pressed("following")
+	var following_tab := Harness.find_node_by_name(game_root, "SocialChannelTabfollowing") as Button
+	_assert_true(following_tab != null, "social home should expose the following tab")
+	if following_tab != null:
+		following_tab.pressed.emit()
 	await process_frame
 
 	discover = Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
@@ -94,7 +98,7 @@ func _test_spend_action_refreshes_phone_shell_not_hud() -> void:
 		return
 	game_root._on_app_pressed("social")
 	game_root.game.free_sentence_units = ["门"]
-	game_root._set_social_screen("publish")
+	game_root._social_feed_panel.show_screen("publish")
 	await process_frame
 
 	var post_button := Harness.find_node_by_name(game_root, "SocialPublishPostButton") as Button
@@ -239,6 +243,40 @@ func _test_like_does_not_rerun_ending() -> void:
 	_assert_true(body != null and is_instance_valid(body), "liking a post should leave the ending screen in place")
 	if body != null and is_instance_valid(body):
 		_assert_eq(body.text, ENDING_SENTINEL, "liking a post should not re-run the ending screen")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	for field in ["_social_screen", "_social_channel", "_social_detail_open", "_social_detail_post_index", "_notebook_crafting_tab"]:
+		_assert_true(game_root.get(field) == null, "the host should not keep the panel view field %s" % field)
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	var social: SocialFeedPanel = game_root._social_feed_panel
+	social.select_channel("following")
+	social.open_post(0)
+	social.show_screen("profile")
+	social.open_post(1)
+	game_root._notebook_app_panel.select_tab("fusion")
+	await process_frame
+
+	game_root.new_game()
+	game_root._skip_prologue()
+	await process_frame
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	social = game_root._social_feed_panel
+	_assert_true(not social.is_detail_open(), "a new run should shut the open post")
+	_assert_true(Harness.find_node_by_name(game_root, "SocialHomePage") != null, "a new run should open the social app on the home feed")
+	var discover := Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
+	_assert_true(discover != null and discover.visible, "a new run should open the social app on the discover channel")
+	_assert_true(Harness.find_node_by_name(game_root, "NotebookCraftButton") != null, "a new run should open the notebook on the frame tab")
 
 	game_root.queue_free()
 	await process_frame

@@ -33,6 +33,8 @@ func _run() -> void:
 	await _test_hiding_writes_positions_once_and_unregisters()
 	_test_a_freed_panel_unregisters()
 	await _test_showing_before_any_render_paints_nothing()
+	_test_selecting_a_tab_repaints_the_notebook_by_itself()
+	_test_reset_view_returns_to_the_frame_tab()
 
 
 func _test_showing_registers_once_and_syncs_at_once() -> void:
@@ -41,7 +43,7 @@ func _test_showing_registers_once_and_syncs_at_once() -> void:
 	var chars: ListPropertyModel = mounted["chars"]
 	var memes: ListPropertyModel = mounted["memes"]
 	chars.add(_held("门"))
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	_assert_eq(_listener_count(chars), 0, "a rendered notebook should not listen before it is shown")
 	_assert_eq(_listener_count(memes), 0, "a rendered notebook should not listen to memes before it is shown")
 	_assert_eq(_tile_units(mounted), ["门"], "rendering should paint the held words from the model")
@@ -63,7 +65,7 @@ func _test_a_new_held_word_repaints_the_shown_canvas() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	panel.set_shown(true)
 	_assert_eq(_tile_units(mounted), [], "an empty notebook should paint no tiles")
 	chars.add(_held("门"))
@@ -79,12 +81,12 @@ func _test_a_host_redraw_in_the_same_frame_paints_once() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	panel.set_shown(true)
 	mounted["frame_paints"][0] = 0
 	chars.add(_held("门"))
 	chars.add(_held("开"))
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	var redrawn := _canvas(mounted)
 	await process_frame
 	_assert_eq(int(mounted["frame_paints"][0]), 1, "two writes and a host redraw in one frame should paint the page once")
@@ -97,14 +99,14 @@ func _test_a_new_meme_repaints_only_the_fusion_tab() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var memes: ListPropertyModel = mounted["memes"]
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	panel.set_shown(true)
 	var canvas := _canvas(mounted)
 	memes.add({"id": "meme-1", "title": "左梗"})
 	await process_frame
 	_assert_true(_canvas(mounted) == canvas, "a new meme should not redraw the word canvas")
 
-	panel.render(mounted["body"], "fusion")
+	panel.select_tab("fusion")
 	var slot_reads := int(mounted["slot_reads"][0])
 	memes.add({"id": "meme-2", "title": "右梗"})
 	await process_frame
@@ -119,7 +121,7 @@ func _test_hiding_writes_positions_once_and_unregisters() -> void:
 	var memes: ListPropertyModel = mounted["memes"]
 	chars.add(_held("门"))
 	chars.add(_held("开"))
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	panel.set_shown(true)
 	var commits: Array = mounted["commits"]
 	commits.clear()
@@ -145,7 +147,7 @@ func _test_a_freed_panel_unregisters() -> void:
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
 	var memes: ListPropertyModel = mounted["memes"]
-	panel.render(mounted["body"], "frame")
+	panel.render(mounted["body"])
 	panel.set_shown(true)
 	panel.free()
 	mounted["panel"] = null
@@ -164,6 +166,37 @@ func _test_showing_before_any_render_paints_nothing() -> void:
 	_assert_eq((mounted["body"] as Node).get_child_count(), 0, "a notebook without a body should not paint")
 	_assert_eq(_listener_count(chars), 1, "a shown notebook should still listen before its first render")
 	_dispose(mounted)
+
+
+func _test_selecting_a_tab_repaints_the_notebook_by_itself() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	_assert_true(_has(mounted, "NotebookCraftButton"), "a fresh notebook should open on the frame tab")
+	panel.select_tab("fusion")
+	_assert_true(_has(mounted, "NotebookFusionButton"), "selecting the fusion tab should repaint the notebook without the host")
+	_assert_true(not _has(mounted, "NotebookCraftButton"), "the fusion tab should replace the frame tab")
+	panel.select_tab("nowhere")
+	_assert_true(_has(mounted, "NotebookFusionButton"), "an unknown tab should leave the notebook alone")
+	panel.render(mounted["body"])
+	_assert_true(_has(mounted, "NotebookFusionButton"), "a host redraw should keep the selected tab")
+	_dispose(mounted)
+
+
+func _test_reset_view_returns_to_the_frame_tab() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	panel.select_tab("fusion")
+	panel.reset_view()
+	panel.render(mounted["body"])
+	_assert_true(_has(mounted, "NotebookCraftButton"), "a new run should open the notebook on the frame tab")
+	_dispose(mounted)
+
+
+func _has(mounted: Dictionary, node_name: String) -> bool:
+	return Harness.find_node_by_name(mounted["body"], node_name) != null
 
 
 func _mount() -> Dictionary:

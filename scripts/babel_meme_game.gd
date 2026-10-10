@@ -164,11 +164,6 @@ var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
 var _ending_screen_panel
-var _social_screen := "home"
-var _social_channel := "discover"
-var _social_detail_post_index := 0
-var _social_detail_open := false
-var _notebook_crafting_tab := "frame"
 var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
@@ -259,7 +254,6 @@ func _audio_controller_deps() -> Dictionary:
 func _social_content_deps() -> Dictionary:
 	return {
 		"post_cards": _social_post_cards,
-		"social_channel": _social_channel,
 		"game": game,
 		"day_progress": game.get_day_progress_snapshot() if game != null else {},
 		"current_locale": _locale.current_locale,
@@ -486,14 +480,10 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	game = session_state
 	_migrate_social_author_ids()
 	selected_meme_id = ""
-	_social_screen = "home"
-	_social_channel = "discover"
-	_social_detail_post_index = 0
-	_social_detail_open = false
 	if _social_feed_panel != null:
-		_social_feed_panel.set_detail_post_index(0)
-		_social_feed_panel.close_detail()
-	_notebook_crafting_tab = "frame"
+		_social_feed_panel.reset_view()
+	if _notebook_app_panel != null:
+		_notebook_app_panel.reset_view()
 	_app_windows = {}
 	_app_titles = {}
 	_app_bodies = {}
@@ -562,9 +552,6 @@ func _save_progress() -> bool:
 		"player_position": world_pose.get("player_position", Vector3.ZERO),
 		"yaw": world_pose.get("yaw", 0.0),
 		"pitch": world_pose.get("pitch", 0.0),
-		"social_screen": _social_screen,
-		"social_channel": _social_channel,
-		"social_detail_post_index": _social_detail_post_index,
 	}
 	var payload := {
 		"version": SAVE_FILE_VERSION,
@@ -617,27 +604,6 @@ func _restore_saved_world(world_data: Dictionary) -> void:
 		return
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.restore_world_pose(world_data)
-	_social_screen = str(world_data.get("social_screen", "home"))
-	if _social_screen not in ["home", "detail", "publish", "profile"]:
-		_social_screen = "home"
-	_social_channel = _normalize_social_channel(str(world_data.get("social_channel", "discover")))
-	_social_detail_post_index = clampi(int(world_data.get("social_detail_post_index", 0)), 0, maxi(0, _social_post_cards.size() - 1))
-	if _social_feed_panel != null:
-		_social_feed_panel.set_detail_post_index(_social_detail_post_index)
-
-
-func _normalize_social_channel(channel: String) -> String:
-	var legacy_channels := {
-		"关注": "following",
-		"发现": "discover",
-		"塔下": "tower_base",
-		"附近": "nearby",
-	}
-	var normalized := str(legacy_channels.get(channel, channel))
-	for channel_data in _social_channels:
-		if str(channel_data.get("id", "")) == normalized:
-			return normalized
-	return "discover"
 
 
 func _migrate_social_author_ids() -> void:
@@ -1925,8 +1891,8 @@ func _social_feed_mount_deps() -> Dictionary:
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
 		"poster_sheet_count": SocialFeedContentScript.SOCIAL_POSTER_COUNT,
-		"visible_post_indices": func(followed_handles: Array) -> Array[int]:
-			return SocialFeedContentScript.visible_post_indices(_social_content_deps(), followed_handles),
+		"visible_post_indices": func(followed_handles: Array, channel: String) -> Array[int]:
+			return SocialFeedContentScript.visible_post_indices(_social_content_deps(), followed_handles, channel),
 		"post_for_index": func(post_index: int) -> Dictionary:
 			return SocialFeedContentScript.post_for_index(post_index, _social_content_deps()),
 		"like_text": func(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
@@ -1958,20 +1924,18 @@ func _connect_social_feed_panel_signals() -> void:
 	var panel = _social_feed_panel
 	if panel == null:
 		return
-	if not panel.channel_pressed.is_connected(_on_social_channel_pressed):
-		panel.channel_pressed.connect(_on_social_channel_pressed)
-	if not panel.screen_requested.is_connected(_set_social_screen):
-		panel.screen_requested.connect(_set_social_screen)
-	if not panel.card_clicked.is_connected(_open_social_post):
-		panel.card_clicked.connect(_open_social_post)
+	if not panel.page_changed.is_connected(_on_social_page_changed):
+		panel.page_changed.connect(_on_social_page_changed)
+	if not panel.post_opened.is_connected(_on_social_post_opened):
+		panel.post_opened.connect(_on_social_post_opened)
 	if not panel.like_pressed.is_connected(_on_social_like_pressed):
 		panel.like_pressed.connect(_on_social_like_pressed)
 	if not panel.follow_pressed.is_connected(_on_social_follow_pressed):
 		panel.follow_pressed.connect(_on_social_follow_pressed)
 	if not panel.close_requested.is_connected(_close_app_window.bind("social")):
 		panel.close_requested.connect(_close_app_window.bind("social"))
-	if not panel.detail_close_requested.is_connected(_close_social_detail_window):
-		panel.detail_close_requested.connect(_close_social_detail_window)
+	if not panel.detail_closed.is_connected(_on_social_detail_closed):
+		panel.detail_closed.connect(_on_social_detail_closed)
 	if not panel.publish_confirm_requested.is_connected(_on_confirm_dialogue_pressed):
 		panel.publish_confirm_requested.connect(_on_confirm_dialogue_pressed)
 	if not panel.pickup_unit_clicked.is_connected(_language_material.pick_from_post):
@@ -2169,8 +2133,6 @@ func _connect_notebook_app_panel_signals() -> void:
 		panel.craft_requested.connect(_on_composer_submit_pressed)
 	if not panel.fusion_requested.is_connected(_on_confirm_fusion_pressed):
 		panel.fusion_requested.connect(_on_confirm_fusion_pressed)
-	if not panel.tab_changed.is_connected(_set_notebook_crafting_tab):
-		panel.tab_changed.connect(_set_notebook_crafting_tab)
 	if not panel.canvas_positions_committed.is_connected(_on_canvas_positions_committed):
 		panel.canvas_positions_committed.connect(_on_canvas_positions_committed)
 	if not panel.canvas_tile_dropped_outside.is_connected(_on_canvas_tile_dropped_outside):
@@ -2602,7 +2564,7 @@ func _render_social_app() -> void:
 	_app_title.text = "社交媒体 App"
 	if _social_feed_panel == null:
 		return
-	_social_feed_panel.render_app(_social_screen, _social_channel)
+	_social_feed_panel.render_app()
 	_social_feed_panel.render_companion()
 
 
@@ -2612,29 +2574,12 @@ func _render_babel_app() -> void:
 	_babel_app_panel.render(_app_body)
 
 
-func _set_social_screen(screen: String) -> void:
-	_social_screen = screen
-	_social_detail_open = false
-	if _social_feed_panel != null:
-		_social_feed_panel.close_detail()
-	_social_channel = "discover"
-	_refresh_phone_shell()
-
-
-func _on_social_channel_pressed(channel: String) -> void:
-	_social_channel = channel
-	if channel == "tower_base":
-		_social_screen = "home"
-		_social_detail_post_index = 0
-		_social_detail_open = true
-		if _social_feed_panel != null:
-			_social_feed_panel.open_detail(0)
-	else:
-		_social_screen = "home"
-		_social_detail_open = false
-		if _social_feed_panel != null:
-			_social_feed_panel.close_detail()
-	_refresh_phone_shell()
+## The social panel already repainted its new page; only the shell around it needs the theme and visibility.
+func _on_social_page_changed() -> void:
+	if _ending_screen_installed:
+		return
+	_update_phone_shell_visibility()
+	_apply_phone_shell_theme()
 
 
 func _on_social_follow_pressed(author_id: String) -> void:
@@ -2648,26 +2593,15 @@ func _on_social_like_pressed(post_id: String) -> void:
 	log_text = "已保存这条信号。" if liked else "已取消保存。"
 
 
-func _open_social_post(post_index: int) -> void:
-	if _social_feed_panel != null:
-		_social_feed_panel.open_detail(post_index)
-	_social_detail_post_index = post_index
-	_social_detail_open = true
+func _on_social_post_opened(post_index: int) -> void:
 	game.notify_tutorial("post_opened", {"post_index": post_index})
-	_refresh_phone_shell()
+	_on_social_page_changed()
 
 
 func _render_notebook_app() -> void:
 	if _notebook_app_panel == null:
 		return
-	_notebook_app_panel.render(_app_body, _notebook_crafting_tab)
-
-
-func _set_notebook_crafting_tab(tab_id: String) -> void:
-	if tab_id not in ["frame", "fusion"]:
-		return
-	_notebook_crafting_tab = tab_id
-	_refresh_phone_shell()
+	_notebook_app_panel.render(_app_body)
 
 
 func _render_reality() -> void:
@@ -2981,10 +2915,8 @@ func _is_pickable_social_character(character: String) -> bool:
 
 
 func _close_app_window(app_id: String) -> void:
-	if app_id == "social":
-		_social_detail_open = false
-		if _social_feed_panel != null:
-			_social_feed_panel.close_detail()
+	if app_id == "social" and _social_feed_panel != null:
+		_social_feed_panel.close_detail()
 	game.close_app_window(app_id)
 	log_text = "关闭 %s 窗口。" % app_id
 	_refresh_phone_shell()
@@ -3000,14 +2932,9 @@ func _open_phone_launcher() -> void:
 	_update_world_for_phone_view()
 
 
-func _close_social_detail_window() -> void:
-	if _social_feed_panel != null:
-		_social_feed_panel.close_detail()
-	_social_detail_open = false
-	if _social_channel == "tower_base":
-		_social_channel = "discover"
+func _on_social_detail_closed() -> void:
 	log_text = "关闭社交详情。"
-	_refresh_phone_shell()
+	_on_social_page_changed()
 
 
 func _ensure_window_manager() -> void:
