@@ -142,10 +142,7 @@ func get_confirm_publish_button() -> Button:
 
 ## Opens one post beside the feed and tells the host which one.
 func open_post(post_index: int) -> void:
-	_detail_post_index = post_index
-	if _detail_window != null:
-		_detail_window.move_to_front()
-	_show_detail_window()
+	_open_detail(post_index)
 	render_companion()
 	post_opened.emit(post_index)
 
@@ -169,11 +166,10 @@ func select_channel(channel: String) -> void:
 	_channel = channel
 	_screen = DEFAULT_SCREEN
 	if channel == TOWER_BASE_CHANNEL:
-		_repaint_page()
-		open_post(0)
+		_open_detail(0)
 	else:
 		close_detail()
-		_repaint_page()
+	_repaint_page()
 
 
 ## A new run starts on the home feed with no post open.
@@ -988,8 +984,16 @@ func _on_detail_close_pressed() -> void:
 	if _channel == TOWER_BASE_CHANNEL:
 		_channel = DEFAULT_CHANNEL
 		_repaint_page()
-	render_companion()
+	else:
+		render_companion()
 	detail_closed.emit()
+
+
+func _open_detail(post_index: int) -> void:
+	_detail_post_index = post_index
+	if _detail_window != null:
+		_detail_window.move_to_front()
+	_show_detail_window()
 
 
 func _show_detail_window() -> void:

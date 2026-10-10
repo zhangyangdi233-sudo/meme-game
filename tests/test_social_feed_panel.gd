@@ -405,11 +405,16 @@ func _test_a_card_opens_its_post_and_the_close_button_shuts_it() -> void:
 func _test_the_tower_base_channel_opens_the_first_post() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
+	var opened: Array = []
+	panel.post_opened.connect(func(post_index: int) -> void: opened.append(post_index))
 	panel.render_app()
 	panel.update_visibility(true, true)
+	var page_changes := _count_page_changes(panel)
 	_press(mounted, "SocialChannelTabtower_base")
 	_assert_true(panel.is_detail_open(), "the tower base channel should open the first post")
 	_assert_true(_underline_shown(mounted, "tower_base"), "the tower base channel should stay selected while its post is open")
+	_assert_eq(opened, [], "the tower base channel is not the player opening a post, so the tutorial should not hear of it")
+	_assert_eq(page_changes[0], 1, "the tower base channel should tell the host once that the page changed")
 	_press(mounted, "SocialDetailWindowCloseButton")
 	_assert_true(_underline_shown(mounted, "discover"), "shutting the tower base post should go back to discover")
 	_dispose(mounted)

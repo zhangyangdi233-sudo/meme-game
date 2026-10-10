@@ -139,7 +139,7 @@ var _prologue_panel: ProloguePanel
 var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
-var _social_feed_panel
+var _social_feed_panel: SocialFeedPanel
 var _language_material
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
@@ -1921,7 +1921,7 @@ func _social_feed_mount_deps() -> Dictionary:
 
 
 func _connect_social_feed_panel_signals() -> void:
-	var panel = _social_feed_panel
+	var panel := _social_feed_panel
 	if panel == null:
 		return
 	if not panel.page_changed.is_connected(_on_social_page_changed):
@@ -2126,7 +2126,7 @@ func _notebook_mount_deps() -> Dictionary:
 
 
 func _connect_notebook_app_panel_signals() -> void:
-	var panel = _notebook_app_panel
+	var panel := _notebook_app_panel
 	if panel == null:
 		return
 	if not panel.craft_requested.is_connected(_on_composer_submit_pressed):
