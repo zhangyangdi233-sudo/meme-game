@@ -14,9 +14,9 @@ var _event_log_fn: Callable
 var _level_display_name_fn: Callable
 var _app_body: VBoxContainer
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
-	PropertyKeysScript.TOWER_FLOOR: _on_progress,
-	PropertyKeysScript.MONEY: _on_progress,
-	PropertyKeysScript.POLLUTION: _on_progress,
+	PropertyKeysScript.TOWER_FLOOR: _repaint_on_change,
+	PropertyKeysScript.MONEY: _repaint_on_change,
+	PropertyKeysScript.POLLUTION: _repaint_on_change,
 })
 
 
@@ -43,7 +43,7 @@ func render(app_body: VBoxContainer) -> void:
 	_paint()
 
 
-func _on_progress(_value: Variant) -> void:
+func _repaint_on_change(_value: Variant) -> void:
 	if _watch.is_syncing():
 		return
 	_paint()
@@ -55,7 +55,7 @@ func _paint() -> void:
 		return
 	_clear_fn.call(app_body)
 
-	var displayed_floor := clampi(_read_int(PropertyKeysScript.TOWER_FLOOR, 1), 1, 4)
+	var displayed_floor := _read_int(PropertyKeysScript.TOWER_FLOOR, 1)
 	var floor_heading := str(_level_display_name_fn.call(displayed_floor)) if _level_display_name_fn.is_valid() else ""
 	var heading := _label_factory.call(floor_heading, 24, _theme_color_fn.call("ink")) as Label
 	heading.name = "BabelFloorHeading"

@@ -143,7 +143,7 @@ var _social_feed_panel
 var _language_material
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
-var _babel_app_panel
+var _babel_app_panel: BabelAppPanel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: VhsOverlayScript
@@ -2574,7 +2574,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 		return {"visible": visible, "lines": lines}
 	var step: Dictionary = game.get_tutorial_step()
 	lines.append(str(step.get("test_instruction", "测试提示：继续探索。")))
-	var floor_number := clampi(game.tower_floor, 1, 4)
+	var floor_number := game.tower_floor
 	if floor_number <= 3:
 		var progress: Dictionary = game.get_key_clue_progress(floor_number)
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)

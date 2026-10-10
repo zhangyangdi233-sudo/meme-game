@@ -342,6 +342,8 @@ func test_day_progress_lives_in_models() -> void:
 	game.tower_floor = 9
 	_assert_eq(game.day, 1, "the day model should not go below one")
 	_assert_eq(game.tower_floor, 4, "the floor model should not go above four")
+	game.max_actions_per_day = 0
+	_assert_eq(game.max_actions_per_day, 1, "the daily cap model should not go below one")
 
 
 func test_settling_the_day_writes_the_models() -> void:

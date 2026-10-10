@@ -463,7 +463,6 @@ func load_save_data(save_data: Dictionary) -> bool:
 			_load_run_field(field_name, value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
-	max_actions_per_day = maxi(1, max_actions_per_day)
 	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
 	if loaded_version < 4 and saved_floor >= 4:

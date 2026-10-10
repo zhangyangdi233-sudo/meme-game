@@ -33,7 +33,7 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PENDING_FLOOR_TRANSITION, 0))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NEEDS_DAY_SETTLEMENT, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DAY_ENDED_REASON, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MAX_ACTIONS_PER_DAY, DEFAULT_MAX_ACTIONS))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MAX_ACTIONS_PER_DAY, DEFAULT_MAX_ACTIONS, 1))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.AUTOPLAY_ENABLED, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LOCALE, DEFAULT_LOCALE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MASTER_VOLUME, DEFAULT_MASTER_VOLUME, 0.0, 100.0))
