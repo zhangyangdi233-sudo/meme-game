@@ -39,6 +39,7 @@ func _run() -> void:
 	_test_save_and_load_go_through_money_and_actions()
 	_test_language_and_volume_are_preferences_and_autoplay_is_the_run()
 	_test_run_save_carries_autoplay_but_not_preferences()
+	_test_ending_choice_lives_only_in_the_run_model()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -314,6 +315,37 @@ func _test_run_save_carries_autoplay_but_not_preferences() -> void:
 	var restored = StateScript.new()
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
 	_assert_eq(autoplay.read(), true, "loading should write autoplay back through the model")
+
+
+func _test_ending_choice_lives_only_in_the_run_model() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var choice: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_LANGUAGE_CHOICE) as ValuePropertyModel
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.ENDING_LANGUAGE_CHOICE), "the ending choice should be saved with the run")
+	_assert_eq(choice.read(), "", "the ending choice should start empty")
+
+	var source = StateScript.new()
+	source.new_run()
+	source.ending_unlocked = true
+	_assert_true(source.choose_ending_language("blank"), "choosing an ending language should succeed")
+	_assert_eq(choice.read(), "blank", "choosing should write the model")
+	_assert_eq(source.ending_language_choice, "blank", "the state should read the model, not keep a copy")
+	_assert_true(not source.get_progression_snapshot().has("ending_language_choice"), "the progression snapshot should not carry a second copy")
+	_assert_true(not source.choose_ending_language("silence"), "a second choice should be refused")
+	_assert_eq(choice.read(), "blank", "a refused choice should keep the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("ending_language_choice", null), "blank", "the run save should store the ending choice model")
+	choice.write("")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(choice.read(), "blank", "loading should write the ending choice back through the model")
+	restored.new_run()
+	_assert_eq(choice.read(), "", "a new run should clear the ending choice on the same model")
+	choice.write("blank")
+	choice.write(3)
+	_assert_eq(choice.read(), "blank", "a wrong type should keep the ending choice")
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

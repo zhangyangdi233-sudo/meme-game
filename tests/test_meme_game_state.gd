@@ -583,10 +583,8 @@ func test_progression_snapshot_and_signal() -> void:
 
 	_progression_signal_count = 0
 	_assert_true(game.choose_ending_language("blank"), "ending language choice should succeed once")
-	_assert_eq(_progression_signal_count, 1, "choose_ending_language should emit once")
-	var language_change: Dictionary = _last_progression_snapshot.get("change", {})
-	_assert_eq(str(language_change.get("kind", "")), "choose_language", "change kind should be choose_language")
-	_assert_eq(str(_last_progression_snapshot.get("ending_language_choice", "")), "blank", "snapshot should carry the chosen language")
+	_assert_eq(_progression_signal_count, 0, "choose_ending_language should not emit; the screen watches the model")
+	_assert_eq(game.ending_language_choice, "blank", "the chosen language should read back from the model")
 
 	game.new_run()
 	game.tower_floor = 4

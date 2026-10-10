@@ -172,12 +172,12 @@ Legacy fields `day` / `pollution` / `tower_floor` / `needs_day_settlement` / `da
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, ending_language_choice, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }` |
-| Signal | `progression_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `choose_ending_language()`, `complete_floor_three()`, floor 3/4 task latches, and hidden-ending unlock in `_resolve_tower_step()` |
+| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }` |
+| Signal | `progression_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `complete_floor_three()`, floor 3/4 task latches, and hidden-ending unlock in `_resolve_tower_step()` |
 | Intent | `choose_ending_language()`, `complete_floor_three()` |
 | Query | `get_ending_language_choices()`, `get_ending_language_output()` |
 
-Legacy fields `ending_unlocked` / `ending_route` / `ending_language_choice` / `formal_floor_three_complete` / `floor3_task_complete` / `floor4_task_complete` remain for save/load; new adapter ending and ultimate-task render code should prefer snapshot + signal.
+The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. Legacy fields `ending_unlocked` / `ending_route` / `formal_floor_three_complete` / `floor3_task_complete` / `floor4_task_complete` remain for save/load; new adapter ending and ultimate-task render code should prefer snapshot + signal.
 
 ### Ending (legacy listing)
 
@@ -531,7 +531,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 {
   "ending_unlocked": bool,
   "ending_route": String,
-  "ending_language_choice": String,
   "formal_floor_three_complete": bool,
   "floor3_task_complete": bool,
   "floor4_task_complete": bool,
@@ -541,7 +540,7 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 {
   # ...snapshot fields...
   "change": {
-    "kind": "choose_language" | "complete_floor_three" | "floor3_task" | "floor4_task" | "ending_unlock",
+    "kind": "complete_floor_three" | "floor3_task" | "floor4_task" | "ending_unlock",
     "target_id": String,
     "active": bool,
   },
@@ -552,7 +551,6 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 
 | Intent / latch | `change.kind` | When |
 |---|---|---|
-| `choose_ending_language(choice_id)` | `choose_language` | on success |
 | `complete_floor_three()` | `complete_floor_three` | on success; `target_id` is the route result (`normal-ending`, `hidden-floor`, …) |
 | `_latch_ultimate_tasks_for_current_floor()` | `floor3_task` / `floor4_task` | when the corresponding task latch flips true |
 | `_resolve_tower_step()` hidden branch | `ending_unlock` | when hidden-route ending unlocks at day boundary |

@@ -1,15 +1,28 @@
 class_name EndingScreenPanel
 extends Node
 ## Game-side ending screen: epilogue chrome, language choice buttons, and restart.
+## While open it watches the chosen ending language and swaps choices for the result itself.
 
 signal ending_language_selected(choice_id: String)
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 var _label_factory: Callable
 var _theme_color_fn: Callable
 var _restart_fn: Callable
 var _translate_fn: Callable
 var _set_localized_property_fn: Callable
+var _refresh_localized_fn: Callable
+var _epilogue_lines_fn: Callable
+var _language_choices_fn: Callable
+var _language_output_fn: Callable
+var _relationship_residue_fn: Callable
+var _relationship_label_fn: Callable
 var _parent: Control
+var _choice := ""
+var _observing := false
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
@@ -18,6 +31,7 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 
 
 func unmount() -> void:
+	_stop_observing()
 	if _parent != null and is_instance_valid(_parent):
 		var existing := _parent.get_node_or_null("EndingScreen")
 		if existing != null and is_instance_valid(existing):
@@ -26,11 +40,63 @@ func unmount() -> void:
 	_parent = null
 
 
-func render(state: Dictionary) -> void:
+## Opens the screen on the current choice. Rendering again repaints, for example after a language change.
+func render() -> void:
 	if _parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
+	if _observing:
+		_rebuild()
+		return
+	_start_observing()
+
+
+func _exit_tree() -> void:
+	_stop_observing()
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var model := _choice_model()
+	if model == null:
+		return
+	_observing = true
+	model.register(_on_choice)
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var model := _choice_model()
+	if model != null:
+		model.unregister(_on_choice)
+
+
+func _on_choice(value: Variant) -> void:
+	_choice = str(value)
+	_rebuild()
+
+
+func _rebuild() -> void:
+	if _parent == null or not is_instance_valid(_parent):
+		return
 	_clear_ending_screen()
-	_build_screen(_parent, state)
+	var screen := _build_screen(_parent)
+	if _refresh_localized_fn.is_valid():
+		_refresh_localized_fn.call(screen)
+
+
+func _choice_model() -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Ending screen cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(PropertyKeysScript.ENDING_LANGUAGE_CHOICE)
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:
@@ -41,6 +107,12 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_restart_fn = deps.get("restart", Callable())
 	_translate_fn = deps.get("translate", Callable())
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
+	_refresh_localized_fn = deps.get("refresh_localized", Callable())
+	_epilogue_lines_fn = deps.get("epilogue_lines", Callable())
+	_language_choices_fn = deps.get("language_choices", Callable())
+	_language_output_fn = deps.get("language_output", Callable())
+	_relationship_residue_fn = deps.get("relationship_residue", Callable())
+	_relationship_label_fn = deps.get("relationship_state_label", Callable())
 
 
 func _clear_ending_screen() -> void:
@@ -53,7 +125,7 @@ func _clear_ending_screen() -> void:
 	existing.free()
 
 
-func _build_screen(parent: Control, state: Dictionary) -> void:
+func _build_screen(parent: Control) -> Control:
 	var screen := Control.new()
 	screen.name = "EndingScreen"
 	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -112,7 +184,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	title.set_meta("on_dark", true)
 	center.add_child(title)
 
-	var epilogue_lines: Array = state.get("epilogue_lines", [])
+	var epilogue_lines: Array = _epilogue_lines_fn.call() if _epilogue_lines_fn.is_valid() else []
 	var body_text := "\n".join(epilogue_lines)
 	var body := _label_factory.call(body_text, 22, _theme_color_fn.call("muted")) as Label
 	body.name = "EndingBody"
@@ -122,7 +194,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	body.set_meta("skip_localization", true)
 	center.add_child(body)
 
-	if bool(state.get("show_language_choices", false)):
+	if _choice.is_empty():
 		var prompt := _label_factory.call("你还能留下一个声音。", 20, _theme_color_fn.call("surface")) as Label
 		prompt.name = "EndingLanguagePrompt"
 		prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -135,7 +207,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 		choices.add_theme_constant_override("separation", 14)
 		center.add_child(choices)
 
-		for choice_value in state.get("language_choices", []):
+		for choice_value in _language_choices():
 			var choice: Dictionary = choice_value as Dictionary
 			var choice_id := str(choice.get("id", ""))
 			var button := Button.new()
@@ -147,7 +219,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 			choices.add_child(button)
 	else:
 		var result := _label_factory.call(
-			_localized_text("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。") % str(state.get("language_output", "")),
+			_localized_text("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。") % _language_output(),
 			27,
 			_theme_color_fn.call("surface"),
 		) as Label
@@ -159,7 +231,7 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 		center.add_child(result)
 
 	var residue := _label_factory.call(
-		_localized_text("关系残留 %d / 100  ·  %s") % [int(state.get("relationship_residue", 0)), _localized_text(str(state.get("relationship_state_label", "")))],
+		_localized_text("关系残留 %d / 100  ·  %s") % [_relationship_residue(), _localized_text(_relationship_label())],
 		16,
 		_theme_color_fn.call("muted"),
 	) as Label
@@ -178,6 +250,23 @@ func _build_screen(parent: Control, state: Dictionary) -> void:
 	if _set_localized_property_fn.is_valid():
 		_set_localized_property_fn.call(restart, "text")
 	center.add_child(restart)
+	return screen
+
+
+func _language_choices() -> Array:
+	return _language_choices_fn.call() if _language_choices_fn.is_valid() else []
+
+
+func _language_output() -> String:
+	return str(_language_output_fn.call()) if _language_output_fn.is_valid() else ""
+
+
+func _relationship_residue() -> int:
+	return int(_relationship_residue_fn.call()) if _relationship_residue_fn.is_valid() else 0
+
+
+func _relationship_label() -> String:
+	return str(_relationship_label_fn.call()) if _relationship_label_fn.is_valid() else ""
 
 
 func _localized_text(source: String) -> String:

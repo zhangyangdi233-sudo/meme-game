@@ -70,7 +70,11 @@ var pollution: int:
 		_write_pollution(value)
 var tower_floor: int = 1
 var ending_unlocked: bool = false
-var ending_language_choice: String = ""
+var ending_language_choice: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ENDING_LANGUAGE_CHOICE)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, value)
 var ending_route: String = ""
 var formal_floor_three_complete: bool = false
 var pending_floor_transition: int = 0
@@ -174,7 +178,6 @@ func new_run() -> void:
 	PropertyBootScript.reset_run()
 	tower_floor = 1
 	ending_unlocked = false
-	ending_language_choice = ""
 	ending_route = ""
 	formal_floor_three_complete = false
 	pending_floor_transition = 0
@@ -272,6 +275,13 @@ func _read_run_int(property_name: String) -> int:
 	if model == null:
 		return 0
 	return int(model.read())
+
+
+func _read_run_string(property_name: String) -> String:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
+	if model == null:
+		return ""
+	return str(model.read())
 
 
 func _run_model(property_name: String) -> PropertyModel:
@@ -665,7 +675,6 @@ func choose_ending_language(choice_id: String) -> bool:
 	if not NarrativeSessionCatalogScript.has_ending_language_choice(choice_id):
 		return false
 	ending_language_choice = choice_id
-	_emit_progression_changed("choose_language", choice_id, true)
 	return true
 
 
@@ -1936,7 +1945,6 @@ func get_progression_snapshot() -> Dictionary:
 	return {
 		"ending_unlocked": ending_unlocked,
 		"ending_route": ending_route,
-		"ending_language_choice": ending_language_choice,
 		"formal_floor_three_complete": formal_floor_three_complete,
 		"floor3_task_complete": floor3_task_complete,
 		"floor4_task_complete": floor4_task_complete,

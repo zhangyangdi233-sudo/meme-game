@@ -833,7 +833,6 @@ func _progression_snapshot() -> Dictionary:
 		return {
 			"ending_unlocked": false,
 			"ending_route": "",
-			"ending_language_choice": "",
 			"formal_floor_three_complete": false,
 			"floor3_task_complete": false,
 			"floor4_task_complete": false,
@@ -3351,7 +3350,7 @@ func _render_ending() -> void:
 		_build_world(not _ending_is_unlocked())
 	_ensure_ending_screen_panel()
 	_ending_screen_panel.mount(_ui_root, _ending_screen_mount_deps())
-	_ending_screen_panel.render(_ending_screen_render_state())
+	_ending_screen_panel.render()
 
 
 func _ensure_ending_screen_panel() -> void:
@@ -3370,18 +3369,12 @@ func _ending_screen_mount_deps() -> Dictionary:
 		"restart": new_game,
 		"translate": func(text: String) -> String: return _locale.translate(text),
 		"set_localized_property": _ui_theme_helper.set_localized_property,
-	}
-
-
-func _ending_screen_render_state() -> Dictionary:
-	var progression := _progression_snapshot()
-	return {
-		"epilogue_lines": NarrativeSessionCatalogScript.epilogue_lines(_locale.current_locale),
-		"show_language_choices": str(progression.get("ending_language_choice", "")).is_empty(),
-		"language_choices": game.get_ending_language_choices(_locale.current_locale),
-		"language_output": game.get_ending_language_output(_locale.current_locale),
-		"relationship_residue": game.relationship_residue,
-		"relationship_state_label": game.get_relationship_state_label(),
+		"refresh_localized": _ui_theme_helper.refresh_localized_ui,
+		"epilogue_lines": func() -> Array: return NarrativeSessionCatalogScript.epilogue_lines(_locale.current_locale),
+		"language_choices": func() -> Array: return game.get_ending_language_choices(_locale.current_locale),
+		"language_output": func() -> String: return game.get_ending_language_output(_locale.current_locale),
+		"relationship_residue": func() -> int: return game.relationship_residue,
+		"relationship_state_label": func() -> String: return game.get_relationship_state_label(),
 	}
 
 
