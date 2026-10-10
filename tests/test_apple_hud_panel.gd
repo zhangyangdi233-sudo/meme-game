@@ -1,7 +1,6 @@
 extends SceneTree
 ## Left status column watches money and remaining actions on the property models.
 
-const PanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -37,7 +36,7 @@ func _run() -> void:
 
 func _test_shown_column_syncs_then_follows_writes() -> void:
 	var mounted := _mount()
-	var panel = mounted["panel"]
+	var panel := mounted["panel"] as AppleHudPanel
 	var money: ValuePropertyModel = mounted["money"]
 	var actions: ValuePropertyModel = mounted["actions"]
 	var actions_label: Label = panel.get_actions_label()
@@ -84,7 +83,7 @@ func _test_shown_column_syncs_then_follows_writes() -> void:
 
 func _test_hidden_and_freed_column_stops_listening() -> void:
 	var mounted := _mount()
-	var panel = mounted["panel"]
+	var panel := mounted["panel"] as AppleHudPanel
 	var money: ValuePropertyModel = mounted["money"]
 	var actions: ValuePropertyModel = mounted["actions"]
 	panel.set_shown(true)
@@ -128,7 +127,7 @@ func _mount() -> Dictionary:
 	host.name = "HudHost"
 	host.size = Vector2(1600, 900)
 	root.add_child(host)
-	var panel = PanelScript.new()
+	var panel := AppleHudPanel.new()
 	panel.name = "AppleHudPanelHost"
 	root.add_child(panel)
 	panel.mount(host, {
