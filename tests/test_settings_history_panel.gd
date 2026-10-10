@@ -6,6 +6,8 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _failures: Array[String] = []
 var _registered: Array = []
@@ -35,6 +37,26 @@ func _run_async() -> void:
 		quit(1)
 
 
+func _on_intent(intent_name: String, payload: Dictionary) -> void:
+	match intent_name:
+		UiIntentsScript.VOLUME_CHANGED:
+			_volume_events.append(payload.get(UiIntentsScript.KEY_VALUE))
+		UiIntentsScript.VHS_TOGGLED:
+			_vhs_events.append(payload.get(UiIntentsScript.KEY_VALUE))
+		UiIntentsScript.AUTOPLAY_TOGGLED:
+			_autoplay_events.append(payload.get(UiIntentsScript.KEY_VALUE))
+		UiIntentsScript.LANGUAGE_SELECTED:
+			_language_events.append(payload.get(UiIntentsScript.KEY_LOCALE))
+		UiIntentsScript.MANUAL_SAVE_PRESSED:
+			_save_events.append(true)
+		UiIntentsScript.RETURN_MAIN_MENU_PRESSED:
+			_return_events.append(true)
+		UiIntentsScript.EXIT_GAME_REQUESTED:
+			_exit_events.append(true)
+		UiIntentsScript.HISTORY_TOGGLE_REQUESTED:
+			_history_toggle_events.append(true)
+
+
 func _run() -> void:
 	RegistryScript.clear()
 	BootScript.install()
@@ -59,14 +81,9 @@ func _run() -> void:
 			{"code": "en", "name": "English"},
 		],
 	})
-	panel.volume_changed.connect(func(value: float) -> void: _volume_events.append(value))
-	panel.vhs_toggled.connect(func(value: bool) -> void: _vhs_events.append(value))
-	panel.autoplay_toggled.connect(func(value: bool) -> void: _autoplay_events.append(value))
-	panel.language_selected.connect(func(locale_code: String) -> void: _language_events.append(locale_code))
-	panel.manual_save_pressed.connect(func() -> void: _save_events.append(true))
-	panel.return_main_menu_pressed.connect(func() -> void: _return_events.append(true))
-	panel.exit_game_requested.connect(func() -> void: _exit_events.append(true))
-	panel.history_toggle_requested.connect(func() -> void: _history_toggle_events.append(true))
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(_on_intent)
 	panel.settings_open_changed.connect(func(open: bool) -> void: _settings_open_events.append(open))
 	await process_frame
 

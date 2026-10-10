@@ -121,6 +121,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
+| `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS` |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
@@ -133,6 +134,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
+| `test_settings_intents_scene` | **adapter** | volume and autoplay intents are written to their models by the host; the settings intent toggles the window |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility |

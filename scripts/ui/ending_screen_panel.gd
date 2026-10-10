@@ -3,14 +3,12 @@ extends Node
 ## Game-side ending screen: epilogue chrome, language choice buttons, and restart.
 ## While open it watches the chosen ending language and swaps choices for the result itself.
 
-signal ending_language_selected(choice_id: String)
-
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _label_factory: Callable
 var _theme_color_fn: Callable
-var _restart_fn: Callable
 var _translate_fn: Callable
 var _set_localized_property_fn: Callable
 var _refresh_localized_fn: Callable
@@ -68,7 +66,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 		return
 	_label_factory = deps.get("label_factory", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
-	_restart_fn = deps.get("restart", Callable())
 	_translate_fn = deps.get("translate", Callable())
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 	_refresh_localized_fn = deps.get("refresh_localized", Callable())
@@ -240,9 +237,8 @@ func _localized_text(source: String) -> String:
 
 
 func _on_language_choice_pressed(choice_id: String) -> void:
-	ending_language_selected.emit(choice_id)
+	GameEventBus.raise(UiIntentsScript.ENDING_LANGUAGE_SELECTED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_restart_pressed() -> void:
-	if _restart_fn.is_valid():
-		_restart_fn.call()
+	GameEventBus.raise(UiIntentsScript.RESTART_REQUESTED)

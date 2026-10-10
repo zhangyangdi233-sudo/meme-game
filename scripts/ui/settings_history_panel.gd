@@ -1,6 +1,6 @@
 class_name SettingsHistoryPanel
 extends Node
-## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
+## Game-side settings + history windows: chrome, layout, history render/toggle, and intents on the event bus.
 ## Whether settings are open lives in a model: the panel writes it and shows or hides the window when it changes.
 ## The panel always watches the open flag and pollution (for its labels).
 ## The open settings window also watches volume, autoplay, language and the save status; closing it stops.
@@ -11,16 +11,8 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-signal volume_changed(value: float)
-signal vhs_toggled(value: bool)
-signal autoplay_toggled(value: bool)
-signal language_selected(locale_code: String)
-signal manual_save_pressed
-signal return_main_menu_pressed
-signal exit_game_requested
-signal exit_confirmed
-signal history_toggle_requested
 signal settings_open_changed(open: bool)
 
 var _history_window: PanelContainer
@@ -501,37 +493,37 @@ func _build_history_window(parent: Control) -> void:
 
 
 func _on_volume_slider_changed(value: float) -> void:
-	volume_changed.emit(value)
+	GameEventBus.raise(UiIntentsScript.VOLUME_CHANGED, {UiIntentsScript.KEY_VALUE: value})
 
 
 func _on_vhs_toggle_changed(value: bool) -> void:
-	vhs_toggled.emit(value)
+	GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
 
 
 func _on_autoplay_toggle_changed(value: bool) -> void:
-	autoplay_toggled.emit(value)
+	GameEventBus.raise(UiIntentsScript.AUTOPLAY_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
 
 
 func _on_language_item_selected(index: int) -> void:
 	if _settings_language_option == null or index < 0 or index >= _settings_language_option.item_count:
 		return
-	language_selected.emit(str(_settings_language_option.get_item_metadata(index)))
+	GameEventBus.raise(UiIntentsScript.LANGUAGE_SELECTED, {UiIntentsScript.KEY_LOCALE: str(_settings_language_option.get_item_metadata(index))})
 
 
 func _on_save_button_pressed() -> void:
-	manual_save_pressed.emit()
+	GameEventBus.raise(UiIntentsScript.MANUAL_SAVE_PRESSED)
 
 
 func _on_return_main_button_pressed() -> void:
-	return_main_menu_pressed.emit()
+	GameEventBus.raise(UiIntentsScript.RETURN_MAIN_MENU_PRESSED)
 
 
 func _on_exit_button_pressed() -> void:
-	exit_game_requested.emit()
+	GameEventBus.raise(UiIntentsScript.EXIT_GAME_REQUESTED)
 
 
 func _on_history_button_pressed() -> void:
-	history_toggle_requested.emit()
+	GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
 
 
 func _on_history_close_pressed() -> void:
@@ -539,7 +531,7 @@ func _on_history_close_pressed() -> void:
 
 
 func _on_exit_confirm_pressed() -> void:
-	exit_confirmed.emit()
+	GameEventBus.raise(UiIntentsScript.EXIT_CONFIRMED)
 
 
 func _menu_display_label(pollution: int, kind: String) -> String:

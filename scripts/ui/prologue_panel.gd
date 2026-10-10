@@ -2,7 +2,7 @@ class_name ProloguePanel
 extends Node
 ## Game-side prologue overlay: transmission lines, counter, and continue/skip chrome.
 
-signal prologue_finished
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _prologue_overlay: Control
 var _prologue_line_label: Label
@@ -148,4 +148,4 @@ func _render_prologue_line() -> void:
 
 func _finish_prologue() -> void:
 	_prologue_overlay.visible = false
-	prologue_finished.emit()
+	GameEventBus.raise(UiIntentsScript.PROLOGUE_FINISHED)

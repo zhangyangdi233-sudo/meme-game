@@ -2,10 +2,9 @@ class_name AppleHudPanel
 extends Node
 ## Left HUD rail. While shown, it watches pollution, money, and today's actions and paints those numbers itself.
 
-signal settings_pressed
-
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _rail: PanelContainer
 var _reveal_zone: Control
@@ -262,7 +261,7 @@ func _hide_tooltip() -> void:
 
 
 func _on_settings_pressed() -> void:
-	settings_pressed.emit()
+	GameEventBus.raise(UiIntentsScript.SETTINGS_PRESSED)
 
 
 func _stop_if_current_rail_exits(rail: Node) -> void:

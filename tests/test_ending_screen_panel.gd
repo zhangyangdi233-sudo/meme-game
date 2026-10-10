@@ -5,6 +5,8 @@ const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 const OUTPUT_TEXT := "ending-output-sentinel"
@@ -57,7 +59,11 @@ func _test_choosing_swaps_choices_for_the_result() -> void:
 	var choice: ValuePropertyModel = mounted["choice"]
 	panel.render()
 	_selected_ids.clear()
-	panel.ending_language_selected.connect(func(choice_id: String) -> void:
+	var bus := RegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
+		if intent_name != UiIntentsScript.ENDING_LANGUAGE_SELECTED:
+			return
+		var choice_id := str(payload.get(UiIntentsScript.KEY_CHOICE_ID, ""))
 		_selected_ids.append(choice_id)
 		choice.write(choice_id)
 	)
@@ -124,6 +130,7 @@ func _test_a_mounted_screen_is_not_opened_by_a_write() -> void:
 func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, GameEventBusScript.new())
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	var host := Control.new()
 	host.name = "EndingHost"
@@ -135,7 +142,6 @@ func _mount() -> Dictionary:
 	panel.mount(host, {
 		"label_factory": _label,
 		"theme_color": _theme_color,
-		"restart": func() -> void: pass,
 		"epilogue_lines": func() -> Array: return ["line one", "line two"],
 		"language_choices": func() -> Array: return [
 			{"id": "blank", "label": "Blank"},

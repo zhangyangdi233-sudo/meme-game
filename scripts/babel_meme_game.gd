@@ -1378,8 +1378,6 @@ func _skip_prologue() -> void:
 func _build_apple_hud() -> void:
 	_ensure_apple_hud_panel()
 	_apple_hud_panel.mount(_ui_root, _apple_hud_mount_deps())
-	if not _apple_hud_panel.settings_pressed.is_connected(_toggle_settings_window):
-		_apple_hud_panel.settings_pressed.connect(_toggle_settings_window)
 	_ensure_edge_drawer()
 	_edge_drawer.configure(
 		HUD_RAIL_WIDTH,
@@ -1643,7 +1641,35 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.LANGUAGE_PICKER:
 			_build_language_selection_overlay(false)
 		UiIntentsScript.LANGUAGE_SELECTED:
-			_on_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+			# The settings window picks a language mid-run; the picker only opens outside a run.
+			if _session_is_in_run():
+				_on_settings_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+			else:
+				_on_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+		UiIntentsScript.VOLUME_CHANGED:
+			_on_volume_changed(float(payload.get(UiIntentsScript.KEY_VALUE, 0.0)))
+		UiIntentsScript.AUTOPLAY_TOGGLED:
+			_on_autoplay_toggled(bool(payload.get(UiIntentsScript.KEY_VALUE, false)))
+		UiIntentsScript.VHS_TOGGLED:
+			_on_vhs_toggled(bool(payload.get(UiIntentsScript.KEY_VALUE, false)))
+		UiIntentsScript.MANUAL_SAVE_PRESSED:
+			_on_manual_save_pressed()
+		UiIntentsScript.RETURN_MAIN_MENU_PRESSED:
+			_on_return_main_menu_pressed()
+		UiIntentsScript.EXIT_GAME_REQUESTED:
+			_request_quit_game()
+		UiIntentsScript.EXIT_CONFIRMED:
+			_confirm_quit_game()
+		UiIntentsScript.HISTORY_TOGGLE_REQUESTED:
+			_toggle_history_window()
+		UiIntentsScript.SETTINGS_PRESSED:
+			_toggle_settings_window()
+		UiIntentsScript.PROLOGUE_FINISHED:
+			_on_prologue_finished()
+		UiIntentsScript.ENDING_LANGUAGE_SELECTED:
+			_on_ending_language_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
+		UiIntentsScript.RESTART_REQUESTED:
+			new_game()
 		UiIntentsScript.APP_ICON_PRESSED:
 			_on_app_pressed(str(payload.get(UiIntentsScript.KEY_APP_ID, "")))
 		UiIntentsScript.PHONE_CLOSE_REQUESTED:
@@ -1694,7 +1720,6 @@ func _ensure_prologue_panel() -> void:
 	_prologue_panel = ProloguePanelScript.new()
 	_prologue_panel.name = "ProloguePanel"
 	add_child(_prologue_panel)
-	_connect_prologue_panel_signals()
 
 
 func _prologue_mount_deps() -> Dictionary:
@@ -1704,14 +1729,6 @@ func _prologue_mount_deps() -> Dictionary:
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
 	}
-
-
-func _connect_prologue_panel_signals() -> void:
-	var panel := _prologue_panel
-	if panel == null:
-		return
-	if not panel.prologue_finished.is_connected(_on_prologue_finished):
-		panel.prologue_finished.connect(_on_prologue_finished)
 
 
 func _ensure_camera_consent_panel() -> void:
@@ -1775,7 +1792,7 @@ func _ensure_settings_history_panel() -> void:
 	_settings_history_panel = SettingsHistoryPanelScript.new()
 	_settings_history_panel.name = "SettingsHistoryPanel"
 	add_child(_settings_history_panel)
-	_connect_settings_history_panel_signals()
+	_settings_history_panel.settings_open_changed.connect(_on_settings_open_changed)
 
 
 func _settings_history_mount_deps() -> Dictionary:
@@ -1796,32 +1813,6 @@ func _settings_history_mount_deps() -> Dictionary:
 		"vhs_enabled": _vhs_enabled,
 		"locales": locales,
 	}
-
-
-func _connect_settings_history_panel_signals() -> void:
-	var panel := _settings_history_panel
-	if panel == null:
-		return
-	if not panel.volume_changed.is_connected(_on_volume_changed):
-		panel.volume_changed.connect(_on_volume_changed)
-	if not panel.vhs_toggled.is_connected(_on_vhs_toggled):
-		panel.vhs_toggled.connect(_on_vhs_toggled)
-	if not panel.autoplay_toggled.is_connected(_on_autoplay_toggled):
-		panel.autoplay_toggled.connect(_on_autoplay_toggled)
-	if not panel.language_selected.is_connected(_on_settings_language_selected):
-		panel.language_selected.connect(_on_settings_language_selected)
-	if not panel.manual_save_pressed.is_connected(_on_manual_save_pressed):
-		panel.manual_save_pressed.connect(_on_manual_save_pressed)
-	if not panel.return_main_menu_pressed.is_connected(_on_return_main_menu_pressed):
-		panel.return_main_menu_pressed.connect(_on_return_main_menu_pressed)
-	if not panel.exit_game_requested.is_connected(_request_quit_game):
-		panel.exit_game_requested.connect(_request_quit_game)
-	if not panel.exit_confirmed.is_connected(_confirm_quit_game):
-		panel.exit_confirmed.connect(_confirm_quit_game)
-	if not panel.history_toggle_requested.is_connected(_toggle_history_window):
-		panel.history_toggle_requested.connect(_toggle_history_window)
-	if not panel.settings_open_changed.is_connected(_on_settings_open_changed):
-		panel.settings_open_changed.connect(_on_settings_open_changed)
 
 
 func _ensure_social_feed_panel() -> void:
@@ -3069,14 +3060,12 @@ func _ensure_ending_screen_panel() -> void:
 	_ending_screen_panel = EndingScreenPanelScript.new()
 	_ending_screen_panel.name = "EndingScreenPanel"
 	add_child(_ending_screen_panel)
-	_connect_ending_screen_panel_signals()
 
 
 func _ending_screen_mount_deps() -> Dictionary:
 	return {
 		"label_factory": _ui_theme_helper.label,
 		"theme_color": _ui_theme_helper.theme_color,
-		"restart": new_game,
 		"translate": func(text: String) -> String: return _locale.translate(text),
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"refresh_localized": _ui_theme_helper.refresh_localized_ui,
@@ -3086,13 +3075,6 @@ func _ending_screen_mount_deps() -> Dictionary:
 		"relationship_residue": func() -> int: return game.relationship_residue,
 		"relationship_state_label": func() -> String: return game.get_relationship_state_label(),
 	}
-
-
-func _connect_ending_screen_panel_signals() -> void:
-	if _ending_screen_panel == null:
-		return
-	if not _ending_screen_panel.ending_language_selected.is_connected(_on_ending_language_selected):
-		_ending_screen_panel.ending_language_selected.connect(_on_ending_language_selected)
 
 
 func _on_ending_language_selected(choice_id: String) -> void:

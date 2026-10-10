@@ -8,6 +8,8 @@ const KEY_LOCALE := "locale"
 const KEY_APP_ID := "app_id"
 const KEY_ALLOWED := "allowed"
 const KEY_INDEX := "index"
+const KEY_VALUE := "value"
+const KEY_CHOICE_ID := "choice_id"
 
 ## Main menu. Payload: {}.
 const START_GAME := "start_game"
@@ -31,3 +33,21 @@ const CAMERA_SOURCE_SELECTED := "camera_source_selected"
 const PHONE_CAMERA_RETRY := "phone_camera_retry"
 const PHONE_CAMERA_CONTINUE := "phone_camera_continue"
 const PHONE_CAMERA_DISABLE := "phone_camera_disable"
+
+## Settings window. Payload: {KEY_VALUE: float} for the volume, {KEY_VALUE: bool} for a toggle, {} for a button.
+const VOLUME_CHANGED := "volume_changed"
+const AUTOPLAY_TOGGLED := "autoplay_toggled"
+const VHS_TOGGLED := "vhs_toggled"
+const MANUAL_SAVE_PRESSED := "manual_save_pressed"
+const RETURN_MAIN_MENU_PRESSED := "return_main_menu_pressed"
+const EXIT_GAME_REQUESTED := "exit_game_requested"
+const EXIT_CONFIRMED := "exit_confirmed"
+const HISTORY_TOGGLE_REQUESTED := "history_toggle_requested"
+
+## HUD settings button. Payload: {}.
+const SETTINGS_PRESSED := "settings_pressed"
+
+## Prologue end and ending screen. Payload: {} except the language choice, {KEY_CHOICE_ID: String}.
+const PROLOGUE_FINISHED := "prologue_finished"
+const ENDING_LANGUAGE_SELECTED := "ending_language_selected"
+const RESTART_REQUESTED := "restart_requested"
