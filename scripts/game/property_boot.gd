@@ -16,6 +16,8 @@ static func install() -> void:
 	var manager = PropertyManagerScript.new()
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.POLLUTION, 0, 0, 100))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HAS_SAVE, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, 18))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, 5))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

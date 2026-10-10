@@ -128,7 +128,7 @@ var _camera_status_label: Label
 var _phone_camera_connection_overlay: Control
 var _phone_camera_connection_panel: PhoneCameraConnectionPanel
 var _cinematic_bars: CinematicBars
-var _apple_hud_panel
+var _apple_hud_panel: AppleHudPanel
 var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: Label
@@ -1588,6 +1588,7 @@ func _apple_hud_mount_deps() -> Dictionary:
 		"money_icon_path": HUD_MONEY_ICON_PATH,
 		"settings_icon_path": HUD_SETTINGS_ICON_PATH,
 		"on_tooltip_hidden": _on_apple_hud_tooltip_hidden,
+		"max_actions": func() -> int: return game.max_actions_per_day if game != null else 5,
 	}
 
 
@@ -1600,11 +1601,8 @@ func _apple_hud_snapshot() -> Dictionary:
 	var progress := _day_progress_snapshot()
 	return {
 		"pollution": int(progress.get("pollution", 0)),
-		"money": game.money,
-		"actions": _action_text(game.actions_remaining),
 		"tooltips": {
 			"pollution": "污染 %d%%" % int(progress.get("pollution", 0)),
-			"money": "资金 %d" % game.money,
 			"settings": "设置",
 		},
 	}
@@ -2703,16 +2701,10 @@ func _playtest_assist_snapshot() -> Dictionary:
 
 
 func _action_text(actions: int) -> String:
-	return "今日行动\n%s" % _action_pips(actions)
-
-
-func _action_pips(actions: int) -> String:
-	var pips := ""
-	for index in game.max_actions_per_day:
-		if index > 0:
-			pips += " "
-		pips += "●" if index < actions else "○"
-	return pips
+	var cap := 5
+	if game != null:
+		cap = int(game.max_actions_per_day)
+	return AppleHudPanelScript.action_label(actions, cap)
 
 
 func _render_world_prompt() -> void:
@@ -2991,15 +2983,7 @@ func _update_visibility() -> void:
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and show_play
 	if _apple_hud_panel != null:
-		var rail: PanelContainer = _apple_hud_panel.get_rail()
-		if rail != null:
-			rail.visible = show_play
-		var reveal_zone: Control = _apple_hud_panel.get_reveal_zone()
-		if reveal_zone != null:
-			reveal_zone.visible = show_play
-		var tooltip: PanelContainer = _apple_hud_panel.get_tooltip()
-		if tooltip != null and not show_play:
-			tooltip.visible = false
+		_apple_hud_panel.set_shown(show_play)
 	_update_reality_hud_visibility()
 	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
 	# 本面板只在测试辅助开启时出现。

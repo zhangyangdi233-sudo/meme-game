@@ -77,8 +77,16 @@ var formal_floor_three_complete: bool = false
 var pending_floor_transition: int = 0
 var autoplay_enabled: bool = false
 var exit_prompt_seen: bool = false
-var money: int = 18
-var actions_remaining: int = 5
+var money: int:
+	get:
+		return _read_money()
+	set(value):
+		_write_money(value)
+var actions_remaining: int:
+	get:
+		return _read_actions_remaining()
+	set(value):
+		_write_actions_remaining(value)
 var max_actions_per_day: int = 5
 var needs_day_settlement: bool = false
 var day_ended_reason: String = ""
@@ -260,6 +268,42 @@ func _write_pollution(value: int) -> void:
 
 func _pollution_model() -> ValuePropertyModel:
 	return _run_model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+
+
+func _read_money() -> int:
+	var model: ValuePropertyModel = _money_model()
+	if model == null:
+		return 0
+	return int(model.read())
+
+
+func _write_money(value: int) -> void:
+	var model: ValuePropertyModel = _money_model()
+	if model == null:
+		return
+	model.write(value)
+
+
+func _money_model() -> ValuePropertyModel:
+	return _run_model(PropertyKeysScript.MONEY) as ValuePropertyModel
+
+
+func _read_actions_remaining() -> int:
+	var model: ValuePropertyModel = _actions_model()
+	if model == null:
+		return 0
+	return int(model.read())
+
+
+func _write_actions_remaining(value: int) -> void:
+	var model: ValuePropertyModel = _actions_model()
+	if model == null:
+		return
+	model.write(value)
+
+
+func _actions_model() -> ValuePropertyModel:
+	return _run_model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
 
 
 func _run_model(property_name: String) -> PropertyModel:

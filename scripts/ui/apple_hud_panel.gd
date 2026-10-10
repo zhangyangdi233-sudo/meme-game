@@ -1,8 +1,12 @@
 class_name AppleHudPanel
 extends Node
-## Left HUD rail chrome: pollution/money/settings icons, action pips, and tooltip panel.
+## Left HUD rail. While shown, it watches money and remaining actions and paints those numbers itself.
 
 signal settings_pressed
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 var _rail: PanelContainer
 var _reveal_zone: Control
@@ -28,12 +32,28 @@ var _money_icon_path := ""
 var _settings_icon_path := ""
 
 var _tooltip_texts: Dictionary = {}
+var _tooltip_kind := ""
+var _max_actions_fn: Callable
+var _shown := false
+var _observing := false
+
+
+static func action_label(actions: int, max_actions: int) -> String:
+	var total := maxi(1, max_actions)
+	var pips := ""
+	for index in total:
+		if index > 0:
+			pips += " "
+		pips += "●" if index < actions else "○"
+	return "今日行动\n%s" % pips
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
 	if parent == null or not _panel_factory.is_valid() or not _label_factory.is_valid():
 		return
+	var keep_shown := _shown
+	_stop_observing()
 	if _rail != null and is_instance_valid(_rail):
 		_rail.queue_free()
 	if _reveal_zone != null and is_instance_valid(_reveal_zone):
@@ -43,6 +63,26 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_build_rail(parent)
 	_build_reveal_zone(parent)
 	_build_tooltip(parent)
+	if keep_shown:
+		set_shown(true)
+
+
+func set_shown(shown: bool) -> void:
+	_shown = shown
+	if _rail != null and is_instance_valid(_rail):
+		_rail.visible = shown
+	if _reveal_zone != null and is_instance_valid(_reveal_zone):
+		_reveal_zone.visible = shown
+	if not shown and _tooltip != null and is_instance_valid(_tooltip):
+		_tooltip.visible = false
+	if shown:
+		_start_observing()
+	else:
+		_stop_observing()
+
+
+func _exit_tree() -> void:
+	_stop_observing()
 
 
 func get_rail() -> PanelContainer:
@@ -64,16 +104,15 @@ func get_actions_label() -> Label:
 func render(state: Dictionary) -> void:
 	if _rail == null or not is_instance_valid(_rail):
 		return
-	if _actions_label != null and is_instance_valid(_actions_label):
-		_actions_label.text = str(state.get("actions", state.get("actions_text", "")))
 	var tooltips := state.get("tooltips", {}) as Dictionary
-	if tooltips.is_empty():
-		tooltips = {
-			"pollution": "污染 %d%%" % int(state.get("pollution", 0)),
-			"money": "资金 %d" % int(state.get("money", 0)),
-			"settings": "设置",
-		}
-	_tooltip_texts = tooltips
+	if tooltips.has("pollution"):
+		_tooltip_texts["pollution"] = str(tooltips["pollution"])
+	elif state.has("pollution"):
+		_tooltip_texts["pollution"] = "污染 %d%%" % int(state.get("pollution", 0))
+	if tooltips.has("settings"):
+		_tooltip_texts["settings"] = str(tooltips["settings"])
+	elif not _tooltip_texts.has("settings"):
+		_tooltip_texts["settings"] = "设置"
 
 
 func hide_tooltip() -> void:
@@ -98,6 +137,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_pollution_icon_path = str(deps.get("pollution_icon_path", _pollution_icon_path))
 	_money_icon_path = str(deps.get("money_icon_path", _money_icon_path))
 	_settings_icon_path = str(deps.get("settings_icon_path", _settings_icon_path))
+	_max_actions_fn = deps.get("max_actions", Callable())
 
 
 func _build_rail(parent: Control) -> void:
@@ -121,6 +161,7 @@ func _build_rail(parent: Control) -> void:
 		_style_fn.call(_theme_color_fn.call("ink"), Color(_theme_color_fn.call("muted"), 0.22))
 	)
 	parent.add_child(_rail)
+	_rail.tree_exiting.connect(_stop_if_current_rail_exits.bind(_rail))
 
 	var center := CenterContainer.new()
 	center.name = "InternationalHUDCenter"
@@ -223,6 +264,7 @@ func _add_hud_icon(parent: VBoxContainer, node_name: String, kind: String, textu
 func _show_tooltip(kind: String, source: Control) -> void:
 	if _tooltip == null or _tooltip_label == null or source == null:
 		return
+	_tooltip_kind = kind
 	_tooltip_label.text = str(_tooltip_texts.get(kind, ""))
 	_tooltip.position = source.global_position + Vector2(118, 18)
 	_tooltip.visible = true
@@ -237,3 +279,66 @@ func _hide_tooltip() -> void:
 
 func _on_settings_pressed() -> void:
 	settings_pressed.emit()
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var money := _property_model(PropertyKeysScript.MONEY)
+	var actions := _property_model(PropertyKeysScript.ACTIONS_REMAINING)
+	if money == null or actions == null:
+		return
+	money.register(_on_money)
+	actions.register(_on_actions)
+	_observing = true
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var money := _property_model(PropertyKeysScript.MONEY)
+	var actions := _property_model(PropertyKeysScript.ACTIONS_REMAINING)
+	if money != null:
+		money.unregister(_on_money)
+	if actions != null:
+		actions.unregister(_on_actions)
+
+
+func _stop_if_current_rail_exits(rail: Node) -> void:
+	if rail != _rail:
+		return
+	_stop_observing()
+
+
+func _on_money(value: Variant) -> void:
+	var text := "资金 %d" % int(value)
+	_tooltip_texts["money"] = text
+	if _tooltip_label == null:
+		return
+	if _tooltip_kind == "money" or _tooltip == null or not _tooltip.visible:
+		_tooltip_label.text = text
+
+
+func _on_actions(value: Variant) -> void:
+	if _actions_label == null or not is_instance_valid(_actions_label):
+		return
+	_actions_label.text = action_label(int(value), _max_actions())
+
+
+func _max_actions() -> int:
+	if _max_actions_fn.is_valid():
+		return maxi(1, int(_max_actions_fn.call()))
+	return 5
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Status column cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)

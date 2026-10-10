@@ -34,7 +34,9 @@ func _run() -> void:
 	_test_unregister_stops_updates()
 	_test_duplicate_names_keep_the_first_object()
 	_test_boot_resets_the_same_pollution_model()
+	_test_boot_resets_the_same_money_and_actions_models()
 	_test_save_and_load_go_through_the_pollution_model()
+	_test_save_and_load_go_through_money_and_actions()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -184,6 +186,35 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	_assert_eq(has_save.read(), false, "a new run should leave the unsaved has_save model alone")
 
 
+func _test_boot_resets_the_same_money_and_actions_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var money: ValuePropertyModel = manager.model(PropertyKeysScript.MONEY) as ValuePropertyModel
+	var actions: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
+	var money_id: int = money.get_instance_id()
+	var actions_id: int = actions.get_instance_id()
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.MONEY), "money should be saved with the run")
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.ACTIONS_REMAINING), "remaining actions should be saved with the run")
+	_assert_eq(money.read(), 18, "money should start at 18")
+	_assert_eq(actions.read(), 5, "remaining actions should start at five")
+
+	var state = StateScript.new()
+	state.money = 31
+	state.actions_remaining = 3
+	_assert_eq(money.read(), 31, "writing money on the state should write the model")
+	_assert_eq(actions.read(), 3, "writing remaining actions on the state should write the model")
+	money.write(7)
+	actions.write(1)
+	_assert_eq(state.money, 7, "the state should read money from the model")
+	_assert_eq(state.actions_remaining, 1, "the state should read remaining actions from the model")
+	state.new_run()
+	_assert_eq(money.get_instance_id(), money_id, "a new run should keep the same money model")
+	_assert_eq(actions.get_instance_id(), actions_id, "a new run should keep the same actions model")
+	_assert_eq(state.money, 18, "a new run should restore the initial money")
+	_assert_eq(state.actions_remaining, 5, "a new run should restore five actions")
+
+
 func _test_save_and_load_go_through_the_pollution_model() -> void:
 	RegistryScript.clear()
 	BootScript.install()
@@ -205,6 +236,36 @@ func _test_save_and_load_go_through_the_pollution_model() -> void:
 	_assert_eq(pollution.get_instance_id(), pollution_id, "loading should not replace the pollution model")
 	pollution.write("bad")
 	_assert_eq(pollution.read(), 47, "a wrong type on the booted model should keep the loaded value")
+
+
+func _test_save_and_load_go_through_money_and_actions() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var money: ValuePropertyModel = manager.model(PropertyKeysScript.MONEY) as ValuePropertyModel
+	var actions: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
+	var money_id: int = money.get_instance_id()
+	var source = StateScript.new()
+	source.new_run()
+	source.money = 31
+	source.actions_remaining = 3
+	var save_data: Dictionary = source.to_save_data()
+	var state_data: Dictionary = save_data.get("state", {})
+	_assert_eq(int(state_data.get("money", -1)), 31, "the save should store the money model")
+	_assert_eq(int(state_data.get("actions_remaining", -1)), 3, "the save should store remaining actions")
+	source.money = 2
+	source.actions_remaining = 5
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data(save_data), "a save written from the models should load")
+	_assert_eq(restored.money, 31, "loading should write money back through the model")
+	_assert_eq(restored.actions_remaining, 3, "loading should write remaining actions back through the model")
+	_assert_eq(source.money, 31, "source and restored state should share the one money model")
+	_assert_eq(source.actions_remaining, 3, "source and restored state should share the one actions model")
+	_assert_eq(money.get_instance_id(), money_id, "loading should not replace the money model")
+	money.write("bad")
+	actions.write("bad")
+	_assert_eq(money.read(), 31, "a wrong money type should keep the loaded value")
+	_assert_eq(actions.read(), 3, "a wrong actions type should keep the loaded value")
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

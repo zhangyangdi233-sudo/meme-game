@@ -97,7 +97,11 @@ func _test_spend_action_refreshes_phone_shell_not_hud() -> void:
 	if post_button != null:
 		_assert_eq(post_button.text, "投稿", "publish should start spendable")
 
-	var hud := _stamp_hud(game_root)
+	var prompt := Harness.find_node_by_name(game_root, "WorldPrompt") as Label
+	_assert_true(prompt != null, "Reality HUD should expose the world prompt")
+	if prompt != null:
+		prompt.text = HUD_SENTINEL
+	var actions_label := game_root._hud_actions_label_ref() as Label
 	while game_root.game.can_spend_action():
 		_assert_true(game_root.game.spend_action("phone-shell-refresh"), "daily actions should be spendable")
 	await process_frame
@@ -107,7 +111,12 @@ func _test_spend_action_refreshes_phone_shell_not_hud() -> void:
 	if post_button != null:
 		_assert_eq(post_button.text, "今天不能再投稿", "phone shell should show spent-action copy")
 		_assert_true(post_button.disabled, "phone shell should disable posting after actions are spent")
-	_assert_hud_untouched(hud, "spending actions")
+	_assert_true(prompt != null and is_instance_valid(prompt), "spending actions should leave the world prompt in place")
+	if prompt != null and is_instance_valid(prompt):
+		_assert_eq(prompt.text, HUD_SENTINEL, "spending actions should not re-run Reality HUD content")
+	_assert_true(actions_label != null and is_instance_valid(actions_label), "the status column should keep its actions label")
+	if actions_label != null and is_instance_valid(actions_label):
+		_assert_eq(actions_label.text, "今日行动\n○ ○ ○ ○ ○", "the status column should update its own action dots")
 
 	game_root.queue_free()
 	await process_frame
