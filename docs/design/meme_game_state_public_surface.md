@@ -396,10 +396,3 @@ The six progression facts moved into run property models (`PropertyKeys.TUTORIAL
 **Screens:** the doll guide and the playtest panel watch `TUTORIAL_PROGRESS` (the doll guide also watches the tower floor and the two floor tasks) and word their own lines through `GuideLine`, a pure function of those facts. The tutorial step query stays `TutorialDirector.current_step(progress)`.
 
 **Host:** after a day settles, `_present_ending_if_unlocked()` asks whether the ending opened; `_render()` still moves to the ending screen when `ending_unlocked` is true.
-
----|---|---|
-| `complete_floor_three()` | `complete_floor_three` | on success; `target_id` is the route result (`normal-ending`, `hidden-floor`, …) |
-| `_latch_ultimate_tasks_for_current_floor()` | `floor3_task` / `floor4_task` | when the corresponding task latch flips true |
-| `_resolve_tower_step()` hidden branch | `ending_unlock` | when hidden-route ending unlocks at day boundary |
-
-**Adapter pattern:** connect `progression_changed` → `_render()`; read ending screen and floor 3/4 door logic via `_progression_snapshot()` combined with `game.tower_floor`. `_render()` early-exits to `_render_ending()` when `ending_unlocked` is true in the progression snapshot.

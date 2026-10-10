@@ -204,6 +204,7 @@ func _run() -> void:
 
 	await _run_narrative_beat(game_root)
 	await _run_ending_screen_install(game_root)
+	await _run_settlement_opens_ending(game_root)
 
 	game_root.queue_free()
 	await process_frame
@@ -278,6 +279,22 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_eq(game_root.session_mode(), "ending", "finishing the beat with the ending unlocked should enter the ending")
 	_assert_host_applied_screens(game_root, ["ending"], "narrative beat ending")
 	await _assert_world_hotkeys_inert(game_root, "narrative beat ending")
+
+
+func _run_settlement_opens_ending(game_root) -> void:
+	game_root.new_game()
+	await process_frame
+	game_root._skip_prologue()
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "settlement test should start from gameplay")
+	game_root.game.tower_floor = 4
+	game_root.game.ending_route = "hidden"
+	game_root.game.floor4_task_complete = true
+	game_root.game.needs_day_settlement = true
+	_assert_true(game_root._settle_day_and_present_rewards(), "the day should settle")
+	await process_frame
+	_assert_true(game_root.game.ending_unlocked, "the day boundary should unlock the hidden ending on the model")
+	_assert_eq(game_root.session_mode(), "ending", "the host should enter the ending right after the settlement unlocks it")
 
 
 func _run_ending_screen_install(game_root) -> void:
