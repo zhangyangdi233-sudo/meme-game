@@ -25,9 +25,10 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Signals (slice 7) | 8 — + `progression_changed` |
 | Signals (held words and memes moved to models) | 7 — − `inventory_changed` |
 | Signals (day progress moved to models) | 5 — − `action_economy_changed`, − `day_progress_changed` |
+| Signals (tutorial and ending progress moved to models) | 4 — − `progression_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
-**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_progression_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
+**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -101,7 +102,7 @@ The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conv
 
 ### Relationship / doctor dialogue
 
-`npc_understanding`, `reality_phase`, `relationship_residue`, `last_relationship_residue_gain`, `last_relationship_money_loss`, `reality_dialogue_count`, `last_clean_sentence`, `last_polluted_sentence`, `tutorial_progress`
+`npc_understanding`, `reality_phase`, `relationship_residue`, `last_relationship_residue_gain`, `last_relationship_money_loss`, `reality_dialogue_count`, `last_clean_sentence`, `last_polluted_sentence`
 
 ---
 
@@ -176,16 +177,15 @@ The adapter refreshes after its own intents (`_after_effective_action`, `_settle
 
 `record_history_line()`, `get_history_entries()`
 
-### Ending — **slice 7 seam (progression)**
+### Ending — **slice 7 seam (progression), signal retired**
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }` |
-| Signal | `progression_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `complete_floor_three()`, floor 3/4 task latches, and hidden-ending unlock in `_resolve_tower_step()` |
+| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }`, read from the models |
 | Intent | `choose_ending_language()`, `complete_floor_three()` |
 | Query | `get_ending_language_choices()`, `get_ending_language_output()` |
 
-The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. Legacy fields `ending_unlocked` / `ending_route` / `formal_floor_three_complete` / `floor3_task_complete` / `floor4_task_complete` remain for save/load; new adapter ending and ultimate-task render code should prefer snapshot + signal.
+The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. `ending_unlocked`, `ending_route`, `formal_floor_three_complete`, `floor3_task_complete`, `floor4_task_complete` and `tutorial_progress` live only in run property models (saved with the run, reset with a new run); the state's fields of the same names read and write the models.
 
 ### Ending (legacy listing)
 
@@ -379,10 +379,11 @@ The six day-progress facts moved into run property models. `day_progress_changed
 
 ---
 
-## Slice 7 contract (progression / ending)
+## Slice 7 contract (progression / ending) — signal retired
+
+The six progression facts moved into run property models (`PropertyKeys.TUTORIAL_PROGRESS`, `ENDING_UNLOCKED`, `ENDING_ROUTE`, `FORMAL_FLOOR_THREE_COMPLETE`, `FLOOR3_TASK_COMPLETE`, `FLOOR4_TASK_COMPLETE`). `progression_changed` is gone; `get_progression_snapshot()` stays as a read of the models:
 
 ```gdscript
-# Snapshot (read)
 {
   "ending_unlocked": bool,
   "ending_route": String,
@@ -390,22 +391,13 @@ The six day-progress facts moved into run property models. `day_progress_changed
   "floor3_task_complete": bool,
   "floor4_task_complete": bool,
 }
-
-# Signal payload = snapshot + change metadata
-{
-  # ...snapshot fields...
-  "change": {
-    "kind": "complete_floor_three" | "floor3_task" | "floor4_task" | "ending_unlock",
-    "target_id": String,
-    "active": bool,
-  },
-}
 ```
 
-**Intent → signal mapping:**
+**Screens:** the doll guide and the playtest panel watch `TUTORIAL_PROGRESS` (the doll guide also watches the tower floor and the two floor tasks) and word their own lines through `GuideLine`, a pure function of those facts. The tutorial step query stays `TutorialDirector.current_step(progress)`.
 
-| Intent / latch | `change.kind` | When |
-|---|---|---|
+**Host:** after a day settles, `_present_ending_if_unlocked()` asks whether the ending opened; `_render()` still moves to the ending screen when `ending_unlocked` is true.
+
+---|---|---|
 | `complete_floor_three()` | `complete_floor_three` | on success; `target_id` is the route result (`normal-ending`, `hidden-floor`, …) |
 | `_latch_ultimate_tasks_for_current_floor()` | `floor3_task` / `floor4_task` | when the corresponding task latch flips true |
 | `_resolve_tower_step()` hidden branch | `ending_unlock` | when hidden-route ending unlocks at day boundary |

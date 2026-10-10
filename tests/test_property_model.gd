@@ -46,6 +46,7 @@ func _run() -> void:
 	_test_canvas_positions_write_the_map_once_per_commit()
 	_test_conversation_progress_lives_only_in_the_run_models()
 	_test_social_engagement_lives_only_in_the_run_models()
+	_test_progression_lives_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -633,6 +634,74 @@ func _test_social_engagement_lives_only_in_the_run_models() -> void:
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
 	_assert_eq(followed.read(), ["author-b"], "loading should write the followed authors back through the model")
 	_assert_eq(liked.read(), ["post-1"], "loading should write the liked posts back through the model")
+	RegistryScript.clear()
+
+
+func _test_progression_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var keys := [PropertyKeysScript.TUTORIAL_PROGRESS, PropertyKeysScript.ENDING_UNLOCKED, PropertyKeysScript.ENDING_ROUTE,
+		PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, PropertyKeysScript.FLOOR3_TASK_COMPLETE, PropertyKeysScript.FLOOR4_TASK_COMPLETE]
+	for key in keys:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
+		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(manager.model(key) != null, "%s should have a model" % key)
+	var progress: MapPropertyModel = manager.model(PropertyKeysScript.TUTORIAL_PROGRESS) as MapPropertyModel
+	var unlocked: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_UNLOCKED) as ValuePropertyModel
+	var route: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_ROUTE) as ValuePropertyModel
+	var formal: ValuePropertyModel = manager.model(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE) as ValuePropertyModel
+	var floor3: ValuePropertyModel = manager.model(PropertyKeysScript.FLOOR3_TASK_COMPLETE) as ValuePropertyModel
+	var floor4: ValuePropertyModel = manager.model(PropertyKeysScript.FLOOR4_TASK_COMPLETE) as ValuePropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+	_assert_eq(str(progress.read().get("current_step_id", "")), "find_guide", "a new run should start the tutorial on the model")
+	_assert_eq(str(source.get_tutorial_step().get("id", "")), "find_guide", "the state should read the tutorial from the model")
+	var heard: Array = []
+	progress.register(func(value: Variant) -> void:
+		heard.append(str((value as Dictionary).get("current_step_id", "")))
+	)
+	source.notify_tutorial("guide_found")
+	_assert_eq(heard, ["find_guide", "open_social"], "a tutorial event should write the progress model once")
+	_assert_eq(str(progress.read().get("current_step_id", "")), "open_social", "the progress model should hold the new step")
+
+	source.ending_unlocked = true
+	source.ending_route = "hidden"
+	source.formal_floor_three_complete = true
+	source.floor3_task_complete = true
+	source.floor4_task_complete = true
+	_assert_eq(unlocked.read(), true, "the ending flag should be written to its model")
+	_assert_eq(route.read(), "hidden", "the ending route should be written to its model")
+	_assert_eq(formal.read(), true, "floor three completion should be written to its model")
+	_assert_eq(floor3.read(), true, "the floor three task should be written to its model")
+	_assert_eq(floor4.read(), true, "the floor four task should be written to its model")
+	floor4.write(false)
+	_assert_eq(source.floor4_task_complete, false, "the state should read the model, not keep a copy")
+	floor4.write(true)
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("ending_route", ""), "hidden", "the run save should store the ending route")
+	_assert_eq(state_data.get("floor3_task_complete", false), true, "the run save should store the floor three task")
+	_assert_eq(str((state_data.get("tutorial_progress", {}) as Dictionary).get("current_step_id", "")), "open_social", "the run save should store the tutorial")
+	for key in keys:
+		(manager.model(key) as PropertyModel).reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(unlocked.read(), true, "loading should write the ending flag back through its model")
+	_assert_eq(route.read(), "hidden", "loading should write the ending route back through its model")
+	_assert_eq(formal.read(), true, "loading should write floor three completion back")
+	_assert_eq(floor3.read(), true, "loading should write the floor three task back")
+	_assert_eq(floor4.read(), true, "loading should write the floor four task back")
+	_assert_eq(str(progress.read().get("current_step_id", "")), "open_social", "loading should write the tutorial back")
+
+	restored.new_run()
+	_assert_eq(unlocked.read(), false, "a new run should clear the ending flag on the same model")
+	_assert_eq(route.read(), "", "a new run should clear the ending route")
+	_assert_eq(formal.read(), false, "a new run should clear floor three completion")
+	_assert_eq(floor3.read(), false, "a new run should clear the floor three task")
+	_assert_eq(floor4.read(), false, "a new run should clear the floor four task")
+	_assert_eq(str(progress.read().get("current_step_id", "")), "find_guide", "a new run should restart the tutorial")
 	RegistryScript.clear()
 
 

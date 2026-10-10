@@ -1,6 +1,11 @@
 class_name PlaytestAssistPanel
 extends Node
-## Debug/playtest assist chrome: adapter supplies display snapshot.
+## Debug/playtest assist chrome. The host says whether it shows and supplies the route lines;
+## while shown, the panel watches the tutorial progress and leads with the current step hint itself.
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const GuideLineScript = preload("res://scripts/tutorial/guide_line.gd")
 
 var _overlay: PanelContainer
 var _body_label: Label
@@ -9,11 +14,18 @@ var _label_factory: Callable
 var _theme_color_fn: Callable
 var _panel_factory: Callable
 
+var _progress: Dictionary = {}
+var _extra_lines: Array = []
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.TUTORIAL_PROGRESS: _on_progress,
+})
+
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
 	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
+	_watch.stop()
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
 	_build_overlay(parent)
@@ -28,10 +40,24 @@ func render(state: Dictionary) -> void:
 		return
 	_overlay.visible = bool(state.get("visible", false))
 	if not _overlay.visible:
+		_watch.stop()
 		return
+	_extra_lines = (state.get("lines", []) as Array).duplicate()
+	_watch.start()
+	_paint()
+
+
+func _on_progress(value: Variant) -> void:
+	_progress = value as Dictionary
+	_paint()
+
+
+func _paint() -> void:
 	if _body_label == null or not is_instance_valid(_body_label):
 		return
-	_body_label.text = "\n".join(state.get("lines", []))
+	var lines: Array = [GuideLineScript.test_instruction(_progress)]
+	lines.append_array(_extra_lines)
+	_body_label.text = "\n".join(lines)
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:

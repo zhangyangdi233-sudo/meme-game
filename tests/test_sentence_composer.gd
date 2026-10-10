@@ -244,7 +244,7 @@ func _test_ui_flow() -> void:
 	game_root.game.notify_tutorial("social_opened")
 	game_root.game.notify_tutorial("post_opened")
 	game_root.game.notify_tutorial("collect_word")
-	var progress_line: String = game_root._doll_guide_current_line()
+	var progress_line: String = doll_line.text
 	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
 
 	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。

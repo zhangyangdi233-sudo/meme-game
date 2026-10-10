@@ -1,6 +1,11 @@
 class_name DollGuidePanel
 extends Node
 ## Persistent bottom-left guide window for the stitched doll tutorial and floor tasks.
+## While shown, it watches the tutorial progress and the floor facts and words its own line.
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const GuideLineScript = preload("res://scripts/tutorial/guide_line.gd")
 
 var _overlay: PanelContainer
 var _body: VBoxContainer
@@ -11,15 +16,29 @@ var _theme_color_fn: Callable
 var _load_texture_fn: Callable
 var _register_draggable_fn: Callable
 var _portrait_path := ""
+var _progress: Dictionary = {}
+var _tower_floor := 1
+var _floor3_task_complete := false
+var _floor4_task_complete := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.TUTORIAL_PROGRESS: _on_progress,
+	PropertyKeysScript.TOWER_FLOOR: _on_tower_floor,
+	PropertyKeysScript.FLOOR3_TASK_COMPLETE: _on_floor3_task,
+	PropertyKeysScript.FLOOR4_TASK_COMPLETE: _on_floor4_task,
+})
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
 	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
+	var keep_shown := _overlay != null and is_instance_valid(_overlay) and _overlay.visible
+	_watch.stop()
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
 	_build_overlay(parent)
+	if keep_shown:
+		set_shown(true)
 
 
 func get_overlay() -> PanelContainer:
@@ -35,13 +54,40 @@ func toggle_collapsed() -> void:
 		collapse_button.text = "折叠" if _body.visible else "展开"
 
 
-func refresh(should_show: bool, line_text: String = "") -> void:
+func set_shown(shown: bool) -> void:
 	if _overlay == null or not is_instance_valid(_overlay):
 		return
-	_overlay.visible = should_show
-	if not should_show or _line_label == null or not is_instance_valid(_line_label):
+	_overlay.visible = shown
+	if shown:
+		_watch.start()
+	else:
+		_watch.stop()
+
+
+func _on_progress(value: Variant) -> void:
+	_progress = value as Dictionary
+	_paint()
+
+
+func _on_tower_floor(value: Variant) -> void:
+	_tower_floor = int(value)
+	_paint()
+
+
+func _on_floor3_task(value: Variant) -> void:
+	_floor3_task_complete = bool(value)
+	_paint()
+
+
+func _on_floor4_task(value: Variant) -> void:
+	_floor4_task_complete = bool(value)
+	_paint()
+
+
+func _paint() -> void:
+	if _line_label == null or not is_instance_valid(_line_label):
 		return
-	_line_label.text = line_text
+	_line_label.text = GuideLineScript.doll_line(_progress, _tower_floor, _floor3_task_complete, _floor4_task_complete)
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:

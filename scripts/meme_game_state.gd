@@ -1,8 +1,6 @@
 class_name MemeGameState
 extends RefCounted
 
-signal progression_changed(snapshot: Dictionary)
-
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
@@ -35,7 +33,6 @@ const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、",
 const SAVE_DATA_VERSION := 5
 ## Run fields that still live on this object. Fields kept in models are saved from PropertyKeys.RUN instead.
 const SAVE_FIELD_NAMES := [
-	"ending_unlocked", "ending_route", "formal_floor_three_complete",
 	"exit_prompt_seen",
 	"pollution_flashback_seen", "pollution_flashback_pending",
 	"view_state",
@@ -46,9 +43,9 @@ const SAVE_FIELD_NAMES := [
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"history_entries",
-	"language_sentence_slots", "sentence_records", "tutorial_progress",
+	"language_sentence_slots", "sentence_records",
 	"last_char_pick_day",
-	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
+	"free_sentence_units", "world_rules",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
 	"last_relationship_money_loss", "reality_dialogue_count",
@@ -69,14 +66,26 @@ var tower_floor: int:
 		return _read_run_int(PropertyKeysScript.TOWER_FLOOR)
 	set(value):
 		_write_run_field(PropertyKeysScript.TOWER_FLOOR, value)
-var ending_unlocked: bool = false
+var ending_unlocked: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.ENDING_UNLOCKED)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_UNLOCKED, value)
 var ending_language_choice: String:
 	get:
 		return _read_run_string(PropertyKeysScript.ENDING_LANGUAGE_CHOICE)
 	set(value):
 		_write_run_field(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, value)
-var ending_route: String = ""
-var formal_floor_three_complete: bool = false
+var ending_route: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ENDING_ROUTE)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_ROUTE, value)
+var formal_floor_three_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, value)
 var pending_floor_transition: int:
 	get:
 		return _read_run_int(PropertyKeysScript.PENDING_FLOOR_TRANSITION)
@@ -159,7 +168,13 @@ var history_entries: Array = []
 
 var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
-var tutorial_progress: Dictionary = {}
+var tutorial_progress: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.TUTORIAL_PROGRESS)
+	set(value):
+		var model: MapPropertyModel = _run_model(PropertyKeysScript.TUTORIAL_PROGRESS) as MapPropertyModel
+		if model != null:
+			model.replace_all(value)
 var collected_char_units: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
@@ -171,8 +186,16 @@ var char_canvas_positions: Dictionary:
 		return _read_run_map(PropertyKeysScript.CHAR_CANVAS_POSITIONS)
 var free_sentence_units: Array = []
 var world_rules: Dictionary = {}
-var floor3_task_complete: bool = false
-var floor4_task_complete: bool = false
+var floor3_task_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FLOOR3_TASK_COMPLETE, value)
+var floor4_task_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FLOOR4_TASK_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FLOOR4_TASK_COMPLETE, value)
 var last_clean_sentence: String = ""
 var last_polluted_sentence: String = ""
 var npc_understanding: int = 100
@@ -258,9 +281,6 @@ var conversation_reward: Dictionary = {}
 
 func new_run() -> void:
 	PropertyBootScript.reset_run()
-	ending_unlocked = false
-	ending_route = ""
-	formal_floor_three_complete = false
 	exit_prompt_seen = false
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
@@ -287,8 +307,6 @@ func new_run() -> void:
 	last_char_pick_day = 0
 	free_sentence_units = []
 	world_rules = {}
-	floor3_task_complete = false
-	floor4_task_complete = false
 	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
@@ -716,12 +734,10 @@ func complete_floor_three() -> String:
 		ending_unlocked = false
 		event_log.push_front("第四层没有登记记录。")
 		_latch_ultimate_tasks_for_current_floor()
-		_emit_progression_changed("complete_floor_three", "hidden-floor", true)
 		return "hidden-floor"
 	ending_route = "normal"
 	ending_unlocked = true
 	pending_floor_transition = 0
-	_emit_progression_changed("complete_floor_three", "normal-ending", true)
 	return "normal-ending"
 
 
@@ -1705,11 +1721,9 @@ func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
 		event_log.push_front("第三层的门开了。")
-		_emit_progression_changed("floor3_task", "", true)
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
 		event_log.push_front("出口开始存在。")
-		_emit_progression_changed("floor4_task", "", true)
 
 
 ## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
@@ -1968,16 +1982,6 @@ func get_progression_snapshot() -> Dictionary:
 	}
 
 
-func _emit_progression_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_progression_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	progression_changed.emit(snapshot)
-
-
 func place_meme_in_blank(blank_id: String, meme_id: String) -> bool:
 	dialogue_blanks[blank_id] = meme_id
 	return true
@@ -2200,7 +2204,6 @@ func _resolve_tower_step() -> void:
 	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
 		ending_unlocked = true
 		event_log.push_front("出口承认了你。")
-		_emit_progression_changed("ending_unlock", "hidden", true)
 
 
 func _find_completed_meme_index(meme_id: String) -> int:

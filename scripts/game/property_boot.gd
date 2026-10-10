@@ -58,6 +58,12 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_FEEDBACK, ""))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, 0))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEALED_UNITS, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.TUTORIAL_PROGRESS, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_UNLOCKED, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_ROUTE, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR3_TASK_COMPLETE, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR4_TASK_COMPLETE, false))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

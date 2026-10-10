@@ -7,8 +7,6 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 var _state_script: Script = null
-var _progression_signal_count := 0
-var _last_progression_snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -39,7 +37,7 @@ func _run() -> void:
 	test_floor_transition_writes_the_floor_model()
 	test_day_progress_survives_save_and_resets_on_new_run()
 	test_inventory_snapshot_without_a_change_signal()
-	test_progression_snapshot_and_signal()
+	test_progression_snapshot_and_models()
 	test_pick_token_costs_action_and_adds_notebook_token()
 	test_japanese_pickup_preserves_complete_token()
 	test_complete_sentence_craft_uses_authored_phone_surfaces()
@@ -459,13 +457,9 @@ func test_inventory_snapshot_without_a_change_signal() -> void:
 	_assert_true((fused.get("fusion_slots", {"x": "y"}) as Dictionary).is_empty(), "fusion snapshot should clear fusion slots after confirm")
 
 
-func test_progression_snapshot_and_signal() -> void:
+func test_progression_snapshot_and_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_progression_signal_count = 0
-	_last_progression_snapshot = {}
-	game.progression_changed.connect(_capture_progression)
-
 	var initial: Dictionary = game.get_progression_snapshot()
 	_assert_true(not bool(initial.get("ending_unlocked", true)), "new run should start without an unlocked ending")
 	_assert_true(not bool(initial.get("floor3_task_complete", true)), "new run should start with floor-three task incomplete")
@@ -474,23 +468,14 @@ func test_progression_snapshot_and_signal() -> void:
 	game.tower_floor = 3
 	game.free_sentence_units = ["门", "可", "以", "打", "开"]
 	game.submit_free_sentence("zh")
-	_assert_eq(_progression_signal_count, 1, "floor-three task latch should emit once")
-	var floor3_change: Dictionary = _last_progression_snapshot.get("change", {})
-	_assert_eq(str(floor3_change.get("kind", "")), "floor3_task", "change kind should be floor3_task")
-	_assert_true(bool(_last_progression_snapshot.get("floor3_task_complete", false)), "snapshot should reflect the latched task")
+	_assert_true(bool(game.get_progression_snapshot().get("floor3_task_complete", false)), "snapshot should reflect the latched task")
 
 	game.pollution = 80
-	_progression_signal_count = 0
 	_assert_eq(game.complete_floor_three(), "normal-ending", "formal floor-three completion should resolve the normal route")
-	_assert_eq(_progression_signal_count, 1, "complete_floor_three should emit once")
-	var ending_change: Dictionary = _last_progression_snapshot.get("change", {})
-	_assert_eq(str(ending_change.get("kind", "")), "complete_floor_three", "change kind should be complete_floor_three")
-	_assert_eq(str(ending_change.get("target_id", "")), "normal-ending", "normal route should be reported in change metadata")
-	_assert_true(bool(_last_progression_snapshot.get("ending_unlocked", false)), "normal ending should unlock")
+	_assert_true(bool(game.get_progression_snapshot().get("ending_unlocked", false)), "normal ending should unlock")
+	_assert_eq(game.ending_route, "normal", "normal route should be recorded")
 
-	_progression_signal_count = 0
 	_assert_true(game.choose_ending_language("blank"), "ending language choice should succeed once")
-	_assert_eq(_progression_signal_count, 0, "choose_ending_language should not emit; the screen watches the model")
 	_assert_eq(game.ending_language_choice, "blank", "the chosen language should read back from the model")
 
 	game.new_run()
@@ -498,17 +483,8 @@ func test_progression_snapshot_and_signal() -> void:
 	game.ending_route = "hidden"
 	game.floor4_task_complete = true
 	game.ending_unlocked = false
-	_progression_signal_count = 0
 	game._resolve_tower_step()
-	_assert_eq(_progression_signal_count, 1, "hidden ending unlock at day boundary should emit once")
-	var unlock_change: Dictionary = _last_progression_snapshot.get("change", {})
-	_assert_eq(str(unlock_change.get("kind", "")), "ending_unlock", "change kind should be ending_unlock")
-	_assert_true(bool(_last_progression_snapshot.get("ending_unlocked", false)), "snapshot should reflect hidden ending unlock")
-
-
-func _capture_progression(snapshot: Dictionary) -> void:
-	_progression_signal_count += 1
-	_last_progression_snapshot = snapshot
+	_assert_true(bool(game.get_progression_snapshot().get("ending_unlocked", false)), "snapshot should reflect hidden ending unlock")
 
 
 func test_pick_token_costs_action_and_adds_notebook_token() -> void:

@@ -486,7 +486,6 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 		_camera_session.second_layer_texture = null
 	game = session_state
 	_migrate_social_author_ids()
-	_connect_game_state_signals()
 	selected_meme_id = ""
 	_open_app_windows = {}
 	var restored_app_window := _foreground_app()
@@ -659,23 +658,6 @@ func _migrate_social_author_ids() -> void:
 	game.replace_social_followed_handles(migrated)
 
 
-func _connect_game_state_signals() -> void:
-	if game == null:
-		return
-	if not game.progression_changed.is_connected(_on_progression_changed):
-		game.progression_changed.connect(_on_progression_changed)
-
-
-func _on_progression_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	if _request_ending_if_unlocked():
-		_refresh_ending()
-		return
-	_render_status()
-	_refresh_phone_shell()
-
-
 func _phone_shell_snapshot() -> Dictionary:
 	if game == null:
 		return {"view_state": "phone_down"}
@@ -749,18 +731,6 @@ func _inventory_snapshot() -> Dictionary:
 	return game.get_inventory_snapshot()
 
 
-func _progression_snapshot() -> Dictionary:
-	if game == null:
-		return {
-			"ending_unlocked": false,
-			"ending_route": "",
-			"formal_floor_three_complete": false,
-			"floor3_task_complete": false,
-			"floor4_task_complete": false,
-		}
-	return game.get_progression_snapshot()
-
-
 func set_view_state(value: String) -> void:
 	if value == "npc_up" and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_capture_phone_layer_for_xray()
@@ -823,7 +793,6 @@ func _reality_scene_deps() -> Dictionary:
 	var locale_code: String = "zh"
 	if _locale != null:
 		locale_code = str(_locale.current_locale)
-	var progression := _progression_snapshot()
 	return {
 		"day_progress": progress,
 		"palette": _ui_theme_helper.active_palette(),
@@ -839,8 +808,8 @@ func _reality_scene_deps() -> Dictionary:
 		"revealed_prerequisite_item_ids": game.revealed_prerequisite_item_ids.duplicate() if game != null else [],
 		"collected_prerequisite_item_ids": game.collected_prerequisite_item_ids.duplicate() if game != null else [],
 		"claimed_doll_ids": game.claimed_doll_ids.duplicate() if game != null else [],
-		"floor3_task_complete": bool(progression.get("floor3_task_complete", false)),
-		"floor4_task_complete": bool(progression.get("floor4_task_complete", false)),
+		"floor3_task_complete": game.floor3_task_complete if game != null else false,
+		"floor4_task_complete": game.floor4_task_complete if game != null else false,
 	}
 
 
@@ -2572,8 +2541,6 @@ func _playtest_assist_snapshot() -> Dictionary:
 	var lines: Array[String] = []
 	if not visible or not _playtest_assist_enabled or game == null:
 		return {"visible": visible, "lines": lines}
-	var step: Dictionary = game.get_tutorial_step()
-	lines.append(str(step.get("test_instruction", "测试提示：继续探索。")))
 	var floor_number := game.tower_floor
 	if floor_number <= 3:
 		var progress: Dictionary = game.get_key_clue_progress(floor_number)
@@ -3188,7 +3155,15 @@ func _request_session_mode(id: String) -> bool:
 
 
 func _ending_is_unlocked() -> bool:
-	return bool(_progression_snapshot().get("ending_unlocked", false))
+	return game != null and game.ending_unlocked
+
+
+## A day settlement or a floor-three finish can unlock the ending; the host asks right after it settles.
+func _present_ending_if_unlocked() -> bool:
+	if not _session_is_in_run() or not _request_ending_if_unlocked():
+		return false
+	_refresh_ending()
+	return true
 
 
 func _request_ending_if_unlocked() -> bool:
@@ -3307,31 +3282,7 @@ func _update_doll_guide() -> void:
 		return
 	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
 	var should_show := _session_shows_play_chrome() and game != null and not _reality_interaction_is_active()
-	_doll_guide_panel.refresh(should_show, _doll_guide_current_line() if should_show else "")
-
-
-func _doll_guide_current_line() -> String:
-	var step: Dictionary = game.get_tutorial_step()
-	if not bool(step.get("is_complete", false)):
-		var line := str(step.get("guide_line", ""))
-		# 一步一步教:多次数步骤显示进度(如 拾取三个字 1/3)。
-		var required_count := int(step.get("required_count", 0))
-		if required_count > 1:
-			line += "(%d/%d)" % [clampi(int(step.get("event_count", 0)), 0, required_count), required_count]
-		return line
-	var progression := _progression_snapshot()
-	var tower_floor := game.tower_floor if game != null else 1
-	var floor3_complete := bool(progression.get("floor3_task_complete", false))
-	var floor4_complete := bool(progression.get("floor4_task_complete", false))
-	if tower_floor == 3 and not floor3_complete:
-		return "门在等一句话。去笔记本里拼给它。"
-	if tower_floor == 3 and floor3_complete:
-		return "门记得这句话。"
-	if tower_floor == 4 and not floor4_complete:
-		return "出口还不存在。让它存在。"
-	if tower_floor == 4 and floor4_complete:
-		return "出口存在了。这里不会记下我们。"
-	return str(step.get("guide_line", "你已经会自己走了。至少现在是。"))
+	_doll_guide_panel.set_shown(should_show)
 
 
 ## ============ 自由造句台(多邻国式:tap 入句、tap 撤回、随时投稿)============
@@ -3606,7 +3557,8 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		_sync_audio_state(false)
-		_refresh_play_surfaces()
+		if not _present_ending_if_unlocked():
+			_refresh_play_surfaces()
 	selected_meme_id = ""
 	if from_flashback:
 		log_text = "黑屏之后，已经是第二天。"
