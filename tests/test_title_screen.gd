@@ -56,7 +56,7 @@ func _test_buttons_raise_the_four_intents() -> void:
 		["MainMenuExitButton", "exit_game"],
 		["MainMenuLanguageButton", "language_picker"],
 	]:
-		var button := Harness.find_node_by_name(mounted["screen"], pair[0]) as Button
+		var button := Harness.find_node_by_name(mounted["screen"], pair[0]) as BaseButton
 		_assert_true(button != null and not button.disabled, "%s should be pressable" % pair[0])
 		if button != null:
 			button.pressed.emit()
@@ -72,19 +72,16 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
 	_assert_true(continue_button != null and continue_button.disabled, "continue should start disabled without a save")
 	_assert_eq(continue_button.tooltip_text, "暂无自动存档", "continue should explain the missing save")
-	_assert_color(screen, "MainMenuGreenBackground", UiPaletteScript.color(UiPaletteScript.palette("palette_1"), "menu_bg"))
 
 	mounted["manager"].close()
 	_assert_true(is_instance_valid(screen) and not screen.visible, "closing the title should hide the same screen")
 
 	Harness.publish_title_facts(60, true)
-	var polluted := UiPaletteScript.palette("pollution_palette_5")
 	var reopened: Control = mounted["manager"].open({})
 	_assert_true(reopened == screen and screen.get_instance_id() == screen_id, "reopening should reuse the hidden screen")
 	_assert_true(screen.visible and screen.get_parent() == mounted["layer"], "reopening should show the menu on the same UI layer")
 	_assert_true(not continue_button.disabled, "reopening should enable continue when a save exists")
 	_assert_eq(continue_button.tooltip_text, "回到上次离开的位置", "reopening should describe the saved return")
-	_assert_color(screen, "MainMenuGreenBackground", UiPaletteScript.color(polluted, "menu_bg"))
 	_assert_true(mounted["sibling"].visible, "reopening should not hide other screens")
 	_dispose(mounted)
 

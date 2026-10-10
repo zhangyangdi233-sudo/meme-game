@@ -16,7 +16,7 @@ func bind_intents(bus: GameEventBus) -> void:
 	_intents_bound = true
 	var intents: Dictionary = get_script().get_script_constant_map().get("BUTTON_INTENTS", {})
 	for button_name in intents.keys():
-		var button := get_node_or_null(NodePath("%%%s" % str(button_name))) as Button
+		var button := get_node_or_null(NodePath("%%%s" % str(button_name))) as BaseButton
 		if button == null:
 			push_error("UIBase missing button %s" % str(button_name))
 			continue

@@ -39,8 +39,8 @@ func _run_async() -> void:
 
 func _test_main_menu(game_root: Node) -> void:
 	var main_menu := _find_node_by_name(game_root, "MainMenuLayer") as Control
-	var start_button := _find_node_by_name(game_root, "MainMenuStartButton") as Button
-	var exit_button := _find_node_by_name(game_root, "MainMenuExitButton") as Button
+	var start_button := _find_node_by_name(game_root, "MainMenuStartButton") as BaseButton
+	var exit_button := _find_node_by_name(game_root, "MainMenuExitButton") as BaseButton
 	_assert_true(main_menu != null and main_menu.visible, "launch should expose the main menu")
 	_assert_true(start_button != null, "main menu should expose start")
 	_assert_true(exit_button != null, "main menu should retain a direct system exit")
@@ -48,7 +48,7 @@ func _test_main_menu(game_root: Node) -> void:
 	var confirmation := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
 	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation")
 	game_root._cancel_quit_game()
-	var language_button := _find_node_by_name(game_root, "MainMenuLanguageButton") as Button
+	var language_button := _find_node_by_name(game_root, "MainMenuLanguageButton") as BaseButton
 	language_button.pressed.emit()
 	_assert_true(_find_node_by_name(game_root, "LanguageSelectionOverlay") != null, "language should still open the picker")
 	game_root._close_language_selection_overlay()

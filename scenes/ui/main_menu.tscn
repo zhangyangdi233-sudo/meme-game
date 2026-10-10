@@ -1,13 +1,89 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://bh2k6b00ky1vn"]
 
-[ext_resource type="Script" path="res://scripts/ui/main_menu_screen.gd" id="1_root"]
+[ext_resource type="Script" uid="uid://bac1s3wnhsegu" path="res://scripts/ui/main_menu_screen.gd" id="1_root"]
 [ext_resource type="FontFile" uid="uid://cqyei842slvok" path="res://assets/fonts/BoutiqueBitmap9x9.ttf" id="2_font"]
+[ext_resource type="Texture2D" uid="uid://gunyo2vi8bkb" path="res://assets/image/main_menu/main_menu_bg.png" id="3_bg"]
+[ext_resource type="Texture2D" uid="uid://b7iargpbuxw6x" path="res://assets/image/main_menu/main_menu_triangle_s.png" id="4_band"]
+[ext_resource type="Texture2D" uid="uid://bx5j0sp7tqpm8" path="res://assets/image/main_menu/main_menu_triangle_s1.png" id="5_strip"]
+[ext_resource type="Texture2D" uid="uid://cbwwgirc7tr8p" path="res://assets/image/main_menu/menu_bg.png" id="6_backdrop"]
+[ext_resource type="Texture2D" uid="uid://d1j5be7qu6d1x" path="res://assets/image/main_menu/START_leave.png" id="7_start"]
+[ext_resource type="Texture2D" uid="uid://cwa7edec5us41" path="res://assets/image/main_menu/SETTING_leave.png" id="8_setting"]
+[ext_resource type="Texture2D" uid="uid://bp6x1qcll4jxo" path="res://assets/image/main_menu/QUIT_leave.png" id="9_quit"]
+[ext_resource type="Texture2D" uid="uid://dmdy0ssc6xjnv" path="res://assets/image/main_menu/title_menu.png" id="10_title"]
+[ext_resource type="Texture2D" uid="uid://cout8jq11efqp" path="res://assets/image/main_menu/square_c.png" id="12_c"]
+[ext_resource type="Texture2D" uid="uid://cimeswj4do2ar" path="res://assets/image/main_menu/START_hover.png" id="13_start_hover"]
+[ext_resource type="Texture2D" uid="uid://y1301r6p8dh3" path="res://assets/image/main_menu/SETTING_hover.png" id="14_setting_hover"]
+[ext_resource type="Texture2D" uid="uid://ca4q5nyrgrnh5" path="res://assets/image/main_menu/QUIT_hover.png" id="15_quit_hover"]
 
 [sub_resource type="Theme" id="Theme_pixel"]
 default_font = ExtResource("2_font")
 default_font_size = 18
 
-[node name="MainMenuLayer" type="Control"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_n4uci"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(1, 0.94509804, 0.7882353, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.21176471, 0.35686275, 0.1764706, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_877pj"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.21176471, 0.35686275, 0.1764706, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ayp64"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.8666667, 0.92156863, 0.5411765, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y2j7i"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.9, 0.8505882, 0.70941174, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.36941177, 0.4854902, 0.34117648, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="MainMenuLayer" type="Control" unique_id=787154510]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,264 +93,119 @@ grow_vertical = 2
 theme = SubResource("Theme_pixel")
 script = ExtResource("1_root")
 
-[node name="MainMenuGreenBackground" type="ColorRect" parent="."]
+[node name="MainMenuBackground" type="TextureRect" parent="." unique_id=1630261629]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.364706, 0.682353, 0.419608, 1)
-metadata/palette_role = "menu_bg"
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="MainMenuPosterStripe0" type="ColorRect" parent="."]
+[node name="MainMenuBand" type="TextureRect" parent="." unique_id=923935199]
 layout_mode = 0
-offset_left = 74.0
-offset_top = 322.0
-offset_right = 196.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0.96)
-metadata/palette_role = "surface"
+offset_top = 116.0
+offset_right = 1316.0
+offset_bottom = 896.0
+mouse_filter = 2
+texture = ExtResource("4_band")
 
-[node name="MainMenuBlackCut0" type="ColorRect" parent="."]
+[node name="MainMenuStrip" type="TextureRect" parent="." unique_id=443222528]
 layout_mode = 0
-offset_left = 84.0
-offset_top = 322.0
-offset_right = 202.0
-offset_bottom = 344.0
-rotation = -0.383972
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
+offset_left = 1312.0
+offset_top = 105.0
+offset_right = 1600.0
+offset_bottom = 900.0
+mouse_filter = 2
+texture = ExtResource("5_strip")
 
-[node name="MainMenuPosterStripe1" type="ColorRect" parent="."]
+[node name="MainMenuRedBackdrop" type="TextureRect" parent="." unique_id=559541786]
 layout_mode = 0
-offset_left = 218.0
-offset_top = 322.0
-offset_right = 340.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0)
-metadata/palette_role = "surface"
+offset_right = 1323.0
+offset_bottom = 900.0
+mouse_filter = 2
+texture = ExtResource("6_backdrop")
 
-[node name="MainMenuBlackCut1" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 228.0
-offset_top = 340.0
-offset_right = 346.0
-offset_bottom = 362.0
-rotation = -0.226893
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuPosterStripe2" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 362.0
-offset_top = 322.0
-offset_right = 484.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0.96)
-metadata/palette_role = "surface"
-
-[node name="MainMenuBlackCut2" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 372.0
-offset_top = 358.0
-offset_right = 490.0
-offset_bottom = 380.0
-rotation = -0.0698132
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuPosterStripe3" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 506.0
-offset_top = 322.0
-offset_right = 628.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0)
-metadata/palette_role = "surface"
-
-[node name="MainMenuBlackCut3" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 516.0
-offset_top = 322.0
-offset_right = 634.0
-offset_bottom = 344.0
-rotation = 0.0872665
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuPosterStripe4" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 650.0
-offset_top = 322.0
-offset_right = 772.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0.96)
-metadata/palette_role = "surface"
-
-[node name="MainMenuBlackCut4" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 660.0
-offset_top = 340.0
-offset_right = 778.0
-offset_bottom = 362.0
-rotation = 0.244346
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuPosterStripe5" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 794.0
-offset_top = 322.0
-offset_right = 916.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0)
-metadata/palette_role = "surface"
-
-[node name="MainMenuBlackCut5" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 804.0
-offset_top = 358.0
-offset_right = 922.0
-offset_bottom = 380.0
-rotation = 0.401426
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuPosterStripe6" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 938.0
-offset_top = 322.0
-offset_right = 1060.0
-offset_bottom = 430.0
-color = Color(1, 0.945098, 0.788235, 0.96)
-metadata/palette_role = "surface"
-
-[node name="MainMenuBlackCut6" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 948.0
-offset_top = 322.0
-offset_right = 1066.0
-offset_bottom = 344.0
-rotation = 0.558505
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuTextStack" type="VBoxContainer" parent="."]
-layout_mode = 0
-offset_left = 70.0
-offset_top = 218.0
-offset_right = 1040.0
-offset_bottom = 560.0
-theme_override_constants/separation = 18
-
-[node name="MainMenuChapter" type="Label" parent="MainMenuTextStack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 0.82)
-theme_override_font_sizes/font_size = 54
-text = "Cartridge 3"
-metadata/palette_role = "surface"
-
-[node name="MainMenuTitle" type="Label" parent="MainMenuTextStack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 1)
-theme_override_colors/font_shadow_color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-theme_override_constants/shadow_offset_x = 4
-theme_override_constants/shadow_offset_y = 0
-theme_override_font_sizes/font_size = 90
-text = "HAJIMI"
-metadata/palette_role = "surface"
-metadata/palette_shadow_role = "ink"
-
-[node name="MainMenuSubtitle" type="Label" parent="MainMenuTextStack"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.945098, 0.788235, 0.78)
-theme_override_font_sizes/font_size = 27
-text = "Die Grenzen meiner Sprache bedeuten die Grenzen meiner Welt."
-metadata/palette_role = "surface"
-
-[node name="MainMenuButtons" type="HBoxContainer" parent="MainMenuTextStack"]
-layout_mode = 2
-theme_override_constants/separation = 18
-
-[node name="MainMenuContinueButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 54)
-layout_mode = 2
-text = "继续游戏"
-
-[node name="MainMenuStartButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 54)
-layout_mode = 2
-text = "新游戏"
-
-[node name="MainMenuExitButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 54)
-layout_mode = 2
-text = "退出游戏"
-metadata/skip_localization = true
-
-[node name="MainMenuLanguageButton" type="Button" parent="MainMenuTextStack/MainMenuButtons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 54)
-layout_mode = 2
-text = "语言"
-
-[node name="MainMenuCornerMark" type="Control" parent="."]
+[node name="MainMenuTitleArt" type="TextureRect" parent="." unique_id=1369827620]
 layout_mode = 1
-anchors_preset = 3
+anchors_preset = 1
 anchor_left = 1.0
-anchor_top = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -126.0
-offset_right = -56.0
-offset_bottom = -36.0
+offset_left = -1295.0
+offset_right = 1.0
+offset_bottom = 337.0
 grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("10_title")
+expand_mode = 1
+
+[node name="MainMenuSlabs" type="TextureRect" parent="." unique_id=1154391848]
+layout_mode = 0
+offset_left = 570.0
+offset_top = 255.0
+offset_right = 1057.0
+offset_bottom = 855.0
+mouse_filter = 2
+texture = ExtResource("12_c")
+expand_mode = 1
+
+[node name="MainMenuStartButton" type="TextureButton" parent="." unique_id=1141621375]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 130.0
+offset_right = 584.0
+offset_bottom = 324.0
+texture_normal = ExtResource("7_start")
+texture_hover = ExtResource("13_start_hover")
+texture_focused = ExtResource("13_start_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuLanguageButton" type="TextureButton" parent="." unique_id=1487615960]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 395.0
+offset_right = 765.0
+offset_bottom = 589.0
+texture_normal = ExtResource("8_setting")
+texture_hover = ExtResource("14_setting_hover")
+texture_focused = ExtResource("14_setting_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuExitButton" type="TextureButton" parent="." unique_id=206836557]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 660.0
+offset_right = 412.0
+offset_bottom = 849.0
+texture_normal = ExtResource("9_quit")
+texture_hover = ExtResource("15_quit_hover")
+texture_focused = ExtResource("15_quit_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuContinueButton" type="Button" parent="." unique_id=1120701050]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 54)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 437.0
+offset_top = -81.0
+offset_right = 605.0
+offset_bottom = -27.0
 grow_vertical = 0
-
-[node name="MainMenuCornerMarkCircle" type="ColorRect" parent="MainMenuCornerMark"]
-layout_mode = 0
-offset_left = 28.0
-offset_right = 62.0
-offset_bottom = 34.0
-color = Color(1, 0.945098, 0.788235, 1)
-metadata/palette_role = "surface"
-
-[node name="MainMenuCornerMarkStem" type="ColorRect" parent="MainMenuCornerMark"]
-layout_mode = 0
-offset_left = 46.0
-offset_right = 62.0
-offset_bottom = 34.0
-color = Color(0.0627451, 0.0784314, 0.0588235, 1)
-metadata/palette_role = "ink"
-
-[node name="MainMenuCornerMarkBase0" type="ColorRect" parent="MainMenuCornerMark"]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 54.0
-offset_right = 76.0
-offset_bottom = 58.0
-color = Color(1, 0.945098, 0.788235, 1)
-metadata/palette_role = "surface"
-
-[node name="MainMenuCornerMarkBase1" type="ColorRect" parent="MainMenuCornerMark"]
-layout_mode = 0
-offset_left = 18.0
-offset_top = 64.0
-offset_right = 78.0
-offset_bottom = 68.0
-color = Color(1, 0.945098, 0.788235, 1)
-metadata/palette_role = "surface"
-
-[node name="MainMenuCornerMarkBase2" type="ColorRect" parent="MainMenuCornerMark"]
-layout_mode = 0
-offset_left = 16.0
-offset_top = 74.0
-offset_right = 80.0
-offset_bottom = 78.0
-color = Color(1, 0.945098, 0.788235, 1)
-metadata/palette_role = "surface"
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.94509804, 0.7882353, 1)
+theme_override_colors/font_hover_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+theme_override_colors/font_disabled_color = Color(0.38517648, 0.49835294, 0.35764706, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_n4uci")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_877pj")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ayp64")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_y2j7i")
+text = "继续游戏"
