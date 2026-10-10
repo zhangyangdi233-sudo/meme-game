@@ -1081,7 +1081,7 @@ func _on_cover_watcher_appeared(floor_number: int) -> void:
 func _on_cover_watcher_vanished(_floor_number: int) -> void:
 	# The stinger is intentionally allowed to finish after the figure has withdrawn.
 	if game != null:
-		game.event_log.push_front("掩体后的人影缩了回去。它没有留下脸。")
+		game.record_event("掩体后的人影缩了回去。它没有留下脸。")
 
 
 func _sync_audio_state(immediate: bool = false) -> void:
@@ -2087,8 +2087,6 @@ func _babel_mount_deps() -> Dictionary:
 		"label_factory": _ui_theme_helper.label,
 		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
-		"event_log": func() -> Array:
-			return game.event_log if game != null else [],
 		"level_display_name": func(floor_number: int) -> String:
 			return _locale.level_display_name(floor_number),
 	}
@@ -2211,23 +2209,17 @@ func _inject_settings_camera_block() -> void:
 func _build_history_window() -> void:
 	_ensure_settings_history_panel()
 	_settings_history_panel.mount(_ui_root, _settings_history_mount_deps())
-	_render_history_window()
 
 
 func _toggle_history_window() -> void:
 	if _settings_history_panel == null:
 		return
-	_settings_history_panel.toggle(game.get_history_entries())
+	_settings_history_panel.toggle()
 
 
 func _close_history_window() -> void:
 	if _settings_history_panel != null:
 		_settings_history_panel.close()
-
-
-func _render_history_window() -> void:
-	if _settings_history_panel != null:
-		_settings_history_panel.refresh_history(game.get_history_entries())
 
 
 func _refresh_settings_menu_labels() -> void:
@@ -2474,8 +2466,6 @@ func _render_status() -> void:
 	if _desk_log != null:
 		_desk_log.text = log_text
 	_refresh_settings_menu_labels()
-	if _settings_history_panel != null and _settings_history_panel.is_open():
-		_render_history_window()
 	_render_playtest_assist()
 	_update_doll_guide()
 	if _reality_scene_adapter != null:

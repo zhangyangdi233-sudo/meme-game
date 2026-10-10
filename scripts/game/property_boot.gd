@@ -67,6 +67,8 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR3_TASK_COMPLETE, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR4_TASK_COMPLETE, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.EVENT_LOG, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HISTORY_ENTRIES, []))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

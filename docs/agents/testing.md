@@ -113,7 +113,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles |
 | `test_game_locale_preferences` | module | language / volume preference models, preferences file |
-| `test_settings_history_panel`, `test_language_selection_panel` | module | open panels watch preference and autoplay models |
+| `test_settings_history_panel`, `test_language_selection_panel` | module | open panels watch preference and autoplay models; the open history window watches the recorded lines |
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word and meme models; hiding writes canvas positions once; it keeps and repaints its own tab |

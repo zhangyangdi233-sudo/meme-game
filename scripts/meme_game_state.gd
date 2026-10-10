@@ -38,10 +38,9 @@ const SAVE_FIELD_NAMES := [
 	"draft_slots", "owned_meme_frames", "owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
 	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
-	"event_log", "collected_world_item_ids",
+	"collected_world_item_ids",
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
-	"history_entries",
 	"language_sentence_slots", "sentence_records",
 	"last_char_pick_day",
 	"free_sentence_units", "world_rules",
@@ -163,14 +162,21 @@ var fused_meme_pairs: Array[String] = []
 var dialogue_blanks: Dictionary = {}
 var published_memes: Array = []
 var last_publish_result: Dictionary = {}
-var event_log: Array[String] = []
+## Newest first. A read is a copy; add through record_event().
+var event_log: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.EVENT_LOG)
+	set(value):
+		_write_run_list(PropertyKeysScript.EVENT_LOG, value)
 
 var collected_world_item_ids: Array[String] = []
 var cover_watcher_seen_floors: Array[int] = []
 var revealed_prerequisite_item_ids: Array[String] = []
 var collected_prerequisite_item_ids: Array[String] = []
 var key_clue_progress: Dictionary = {}
-var history_entries: Array = []
+var history_entries: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.HISTORY_ENTRIES)
 
 var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
@@ -301,13 +307,11 @@ func new_run() -> void:
 	dialogue_blanks = {}
 	published_memes = []
 	last_publish_result = {}
-	event_log = []
 	collected_world_item_ids = []
 	cover_watcher_seen_floors = []
 	revealed_prerequisite_item_ids = []
 	collected_prerequisite_item_ids = []
 	key_clue_progress = {}
-	history_entries = []
 	language_sentence_slots = {}
 	sentence_records = []
 	last_char_pick_day = 0
@@ -535,7 +539,7 @@ func _normalize_language_bridge_state(loaded_version: int) -> void:
 	if loaded_version <= 4:
 		language_sentence_slots.clear()
 		reality_phase = "npc_speaking"
-	var filtered_log: Array[String] = []
+	var filtered_log: Array = []
 	for entry in event_log:
 		var text := str(entry)
 		if not text.contains("遗产规则"):
@@ -698,7 +702,7 @@ func reveal_prerequisite_item_for_floor(floor_number: int) -> bool:
 	if item_id.is_empty() or item_id in revealed_prerequisite_item_ids:
 		return false
 	revealed_prerequisite_item_ids.append(item_id)
-	event_log.push_front(str(item.get("location_hint", "这一层有一件东西正等着被找到。")))
+	record_event(str(item.get("location_hint", "这一层有一件东西正等着被找到。")))
 	return true
 
 
@@ -715,7 +719,7 @@ func collect_prerequisite_item(item_id: String) -> bool:
 	collected_prerequisite_item_ids.append(normalized_id)
 	if normalized_id not in collected_world_item_ids:
 		collected_world_item_ids.append(normalized_id)
-	event_log.push_front("你收起了这一层不该留下的东西。")
+	record_event("你收起了这一层不该留下的东西。")
 	return true
 
 
@@ -732,16 +736,27 @@ func record_history_line(line_data: Dictionary) -> bool:
 		normalized[field_name] = line_data.get(field_name, 0 if field_name == "revisionStage" else "")
 	normalized["lineId"] = line_id
 	normalized["revisionStage"] = clampi(int(normalized["revisionStage"]), 0, 3)
-	for index in history_entries.size():
-		if str(history_entries[index].get("lineId", "")) == line_id:
-			history_entries[index] = normalized
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.HISTORY_ENTRIES)
+	if model == null:
+		return false
+	var saved: Array = model.read()
+	for index in saved.size():
+		if str(saved[index].get("lineId", "")) == line_id:
+			model.replace_at(index, normalized)
 			return true
-	history_entries.append(normalized)
+	model.add(normalized)
 	return true
 
 
 func get_history_entries() -> Array:
-	return history_entries.duplicate(true)
+	return history_entries
+
+
+## Puts a line at the front of the event log.
+func record_event(text: String) -> void:
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.EVENT_LOG)
+	if model != null:
+		model.insert_at(0, text)
 
 
 func complete_floor_three() -> String:
@@ -756,7 +771,7 @@ func complete_floor_three() -> String:
 		pending_floor_transition = 0
 		ending_route = "hidden"
 		ending_unlocked = false
-		event_log.push_front("第四层没有登记记录。")
+		record_event("第四层没有登记记录。")
 		_latch_ultimate_tasks_for_current_floor()
 		return "hidden-floor"
 	ending_route = "normal"
@@ -781,7 +796,7 @@ func resolve_floor_transition_at_boundary() -> int:
 		return tower_floor
 	tower_floor = pending_floor_transition
 	pending_floor_transition = 0
-	event_log.push_front("你抵达了第 %d 层。" % tower_floor)
+	record_event("你抵达了第 %d 层。" % tower_floor)
 	_latch_ultimate_tasks_for_current_floor()
 	return tower_floor
 
@@ -1400,7 +1415,7 @@ func _resolve_doll_choice_attempt() -> Dictionary:
 	doll_choice_results[conversation_actor_id] = result_record
 	reward["guided"] = true
 	reward["feedback"] = str(choice.get("guide_feedback", "它让你先照做，理由可以晚一点再问。"))
-	event_log.push_front("缝线布偶指向了下一步。")
+	record_event("缝线布偶指向了下一步。")
 	notify_tutorial("guide_found", {"doll_id": conversation_actor_id})
 	return reward
 
@@ -1730,11 +1745,11 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 	if not bool(parsed.get("negated", false)):
 		match rule_key:
 			"door|can_open":
-				event_log.push_front("有一句话贴上了门。")
+				record_event("有一句话贴上了门。")
 			"exit|exists":
-				event_log.push_front("有一句话在找它的出口。")
+				record_event("有一句话在找它的出口。")
 			"light|lit":
-				event_log.push_front("有一盏灯听懂了。")
+				record_event("有一盏灯听懂了。")
 	_latch_ultimate_tasks_for_current_floor()
 
 
@@ -1745,10 +1760,10 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
-		event_log.push_front("第三层的门开了。")
+		record_event("第三层的门开了。")
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
-		event_log.push_front("出口开始存在。")
+		record_event("出口开始存在。")
 
 
 ## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
@@ -1993,7 +2008,7 @@ func confirm_meme_fusion() -> bool:
 	fused_meme_pairs.append(pair_key)
 	fusion_slots.clear()
 	change_pollution(3 + fusion_level * 2)
-	event_log.push_front("两个旧梗粘在一起。新梗更响，也更脏。")
+	record_event("两个旧梗粘在一起。新梗更响，也更脏。")
 	return true
 
 
@@ -2032,7 +2047,7 @@ func confirm_dialogue() -> bool:
 	if not published_token_ids.is_empty():
 		notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, published_token_ids, "phone")
 	dialogue_blanks.clear()
-	event_log.push_front("发布完成：资金 +%d，污染 +%d%%。" % [
+	record_event("发布完成：资金 +%d，污染 +%d%%。" % [
 		int(publish_result.get("money_gain", 0)),
 		int(publish_result.get("pollution_gain", 0)),
 	])
@@ -2228,7 +2243,7 @@ func _resolve_tower_step() -> void:
 	# 第四层终极任务完成后,隐藏结局只在日结边界解锁,不打断出口出现的当下。
 	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
 		ending_unlocked = true
-		event_log.push_front("出口承认了你。")
+		record_event("出口承认了你。")
 
 
 func _find_completed_meme_index(meme_id: String) -> int:

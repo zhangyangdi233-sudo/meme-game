@@ -48,6 +48,7 @@ func _run() -> void:
 	_test_conversation_progress_lives_only_in_the_run_models()
 	_test_social_engagement_lives_only_in_the_run_models()
 	_test_progression_lives_only_in_the_run_models()
+	_test_event_log_and_history_live_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -743,6 +744,56 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	_assert_eq(floor3.read(), false, "a new run should clear the floor three task")
 	_assert_eq(floor4.read(), false, "a new run should clear the floor four task")
 	_assert_eq(str(progress.read().get("current_step_id", "")), "find_guide", "a new run should restart the tutorial")
+	RegistryScript.clear()
+
+
+func _test_event_log_and_history_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	for key in [PropertyKeysScript.EVENT_LOG, PropertyKeysScript.HISTORY_ENTRIES]:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
+		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
+	var log_model: ListPropertyModel = manager.model(PropertyKeysScript.EVENT_LOG) as ListPropertyModel
+	var history_model: ListPropertyModel = manager.model(PropertyKeysScript.HISTORY_ENTRIES) as ListPropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	log_model.register(func(value: Variant) -> void: heard.append((value as Array).size()))
+	source.record_event("first")
+	source.record_event("second")
+	_assert_eq(log_model.read(), ["second", "first"], "a new event should be written to the model at the front")
+	_assert_eq(heard, [0, 1, 2], "each event should notify the log listeners once")
+	_assert_eq(source.event_log, ["second", "first"], "the state should read the log from the model")
+	source.event_log.push_front("tampered")
+	_assert_eq(log_model.read(), ["second", "first"], "changing the copy the state hands out should not change the model")
+
+	var line := {"lineId": "L1", "originalSpeaker": "A", "currentSpeaker": "A", "originalText": "hi", "displayText": "hi", "revisionStage": 0, "revisionMarkup": ""}
+	var changes: Array = []
+	history_model.register(func(value: Variant) -> void: changes.append((value as Array).size()))
+	_assert_true(source.record_history_line(line), "recording a line should succeed")
+	_assert_eq(changes, [0, 1], "recording a line should write the history model once")
+	var revised := line.duplicate()
+	revised["displayText"] = "ha"
+	source.record_history_line(revised)
+	_assert_eq(history_model.read().size(), 1, "recording the same line id should replace, not add")
+	_assert_eq(str(history_model.read()[0].get("displayText", "")), "ha", "the replaced line should be on the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("event_log", []), ["second", "first"], "the run save should store the event log")
+	_assert_eq((state_data.get("history_entries", []) as Array).size(), 1, "the run save should store the history")
+	log_model.reset()
+	history_model.reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(log_model.read(), ["second", "first"], "loading should write the event log back through its model")
+	_assert_eq(history_model.read().size(), 1, "loading should write the history back through its model")
+
+	restored.new_run()
+	_assert_eq(log_model.read(), [], "a new run should clear the log on the same model")
+	_assert_eq(history_model.read(), [], "a new run should clear the history on the same model")
 	RegistryScript.clear()
 
 

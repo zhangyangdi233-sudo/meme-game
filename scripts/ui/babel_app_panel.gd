@@ -1,7 +1,7 @@
 class_name BabelAppPanel
 extends Node
 ## Game-side babel tower app body: floor heading, danger/hint cards, money/pollution, event log.
-## While shown, it watches the floor, money, and pollution and repaints itself when one changes.
+## While shown, it watches the floor, money, pollution, and event log and repaints itself when one changes.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -10,13 +10,13 @@ const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 var _label_factory: Callable
 var _theme_color_fn: Callable
 var _clear_fn: Callable
-var _event_log_fn: Callable
 var _level_display_name_fn: Callable
 var _app_body: VBoxContainer
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.TOWER_FLOOR: _repaint_on_change,
 	PropertyKeysScript.MONEY: _repaint_on_change,
 	PropertyKeysScript.POLLUTION: _repaint_on_change,
+	PropertyKeysScript.EVENT_LOG: _repaint_on_change,
 })
 
 
@@ -26,7 +26,6 @@ func configure(deps: Dictionary) -> void:
 	_label_factory = deps.get("label_factory", Callable())
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_clear_fn = deps.get("clear_children", Callable())
-	_event_log_fn = deps.get("event_log", Callable())
 	_level_display_name_fn = deps.get("level_display_name", Callable())
 
 
@@ -87,8 +86,8 @@ func _paint() -> void:
 		_theme_color_fn.call("accent")
 	))
 
-	var event_log: Array = _event_log_fn.call() if _event_log_fn.is_valid() else []
-	for item in event_log:
+	var event_log: Variant = _watch.read(PropertyKeysScript.EVENT_LOG)
+	for item in (event_log as Array if event_log is Array else []):
 		app_body.add_child(_label_factory.call(str(item), 15, _theme_color_fn.call("accent")))
 
 

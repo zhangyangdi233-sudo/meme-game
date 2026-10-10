@@ -29,6 +29,7 @@ func _run_deferred() -> void:
 func _run() -> void:
 	_test_showing_registers_once_and_follows_writes()
 	_test_hiding_unregisters_and_showing_again_syncs()
+	_test_event_log_lines_follow_the_model()
 	await _test_a_freed_panel_unregisters()
 
 
@@ -78,6 +79,26 @@ func _test_hiding_unregisters_and_showing_again_syncs() -> void:
 	_dispose(mounted)
 
 
+func _test_event_log_lines_follow_the_model() -> void:
+	var mounted := _mount()
+	var panel: BabelAppPanel = mounted["panel"]
+	var event_log: ListPropertyModel = mounted["event_log"]
+	event_log.add("old line")
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	_assert_eq(_listener_count(event_log), 1, "showing should register on the event log once")
+	_assert_true(_text(mounted).contains("old line"), "showing should paint the lines already in the log")
+	event_log.insert_at(0, "new line")
+	_assert_true(_text(mounted).contains("new line"), "a new event should repaint the log by itself")
+	panel.set_shown(false)
+	_assert_eq(_listener_count(event_log), 0, "hiding should drop the event log listener")
+	event_log.insert_at(0, "hidden line")
+	_assert_true(not _text(mounted).contains("hidden line"), "a hidden babel app should not repaint on a new event")
+	panel.set_shown(true)
+	_assert_true(_text(mounted).contains("hidden line"), "showing again should sync an event written while hidden")
+	_dispose(mounted)
+
+
 func _test_a_freed_panel_unregisters() -> void:
 	var mounted := _mount()
 	var panel: BabelAppPanel = mounted["panel"]
@@ -105,7 +126,6 @@ func _mount() -> Dictionary:
 		"label_factory": _label,
 		"theme_color": func(_key: String) -> Color: return Color.WHITE,
 		"clear_children": _clear,
-		"event_log": func() -> Array: return [],
 		"level_display_name": func(floor_number: int) -> String: return "F%d" % floor_number,
 	})
 	return {
@@ -114,6 +134,7 @@ func _mount() -> Dictionary:
 		"floor": manager.model(PropertyKeysScript.TOWER_FLOOR),
 		"money": manager.model(PropertyKeysScript.MONEY),
 		"pollution": manager.model(PropertyKeysScript.POLLUTION),
+		"event_log": manager.model(PropertyKeysScript.EVENT_LOG),
 	}
 
 

@@ -2,6 +2,7 @@ class_name SettingsHistoryPanel
 extends Node
 ## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
 ## The open settings window watches volume, autoplay, and language; closing it stops.
+## The open history window watches the recorded lines the same way.
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -39,6 +40,9 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
 	PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
 	PropertyKeysScript.LOCALE: _on_locale,
+})
+var _history_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.HISTORY_ENTRIES: _paint_history,
 })
 var _exit_confirmation_overlay: Control
 var _panel_factory: Callable
@@ -123,18 +127,21 @@ func layout_settings(viewport_size: Vector2) -> void:
 	_settings_window.size = Vector2(window_width, window_height)
 
 
-func toggle(entries: Array) -> void:
+func toggle() -> void:
 	if _history_window == null:
 		return
 	_history_open = not _history_open
 	_history_window.visible = _history_open
 	if _history_open:
-		refresh_history(entries)
+		_history_watch.start()
 		_history_window.move_to_front()
+	else:
+		_history_watch.stop()
 
 
 func close() -> void:
 	_history_open = false
+	_history_watch.stop()
 	if _history_window != null:
 		_history_window.visible = false
 
@@ -245,10 +252,11 @@ func cancel_quit() -> void:
 		_exit_confirmation_overlay.visible = false
 
 
-func refresh_history(entries: Array) -> void:
-	if _history_content == null:
+func _paint_history(entries: Variant) -> void:
+	if _history_content == null or not entries is Array:
 		return
 	for child in _history_content.get_children():
+		_history_content.remove_child(child)
 		child.queue_free()
 	if entries.is_empty():
 		var empty := _label_factory.call("还没有能被记住的话。", 17, _theme_color_fn.call("ink")) as Label

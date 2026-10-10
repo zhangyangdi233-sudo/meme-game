@@ -68,7 +68,9 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Run / day economy
 
-`day`, `pollution`, `tower_floor`, `money`, `actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, `day_ended_reason`, `pollution_flashback_seen`, `pollution_flashback_pending`, `event_log`
+`day`, `pollution`, `tower_floor`, `money`, `actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, `day_ended_reason`, `pollution_flashback_seen`, `pollution_flashback_pending`
+
+`event_log` (newest first) is read from the `EVENT_LOG` run model as a copy; add a line with `record_event()`. The babel app watches it.
 
 ### Ending / tower progression
 
@@ -92,7 +94,7 @@ The held words (`collected_char_units`, `notebook_tokens`) and the finished meme
 
 ### Doll / prerequisite world items
 
-`claimed_doll_ids`, `doll_choice_results`, `collected_world_item_ids`, `revealed_prerequisite_item_ids`, `collected_prerequisite_item_ids`, `key_clue_progress`, `history_entries`
+`claimed_doll_ids`, `doll_choice_results`, `collected_world_item_ids`, `revealed_prerequisite_item_ids`, `collected_prerequisite_item_ids`, `key_clue_progress`
 
 ### Reality conversation (typed)
 
@@ -176,6 +178,8 @@ The adapter refreshes after its own intents (`_after_effective_action`, `_settle
 ### History
 
 `record_history_line()`, `get_history_entries()`
+
+`history_entries` live in the `HISTORY_ENTRIES` run model (read as a copy). The open history window watches it; the host no longer pushes entries.
 
 ### Ending — **slice 7 seam (progression), signal retired**
 

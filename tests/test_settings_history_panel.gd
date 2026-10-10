@@ -172,6 +172,7 @@ func _run() -> void:
 		_assert_true(history != null and not history.visible, "history toggle intent should not open the window until the adapter supplies entries")
 
 	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
+	_test_history_window_follows_the_model(panel, host)
 
 	panel.refresh_menu_labels(0)
 	_assert_eq(volume_label.text if volume_label != null else "", "音量", "clean pollution should keep the default volume label")
@@ -236,6 +237,33 @@ func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_s
 	panel.close_settings()
 	autoplay.write(false)
 	locale.write("zh")
+
+
+func _test_history_window_follows_the_model(panel: SettingsHistoryPanel, host: Control) -> void:
+	var history := _find_node_by_name(host, "HistoryWindow") as Control
+	var entries := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.HISTORY_ENTRIES) as ListPropertyModel
+	entries.add(_line("L1", "first"))
+	_assert_eq(entries.changed.get_connections().size(), 0, "a closed history window should not listen")
+	_assert_true(_find_node_by_name(history, "HistoryEntry0") == null, "a closed history window should not paint")
+
+	panel.toggle()
+	_assert_true(history.visible, "toggle should show the history window")
+	_assert_eq(entries.changed.get_connections().size(), 1, "an open history window should listen once")
+	_assert_true(_find_node_by_name(history, "HistoryEntry0") != null, "opening should paint the lines already recorded")
+	entries.add(_line("L2", "second"))
+	_assert_true(_find_node_by_name(history, "HistoryEntry1") != null, "a new line should appear in the open window by itself")
+
+	panel.toggle()
+	_assert_true(not history.visible, "a second toggle should hide the window")
+	_assert_eq(entries.changed.get_connections().size(), 0, "a hidden history window should let go of the model")
+	panel.toggle()
+	panel.close()
+	_assert_eq(entries.changed.get_connections().size(), 0, "close should let go of the model")
+	entries.reset()
+
+
+func _line(line_id: String, text: String) -> Dictionary:
+	return {"lineId": line_id, "originalSpeaker": "A", "currentSpeaker": "A", "originalText": text, "displayText": text, "revisionStage": 0, "revisionMarkup": ""}
 
 
 func _model(property_name: String) -> ValuePropertyModel:
