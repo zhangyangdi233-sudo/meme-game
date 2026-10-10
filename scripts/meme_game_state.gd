@@ -32,7 +32,7 @@ const HISTORY_FIELD_NAMES := [
 	"displayText", "revisionStage", "revisionMarkup",
 ]
 const POLLUTION_FLASHBACK_THRESHOLD := 60
-const BASE_ACTIONS_PER_DAY := 5
+const BASE_ACTIONS_PER_DAY := PropertyBootScript.DEFAULT_MAX_ACTIONS
 const LANGUAGE_RECIPE_SLOTS := [
 	{"id": "subject", "label": "谁 / 什么", "placeholder": "放入主语", "accepted_role": "subject"},
 	{"id": "action", "label": "发生了什么", "placeholder": "放入动作", "accepted_role": "action"},
@@ -79,15 +79,15 @@ var autoplay_enabled: bool = false
 var exit_prompt_seen: bool = false
 var money: int:
 	get:
-		return _read_money()
+		return _read_run_int(PropertyKeysScript.MONEY)
 	set(value):
-		_write_money(value)
+		_write_run_field(PropertyKeysScript.MONEY, value)
 var actions_remaining: int:
 	get:
-		return _read_actions_remaining()
+		return _read_run_int(PropertyKeysScript.ACTIONS_REMAINING)
 	set(value):
-		_write_actions_remaining(value)
-var max_actions_per_day: int = 5
+		_write_run_field(PropertyKeysScript.ACTIONS_REMAINING, value)
+var max_actions_per_day: int = PropertyBootScript.DEFAULT_MAX_ACTIONS
 var needs_day_settlement: bool = false
 var day_ended_reason: String = ""
 var pollution_flashback_seen: bool = false
@@ -182,7 +182,7 @@ func new_run() -> void:
 	pending_floor_transition = 0
 	autoplay_enabled = false
 	exit_prompt_seen = false
-	money = 18
+	money = PropertyBootScript.DEFAULT_MONEY
 	max_actions_per_day = BASE_ACTIONS_PER_DAY
 	actions_remaining = max_actions_per_day
 	needs_day_settlement = false
@@ -270,40 +270,11 @@ func _pollution_model() -> ValuePropertyModel:
 	return _run_model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
 
 
-func _read_money() -> int:
-	var model: ValuePropertyModel = _money_model()
+func _read_run_int(property_name: String) -> int:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
 	if model == null:
 		return 0
 	return int(model.read())
-
-
-func _write_money(value: int) -> void:
-	var model: ValuePropertyModel = _money_model()
-	if model == null:
-		return
-	model.write(value)
-
-
-func _money_model() -> ValuePropertyModel:
-	return _run_model(PropertyKeysScript.MONEY) as ValuePropertyModel
-
-
-func _read_actions_remaining() -> int:
-	var model: ValuePropertyModel = _actions_model()
-	if model == null:
-		return 0
-	return int(model.read())
-
-
-func _write_actions_remaining(value: int) -> void:
-	var model: ValuePropertyModel = _actions_model()
-	if model == null:
-		return
-	model.write(value)
-
-
-func _actions_model() -> ValuePropertyModel:
-	return _run_model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
 
 
 func _run_model(property_name: String) -> PropertyModel:

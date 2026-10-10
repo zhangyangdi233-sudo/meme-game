@@ -1588,7 +1588,7 @@ func _apple_hud_mount_deps() -> Dictionary:
 		"money_icon_path": HUD_MONEY_ICON_PATH,
 		"settings_icon_path": HUD_SETTINGS_ICON_PATH,
 		"on_tooltip_hidden": _on_apple_hud_tooltip_hidden,
-		"max_actions": func() -> int: return game.max_actions_per_day if game != null else 5,
+		"max_actions": func() -> int: return game.max_actions_per_day if game != null else PropertyBootScript.DEFAULT_MAX_ACTIONS,
 	}
 
 
@@ -2701,7 +2701,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 
 
 func _action_text(actions: int) -> String:
-	var cap := 5
+	var cap := PropertyBootScript.DEFAULT_MAX_ACTIONS
 	if game != null:
 		cap = int(game.max_actions_per_day)
 	return AppleHudPanelScript.action_label(actions, cap)

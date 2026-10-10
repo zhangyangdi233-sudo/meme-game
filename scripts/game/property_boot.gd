@@ -9,6 +9,9 @@ const PropertyFactoryScript = preload("res://framework/properties/property_facto
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
+const DEFAULT_MONEY := 18
+const DEFAULT_MAX_ACTIONS := 5
+
 
 static func install() -> void:
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
@@ -16,8 +19,8 @@ static func install() -> void:
 	var manager = PropertyManagerScript.new()
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.POLLUTION, 0, 0, 100))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HAS_SAVE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, 18))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, 5))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, DEFAULT_MONEY))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, DEFAULT_MAX_ACTIONS))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

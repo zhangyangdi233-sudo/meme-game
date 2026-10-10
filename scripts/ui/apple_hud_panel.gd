@@ -5,6 +5,7 @@ extends Node
 signal settings_pressed
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
@@ -330,8 +331,8 @@ func _on_actions(value: Variant) -> void:
 
 func _max_actions() -> int:
 	if _max_actions_fn.is_valid():
-		return maxi(1, int(_max_actions_fn.call()))
-	return 5
+		return int(_max_actions_fn.call())
+	return PropertyBootScript.DEFAULT_MAX_ACTIONS
 
 
 func _property_model(property_name: String) -> PropertyModel:

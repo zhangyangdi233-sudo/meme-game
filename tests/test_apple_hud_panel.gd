@@ -76,8 +76,8 @@ func _test_shown_column_syncs_then_follows_writes() -> void:
 		"pollution": 12,
 		"tooltips": {"pollution": "污染 12%", "settings": "设置"},
 	})
-	_assert_eq(actions_label.text, THREE_ACTIONS, "a pushed pollution bag should not rewrite actions")
-	_assert_eq(tooltip.text, "资金 31", "a pushed pollution bag should not rewrite money")
+	_assert_eq(actions_label.text, THREE_ACTIONS, "a pushed pollution snapshot should not rewrite actions")
+	_assert_eq(tooltip.text, "资金 31", "a pushed pollution snapshot should not rewrite money")
 	_dispose(mounted)
 
 
