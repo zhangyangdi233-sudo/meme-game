@@ -3,12 +3,11 @@ extends RefCounted
 ## Game-side intent bus. The host creates one, binds it as a service, and listens; screens only emit. Not an autoload.
 ## Intent names and their payload keys live in UiIntents.
 
-
-signal intent_emitted(intent_name: String, payload: Dictionary)
-
-
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+
+
+signal intent_emitted(intent_name: String, payload: Dictionary)
 
 
 ## A control built at runtime raises its action on the bound bus; with no bus bound there is no host to hear it.

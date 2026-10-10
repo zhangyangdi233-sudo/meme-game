@@ -61,7 +61,7 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	panel.set_shown(true)
 
 	_press(host, "PhoneAppIconSocial")
-	_assert_eq(_heard, [[UiIntentsScript.APP_ICON_PRESSED, {"app_id": "social"}]], "an app icon should raise its id")
+	_assert_eq(_heard, [[UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "social"}]], "an app icon should raise its id")
 	_heard.clear()
 	_press(host, "PhoneHomeCloseButton")
 	_assert_eq(_heard, [[UiIntentsScript.PHONE_CLOSE_REQUESTED, {}]], "the phone close button should raise an empty intent")
@@ -70,7 +70,7 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	_assert_true(close != null, "the babel window should have a close button")
 	if close != null:
 		close.pressed.emit()
-	_assert_eq(_heard, [[UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {"app_id": "babel"}]], "a window close should raise the app id")
+	_assert_eq(_heard, [[UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {UiIntentsScript.KEY_APP_ID: "babel"}]], "a window close should raise the app id")
 
 	panel.free()
 	host.free()
@@ -93,13 +93,13 @@ func _test_camera_consent_raises_allow_skip_and_source() -> void:
 	})
 
 	_press(host, "CameraConsentAllowButton")
-	_assert_eq(_heard, [[UiIntentsScript.CAMERA_CONSENT_RESOLVED, {"allowed": true}]], "allow should raise allowed true")
+	_assert_eq(_heard, [[UiIntentsScript.CAMERA_CONSENT_RESOLVED, {UiIntentsScript.KEY_ALLOWED: true}]], "allow should raise allowed true")
 	_heard.clear()
 	_press(host, "CameraConsentSkipButton")
-	_assert_eq(_heard, [[UiIntentsScript.CAMERA_CONSENT_RESOLVED, {"allowed": false}]], "skip should raise allowed false")
+	_assert_eq(_heard, [[UiIntentsScript.CAMERA_CONSENT_RESOLVED, {UiIntentsScript.KEY_ALLOWED: false}]], "skip should raise allowed false")
 	_heard.clear()
 	panel.get_source_option().item_selected.emit(1)
-	_assert_eq(_heard, [[UiIntentsScript.CAMERA_SOURCE_SELECTED, {"index": 1}]], "choosing a source should raise its index")
+	_assert_eq(_heard, [[UiIntentsScript.CAMERA_SOURCE_SELECTED, {UiIntentsScript.KEY_INDEX: 1}]], "choosing a source should raise its index")
 
 	panel.free()
 	host.free()
