@@ -41,16 +41,6 @@ static func caption(post: Dictionary, _post_index: int, deps: Dictionary) -> Str
 	return translate.call(text) if translate.is_valid() else text
 
 
-static func publish_result(deps: Dictionary) -> Dictionary:
-	var placed_meme: Dictionary = deps.get("placed_meme", {})
-	var game: Variant = deps.get("game")
-	if game == null:
-		return {}
-	if not placed_meme.is_empty():
-		return game.get_publish_result(placed_meme)
-	return game.last_publish_result
-
-
 static func poster_texture_path(_post_index: int, deps: Dictionary) -> String:
 	return str(deps.get("poster_sheet_path", ""))
 

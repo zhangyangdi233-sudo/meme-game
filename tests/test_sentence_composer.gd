@@ -181,7 +181,7 @@ func _test_save_round_trip() -> void:
 	game.free_sentence_place("开", "zh")
 	game.tower_floor = 3
 	game.floor3_task_complete = true
-	game.world_rules["door|can_open"] = {"negated": false, "source_text": "门可以打开", "locale": "zh", "day": 1, "floor": 3}
+	game.world_rules = {"door|can_open": {"negated": false, "source_text": "门可以打开", "locale": "zh", "day": 1, "floor": 3}}
 	var restored = StateScript.new()
 	_assert_true(restored.load_save_data(game.to_save_data()), "composer save data should load")
 	_assert_eq_text(restored.get_free_sentence_text("zh"), "门开", "the in-progress sentence should survive a save")

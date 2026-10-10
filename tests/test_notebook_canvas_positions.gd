@@ -120,14 +120,10 @@ func _deps(game: MemeGameState) -> Dictionary:
 				node.remove_child(child)
 				child.queue_free(),
 		"composer_tile_style": func(_kind: String): return StyleBoxFlat.new(),
-		"fusion_slot_text": func(slot_id: String) -> String: return slot_id,
 		"current_locale": func() -> String: return "zh",
-		"free_sentence_units": func() -> Array: return [],
-		"world_rules": func() -> Array: return [],
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code),
 		"can_spend_action": func() -> bool: return true,
-		"fusion_ready": func() -> bool: return false,
 	}
 
 

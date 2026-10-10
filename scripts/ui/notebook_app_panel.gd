@@ -1,7 +1,8 @@
 class_name NotebookAppPanel
 extends Node
 ## Game-side notebook app body: sentence header, word canvas, rules list, and fusion tab.
-## While shown, it watches the held words and the finished memes and repaints itself.
+## While shown, it watches the held words, the finished memes, the sentence, the world rules and the fusion slots,
+## and repaints itself.
 ## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
 ## The open tab is this screen's own view and lives only here; selecting one repaints at once.
 
@@ -28,13 +29,9 @@ var _label_factory: Callable
 var _theme_color_fn: Callable
 var _clear_fn: Callable
 var _composer_tile_style_fn: Callable
-var _fusion_slot_text_fn: Callable
 var _current_locale_fn: Callable
-var _free_sentence_units_fn: Callable
-var _world_rules_fn: Callable
 var _char_canvas_position_fn: Callable
 var _can_spend_action_fn: Callable
-var _fusion_ready_fn: Callable
 var _word_canvas: WordPhysicsCanvas
 var _app_body: VBoxContainer
 var _active_tab := DEFAULT_TAB
@@ -42,9 +39,15 @@ var _shown := false
 var _paint_queued := false
 var _painted_chars: Array = []
 var _painted_memes: Array = []
+var _painted_units: Array = []
+var _painted_rules: Dictionary = {}
+var _painted_slots: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
-	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
-	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
+	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_model_changed,
+	PropertyKeysScript.COMPLETED_MEMES: _on_model_changed,
+	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
+	PropertyKeysScript.WORLD_RULES: _on_model_changed,
+	PropertyKeysScript.FUSION_SLOTS: _on_model_changed,
 })
 
 
@@ -56,13 +59,9 @@ func configure(deps: Dictionary) -> void:
 	_theme_color_fn = deps.get("theme_color", Callable())
 	_clear_fn = deps.get("clear_children", Callable())
 	_composer_tile_style_fn = deps.get("composer_tile_style", Callable())
-	_fusion_slot_text_fn = deps.get("fusion_slot_text", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
-	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
-	_world_rules_fn = deps.get("world_rules", Callable())
 	_char_canvas_position_fn = deps.get("char_canvas_position", Callable())
 	_can_spend_action_fn = deps.get("can_spend_action", Callable())
-	_fusion_ready_fn = deps.get("fusion_ready", Callable())
 
 
 ## The phone decides whether the notebook window shows. While it shows, the models decide what it holds.
@@ -109,6 +108,9 @@ func _paint() -> void:
 	var active_tab := _active_tab
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
 	_painted_memes = _read_list(PropertyKeysScript.COMPLETED_MEMES)
+	_painted_units = _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS)
+	_painted_rules = _read_map(PropertyKeysScript.WORLD_RULES)
+	_painted_slots = _read_map(PropertyKeysScript.FUSION_SLOTS)
 	commit_canvas_positions()
 	_word_canvas = null
 	_clear_fn.call(app_body)
@@ -178,7 +180,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 
 	var locale_code: String = _current_locale_fn.call() if _current_locale_fn.is_valid() else "zh"
 	var collected_units: Array[String] = MemeGameStateScript.char_units_for_locale(_painted_chars, locale_code)
-	var placed_units: Array = _free_sentence_units_fn.call() if _free_sentence_units_fn.is_valid() else []
+	var placed_units := _painted_units
 	if collected_units.is_empty():
 		var empty_hint := _label_factory.call("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color_fn.call("muted")) as Label
 		empty_hint.name = "NotebookCharEmptyHint"
@@ -196,7 +198,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 			is_ghost
 		)
 
-	var active_rules: Array = _world_rules_fn.call() if _world_rules_fn.is_valid() else []
+	var active_rules: Array = MemeGameStateScript.world_rule_list(_painted_rules)
 	if not active_rules.is_empty():
 		notebook_content.add_child(_label_factory.call("现行规则", 18, _theme_color_fn.call("accent")))
 		var rules_box := VBoxContainer.new()
@@ -223,7 +225,7 @@ func _render_fusion_tab(notebook_content: VBoxContainer) -> void:
 	for fusion_slot_id in ["left", "right"]:
 		var fusion_slot = DropButtonScript.new()
 		fusion_slot.name = "FusionSlot%s" % fusion_slot_id.capitalize()
-		fusion_slot.text = _fusion_slot_text_fn.call(fusion_slot_id) if _fusion_slot_text_fn.is_valid() else fusion_slot_id
+		fusion_slot.text = _fusion_slot_text(fusion_slot_id)
 		fusion_slot.custom_minimum_size = Vector2(150, 58)
 		fusion_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		fusion_slot.configure_drop_target("meme", fusion_slot_id)
@@ -248,7 +250,7 @@ func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> voi
 		fuse.name = "NotebookFusionButton"
 		fuse.text = "确认融合"
 		fuse.custom_minimum_size.y = 56
-		var fusion_ready: bool = bool(_fusion_ready_fn.call()) if _fusion_ready_fn.is_valid() else false
+		var fusion_ready := _painted_slots.size() >= 2
 		var can_spend: bool = bool(_can_spend_action_fn.call()) if _can_spend_action_fn.is_valid() else false
 		fuse.disabled = not can_spend or not fusion_ready
 		fuse.pressed.connect(_on_fusion_pressed)
@@ -258,23 +260,38 @@ func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> voi
 		craft.name = "NotebookCraftButton"
 		craft.text = "投稿这句话"
 		craft.custom_minimum_size.y = 56
-		var placed_units: Array = _free_sentence_units_fn.call() if _free_sentence_units_fn.is_valid() else []
 		var can_spend: bool = bool(_can_spend_action_fn.call()) if _can_spend_action_fn.is_valid() else false
-		craft.disabled = placed_units.is_empty() or not can_spend
+		craft.disabled = _painted_units.is_empty() or not can_spend
 		craft.pressed.connect(_on_craft_pressed)
 		action_box.add_child(craft)
 
 
-## A list the page already shows needs no repaint.
-func _on_held_chars(value: Variant) -> void:
-	if value != _painted_chars:
+## The slot names the meme it holds, or says which side is still empty.
+func _fusion_slot_text(slot_id: String) -> String:
+	var meme_id := str(_painted_slots.get(slot_id, ""))
+	if meme_id.is_empty():
+		return "旧梗 A" if slot_id == "left" else "旧梗 B"
+	for meme in _painted_memes:
+		if meme is Dictionary and str((meme as Dictionary).get("id", "")) == meme_id:
+			return str((meme as Dictionary).get("title", (meme as Dictionary).get("text", "完整梗")))
+	return "等待完整梗"
+
+
+func _on_model_changed(_value: Variant) -> void:
+	if _is_stale():
 		_request_paint()
 
 
-## Only the fusion tab shows finished memes, so the word canvas is not thrown away for them.
-func _on_completed_memes(value: Variant) -> void:
-	if value != _painted_memes and _active_tab == "fusion":
-		_request_paint()
+## A value the page already shows needs no repaint. The sentence and the rules show on the frame tab only;
+## the finished memes and the fusion slots on the fusion tab only, so the word canvas is not thrown away for them.
+func _is_stale() -> bool:
+	if _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars:
+		return true
+	if _active_tab == "fusion":
+		return _read_list(PropertyKeysScript.COMPLETED_MEMES) != _painted_memes \
+			or _read_map(PropertyKeysScript.FUSION_SLOTS) != _painted_slots
+	return _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS) != _painted_units \
+		or _read_map(PropertyKeysScript.WORLD_RULES) != _painted_rules
 
 
 ## Showing syncs at once. A later change repaints at the end of the frame, so a host redraw
@@ -293,15 +310,18 @@ func _flush_paint() -> void:
 	_paint_queued = false
 	if not _watch.is_active():
 		return
-	var chars_stale := _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars
-	var memes_stale := _active_tab == "fusion" and _read_list(PropertyKeysScript.COMPLETED_MEMES) != _painted_memes
-	if chars_stale or memes_stale:
+	if _is_stale():
 		_paint()
 
 
 func _read_list(property_name: String) -> Array:
 	var value: Variant = _watch.read(property_name)
 	return value as Array if value is Array else []
+
+
+func _read_map(property_name: String) -> Dictionary:
+	var value: Variant = _watch.read(property_name)
+	return value as Dictionary if value is Dictionary else {}
 
 
 func _on_craft_pressed() -> void:

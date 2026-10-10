@@ -116,9 +116,9 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_history_panel`, `test_language_selection_panel` | module | open panels watch preference and autoplay models; the open history window watches the recorded lines |
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
-| `test_notebook_app_panel` | module | shown notebook watches the held-word and meme models; hiding writes canvas positions once; it keeps and repaints its own tab |
+| `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models |
-| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word and meme models and repaints itself; it keeps its own page, channel and open post |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |

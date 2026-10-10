@@ -82,11 +82,15 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Social / publishing
 
-`published_memes`, `last_publish_result`, `last_char_pick_day`, `free_sentence_units`, `world_rules`
+`last_char_pick_day`
+
+`published_memes` (newest first) and `free_sentence_units` are list models; `last_publish_result` and `world_rules` are map models. All four are saved with the run and reset with it. A read is a copy, an assignment replaces the whole value through the model, and the sentence edits, posts and publications go through the model's methods. `sentence_text(units, locale)` and `world_rule_list(rules)` are static, so a screen can word the sentence and list the rules from the model values alone.
 
 ### Notebook / meme craft
 
-`draft_slots`, `owned_meme_frames`, `owned_meme_frame_ids`, `fusion_slots`, `fused_meme_pairs`, `dialogue_blanks`, `language_sentence_slots`, `sentence_records`
+`owned_meme_frame_ids`, `fused_meme_pairs`, `dialogue_blanks`, `language_sentence_slots`, `sentence_records`
+
+`draft_slots` and `fusion_slots` are map models and `owned_meme_frames` is a value model (int, at least 0); saved with the run and reset with it. A read is a copy; filling a slot writes one entry, and a craft, a fusion or the day boundary empties the map.
 
 ### Held words, memes, and canvas positions (run property models)
 
@@ -226,7 +230,7 @@ The open social app registers on both models and repaints itself, so there is no
 | Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills, fusion_slots }` |
 | Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
 
-The shown notebook watches the held-word and meme models and repaints itself, so there is no change signal. The snapshot stays for the craft and fusion slot labels. The retired signal also fired for `draft_slots` and `fusion_slots`, which are still plain fields; its only reader was the host, and the host repaints the phone after every fusion and slot intent (`place_token_in_slot` has no caller in the host), so nothing listened for those changes alone.
+The shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models and repaints itself, so there is no change signal. It words the fusion slot labels and decides whether fusing is ready from those models; the host no longer passes `fusion_slot_text`, `fusion_ready`, `free_sentence_units` or `world_rules`. The shown social app watches the sentence, the last publish result and the published records: the publish page words the sentence and shows the last result itself, and an open post repaints its echo comment after a new publication. The host no longer passes `free_sentence_units`, `free_sentence_text` or `publish_result`. The snapshot stays for the craft slot fills.
 
 ### Notebook craft / publish (legacy listing)
 
@@ -379,7 +383,7 @@ The six day-progress facts moved into run property models. `day_progress_changed
 }
 ```
 
-**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word and meme models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. Read craft / fusion slot labels via `_inventory_snapshot()`.
+**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word and meme models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. The notebook words the fusion slot labels from the fusion-slot and meme models.
 
 ---
 

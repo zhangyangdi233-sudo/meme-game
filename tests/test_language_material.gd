@@ -109,6 +109,24 @@ func _test_composer_drop() -> void:
 	)
 	_assert_true(not bool(blocked.get("applied", false)), "already placed units cannot drop in twice")
 
+	var material = LanguageMaterialScript.new()
+	var logs: Array[String] = []
+	var actions: Array[int] = []
+	material.configure({
+		"game": func(): return game,
+		"locale": func() -> String: return "zh",
+	})
+	material.log_requested.connect(func(text: String) -> void: logs.append(text))
+	material.effective_action.connect(func(actions_before: int) -> void: actions.append(actions_before))
+	material.remove_at(2)
+	_assert_eq_text(game.get_free_sentence_text("zh"), "打开", "answer-tile remove should go through the module")
+	_assert_true(actions.is_empty(), "removing a tile must not count as an effective action")
+	material.submit()
+	_assert_true(not actions.is_empty(), "submit should notify the adapter through effective_action")
+	_assert_true(game.get_free_sentence_units().is_empty(), "submit should clear the composer")
+	_assert_true(not logs.is_empty() and str(logs[logs.size() - 1]).begins_with("投稿已发出"), "submit should report a response tier")
+
+	# Fresh states share the same models, so these run after the sentence above is done.
 	var unknown: Dictionary = LanguageMaterialScript.apply_drop(
 		Harness.new_state(),
 		{"kind": "composer_unit", "id": "门"},
@@ -131,23 +149,6 @@ func _test_composer_drop() -> void:
 	_assert_true(bool(drop_applied[0]), "drop-area signal should apply through Language material without a main scene")
 	_assert_eq_text(drop_game.get_free_sentence_text("zh"), "门", "drop-area placement should mutate free sentence state")
 	area.queue_free()
-
-	var material = LanguageMaterialScript.new()
-	var logs: Array[String] = []
-	var actions: Array[int] = []
-	material.configure({
-		"game": func(): return game,
-		"locale": func() -> String: return "zh",
-	})
-	material.log_requested.connect(func(text: String) -> void: logs.append(text))
-	material.effective_action.connect(func(actions_before: int) -> void: actions.append(actions_before))
-	material.remove_at(2)
-	_assert_eq_text(game.get_free_sentence_text("zh"), "打开", "answer-tile remove should go through the module")
-	_assert_true(actions.is_empty(), "removing a tile must not count as an effective action")
-	material.submit()
-	_assert_true(not actions.is_empty(), "submit should notify the adapter through effective_action")
-	_assert_true(game.get_free_sentence_units().is_empty(), "submit should clear the composer")
-	_assert_true(not logs.is_empty() and str(logs[logs.size() - 1]).begins_with("投稿已发出"), "submit should report a response tier")
 
 
 func _test_flight_targets() -> void:

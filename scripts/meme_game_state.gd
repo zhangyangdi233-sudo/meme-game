@@ -35,15 +35,14 @@ const SAVE_DATA_VERSION := 5
 const SAVE_FIELD_NAMES := [
 	"exit_prompt_seen",
 	"pollution_flashback_seen", "pollution_flashback_pending",
-	"draft_slots", "owned_meme_frames", "owned_meme_frame_ids",
+	"owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
-	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
+	"fused_meme_pairs", "dialogue_blanks",
 	"collected_world_item_ids",
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"language_sentence_slots", "sentence_records",
 	"last_char_pick_day",
-	"free_sentence_units", "world_rules",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
 	"last_relationship_money_loss", "reality_dialogue_count",
@@ -147,21 +146,44 @@ var notebook_tokens: Array:
 		return _read_run_array(PropertyKeysScript.NOTEBOOK_TOKENS)
 	set(value):
 		_write_run_list(PropertyKeysScript.NOTEBOOK_TOKENS, value)
-var draft_slots: Dictionary = {}
+## Recipe slot id -> token id. A read is a copy.
+var draft_slots: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.DRAFT_SLOTS)
+	set(value):
+		_write_run_map(PropertyKeysScript.DRAFT_SLOTS, value)
 var completed_memes: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.COMPLETED_MEMES)
 	set(value):
 		_write_run_list(PropertyKeysScript.COMPLETED_MEMES, value)
-var owned_meme_frames: int = 0
+var owned_meme_frames: int:
+	get:
+		return _read_run_int(PropertyKeysScript.OWNED_MEME_FRAMES)
+	set(value):
+		_write_run_field(PropertyKeysScript.OWNED_MEME_FRAMES, value)
 var owned_meme_frame_ids: Array[String] = []
 var claimed_doll_ids: Array[String] = []
 var doll_choice_results: Dictionary = {}
-var fusion_slots: Dictionary = {}
+## "left" / "right" -> meme id. A read is a copy.
+var fusion_slots: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.FUSION_SLOTS)
+	set(value):
+		_write_run_map(PropertyKeysScript.FUSION_SLOTS, value)
 var fused_meme_pairs: Array[String] = []
 var dialogue_blanks: Dictionary = {}
-var published_memes: Array = []
-var last_publish_result: Dictionary = {}
+## Newest first. A read is a copy.
+var published_memes: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.PUBLISHED_MEMES)
+	set(value):
+		_write_run_list(PropertyKeysScript.PUBLISHED_MEMES, value)
+var last_publish_result: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.LAST_PUBLISH_RESULT)
+	set(value):
+		_write_run_map(PropertyKeysScript.LAST_PUBLISH_RESULT, value)
 ## Newest first. A read is a copy; add through record_event().
 var event_log: Array:
 	get:
@@ -196,8 +218,18 @@ var last_char_pick_day: int = 0
 var char_canvas_positions: Dictionary:
 	get:
 		return _read_run_map(PropertyKeysScript.CHAR_CANVAS_POSITIONS)
-var free_sentence_units: Array = []
-var world_rules: Dictionary = {}
+## The sentence being composed, in order. A read is a copy.
+var free_sentence_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.FREE_SENTENCE_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS, value)
+## Rule key -> the sentence that set it. A read is a copy.
+var world_rules: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.WORLD_RULES)
+	set(value):
+		_write_run_map(PropertyKeysScript.WORLD_RULES, value)
 var floor3_task_complete: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
@@ -297,16 +329,11 @@ func new_run() -> void:
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
 	open_app_window(active_app_window)
-	draft_slots = {}
-	owned_meme_frames = 0
 	owned_meme_frame_ids = []
 	claimed_doll_ids = []
 	doll_choice_results = {}
-	fusion_slots = {}
 	fused_meme_pairs = []
 	dialogue_blanks = {}
-	published_memes = []
-	last_publish_result = {}
 	collected_world_item_ids = []
 	cover_watcher_seen_floors = []
 	revealed_prerequisite_item_ids = []
@@ -315,8 +342,6 @@ func new_run() -> void:
 	language_sentence_slots = {}
 	sentence_records = []
 	last_char_pick_day = 0
-	free_sentence_units = []
-	world_rules = {}
 	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
@@ -407,6 +432,24 @@ func _read_run_map(property_name: String) -> Dictionary:
 	if model == null:
 		return {}
 	return model.read() as Dictionary
+
+
+func _write_run_map(property_name: String, entries: Dictionary) -> void:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return
+	model.replace_all(entries)
+
+
+## Adds the key or replaces what it holds.
+func _put_run_map_entry(property_name: String, key: Variant, value: Variant) -> void:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return
+	if (model.read() as Dictionary).has(key):
+		model.replace(key, value)
+	else:
+		model.add(key, value)
 
 
 ## A save writes each run field back through its model. A list or map of the wrong shape is refused and keeps the reset value.
@@ -1491,8 +1534,8 @@ func settle_day_if_needed() -> bool:
 	needs_day_settlement = false
 	day_ended_reason = ""
 	pollution_flashback_pending = false
-	draft_slots.clear()
-	fusion_slots.clear()
+	draft_slots = {}
+	fusion_slots = {}
 	dialogue_blanks.clear()
 	language_sentence_slots.clear()
 	reset_reality_phase_for_day()
@@ -1598,7 +1641,7 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 ## ============ 自由造句(多邻国式词库,无固定主谓宾)与世界规则 ============
 
 func get_free_sentence_units() -> Array:
-	return free_sentence_units.duplicate()
+	return free_sentence_units
 
 
 func free_sentence_place(unit: String, locale_code: String = "zh") -> bool:
@@ -1609,14 +1652,14 @@ func free_sentence_place(unit: String, locale_code: String = "zh") -> bool:
 		return false
 	if normalized_unit in free_sentence_units:
 		return false
-	free_sentence_units.append(normalized_unit)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).add(normalized_unit)
 	return true
 
 
 func free_sentence_remove(unit_index: int) -> bool:
 	if unit_index < 0 or unit_index >= free_sentence_units.size():
 		return false
-	free_sentence_units.remove_at(unit_index)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).remove_at(unit_index)
 	return true
 
 
@@ -1625,44 +1668,58 @@ func free_sentence_place_at(unit: String, insert_index: int, locale_code: String
 	var normalized_unit := unit.strip_edges()
 	if normalized_unit.is_empty() or not is_social_char_collected(normalized_unit, locale_code):
 		return false
-	if normalized_unit in free_sentence_units:
+	var units := free_sentence_units
+	if normalized_unit in units:
 		return false
-	free_sentence_units.insert(clampi(insert_index, 0, free_sentence_units.size()), normalized_unit)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).insert_at(clampi(insert_index, 0, units.size()), normalized_unit)
 	return true
 
 
 ## 拖拽支持:答案区内重排。to_index 是移除后的目标位置(越界即句尾)。
 func free_sentence_move(from_index: int, to_index: int) -> bool:
-	if from_index < 0 or from_index >= free_sentence_units.size():
+	var units := free_sentence_units
+	if from_index < 0 or from_index >= units.size():
 		return false
-	var moved_unit: Variant = free_sentence_units[from_index]
-	free_sentence_units.remove_at(from_index)
-	free_sentence_units.insert(clampi(to_index, 0, free_sentence_units.size()), moved_unit)
+	var moved_unit: Variant = units[from_index]
+	units.remove_at(from_index)
+	units.insert(clampi(to_index, 0, units.size()), moved_unit)
+	free_sentence_units = units
 	return true
 
 
 func free_sentence_clear() -> void:
-	free_sentence_units.clear()
+	free_sentence_units = []
 
 
 func get_free_sentence_text(locale_code: String = "zh") -> String:
+	return sentence_text(free_sentence_units, locale_code)
+
+
+## English words are spaced; the other locales join units directly.
+static func sentence_text(units: Array, locale_code: String) -> String:
 	var separator := " " if locale_code == "en" else ""
 	var pieces: Array[String] = []
-	for unit in free_sentence_units:
+	for unit in units:
 		pieces.append(str(unit))
 	return separator.join(pieces)
 
 
 func is_world_rule_active(rule_key: String) -> bool:
-	if not world_rules.has(rule_key):
+	var rules := world_rules
+	if not rules.has(rule_key):
 		return false
-	return not bool((world_rules[rule_key] as Dictionary).get("negated", false))
+	return not bool((rules[rule_key] as Dictionary).get("negated", false))
 
 
 func get_world_rules() -> Array:
+	return world_rule_list(world_rules)
+
+
+## The rules map as a list, each rule carrying its own key.
+static func world_rule_list(rules: Dictionary) -> Array:
 	var result: Array = []
-	for rule_key in world_rules.keys():
-		var rule: Dictionary = (world_rules[rule_key] as Dictionary).duplicate(true)
+	for rule_key in rules.keys():
+		var rule: Dictionary = (rules[rule_key] as Dictionary).duplicate(true)
 		rule["key"] = str(rule_key)
 		result.append(rule)
 	return result
@@ -1676,18 +1733,19 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		"sentence": "", "money_gain": 0, "pollution_gain": 0,
 		"floor3_task_completed": false, "floor4_task_completed": false,
 	}
-	if free_sentence_units.is_empty():
+	var units := free_sentence_units
+	if units.is_empty():
 		result["reason"] = "empty"
 		return result
 	if not can_spend_action():
 		result["reason"] = "no-actions"
 		return result
-	var sentence := get_free_sentence_text(locale_code)
-	var parsed: Dictionary = RuleEngineScript.parse(free_sentence_units, locale_code)
+	var sentence := sentence_text(units, locale_code)
+	var parsed: Dictionary = RuleEngineScript.parse(units, locale_code)
 	if not spend_action("free-sentence-publish"):
 		result["reason"] = "no-actions"
 		return result
-	var unit_count := free_sentence_units.size()
+	var unit_count := units.size()
 	var tier := str(parsed.get("tier", "noise"))
 	var money_gain := 1 + int(unit_count / 2.0) + (2 if tier == "rule" else 0)
 	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
@@ -1697,7 +1755,7 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		"kind": "free_sentence",
 		"title": "投稿「%s」" % sentence,
 		"text": sentence,
-		"units": free_sentence_units.duplicate(),
+		"units": units,
 		"tier": tier,
 		"rule_key": str(parsed.get("rule_key", "")),
 		"negated": bool(parsed.get("negated", false)),
@@ -1707,7 +1765,7 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		"pollution_gain": pollution_gain,
 		"content_locale": locale_code,
 	}
-	published_memes.push_front(record)
+	_run_list(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, record)
 	sentence_records.append(record.duplicate(true))
 	last_clean_sentence = sentence
 	if tier == "rule":
@@ -1717,7 +1775,7 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 		result["floor3_task_completed"] = floor3_task_complete and not floor3_before
 		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
 	change_pollution(pollution_gain)
-	free_sentence_units.clear()
+	free_sentence_units = []
 	notify_tutorial("sentence_composed", {"sentence": sentence})
 	notify_tutorial("sentence_published", {"sentence": sentence})
 	result["submitted"] = true
@@ -1735,13 +1793,13 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 	if rule_key.is_empty():
 		return
 	# Baba 式冲突消解:同键新规则覆盖旧规则;否定即压制既有正例。
-	world_rules[rule_key] = {
+	_put_run_map_entry(PropertyKeysScript.WORLD_RULES, rule_key, {
 		"negated": bool(parsed.get("negated", false)),
 		"source_text": sentence,
 		"locale": locale_code,
 		"day": day,
 		"floor": tower_floor,
-	}
+	})
 	if not bool(parsed.get("negated", false)):
 		match rule_key:
 			"door|can_open":
@@ -1876,19 +1934,20 @@ func get_player_echo_quote(locale_code: String = "zh") -> String:
 
 func get_inventory_snapshot() -> Dictionary:
 	var craft_slot_fills := {}
+	var drafts := draft_slots
 	for slot_def: Dictionary in LANGUAGE_RECIPE_SLOTS:
 		var slot_id := str(slot_def.get("id", ""))
-		if not draft_slots.has(slot_id):
+		if not drafts.has(slot_id):
 			continue
-		var token := _find_token(str(draft_slots[slot_id]))
+		var token := _find_token(str(drafts[slot_id]))
 		if not token.is_empty():
 			craft_slot_fills[slot_id] = str(token.get("text", ""))
 	return {
 		"completed_memes": completed_memes,
 		"notebook_token_count": notebook_tokens.size(),
-		"draft_slots": draft_slots.duplicate(),
+		"draft_slots": drafts,
 		"craft_slot_fills": craft_slot_fills,
-		"fusion_slots": fusion_slots.duplicate(),
+		"fusion_slots": fusion_slots,
 	}
 
 
@@ -1914,7 +1973,7 @@ func place_token_in_slot(slot_id: String, token_id: String) -> bool:
 	var token_roles: Array = token.get("grammar_roles", [])
 	if accepted_role not in token_roles:
 		return false
-	draft_slots[slot_id] = token_id
+	_put_run_map_entry(PropertyKeysScript.DRAFT_SLOTS, slot_id, token_id)
 	return true
 
 
@@ -1951,7 +2010,7 @@ func confirm_craft() -> bool:
 		"created_day": day,
 	}
 	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
-	draft_slots.clear()
+	draft_slots = {}
 	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
 	return true
 
@@ -1964,13 +2023,14 @@ func place_meme_in_fusion_slot(slot_id: String, meme_id: String) -> bool:
 	var other_slot := "right" if slot_id == "left" else "left"
 	if str(fusion_slots.get(other_slot, "")) == meme_id:
 		return false
-	fusion_slots[slot_id] = meme_id
+	_put_run_map_entry(PropertyKeysScript.FUSION_SLOTS, slot_id, meme_id)
 	return true
 
 
 func confirm_meme_fusion() -> bool:
-	var left_id := str(fusion_slots.get("left", ""))
-	var right_id := str(fusion_slots.get("right", ""))
+	var slots := fusion_slots
+	var left_id := str(slots.get("left", ""))
+	var right_id := str(slots.get("right", ""))
 	if left_id.is_empty() or right_id.is_empty() or left_id == right_id:
 		return false
 	var left_index := _find_completed_meme_index(left_id)
@@ -2006,7 +2066,7 @@ func confirm_meme_fusion() -> bool:
 	}
 	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
 	fused_meme_pairs.append(pair_key)
-	fusion_slots.clear()
+	fusion_slots = {}
 	change_pollution(3 + fusion_level * 2)
 	record_event("两个旧梗粘在一起。新梗更响，也更脏。")
 	return true
@@ -2042,7 +2102,7 @@ func confirm_dialogue() -> bool:
 	record["money_gain"] = int(publish_result.get("money_gain", 0))
 	record["pollution_gain"] = int(publish_result.get("pollution_gain", 0))
 	record["published_day"] = day
-	published_memes.push_front(record)
+	_run_list(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, record)
 	var published_token_ids: Array = record.get("token_ids", [])
 	if not published_token_ids.is_empty():
 		notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, published_token_ids, "phone")

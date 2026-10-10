@@ -1,5 +1,6 @@
 extends SceneTree
-## Social feed panel watches the followed authors, liked posts, held words, finished memes and remaining actions on their property models.
+## Social feed panel watches the followed authors, liked posts, held words, finished memes, remaining actions,
+## the sentence being composed, the last publish result and the published records on their property models.
 ## It also keeps its own page, channel and open post, and repaints itself when the player moves between them.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
@@ -47,6 +48,10 @@ func _run() -> void:
 	_test_a_card_opens_its_post_and_the_close_button_shuts_it()
 	_test_the_tower_base_channel_opens_the_first_post()
 	_test_reset_view_returns_to_the_first_page()
+	_test_the_open_publish_page_follows_the_sentence()
+	_test_the_open_publish_page_shows_the_last_result()
+	_test_a_new_publication_repaints_the_open_post_echo()
+	_test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -179,6 +184,9 @@ func _mount() -> Dictionary:
 		"held": manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS),
 		"memes": manager.model(PropertyKeysScript.COMPLETED_MEMES),
 		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
+		"units": manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS),
+		"result": manager.model(PropertyKeysScript.LAST_PUBLISH_RESULT),
+		"published": manager.model(PropertyKeysScript.PUBLISHED_MEMES),
 	}
 
 
@@ -214,7 +222,10 @@ func _deps() -> Dictionary:
 		"floor_label": func() -> String: return "1",
 		"language_material": LanguageMaterial.new(),
 		"current_locale": func() -> String: return "zh",
-		"free_sentence_units": func() -> Array: return ["门"],
+		"player_echo_quote": func() -> String:
+			var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+			var published: Array = manager.model(PropertyKeysScript.PUBLISHED_MEMES).read()
+			return "" if published.is_empty() else str((published[0] as Dictionary).get("text", "")),
 	}
 
 
@@ -319,6 +330,7 @@ func _test_the_open_publish_page_follows_remaining_actions() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	var actions: ValuePropertyModel = mounted["actions"]
+	(mounted["units"] as ListPropertyModel).replace_all(["门"])
 	panel.render_app()
 	panel.show_screen("publish")
 	panel.update_visibility(true, true)
@@ -365,6 +377,7 @@ func _test_a_channel_tab_repaints_the_feed_by_itself() -> void:
 func _test_a_nav_button_switches_the_page_by_itself() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
+	(mounted["units"] as ListPropertyModel).replace_all(["门"])
 	panel.render_app()
 	panel.update_visibility(true, true)
 	_press(mounted, "SocialChannelTabfollowing")
@@ -435,6 +448,83 @@ func _test_reset_view_returns_to_the_first_page() -> void:
 	_assert_true(_find(mounted, "SocialHomePage") != null, "a new run should start on the home page")
 	_assert_true(_underline_shown(mounted, "discover"), "a new run should start on the discover channel")
 	_dispose(mounted)
+
+
+func _test_the_open_publish_page_follows_the_sentence() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var units: ListPropertyModel = mounted["units"]
+	panel.render_app()
+	panel.show_screen("publish")
+	panel.update_visibility(true, true)
+	_assert_eq(_post_button_text(mounted), "先放入一个字", "an empty sentence should ask for a word")
+	_assert_true(_find(mounted, "ComposerAnswerPlaceholder") != null, "an empty sentence should show its placeholder")
+	units.replace_all(["门", "开"])
+	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should unlock the open publish page by itself")
+	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "门开", "the preview should join the placed words")
+	_assert_eq(_label_text(mounted, "SocialPublishUnitCounter"), "2 / 12 字", "the counter should count the placed words")
+	_assert_true(_find(mounted, "ComposerAnswerTile1") != null, "each placed word should get a tile")
+	units.replace_all([])
+	_assert_eq(_post_button_text(mounted), "先放入一个字", "posting should empty the open publish page by itself")
+
+	_dispose(mounted)
+
+	mounted = _mount()
+	panel = mounted["panel"] as SocialFeedPanel
+	units = mounted["units"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	var feed := _find(mounted, "SocialPhoneView")
+	units.add("门")
+	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "a sentence write should not redraw a page without the composer")
+	_dispose(mounted)
+
+
+func _test_the_open_publish_page_shows_the_last_result() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var result: MapPropertyModel = mounted["result"]
+	panel.render_app()
+	panel.show_screen("publish")
+	panel.update_visibility(true, true)
+	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  --", "no publication yet should show no money change")
+	result.replace_all({"money_gain": 3, "pollution_gain": 4})
+	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  +3", "a publication should show its money change by itself")
+	_assert_eq(_label_text(mounted, "SocialPublishPollutionOutcome"), "污染  +4%", "a publication should show its pollution change by itself")
+	_dispose(mounted)
+
+
+func _test_a_new_publication_repaints_the_open_post_echo() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var published: ListPropertyModel = mounted["published"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	panel.open_post(2)
+	_assert_true(_find(mounted, "SocialEchoComment") == null, "no publication yet should leave no echo under the post")
+	published.insert_at(0, {"id": "free-1-1", "kind": "free_sentence", "text": "门开"})
+	_assert_true(_find(mounted, "SocialEchoComment") != null, "a new publication should echo under the open post by itself")
+	_dispose(mounted)
+
+
+func _test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	for key in ["units", "result", "published"]:
+		_assert_eq(_listener_count(mounted[key]), 0, "a mounted panel should not listen to %s before it is shown" % key)
+	panel.update_visibility(true, true)
+	for key in ["units", "result", "published"]:
+		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s once" % key)
+	panel.update_visibility(true, false)
+	for key in ["units", "result", "published"]:
+		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)
+	_dispose(mounted)
+
+
+func _label_text(mounted: Dictionary, node_name: String) -> String:
+	var label := _find(mounted, node_name) as Label
+	return label.text if label != null else "<missing %s>" % node_name
 
 
 func _press(mounted: Dictionary, node_name: String) -> void:

@@ -1,7 +1,8 @@
 class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
-## While the app is shown, it watches the followed authors, the liked posts, the held words and the finished memes,
+## While the app is shown, it watches the followed authors, the liked posts, the held words, the finished memes,
+## the remaining actions, the sentence being composed, the last publish result and the published records,
 ## and repaints itself.
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## Moving between them repaints the panel at once; the host hears page_changed only to re-theme the new nodes.
@@ -75,11 +76,8 @@ var _player_echo_quote_fn: Callable
 var _echo_comment_handle_fn: Callable
 var _game_day_fn: Callable
 var _current_locale_fn: Callable
-var _publish_result_fn: Callable
-var _free_sentence_units_fn: Callable
 var _soft_style_fn: Callable
 var _apply_composer_tile_theme_fn: Callable
-var _free_sentence_text_fn: Callable
 var _pollution_fn: Callable
 var _player_character_path := ""
 var _composer_soft_unit_limit := 12
@@ -96,17 +94,26 @@ var _followed: Array = []
 var _liked: Array = []
 var _held_chars: Array = []
 var _completed_memes: Array = []
+var _sentence_units: Array = []
+var _last_result: Dictionary = {}
+var _published: Array = []
 var _painted_followed: Array = []
 var _painted_liked: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
 var _painted_can_spend := false
+var _painted_sentence_units: Array = []
+var _painted_last_result: Dictionary = {}
+var _painted_published: Array = []
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
 	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
 	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
 	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
+	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_sentence_units,
+	PropertyKeysScript.LAST_PUBLISH_RESULT: _on_last_result,
+	PropertyKeysScript.PUBLISHED_MEMES: _on_published,
 })
 
 
@@ -215,6 +222,7 @@ func render_companion() -> void:
 	if _detail_body == null:
 		return
 	_painted_held_chars = _held_chars
+	_painted_published = _published
 	_clear(_detail_body)
 	if not is_detail_open():
 		return
@@ -257,6 +265,8 @@ func render_app() -> void:
 	_painted_liked = _liked
 	_painted_memes = _completed_memes
 	_painted_can_spend = _can_spend()
+	_painted_sentence_units = _sentence_units
+	_painted_last_result = _last_result
 	_clear(_app_body)
 	var phone_view := _panel_factory.call() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -386,11 +396,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
 	_game_day_fn = deps.get("game_day", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
-	_publish_result_fn = deps.get("publish_result", Callable())
-	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
 	_soft_style_fn = deps.get("soft_style", Callable())
 	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
-	_free_sentence_text_fn = deps.get("free_sentence_text", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
 	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
@@ -1044,9 +1051,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	publish_content.add_theme_constant_override("separation", 8)
 	publish_scroll.add_child(publish_content)
 
-	var publish_result: Dictionary = {}
-	if _publish_result_fn.is_valid():
-		publish_result = _publish_result_fn.call()
+	var publish_result := _last_result
 
 	var composer := _panel_factory.call() as PanelContainer
 	composer.name = "SocialPublishComposer"
@@ -1055,9 +1060,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	var composer_box := VBoxContainer.new()
 	composer_box.add_theme_constant_override("separation", 6)
 	composer.add_child(composer_box)
-	var placed_sentence_units: Array = []
-	if _free_sentence_units_fn.is_valid():
-		placed_sentence_units = _free_sentence_units_fn.call()
+	var placed_sentence_units := _sentence_units
 	var composer_header := HBoxContainer.new()
 	composer_header.add_theme_constant_override("separation", 8)
 	composer_box.add_child(composer_header)
@@ -1250,9 +1253,8 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	answer_rule.custom_minimum_size.y = 2.0
 	answer_box.add_child(answer_rule)
 
-	var preview_text := ""
-	if _free_sentence_text_fn.is_valid():
-		preview_text = str(_free_sentence_text_fn.call())
+	var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
+	var preview_text := MemeGameStateScript.sentence_text(placed_units, locale)
 	var preview_label := _label_factory.call(preview_text, 15, _theme_color_fn.call("ink")) as Label
 	preview_label.name = "ComposerPreviewLabel"
 	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1321,6 +1323,21 @@ func _on_actions(_value: Variant) -> void:
 	_repaint_unless_syncing()
 
 
+func _on_sentence_units(value: Variant) -> void:
+	_sentence_units = value as Array
+	_repaint_unless_syncing()
+
+
+func _on_last_result(value: Variant) -> void:
+	_last_result = value as Dictionary
+	_repaint_unless_syncing()
+
+
+func _on_published(value: Variant) -> void:
+	_published = value as Array
+	_repaint_unless_syncing()
+
+
 ## Posting costs an action, so the publish page can post while any are left today.
 func _can_spend() -> bool:
 	var value: Variant = _watch.read(PropertyKeysScript.ACTIONS_REMAINING)
@@ -1333,17 +1350,19 @@ func _repaint_unless_syncing() -> void:
 
 
 ## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
-## Held words mark the post detail only, finished memes show on the profile page only,
-## and remaining actions only decide whether the publish page can post.
+## Held words and published records (the echo under a post) mark the post detail only,
+## finished memes show on the profile page only, and the remaining actions, the sentence
+## and the last result show on the publish page only.
 func _repaint_if_stale() -> void:
 	if not _rendered:
 		return
 	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
-	var publish_stale := _screen == "publish" and _can_spend() != _painted_can_spend
+	var publish_stale := _screen == "publish" and (_can_spend() != _painted_can_spend
+		or _sentence_units != _painted_sentence_units or _last_result != _painted_last_result)
 	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale or publish_stale
 	if feed_stale:
 		render_app()
-	if feed_stale or _held_chars != _painted_held_chars:
+	if feed_stale or _held_chars != _painted_held_chars or _published != _painted_published:
 		render_companion()
 
 

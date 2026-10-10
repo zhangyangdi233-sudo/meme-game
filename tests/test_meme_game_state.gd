@@ -463,7 +463,7 @@ func test_inventory_snapshot_without_a_change_signal() -> void:
 		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
 		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
 	]
-	game.fusion_slots.clear()
+	game.fusion_slots = {}
 	_assert_true(game.place_meme_in_fusion_slot("left", "meme-left"), "left meme should enter fusion slot")
 	_assert_true(game.place_meme_in_fusion_slot("right", "meme-right"), "right meme should enter fusion slot")
 	_assert_true(game.confirm_meme_fusion(), "fusion should succeed")

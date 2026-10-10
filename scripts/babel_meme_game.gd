@@ -262,7 +262,6 @@ func _social_content_deps() -> Dictionary:
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
 		"texture_cache": _texture_cache,
 		"load_texture": _load_runtime_texture,
-		"placed_meme": _placed_meme(),
 		"pickable_units": func(text: String) -> Array[String]: return _locale.pickable_units(text),
 	}
 
@@ -1909,11 +1908,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
 		"game_day": func() -> int: return game.day if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"publish_result": func() -> Dictionary:
-			return SocialFeedContentScript.publish_result(_social_content_deps()),
-		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
 		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
-		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
 		"pollution": func() -> int: return game.pollution if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
@@ -2109,17 +2104,10 @@ func _notebook_mount_deps() -> Dictionary:
 		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 		"composer_tile_style": _ui_theme_helper.composer_tile_style,
-		"fusion_slot_text": _fusion_slot_text,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"free_sentence_units": func() -> Array:
-			return game.get_free_sentence_units() if game != null else [],
-		"world_rules": func() -> Array:
-			return game.get_world_rules() if game != null else [],
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
-		"fusion_ready": func() -> bool:
-			return game != null and (_inventory_snapshot().get("fusion_slots", {}) as Dictionary).size() >= 2,
 	}
 
 
@@ -3480,26 +3468,6 @@ func _language_slot_text(slot_id: String, placeholder: String, world: String) ->
 		if str(option.get("id", "")) == token_id:
 			return str(option.get("display_text", option.get("text", placeholder)))
 	return placeholder
-
-
-func _fusion_slot_text(slot_id: String) -> String:
-	var inventory := _inventory_snapshot()
-	var meme_id := str((inventory.get("fusion_slots", {}) as Dictionary).get(slot_id, ""))
-	if meme_id.is_empty():
-		return "旧梗 A" if slot_id == "left" else "旧梗 B"
-	for meme in inventory.get("completed_memes", []):
-		if str((meme as Dictionary).get("id", "")) == meme_id:
-			return str((meme as Dictionary).get("title", (meme as Dictionary).get("text", "完整梗")))
-	return "等待完整梗"
-
-
-func _placed_meme() -> Dictionary:
-	if game.dialogue_blanks.has("blank_1"):
-		var meme_id := str(game.dialogue_blanks["blank_1"])
-		for meme in _inventory_snapshot().get("completed_memes", []):
-			if str((meme as Dictionary).get("id", "")) == meme_id:
-				return (meme as Dictionary).duplicate(true)
-	return {}
 
 
 func _corrupt(text: String) -> String:

@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_social_engagement_lives_only_in_the_run_models()
 	_test_progression_lives_only_in_the_run_models()
 	_test_event_log_and_history_live_only_in_the_run_models()
+	_test_holdings_fusion_and_publishing_live_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -794,6 +795,98 @@ func _test_event_log_and_history_live_only_in_the_run_models() -> void:
 	restored.new_run()
 	_assert_eq(log_model.read(), [], "a new run should clear the log on the same model")
 	_assert_eq(history_model.read(), [], "a new run should clear the history on the same model")
+	RegistryScript.clear()
+
+
+func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var maps := [PropertyKeysScript.FUSION_SLOTS, PropertyKeysScript.DRAFT_SLOTS,
+		PropertyKeysScript.LAST_PUBLISH_RESULT, PropertyKeysScript.WORLD_RULES]
+	var lists := [PropertyKeysScript.PUBLISHED_MEMES, PropertyKeysScript.FREE_SENTENCE_UNITS]
+	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
+		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(not StateScript.SAVE_FIELD_NAMES.has(key), "%s should not also be saved from the state" % key)
+	for key in maps:
+		_assert_true(manager.model(key) is MapPropertyModel, "%s should be a map model" % key)
+	for key in lists:
+		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
+	_assert_true(manager.model(PropertyKeysScript.OWNED_MEME_FRAMES) is ValuePropertyModel, "owned frames should be a value model")
+	var fusion: MapPropertyModel = manager.model(PropertyKeysScript.FUSION_SLOTS) as MapPropertyModel
+	var draft: MapPropertyModel = manager.model(PropertyKeysScript.DRAFT_SLOTS) as MapPropertyModel
+	var last_result: MapPropertyModel = manager.model(PropertyKeysScript.LAST_PUBLISH_RESULT) as MapPropertyModel
+	var rules: MapPropertyModel = manager.model(PropertyKeysScript.WORLD_RULES) as MapPropertyModel
+	var published: ListPropertyModel = manager.model(PropertyKeysScript.PUBLISHED_MEMES) as ListPropertyModel
+	var units: ListPropertyModel = manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel
+	var frames: ValuePropertyModel = manager.model(PropertyKeysScript.OWNED_MEME_FRAMES) as ValuePropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+	source.completed_memes = [
+		{"id": "a", "text": "甲", "tags": ["x"], "rarity": 1, "pollution_bias": 1, "fusion_level": 0},
+		{"id": "b", "text": "乙", "tags": ["y"], "rarity": 1, "pollution_bias": 1, "fusion_level": 0},
+	]
+	var heard_fusion: Array = []
+	fusion.register(func(value: Variant) -> void: heard_fusion.append((value as Dictionary).size()))
+	_assert_true(source.place_meme_in_fusion_slot("left", "a"), "a meme should go into the left slot")
+	_assert_true(source.place_meme_in_fusion_slot("right", "b"), "a meme should go into the right slot")
+	_assert_eq(fusion.read(), {"left": "a", "right": "b"}, "filling the fusion slots should write the model")
+	_assert_eq(heard_fusion, [0, 1, 2], "each filled slot should notify the fusion listeners once")
+	source.fusion_slots.erase("left")
+	_assert_eq(fusion.read().size(), 2, "changing the copy the state hands out should not change the model")
+	_assert_true(source.confirm_meme_fusion(), "two filled slots should fuse")
+	_assert_eq(fusion.read(), {}, "fusing should empty the fusion slots on the model")
+
+	source.draft_slots = {"subject": "t-1"}
+	_assert_eq(draft.read(), {"subject": "t-1"}, "draft slots should be written to the model")
+
+	var heard_units: Array = []
+	units.register(func(value: Variant) -> void: heard_units.append((value as Array).duplicate()))
+	source.free_sentence_units = ["门", "开"]
+	_assert_true(source.free_sentence_move(1, 0), "a placed unit should move")
+	_assert_true(source.free_sentence_remove(0), "a placed unit should be removed")
+	_assert_eq(heard_units, [[], ["门", "开"], ["开", "门"], ["门"]], "each sentence edit should write the units model once")
+	_assert_eq(source.get_free_sentence_units(), ["门"], "the state should read the units from the model")
+
+	source.free_sentence_units = ["门", "可", "以", "打", "开"]
+	var submitted: Dictionary = source.submit_free_sentence("zh")
+	_assert_true(bool(submitted.get("submitted", false)), "the sentence should post")
+	_assert_eq(units.read(), [], "posting should empty the units model")
+	_assert_eq(published.read().size(), 1, "posting should add a record to the published model")
+	_assert_true(rules.read().has("door|can_open"), "a rule sentence should be written to the world rules model")
+	_assert_true(source.is_world_rule_active("door|can_open"), "the state should read the rule from the model")
+
+	source.completed_memes = [{"id": "m", "text": "丙", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0}]
+	source.place_meme_in_blank("blank_1", "m")
+	_assert_true(source.confirm_dialogue(), "a placed meme should publish")
+	_assert_true(not last_result.read().is_empty(), "publishing should write the last result model")
+	_assert_eq(published.read().size(), 2, "publishing should add a record at the front of the published model")
+	_assert_eq(str((published.read()[0] as Dictionary).get("id", "")), "m", "the newest record should be first")
+
+	source.owned_meme_frames = 2
+	_assert_eq(frames.read(), 2, "owned frames should be written to the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("published_memes", []), published.read(), "the run save should store the published records")
+	_assert_eq(state_data.get("world_rules", {}), rules.read(), "the run save should store the world rules")
+	_assert_eq(state_data.get("owned_meme_frames", 0), 2, "the run save should store the owned frames")
+	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
+		(manager.model(key) as PropertyModel).reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(published.read().size(), 2, "loading should write the published records back through the model")
+	_assert_true(rules.read().has("door|can_open"), "loading should write the world rules back through the model")
+	_assert_eq(draft.read(), {"subject": "t-1"}, "loading should write the draft slots back through the model")
+	_assert_eq(frames.read(), 2, "loading should write the owned frames back through the model")
+
+	restored.new_run()
+	for key in maps:
+		_assert_eq(manager.model(key).read(), {}, "a new run should clear %s on the same model" % key)
+	for key in lists:
+		_assert_eq(manager.model(key).read(), [], "a new run should clear %s on the same model" % key)
+	_assert_eq(frames.read(), 0, "a new run should reset the owned frames on the same model")
 	RegistryScript.clear()
 
 

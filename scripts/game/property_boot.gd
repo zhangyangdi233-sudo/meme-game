@@ -69,6 +69,13 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR4_TASK_COMPLETE, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.EVENT_LOG, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HISTORY_ENTRIES, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FUSION_SLOTS, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DRAFT_SLOTS, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.OWNED_MEME_FRAMES, 0, 0))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PUBLISHED_MEMES, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LAST_PUBLISH_RESULT, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FREE_SENTENCE_UNITS, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.WORLD_RULES, {}))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 
