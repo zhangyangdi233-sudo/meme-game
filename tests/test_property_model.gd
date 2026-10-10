@@ -41,6 +41,9 @@ func _run() -> void:
 	_test_run_save_carries_autoplay_but_not_preferences()
 	_test_ending_choice_lives_only_in_the_run_model()
 	_test_phone_state_lives_only_in_the_run_models()
+	_test_list_and_map_can_insert_or_replace_everything_once()
+	_test_holdings_live_only_in_the_run_models()
+	_test_canvas_positions_write_the_map_once_per_commit()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -392,6 +395,135 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 	open.write(false)
 	open.write("yes")
 	_assert_eq(open.read(), false, "a wrong type should keep the phone state")
+
+
+func _test_list_and_map_can_insert_or_replace_everything_once() -> void:
+	var listed: ListPropertyModel = FactoryScript.create("bag", [{"n": 1}]) as ListPropertyModel
+	var heard: Array = []
+	listed.register(func(value: Variant) -> void:
+		heard.append(value)
+	)
+	var front := {"n": 0}
+	listed.insert_at(0, front)
+	front["n"] = 9
+	_assert_eq(heard.size(), 2, "insert_at should notify once")
+	_assert_eq(int(listed.read()[0]["n"]), 0, "insert_at should store a copy at the front")
+	listed.insert_at(5, {"n": 2})
+	_assert_eq(listed.read().size(), 2, "insert_at past the end should keep the list")
+	var replacement: Array = [{"n": 4}, {"n": 5}]
+	listed.replace_all(replacement)
+	replacement[0]["n"] = 7
+	_assert_eq(heard.size(), 3, "replace_all should notify once")
+	_assert_eq(int(listed.read()[0]["n"]), 4, "replace_all should store a copy")
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(heard.size(), 3, "replacing with the same items should not notify")
+
+	var mapped: MapPropertyModel = FactoryScript.create("table", {"a": 1}) as MapPropertyModel
+	var map_heard: Array = []
+	mapped.register(func(value: Variant) -> void:
+		map_heard.append(value)
+	)
+	var entries := {"a": [1, 2], "b": [3, 4]}
+	mapped.replace_all(entries)
+	entries["a"][0] = 9
+	_assert_eq(map_heard.size(), 2, "replacing the whole map should notify once")
+	_assert_eq(mapped.read(), {"a": [1, 2], "b": [3, 4]}, "replace_all should store a copy of every entry")
+	mapped.replace_all({"a": [1, 2], "b": [3, 4]})
+	_assert_eq(map_heard.size(), 2, "replacing the map with the same entries should not notify")
+
+
+func _test_holdings_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var chars: ListPropertyModel = manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS) as ListPropertyModel
+	var tokens: ListPropertyModel = manager.model(PropertyKeysScript.NOTEBOOK_TOKENS) as ListPropertyModel
+	var memes: ListPropertyModel = manager.model(PropertyKeysScript.COMPLETED_MEMES) as ListPropertyModel
+	var positions: MapPropertyModel = manager.model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	_assert_true(chars != null and tokens != null and memes != null, "held words and memes should be list models")
+	_assert_true(positions != null, "canvas positions should be a map model")
+	if chars == null or tokens == null or memes == null or positions == null:
+		return
+	for key in [PropertyKeysScript.COLLECTED_CHAR_UNITS, PropertyKeysScript.NOTEBOOK_TOKENS, PropertyKeysScript.COMPLETED_MEMES, PropertyKeysScript.CHAR_CANVAS_POSITIONS]:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+
+	var source = StateScript.new()
+	source.new_run()
+	var char_heard: Array = []
+	chars.register(func(value: Variant) -> void:
+		char_heard.append((value as Array).size())
+	)
+	_assert_true(bool(source.pick_social_char("floor_13", "门", "zh").get("picked", false)), "picking a word should succeed")
+	_assert_eq(char_heard, [0, 1], "picking a word should add it through the list model and notify once")
+	_assert_eq(source.get_collected_char_units("zh"), ["门"] as Array[String], "the state should read the held words from the model")
+	var read_copy: Array = source.collected_char_units
+	read_copy.append({"unit": "假", "locale": "zh"})
+	_assert_eq(chars.read().size(), 1, "editing what the state reads should not change the model")
+	_assert_eq(char_heard.size(), 2, "editing a copy should not notify")
+
+	var meme_heard: Array = []
+	memes.register(func(value: Variant) -> void:
+		meme_heard.append((value as Array).size())
+	)
+	source.completed_memes = [
+		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+	]
+	_assert_eq(meme_heard, [0, 2], "setting the memes should replace the list model once")
+	_assert_true(source.place_meme_in_fusion_slot("left", "meme-left"), "the left meme should enter a fusion slot")
+	_assert_true(source.place_meme_in_fusion_slot("right", "meme-right"), "the right meme should enter a fusion slot")
+	_assert_true(source.confirm_meme_fusion(), "fusion should succeed")
+	_assert_eq(meme_heard, [0, 2, 3], "a fusion should add one meme through the list model")
+	_assert_eq(str(memes.read()[0].get("text", "")), "左右", "the fused meme should go to the front")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq((state_data.get("completed_memes", []) as Array).size(), 3, "the run save should store the meme model")
+	_assert_eq((state_data.get("collected_char_units", []) as Array).size(), 1, "the run save should store the held words model")
+	chars.replace_all([])
+	memes.replace_all([])
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(chars.read().size(), 1, "loading should write the held words back through the model")
+	_assert_eq(memes.read().size(), 3, "loading should write the memes back through the model")
+	var broken: Dictionary = state_data.duplicate(true)
+	broken["completed_memes"] = "not a list"
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": broken}), "a save with a broken list should still load")
+	_assert_eq(memes.read().size(), 0, "a broken list should leave the reset meme list")
+	restored.new_run()
+	_assert_eq(chars.read().size(), 0, "a new run should clear the held words on the same model")
+	_assert_eq(char_heard.back(), 0, "listeners on the same model should hear the reset")
+	RegistryScript.clear()
+
+
+func _test_canvas_positions_write_the_map_once_per_commit() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var positions: MapPropertyModel = manager.model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	if positions == null:
+		_failures.append("canvas positions should be a map model")
+		return
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	positions.register(func(value: Variant) -> void:
+		heard.append(value)
+	)
+	source.set_char_canvas_positions({"门": Vector2(20.0, 30.0), "开": Vector2(900.0, -5.0)}, "zh")
+	_assert_eq(heard.size(), 2, "committing two tiles should write the map once")
+	_assert_eq(source.get_char_canvas_position("门", "zh"), Vector2(20.0, 30.0), "the state should read the committed position from the map")
+	var clamped: Vector2 = source.get_char_canvas_position("开", "zh")
+	_assert_eq(clamped, Vector2(StateScript.CHAR_CANVAS_SIZE.x - StateScript.CHAR_CANVAS_TILE.x, 0.0), "a committed position should stay on the canvas")
+	source.set_char_canvas_positions({"门": Vector2(20.0, 30.0)}, "zh")
+	_assert_eq(heard.size(), 2, "committing the same positions should not write again")
+	source.set_char_canvas_positions({}, "zh")
+	_assert_eq(heard.size(), 2, "committing nothing should not write")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	positions.replace_all({})
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(restored.get_char_canvas_position("门", "zh"), Vector2(20.0, 30.0), "loading should write canvas positions back through the map model")
+	RegistryScript.clear()
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

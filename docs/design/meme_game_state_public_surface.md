@@ -20,9 +20,10 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
 | Signals (slice 4) | 6 — + `day_progress_changed` |
 | Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
-| Signals (slice 6) | 7 — + `inventory_changed` |
-| Signals (slice 6b) | 7 — `inventory_changed` emits on `place_token_in_slot` and `confirm_meme_fusion` |
+| Signals (slice 6) | 7 — + `inventory_changed` (retired once held words and memes moved to property models) |
+| Signals (slice 6b) | 7 — `inventory_changed` emitted on `place_token_in_slot` and `confirm_meme_fusion` (retired with 6) |
 | Signals (slice 7) | 8 — + `progression_changed` |
+| Signals (held words and memes moved to models) | 7 — − `inventory_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
 **Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_day_progress_snapshot()`, `_progression_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
@@ -77,11 +78,15 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Social / publishing
 
-`social_followed_handles`, `social_liked_post_ids`, `published_memes`, `last_publish_result`, `collected_char_units`, `last_char_pick_day`, `char_canvas_positions`, `free_sentence_units`, `world_rules`
+`social_followed_handles`, `social_liked_post_ids`, `published_memes`, `last_publish_result`, `last_char_pick_day`, `free_sentence_units`, `world_rules`
 
 ### Notebook / meme craft
 
-`notebook_tokens`, `draft_slots`, `completed_memes`, `owned_meme_frames`, `owned_meme_frame_ids`, `fusion_slots`, `fused_meme_pairs`, `dialogue_blanks`, `language_sentence_slots`, `sentence_records`
+`draft_slots`, `owned_meme_frames`, `owned_meme_frame_ids`, `fusion_slots`, `fused_meme_pairs`, `dialogue_blanks`, `language_sentence_slots`, `sentence_records`
+
+### Held words, memes, and canvas positions (run property models)
+
+The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks, crafts, and fusions go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`.
 
 ### Doll / prerequisite world items
 
@@ -200,7 +205,7 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 
 ### Char canvas
 
-`get_char_canvas_position()`, `set_char_canvas_position()`
+`get_char_canvas_position()`, `set_char_canvas_positions(tile_positions, locale)` — one batch from the canvas, one map write, none when nothing moved
 
 ### World rules
 
@@ -211,10 +216,9 @@ Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for sav
 | Kind | API |
 |---|---|
 | Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills, fusion_slots }` |
-| Signal | `inventory_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `confirm_craft()`, `place_token_in_slot()` (success), and `confirm_meme_fusion()` (success) |
 | Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
 
-Legacy fields `notebook_tokens` / `draft_slots` / `completed_memes` remain for save/load; new adapter craft-slot render code should prefer snapshot + signal.
+The shown notebook watches the held-word and meme models and repaints itself, so there is no change signal. The snapshot stays for the craft and fusion slot labels. The retired signal also fired for `draft_slots` and `fusion_slots`, which are still plain fields; its only reader was the host, and the host repaints the phone after every fusion and slot intent (`place_token_in_slot` has no caller in the host), so nothing listened for those changes alone.
 
 ### Notebook craft / publish (legacy listing)
 
@@ -477,33 +481,15 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 ```gdscript
 # Snapshot (read)
 {
-  "completed_memes": Array,       # full duplicate for inventory render
+  "completed_memes": Array,       # copy read from the meme model
   "notebook_token_count": int,
   "draft_slots": Dictionary,      # slot_id -> token_id
   "craft_slot_fills": Dictionary, # slot_id -> display text for adapter slot labels
   "fusion_slots": Dictionary,     # slot_id -> meme_id (slice 6b)
 }
-
-# Signal payload = snapshot + change metadata
-{
-  # ...snapshot fields...
-  "change": {
-    "kind": "confirm_craft" | "place_craft_token" | "confirm_fusion",
-    "target_id": String,
-    "active": true,
-  },
-}
 ```
 
-**Intent → signal mapping:**
-
-| Intent | `change.kind` | When |
-|---|---|---|
-| `confirm_craft()` | `confirm_craft` | on success; `target_id` is the new meme id |
-| `place_token_in_slot()` | `place_craft_token` | on success; `target_id` is the slot id (slice 6b) |
-| `confirm_meme_fusion()` | `confirm_fusion` | on success; `target_id` is the fused meme id (slice 6b) |
-
-**Adapter pattern:** connect `inventory_changed` → `_render()`; read craft / fusion slot labels via `_inventory_snapshot()`. Remove redundant `_render()` after successful `place_token_in_slot()` when the signal covers slot refresh.
+**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word and meme models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. Read craft / fusion slot labels via `_inventory_snapshot()`.
 
 ---
 

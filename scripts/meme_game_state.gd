@@ -5,7 +5,6 @@ signal social_engagement_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
-signal inventory_changed(snapshot: Dictionary)
 signal progression_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
@@ -111,9 +110,17 @@ var active_app_window: String:
 	set(value):
 		_write_run_field(PropertyKeysScript.ACTIVE_APP_WINDOW, value)
 
-var notebook_tokens: Array = []
+var notebook_tokens: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.NOTEBOOK_TOKENS)
+	set(value):
+		_write_run_list(PropertyKeysScript.NOTEBOOK_TOKENS, value)
 var draft_slots: Dictionary = {}
-var completed_memes: Array = []
+var completed_memes: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.COMPLETED_MEMES)
+	set(value):
+		_write_run_list(PropertyKeysScript.COMPLETED_MEMES, value)
 var owned_meme_frames: int = 0
 var owned_meme_frame_ids: Array[String] = []
 var claimed_doll_ids: Array[String] = []
@@ -137,9 +144,15 @@ var history_entries: Array = []
 var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
 var tutorial_progress: Dictionary = {}
-var collected_char_units: Array = []
+var collected_char_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS, value)
 var last_char_pick_day: int = 0
-var char_canvas_positions: Dictionary = {}
+var char_canvas_positions: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.CHAR_CANVAS_POSITIONS)
 var free_sentence_units: Array = []
 var world_rules: Dictionary = {}
 var floor3_task_complete: bool = false
@@ -200,9 +213,7 @@ func new_run() -> void:
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
 	view_state = "phone_down"
-	notebook_tokens = []
 	draft_slots = {}
-	completed_memes = []
 	owned_meme_frames = 0
 	owned_meme_frame_ids = []
 	claimed_doll_ids = []
@@ -223,9 +234,7 @@ func new_run() -> void:
 	history_entries = []
 	language_sentence_slots = {}
 	sentence_records = []
-	collected_char_units = []
 	last_char_pick_day = 0
-	char_canvas_positions = {}
 	free_sentence_units = []
 	world_rules = {}
 	floor3_task_complete = false
@@ -297,6 +306,49 @@ func _read_run_string(property_name: String) -> String:
 	return str(model.read())
 
 
+func _read_run_array(property_name: String) -> Array:
+	var model: ListPropertyModel = _run_model(property_name) as ListPropertyModel
+	if model == null:
+		return []
+	return model.read() as Array
+
+
+func _write_run_list(property_name: String, items: Array) -> void:
+	var model: ListPropertyModel = _run_model(property_name) as ListPropertyModel
+	if model == null:
+		return
+	model.replace_all(items)
+
+
+func _run_list(property_name: String) -> ListPropertyModel:
+	return _run_model(property_name) as ListPropertyModel
+
+
+func _read_run_map(property_name: String) -> Dictionary:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return {}
+	return model.read() as Dictionary
+
+
+## A save writes each run field back through its model. A list or map of the wrong shape is refused and keeps the reset value.
+func _load_run_field(field_name: String, value: Variant) -> void:
+	var model: PropertyModel = _run_model(field_name)
+	if model is ListPropertyModel:
+		if value is Array:
+			(model as ListPropertyModel).replace_all(value)
+		else:
+			push_error("Save field '%s' is not a list and was skipped" % field_name)
+		return
+	if model is MapPropertyModel:
+		if value is Dictionary:
+			(model as MapPropertyModel).replace_all(value)
+		else:
+			push_error("Save field '%s' is not a map and was skipped" % field_name)
+		return
+	_write_run_field(field_name, value)
+
+
 func _run_model(property_name: String) -> PropertyModel:
 	PropertyBootScript.install()
 	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
@@ -349,7 +401,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 			continue
 		var value: Variant = state_data[field_name]
 		if PropertyKeysScript.RUN.has(str(field_name)):
-			_write_run_field(str(field_name), value)
+			_load_run_field(str(field_name), value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
 	day = maxi(1, day)
@@ -388,8 +440,9 @@ func load_save_data(save_data: Dictionary) -> bool:
 
 func _normalize_language_bridge_state(loaded_version: int) -> void:
 	var normalized_tokens: Array = []
-	for token_index in notebook_tokens.size():
-		var token_value: Variant = notebook_tokens[token_index]
+	var saved_tokens := notebook_tokens
+	for token_index in saved_tokens.size():
+		var token_value: Variant = saved_tokens[token_index]
 		if token_value is Dictionary:
 			var token: Dictionary = (token_value as Dictionary).duplicate(true)
 			if not token.get("grammar_roles", null) is Array or (token.get("grammar_roles", []) as Array).is_empty():
@@ -1363,9 +1416,10 @@ func _conversation_units(sentence: String) -> Array[String]:
 
 
 func _conversation_corruption_text(roll: int, character_index: int) -> String:
-	if not completed_memes.is_empty() and posmod(roll + character_index, 3) == 0:
-		var meme_index := posmod(roll + conversation_attempts + character_index, completed_memes.size())
-		var meme: Dictionary = completed_memes[meme_index]
+	var memes := completed_memes
+	if not memes.is_empty() and posmod(roll + character_index, 3) == 0:
+		var meme_index := posmod(roll + conversation_attempts + character_index, memes.size())
+		var meme: Dictionary = memes[meme_index]
 		var meme_text := str(meme.get("title", meme.get("text", ""))).strip_edges()
 		if not meme_text.is_empty():
 			return meme_text.substr(0, mini(4, meme_text.length()))
@@ -1447,7 +1501,7 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 			return false
 	if not spend_action("pick-token"):
 		return false
-	notebook_tokens.append(note)
+	_run_list(PropertyKeysScript.NOTEBOOK_TOKENS).add(note)
 	notify_tutorial("collect_word", {"token_id": str(note.get("id", ""))})
 	return true
 
@@ -1464,8 +1518,13 @@ func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
 
 
 func get_collected_char_units(locale_code: String = "zh") -> Array[String]:
+	return char_units_for_locale(collected_char_units, locale_code)
+
+
+## The held words of one language, in pick order, from the entries the held-word model stores.
+static func char_units_for_locale(entries: Array, locale_code: String) -> Array[String]:
 	var result: Array[String] = []
-	for entry in collected_char_units:
+	for entry in entries:
 		if entry is Dictionary and str((entry as Dictionary).get("locale", "zh")) == locale_code:
 			var unit := str((entry as Dictionary).get("unit", ""))
 			if not unit.is_empty() and unit not in result:
@@ -1496,7 +1555,7 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 			result["reason"] = "no-actions"
 			return result
 		result["action_spent"] = true
-	collected_char_units.append({
+	_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS).add({
 		"unit": normalized_unit,
 		"locale": locale_code,
 		"source_post_id": post_id,
@@ -1689,8 +1748,9 @@ const CHAR_CANVAS_TILE := Vector2(44.0, 40.0)
 
 func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vector2:
 	var key := "%s|%s" % [locale_code, unit]
-	if char_canvas_positions.has(key):
-		var stored: Variant = char_canvas_positions[key]
+	var positions := char_canvas_positions
+	if positions.has(key):
+		var stored: Variant = positions[key]
 		if stored is Vector2:
 			return stored
 		if stored is Array and (stored as Array).size() == 2:
@@ -1698,18 +1758,29 @@ func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vecto
 	return _default_char_canvas_position(unit, locale_code)
 
 
-func set_char_canvas_position(unit: String, position: Vector2, locale_code: String = "zh") -> void:
-	var clamped := Vector2(
-		clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
-		clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
-	)
-	var key := "%s|%s" % [locale_code, unit]
-	var stored: Variant = char_canvas_positions.get(key, null)
-	if stored is Array and (stored as Array).size() == 2:
-		var current := Vector2(float(stored[0]), float(stored[1]))
-		if current.is_equal_approx(clamped):
-			return
-	char_canvas_positions[key] = [clamped.x, clamped.y]
+## The canvas hands over every resting tile at once (before it closes, redraws, or saves).
+## The map model is written once, and not at all when nothing moved.
+func set_char_canvas_positions(tile_positions: Dictionary, locale_code: String = "zh") -> void:
+	var positions := char_canvas_positions
+	var moved := false
+	for unit in tile_positions.keys():
+		var position: Vector2 = tile_positions[unit]
+		var clamped := Vector2(
+			clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
+			clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
+		)
+		var key := "%s|%s" % [locale_code, str(unit)]
+		var stored: Variant = positions.get(key, null)
+		if stored is Array and (stored as Array).size() == 2:
+			if Vector2(float(stored[0]), float(stored[1])).is_equal_approx(clamped):
+				continue
+		positions[key] = [clamped.x, clamped.y]
+		moved = true
+	if not moved:
+		return
+	var model: MapPropertyModel = _run_model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	if model != null:
+		model.replace_all(positions)
 
 
 ## 新拾取的字从画布上方落下:横向按顺序错开,纵向给一点高度差,
@@ -1787,22 +1858,12 @@ func get_inventory_snapshot() -> Dictionary:
 		if not token.is_empty():
 			craft_slot_fills[slot_id] = str(token.get("text", ""))
 	return {
-		"completed_memes": completed_memes.duplicate(true),
+		"completed_memes": completed_memes,
 		"notebook_token_count": notebook_tokens.size(),
 		"draft_slots": draft_slots.duplicate(),
 		"craft_slot_fills": craft_slot_fills,
 		"fusion_slots": fusion_slots.duplicate(),
 	}
-
-
-func _emit_inventory_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_inventory_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	inventory_changed.emit(snapshot)
 
 
 func get_craft_slots() -> Array:
@@ -1828,7 +1889,6 @@ func place_token_in_slot(slot_id: String, token_id: String) -> bool:
 	if accepted_role not in token_roles:
 		return false
 	draft_slots[slot_id] = token_id
-	_emit_inventory_changed("place_craft_token", slot_id, true)
 	return true
 
 
@@ -1864,10 +1924,9 @@ func confirm_craft() -> bool:
 		"unit_count": token_ids.size(),
 		"created_day": day,
 	}
-	completed_memes.push_front(meme)
+	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
 	draft_slots.clear()
 	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
-	_emit_inventory_changed("confirm_craft", str(meme.get("id", "")), true)
 	return true
 
 
@@ -1899,15 +1958,16 @@ func confirm_meme_fusion() -> bool:
 		return false
 	if not spend_action("fuse-memes"):
 		return false
-	var left: Dictionary = completed_memes[left_index]
-	var right: Dictionary = completed_memes[right_index]
+	var memes := completed_memes
+	var left: Dictionary = memes[left_index]
+	var right: Dictionary = memes[right_index]
 	var fusion_level := mini(3, maxi(int(left.get("fusion_level", 0)), int(right.get("fusion_level", 0))) + 1)
 	var tags: Array = _unique((left.get("tags", []) as Array) + (right.get("tags", []) as Array))
 	var left_text := str(left.get("text", ""))
 	var right_text := str(right.get("text", ""))
 	var fused_text := "%s%s" % [left_text, right_text]
 	var meme := {
-		"id": "fusion-%d-%d" % [day, completed_memes.size() + 1],
+		"id": "fusion-%d-%d" % [day, memes.size() + 1],
 		"title": "复合「%s」" % fused_text,
 		"text": fused_text,
 		"tags": tags,
@@ -1918,12 +1978,11 @@ func confirm_meme_fusion() -> bool:
 		"fused_from": pair_ids,
 		"created_day": day,
 	}
-	completed_memes.push_front(meme)
+	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
 	fused_meme_pairs.append(pair_key)
 	fusion_slots.clear()
 	change_pollution(3 + fusion_level * 2)
 	event_log.push_front("两个旧梗粘在一起。新梗更响，也更脏。")
-	_emit_inventory_changed("confirm_fusion", str(meme.get("id", "")), true)
 	return true
 
 
@@ -2173,8 +2232,9 @@ func _resolve_tower_step() -> void:
 
 
 func _find_completed_meme_index(meme_id: String) -> int:
-	for index in completed_memes.size():
-		if str(completed_memes[index].get("id", "")) == meme_id:
+	var memes := completed_memes
+	for index in memes.size():
+		if str(memes[index].get("id", "")) == meme_id:
 			return index
 	return -1
 

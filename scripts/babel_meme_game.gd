@@ -672,8 +672,6 @@ func _connect_game_state_signals() -> void:
 		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
 	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
 		game.day_progress_changed.connect(_on_day_progress_changed)
-	if not game.inventory_changed.is_connected(_on_inventory_changed):
-		game.inventory_changed.connect(_on_inventory_changed)
 	if not game.progression_changed.is_connected(_on_progression_changed):
 		game.progression_changed.connect(_on_progression_changed)
 
@@ -700,13 +698,6 @@ func _on_day_progress_changed(_snapshot: Dictionary) -> void:
 	if not _session_is_in_run():
 		return
 	_refresh_play_surfaces()
-
-
-func _on_inventory_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_phone_shell()
-	_refresh_reality_hud()
 
 
 func _on_progression_changed(_snapshot: Dictionary) -> void:
@@ -2274,8 +2265,6 @@ func _notebook_mount_deps() -> Dictionary:
 		"composer_tile_style": _ui_theme_helper.composer_tile_style,
 		"fusion_slot_text": _fusion_slot_text,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"collected_char_units": func(locale_code: String) -> Array[String]:
-			return game.get_collected_char_units(locale_code) if game != null else [],
 		"free_sentence_units": func() -> Array:
 			return game.get_free_sentence_units() if game != null else [],
 		"world_rules": func() -> Array:
@@ -2298,8 +2287,8 @@ func _connect_notebook_app_panel_signals() -> void:
 		panel.fusion_requested.connect(_on_confirm_fusion_pressed)
 	if not panel.tab_changed.is_connected(_set_notebook_crafting_tab):
 		panel.tab_changed.connect(_set_notebook_crafting_tab)
-	if not panel.canvas_tile_moved.is_connected(_on_canvas_tile_moved):
-		panel.canvas_tile_moved.connect(_on_canvas_tile_moved)
+	if not panel.canvas_positions_committed.is_connected(_on_canvas_positions_committed):
+		panel.canvas_positions_committed.connect(_on_canvas_positions_committed)
 	if not panel.canvas_tile_dropped_outside.is_connected(_on_canvas_tile_dropped_outside):
 		panel.canvas_tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
 	if not panel.composer_bank_tapped.is_connected(_on_composer_bank_tapped):
@@ -3023,6 +3012,8 @@ func _update_phone_shell_visibility() -> void:
 			app_window.visible = show_phone_home and bool(_open_app_windows.get(app_id, false))
 	if _social_feed_panel != null:
 		_social_feed_panel.update_visibility(show_phone_home, bool(_open_app_windows.get("social", false)))
+	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
+		_notebook_app_panel.set_shown(show_phone_home and bool(_open_app_windows.get("notebook", false)))
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 	if _hand_phone_image != null:
@@ -3447,8 +3438,9 @@ func _doll_guide_current_line() -> String:
 ## 多邻国 U1 质感:圆角约为高度 1/4、浅底细描边、底部厚边模拟浮起阴影;
 ## 按下时下沉 2px(上边距+2/下边距-2,底厚边收薄);ghost 为凹陷灰。
 
-func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
-	game.set_char_canvas_position(unit, tile_position, _locale.current_locale)
+func _on_canvas_positions_committed(tile_positions: Dictionary) -> void:
+	if game != null:
+		game.set_char_canvas_positions(tile_positions, _locale.current_locale)
 
 
 func _commit_notebook_canvas_positions() -> void:

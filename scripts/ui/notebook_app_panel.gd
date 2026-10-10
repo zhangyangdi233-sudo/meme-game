@@ -1,11 +1,13 @@
 class_name NotebookAppPanel
 extends Node
 ## Game-side notebook app body: sentence header, word canvas, rules list, and fusion tab.
+## While shown, it watches the held words and the finished memes and repaints itself.
+## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
 
 signal craft_requested
 signal fusion_requested
 signal tab_changed(tab_id: String)
-signal canvas_tile_moved(unit: String, tile_position: Vector2)
+signal canvas_positions_committed(tile_positions: Dictionary)
 signal canvas_tile_dropped_outside(unit: String, release_global: Vector2)
 signal composer_bank_tapped(unit: String)
 signal fusion_meme_dropped(data: Dictionary, slot_id: String)
@@ -15,6 +17,9 @@ const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 var _panel_factory: Callable
 var _label_factory: Callable
@@ -23,13 +28,20 @@ var _clear_fn: Callable
 var _composer_tile_style_fn: Callable
 var _fusion_slot_text_fn: Callable
 var _current_locale_fn: Callable
-var _collected_char_units_fn: Callable
 var _free_sentence_units_fn: Callable
 var _world_rules_fn: Callable
 var _char_canvas_position_fn: Callable
 var _can_spend_action_fn: Callable
 var _fusion_ready_fn: Callable
 var _word_canvas: WordPhysicsCanvas
+var _app_body: VBoxContainer
+var _active_tab := "frame"
+var _shown := false
+var _observing := false
+var _registering := false
+var _paint_queued := false
+var _painted_chars: Array = []
+var _painted_memes: Array = []
 
 
 func configure(deps: Dictionary) -> void:
@@ -42,7 +54,6 @@ func configure(deps: Dictionary) -> void:
 	_composer_tile_style_fn = deps.get("composer_tile_style", Callable())
 	_fusion_slot_text_fn = deps.get("fusion_slot_text", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
-	_collected_char_units_fn = deps.get("collected_char_units", Callable())
 	_free_sentence_units_fn = deps.get("free_sentence_units", Callable())
 	_world_rules_fn = deps.get("world_rules", Callable())
 	_char_canvas_position_fn = deps.get("char_canvas_position", Callable())
@@ -50,17 +61,43 @@ func configure(deps: Dictionary) -> void:
 	_fusion_ready_fn = deps.get("fusion_ready", Callable())
 
 
+## The phone decides whether the notebook window shows. While it shows, the models decide what it holds.
+func set_shown(shown: bool) -> void:
+	var was_shown := _shown
+	_shown = shown
+	if shown:
+		_start_observing()
+	elif was_shown:
+		commit_canvas_positions()
+		_stop_observing()
+
+
+func _exit_tree() -> void:
+	_stop_observing()
+
+
 func commit_canvas_positions() -> void:
 	if _word_canvas == null or not is_instance_valid(_word_canvas):
 		return
 	var positions: Dictionary = _word_canvas.settled_tile_positions()
-	for unit in positions.keys():
-		canvas_tile_moved.emit(str(unit), positions[unit])
+	if positions.is_empty():
+		return
+	canvas_positions_committed.emit(positions)
 
 
 func render(app_body: VBoxContainer, active_tab: String) -> void:
-	if app_body == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	_app_body = app_body
+	_active_tab = active_tab
+	_paint()
+
+
+func _paint() -> void:
+	var app_body := _app_body
+	if app_body == null or not is_instance_valid(app_body) or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
+	var active_tab := _active_tab
+	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
+	_painted_memes = _read_list(PropertyKeysScript.COMPLETED_MEMES)
 	commit_canvas_positions()
 	_word_canvas = null
 	_clear_fn.call(app_body)
@@ -129,7 +166,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 	canvas.tile_tapped.connect(_on_composer_bank_tapped)
 
 	var locale_code: String = _current_locale_fn.call() if _current_locale_fn.is_valid() else "zh"
-	var collected_units: Array[String] = _collected_char_units_fn.call(locale_code) if _collected_char_units_fn.is_valid() else []
+	var collected_units: Array[String] = MemeGameStateScript.char_units_for_locale(_painted_chars, locale_code)
 	var placed_units: Array = _free_sentence_units_fn.call() if _free_sentence_units_fn.is_valid() else []
 	if collected_units.is_empty():
 		var empty_hint := _label_factory.call("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color_fn.call("muted")) as Label
@@ -215,6 +252,85 @@ func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> voi
 		craft.disabled = placed_units.is_empty() or not can_spend
 		craft.pressed.connect(_on_craft_pressed)
 		action_box.add_child(craft)
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var chars := _property_model(PropertyKeysScript.COLLECTED_CHAR_UNITS)
+	var memes := _property_model(PropertyKeysScript.COMPLETED_MEMES)
+	if chars == null or memes == null:
+		return
+	_observing = true
+	_registering = true
+	chars.register(_on_held_chars)
+	memes.register(_on_completed_memes)
+	_registering = false
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var chars := _property_model(PropertyKeysScript.COLLECTED_CHAR_UNITS)
+	var memes := _property_model(PropertyKeysScript.COMPLETED_MEMES)
+	if chars != null:
+		chars.unregister(_on_held_chars)
+	if memes != null:
+		memes.unregister(_on_completed_memes)
+
+
+## A list the page already shows needs no repaint.
+func _on_held_chars(value: Variant) -> void:
+	if value != _painted_chars:
+		_request_paint()
+
+
+## Only the fusion tab shows finished memes, so the word canvas is not thrown away for them.
+func _on_completed_memes(value: Variant) -> void:
+	if value != _painted_memes and _active_tab == "fusion":
+		_request_paint()
+
+
+## Showing syncs at once. A later change repaints at the end of the frame, so a host redraw
+## in the same frame already covers it and the falling tiles are not rebuilt twice.
+func _request_paint() -> void:
+	if _registering:
+		_paint()
+		return
+	if _paint_queued:
+		return
+	_paint_queued = true
+	_flush_paint.call_deferred()
+
+
+func _flush_paint() -> void:
+	_paint_queued = false
+	if not _observing:
+		return
+	var chars_stale := _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars
+	var memes_stale := _active_tab == "fusion" and _read_list(PropertyKeysScript.COMPLETED_MEMES) != _painted_memes
+	if chars_stale or memes_stale:
+		_paint()
+
+
+func _read_list(property_name: String) -> Array:
+	var model := _property_model(property_name)
+	if model == null:
+		return []
+	return model.read() as Array
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Notebook cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
 
 
 func _on_craft_pressed() -> void:

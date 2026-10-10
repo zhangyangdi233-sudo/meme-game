@@ -1,7 +1,7 @@
 class_name MapPropertyModel
 extends PropertyModel
 ## A map whose read() is a deep copy.
-## add, remove, and replace store a new copy and notify.
+## add, remove, replace, and replace_all store a new copy and notify.
 
 
 func add(key: Variant, value: Variant) -> void:
@@ -32,3 +32,7 @@ func replace(key: Variant, value: Variant) -> void:
 	var next := current.duplicate(true)
 	next[key] = _copy(value)
 	_commit(next)
+
+
+func replace_all(entries: Dictionary) -> void:
+	_commit(_copy(entries))

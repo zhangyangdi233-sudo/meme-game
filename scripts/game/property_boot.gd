@@ -31,6 +31,10 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PHONE_OPEN, true))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP, DEFAULT_APP))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP_WINDOW, DEFAULT_APP))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NOTEBOOK_TOKENS, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COLLECTED_CHAR_UNITS, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COMPLETED_MEMES, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CHAR_CANVAS_POSITIONS, {}))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

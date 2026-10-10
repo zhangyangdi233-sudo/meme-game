@@ -7,6 +7,7 @@ const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
 var _writes: Array = []
+var _commits := 0
 
 
 func _init() -> void:
@@ -30,10 +31,16 @@ func _run() -> void:
 	var panel: NotebookAppPanel = PanelScript.new()
 	panel.name = "NotebookAppPanel"
 	root.add_child(panel)
+	game.collected_char_units = [
+		{"unit": "门", "locale": "zh", "source_post_id": "floor_13", "day": 1},
+		{"unit": "开", "locale": "zh", "source_post_id": "floor_13", "day": 1},
+	]
 	panel.configure(_deps(game))
-	panel.canvas_tile_moved.connect(func(unit: String, tile_position: Vector2) -> void:
-		_writes.append({"unit": unit, "position": tile_position})
-		game.set_char_canvas_position(unit, tile_position, "zh")
+	panel.canvas_positions_committed.connect(func(positions: Dictionary) -> void:
+		_commits += 1
+		for unit in positions.keys():
+			_writes.append({"unit": str(unit), "position": positions[unit]})
+		game.set_char_canvas_positions(positions, "zh")
 	)
 
 	var app_body := VBoxContainer.new()
@@ -63,6 +70,7 @@ func _run() -> void:
 		moving.position = Vector2(300.0, 40.0)
 		moving.linear_velocity = Vector2(320.0, 0.0)
 	panel.commit_canvas_positions()
+	_assert_eq(_commits, 1, "closing should write the canvas in one batch")
 	_assert_eq(_writes.size(), 1, "closing should write each settled tile once")
 	if _writes.size() == 1:
 		_assert_eq(str(_writes[0]["unit"]), "门", "only the settled tile should be written")
@@ -114,7 +122,6 @@ func _deps(game: MemeGameState) -> Dictionary:
 		"composer_tile_style": func(_kind: String): return StyleBoxFlat.new(),
 		"fusion_slot_text": func(slot_id: String) -> String: return slot_id,
 		"current_locale": func() -> String: return "zh",
-		"collected_char_units": func(_locale_code: String) -> Array[String]: return ["门", "开"],
 		"free_sentence_units": func() -> Array: return [],
 		"world_rules": func() -> Array: return [],
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
