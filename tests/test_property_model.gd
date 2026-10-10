@@ -199,6 +199,11 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	var pollution_id: int = pollution.get_instance_id()
 	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
 	_assert_true(PropertyKeysScript.UNSAVED.has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
+	for property_name in [PropertyKeysScript.SETTINGS_OPEN, PropertyKeysScript.SAVE_STATUS]:
+		_assert_true(PropertyKeysScript.UNSAVED.has(property_name), "%s should not be saved" % property_name)
+		_assert_true(manager.model(property_name) != null, "boot should create %s" % property_name)
+	_assert_eq(manager.model(PropertyKeysScript.SETTINGS_OPEN).read(), false, "settings should start closed")
+	_assert_eq(manager.model(PropertyKeysScript.SAVE_STATUS).read(), "", "save status should start empty")
 	for property_name in PropertyKeysScript.PREFERENCES:
 		_assert_true(not PropertyKeysScript.RUN.has(property_name), "preference %s should not be saved with the run" % property_name)
 	_assert_eq(pollution.read(), 0, "pollution should start at zero")

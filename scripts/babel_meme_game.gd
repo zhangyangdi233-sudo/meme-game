@@ -1552,7 +1552,6 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.refresh_menu_labels(game.pollution if game != null else 0)
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
@@ -2210,17 +2209,13 @@ func _close_history_window() -> void:
 		_settings_history_panel.close()
 
 
-func _refresh_settings_menu_labels() -> void:
-	if _settings_history_panel != null and game != null:
-		_settings_history_panel.refresh_menu_labels(game.pollution)
-
-
 func _on_autoplay_toggled(value: bool) -> void:
 	game.set_autoplay_enabled(value)
 
 
-func _settings_is_open() -> bool:
-	return _settings_history_panel != null and is_instance_valid(_settings_history_panel) and _settings_history_panel.is_settings_open()
+func _model_is_on(property_name: String) -> bool:
+	var model := _value_model(property_name)
+	return model != null and bool(model.read())
 
 
 func _toggle_settings_window() -> void:
@@ -2253,11 +2248,15 @@ func _apply_master_volume(value: Variant) -> void:
 
 
 func _master_volume_model() -> ValuePropertyModel:
+	return _value_model(PropertyKeysScript.MASTER_VOLUME)
+
+
+func _value_model(property_name: String) -> ValuePropertyModel:
 	PropertyBootScript.install()
 	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	if manager == null:
 		return null
-	return manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
+	return manager.model(property_name) as ValuePropertyModel
 
 
 func _on_settings_language_selected(locale_code: String) -> void:
@@ -2279,10 +2278,9 @@ func _on_settings_language_selected(locale_code: String) -> void:
 func _on_manual_save_pressed() -> void:
 	var progress_saved := _save_progress()
 	var preferences_saved := _locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
-	if _settings_history_panel != null:
-		_settings_history_panel.set_save_status(
-			"已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
-		)
+	var save_status := _value_model(PropertyKeysScript.SAVE_STATUS)
+	if save_status != null:
+		save_status.write("已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。")
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
 
 
@@ -2453,7 +2451,6 @@ func _render() -> void:
 func _render_status() -> void:
 	if _desk_log != null:
 		_desk_log.text = log_text
-	_refresh_settings_menu_labels()
 	_render_playtest_assist()
 	_update_doll_guide()
 	if _reality_scene_adapter != null:
@@ -2469,7 +2466,7 @@ func _render_playtest_assist() -> void:
 
 func _playtest_assist_snapshot() -> Dictionary:
 	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
-	var visible := _session_shows_play_chrome() and not _settings_is_open() and _playtest_assist_enabled
+	var visible := _session_shows_play_chrome() and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and _playtest_assist_enabled
 	var lines: Array[String] = []
 	if not visible or not _playtest_assist_enabled or game == null:
 		return {"visible": visible, "lines": lines}
@@ -2712,7 +2709,7 @@ func _update_visibility() -> void:
 	if _camera_session != null and _camera_session.hand_xray_overlay != null:
 		_camera_session.hand_xray_overlay.visible = _camera_session.enabled and show_play and not in_phone
 	if _settings_window != null:
-		_settings_window.visible = _settings_is_open() and show_play
+		_settings_window.visible = _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and show_play
 	if _desk_log != null:
 		_desk_log.visible = show_play and in_phone
 	if _vhs_overlay != null:
@@ -2796,7 +2793,7 @@ func _update_phone_shell_visibility() -> void:
 func _update_world_for_phone_view() -> void:
 	var in_phone := _phone_view_is_down()
 	if _view_toggle_button != null:
-		_view_toggle_button.visible = _session_shows_play_chrome() and not _settings_is_open() and (in_phone or not _reality_interaction_is_active())
+		_view_toggle_button.visible = _session_shows_play_chrome() and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and (in_phone or not _reality_interaction_is_active())
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.set_street_shown(not in_phone)

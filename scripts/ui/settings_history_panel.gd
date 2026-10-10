@@ -1,12 +1,16 @@
 class_name SettingsHistoryPanel
 extends Node
 ## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
-## The open settings window watches volume, autoplay, and language; closing it stops.
+## Whether settings are open lives in a model: the panel writes it and shows or hides the window when it changes.
+## The panel always watches the open flag and pollution (for its labels).
+## The open settings window also watches volume, autoplay, language and the save status; closing it stops.
 ## The open history window watches the recorded lines the same way.
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 signal volume_changed(value: float)
 signal vhs_toggled(value: bool)
@@ -35,11 +39,15 @@ var _settings_language_option: OptionButton
 var _settings_save_status: Label
 var _volume_slider: HSlider
 var _vhs_toggle: CheckButton
-var _settings_open := false
+var _always_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.SETTINGS_OPEN: _on_settings_open,
+	PropertyKeysScript.POLLUTION: _on_pollution,
+})
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
 	PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
 	PropertyKeysScript.LOCALE: _on_locale,
+	PropertyKeysScript.SAVE_STATUS: _on_save_status,
 })
 var _history_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.HISTORY_ENTRIES: _paint_history,
@@ -57,6 +65,7 @@ func mount(parent: Control, deps: Dictionary) -> void:
 	_apply_mount_deps(deps)
 	_build_settings_window(parent, deps)
 	_build_history_window(parent)
+	_always_watch.start()
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:
@@ -74,29 +83,16 @@ func is_open() -> bool:
 	return _history_open
 
 
-func is_settings_open() -> bool:
-	return _settings_open
-
-
 func set_settings_open(open: bool) -> void:
-	if _settings_open == open:
-		if _settings_window != null:
-			_settings_window.visible = open
-		return
-	_settings_open = open
-	if _settings_window != null:
-		_settings_window.visible = open
-		if open:
-			_settings_window.move_to_front()
-	if open:
-		_watch.start()
-	else:
-		_watch.stop()
-	settings_open_changed.emit(open)
+	var model := _settings_open_model()
+	if model != null:
+		model.write(open)
 
 
 func toggle_settings() -> void:
-	set_settings_open(not _settings_open)
+	var model := _settings_open_model()
+	if model != null:
+		model.write(not bool(model.read()))
 
 
 func close_settings() -> void:
@@ -165,7 +161,31 @@ func _on_locale(value: Variant) -> void:
 			return
 
 
-func refresh_menu_labels(pollution: int) -> void:
+func _settings_open_model() -> ValuePropertyModel:
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(PropertyKeysScript.SETTINGS_OPEN) as ValuePropertyModel
+
+
+## Shows or hides the window, starts or stops the settings watch, and tells the host when the state really changed.
+func _on_settings_open(value: Variant) -> void:
+	var open := bool(value)
+	var was_open := _watch.is_active()
+	if _settings_window != null:
+		_settings_window.visible = open
+		if open:
+			_settings_window.move_to_front()
+	if open:
+		_watch.start()
+	else:
+		_watch.stop()
+	if open != was_open:
+		settings_open_changed.emit(open)
+
+
+func _on_pollution(value: Variant) -> void:
+	var pollution := int(value)
 	if _settings_title_label != null:
 		_settings_title_label.text = _menu_display_label(pollution, "settings")
 	if _settings_volume_label != null:
@@ -181,9 +201,9 @@ func refresh_menu_labels(pollution: int) -> void:
 		_settings_history_button.text = _menu_display_label(pollution, "history")
 
 
-func set_save_status(text: String) -> void:
+func _on_save_status(value: Variant) -> void:
 	if _settings_save_status != null:
-		_settings_save_status.text = text
+		_settings_save_status.text = str(value)
 
 
 func build_exit_confirmation_overlay(parent: Control, deps: Dictionary = {}) -> void:

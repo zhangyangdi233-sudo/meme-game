@@ -76,6 +76,8 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LAST_PUBLISH_RESULT, {}))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FREE_SENTENCE_UNITS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.WORLD_RULES, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SETTINGS_OPEN, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SAVE_STATUS, ""))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

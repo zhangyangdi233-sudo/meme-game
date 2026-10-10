@@ -127,21 +127,28 @@ func _run() -> void:
 	var history := _find_node_by_name(host, "HistoryWindow") as Control
 	_assert_true(history != null, "mount should still build the history window")
 
-	_assert_true(not panel.is_settings_open(), "settings should start closed")
+	var open_model := _model(PropertyKeysScript.SETTINGS_OPEN)
+	_assert_true(not bool(open_model.read()), "settings should start closed")
 	panel.toggle_settings()
-	_assert_true(panel.is_settings_open(), "toggle_settings should open the settings window")
+	_assert_true(bool(open_model.read()), "toggle_settings should write the open model")
 	_assert_true(settings != null and settings.visible, "toggle_settings should show the settings window")
 	_assert_eq(_settings_open_events, [true], "toggle_settings should emit settings_open_changed(true)")
 	panel.close_settings()
-	_assert_true(not panel.is_settings_open(), "close_settings should close the settings window")
+	_assert_true(not bool(open_model.read()), "close_settings should write the open model closed")
 	_assert_true(settings != null and not settings.visible, "close_settings should hide the settings window")
 	_assert_eq(_settings_open_events, [true, false], "close_settings should emit settings_open_changed(false)")
 	panel.toggle_settings()
 	var close_button := _find_node_by_name(settings, "SettingsCloseButton") as Button
 	if close_button != null:
 		close_button.pressed.emit()
-	_assert_true(not panel.is_settings_open(), "the settings close button should close the window")
+	_assert_true(not bool(open_model.read()), "the settings close button should close the window")
 	_assert_eq(_settings_open_events, [true, false, true, false], "the settings close button should emit settings_open_changed(false)")
+	open_model.write(true)
+	_assert_true(settings != null and settings.visible, "writing the open model should show the window by itself")
+	_assert_eq(_settings_open_events, [true, false, true, false, true], "a model write should emit settings_open_changed once")
+	open_model.write(false)
+	_assert_true(settings != null and not settings.visible, "writing the open model closed should hide the window")
+	_assert_eq(_settings_open_events, [true, false, true, false, true, false], "closing by model should emit settings_open_changed(false)")
 
 	if volume_slider != null:
 		volume_slider.value = 42.0
@@ -174,14 +181,8 @@ func _run() -> void:
 	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
 	_test_history_window_follows_the_model(panel, host)
 
-	panel.refresh_menu_labels(0)
-	_assert_eq(volume_label.text if volume_label != null else "", "音量", "clean pollution should keep the default volume label")
-	panel.refresh_menu_labels(30)
-	_assert_eq(volume_label.text if volume_label != null else "", "外面的声音", "mid pollution should rename the volume label")
-	_assert_eq(autoplay_button.text if autoplay_button != null else "", "让我替你继续说", "mid pollution should rename the autoplay label")
-	panel.refresh_menu_labels(100)
-	_assert_eq(volume_label.text if volume_label != null else "", "它离你有多近", "max pollution should use the corrupted volume label")
-	_assert_true(volume_slider != null and volume_slider.editable, "max pollution must keep the volume slider adjustable")
+	_test_labels_follow_pollution(panel, volume_label, autoplay_button, volume_slider)
+	_test_save_status_follows_the_model(panel, settings)
 
 	panel.build_exit_confirmation_overlay(host)
 	await process_frame
@@ -237,6 +238,42 @@ func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_s
 	panel.close_settings()
 	autoplay.write(false)
 	locale.write("zh")
+
+
+func _test_labels_follow_pollution(panel: SettingsHistoryPanel, volume_label: Label, autoplay_button: CheckButton, volume_slider: HSlider) -> void:
+	var pollution := _model(PropertyKeysScript.POLLUTION)
+	pollution.write(0)
+	_assert_eq(volume_label.text, "音量", "clean pollution should keep the default volume label")
+	pollution.write(30)
+	_assert_eq(volume_label.text, "外面的声音", "even closed settings should follow pollution so reopening is never stale")
+	pollution.write(0)
+	panel.set_settings_open(true)
+	_assert_eq(volume_label.text, "音量", "an open window should show the current pollution")
+	pollution.write(30)
+	_assert_eq(volume_label.text, "外面的声音", "mid pollution should rename the volume label by itself")
+	_assert_eq(autoplay_button.text, "让我替你继续说", "mid pollution should rename the autoplay label by itself")
+	pollution.write(100)
+	_assert_eq(volume_label.text, "它离你有多近", "max pollution should use the corrupted volume label")
+	_assert_true(volume_slider.editable, "max pollution must keep the volume slider adjustable")
+	panel.close_settings()
+	pollution.write(0)
+	_assert_eq(volume_label.text, "音量", "closed settings should keep following pollution")
+
+
+func _test_save_status_follows_the_model(panel: SettingsHistoryPanel, settings: Control) -> void:
+	var status := _find_node_by_name(settings, "SettingsSaveStatus") as Label
+	var model := _model(PropertyKeysScript.SAVE_STATUS)
+	panel.set_settings_open(true)
+	_assert_eq(status.text, "", "the status should start empty")
+	model.write("已保存")
+	_assert_eq(status.text, "已保存", "an open settings window should show the new status by itself")
+	panel.close_settings()
+	model.write("失败")
+	_assert_eq(status.text, "已保存", "closed settings should stop receiving the status")
+	panel.set_settings_open(true)
+	_assert_eq(status.text, "失败", "reopening settings should show the current status")
+	panel.close_settings()
+	model.write("")
 
 
 func _test_history_window_follows_the_model(panel: SettingsHistoryPanel, host: Control) -> void:
