@@ -1,5 +1,5 @@
 extends SceneTree
-## Left status column watches money and remaining actions on the property models.
+## Left status column watches pollution, money, remaining actions, and the daily cap on the property models.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -10,6 +10,7 @@ const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const FULL_ACTIONS := "今日行动\n● ● ● ● ●"
 const THREE_ACTIONS := "今日行动\n● ● ● ○ ○"
 const ONE_ACTION := "今日行动\n● ○ ○ ○ ○"
+const THREE_OF_SEVEN := "今日行动\n● ● ● ○ ○ ○ ○"
 
 var _failures: Array[String] = []
 
@@ -72,12 +73,19 @@ func _test_shown_column_syncs_then_follows_writes() -> void:
 	_assert_eq(rail.offset_right, rail_right, "the rail's right edge should stay put")
 	_assert_true(str(actions_label.text).contains("●") and str(actions_label.text).contains("○"), "action marks should stay filled and empty dots")
 
-	panel.render({
-		"pollution": 12,
-		"tooltips": {"pollution": "污染 12%", "settings": "设置"},
-	})
-	_assert_eq(actions_label.text, THREE_ACTIONS, "a pushed pollution snapshot should not rewrite actions")
-	_assert_eq(tooltip.text, "资金 31", "a pushed pollution snapshot should not rewrite money")
+	var pollution: ValuePropertyModel = mounted["pollution"]
+	var max_actions: ValuePropertyModel = mounted["max_actions"]
+	_assert_eq(_listener_count(pollution), 1, "showing the column should register pollution once")
+	_assert_eq(_listener_count(max_actions), 1, "showing the column should register the daily cap once")
+	pollution.write(12)
+	_assert_eq(actions_label.text, THREE_ACTIONS, "a pollution write should not rewrite actions")
+	_assert_eq(tooltip.text, "资金 31", "a pollution write should not rewrite an open money tooltip")
+	pollution_icon.mouse_entered.emit()
+	_assert_eq(tooltip.text, "污染 12%", "the pollution tooltip should show the model's pollution")
+	pollution.write(40)
+	_assert_eq(tooltip.text, "污染 40%", "an open pollution tooltip should follow the model")
+	max_actions.write(7)
+	_assert_eq(actions_label.text, THREE_OF_SEVEN, "the action dots should follow the daily cap")
 	_dispose(mounted)
 
 
@@ -97,6 +105,8 @@ func _test_hidden_and_freed_column_stops_listening() -> void:
 	panel.set_shown(false)
 	_assert_eq(_listener_count(money), 0, "hiding the column should drop the money listener")
 	_assert_eq(_listener_count(actions), 0, "hiding the column should drop the actions listener")
+	_assert_eq(_listener_count(mounted["pollution"]), 0, "hiding the column should drop the pollution listener")
+	_assert_eq(_listener_count(mounted["max_actions"]), 0, "hiding the column should drop the daily cap listener")
 	money.write(99)
 	actions.write(1)
 	_assert_eq(actions_label.text, THREE_ACTIONS, "a hidden column should keep the last action dots")
@@ -136,13 +146,14 @@ func _mount() -> Dictionary:
 		"theme_color": _theme_color,
 		"style_factory": _style,
 		"rail_width": 158.0,
-		"max_actions": func() -> int: return 5,
 	})
 	return {
 		"host": host,
 		"panel": panel,
 		"money": manager.model(PropertyKeysScript.MONEY),
 		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
+		"pollution": manager.model(PropertyKeysScript.POLLUTION),
+		"max_actions": manager.model(PropertyKeysScript.MAX_ACTIONS_PER_DAY),
 	}
 
 

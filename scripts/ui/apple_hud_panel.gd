@@ -1,11 +1,10 @@
 class_name AppleHudPanel
 extends Node
-## Left HUD rail. While shown, it watches money and remaining actions and paints those numbers itself.
+## Left HUD rail. While shown, it watches pollution, money, and today's actions and paints those numbers itself.
 
 signal settings_pressed
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 var _rail: PanelContainer
@@ -31,13 +30,14 @@ var _pollution_icon_path := ""
 var _money_icon_path := ""
 var _settings_icon_path := ""
 
-var _tooltip_texts: Dictionary = {}
+var _tooltip_texts: Dictionary = {"settings": "设置"}
 var _tooltip_kind := ""
-var _max_actions_fn: Callable
 var _shown := false
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.POLLUTION: _on_pollution,
 	PropertyKeysScript.MONEY: _on_money,
 	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
+	PropertyKeysScript.MAX_ACTIONS_PER_DAY: _on_actions,
 })
 
 
@@ -100,20 +100,6 @@ func get_actions_label() -> Label:
 	return _actions_label
 
 
-func render(state: Dictionary) -> void:
-	if _rail == null or not is_instance_valid(_rail):
-		return
-	var tooltips := state.get("tooltips", {}) as Dictionary
-	if tooltips.has("pollution"):
-		_tooltip_texts["pollution"] = str(tooltips["pollution"])
-	elif state.has("pollution"):
-		_tooltip_texts["pollution"] = "污染 %d%%" % int(state.get("pollution", 0))
-	if tooltips.has("settings"):
-		_tooltip_texts["settings"] = str(tooltips["settings"])
-	elif not _tooltip_texts.has("settings"):
-		_tooltip_texts["settings"] = "设置"
-
-
 func hide_tooltip() -> void:
 	_hide_tooltip()
 
@@ -136,7 +122,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_pollution_icon_path = str(deps.get("pollution_icon_path", _pollution_icon_path))
 	_money_icon_path = str(deps.get("money_icon_path", _money_icon_path))
 	_settings_icon_path = str(deps.get("settings_icon_path", _settings_icon_path))
-	_max_actions_fn = deps.get("max_actions", Callable())
 
 
 func _build_rail(parent: Control) -> void:
@@ -286,22 +271,24 @@ func _stop_if_current_rail_exits(rail: Node) -> void:
 	_watch.stop()
 
 
+func _on_pollution(value: Variant) -> void:
+	_set_tooltip_text("pollution", "污染 %d%%" % int(value))
+
+
 func _on_money(value: Variant) -> void:
-	var text := "资金 %d" % int(value)
-	_tooltip_texts["money"] = text
+	_set_tooltip_text("money", "资金 %d" % int(value))
+
+
+func _set_tooltip_text(kind: String, text: String) -> void:
+	_tooltip_texts[kind] = text
 	if _tooltip_label == null:
 		return
-	if _tooltip_kind == "money" or _tooltip == null or not _tooltip.visible:
+	if _tooltip_kind == kind or _tooltip == null or not _tooltip.visible:
 		_tooltip_label.text = text
 
 
-func _on_actions(value: Variant) -> void:
+## Remaining actions and the daily cap both paint the pips, so either change reads the other from its model.
+func _on_actions(_value: Variant) -> void:
 	if _actions_label == null or not is_instance_valid(_actions_label):
 		return
-	_actions_label.text = action_label(int(value), _max_actions())
-
-
-func _max_actions() -> int:
-	if _max_actions_fn.is_valid():
-		return int(_max_actions_fn.call())
-	return PropertyBootScript.DEFAULT_MAX_ACTIONS
+	_actions_label.text = action_label(int(_watch.read(PropertyKeysScript.ACTIONS_REMAINING)), int(_watch.read(PropertyKeysScript.MAX_ACTIONS_PER_DAY)))

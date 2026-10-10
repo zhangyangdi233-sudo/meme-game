@@ -71,6 +71,15 @@ func _test_value_keeps_bounds_and_rejects_the_wrong_type() -> void:
 	model.write(-8)
 	_assert_eq(model.read(), 0, "a number below the min should clamp")
 
+	var floored: ValuePropertyModel = FactoryScript.create("count", 1, 1) as ValuePropertyModel
+	floored.write(0)
+	_assert_eq(floored.read(), 1, "a min without a max should still clamp below")
+	floored.write(9000)
+	_assert_eq(floored.read(), 9000, "a min without a max should leave large numbers alone")
+	var capped: ValuePropertyModel = FactoryScript.create("ratio", 0.5, null, 1.0) as ValuePropertyModel
+	capped.write(3.0)
+	_assert_eq(capped.read(), 1.0, "a max without a min should still clamp above")
+
 
 func _test_list_and_map_reads_are_copies() -> void:
 	var listed: ListPropertyModel = FactoryScript.create("bag", [{"n": 1}]) as ListPropertyModel

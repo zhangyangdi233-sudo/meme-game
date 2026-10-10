@@ -72,7 +72,6 @@ var _free_sentence_units_fn: Callable
 var _soft_style_fn: Callable
 var _apply_composer_tile_theme_fn: Callable
 var _free_sentence_text_fn: Callable
-var _can_spend_action_fn: Callable
 var _pollution_fn: Callable
 var _player_character_path := ""
 var _composer_soft_unit_limit := 12
@@ -92,11 +91,13 @@ var _painted_followed: Array = []
 var _painted_liked: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
+var _painted_can_spend := false
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
 	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
 	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
+	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
 })
 
 
@@ -226,6 +227,7 @@ func render_app(screen: String, channel: String) -> void:
 	_painted_followed = _followed
 	_painted_liked = _liked
 	_painted_memes = _completed_memes
+	_painted_can_spend = _can_spend()
 	_clear(_app_body)
 	var phone_view := _panel_factory.call() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -362,7 +364,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_soft_style_fn = deps.get("soft_style", Callable())
 	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
 	_free_sentence_text_fn = deps.get("free_sentence_text", Callable())
-	_can_spend_action_fn = deps.get("can_spend_action", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
 	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
@@ -1232,7 +1233,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	if placed_units.is_empty():
 		post_button.text = "先放入一个字"
 		post_button.disabled = true
-	elif not _can_spend_action_fn.is_valid() or not bool(_can_spend_action_fn.call()):
+	elif not _can_spend():
 		post_button.text = "今天不能再投稿"
 		post_button.disabled = true
 	else:
@@ -1284,18 +1285,30 @@ func _on_completed_memes(value: Variant) -> void:
 	_repaint_unless_syncing()
 
 
+func _on_actions(_value: Variant) -> void:
+	_repaint_unless_syncing()
+
+
+## Posting costs an action, so the publish page can post while any are left today.
+func _can_spend() -> bool:
+	var value: Variant = _watch.read(PropertyKeysScript.ACTIONS_REMAINING)
+	return value != null and int(value) > 0
+
+
 func _repaint_unless_syncing() -> void:
 	if not _watch.is_syncing():
 		_repaint_if_stale()
 
 
 ## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
-## Held words mark the post detail only, and finished memes show on the profile page only.
+## Held words mark the post detail only, finished memes show on the profile page only,
+## and remaining actions only decide whether the publish page can post.
 func _repaint_if_stale() -> void:
 	if not _rendered:
 		return
 	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
-	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale
+	var publish_stale := _screen == "publish" and _can_spend() != _painted_can_spend
+	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale or publish_stale
 	if feed_stale:
 		render_app(_screen, _channel)
 	if feed_stale or _held_chars != _painted_held_chars:

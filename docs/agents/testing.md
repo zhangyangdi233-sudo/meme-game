@@ -34,7 +34,7 @@ $env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
 
 ## Modes
 
-**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (22 files after the harness split). Use after small module-only changes.
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (23 files after the harness split). Use after small module-only changes.
 
 ```powershell
 .\tools\run_tests.ps1 -Fast
@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (67 tests)
+## What runs (82 tests)
 
-### GDScript (65)
+### GDScript (80)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 

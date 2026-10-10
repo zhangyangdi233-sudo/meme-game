@@ -14,19 +14,20 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` (retired once the follows and likes moved to property models) |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` (retired once the phone moved to property models) |
-| Signals (slice 2B) | 3 — + `action_economy_changed` |
+| Signals (slice 2B) | 3 — + `action_economy_changed` (retired once the day progress moved to property models) |
 | Signals (slice 2C) | 4 — + `settings_changed` |
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` (retired once the conversation progress moved to property models) |
 | Signals (slice 3b) | 5 — `reality_conversation_changed` emitted on all conversation intents (retired with 3a) |
-| Signals (slice 4) | 6 — + `day_progress_changed` |
-| Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
+| Signals (slice 4) | 6 — + `day_progress_changed` (retired once the day progress moved to property models) |
+| Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition (retired with 4) |
 | Signals (slice 6) | 7 — + `inventory_changed` (retired once held words and memes moved to property models) |
 | Signals (slice 6b) | 7 — `inventory_changed` emitted on `place_token_in_slot` and `confirm_meme_fusion` (retired with 6) |
 | Signals (slice 7) | 8 — + `progression_changed` |
 | Signals (held words and memes moved to models) | 7 — − `inventory_changed` |
+| Signals (day progress moved to models) | 5 — − `action_economy_changed`, − `day_progress_changed` |
 | Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
 
-**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_day_progress_snapshot()`, `_progression_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
+**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_progression_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
 
 **Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
 
@@ -127,16 +128,16 @@ Whether the phone is open, the current app, and the foreground app window live o
 
 `set_phone_open()`, `set_view_state()`, `set_active_app()`
 
-### Action economy — **slice 2B seam**
+### Action economy (run property models)
+
+`actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, and `day_ended_reason` live only in run property models (saved with the run, reset with it). The state exposes them as accessors that read and write the models; it keeps no second copy. There is no snapshot and no signal.
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_action_economy_snapshot()` → `{ actions_remaining, max_actions_per_day, needs_day_settlement, day_ended_reason }` |
-| Signal | `action_economy_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
-| Intent | `spend_action(action_type)` — emits on successful spend only |
+| Intent | `spend_action(action_type)` — writes the models |
 | Query | `can_spend_action()`, `settle_day_if_needed()` |
 
-Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlement` / `day_ended_reason` remain for save/load; new adapter code should prefer snapshot + signal for HUD refresh.
+The left HUD watches remaining actions and the daily cap to paint its pips; the open social publish page watches remaining actions to lock its post button.
 
 ### Action economy (legacy listing)
 
@@ -152,15 +153,16 @@ Legacy fields `actions_remaining` / `max_actions_per_day` / `needs_day_settlemen
 
 Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new adapter code should prefer snapshot + signal for settings UI refresh.
 
-### Pollution / tower — **slice 4–5 seam (day progress)**
+### Pollution / tower — day progress (run property models)
+
+`day`, `pollution`, `tower_floor`, `pending_floor_transition`, `needs_day_settlement`, and `day_ended_reason` live only in run property models. `day` never goes below 1 and `tower_floor` stays within 1–4; the models clamp. There is no change signal.
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` |
-| Signal | `day_progress_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from `change_pollution()`, `settle_day_if_needed()`, and `resolve_floor_transition_at_boundary()` |
-| Intent | `change_pollution(amount)`, `settle_day_if_needed()`, `resolve_floor_transition_at_boundary()` |
+| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
+| Intent | `change_pollution(amount)`, `settle_day_if_needed()`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
 
-Legacy fields `day` / `pollution` / `tower_floor` / `needs_day_settlement` / `day_ended_reason` / `pending_floor_transition` remain for save/load; new adapter grouped reads should prefer snapshot + signal.
+The adapter refreshes after its own intents (`_after_effective_action`, `_settle_day_and_present_rewards`). The left HUD and the babel app watch the models themselves while shown.
 
 ### Pollution / tower (legacy listing)
 
@@ -273,32 +275,9 @@ No snapshot and no signal. The follows and likes are two list models; the social
 
 ---
 
-## Slice 2B contract (action economy)
+## Slice 2B contract (action economy) — retired
 
-```gdscript
-# Snapshot (read)
-{
-  "actions_remaining": int,
-  "max_actions_per_day": int,
-  "needs_day_settlement": bool,
-  "day_ended_reason": String,
-}
-
-# Signal payload = snapshot + change metadata
-{
-  "actions_remaining": int,
-  "max_actions_per_day": int,
-  "needs_day_settlement": bool,
-  "day_ended_reason": String,
-  "change": {
-    "kind": "spend",
-    "target_id": String,  # action_type passed to spend_action()
-    "active": true,
-  },
-}
-```
-
-**Adapter pattern:** connect `action_economy_changed` → `_render()`; read economy via `get_action_economy_snapshot()`; send intents via `spend_action()`. `_after_effective_action()` no longer calls `_render()` when only actions changed — the signal covers HUD/disable-state refresh before the spend animation sets the pre-spend pip count.
+The action economy moved into run property models. `get_action_economy_snapshot()` and `action_economy_changed` are gone. See "Action economy (run property models)".
 
 ---
 
@@ -364,10 +343,11 @@ No snapshot and no signal. The follows and likes are two list models; the social
 
 ---
 
-## Slice 4 contract (day progression)
+## Slice 4–5 contract (day progression, settlement, floor transition) — signal retired
+
+The six day-progress facts moved into run property models. `day_progress_changed` is gone; `get_day_progress_snapshot()` stays as a read of the models:
 
 ```gdscript
-# Snapshot (read)
 {
   "day": int,
   "pollution": int,
@@ -376,57 +356,9 @@ No snapshot and no signal. The follows and likes are two list models; the social
   "day_ended_reason": String,
   "pending_floor_transition": int,
 }
-
-# Signal payload = snapshot + change metadata
-{
-  # ...snapshot fields...
-  "change": {
-    "kind": "pollution",
-    "target_id": String,  # amount passed to change_pollution()
-    "active": bool,         # true when amount > 0
-  },
-}
 ```
 
-**Adapter pattern:** connect `day_progress_changed` → `_render()`; read grouped day/pollution/tower via `_day_progress_snapshot()` in `_render_status()`, pollution HUD tooltip, and `_pollution_stage_snapshot()`. Send pollution intents via `change_pollution()` (usually indirect through publish/craft paths). Slice 4 emits from the pollution vertical only; slice 5 adds settle and floor-transition emissions (see slice 5 contract).
-
----
-
-## Slice 5 contract (day settlement and floor transition)
-
-```gdscript
-# Snapshot (read) — unchanged from slice 4
-{
-  "day": int,
-  "pollution": int,
-  "tower_floor": int,
-  "needs_day_settlement": bool,
-  "day_ended_reason": String,
-  "pending_floor_transition": int,
-}
-
-# Signal payload = snapshot + change metadata
-{
-  # ...snapshot fields...
-  "change": {
-    "kind": "pollution" | "settle_day" | "floor_transition",
-    "target_id": String,  # pollution delta, new day number, or target floor
-    "active": bool,
-  },
-}
-```
-
-**Intent → signal mapping:**
-
-| Intent | `change.kind` | When |
-|---|---|---|
-| `change_pollution(amount)` | `pollution` | when pollution, pending floor, or flashback state changes (slice 4) |
-| `settle_day_if_needed()` | `settle_day` | on successful settlement; `target_id` is the new day number |
-| `resolve_floor_transition_at_boundary()` | `floor_transition` | when tower floor actually advances; `target_id` is the new floor |
-
-**`action_economy_changed` vs `day_progress_changed`:** `spend_action()` continues to emit `action_economy_changed` on every successful spend, including the last spend that sets `needs_day_settlement`. That signal owns pip count, disable-state, and the *request* to settle. `settle_day_if_needed()` emits `day_progress_changed` with kind `settle_day` and owns day rollover, action refresh, craft-slot clears, and reality reset. Do **not** duplicate an exhaustion-specific `action_economy_changed` in slice 5 — adapter HUD refresh after settlement comes from `day_progress_changed`.
-
-**Adapter pattern:** connect `day_progress_changed` → `_render()`; remove redundant `_render()` after `settle_day_if_needed()` when the signal path already refreshed UI (e.g. `_after_effective_action`). Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish). Read `day` / `tower_floor` via `_day_progress_snapshot()` in `_rebuild_reality_floor()` / `_ensure_reality_floor_current()` and floor-transition card updates touched in this slice.
+**Adapter pattern:** the adapter no longer listens to the state. `_after_effective_action()` refreshes play surfaces before an action-spend or flashback beat, and `_settle_day_and_present_rewards()` refreshes them after a settlement. Read `day` / `tower_floor` / `pollution` straight from the state accessors; pass `get_day_progress_snapshot()` where a world dependency takes the grouped dictionary. Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish).
 
 ---
 
@@ -478,4 +410,4 @@ No snapshot and no signal. The follows and likes are two list models; the social
 | `_latch_ultimate_tasks_for_current_floor()` | `floor3_task` / `floor4_task` | when the corresponding task latch flips true |
 | `_resolve_tower_step()` hidden branch | `ending_unlock` | when hidden-route ending unlocks at day boundary |
 
-**Adapter pattern:** connect `progression_changed` → `_render()`; read ending screen and floor 3/4 door logic via `_progression_snapshot()` combined with `_day_progress_snapshot()` for `tower_floor`. `_render()` early-exits to `_render_ending()` when `ending_unlocked` is true in the progression snapshot.
+**Adapter pattern:** connect `progression_changed` → `_render()`; read ending screen and floor 3/4 door logic via `_progression_snapshot()` combined with `game.tower_floor`. `_render()` early-exits to `_render_ending()` when `ending_unlocked` is true in the progression snapshot.

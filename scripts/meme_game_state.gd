@@ -1,8 +1,6 @@
 class_name MemeGameState
 extends RefCounted
 
-signal action_economy_changed(snapshot: Dictionary)
-signal day_progress_changed(snapshot: Dictionary)
 signal progression_changed(snapshot: Dictionary)
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
@@ -20,14 +18,13 @@ const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
-const MAX_TOWER_FLOOR := 4
+const MAX_TOWER_FLOOR := PropertyBootScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
 	"lineId", "originalSpeaker", "currentSpeaker", "originalText",
 	"displayText", "revisionStage", "revisionMarkup",
 ]
 const POLLUTION_FLASHBACK_THRESHOLD := 60
-const BASE_ACTIONS_PER_DAY := PropertyBootScript.DEFAULT_MAX_ACTIONS
 const LANGUAGE_RECIPE_SLOTS := [
 	{"id": "subject", "label": "谁 / 什么", "placeholder": "放入主语", "accepted_role": "subject"},
 	{"id": "action", "label": "发生了什么", "placeholder": "放入动作", "accepted_role": "action"},
@@ -36,35 +33,42 @@ const LANGUAGE_RECIPE_SLOTS := [
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
 const SAVE_DATA_VERSION := 5
+## Run fields that still live on this object. Fields kept in models are saved from PropertyKeys.RUN instead.
 const SAVE_FIELD_NAMES := [
-	"day", "pollution", "tower_floor",
-	"ending_unlocked", "ending_language_choice", "ending_route", "formal_floor_three_complete",
-	"pending_floor_transition", "autoplay_enabled", "exit_prompt_seen",
-	"money", "actions_remaining", "max_actions_per_day",
-	"needs_day_settlement", "day_ended_reason", "pollution_flashback_seen", "pollution_flashback_pending",
-	"view_state", "phone_open", "active_app", "active_app_window",
-	"notebook_tokens", "draft_slots", "completed_memes", "owned_meme_frames", "owned_meme_frame_ids",
+	"ending_unlocked", "ending_route", "formal_floor_three_complete",
+	"exit_prompt_seen",
+	"pollution_flashback_seen", "pollution_flashback_pending",
+	"view_state",
+	"draft_slots", "owned_meme_frames", "owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
 	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
-	"event_log", "social_followed_handles", "social_liked_post_ids", "collected_world_item_ids",
+	"event_log", "collected_world_item_ids",
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
 	"history_entries",
 	"language_sentence_slots", "sentence_records", "tutorial_progress",
-	"collected_char_units", "last_char_pick_day", "char_canvas_positions",
+	"last_char_pick_day",
 	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
 	"last_relationship_money_loss", "reality_dialogue_count",
 ]
 
-var day: int = 1
+var day: int:
+	get:
+		return _read_run_int(PropertyKeysScript.DAY)
+	set(value):
+		_write_run_field(PropertyKeysScript.DAY, value)
 var pollution: int:
 	get:
 		return _read_pollution()
 	set(value):
 		_write_pollution(value)
-var tower_floor: int = 1
+var tower_floor: int:
+	get:
+		return _read_run_int(PropertyKeysScript.TOWER_FLOOR)
+	set(value):
+		_write_run_field(PropertyKeysScript.TOWER_FLOOR, value)
 var ending_unlocked: bool = false
 var ending_language_choice: String:
 	get:
@@ -73,7 +77,11 @@ var ending_language_choice: String:
 		_write_run_field(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, value)
 var ending_route: String = ""
 var formal_floor_three_complete: bool = false
-var pending_floor_transition: int = 0
+var pending_floor_transition: int:
+	get:
+		return _read_run_int(PropertyKeysScript.PENDING_FLOOR_TRANSITION)
+	set(value):
+		_write_run_field(PropertyKeysScript.PENDING_FLOOR_TRANSITION, value)
 var exit_prompt_seen: bool = false
 var money: int:
 	get:
@@ -85,9 +93,21 @@ var actions_remaining: int:
 		return _read_run_int(PropertyKeysScript.ACTIONS_REMAINING)
 	set(value):
 		_write_run_field(PropertyKeysScript.ACTIONS_REMAINING, value)
-var max_actions_per_day: int = PropertyBootScript.DEFAULT_MAX_ACTIONS
-var needs_day_settlement: bool = false
-var day_ended_reason: String = ""
+var max_actions_per_day: int:
+	get:
+		return _read_run_int(PropertyKeysScript.MAX_ACTIONS_PER_DAY)
+	set(value):
+		_write_run_field(PropertyKeysScript.MAX_ACTIONS_PER_DAY, value)
+var needs_day_settlement: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.NEEDS_DAY_SETTLEMENT)
+	set(value):
+		_write_run_field(PropertyKeysScript.NEEDS_DAY_SETTLEMENT, value)
+var day_ended_reason: String:
+	get:
+		return _read_run_string(PropertyKeysScript.DAY_ENDED_REASON)
+	set(value):
+		_write_run_field(PropertyKeysScript.DAY_ENDED_REASON, value)
 var pollution_flashback_seen: bool = false
 var pollution_flashback_pending: bool = false
 
@@ -237,19 +257,11 @@ var conversation_reward: Dictionary = {}
 
 
 func new_run() -> void:
-	day = 1
 	PropertyBootScript.reset_run()
-	tower_floor = 1
 	ending_unlocked = false
 	ending_route = ""
 	formal_floor_three_complete = false
-	pending_floor_transition = 0
 	exit_prompt_seen = false
-	money = PropertyBootScript.DEFAULT_MONEY
-	max_actions_per_day = BASE_ACTIONS_PER_DAY
-	actions_remaining = max_actions_per_day
-	needs_day_settlement = false
-	day_ended_reason = ""
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
 	view_state = "phone_down"
@@ -414,15 +426,24 @@ func replay_tutorial() -> void:
 
 func to_save_data() -> Dictionary:
 	var state_data := {}
-	for field_name in SAVE_FIELD_NAMES:
-		if PropertyKeysScript.PREFERENCES.has(str(field_name)):
-			continue
-		var value: Variant = _read_save_field(str(field_name))
+	for field_name in _save_field_names():
+		var value: Variant = _read_save_field(field_name)
 		state_data[field_name] = value.duplicate(true) if value is Array or value is Dictionary else value
 	return {
 		"version": SAVE_DATA_VERSION,
 		"state": state_data,
 	}
+
+
+## Every saved run model, then the fields this object still holds.
+func _save_field_names() -> Array[String]:
+	var names: Array[String] = []
+	for property_name in PropertyKeysScript.RUN:
+		if not PropertyKeysScript.RUN_NOT_SAVED.has(property_name):
+			names.append(property_name)
+	for field_name in SAVE_FIELD_NAMES:
+		names.append(str(field_name))
+	return names
 
 
 func load_save_data(save_data: Dictionary) -> bool:
@@ -434,16 +455,14 @@ func load_save_data(save_data: Dictionary) -> bool:
 		return false
 	var saved_floor := int((state_data as Dictionary).get("tower_floor", 1))
 	new_run()
-	for field_name in SAVE_FIELD_NAMES:
+	for field_name in _save_field_names():
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
-		if PropertyKeysScript.RUN.has(str(field_name)):
-			_load_run_field(str(field_name), value)
+		if PropertyKeysScript.RUN.has(field_name):
+			_load_run_field(field_name, value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
-	day = maxi(1, day)
-	tower_floor = clampi(tower_floor, 1, MAX_TOWER_FLOOR)
 	max_actions_per_day = maxi(1, max_actions_per_day)
 	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
@@ -725,7 +744,6 @@ func resolve_floor_transition_at_boundary() -> int:
 	pending_floor_transition = 0
 	event_log.push_front("你抵达了第 %d 层。" % tower_floor)
 	_latch_ultimate_tasks_for_current_floor()
-	_emit_day_progress_changed("floor_transition", str(tower_floor), true)
 	return tower_floor
 
 
@@ -779,31 +797,11 @@ func spend_action(action_type: String) -> bool:
 	if actions_remaining == 0:
 		needs_day_settlement = true
 		day_ended_reason = action_type
-	_emit_action_economy_changed("spend", action_type)
 	return true
 
 
 func can_spend_action() -> bool:
 	return actions_remaining > 0
-
-
-func get_action_economy_snapshot() -> Dictionary:
-	return {
-		"actions_remaining": actions_remaining,
-		"max_actions_per_day": max_actions_per_day,
-		"needs_day_settlement": needs_day_settlement,
-		"day_ended_reason": day_ended_reason,
-	}
-
-
-func _emit_action_economy_changed(change_kind: String, target_id: String) -> void:
-	var snapshot := get_action_economy_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": true,
-	}
-	action_economy_changed.emit(snapshot)
 
 
 func set_autoplay_enabled(value: bool) -> void:
@@ -882,26 +880,12 @@ func get_day_progress_snapshot() -> Dictionary:
 	}
 
 
-func _emit_day_progress_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_day_progress_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	day_progress_changed.emit(snapshot)
-
-
 func change_pollution(amount: int) -> int:
 	var previous_pollution := pollution
-	var previous_pending := pending_floor_transition
 	pollution = clampi(pollution + amount, 0, 100)
 	request_floor_transition_for_pollution()
-	var flashback_triggered := check_pollution_flashback(previous_pollution)
-	var delta := pollution - previous_pollution
-	if delta != 0 or pending_floor_transition != previous_pending or flashback_triggered:
-		_emit_day_progress_changed("pollution", str(amount), amount > 0)
-	return delta
+	check_pollution_flashback(previous_pollution)
+	return pollution - previous_pollution
 
 
 func consume_pollution_flashback() -> bool:
@@ -1458,7 +1442,6 @@ func settle_day_if_needed() -> bool:
 	language_sentence_slots.clear()
 	reset_reality_phase_for_day()
 	reset_typed_reality_conversation()
-	_emit_day_progress_changed("settle_day", str(day), true)
 	return true
 
 

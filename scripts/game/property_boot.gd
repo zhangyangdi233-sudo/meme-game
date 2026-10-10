@@ -11,6 +11,7 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 const DEFAULT_MONEY := 18
 const DEFAULT_MAX_ACTIONS := 5
+const MAX_TOWER_FLOOR := 4
 const DEFAULT_LOCALE := "zh"
 const DEFAULT_MASTER_VOLUME := 80.0
 const DEFAULT_APP := "social"
@@ -27,6 +28,12 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HAS_SAVE, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, DEFAULT_MONEY))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, DEFAULT_MAX_ACTIONS))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DAY, 1, 1))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.TOWER_FLOOR, 1, 1, MAX_TOWER_FLOOR))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PENDING_FLOOR_TRANSITION, 0))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NEEDS_DAY_SETTLEMENT, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DAY_ENDED_REASON, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MAX_ACTIONS_PER_DAY, DEFAULT_MAX_ACTIONS))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.AUTOPLAY_ENABLED, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LOCALE, DEFAULT_LOCALE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MASTER_VOLUME, DEFAULT_MASTER_VOLUME, 0.0, 100.0))

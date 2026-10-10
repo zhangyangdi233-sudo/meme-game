@@ -1,5 +1,5 @@
 extends SceneTree
-## Social feed panel watches the followed authors, liked posts, held words and finished memes on their property models.
+## Social feed panel watches the followed authors, liked posts, held words, finished memes and remaining actions on their property models.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them()
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
+	_test_the_open_publish_page_follows_remaining_actions()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -173,6 +174,7 @@ func _mount() -> Dictionary:
 		"liked": manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS),
 		"held": manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS),
 		"memes": manager.model(PropertyKeysScript.COMPLETED_MEMES),
+		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
 	}
 
 
@@ -205,6 +207,7 @@ func _deps() -> Dictionary:
 		"floor_label": func() -> String: return "1",
 		"language_material": LanguageMaterial.new(),
 		"current_locale": func() -> String: return "zh",
+		"free_sentence_units": func() -> Array: return ["门"],
 	}
 
 
@@ -303,6 +306,40 @@ func _test_a_freed_panel_unregisters_the_holdings() -> void:
 
 
 ## The count line on the profile page, or "<missing>" when that page is not drawn.
+func _test_the_open_publish_page_follows_remaining_actions() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var actions: ValuePropertyModel = mounted["actions"]
+	panel.render_app("publish", "discover")
+	panel.update_visibility(true, true)
+	_assert_eq(_listener_count(actions), 1, "showing should register on remaining actions once")
+	_assert_eq(_post_button_text(mounted), "投稿", "a day with actions left should allow posting")
+
+	actions.write(0)
+	_assert_eq(_post_button_text(mounted), "今天不能再投稿", "spending the last action should lock the open publish page by itself")
+	actions.write(2)
+	_assert_eq(_post_button_text(mounted), "投稿", "refilled actions should unlock the open publish page by itself")
+
+	panel.update_visibility(true, false)
+	_assert_eq(_listener_count(actions), 0, "hiding should drop the actions listener")
+	_dispose(mounted)
+
+	mounted = _mount()
+	panel = mounted["panel"] as SocialFeedPanel
+	actions = mounted["actions"]
+	panel.render_app("home", "discover")
+	panel.update_visibility(true, true)
+	var feed := _find(mounted, "SocialPhoneView")
+	actions.write(0)
+	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "an action write should not redraw a page without the post button")
+	_dispose(mounted)
+
+
+func _post_button_text(mounted: Dictionary) -> String:
+	var button := _find(mounted, "SocialPublishPostButton") as Button
+	return button.text if button != null else "<missing>"
+
+
 func _meme_count_text(mounted: Dictionary) -> String:
 	var label := _find_label_with_prefix(mounted["parent"], "已合成梗")
 	return label.text if label != null else "<missing>"

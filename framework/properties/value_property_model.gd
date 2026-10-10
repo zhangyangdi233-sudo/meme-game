@@ -1,7 +1,7 @@
 class_name ValuePropertyModel
 extends PropertyModel
 ## A single value locked to the type of its initial value.
-## Optional bounds clamp ints and floats. A wrong type is rejected.
+## Optional bounds clamp ints and floats; either bound may be left null. A wrong type is rejected.
 
 
 var _value_type := TYPE_NIL
@@ -13,7 +13,7 @@ var _maximum: Variant
 func _init(property_name: String, initial_value: Variant, minimum: Variant = null, maximum: Variant = null) -> void:
 	super(property_name, initial_value)
 	_value_type = typeof(initial_value)
-	if minimum != null and maximum != null and (_value_type == TYPE_INT or _value_type == TYPE_FLOAT):
+	if (minimum != null or maximum != null) and (_value_type == TYPE_INT or _value_type == TYPE_FLOAT):
 		_has_bounds = true
 		_minimum = minimum
 		_maximum = maximum
@@ -33,6 +33,9 @@ func write(next: Variant) -> void:
 
 
 func _clamp(next: Variant) -> Variant:
-	if typeof(next) == TYPE_INT:
-		return clampi(int(next), int(_minimum), int(_maximum))
-	return clampf(float(next), float(_minimum), float(_maximum))
+	var stored: Variant = next
+	if _minimum != null and stored < _minimum:
+		stored = _minimum
+	if _maximum != null and stored > _maximum:
+		stored = _maximum
+	return int(stored) if typeof(next) == TYPE_INT else float(stored)

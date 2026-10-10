@@ -224,7 +224,7 @@ func _narrative_overlay_deps() -> Dictionary:
 		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"label_factory": _ui_theme_helper.label,
 		"level_display_name": _locale.level_display_name,
-		"day_progress": _day_progress_snapshot,
+		"tower_floor": func() -> int: return game.tower_floor if game != null else 1,
 		"capture_frozen_frame": _capture_frozen_frame_texture,
 	}
 
@@ -249,7 +249,7 @@ func _audio_controller_deps() -> Dictionary:
 	return {
 		"game": game,
 		"game_started": _game_started,
-		"day_progress": _day_progress_snapshot(),
+		"day_progress": game.get_day_progress_snapshot() if game != null else {},
 		"phone_shell": _phone_shell_snapshot(),
 		"reality_interaction_active": _reality_interaction_is_active(),
 		"reality_conversation": _reality_conversation_snapshot(),
@@ -262,7 +262,7 @@ func _social_content_deps() -> Dictionary:
 		"post_cards": _social_post_cards,
 		"social_channel": _social_channel,
 		"game": game,
-		"day_progress": _day_progress_snapshot(),
+		"day_progress": game.get_day_progress_snapshot() if game != null else {},
 		"current_locale": _locale.current_locale,
 		"translate": func(text: String) -> String: return _locale.translate(text),
 		"level_display_name": func(floor_number: int) -> String: return _locale.level_display_name(floor_number),
@@ -662,24 +662,8 @@ func _migrate_social_author_ids() -> void:
 func _connect_game_state_signals() -> void:
 	if game == null:
 		return
-	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
-		game.action_economy_changed.connect(_on_action_economy_changed)
-	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
-		game.day_progress_changed.connect(_on_day_progress_changed)
 	if not game.progression_changed.is_connected(_on_progression_changed):
 		game.progression_changed.connect(_on_progression_changed)
-
-
-func _on_action_economy_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_phone_shell()
-
-
-func _on_day_progress_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_play_surfaces()
 
 
 func _on_progression_changed(_snapshot: Dictionary) -> void:
@@ -700,19 +684,6 @@ func _phone_shell_snapshot() -> Dictionary:
 
 func _foreground_app() -> String:
 	return game.active_app_window if game != null else ""
-
-
-func _day_progress_snapshot() -> Dictionary:
-	if game == null:
-		return {
-			"day": 1,
-			"pollution": 0,
-			"tower_floor": 1,
-			"needs_day_settlement": false,
-			"day_ended_reason": "",
-			"pending_floor_transition": 0,
-		}
-	return game.get_day_progress_snapshot()
 
 
 func _reality_conversation_snapshot() -> Dictionary:
@@ -763,7 +734,7 @@ func _reality_hud_snapshot() -> Dictionary:
 		"conversation": _reality_conversation_snapshot(),
 		"interaction_active": _reality_interaction_is_active(),
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")),
-		"day_progress": _day_progress_snapshot(),
+		"day_progress": game.get_day_progress_snapshot() if game != null else {},
 	}
 
 
@@ -847,7 +818,7 @@ func _ensure_reality_scene_adapter() -> void:
 
 
 func _reality_scene_deps() -> Dictionary:
-	var progress := _day_progress_snapshot()
+	var progress: Dictionary = game.get_day_progress_snapshot() if game != null else {}
 	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
 	var locale_code: String = "zh"
 	if _locale != null:
@@ -1192,8 +1163,9 @@ func _sync_audio_state(immediate: bool = false) -> void:
 
 
 func _pollution_stage_snapshot() -> Dictionary:
-	var progress := _day_progress_snapshot()
-	return PollutionStageScript.stage(int(progress.get("pollution", 0)), int(progress.get("day", 1)))
+	if game == null:
+		return PollutionStageScript.stage(0, 1)
+	return PollutionStageScript.stage(game.pollution, game.day)
 
 
 func _ensure_title_ui_root() -> void:
@@ -1516,31 +1488,12 @@ func _apple_hud_mount_deps() -> Dictionary:
 		"money_icon_path": HUD_MONEY_ICON_PATH,
 		"settings_icon_path": HUD_SETTINGS_ICON_PATH,
 		"on_tooltip_hidden": _on_apple_hud_tooltip_hidden,
-		"max_actions": func() -> int: return game.max_actions_per_day if game != null else PropertyBootScript.DEFAULT_MAX_ACTIONS,
 	}
 
 
 func _on_apple_hud_tooltip_hidden() -> void:
 	if _edge_drawer != null:
 		_edge_drawer.schedule_close()
-
-
-func _apple_hud_snapshot() -> Dictionary:
-	var progress := _day_progress_snapshot()
-	return {
-		"pollution": int(progress.get("pollution", 0)),
-		"tooltips": {
-			"pollution": "污染 %d%%" % int(progress.get("pollution", 0)),
-			"settings": "设置",
-		},
-	}
-
-
-func _render_apple_hud() -> void:
-	if _apple_hud_panel == null or not is_instance_valid(_apple_hud_panel):
-		_apple_hud_panel = null
-		return
-	_apple_hud_panel.render(_apple_hud_snapshot())
 
 
 func _hud_rail() -> PanelContainer:
@@ -1673,7 +1626,7 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.refresh_menu_labels(int(_day_progress_snapshot().get("pollution", 0)))
+	_settings_history_panel.refresh_menu_labels(game.pollution if game != null else 0)
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
@@ -2027,15 +1980,14 @@ func _social_feed_mount_deps() -> Dictionary:
 		"author_id": SocialFeedContentScript.author_id,
 		"player_echo_quote": func() -> String: return game.get_player_echo_quote(_locale.current_locale) if game != null else "",
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
-		"game_day": func() -> int: return int(_day_progress_snapshot().get("day", 0)) if game != null else 0,
+		"game_day": func() -> int: return game.day if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
 		"publish_result": func() -> Dictionary:
 			return SocialFeedContentScript.publish_result(_social_content_deps()),
 		"free_sentence_units": func() -> Array: return game.get_free_sentence_units() if game != null else [],
 		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
 		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
-		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
-		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
+		"pollution": func() -> int: return game.pollution if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
 	}
@@ -2210,9 +2162,6 @@ func _babel_mount_deps() -> Dictionary:
 		"label_factory": _ui_theme_helper.label,
 		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
-		"tower_floor": func() -> int: return int(_day_progress_snapshot().get("tower_floor", 1)) if game != null else 1,
-		"money": func() -> int: return game.money if game != null else 0,
-		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
 		"event_log": func() -> Array:
 			return game.event_log if game != null else [],
 		"level_display_name": func(floor_number: int) -> String:
@@ -2360,8 +2309,7 @@ func _render_history_window() -> void:
 
 func _refresh_settings_menu_labels() -> void:
 	if _settings_history_panel != null and game != null:
-		var progress := _day_progress_snapshot()
-		_settings_history_panel.refresh_menu_labels(int(progress.get("pollution", 0)))
+		_settings_history_panel.refresh_menu_labels(game.pollution)
 
 
 func _on_autoplay_toggled(value: bool) -> void:
@@ -2600,7 +2548,6 @@ func _render() -> void:
 
 
 func _render_status() -> void:
-	_render_apple_hud()
 	if _desk_log != null:
 		_desk_log.text = log_text
 	_refresh_settings_menu_labels()
@@ -2627,8 +2574,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 		return {"visible": visible, "lines": lines}
 	var step: Dictionary = game.get_tutorial_step()
 	lines.append(str(step.get("test_instruction", "测试提示：继续探索。")))
-	var day_progress := _day_progress_snapshot()
-	var floor_number := clampi(int(day_progress.get("tower_floor", 1)), 1, 4)
+	var floor_number := clampi(game.tower_floor, 1, 4)
 	if floor_number <= 3:
 		var progress: Dictionary = game.get_key_clue_progress(floor_number)
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
@@ -2639,7 +2585,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 		if bool(progress.get("solved", false)) and item_id not in game.collected_prerequisite_item_ids:
 			lines.append("目标：%s。%s" % [str(item.get("label", "前置物")), str(item.get("location_hint", "跟随荧光测试标记。"))])
 	var collected_count := game.collected_prerequisite_item_ids.size()
-	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, int(day_progress.get("pollution", 0))])
+	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, game.pollution])
 	return {"visible": visible, "lines": lines}
 
 
@@ -2968,6 +2914,8 @@ func _update_phone_shell_visibility() -> void:
 		_social_feed_panel.update_visibility(show_phone_home, bool(_open_app_windows.get("social", false)))
 	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
 		_notebook_app_panel.set_shown(show_phone_home and bool(_open_app_windows.get("notebook", false)))
+	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
+		_babel_app_panel.set_shown(show_phone_home and bool(_open_app_windows.get("babel", false)))
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 	if _hand_phone_image != null:
@@ -3371,9 +3319,8 @@ func _doll_guide_current_line() -> String:
 		if required_count > 1:
 			line += "(%d/%d)" % [clampi(int(step.get("event_count", 0)), 0, required_count), required_count]
 		return line
-	var day_progress := _day_progress_snapshot()
 	var progression := _progression_snapshot()
-	var tower_floor := int(day_progress.get("tower_floor", 1))
+	var tower_floor := game.tower_floor if game != null else 1
 	var floor3_complete := bool(progression.get("floor3_task_complete", false))
 	var floor4_complete := bool(progression.get("floor4_task_complete", false))
 	if tower_floor == 3 and not floor3_complete:
@@ -3620,6 +3567,7 @@ func _on_confirm_dialogue_pressed() -> void:
 func _after_effective_action(actions_before: int = -1) -> void:
 	var settlement := _narrative_settlement(actions_before)
 	if not settlement.is_empty():
+		_refresh_play_surfaces()
 		var hud_actions_label := _hud_actions_label_ref()
 		if hud_actions_label != null and settlement.has("actions_before"):
 			hud_actions_label.text = _action_text(int(settlement.get("actions_before", 0)))
@@ -3658,6 +3606,7 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 			_reality_scene_adapter.clear_nearby_targets()
 		_reality_hover_choice_id = ""
 		_sync_audio_state(false)
+		_refresh_play_surfaces()
 	selected_meme_id = ""
 	if from_flashback:
 		log_text = "黑屏之后，已经是第二天。"
@@ -3669,7 +3618,7 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 
 
 func _day_plan() -> Dictionary:
-	var current_day := 1 if game == null else int(_day_progress_snapshot().get("day", 1))
+	var current_day := 1 if game == null else game.day
 	return SocialFeedCatalogScript.day_plan_for_day(current_day)
 
 

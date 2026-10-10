@@ -370,9 +370,9 @@ func _hud_actions_label() -> Label:
 
 
 func _tower_floor() -> int:
-	var snapshot_fn: Callable = _deps.get("day_progress", Callable())
-	if snapshot_fn.is_valid():
-		return int(snapshot_fn.call().get("tower_floor", 1))
+	var reader: Callable = _deps.get("tower_floor", Callable())
+	if reader.is_valid():
+		return int(reader.call())
 	return 1
 
 

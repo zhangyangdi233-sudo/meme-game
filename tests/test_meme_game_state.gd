@@ -7,10 +7,6 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 var _state_script: Script = null
-var _action_economy_signal_count := 0
-var _last_action_economy_snapshot: Dictionary = {}
-var _day_progress_signal_count := 0
-var _last_day_progress_snapshot: Dictionary = {}
 var _progression_signal_count := 0
 var _last_progression_snapshot: Dictionary = {}
 
@@ -35,12 +31,13 @@ func _run() -> void:
 	test_social_follow_and_like_toggles_are_free_and_persistent()
 	test_social_engagement_lives_in_the_models()
 	test_phone_shell_state_lives_in_models()
-	test_action_economy_snapshot_and_signal()
+	test_action_economy_lives_in_models()
 	test_autoplay_lives_in_the_run_model()
 	test_reality_conversation_snapshot_reads_the_models()
-	test_day_progress_snapshot_and_signal()
-	test_day_progress_settle_day_signal()
-	test_day_progress_floor_transition_signal()
+	test_day_progress_lives_in_models()
+	test_settling_the_day_writes_the_models()
+	test_floor_transition_writes_the_floor_model()
+	test_day_progress_survives_save_and_resets_on_new_run()
 	test_inventory_snapshot_without_a_change_signal()
 	test_progression_snapshot_and_signal()
 	test_pick_token_costs_action_and_adds_notebook_token()
@@ -161,45 +158,30 @@ func test_phone_shell_state_lives_in_models() -> void:
 	_assert_true(str(game.active_app_window).is_empty(), "closing phone should clear foreground window")
 
 
-func test_action_economy_snapshot_and_signal() -> void:
+func test_action_economy_lives_in_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_action_economy_signal_count = 0
-	_last_action_economy_snapshot = {}
-	game.action_economy_changed.connect(_capture_action_economy)
+	_assert_true(not game.has_signal("action_economy_changed"), "the action economy signal should be gone")
+	_assert_true(not game.has_method("get_action_economy_snapshot"), "the action economy snapshot should be gone")
+	_assert_eq(_conversation_model(PropertyKeysScript.ACTIONS_REMAINING).read(), 5, "new run should start with five actions")
+	_assert_eq(_conversation_model(PropertyKeysScript.MAX_ACTIONS_PER_DAY).read(), 5, "new run should cap at five actions per day")
+	_assert_eq(_conversation_model(PropertyKeysScript.NEEDS_DAY_SETTLEMENT).read(), false, "new run should not need settlement")
+	_assert_eq(_conversation_model(PropertyKeysScript.DAY_ENDED_REASON).read(), "", "new run should have no day-end reason")
 
-	var initial: Dictionary = game.get_action_economy_snapshot()
-	_assert_eq(int(initial.get("actions_remaining", -1)), 5, "new run should start with five actions")
-	_assert_eq(int(initial.get("max_actions_per_day", -1)), 5, "new run should cap at five actions per day")
-	_assert_true(not bool(initial.get("needs_day_settlement", true)), "new run should not need settlement")
-	_assert_eq(str(initial.get("day_ended_reason", "unset")), "", "new run should have no day-end reason")
-
+	var seen: Array = []
+	var listener := func(value: Variant) -> void: seen.append(value)
+	_conversation_model(PropertyKeysScript.ACTIONS_REMAINING).register(listener)
 	_assert_true(game.spend_action("test-spend"), "first spend should succeed")
-	_assert_eq(_action_economy_signal_count, 1, "successful spend should emit once")
-	_assert_eq(int(_last_action_economy_snapshot.get("actions_remaining", -1)), 4, "signal snapshot should reflect remaining actions")
-	var spend_change: Dictionary = _last_action_economy_snapshot.get("change", {})
-	_assert_eq(str(spend_change.get("kind", "")), "spend", "change kind should be spend")
-	_assert_eq(str(spend_change.get("target_id", "")), "test-spend", "change target should be action type")
-	_assert_true(bool(spend_change.get("active", false)), "spend should be active in change metadata")
-
-	initial["actions_remaining"] = 99
-	_assert_eq(game.actions_remaining, 4, "snapshot must be a copy, not live state")
-
+	_assert_eq(seen, [5, 4], "a spend should tell the actions model listener once")
 	for index in 4:
 		_assert_true(game.spend_action("drain-%d" % index), "remaining actions should be spendable")
-	_assert_eq(_action_economy_signal_count, 5, "each successful spend should emit")
-	_assert_eq(game.actions_remaining, 0, "five spends should deplete the day")
-	_assert_true(bool(_last_action_economy_snapshot.get("needs_day_settlement", false)), "last spend should mark day settlement")
-	_assert_eq(str(_last_action_economy_snapshot.get("day_ended_reason", "")), "drain-3", "last spend should preserve action type as day-end reason")
+	_assert_eq(seen, [5, 4, 3, 2, 1, 0], "each spend should write the actions model")
+	_assert_eq(_conversation_model(PropertyKeysScript.NEEDS_DAY_SETTLEMENT).read(), true, "last spend should mark day settlement in its model")
+	_assert_eq(_conversation_model(PropertyKeysScript.DAY_ENDED_REASON).read(), "drain-3", "last spend should keep the action type as the day-end reason")
 
-	_action_economy_signal_count = 0
 	_assert_true(not game.spend_action("blocked"), "spend at zero should fail")
-	_assert_eq(_action_economy_signal_count, 0, "failed spend should not emit")
-
-
-func _capture_action_economy(snapshot: Dictionary) -> void:
-	_action_economy_signal_count += 1
-	_last_action_economy_snapshot = snapshot
+	_assert_eq(seen.size(), 6, "a failed spend should not rewrite the actions")
+	_conversation_model(PropertyKeysScript.ACTIONS_REMAINING).unregister(listener)
 
 
 func test_autoplay_lives_in_the_run_model() -> void:
@@ -321,12 +303,13 @@ func _conversation_model(property_name: String) -> PropertyModel:
 	return manager.model(property_name)
 
 
-func test_day_progress_snapshot_and_signal() -> void:
+func test_day_progress_lives_in_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_day_progress_signal_count = 0
-	_last_day_progress_snapshot = {}
-	game.day_progress_changed.connect(_capture_day_progress)
+	_assert_true(not game.has_signal("day_progress_changed"), "the day progress signal should be gone")
+	for field_name in ["day", "tower_floor", "pending_floor_transition", "needs_day_settlement", "day_ended_reason", "max_actions_per_day"]:
+		_assert_true(PropertyKeysScript.RUN.has(field_name), "%s should be a run model" % field_name)
+		_assert_true(not _state_script.SAVE_FIELD_NAMES.has(field_name), "%s should be saved from its model, not the field list" % field_name)
 
 	var initial: Dictionary = game.get_day_progress_snapshot()
 	_assert_eq(int(initial.get("day", -1)), 1, "new run should start on day one")
@@ -337,81 +320,93 @@ func test_day_progress_snapshot_and_signal() -> void:
 	_assert_eq(int(initial.get("pending_floor_transition", -1)), 0, "new run should have no pending floor transition")
 
 	game.change_pollution(10)
-	_assert_eq(_day_progress_signal_count, 1, "pollution change should emit once")
-	_assert_eq(int(_last_day_progress_snapshot.get("pollution", -1)), 10, "signal snapshot should reflect pollution")
-	var pollution_change: Dictionary = _last_day_progress_snapshot.get("change", {})
-	_assert_eq(str(pollution_change.get("kind", "")), "pollution", "change kind should be pollution")
-	_assert_eq(str(pollution_change.get("target_id", "")), "10", "change target should be the delta argument")
-	_assert_true(bool(pollution_change.get("active", false)), "positive pollution delta should be active")
-
+	_assert_eq(_conversation_model(PropertyKeysScript.POLLUTION).read(), 10, "pollution should live in its model")
 	initial["pollution"] = 99
 	_assert_eq(game.pollution, 10, "snapshot must be a copy, not live state")
 
-	_day_progress_signal_count = 0
-	game.change_pollution(0)
-	_assert_eq(_day_progress_signal_count, 0, "zero delta should not emit")
-
 	game.change_pollution(15)
-	_assert_eq(int(_last_day_progress_snapshot.get("pending_floor_transition", -1)), 2, "floor-one threshold should queue floor two")
-	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 1, "pollution alone must not move tower floor immediately")
+	_assert_eq(_conversation_model(PropertyKeysScript.PENDING_FLOOR_TRANSITION).read(), 2, "floor-one threshold should queue floor two in its model")
+	_assert_eq(_conversation_model(PropertyKeysScript.TOWER_FLOOR).read(), 1, "pollution alone must not move tower floor immediately")
 
 	game.change_pollution(35)
-	_assert_eq(int(_last_day_progress_snapshot.get("pollution", -1)), 60, "pollution should clamp at 100")
-	_assert_true(bool(_last_day_progress_snapshot.get("needs_day_settlement", false)), "flashback crossing should mark day settlement")
-	_assert_eq(str(_last_day_progress_snapshot.get("day_ended_reason", "")), "pollution-flashback", "flashback should preserve its cause")
+	_assert_eq(game.pollution, 60, "pollution should add up")
+	_assert_eq(_conversation_model(PropertyKeysScript.NEEDS_DAY_SETTLEMENT).read(), true, "flashback crossing should mark day settlement")
+	_assert_eq(_conversation_model(PropertyKeysScript.DAY_ENDED_REASON).read(), "pollution-flashback", "flashback should keep its cause")
 
-	_day_progress_signal_count = 0
-	for index in 5:
-		game.spend_action("settle-%d" % index)
 	game.settle_day_if_needed()
-	_assert_eq(_day_progress_signal_count, 2, "settlement with pending floor transition should emit floor_transition then settle_day")
-	var settle_change: Dictionary = _last_day_progress_snapshot.get("change", {})
-	_assert_eq(str(settle_change.get("kind", "")), "settle_day", "last settlement signal should be settle_day")
-	_assert_eq(str(settle_change.get("target_id", "")), "2", "settle_day target should be the new day number")
-	_assert_eq(int(_last_day_progress_snapshot.get("day", -1)), 2, "settle snapshot should reflect the new day")
-	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 2, "settle snapshot should include floor advanced at boundary")
+	_assert_eq(_conversation_model(PropertyKeysScript.DAY).read(), 2, "settling should move the day model")
+	_assert_eq(_conversation_model(PropertyKeysScript.TOWER_FLOOR).read(), 2, "settling should advance the floor queued at the boundary")
+	_assert_eq(_conversation_model(PropertyKeysScript.PENDING_FLOOR_TRANSITION).read(), 0, "the queued floor should clear once taken")
+
+	game.day = 0
+	game.tower_floor = 9
+	_assert_eq(game.day, 1, "the day model should not go below one")
+	_assert_eq(game.tower_floor, 4, "the floor model should not go above four")
 
 
-func test_day_progress_settle_day_signal() -> void:
+func test_settling_the_day_writes_the_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_day_progress_signal_count = 0
-	_last_day_progress_snapshot = {}
-	game.day_progress_changed.connect(_capture_day_progress)
+	var seen_days: Array = []
+	var listener := func(value: Variant) -> void: seen_days.append(value)
+	_conversation_model(PropertyKeysScript.DAY).register(listener)
+	game.max_actions_per_day = 3
 	game.needs_day_settlement = true
 	game.day_ended_reason = "actions-depleted"
 	_assert_true(game.settle_day_if_needed(), "requested settlement should run")
-	_assert_eq(_day_progress_signal_count, 1, "settle_day should emit once when no floor transition occurs")
-	var settle_change: Dictionary = _last_day_progress_snapshot.get("change", {})
-	_assert_eq(str(settle_change.get("kind", "")), "settle_day", "change kind should be settle_day")
-	_assert_eq(str(settle_change.get("target_id", "")), "2", "settle_day target should be the new day number")
-	_assert_true(bool(settle_change.get("active", false)), "settle_day should be active")
-	_assert_eq(int(_last_day_progress_snapshot.get("day", -1)), 2, "snapshot should reflect day two after settlement")
-	_assert_true(not bool(_last_day_progress_snapshot.get("needs_day_settlement", true)), "settlement should clear needs_day_settlement")
+	_assert_eq(seen_days, [1, 2], "settling should tell the day listener once")
+	_assert_eq(game.actions_remaining, 3, "settling should refill actions up to the daily cap")
+	_assert_eq(_conversation_model(PropertyKeysScript.NEEDS_DAY_SETTLEMENT).read(), false, "settlement should clear the settlement model")
+	_assert_eq(_conversation_model(PropertyKeysScript.DAY_ENDED_REASON).read(), "", "settlement should clear the day-end reason model")
+	_assert_true(not game.settle_day_if_needed(), "a settled day should not settle again")
+	_assert_eq(seen_days, [1, 2], "a skipped settlement should not move the day")
+	_conversation_model(PropertyKeysScript.DAY).unregister(listener)
 
 
-func test_day_progress_floor_transition_signal() -> void:
+func test_floor_transition_writes_the_floor_model() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_day_progress_signal_count = 0
-	_last_day_progress_snapshot = {}
-	game.day_progress_changed.connect(_capture_day_progress)
+	var seen_floors: Array = []
+	var listener := func(value: Variant) -> void: seen_floors.append(value)
+	_conversation_model(PropertyKeysScript.TOWER_FLOOR).register(listener)
 	game.pollution = 25
 	_assert_eq(game.resolve_floor_transition_at_boundary(), 2, "pollution boundary should advance the floor")
-	_assert_eq(_day_progress_signal_count, 1, "floor transition should emit once")
-	var floor_change: Dictionary = _last_day_progress_snapshot.get("change", {})
-	_assert_eq(str(floor_change.get("kind", "")), "floor_transition", "change kind should be floor_transition")
-	_assert_eq(str(floor_change.get("target_id", "")), "2", "floor_transition target should be the new floor")
-	_assert_true(bool(floor_change.get("active", false)), "floor_transition should be active")
-	_assert_eq(int(_last_day_progress_snapshot.get("tower_floor", -1)), 2, "snapshot should reflect floor two")
-	_day_progress_signal_count = 0
+	_assert_eq(seen_floors, [1, 2], "floor transition should tell the floor listener once")
 	_assert_eq(game.resolve_floor_transition_at_boundary(), 2, "repeat boundary call should not advance again")
-	_assert_eq(_day_progress_signal_count, 0, "no-op floor transition should not emit")
+	_assert_eq(seen_floors, [1, 2], "a no-op floor transition should not write the floor")
+	_conversation_model(PropertyKeysScript.TOWER_FLOOR).unregister(listener)
 
 
-func _capture_day_progress(snapshot: Dictionary) -> void:
-	_day_progress_signal_count += 1
-	_last_day_progress_snapshot = snapshot
+func test_day_progress_survives_save_and_resets_on_new_run() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	game.day = 6
+	game.tower_floor = 3
+	game.pending_floor_transition = 4
+	game.needs_day_settlement = true
+	game.day_ended_reason = "saved-reason"
+	game.max_actions_per_day = 7
+	var saved: Dictionary = game.to_save_data()
+	var state_data: Dictionary = saved.get("state", {})
+	_assert_eq(int(state_data.get("day", -1)), 6, "the save should carry the day from its model")
+	_assert_eq(int(state_data.get("max_actions_per_day", -1)), 7, "the save should carry the daily cap from its model")
+
+	game.new_run()
+	_assert_eq(game.day, 1, "new run should reset the day")
+	_assert_eq(game.tower_floor, 1, "new run should reset the floor")
+	_assert_eq(game.pending_floor_transition, 0, "new run should clear the queued floor")
+	_assert_true(not game.needs_day_settlement, "new run should clear the settlement flag")
+	_assert_eq(game.day_ended_reason, "", "new run should clear the day-end reason")
+	_assert_eq(game.max_actions_per_day, 5, "new run should reset the daily cap")
+
+	var restored: RefCounted = _state_script.new()
+	_assert_true(restored.load_save_data(saved), "the save should load")
+	_assert_eq(restored.day, 6, "loading should restore the day")
+	_assert_eq(restored.tower_floor, 3, "loading should restore the floor")
+	_assert_eq(restored.pending_floor_transition, 4, "loading should restore the queued floor")
+	_assert_true(restored.needs_day_settlement, "loading should restore the settlement flag")
+	_assert_eq(restored.day_ended_reason, "saved-reason", "loading should restore the day-end reason")
+	_assert_eq(restored.max_actions_per_day, 7, "loading should restore the daily cap")
 
 
 func test_inventory_snapshot_without_a_change_signal() -> void:

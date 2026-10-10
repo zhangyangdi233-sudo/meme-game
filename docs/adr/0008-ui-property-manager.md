@@ -16,7 +16,7 @@ Passing a prepared dictionary into each screen copies the same fact until the co
 
 **Lists and maps.** A read returns a deep copy. Changing that copy does not notify anyone. Add, remove, and replace go through the model's methods, which store a new copy and emit `changed`.
 
-**Names.** Every model name, and which save list it belongs to, lives in `PropertyKeys` under `scripts/`. Three lists: the run (saved with the session), preferences (saved apart from the run), and facts that are not saved (`has_save` is one: the file is the source, the model only publishes whether it exists). Save, load, and new run follow those lists. The generic types live under `framework/`. `PropertyKeys`, `ServiceKeys`, and the boot registration live under `scripts/`. Framework must not name pollution, floors, or memes (ADR 0001).
+**Names.** Every model name, and which save list it belongs to, lives in `PropertyKeys` under `scripts/`. Three lists: the run (saved with the session), preferences (saved apart from the run), and facts that are not saved (`has_save` is one: the file is the source, the model only publishes whether it exists). Save, load, and new run follow those lists: the save writes every run model, so `MemeGameState` lists only the fields that have not moved yet. A run model that loading rebuilds anyway (the conversation progress) is also named in `RUN_NOT_SAVED`; a new run resets it and the save skips it. The generic types live under `framework/`. `PropertyKeys`, `ServiceKeys`, and the boot registration live under `scripts/`. Framework must not name pollution, floors, or memes (ADR 0001).
 
 ## What stays outside
 
