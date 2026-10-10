@@ -8,7 +8,7 @@ const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
 
 
 ## The following channel lists only the posts of authors in followed_handles.
-static func visible_post_indices(deps: Dictionary, followed_handles: Array = []) -> Array[int]:
+static func visible_post_indices(deps: Dictionary, followed_handles: Array) -> Array[int]:
 	var result: Array[int] = []
 	var social_channel := str(deps.get("social_channel", "discover"))
 	var post_cards: Array = deps.get("post_cards", [])
@@ -22,7 +22,7 @@ static func visible_post_indices(deps: Dictionary, followed_handles: Array = [])
 	return result
 
 
-static func like_text(post: Dictionary, post_index: int, liked_post_ids: Array = []) -> String:
+static func like_text(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
 	var liked := liked_post_ids.has(str(post.get("id", "")))
 	var stable_index := int(post.get("card_index", post_index))
 	var count := 64 + (stable_index * 31) % 120 + (1 if liked else 0)

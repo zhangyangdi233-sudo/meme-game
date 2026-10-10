@@ -83,7 +83,6 @@ var _poster_sheet_count := 0
 var _screen := ""
 var _channel := ""
 var _rendered := false
-var _shown := false
 var _observing := false
 var _registering := false
 var _followed: Array = []
@@ -165,8 +164,7 @@ func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 func update_visibility(in_phone: bool, social_app_open: bool) -> void:
 	if _detail_window != null:
 		_detail_window.visible = in_phone and _social_detail_open and social_app_open
-	_shown = in_phone and social_app_open
-	if _shown:
+	if in_phone and social_app_open:
 		_start_observing()
 	else:
 		_stop_observing()
