@@ -142,7 +142,7 @@ func _on_choice_pressed(locale_code: String) -> void:
 		_on_locale(_watch.read(PropertyKeysScript.LOCALE))
 	var bus := ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
 	if bus != null:
-		bus.emit_intent(UiIntentsScript.LANGUAGE_SELECTED, {"locale": locale_code})
+		bus.emit_intent(UiIntentsScript.LANGUAGE_SELECTED, {UiIntentsScript.KEY_LOCALE: locale_code})
 
 
 func _on_cancel_pressed() -> void:

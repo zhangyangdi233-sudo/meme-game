@@ -64,7 +64,7 @@ _Avoid_: autoload, a manager that also closes other screens
 
 **UI intent**:
 How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
-_Avoid_: a private signal or callback per panel, a second channel for runtime-built controls, dropping the answer because today's bus only carries a name
+_Avoid_: a private signal or callback per panel, a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
 **Service registry**:
 Global table from a string to one shared object. The host binds services at boot. Callers resolve by that string. Service names live in `ServiceKeys`.

@@ -295,7 +295,6 @@ func _on_camera_source_ready(source: String, selected_index: int) -> void:
 
 func _ready() -> void:
 	PropertyBootScript.install()
-	_ensure_ui_event_bus()
 	_ui_theme_helper.configure({
 		"ui_font_path": UI_FONT_PATH,
 		"ui_font_grid": UI_FONT_GRID,
@@ -335,6 +334,7 @@ func _process(delta: float) -> void:
 
 
 func _enter_tree() -> void:
+	_ensure_ui_event_bus()
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -343,6 +343,8 @@ func _enter_tree() -> void:
 func _exit_tree() -> void:
 	if _camera_session != null:
 		_camera_session.stop_receiver()
+	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
+		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		var volume := _master_volume_model()
 		if volume != null:
@@ -1641,7 +1643,7 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.LANGUAGE_PICKER:
 			_build_language_selection_overlay(false)
 		UiIntentsScript.LANGUAGE_SELECTED:
-			_on_language_selected(str(payload.get("locale", "")))
+			_on_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
 
 
 func _ensure_language_selection_panel() -> void:

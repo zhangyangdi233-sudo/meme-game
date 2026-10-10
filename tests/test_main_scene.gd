@@ -32,6 +32,11 @@ func _run_async() -> void:
 	_test_phone_hides_street(game_root)
 	_test_language_and_playtest_contract(game_root)
 
+	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
+	root.remove_child(game_root)
+	_assert_true(bus.intent_emitted.get_connections().is_empty(), "a host out of the tree should stop listening to the UI event bus")
+	root.add_child(game_root)
+	_assert_eq(bus.intent_emitted.get_connections().size(), 1, "a host back in the tree should listen once again")
 	game_root.queue_free()
 	await process_frame
 	_finish()

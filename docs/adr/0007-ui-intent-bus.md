@@ -10,11 +10,11 @@ The event carries the answer when the action has one: locale, ending choice, pos
 
 `intent_emitted(intent_name: String, payload: Dictionary)`. A screen calls `emit_intent(intent_name, payload = {})`. An action without an answer sends an empty payload, so the main menu's calls did not change.
 
-Intent names and each one's payload keys live in `UiIntents` under `scripts/` (Game side; Framework does not know it), beside `PropertyKeys` and `ServiceKeys`. One constant per intent, with its payload written in the comment, for example `LANGUAGE_SELECTED` → `{locale: String}`. The host and screens use the constants, not bare strings.
+Intent names and each one's payload keys live in `UiIntents` under `scripts/` (Game side; Framework does not know it), beside `PropertyKeys` and `ServiceKeys`. One constant per intent, with its payload written in the comment, and one constant per payload key, for example `LANGUAGE_SELECTED` → `{KEY_LOCALE: String}`. The host and screens use the constants, not bare strings.
 
 The host creates the bus and binds it in the service registry under `ServiceKeys.UI_EVENT_BUS` (ADR 0008). Binding twice is an error; tests clear the registry. A control built at runtime (a language choice, a post card, a tile) resolves the bus itself and emits; the host does not hand it down. A fixed layout scene still lists `BUTTON_INTENTS`.
 
-The host is the only listener. Its handler takes the answer and writes the model (ADR 0008); the screen does not.
+The host is the only listener. It listens while it is in the tree and stops when it leaves; a later host in the same process reuses the bound bus. Its handler takes the answer and writes the model (ADR 0008); the screen does not.
 
 Buttons that only hide or fold their own window (language "back", quit "return", doll-guide collapse) are UI too. They emit on this bus instead of a private signal or a direct call. Day transition, flashback, and action spend have no player control; when one is added, it uses this bus.
 
