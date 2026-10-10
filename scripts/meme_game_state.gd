@@ -4,7 +4,6 @@ extends RefCounted
 signal social_engagement_changed(snapshot: Dictionary)
 signal phone_shell_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
-signal settings_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
 signal inventory_changed(snapshot: Dictionary)
@@ -75,7 +74,6 @@ var ending_language_choice: String = ""
 var ending_route: String = ""
 var formal_floor_three_complete: bool = false
 var pending_floor_transition: int = 0
-var autoplay_enabled: bool = false
 var exit_prompt_seen: bool = false
 var money: int:
 	get:
@@ -180,7 +178,6 @@ func new_run() -> void:
 	ending_route = ""
 	formal_floor_three_complete = false
 	pending_floor_transition = 0
-	autoplay_enabled = false
 	exit_prompt_seen = false
 	money = PropertyBootScript.DEFAULT_MONEY
 	max_actions_per_day = BASE_ACTIONS_PER_DAY
@@ -305,6 +302,8 @@ func replay_tutorial() -> void:
 func to_save_data() -> Dictionary:
 	var state_data := {}
 	for field_name in SAVE_FIELD_NAMES:
+		if PropertyKeysScript.PREFERENCES.has(str(field_name)):
+			continue
 		var value: Variant = _read_save_field(str(field_name))
 		state_data[field_name] = value.duplicate(true) if value is Array or value is Dictionary else value
 	return {
@@ -721,35 +720,12 @@ func _emit_action_economy_changed(change_kind: String, target_id: String) -> voi
 	action_economy_changed.emit(snapshot)
 
 
-func get_settings_snapshot() -> Dictionary:
-	return {
-		"autoplay_enabled": autoplay_enabled,
-		"exit_prompt_seen": exit_prompt_seen,
-	}
-
-
 func set_autoplay_enabled(value: bool) -> void:
-	if autoplay_enabled == value:
-		return
-	autoplay_enabled = value
-	_emit_settings_changed("autoplay", "", value)
+	_write_run_field(PropertyKeysScript.AUTOPLAY_ENABLED, value)
 
 
 func mark_exit_prompt_seen() -> void:
-	if exit_prompt_seen:
-		return
 	exit_prompt_seen = true
-	_emit_settings_changed("exit_prompt_seen", "", true)
-
-
-func _emit_settings_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_settings_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	settings_changed.emit(snapshot)
 
 
 func get_social_engagement_snapshot() -> Dictionary:
@@ -1051,10 +1027,7 @@ func _localize_conversation_display() -> void:
 			return
 	if conversation_locale == "zh":
 		return
-	var locale = GameLocaleScript.new()
-	var previous_locale := TranslationServer.get_locale()
-	locale.set_locale(conversation_locale)
-	TranslationServer.set_locale(previous_locale)
+	var locale: BabelGameLocale = GameLocaleScript.for_locale(conversation_locale)
 	conversation_actor_label = locale.translate(conversation_actor_label)
 	if conversation_actor_type != "doctor":
 		conversation_prompt = locale.translate(conversation_prompt)

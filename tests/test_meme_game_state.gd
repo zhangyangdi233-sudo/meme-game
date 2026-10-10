@@ -10,8 +10,6 @@ var _phone_shell_signal_count := 0
 var _last_phone_shell_snapshot: Dictionary = {}
 var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
-var _settings_signal_count := 0
-var _last_settings_snapshot: Dictionary = {}
 var _reality_conversation_signal_count := 0
 var _last_reality_conversation_snapshot: Dictionary = {}
 var _day_progress_signal_count := 0
@@ -43,7 +41,7 @@ func _run() -> void:
 	test_social_engagement_snapshot_and_signal()
 	test_phone_shell_snapshot_and_signal()
 	test_action_economy_snapshot_and_signal()
-	test_settings_snapshot_and_signal()
+	test_autoplay_lives_in_the_run_model()
 	test_reality_conversation_snapshot_and_signal()
 	test_day_progress_snapshot_and_signal()
 	test_day_progress_settle_day_signal()
@@ -237,52 +235,28 @@ func _capture_action_economy(snapshot: Dictionary) -> void:
 	_last_action_economy_snapshot = snapshot
 
 
-func test_settings_snapshot_and_signal() -> void:
+func test_autoplay_lives_in_the_run_model() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_settings_signal_count = 0
-	_last_settings_snapshot = {}
-	game.settings_changed.connect(_capture_settings)
-
-	var initial: Dictionary = game.get_settings_snapshot()
-	_assert_true(not bool(initial.get("autoplay_enabled", true)), "new run should start with autoplay off")
-	_assert_true(not bool(initial.get("exit_prompt_seen", true)), "new run should start without exit prompt seen")
-
-	game.set_autoplay_enabled(true)
-	_assert_eq(_settings_signal_count, 1, "enabling autoplay should emit once")
-	_assert_true(bool(_last_settings_snapshot.get("autoplay_enabled", false)), "signal snapshot should reflect autoplay on")
-	var autoplay_change: Dictionary = _last_settings_snapshot.get("change", {})
-	_assert_eq(str(autoplay_change.get("kind", "")), "autoplay", "change kind should be autoplay")
-	_assert_true(bool(autoplay_change.get("active", false)), "enabling autoplay should be active in change metadata")
+	var manager := ServiceRegistry.resolve(ServiceKeys.PROPERTY_MANAGER) as PropertyManager
+	var autoplay := manager.model(PropertyKeys.AUTOPLAY_ENABLED)
+	var seen: Array = []
+	var listener := func(value: Variant) -> void: seen.append(value)
+	autoplay.register(listener)
+	_assert_eq(seen, [false], "new run should start with autoplay off")
+	_assert_true(not game.has_signal("settings_changed"), "the old settings signal should be gone")
+	_assert_true(not ("autoplay_enabled" in game), "autoplay should not keep a field on the state")
 
 	game.set_autoplay_enabled(true)
-	_assert_eq(_settings_signal_count, 1, "idempotent autoplay set should not emit again")
-
+	game.set_autoplay_enabled(true)
 	game.set_autoplay_enabled(false)
-	_assert_eq(_settings_signal_count, 2, "disabling autoplay should emit again")
-	_assert_true(not bool(_last_settings_snapshot.get("autoplay_enabled", true)), "signal snapshot should reflect autoplay off")
-	autoplay_change = _last_settings_snapshot.get("change", {})
-	_assert_true(not bool(autoplay_change.get("active", true)), "disabling autoplay should mark inactive")
+	_assert_eq(seen, [false, true, false], "autoplay intents should write the model once per change")
+	autoplay.unregister(listener)
 
+	_assert_true(not game.exit_prompt_seen, "new run should start without exit prompt seen")
 	game.mark_exit_prompt_seen()
-	_assert_eq(_settings_signal_count, 3, "marking exit prompt seen should emit")
-	_assert_true(bool(_last_settings_snapshot.get("exit_prompt_seen", false)), "signal snapshot should reflect exit prompt seen")
-	var exit_change: Dictionary = _last_settings_snapshot.get("change", {})
-	_assert_eq(str(exit_change.get("kind", "")), "exit_prompt_seen", "change kind should be exit_prompt_seen")
-	_assert_true(bool(exit_change.get("active", false)), "exit prompt seen should be active in change metadata")
-
 	game.mark_exit_prompt_seen()
-	_assert_eq(_settings_signal_count, 3, "idempotent exit prompt mark should not emit again")
-
-	var snapshot: Dictionary = game.get_settings_snapshot()
-	_assert_true(bool(snapshot.get("exit_prompt_seen", false)), "snapshot should include exit prompt seen")
-	snapshot["exit_prompt_seen"] = false
-	_assert_true(game.exit_prompt_seen, "snapshot must be a copy, not live state")
-
-
-func _capture_settings(snapshot: Dictionary) -> void:
-	_settings_signal_count += 1
-	_last_settings_snapshot = snapshot
+	_assert_true(game.exit_prompt_seen, "marking the exit prompt should stick")
 
 
 func test_reality_conversation_snapshot_and_signal() -> void:

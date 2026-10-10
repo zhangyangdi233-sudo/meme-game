@@ -11,6 +11,8 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 const DEFAULT_MONEY := 18
 const DEFAULT_MAX_ACTIONS := 5
+const DEFAULT_LOCALE := "zh"
+const DEFAULT_MASTER_VOLUME := 80.0
 
 
 static func install() -> void:
@@ -21,6 +23,9 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HAS_SAVE, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, DEFAULT_MONEY))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, DEFAULT_MAX_ACTIONS))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.AUTOPLAY_ENABLED, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LOCALE, DEFAULT_LOCALE))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MASTER_VOLUME, DEFAULT_MASTER_VOLUME, 0.0, 100.0))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

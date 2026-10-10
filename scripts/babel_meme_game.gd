@@ -180,7 +180,6 @@ var _play_screen_installed := false
 var _ending_screen_installed := false
 var _world_hotkeys_installed := false
 var _vhs_enabled := true
-var _master_volume := 80.0
 var _camera_session_decided := false
 var _phone_art_alpha := 0.0
 var _save_path := SAVE_PATH
@@ -236,7 +235,7 @@ func _camera_session_deps() -> Dictionary:
 	return {
 		"game_started": _game_started,
 		"persist_preferences": func() -> void:
-			_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source),
+			_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source),
 		"on_phone_source_enabled": _show_phone_camera_connection_overlay,
 		"on_camera_disabled": _hide_phone_camera_connection_overlay,
 		"hide_phone_connection_overlay": _hide_phone_camera_connection_overlay,
@@ -315,8 +314,7 @@ func _ready() -> void:
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 		"pollution_stage": _pollution_stage_snapshot,
 	})
-	var preferences := _locale.load_preferences(_master_volume, _vhs_enabled)
-	_master_volume = float(preferences.get("master_volume", _master_volume))
+	var preferences := _locale.load_preferences(_vhs_enabled)
 	_vhs_enabled = bool(preferences.get("vhs_enabled", _vhs_enabled))
 	_ensure_camera_session()
 	_camera_session.enabled = bool(preferences.get("camera_enabled", false))
@@ -325,7 +323,6 @@ func _ready() -> void:
 	_camera_session.ensure_receiver()
 	_ensure_window_manager()
 	_ensure_edge_drawer()
-	_apply_master_volume()
 	_ensure_flow_manager()
 	show_main_menu()
 	if not _locale.language_selected:
@@ -347,9 +344,19 @@ func _process(delta: float) -> void:
 	_animate_world(delta)
 
 
+func _enter_tree() -> void:
+	var volume := _master_volume_model()
+	if volume != null:
+		volume.register(_apply_master_volume)
+
+
 func _exit_tree() -> void:
 	if _camera_session != null:
 		_camera_session.stop_receiver()
+	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		var volume := _master_volume_model()
+		if volume != null:
+			volume.unregister(_apply_master_volume)
 
 
 func _physics_process(delta: float) -> void:
@@ -539,7 +546,7 @@ func show_main_menu() -> void:
 		if _reality_interaction_is_active():
 			_exit_reality_interaction(false)
 		_save_progress()
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
+	_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 	_game_started = false
 	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
 		_settings_history_panel.close_settings()
@@ -669,8 +676,6 @@ func _connect_game_state_signals() -> void:
 		game.phone_shell_changed.connect(_on_phone_shell_changed)
 	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
 		game.action_economy_changed.connect(_on_action_economy_changed)
-	if not game.settings_changed.is_connected(_on_settings_changed):
-		game.settings_changed.connect(_on_settings_changed)
 	if not game.reality_conversation_changed.is_connected(_on_reality_conversation_changed):
 		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
 	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
@@ -698,12 +703,6 @@ func _on_action_economy_changed(_snapshot: Dictionary) -> void:
 	if not _session_is_in_run():
 		return
 	_refresh_phone_shell()
-
-
-func _on_settings_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_settings_menu_labels()
 
 
 func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
@@ -745,15 +744,6 @@ func _phone_shell_snapshot() -> Dictionary:
 			"phone_open": true,
 		}
 	return game.get_phone_shell_snapshot()
-
-
-func _settings_snapshot() -> Dictionary:
-	if game == null:
-		return {
-			"autoplay_enabled": false,
-			"exit_prompt_seen": false,
-		}
-	return game.get_settings_snapshot()
 
 
 func _day_progress_snapshot() -> Dictionary:
@@ -1294,7 +1284,7 @@ func _on_language_selected(locale_code: String) -> void:
 	# 首次启动尚未选语言,show_main_menu() 不会建 consent overlay,
 	# 于是 _build_world() 释放的 session 无人重建。
 	_ensure_camera_session()
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
+	_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 	_close_language_selection_overlay()
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
 	if game != null:
@@ -1745,7 +1735,7 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.refresh_menu_labels(int(_day_progress_snapshot().get("pollution", 0)), bool(_settings_snapshot().get("autoplay_enabled", false)))
+	_settings_history_panel.refresh_menu_labels(int(_day_progress_snapshot().get("pollution", 0)))
 	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
@@ -1986,11 +1976,8 @@ func _settings_history_mount_deps() -> Dictionary:
 		"theme_color": _ui_theme_helper.theme_color,
 		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"register_draggable": _window_manager.register,
-		"master_volume": _master_volume,
 		"vhs_enabled": _vhs_enabled,
-		"autoplay_enabled": bool(_settings_snapshot().get("autoplay_enabled", false)),
 		"locales": locales,
-		"current_locale": _locale.current_locale if _locale != null else "",
 	}
 
 
@@ -2432,7 +2419,7 @@ func _render_history_window() -> void:
 func _refresh_settings_menu_labels() -> void:
 	if _settings_history_panel != null and game != null:
 		var progress := _day_progress_snapshot()
-		_settings_history_panel.refresh_menu_labels(int(progress.get("pollution", 0)), bool(_settings_snapshot().get("autoplay_enabled", false)))
+		_settings_history_panel.refresh_menu_labels(int(progress.get("pollution", 0)))
 
 
 func _on_autoplay_toggled(value: bool) -> void:
@@ -2461,14 +2448,23 @@ func _on_settings_open_changed(_open: bool) -> void:
 
 
 func _on_volume_changed(value: float) -> void:
-	_master_volume = value
-	_apply_master_volume()
+	var volume := _master_volume_model()
+	if volume != null:
+		volume.write(value)
 
 
-func _apply_master_volume() -> void:
+func _apply_master_volume(value: Variant) -> void:
 	var bus := AudioServer.get_bus_index("Master")
 	if bus >= 0:
-		AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(0.001, _master_volume / 100.0)))
+		AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(0.001, float(value) / 100.0)))
+
+
+func _master_volume_model() -> ValuePropertyModel:
+	PropertyBootScript.install()
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
 
 
 func _on_settings_language_selected(locale_code: String) -> void:
@@ -2478,7 +2474,7 @@ func _on_settings_language_selected(locale_code: String) -> void:
 		_exit_reality_interaction(false)
 	if not _locale.select_language(locale_code):
 		return
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
+	_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 	# 换语言即换字池:清空造句台,避免旧语言的字混进新语言的句子。
 	if game != null:
 		game.free_sentence_clear()
@@ -2489,7 +2485,7 @@ func _on_settings_language_selected(locale_code: String) -> void:
 
 func _on_manual_save_pressed() -> void:
 	var progress_saved := _save_progress()
-	var preferences_saved := _locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
+	var preferences_saved := _locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 	if _settings_history_panel != null:
 		_settings_history_panel.set_save_status(
 			"已保存当前进度与设置。" if progress_saved and preferences_saved else "保存失败，请检查本地写入权限。"
@@ -2526,7 +2522,7 @@ func _cancel_quit_game() -> void:
 func _confirm_quit_game() -> void:
 	if _game_started:
 		_save_progress()
-	_locale.save_preferences(_master_volume, _vhs_enabled, _camera_session.enabled, _camera_session.source)
+	_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 	get_tree().quit()
 
 

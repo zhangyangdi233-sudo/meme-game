@@ -37,6 +37,8 @@ func _run() -> void:
 	_test_boot_resets_the_same_money_and_actions_models()
 	_test_save_and_load_go_through_the_pollution_model()
 	_test_save_and_load_go_through_money_and_actions()
+	_test_language_and_volume_are_preferences_and_autoplay_is_the_run()
+	_test_run_save_carries_autoplay_but_not_preferences()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -167,7 +169,8 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	var pollution_id: int = pollution.get_instance_id()
 	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
 	_assert_true(PropertyKeysScript.UNSAVED.has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
-	_assert_true(PropertyKeysScript.PREFERENCES.is_empty(), "preferences should be a separate list")
+	for property_name in PropertyKeysScript.PREFERENCES:
+		_assert_true(not PropertyKeysScript.RUN.has(property_name), "preference %s should not be saved with the run" % property_name)
 	_assert_eq(pollution.read(), 0, "pollution should start at zero")
 	_assert_eq(has_save.read(), false, "has_save should start false")
 	pollution.write(140)
@@ -266,6 +269,51 @@ func _test_save_and_load_go_through_money_and_actions() -> void:
 	actions.write("bad")
 	_assert_eq(money.read(), 31, "a wrong money type should keep the loaded value")
 	_assert_eq(actions.read(), 3, "a wrong actions type should keep the loaded value")
+
+
+func _test_language_and_volume_are_preferences_and_autoplay_is_the_run() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var locale: ValuePropertyModel = manager.model(PropertyKeysScript.LOCALE) as ValuePropertyModel
+	var volume: ValuePropertyModel = manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
+	var autoplay: ValuePropertyModel = manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
+	_assert_true(PropertyKeysScript.PREFERENCES.has(PropertyKeysScript.LOCALE), "language should be a preference")
+	_assert_true(PropertyKeysScript.PREFERENCES.has(PropertyKeysScript.MASTER_VOLUME), "volume should be a preference")
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.AUTOPLAY_ENABLED), "autoplay should be saved with the run")
+	_assert_eq(locale.read(), "zh", "language should start as Chinese")
+	_assert_eq(volume.read(), 80.0, "volume should start at 80")
+	_assert_eq(autoplay.read(), false, "autoplay should start off")
+	volume.write(140.0)
+	_assert_eq(volume.read(), 100.0, "volume should clamp to 100")
+
+	locale.write("en")
+	volume.write(35.0)
+	var state = StateScript.new()
+	state.set_autoplay_enabled(true)
+	_assert_eq(autoplay.read(), true, "turning autoplay on should write the model")
+	state.new_run()
+	_assert_eq(autoplay.read(), false, "a new run should turn autoplay off again")
+	_assert_eq(locale.read(), "en", "a new run should keep the chosen language")
+	_assert_eq(volume.read(), 35.0, "a new run should keep the chosen volume")
+
+
+func _test_run_save_carries_autoplay_but_not_preferences() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var autoplay: ValuePropertyModel = manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
+	var source = StateScript.new()
+	source.new_run()
+	source.set_autoplay_enabled(true)
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("autoplay_enabled", null), true, "the run save should store the autoplay model")
+	for property_name in PropertyKeysScript.PREFERENCES:
+		_assert_true(not state_data.has(property_name), "the run save should not store preference %s" % property_name)
+	autoplay.write(false)
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(autoplay.read(), true, "loading should write autoplay back through the model")
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

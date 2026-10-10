@@ -2,6 +2,10 @@ extends SceneTree
 ## SettingsHistoryPanel: chrome plus intent signals and settings open/close state.
 
 const PanelScript = preload("res://scripts/ui/settings_history_panel.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const BootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _failures: Array[String] = []
 var _registered: Array = []
@@ -32,6 +36,8 @@ func _run_async() -> void:
 
 
 func _run() -> void:
+	RegistryScript.clear()
+	BootScript.install()
 	var host := Control.new()
 	host.name = "SettingsHost"
 	host.size = Vector2(1600, 900)
@@ -47,14 +53,11 @@ func _run() -> void:
 		"theme_color": _theme_color,
 		"ui_font_size": _ui_font_size,
 		"register_draggable": _register_draggable,
-		"master_volume": 80.0,
 		"vhs_enabled": true,
-		"autoplay_enabled": false,
 		"locales": [
 			{"code": "zh", "name": "中文"},
 			{"code": "en", "name": "English"},
 		],
-		"current_locale": "zh",
 	})
 	panel.volume_changed.connect(func(value: float) -> void: _volume_events.append(value))
 	panel.vhs_toggled.connect(func(value: bool) -> void: _vhs_events.append(value))
@@ -106,7 +109,6 @@ func _run() -> void:
 
 	if volume_slider != null:
 		_assert_true(volume_slider.editable, "volume slider should remain adjustable")
-		_assert_true(is_equal_approx(volume_slider.value, 80.0), "volume slider should take the snapshot value")
 
 	if language_option != null:
 		_assert_eq(language_option.item_count, 2, "language option should list the snapshot locales")
@@ -169,13 +171,14 @@ func _run() -> void:
 		_assert_eq(_history_toggle_events, [true], "the history button should emit history_toggle_requested")
 		_assert_true(history != null and not history.visible, "history toggle intent should not open the window until the adapter supplies entries")
 
-	panel.refresh_menu_labels(0, false)
+	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
+
+	panel.refresh_menu_labels(0)
 	_assert_eq(volume_label.text if volume_label != null else "", "音量", "clean pollution should keep the default volume label")
-	panel.refresh_menu_labels(30, true)
+	panel.refresh_menu_labels(30)
 	_assert_eq(volume_label.text if volume_label != null else "", "外面的声音", "mid pollution should rename the volume label")
 	_assert_eq(autoplay_button.text if autoplay_button != null else "", "让我替你继续说", "mid pollution should rename the autoplay label")
-	_assert_true(autoplay_button != null and autoplay_button.button_pressed, "refresh_menu_labels should sync autoplay state")
-	panel.refresh_menu_labels(100, false)
+	panel.refresh_menu_labels(100)
 	_assert_eq(volume_label.text if volume_label != null else "", "它离你有多近", "max pollution should use the corrupted volume label")
 	_assert_true(volume_slider != null and volume_slider.editable, "max pollution must keep the volume slider adjustable")
 
@@ -193,6 +196,51 @@ func _run() -> void:
 	host.queue_free()
 	panel.queue_free()
 	await process_frame
+
+
+func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_slider: HSlider, autoplay_button: CheckButton, language_option: OptionButton) -> void:
+	if volume_slider == null or autoplay_button == null or language_option == null:
+		_failures.append("settings controls should exist before checking the models")
+		return
+	var volume := _model(PropertyKeysScript.MASTER_VOLUME)
+	var autoplay := _model(PropertyKeysScript.AUTOPLAY_ENABLED)
+	var locale := _model(PropertyKeysScript.LOCALE)
+	volume.write(30.0)
+	autoplay.write(true)
+	locale.write("en")
+	var events_before := _volume_events.size() + _autoplay_events.size() + _language_events.size()
+
+	panel.set_settings_open(true)
+	_assert_true(is_equal_approx(volume_slider.value, 30.0), "opening settings should sync the volume model")
+	_assert_true(autoplay_button.button_pressed, "opening settings should sync the autoplay model")
+	_assert_eq(str(language_option.get_selected_metadata()), "en", "opening settings should select the language model")
+
+	volume.write(12.0)
+	autoplay.write(false)
+	locale.write("zh")
+	_assert_true(is_equal_approx(volume_slider.value, 12.0), "open settings should follow volume writes")
+	_assert_true(not autoplay_button.button_pressed, "open settings should follow autoplay writes")
+	_assert_eq(str(language_option.get_selected_metadata()), "zh", "open settings should follow language writes")
+	_assert_eq(_volume_events.size() + _autoplay_events.size() + _language_events.size(), events_before, "syncing from a model should not echo an intent back")
+
+	panel.close_settings()
+	volume.write(90.0)
+	autoplay.write(true)
+	locale.write("en")
+	_assert_true(is_equal_approx(volume_slider.value, 12.0), "closed settings should stop receiving volume")
+	_assert_true(not autoplay_button.button_pressed, "closed settings should stop receiving autoplay")
+	_assert_eq(str(language_option.get_selected_metadata()), "zh", "closed settings should stop receiving the language")
+
+	panel.set_settings_open(true)
+	_assert_true(is_equal_approx(volume_slider.value, 90.0), "reopening settings should sync again")
+	panel.close_settings()
+	autoplay.write(false)
+	locale.write("zh")
+
+
+func _model(property_name: String) -> ValuePropertyModel:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	return manager.model(property_name) as ValuePropertyModel
 
 
 func _panel() -> PanelContainer:

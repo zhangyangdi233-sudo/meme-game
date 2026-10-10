@@ -6,7 +6,10 @@ const POLLUTION := "pollution"
 const HAS_SAVE := "has_save"
 const MONEY := "money"
 const ACTIONS_REMAINING := "actions_remaining"
+const AUTOPLAY_ENABLED := "autoplay_enabled"
+const LOCALE := "locale"
+const MASTER_VOLUME := "master_volume"
 
-const RUN: Array[String] = [POLLUTION, MONEY, ACTIONS_REMAINING]
-const PREFERENCES: Array[String] = []
+const RUN: Array[String] = [POLLUTION, MONEY, ACTIONS_REMAINING, AUTOPLAY_ENABLED]
+const PREFERENCES: Array[String] = [LOCALE, MASTER_VOLUME]
 const UNSAVED: Array[String] = [HAS_SAVE]

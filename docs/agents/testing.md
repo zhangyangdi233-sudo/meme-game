@@ -112,6 +112,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles |
+| `test_game_locale_preferences` | module | language / volume preference models, preferences file |
+| `test_settings_history_panel`, `test_language_selection_panel` | module | open panels watch preference and autoplay models |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |

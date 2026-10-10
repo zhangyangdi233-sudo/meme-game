@@ -1,6 +1,11 @@
 class_name BabelGameLocale
 extends RefCounted
 
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+
 const PREFERENCES_PATH := "user://babel_meme_preferences.cfg"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 const CATALOG_PATHS := [
@@ -18,32 +23,59 @@ const LEVEL_DISPLAY_SOURCE_PATTERNS := [
 	"^塔层\\s*([0-9]+)(?:\\s*/\\s*[0-9]+)?$",
 ]
 
-var current_locale := "zh"
+## Where each preference model lives in the preferences file: [section, key].
+const PREFERENCE_FILE_KEYS := {
+	PropertyKeysScript.LOCALE: ["language", "locale"],
+	PropertyKeysScript.MASTER_VOLUME: ["audio", "master_volume"],
+}
+
+## The game language is the locale model. A pinned translator keeps its own language
+## and never writes the model.
+var current_locale: String:
+	get:
+		if not _pinned_locale.is_empty():
+			return _pinned_locale
+		var model := _locale_model()
+		return str(model.read()) if model != null else PropertyBootScript.DEFAULT_LOCALE
+	set(value):
+		_set_locale_internal(value)
 var language_selected := false
 var preferences_path := PREFERENCES_PATH
+var _pinned_locale := ""
+var _catalog_locale := ""
 var _entries: Dictionary = {}
 var _compiled_templates: Array[Dictionary] = []
 var _compiled_patterns: Array[Dictionary] = []
 
 
-func _init() -> void:
-	_compile_patterns()
+static func for_locale(locale_code: String) -> BabelGameLocale:
+	var translator := BabelGameLocale.new()
+	translator._pinned_locale = translator.normalize_locale(locale_code)
+	return translator
 
 
-func load_preferences(default_volume: float, default_vhs: bool) -> Dictionary:
+func load_preferences(default_vhs: bool) -> Dictionary:
 	var result := {
-		"master_volume": default_volume,
 		"vhs_enabled": default_vhs,
 		"camera_enabled": false,
 		"camera_source": "computer",
 	}
 	var config := ConfigFile.new()
 	if config.load(preferences_path) != OK:
-		_set_locale_internal("zh")
+		_set_locale_internal(PropertyBootScript.DEFAULT_LOCALE)
 		return result
 	language_selected = bool(config.get_value("language", "selected", false))
-	_set_locale_internal(str(config.get_value("language", "locale", "zh")))
-	result["master_volume"] = clampf(float(config.get_value("audio", "master_volume", default_volume)), 0.0, 100.0)
+	for property_name in PropertyKeysScript.PREFERENCES:
+		var model := _preference_model(property_name)
+		if model == null:
+			continue
+		var place: Array = PREFERENCE_FILE_KEYS[property_name]
+		var current: Variant = model.read()
+		var saved: Variant = type_convert(config.get_value(place[0], place[1], current), typeof(current))
+		if property_name == PropertyKeysScript.LOCALE:
+			saved = normalize_locale(str(saved))
+		model.write(saved)
+	_sync_catalog()
 	result["vhs_enabled"] = bool(config.get_value("visual", "vhs_enabled", default_vhs))
 	result["camera_enabled"] = bool(config.get_value("camera", "enabled", false))
 	var camera_source := str(config.get_value("camera", "source", "computer"))
@@ -51,11 +83,15 @@ func load_preferences(default_volume: float, default_vhs: bool) -> Dictionary:
 	return result
 
 
-func save_preferences(master_volume: float, vhs_enabled: bool, camera_enabled: bool = false, camera_source: String = "computer") -> bool:
+func save_preferences(vhs_enabled: bool, camera_enabled: bool = false, camera_source: String = "computer") -> bool:
 	var config := ConfigFile.new()
 	config.set_value("language", "selected", language_selected)
-	config.set_value("language", "locale", current_locale)
-	config.set_value("audio", "master_volume", clampf(master_volume, 0.0, 100.0))
+	for property_name in PropertyKeysScript.PREFERENCES:
+		var model := _preference_model(property_name)
+		if model == null:
+			continue
+		var place: Array = PREFERENCE_FILE_KEYS[property_name]
+		config.set_value(place[0], place[1], model.read())
 	config.set_value("visual", "vhs_enabled", vhs_enabled)
 	config.set_value("camera", "enabled", camera_enabled)
 	config.set_value("camera", "source", camera_source if camera_source in ["computer", "phone"] else "computer")
@@ -112,6 +148,7 @@ func level_display_name(floor_number: int) -> String:
 func translate(source: String) -> String:
 	if source.is_empty():
 		return source
+	_sync_catalog()
 	var canonical_level_name := _translate_level_display(source)
 	if not canonical_level_name.is_empty():
 		return canonical_level_name
@@ -240,9 +277,37 @@ func has_untranslated_han(text: String) -> bool:
 
 
 func _set_locale_internal(locale_code: String) -> void:
-	current_locale = normalize_locale(locale_code)
-	TranslationServer.set_locale(current_locale)
+	var normalized := normalize_locale(locale_code)
+	if not _pinned_locale.is_empty():
+		_pinned_locale = normalized
+	else:
+		var model := _locale_model()
+		if model != null:
+			model.write(normalized)
+	_sync_catalog()
+
+
+## Reloads the catalog when the language changed, including a write made straight to the model.
+func _sync_catalog() -> void:
+	var locale_code := current_locale
+	if _catalog_locale == locale_code:
+		return
+	if _pinned_locale.is_empty():
+		TranslationServer.set_locale(locale_code)
+	_catalog_locale = locale_code
 	_reload_catalog()
+
+
+func _locale_model() -> ValuePropertyModel:
+	return _preference_model(PropertyKeysScript.LOCALE)
+
+
+func _preference_model(property_name: String) -> ValuePropertyModel:
+	PropertyBootScript.install()
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name) as ValuePropertyModel
 
 
 func _reload_catalog() -> void:

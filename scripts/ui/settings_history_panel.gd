@@ -1,8 +1,12 @@
 class_name SettingsHistoryPanel
 extends Node
 ## Game-side settings + history windows: chrome, layout, history render/toggle, and intent signals.
+## The open settings window watches volume, autoplay, and language; closing it stops.
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 signal volume_changed(value: float)
 signal vhs_toggled(value: bool)
@@ -32,6 +36,7 @@ var _settings_save_status: Label
 var _volume_slider: HSlider
 var _vhs_toggle: CheckButton
 var _settings_open := false
+var _observing := false
 var _exit_confirmation_overlay: Control
 var _panel_factory: Callable
 var _label_factory: Callable
@@ -76,6 +81,10 @@ func set_settings_open(open: bool) -> void:
 		_settings_window.visible = open
 		if open:
 			_settings_window.move_to_front()
+	if open:
+		_start_observing()
+	else:
+		_stop_observing()
 	settings_open_changed.emit(open)
 
 
@@ -127,7 +136,76 @@ func close() -> void:
 		_history_window.visible = false
 
 
-func refresh_menu_labels(pollution: int, autoplay_enabled: bool = false) -> void:
+func _exit_tree() -> void:
+	_stop_observing()
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var watched := _watched_listeners()
+	var models: Dictionary = {}
+	for property_name in watched:
+		var found := _property_model(property_name)
+		if found == null:
+			return
+		models[property_name] = found
+	for property_name in watched:
+		(models[property_name] as PropertyModel).register(watched[property_name])
+	_observing = true
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var watched := _watched_listeners()
+	for property_name in watched:
+		var found := _property_model(property_name)
+		if found != null:
+			found.unregister(watched[property_name])
+
+
+func _watched_listeners() -> Dictionary:
+	return {
+		PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
+		PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
+		PropertyKeysScript.LOCALE: _on_locale,
+	}
+
+
+func _on_master_volume(value: Variant) -> void:
+	if _volume_slider != null:
+		_volume_slider.set_value_no_signal(float(value))
+
+
+func _on_autoplay(value: Variant) -> void:
+	if _settings_autoplay_button != null:
+		_settings_autoplay_button.set_pressed_no_signal(bool(value))
+
+
+func _on_locale(value: Variant) -> void:
+	if _settings_language_option == null:
+		return
+	for index in _settings_language_option.item_count:
+		if str(_settings_language_option.get_item_metadata(index)) == str(value):
+			_settings_language_option.select(index)
+			return
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Settings cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
+
+
+func refresh_menu_labels(pollution: int) -> void:
 	if _settings_title_label != null:
 		_settings_title_label.text = _menu_display_label(pollution, "settings")
 	if _settings_volume_label != null:
@@ -139,7 +217,6 @@ func refresh_menu_labels(pollution: int, autoplay_enabled: bool = false) -> void
 		_settings_save_button.text = _menu_display_label(pollution, "save")
 	if _settings_autoplay_button != null:
 		_settings_autoplay_button.text = _menu_display_label(pollution, "autoplay")
-		_settings_autoplay_button.set_pressed_no_signal(autoplay_enabled)
 	if _settings_history_button != null:
 		_settings_history_button.text = _menu_display_label(pollution, "history")
 
@@ -305,7 +382,6 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_volume_slider.min_value = 0
 	_volume_slider.max_value = 100
 	_volume_slider.step = 1
-	_volume_slider.value = float(deps.get("master_volume", 80.0))
 	_volume_slider.editable = true
 	_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
 	_volume_slider.focus_mode = Control.FOCUS_ALL
@@ -333,14 +409,11 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_language_option.set_meta("skip_localization", true)
 	_settings_language_option.custom_minimum_size = Vector2(300, 50)
 	var locales: Array = deps.get("locales", [])
-	var current_locale := str(deps.get("current_locale", ""))
 	for item in locales:
 		var locale_item: Dictionary = item
 		var locale_code := str(locale_item.get("code", ""))
 		_settings_language_option.add_item(str(locale_item.get("name", locale_code)))
 		_settings_language_option.set_item_metadata(_settings_language_option.item_count - 1, locale_code)
-		if locale_code == current_locale:
-			_settings_language_option.select(_settings_language_option.item_count - 1)
 	_settings_language_option.item_selected.connect(_on_language_item_selected)
 	_settings_content.add_child(_settings_language_option)
 
@@ -359,7 +432,6 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_autoplay_button.name = "SettingsAutoplayButton"
 	_settings_autoplay_button.text = "自动播放"
 	_settings_autoplay_button.set_meta("skip_localization", true)
-	_settings_autoplay_button.button_pressed = bool(deps.get("autoplay_enabled", false))
 	_settings_autoplay_button.custom_minimum_size.y = 50
 	_settings_autoplay_button.toggled.connect(_on_autoplay_toggle_changed)
 	_settings_content.add_child(_settings_autoplay_button)
