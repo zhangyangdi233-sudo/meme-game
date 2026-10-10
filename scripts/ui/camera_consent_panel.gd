@@ -2,8 +2,7 @@ class_name CameraConsentPanel
 extends Node
 ## Game-side camera consent overlay: privacy copy, source picker, and allow/skip chrome.
 
-signal consent_resolved(allowed: bool)
-signal source_selected(index: int)
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _overlay: Control
 var _source_option: OptionButton
@@ -139,12 +138,12 @@ func _build_overlay(parent: Control) -> void:
 
 
 func _on_allow_pressed() -> void:
-	consent_resolved.emit(true)
+	GameEventBus.raise(UiIntentsScript.CAMERA_CONSENT_RESOLVED, {UiIntentsScript.KEY_ALLOWED: true})
 
 
 func _on_skip_pressed() -> void:
-	consent_resolved.emit(false)
+	GameEventBus.raise(UiIntentsScript.CAMERA_CONSENT_RESOLVED, {UiIntentsScript.KEY_ALLOWED: false})
 
 
 func _on_source_option_selected(index: int) -> void:
-	source_selected.emit(index)
+	GameEventBus.raise(UiIntentsScript.CAMERA_SOURCE_SELECTED, {UiIntentsScript.KEY_INDEX: index})

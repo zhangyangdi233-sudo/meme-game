@@ -3,12 +3,9 @@ extends Node
 ## Game-side phone launcher shell: popup chrome, app grid, and babel/notebook app windows.
 ## While shown, it watches whether the phone is open and which app is in front, and updates itself.
 
-signal app_icon_pressed(app_id: String)
-signal phone_close_requested
-signal app_window_close_requested(app_id: String)
-
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const LAUNCHER_APPS := [
 	{"id": "babel", "label": "塔\n楼层档案"},
@@ -434,12 +431,12 @@ func _set_popup_visible(popup_visible: bool) -> void:
 
 
 func _on_app_icon_pressed(app_id: String) -> void:
-	app_icon_pressed.emit(app_id)
+	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: app_id})
 
 
 func _on_phone_close_pressed() -> void:
-	phone_close_requested.emit()
+	GameEventBus.raise(UiIntentsScript.PHONE_CLOSE_REQUESTED)
 
 
 func _on_app_window_close_pressed(app_id: String) -> void:
-	app_window_close_requested.emit(app_id)
+	GameEventBus.raise(UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {UiIntentsScript.KEY_APP_ID: app_id})

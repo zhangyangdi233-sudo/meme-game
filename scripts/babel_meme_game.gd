@@ -1644,6 +1644,22 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_build_language_selection_overlay(false)
 		UiIntentsScript.LANGUAGE_SELECTED:
 			_on_language_selected(str(payload.get(UiIntentsScript.KEY_LOCALE, "")))
+		UiIntentsScript.APP_ICON_PRESSED:
+			_on_app_pressed(str(payload.get(UiIntentsScript.KEY_APP_ID, "")))
+		UiIntentsScript.PHONE_CLOSE_REQUESTED:
+			set_view_state("npc_up")
+		UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED:
+			_close_app_window(str(payload.get(UiIntentsScript.KEY_APP_ID, "")))
+		UiIntentsScript.CAMERA_CONSENT_RESOLVED:
+			_resolve_camera_consent(bool(payload.get(UiIntentsScript.KEY_ALLOWED, false)))
+		UiIntentsScript.CAMERA_SOURCE_SELECTED:
+			_on_camera_consent_source_selected(int(payload.get(UiIntentsScript.KEY_INDEX, -1)))
+		UiIntentsScript.PHONE_CAMERA_RETRY:
+			_retry_phone_camera_connection()
+		UiIntentsScript.PHONE_CAMERA_CONTINUE:
+			_hide_phone_camera_connection_overlay()
+		UiIntentsScript.PHONE_CAMERA_DISABLE:
+			_disable_phone_camera_from_connection()
 
 
 func _ensure_language_selection_panel() -> void:
@@ -1704,7 +1720,6 @@ func _ensure_camera_consent_panel() -> void:
 	_camera_consent_panel = CameraConsentPanelScript.new()
 	_camera_consent_panel.name = "CameraConsentPanel"
 	add_child(_camera_consent_panel)
-	_connect_camera_consent_panel_signals()
 
 
 func _camera_consent_mount_deps() -> Dictionary:
@@ -1720,23 +1735,12 @@ func _camera_consent_mount_deps() -> Dictionary:
 	}
 
 
-func _connect_camera_consent_panel_signals() -> void:
-	var panel := _camera_consent_panel
-	if panel == null:
-		return
-	if not panel.consent_resolved.is_connected(_resolve_camera_consent):
-		panel.consent_resolved.connect(_resolve_camera_consent)
-	if not panel.source_selected.is_connected(_on_camera_consent_source_selected):
-		panel.source_selected.connect(_on_camera_consent_source_selected)
-
-
 func _ensure_phone_camera_connection_panel() -> void:
 	if _phone_camera_connection_panel != null and is_instance_valid(_phone_camera_connection_panel):
 		return
 	_phone_camera_connection_panel = PhoneCameraConnectionPanelScript.new()
 	_phone_camera_connection_panel.name = "PhoneCameraConnectionPanelHost"
 	add_child(_phone_camera_connection_panel)
-	_connect_phone_camera_connection_panel_signals()
 
 
 func _phone_camera_connection_mount_deps() -> Dictionary:
@@ -1747,18 +1751,6 @@ func _phone_camera_connection_mount_deps() -> Dictionary:
 		"panel_factory": _ui_theme_helper.panel,
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 	}
-
-
-func _connect_phone_camera_connection_panel_signals() -> void:
-	var panel := _phone_camera_connection_panel
-	if panel == null:
-		return
-	if not panel.retry_requested.is_connected(_retry_phone_camera_connection):
-		panel.retry_requested.connect(_retry_phone_camera_connection)
-	if not panel.continue_requested.is_connected(_hide_phone_camera_connection_overlay):
-		panel.continue_requested.connect(_hide_phone_camera_connection_overlay)
-	if not panel.disable_requested.is_connected(_disable_phone_camera_from_connection):
-		panel.disable_requested.connect(_disable_phone_camera_from_connection)
 
 
 func _on_camera_consent_source_selected(index: int) -> void:
@@ -1959,7 +1951,6 @@ func _ensure_phone_launcher_panel() -> void:
 	_phone_launcher_panel = PhoneLauncherPanelScript.new()
 	_phone_launcher_panel.name = "PhoneLauncherPanel"
 	add_child(_phone_launcher_panel)
-	_connect_phone_launcher_panel_signals()
 
 
 func _phone_launcher_mount_deps() -> Dictionary:
@@ -1987,18 +1978,6 @@ func _phone_launcher_mount_deps() -> Dictionary:
 		"launcher_wallpaper_path": PHONE_LAUNCHER_WALLPAPER_PATH,
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 	}
-
-
-func _connect_phone_launcher_panel_signals() -> void:
-	var panel = _phone_launcher_panel
-	if panel == null:
-		return
-	if not panel.app_icon_pressed.is_connected(_on_app_pressed):
-		panel.app_icon_pressed.connect(_on_app_pressed)
-	if not panel.phone_close_requested.is_connected(set_view_state.bind("npc_up")):
-		panel.phone_close_requested.connect(set_view_state.bind("npc_up"))
-	if not panel.app_window_close_requested.is_connected(_close_app_window):
-		panel.app_window_close_requested.connect(_close_app_window)
 
 
 func _ensure_reality_conversation_panel() -> void:

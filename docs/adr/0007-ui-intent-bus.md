@@ -18,7 +18,7 @@ The host is the only listener. It listens while it is in the tree and stops when
 
 Buttons that only hide or fold their own window (language "back", quit "return", doll-guide collapse) are UI too. They emit on this bus instead of a private signal or a direct call. Day transition, flashback, and action spend have no player control; when one is added, it uses this bus.
 
-**Already on the bus:** the main menu, and the language picker's choice (`LANGUAGE_SELECTED`).
+**Already on the bus:** the main menu, the language picker's choice (`LANGUAGE_SELECTED`), the phone launcher (app icons, phone close, app window close), camera consent (allow / skip, chosen source), and the phone-camera connection overlay (retry, continue, disable). A runtime-built control raises with `GameEventBus.raise(intent, payload)`, which resolves the bound bus.
 
 **Still on private signals or callbacks** (this decision does not edit them):
 
@@ -26,11 +26,8 @@ Buttons that only hide or fold their own window (language "back", quit "return",
 - Ending language choice, and restart
 - Language picker "back", and the settings language option
 - Quit confirm
-- Camera consent allow / skip, and the chosen camera source
-- Phone-camera retry, continue, and disable
 - Settings actions, history open, and whether settings is open
 - HUD settings
-- Phone app icons and window close
 - Social feed, including cards, likes, follows, and the composer
 - Reality conversation choices
 - Reality language composer

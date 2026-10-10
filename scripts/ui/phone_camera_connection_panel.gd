@@ -3,10 +3,7 @@ extends Node
 ## Game-side phone camera connection overlay: status copy, retry/continue/disable chrome.
 
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
-
-signal retry_requested
-signal continue_requested
-signal disable_requested
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _overlay: Control
 var _panel: PanelContainer
@@ -207,12 +204,12 @@ func _build_overlay(parent: Control) -> void:
 
 
 func _on_retry_pressed() -> void:
-	retry_requested.emit()
+	GameEventBus.raise(UiIntentsScript.PHONE_CAMERA_RETRY)
 
 
 func _on_continue_pressed() -> void:
-	continue_requested.emit()
+	GameEventBus.raise(UiIntentsScript.PHONE_CAMERA_CONTINUE)
 
 
 func _on_disable_pressed() -> void:
-	disable_requested.emit()
+	GameEventBus.raise(UiIntentsScript.PHONE_CAMERA_DISABLE)
