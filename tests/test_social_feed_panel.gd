@@ -1,5 +1,5 @@
 extends SceneTree
-## Social feed panel watches the followed authors and the liked posts on their property models.
+## Social feed panel watches the followed authors, liked posts, held words and finished memes on their property models.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -9,6 +9,7 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 const POSTS := [
 	{"id": "post-a", "caption": "甲"},
 	{"id": "post-b", "caption": "乙"},
+	{"id": "floor_13", "caption": "丙"},
 ]
 
 var _failures: Array[String] = []
@@ -34,6 +35,12 @@ func _run() -> void:
 	_test_hiding_unregisters_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters()
 	_test_a_mounted_panel_is_not_opened_by_a_write()
+	_test_showing_registers_the_holdings_and_syncs_the_profile_count()
+	_test_a_new_meme_repaints_the_open_profile_by_itself()
+	_test_a_new_meme_leaves_the_other_pages_alone()
+	_test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them()
+	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
+	_test_a_freed_panel_unregisters_the_holdings()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -164,6 +171,8 @@ func _mount() -> Dictionary:
 		"panel": panel,
 		"followed": manager.model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES),
 		"liked": manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS),
+		"held": manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS),
+		"memes": manager.model(PropertyKeysScript.COMPLETED_MEMES),
 	}
 
 
@@ -194,7 +203,126 @@ func _deps() -> Dictionary:
 		"caption_text": func(post: Dictionary, _post_index: int) -> String: return str(post.get("caption", "")),
 		"author_id": author_id,
 		"floor_label": func() -> String: return "1",
+		"language_material": LanguageMaterial.new(),
+		"current_locale": func() -> String: return "zh",
 	}
+
+
+func _test_showing_registers_the_holdings_and_syncs_the_profile_count() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var held: ListPropertyModel = mounted["held"]
+	var memes: ListPropertyModel = mounted["memes"]
+	_assert_eq(_listener_count(held), 0, "a mounted panel should not listen to held words before it is shown")
+	_assert_eq(_listener_count(memes), 0, "a mounted panel should not listen to memes before it is shown")
+	memes.add({"id": "meme-1"})
+	memes.add({"id": "meme-2"})
+	panel.render_app("profile", "discover")
+	panel.update_visibility(true, true)
+	_assert_eq(_listener_count(held), 1, "showing should register on the held words")
+	_assert_eq(_listener_count(memes), 1, "showing should register on the memes")
+	_assert_eq(_meme_count_text(mounted), "已合成梗：2", "showing should sync the finished memes at once")
+	panel.update_visibility(true, true)
+	_assert_eq(_listener_count(memes), 1, "showing again should not register twice")
+	_dispose(mounted)
+
+
+func _test_a_new_meme_repaints_the_open_profile_by_itself() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var memes: ListPropertyModel = mounted["memes"]
+	panel.render_app("profile", "discover")
+	panel.update_visibility(true, true)
+	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "a fresh run should show no finished memes")
+	memes.add({"id": "meme-1"})
+	_assert_eq(_meme_count_text(mounted), "已合成梗：1", "a new meme should repaint the open profile by itself")
+	memes.replace_all([])
+	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "clearing the memes should repaint the open profile by itself")
+	_dispose(mounted)
+
+
+func _test_a_new_meme_leaves_the_other_pages_alone() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var memes: ListPropertyModel = mounted["memes"]
+	panel.render_app("home", "discover")
+	panel.update_visibility(true, true)
+	var feed := _find(mounted, "SocialPhoneView")
+	memes.add({"id": "meme-1"})
+	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "a new meme should not redraw a page that does not show it")
+	_dispose(mounted)
+
+
+func _test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var held: ListPropertyModel = mounted["held"]
+	panel.render_app("home", "discover")
+	panel.open_detail(2)
+	panel.render_companion()
+	panel.update_visibility(true, true)
+	_assert_true(_pickup_line(mounted).contains("[url=门]"), "a word nobody holds should be marked as pickable")
+
+	held.add({"unit": "门", "locale": "zh", "source_post_id": "floor_13"})
+	var line := _pickup_line(mounted)
+	_assert_true(not line.contains("[url=门]"), "a word picked up should stop being pickable in the open post")
+	_assert_true(line.contains("[color=#8b8f84]门[/color]"), "a word picked up should stay as a gray residue in the open post")
+	held.replace_all([])
+	_assert_true(_pickup_line(mounted).contains("[url=门]"), "a word given back should be pickable again")
+	_dispose(mounted)
+
+
+func _test_hiding_unregisters_the_holdings_and_later_writes_are_ignored() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var held: ListPropertyModel = mounted["held"]
+	var memes: ListPropertyModel = mounted["memes"]
+	panel.render_app("profile", "discover")
+	panel.update_visibility(true, true)
+	panel.update_visibility(true, false)
+	_assert_eq(_listener_count(held), 0, "closing the app should unregister from the held words")
+	_assert_eq(_listener_count(memes), 0, "closing the app should unregister from the memes")
+	memes.add({"id": "meme-1"})
+	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "a closed app should no longer receive new memes")
+	panel.update_visibility(true, true)
+	_assert_eq(_meme_count_text(mounted), "已合成梗：1", "showing again should paint what changed while closed")
+	_dispose(mounted)
+
+
+func _test_a_freed_panel_unregisters_the_holdings() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var held: ListPropertyModel = mounted["held"]
+	var memes: ListPropertyModel = mounted["memes"]
+	panel.update_visibility(true, true)
+	mounted["panel"] = null
+	panel.free()
+	_assert_eq(_listener_count(held), 0, "a freed panel should leave the held words")
+	_assert_eq(_listener_count(memes), 0, "a freed panel should leave the memes")
+	_dispose(mounted)
+
+
+## The count line on the profile page, or "<missing>" when that page is not drawn.
+func _meme_count_text(mounted: Dictionary) -> String:
+	var label := _find_label_with_prefix(mounted["parent"], "已合成梗")
+	return label.text if label != null else "<missing>"
+
+
+func _pickup_line(mounted: Dictionary) -> String:
+	var line := _find(mounted, "SocialPickupLineText") as RichTextLabel
+	return line.text if line != null else "<missing>"
+
+
+func _find_label_with_prefix(node: Node, prefix: String) -> Label:
+	if node.is_queued_for_deletion():
+		return null
+	if node is Label and (node as Label).text.begins_with(prefix):
+		return node as Label
+	for child in node.get_children():
+		var found := _find_label_with_prefix(child, prefix)
+		if found != null:
+			return found
+	return null
 
 
 ## A repaint queues the old cards for deletion, so a node about to go does not count.

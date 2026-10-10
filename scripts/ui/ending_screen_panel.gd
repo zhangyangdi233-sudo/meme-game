@@ -6,8 +6,7 @@ extends Node
 signal ending_language_selected(choice_id: String)
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 var _label_factory: Callable
 var _theme_color_fn: Callable
@@ -22,7 +21,7 @@ var _relationship_residue_fn: Callable
 var _relationship_label_fn: Callable
 var _parent: Control
 var _choice := ""
-var _observing := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {PropertyKeysScript.ENDING_LANGUAGE_CHOICE: _on_choice})
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
@@ -31,7 +30,7 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 
 
 func unmount() -> void:
-	_stop_observing()
+	_watch.stop()
 	if _parent != null and is_instance_valid(_parent):
 		var existing := _parent.get_node_or_null("EndingScreen")
 		if existing != null and is_instance_valid(existing):
@@ -44,35 +43,10 @@ func unmount() -> void:
 func render() -> void:
 	if _parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
 		return
-	if _observing:
+	if _watch.is_active():
 		_rebuild()
 		return
-	_start_observing()
-
-
-func _exit_tree() -> void:
-	_stop_observing()
-
-
-func _start_observing() -> void:
-	if _observing:
-		return
-	var model := _choice_model()
-	if model == null:
-		return
-	_observing = true
-	model.register(_on_choice)
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var model := _choice_model()
-	if model != null:
-		model.unregister(_on_choice)
+	_watch.start()
 
 
 func _on_choice(value: Variant) -> void:
@@ -87,16 +61,6 @@ func _rebuild() -> void:
 	var screen := _build_screen(_parent)
 	if _refresh_localized_fn.is_valid():
 		_refresh_localized_fn.call(screen)
-
-
-func _choice_model() -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Ending screen cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(PropertyKeysScript.ENDING_LANGUAGE_CHOICE)
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:

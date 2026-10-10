@@ -86,7 +86,7 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Held words, memes, and canvas positions (run property models)
 
-The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks, crafts, and fusions go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`.
+The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks, crafts, and fusions go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`. The shown social app watches the held words and the memes itself: pickup marks in a post and the profile's finished-meme count come from the models, not from a host read.
 
 ### Doll / prerequisite world items
 

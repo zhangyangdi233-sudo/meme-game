@@ -18,8 +18,7 @@ const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 var _panel_factory: Callable
 var _label_factory: Callable
@@ -37,11 +36,13 @@ var _word_canvas: WordPhysicsCanvas
 var _app_body: VBoxContainer
 var _active_tab := "frame"
 var _shown := false
-var _observing := false
-var _registering := false
 var _paint_queued := false
 var _painted_chars: Array = []
 var _painted_memes: Array = []
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
+	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
+})
 
 
 func configure(deps: Dictionary) -> void:
@@ -66,14 +67,10 @@ func set_shown(shown: bool) -> void:
 	var was_shown := _shown
 	_shown = shown
 	if shown:
-		_start_observing()
+		_watch.start()
 	elif was_shown:
 		commit_canvas_positions()
-		_stop_observing()
-
-
-func _exit_tree() -> void:
-	_stop_observing()
+		_watch.stop()
 
 
 func commit_canvas_positions() -> void:
@@ -254,34 +251,6 @@ func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> voi
 		action_box.add_child(craft)
 
 
-func _start_observing() -> void:
-	if _observing:
-		return
-	var chars := _property_model(PropertyKeysScript.COLLECTED_CHAR_UNITS)
-	var memes := _property_model(PropertyKeysScript.COMPLETED_MEMES)
-	if chars == null or memes == null:
-		return
-	_observing = true
-	_registering = true
-	chars.register(_on_held_chars)
-	memes.register(_on_completed_memes)
-	_registering = false
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var chars := _property_model(PropertyKeysScript.COLLECTED_CHAR_UNITS)
-	var memes := _property_model(PropertyKeysScript.COMPLETED_MEMES)
-	if chars != null:
-		chars.unregister(_on_held_chars)
-	if memes != null:
-		memes.unregister(_on_completed_memes)
-
-
 ## A list the page already shows needs no repaint.
 func _on_held_chars(value: Variant) -> void:
 	if value != _painted_chars:
@@ -297,7 +266,7 @@ func _on_completed_memes(value: Variant) -> void:
 ## Showing syncs at once. A later change repaints at the end of the frame, so a host redraw
 ## in the same frame already covers it and the falling tiles are not rebuilt twice.
 func _request_paint() -> void:
-	if _registering:
+	if _watch.is_syncing():
 		_paint()
 		return
 	if _paint_queued:
@@ -308,7 +277,7 @@ func _request_paint() -> void:
 
 func _flush_paint() -> void:
 	_paint_queued = false
-	if not _observing:
+	if not _watch.is_active():
 		return
 	var chars_stale := _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars
 	var memes_stale := _active_tab == "fusion" and _read_list(PropertyKeysScript.COMPLETED_MEMES) != _painted_memes
@@ -317,20 +286,8 @@ func _flush_paint() -> void:
 
 
 func _read_list(property_name: String) -> Array:
-	var model := _property_model(property_name)
-	if model == null:
-		return []
-	return model.read() as Array
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Notebook cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)
+	var value: Variant = _watch.read(property_name)
+	return value as Array if value is Array else []
 
 
 func _on_craft_pressed() -> void:

@@ -34,20 +34,6 @@ func configure(deps: Dictionary) -> void:
 	_mouse_origin_getter = deps.get("mouse_origin", _mouse_origin_getter)
 
 
-func marked_text(source_text: String, pickable_color: Variant) -> String:
-	var locale_code := _locale()
-	var collected: Array = []
-	var game = _game()
-	if game != null:
-		collected = game.get_collected_char_units(locale_code)
-	var color_html := ""
-	if typeof(pickable_color) == TYPE_STRING:
-		color_html = str(pickable_color)
-	else:
-		color_html = (pickable_color as Color).to_html(false)
-	return pickup_bbcode(source_text, locale_code, collected, color_html)
-
-
 func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 	var game = _game()
 	if game == null:
@@ -64,7 +50,7 @@ func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 		if bool(pick_result.get("action_spent", false)):
 			effective_action.emit(actions_before)
 		else:
-			ui_refresh_requested.emit()
+			status_refresh_requested.emit()
 		return pick_result
 	match str(pick_result.get("reason", "")):
 		"duplicate":

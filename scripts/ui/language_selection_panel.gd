@@ -6,12 +6,11 @@ extends Node
 signal language_selected(locale_code: String)
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 var _language_overlay: Control
 var _choice_buttons: Dictionary = {}
-var _observing := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {PropertyKeysScript.LOCALE: _on_locale})
 var _language_overlay_first_run := false
 var _soft_style_fn: Callable
 var _theme_color_fn: Callable
@@ -25,7 +24,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	_apply_mount_deps(deps)
 	if parent == null or not _soft_style_fn.is_valid() or not _theme_color_fn.is_valid():
 		return
-	_stop_observing()
+	_watch.stop()
 	if _language_overlay != null and is_instance_valid(_language_overlay):
 		_language_overlay.queue_free()
 	_choice_buttons.clear()
@@ -96,7 +95,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 		cancel.custom_minimum_size.y = 50
 		cancel.pressed.connect(_on_cancel_pressed)
 		box.add_child(cancel)
-	_start_observing()
+	_watch.start()
 	if _refresh_localized_ui_fn.is_valid():
 		_refresh_localized_ui_fn.call()
 
@@ -108,7 +107,7 @@ func get_overlay() -> Control:
 func close() -> bool:
 	if _language_overlay_first_run and _language_selected_fn.is_valid() and not bool(_language_selected_fn.call()):
 		return false
-	_stop_observing()
+	_watch.stop()
 	if _language_overlay != null and is_instance_valid(_language_overlay):
 		_language_overlay.queue_free()
 	_language_overlay = null
@@ -117,46 +116,11 @@ func close() -> bool:
 	return true
 
 
-func _exit_tree() -> void:
-	_stop_observing()
-
-
-func _start_observing() -> void:
-	if _observing:
-		return
-	var locale := _locale_model()
-	if locale == null:
-		return
-	locale.register(_on_locale)
-	_observing = true
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var locale := _locale_model()
-	if locale != null:
-		locale.unregister(_on_locale)
-
-
 func _on_locale(value: Variant) -> void:
 	for locale_code in _choice_buttons:
 		var choice := _choice_buttons[locale_code] as Button
 		if choice != null and is_instance_valid(choice):
 			choice.set_pressed_no_signal(str(locale_code) == str(value))
-
-
-func _locale_model() -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Language picker cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(PropertyKeysScript.LOCALE)
 
 
 func _apply_mount_deps(deps: Dictionary) -> void:
@@ -172,9 +136,8 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 
 func _on_choice_pressed(locale_code: String) -> void:
 	# Toggling is the button's own reaction; the mark stays on the model's language.
-	var locale := _locale_model() if _observing else null
-	if locale != null:
-		_on_locale(locale.read())
+	if _watch.is_active():
+		_on_locale(_watch.read(PropertyKeysScript.LOCALE))
 	language_selected.emit(locale_code)
 
 

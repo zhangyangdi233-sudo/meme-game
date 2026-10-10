@@ -1,13 +1,15 @@
 class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
-## While the app is shown, it watches the followed authors and the liked posts and repaints itself.
+## While the app is shown, it watches the followed authors, the liked posts, the held words and the finished memes,
+## and repaints itself.
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
+const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 signal channel_pressed(channel: String)
 signal screen_requested(screen: String)
@@ -71,7 +73,6 @@ var _soft_style_fn: Callable
 var _apply_composer_tile_theme_fn: Callable
 var _free_sentence_text_fn: Callable
 var _can_spend_action_fn: Callable
-var _completed_memes_count_fn: Callable
 var _pollution_fn: Callable
 var _player_character_path := ""
 var _composer_soft_unit_limit := 12
@@ -83,12 +84,20 @@ var _poster_sheet_count := 0
 var _screen := ""
 var _channel := ""
 var _rendered := false
-var _observing := false
-var _registering := false
 var _followed: Array = []
 var _liked: Array = []
+var _held_chars: Array = []
+var _completed_memes: Array = []
 var _painted_followed: Array = []
 var _painted_liked: Array = []
+var _painted_held_chars: Array = []
+var _painted_memes: Array = []
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
+	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
+	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
+	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
+})
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -165,18 +174,17 @@ func update_visibility(in_phone: bool, social_app_open: bool) -> void:
 	if _detail_window != null:
 		_detail_window.visible = in_phone and _social_detail_open and social_app_open
 	if in_phone and social_app_open:
-		_start_observing()
+		# Registering delivers each list once; one repaint after all of them covers a list that changed while hidden.
+		if not _watch.is_active() and _watch.start():
+			_repaint_if_stale()
 	else:
-		_stop_observing()
-
-
-func _exit_tree() -> void:
-	_stop_observing()
+		_watch.stop()
 
 
 func render_companion() -> void:
 	if _detail_body == null:
 		return
+	_painted_held_chars = _held_chars
 	_clear(_detail_body)
 	if not _social_detail_open:
 		return
@@ -217,6 +225,7 @@ func render_app(screen: String, channel: String) -> void:
 	_rendered = true
 	_painted_followed = _followed
 	_painted_liked = _liked
+	_painted_memes = _completed_memes
 	_clear(_app_body)
 	var phone_view := _panel_factory.call() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -354,7 +363,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
 	_free_sentence_text_fn = deps.get("free_sentence_text", Callable())
 	_can_spend_action_fn = deps.get("can_spend_action", Callable())
-	_completed_memes_count_fn = deps.get("completed_memes_count", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
 	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
@@ -1096,9 +1104,7 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 	identity_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	identity_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	identity_frame.add_child(identity_portrait)
-	var completed_count := 0
-	if _completed_memes_count_fn.is_valid():
-		completed_count = int(_completed_memes_count_fn.call())
+	var completed_count := _completed_memes.size()
 	var pollution := 0
 	if _pollution_fn.is_valid():
 		pollution = int(_pollution_fn.call())
@@ -1156,7 +1162,13 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	var bbcode := source_text
 	if _language_material != null:
 		var pickable_color = _theme_color_fn.call("flash_text") if _theme_color_fn.is_valid() else Color("9cff24")
-		bbcode = str(_language_material.marked_text(source_text, pickable_color))
+		var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
+		bbcode = LanguageMaterialScript.pickup_bbcode(
+			source_text,
+			locale,
+			MemeGameStateScript.char_units_for_locale(_held_chars, locale),
+			(pickable_color as Color).to_html(false)
+		)
 	rich.text = bbcode
 	rich.meta_clicked.connect(_on_pickup_meta_clicked.bind(post_id))
 	return rich
@@ -1252,64 +1264,42 @@ func _on_composer_submit_pressed() -> void:
 	composer_submit_requested.emit()
 
 
-func _start_observing() -> void:
-	if _observing:
-		return
-	var followed := _property_model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
-	var liked := _property_model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
-	if followed == null or liked == null:
-		return
-	_observing = true
-	# Registering delivers each list once; one repaint after both covers a list that changed while hidden.
-	_registering = true
-	followed.register(_on_followed)
-	liked.register(_on_liked)
-	_registering = false
-	_repaint_if_stale()
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var followed := _property_model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
-	var liked := _property_model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
-	if followed != null:
-		followed.unregister(_on_followed)
-	if liked != null:
-		liked.unregister(_on_liked)
-
-
 func _on_followed(value: Variant) -> void:
 	_followed = value as Array
-	if not _registering:
-		_repaint_if_stale()
+	_repaint_unless_syncing()
 
 
 func _on_liked(value: Variant) -> void:
 	_liked = value as Array
-	if not _registering:
+	_repaint_unless_syncing()
+
+
+func _on_held_chars(value: Variant) -> void:
+	_held_chars = value as Array
+	_repaint_unless_syncing()
+
+
+func _on_completed_memes(value: Variant) -> void:
+	_completed_memes = value as Array
+	_repaint_unless_syncing()
+
+
+func _repaint_unless_syncing() -> void:
+	if not _watch.is_syncing():
 		_repaint_if_stale()
 
 
 ## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
+## Held words mark the post detail only, and finished memes show on the profile page only.
 func _repaint_if_stale() -> void:
-	if not _rendered or (_followed == _painted_followed and _liked == _painted_liked):
+	if not _rendered:
 		return
-	render_app(_screen, _channel)
-	render_companion()
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Social feed cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)
+	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
+	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale
+	if feed_stale:
+		render_app(_screen, _channel)
+	if feed_stale or _held_chars != _painted_held_chars:
+		render_companion()
 
 
 func _clear(node: Node) -> void:

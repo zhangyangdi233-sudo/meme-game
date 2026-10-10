@@ -6,8 +6,7 @@ signal settings_pressed
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 var _rail: PanelContainer
 var _reveal_zone: Control
@@ -36,7 +35,10 @@ var _tooltip_texts: Dictionary = {}
 var _tooltip_kind := ""
 var _max_actions_fn: Callable
 var _shown := false
-var _observing := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.MONEY: _on_money,
+	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
+})
 
 
 static func action_label(actions: int, max_actions: int) -> String:
@@ -54,7 +56,7 @@ func mount(parent: Control, deps: Dictionary = {}) -> void:
 	if parent == null or not _panel_factory.is_valid() or not _label_factory.is_valid():
 		return
 	var keep_shown := _shown
-	_stop_observing()
+	_watch.stop()
 	if _rail != null and is_instance_valid(_rail):
 		_rail.queue_free()
 	if _reveal_zone != null and is_instance_valid(_reveal_zone):
@@ -77,13 +79,9 @@ func set_shown(shown: bool) -> void:
 	if not shown and _tooltip != null and is_instance_valid(_tooltip):
 		_tooltip.visible = false
 	if shown:
-		_start_observing()
+		_watch.start()
 	else:
-		_stop_observing()
-
-
-func _exit_tree() -> void:
-	_stop_observing()
+		_watch.stop()
 
 
 func get_rail() -> PanelContainer:
@@ -282,36 +280,10 @@ func _on_settings_pressed() -> void:
 	settings_pressed.emit()
 
 
-func _start_observing() -> void:
-	if _observing:
-		return
-	var money := _property_model(PropertyKeysScript.MONEY)
-	var actions := _property_model(PropertyKeysScript.ACTIONS_REMAINING)
-	if money == null or actions == null:
-		return
-	money.register(_on_money)
-	actions.register(_on_actions)
-	_observing = true
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var money := _property_model(PropertyKeysScript.MONEY)
-	var actions := _property_model(PropertyKeysScript.ACTIONS_REMAINING)
-	if money != null:
-		money.unregister(_on_money)
-	if actions != null:
-		actions.unregister(_on_actions)
-
-
 func _stop_if_current_rail_exits(rail: Node) -> void:
 	if rail != _rail:
 		return
-	_stop_observing()
+	_watch.stop()
 
 
 func _on_money(value: Variant) -> void:
@@ -333,13 +305,3 @@ func _max_actions() -> int:
 	if _max_actions_fn.is_valid():
 		return int(_max_actions_fn.call())
 	return PropertyBootScript.DEFAULT_MAX_ACTIONS
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Status column cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)

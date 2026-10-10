@@ -63,8 +63,8 @@ func _test_bbcode_marking() -> void:
 		"game": func(): return game,
 		"locale": func() -> String: return "zh",
 	})
-	var live_marked: String = material.marked_text("门还在", pickable)
-	_assert_true(not live_marked.contains("[url=门]"), "instance marking should read collected units from game")
+	var held_marked: String = LanguageMaterialScript.pickup_bbcode("门还在", "zh", game.get_collected_char_units("zh"), pickable)
+	_assert_true(not held_marked.contains("[url=门]"), "marking should grey out the held units it is handed")
 	_assert_eq_text(
 		material.pickup_line("floor_13", "zh"),
 		LanguageMaterialScript.pickup_line("floor_13", "zh"),

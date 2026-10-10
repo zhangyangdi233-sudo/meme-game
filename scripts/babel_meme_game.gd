@@ -2035,8 +2035,6 @@ func _social_feed_mount_deps() -> Dictionary:
 		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
 		"free_sentence_text": func() -> String: return game.get_free_sentence_text(_locale.current_locale) if game != null else "",
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
-		"completed_memes_count": func() -> int:
-			return (_inventory_snapshot().get("completed_memes", []) as Array).size() if game != null else 0,
 		"pollution": func() -> int: return int(_day_progress_snapshot().get("pollution", 0)) if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
@@ -3468,11 +3466,6 @@ func _ensure_notebook_window_home() -> void:
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.layout_app_window("notebook")
 	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
-
-
-func _pickup_bbcode(source_text: String) -> String:
-	_ensure_language_material()
-	return _language_material.marked_text(source_text, _ui_theme_helper.theme_color("flash_text"))
 
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:

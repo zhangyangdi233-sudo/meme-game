@@ -5,8 +5,7 @@ extends Node
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 signal volume_changed(value: float)
 signal vhs_toggled(value: bool)
@@ -36,7 +35,11 @@ var _settings_save_status: Label
 var _volume_slider: HSlider
 var _vhs_toggle: CheckButton
 var _settings_open := false
-var _observing := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
+	PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
+	PropertyKeysScript.LOCALE: _on_locale,
+})
 var _exit_confirmation_overlay: Control
 var _panel_factory: Callable
 var _label_factory: Callable
@@ -82,9 +85,9 @@ func set_settings_open(open: bool) -> void:
 		if open:
 			_settings_window.move_to_front()
 	if open:
-		_start_observing()
+		_watch.start()
 	else:
-		_stop_observing()
+		_watch.stop()
 	settings_open_changed.emit(open)
 
 
@@ -136,46 +139,6 @@ func close() -> void:
 		_history_window.visible = false
 
 
-func _exit_tree() -> void:
-	_stop_observing()
-
-
-func _start_observing() -> void:
-	if _observing:
-		return
-	var watched := _watched_listeners()
-	var models: Dictionary = {}
-	for property_name in watched:
-		var found := _property_model(property_name)
-		if found == null:
-			return
-		models[property_name] = found
-	for property_name in watched:
-		(models[property_name] as PropertyModel).register(watched[property_name])
-	_observing = true
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var watched := _watched_listeners()
-	for property_name in watched:
-		var found := _property_model(property_name)
-		if found != null:
-			found.unregister(watched[property_name])
-
-
-func _watched_listeners() -> Dictionary:
-	return {
-		PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
-		PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
-		PropertyKeysScript.LOCALE: _on_locale,
-	}
-
-
 func _on_master_volume(value: Variant) -> void:
 	if _volume_slider != null:
 		_volume_slider.set_value_no_signal(float(value))
@@ -193,16 +156,6 @@ func _on_locale(value: Variant) -> void:
 		if str(_settings_language_option.get_item_metadata(index)) == str(value):
 			_settings_language_option.select(index)
 			return
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Settings cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)
 
 
 func refresh_menu_labels(pollution: int) -> void:

@@ -5,8 +5,7 @@ extends Node
 
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
 const WATCHED: Array[String] = [
 	PropertyKeysScript.CONVERSATION_PHASE,
@@ -52,9 +51,8 @@ var _typed_bbcode_fn: Callable
 var _typing_unit_count_fn: Callable
 
 var _shown := false
-var _observing := false
-var _listeners: Dictionary = {}
 var _values: Dictionary = {}
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, _watched_listeners())
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -66,12 +64,13 @@ func mount(parent: Control, deps: Dictionary) -> void:
 func set_shown(shown: bool) -> void:
 	_shown = shown
 	if shown:
-		var was_observing := _observing
-		_start_observing()
-		if was_observing:
+		if _watch.is_active():
 			_paint()
+		else:
+			_values.clear()
+			_watch.start()
 	else:
-		_stop_observing()
+		_watch.stop()
 		_hide_all()
 
 
@@ -81,39 +80,11 @@ func render() -> void:
 		_paint()
 
 
-func _exit_tree() -> void:
-	_stop_observing()
-
-
-func _start_observing() -> void:
-	if _observing:
-		return
-	var models: Dictionary = {}
+func _watched_listeners() -> Dictionary:
+	var listeners := {}
 	for property_name in WATCHED:
-		var model := _property_model(property_name)
-		if model == null:
-			return
-		models[property_name] = model
-	_observing = true
-	_values.clear()
-	for property_name in WATCHED:
-		var listener := _on_property.bind(property_name)
-		_listeners[property_name] = listener
-		(models[property_name] as PropertyModel).register(listener)
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	var listeners := _listeners
-	_listeners = {}
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	for property_name in listeners:
-		var model := _property_model(str(property_name))
-		if model != null:
-			model.unregister(listeners[property_name])
+		listeners[property_name] = _on_property.bind(property_name)
+	return listeners
 
 
 func _on_property(value: Variant, property_name: String) -> void:
@@ -121,16 +92,6 @@ func _on_property(value: Variant, property_name: String) -> void:
 	# Registering delivers each value once; the first paint waits until all of them arrived.
 	if _values.size() == WATCHED.size() and _shown:
 		_paint()
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Conversation panel cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)
 
 
 func _hide_all() -> void:

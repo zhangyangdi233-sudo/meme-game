@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (65 tests)
+## What runs (67 tests)
 
-### GDScript (63)
+### GDScript (65)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -118,7 +118,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word and meme models; hiding writes canvas positions once |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models |
-| `test_social_feed_panel` | module | shown social app watches the follow and like models and repaints itself |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word and meme models and repaints itself |
+| `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
@@ -129,6 +130,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
+| `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility |
 | `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |

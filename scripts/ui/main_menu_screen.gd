@@ -16,49 +16,21 @@ const BUTTON_INTENTS := {
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 
-var _observing := false
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.POLLUTION: _on_pollution,
+	PropertyKeysScript.HAS_SAVE: _on_has_save,
+})
 
 
 func present(_context: Dictionary) -> void:
-	_stop_observing()
-	_start_observing()
+	_watch.stop()
+	_watch.start()
 
 
 func dismiss() -> void:
-	_stop_observing()
-
-
-func _exit_tree() -> void:
-	_stop_observing()
-
-
-func _start_observing() -> void:
-	if _observing:
-		return
-	var pollution := _property_model(PropertyKeysScript.POLLUTION)
-	var has_save := _property_model(PropertyKeysScript.HAS_SAVE)
-	if pollution == null or has_save == null:
-		return
-	pollution.register(_on_pollution)
-	has_save.register(_on_has_save)
-	_observing = true
-
-
-func _stop_observing() -> void:
-	if not _observing:
-		return
-	_observing = false
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		return
-	var pollution := _property_model(PropertyKeysScript.POLLUTION)
-	var has_save := _property_model(PropertyKeysScript.HAS_SAVE)
-	if pollution != null:
-		pollution.unregister(_on_pollution)
-	if has_save != null:
-		has_save.unregister(_on_has_save)
+	_watch.stop()
 
 
 func _on_pollution(value: Variant) -> void:
@@ -73,13 +45,3 @@ func _on_has_save(value: Variant) -> void:
 	var saved := bool(value)
 	continue_button.disabled = not saved
 	continue_button.tooltip_text = "回到上次离开的位置" if saved else "暂无自动存档"
-
-
-func _property_model(property_name: String) -> PropertyModel:
-	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
-		push_error("Main menu cannot see the property service")
-		return null
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name)

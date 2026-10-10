@@ -78,6 +78,10 @@ _Avoid_: a bag pushed into each screen, a second copy of a fact on the host or o
 One single-copy value with its observers. An open screen registers and is told the current value; a later write tells every listener. Callers fetch the model from the property manager each time. Lists and maps are copied on read and changed only through the model's methods. Names and save categories live in `PropertyKeys`.
 _Avoid_: keeping a model in a field, writing a list or map in place, storing a derived label or palette as its own model, a screen opening itself because a model changed
 
+**Property watch**:
+One screen's registrations on its models, kept in one place. Starting finds every model and registers every listener (each is told the current value once); stopping unregisters them all; the screen leaving the tree stops it too. A screen builds one and starts it when it opens.
+_Avoid_: a screen re-writing its own find / register / unregister code, keeping the models in fields, a listener that outlives its screen
+
 **Palette role**:
 A named color slot of the UI palette (`surface`, `ink`, `menu_bg`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor.
 _Avoid_: literal colors on palette-driven nodes, one node group per color
