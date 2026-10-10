@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (63 tests)
+## What runs (64 tests)
 
-### GDScript (61)
+### GDScript (62)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -117,6 +117,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word and meme models; hiding writes canvas positions once |
+| `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |

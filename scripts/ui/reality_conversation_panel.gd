@@ -1,8 +1,24 @@
 class_name RealityConversationPanel
 extends Node
 ## Reality subtitle, choice row, typing line, and continue button chrome.
+## While shown, it watches the conversation progress models and repaints itself.
 
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+
+const WATCHED: Array[String] = [
+	PropertyKeysScript.CONVERSATION_PHASE,
+	PropertyKeysScript.CONVERSATION_ACTOR_TYPE,
+	PropertyKeysScript.CONVERSATION_ACTOR_LABEL,
+	PropertyKeysScript.CONVERSATION_PROMPT,
+	PropertyKeysScript.CONVERSATION_CHOICES,
+	PropertyKeysScript.CONVERSATION_CAN_CONTINUE,
+	PropertyKeysScript.CONVERSATION_FEEDBACK,
+	PropertyKeysScript.CONVERSATION_REVEAL_INDEX,
+	PropertyKeysScript.CONVERSATION_REVEALED_UNITS,
+]
 
 signal choice_hovered(choice_id: String)
 signal choice_unhovered(choice_id: String)
@@ -25,6 +41,20 @@ var _install_rich_text_effect_fn: Callable
 var _set_dialogue_text_fn: Callable
 var _set_richer_bbcode_fn: Callable
 var _clear_children_fn: Callable
+var _day_line_fn: Callable
+var _fallback_actor_name_fn: Callable
+var _last_spoken_sentence_fn: Callable
+var _npc_understanding_fn: Callable
+var _hover_choice_id_fn: Callable
+var _hover_choice_preview_fn: Callable
+var _playtest_assist_fn: Callable
+var _typed_bbcode_fn: Callable
+var _typing_unit_count_fn: Callable
+
+var _shown := false
+var _observing := false
+var _listeners: Dictionary = {}
+var _values: Dictionary = {}
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -32,50 +62,137 @@ func mount(parent: Control, deps: Dictionary) -> void:
 	_build_chrome(parent)
 
 
-func render(state: Dictionary) -> void:
-	if _subtitle_label == null:
+## The play chrome decides whether the conversation may show at all. While it shows, the models decide the rest.
+func set_shown(shown: bool) -> void:
+	_shown = shown
+	if shown:
+		var was_observing := _observing
+		_start_observing()
+		if was_observing:
+			_paint()
+	else:
+		_stop_observing()
+		_hide_all()
+
+
+## Repaints for what the models cannot tell, for example a new hover, a language change, or the day line.
+func render() -> void:
+	if _shown:
+		_paint()
+
+
+func _exit_tree() -> void:
+	_stop_observing()
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var models: Dictionary = {}
+	for property_name in WATCHED:
+		var model := _property_model(property_name)
+		if model == null:
+			return
+		models[property_name] = model
+	_observing = true
+	_values.clear()
+	for property_name in WATCHED:
+		var listener := _on_property.bind(property_name)
+		_listeners[property_name] = listener
+		(models[property_name] as PropertyModel).register(listener)
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	var listeners := _listeners
+	_listeners = {}
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	for property_name in listeners:
+		var model := _property_model(str(property_name))
+		if model != null:
+			model.unregister(listeners[property_name])
+
+
+func _on_property(value: Variant, property_name: String) -> void:
+	_values[property_name] = value
+	# Registering delivers each value once; the first paint waits until all of them arrived.
+	if _values.size() == WATCHED.size() and _shown:
+		_paint()
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Conversation panel cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
+
+
+func _hide_all() -> void:
+	if _subtitle_panel == null or not is_instance_valid(_subtitle_panel):
+		return
+	_subtitle_panel.visible = false
+	_choice_row.visible = false
+	_intent_preview.visible = false
+	_typing_line.visible = false
+	_typing_progress.visible = false
+
+
+func _paint() -> void:
+	if _values.size() < WATCHED.size() or _subtitle_label == null or not is_instance_valid(_subtitle_label) or not _clear_children_fn.is_valid():
 		return
 	_clear_children_fn.call(_choice_row)
-	var interaction_active := bool(state.get("interaction_active", false))
-	var phase := str(state.get("phase", ""))
-	var choosing := interaction_active and phase == "choosing"
-	var typing := interaction_active and phase == "typing"
-	var result := interaction_active and phase == "result"
-	var actor_name := str(state.get("actor_name", ""))
-	var subtitle := "%s：%s" % [actor_name, str(state.get("npc_line", ""))]
-	var feedback := str(state.get("conversation_feedback", ""))
+	var phase := str(_values.get(PropertyKeysScript.CONVERSATION_PHASE, ""))
+	var choosing := phase == "choosing"
+	var typing := phase == "typing"
+	var result := phase == "result"
+	var actor_label := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))
+	var actor_type := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, ""))
+	var actor_name: String = actor_label if not actor_label.is_empty() else str(_call(_fallback_actor_name_fn, ""))
+	var prompt := str(_values.get(PropertyKeysScript.CONVERSATION_PROMPT, ""))
+	var npc_line: String = prompt if not prompt.is_empty() else str(_call(_day_line_fn, ""))
+	var subtitle := "%s：%s" % [actor_name, npc_line]
+	var feedback := str(_values.get(PropertyKeysScript.CONVERSATION_FEEDBACK, ""))
 	if not feedback.is_empty():
 		subtitle += "\n" + feedback
 	_set_dialogue_text_fn.call(_subtitle_label, subtitle)
-	if result and bool(state.get("conversation_can_continue", false)):
+	if result and bool(_values.get(PropertyKeysScript.CONVERSATION_CAN_CONTINUE, false)):
 		_continue_button.text = "继续交谈"
 	elif result:
 		_continue_button.text = "结束"
 	else:
 		_continue_button.text = "离开"
-	if result and str(state.get("conversation_actor_type", "")) == "doctor" and not str(state.get("last_polluted_sentence", "")).is_empty():
+	var last_spoken := str(_call(_last_spoken_sentence_fn, ""))
+	if result and actor_type == "doctor" and not last_spoken.is_empty():
 		_set_dialogue_text_fn.call(_subtitle_label, "%s：%s\n你说：%s\n理解度：%d%%" % [
 			actor_name,
 			feedback,
-			str(state.get("last_polluted_sentence", "")),
-			int(state.get("npc_understanding", 0)),
+			last_spoken,
+			int(_call(_npc_understanding_fn, 0)),
 		])
+	_subtitle_panel.visible = true
+	_continue_button.visible = true
 	_choice_row.visible = choosing
 	_typing_line.visible = typing
 	_typing_progress.visible = typing
-	_continue_button.visible = interaction_active
+	var hover_choice_id := str(_call(_hover_choice_id_fn, ""))
+	_intent_preview.visible = choosing and not hover_choice_id.is_empty()
 	if choosing:
-		var playtest_assist_enabled := bool(state.get("playtest_assist_enabled", false))
-		var conversation_actor_type := str(state.get("conversation_actor_type", ""))
+		var playtest_assist_enabled := bool(_call(_playtest_assist_fn, false))
 		var viewport_size: Vector2 = _viewport_size_fn.call()
 		var compact: bool = viewport_size.x < 760.0
-		for choice_value in state.get("choices", []):
+		for choice_value in _values.get(PropertyKeysScript.CONVERSATION_CHOICES, []):
 			var choice: Dictionary = choice_value as Dictionary
 			var choice_id := str(choice.get("id", ""))
 			var button := Button.new()
 			button.name = "RealityChoice%s" % choice_id.to_pascal_case()
 			button.text = str(choice.get("summary", "回应"))
-			if playtest_assist_enabled and conversation_actor_type == "key_npc" and bool(choice.get("correct", false)):
+			if playtest_assist_enabled and actor_type == "key_npc" and bool(choice.get("correct", false)):
 				button.text = "✓ TEST  %s" % button.text
 			button.custom_minimum_size = Vector2(96 if compact else 164, 56)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,21 +209,23 @@ func render(state: Dictionary) -> void:
 			if not button.disabled:
 				button.pressed.connect(_on_choice_pressed.bind(choice_id))
 			_choice_row.add_child(button)
-		var hover_choice_id := str(state.get("hover_choice_id", ""))
 		if hover_choice_id.is_empty():
 			_set_dialogue_text_fn.call(_intent_preview, "")
 		else:
-			_set_dialogue_text_fn.call(_intent_preview, str(state.get("hover_choice_preview", "")))
-		_intent_preview.visible = not hover_choice_id.is_empty()
+			_set_dialogue_text_fn.call(_intent_preview, str(_call(_hover_choice_preview_fn, "")))
 	if typing:
-		_set_richer_bbcode_fn.call(_typing_line, str(state.get("typed_reality_bbcode", "")))
+		_set_richer_bbcode_fn.call(_typing_line, str(_call(_typed_bbcode_fn, "")))
 		_typing_progress.text = "任意键  %d / %d" % [
-			int(state.get("typing_reveal_index", 0)),
-			int(state.get("typing_unit_count", 0)),
+			int(_values.get(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, 0)),
+			int(_call(_typing_unit_count_fn, 0)),
 		]
 	else:
 		_set_richer_bbcode_fn.call(_typing_line, "")
 		_typing_progress.text = ""
+
+
+func _call(callback: Callable, fallback: Variant) -> Variant:
+	return callback.call() if callback.is_valid() else fallback
 
 
 func layout(hud_right: float) -> void:
@@ -145,20 +264,6 @@ func layout(hud_right: float) -> void:
 	_subtitle_panel.offset_bottom = -104.0
 
 
-func update_visibility(interaction_visible: bool, phase: String, hover_choice_id: String) -> void:
-	if _subtitle_panel == null:
-		return
-	_subtitle_panel.visible = interaction_visible
-	if _choice_row != null:
-		_choice_row.visible = interaction_visible and phase == "choosing"
-	if _intent_preview != null:
-		_intent_preview.visible = interaction_visible and phase == "choosing" and not hover_choice_id.is_empty()
-	if _typing_line != null:
-		_typing_line.visible = interaction_visible and phase == "typing"
-	if _typing_progress != null:
-		_typing_progress.visible = interaction_visible and phase == "typing"
-
-
 func set_intent_preview(text: String) -> void:
 	if _intent_preview == null:
 		return
@@ -184,6 +289,15 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_set_dialogue_text_fn = deps.get("set_dialogue_text", Callable())
 	_set_richer_bbcode_fn = deps.get("set_richer_bbcode", Callable())
 	_clear_children_fn = deps.get("clear_children", Callable())
+	_day_line_fn = deps.get("day_line", Callable())
+	_fallback_actor_name_fn = deps.get("fallback_actor_name", Callable())
+	_last_spoken_sentence_fn = deps.get("last_spoken_sentence", Callable())
+	_npc_understanding_fn = deps.get("npc_understanding", Callable())
+	_hover_choice_id_fn = deps.get("hover_choice_id", Callable())
+	_hover_choice_preview_fn = deps.get("hover_choice_preview", Callable())
+	_playtest_assist_fn = deps.get("playtest_assist_enabled", Callable())
+	_typed_bbcode_fn = deps.get("typed_bbcode", Callable())
+	_typing_unit_count_fn = deps.get("typing_unit_count", Callable())
 
 
 func _build_chrome(parent: Control) -> void:
@@ -290,6 +404,7 @@ func _build_chrome(parent: Control) -> void:
 	_continue_button.custom_minimum_size = Vector2(92, 48)
 	_continue_button.pressed.connect(_on_continue_pressed)
 	subtitle_box.add_child(_continue_button)
+	_hide_all()
 
 
 func _on_choice_hovered(choice_id: String) -> void:

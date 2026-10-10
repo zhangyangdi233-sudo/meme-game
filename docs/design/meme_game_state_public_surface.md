@@ -16,8 +16,8 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Signals (slice 2A) | 2 — + `phone_shell_changed` (retired once the phone moved to property models) |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
-| Signals (slice 3a) | 5 — + `reality_conversation_changed` |
-| Signals (slice 3b) | 5 — `reality_conversation_changed` emits on all conversation intents |
+| Signals (slice 3a) | 5 — + `reality_conversation_changed` (retired once the conversation progress moved to property models) |
+| Signals (slice 3b) | 5 — `reality_conversation_changed` emitted on all conversation intents (retired with 3a) |
 | Signals (slice 4) | 6 — + `day_progress_changed` |
 | Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition |
 | Signals (slice 6) | 7 — + `inventory_changed` (retired once held words and memes moved to property models) |
@@ -94,7 +94,9 @@ The held words (`collected_char_units`, `notebook_tokens`) and the finished meme
 
 ### Reality conversation (typed)
 
-`conversation_phase`, `conversation_actor_id`, `conversation_actor_type`, `conversation_actor_label`, `conversation_prompt`, `conversation_result_line`, `conversation_choices`, `conversation_selected_choice_id`, `conversation_clean_sentence`, `conversation_revealed_units`, `conversation_reveal_index`, `conversation_attempts`, `conversation_understood`, `conversation_understanding_rolls`, `conversation_feedback`, `conversation_locale`, `conversation_clean_units`, `conversation_mode`, `conversation_world`, `conversation_selected_token_ids`, `conversation_turns`, `conversation_turn_index`, `conversation_history`, `conversation_can_continue`, `conversation_completed`, `conversation_interrupted`, `conversation_interrupt_line`, `conversation_action_spent`, `conversation_reward`
+The progress the conversation screen shows lives only in run property models (reset with the run, not part of the save): `conversation_phase`, `conversation_mode`, `conversation_actor_type`, `conversation_actor_label`, `conversation_prompt`, `conversation_result_line`, `conversation_choices`, `conversation_can_continue`, `conversation_feedback`, `conversation_reveal_index`, `conversation_revealed_units`. The state exposes them as accessors that read and write the models; it keeps no second copy.
+
+The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conversation_selected_choice_id`, `conversation_clean_sentence`, `conversation_attempts`, `conversation_understood`, `conversation_understanding_rolls`, `conversation_locale`, `conversation_clean_units`, `conversation_world`, `conversation_selected_token_ids`, `conversation_turns`, `conversation_turn_index`, `conversation_history`, `conversation_completed`, `conversation_interrupted`, `conversation_interrupt_line`, `conversation_action_spent`, `conversation_reward`
 
 ### Relationship / doctor dialogue
 
@@ -233,11 +235,10 @@ The shown notebook watches the held-word and meme models and repaints itself, so
 | Kind | API |
 |---|---|
 | Snapshot | `get_reality_conversation_snapshot()` → `{ phase, mode, actor_type, actor_label, prompt, result_line, choices, can_continue, feedback, reveal_index, revealed_units }` |
-| Signal | `reality_conversation_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }`; emits from start/reset and all conversation intents (slice 3b) |
 | Intent | `configure_conversation_locale(locale_code)` — localizes display fields internally and updates the snapshot |
 | Query | `get_typed_reality_choices()`, `get_typed_reality_progress()`, `get_typed_reality_history()` |
 
-Legacy `conversation_*` fields remain for save/load and the typed turn engine; new adapter display code should prefer the snapshot. Do **not** snapshot the full turn engine in 3a/3b.
+The open conversation panel watches the progress models and repaints itself, so there is no change signal. The snapshot stays for the other readers (world prompt, language composer). Do **not** snapshot the full turn engine.
 
 ### Typed reality conversation (legacy listing)
 
@@ -360,19 +361,9 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
   "reveal_index": int,
   "revealed_units": Array,  # bounded per-character reveal payload for bbcode
 }
-
-# Signal payload = snapshot + change metadata
-{
-  # ...display subset...
-  "change": {
-    "kind": "start" | "reset",
-    "target_id": String,  # actor_id on start, empty on reset
-    "active": bool,
-  },
-}
 ```
 
-**Adapter pattern:** connect `reality_conversation_changed` → `_render()`; read display via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent. Signal emits from `start_typed_reality_conversation` / `reset_typed_reality_conversation` only.
+**Adapter pattern:** the conversation panel registers on the progress models while shown; read display for other readers via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent and writes the models.
 
 ---
 
@@ -384,29 +375,9 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
   # ...slice 3a fields...
   "revealed_units": Array,  # { clean, display, corrupted, roll } per revealed character
 }
-
-# Signal payload = snapshot + change metadata
-{
-  # ...display subset...
-  "change": {
-    "kind": "start" | "reset" | "select" | "advance" | "continue" | "confirm_doctor" | "locale",
-    "target_id": String,  # choice_id on select, locale code on locale, actor_id on start, else ""
-    "active": bool,
-  },
-}
 ```
 
-**Intent → signal mapping:**
-
-| Intent | `change.kind` | When |
-|---|---|---|
-| `select_typed_reality_choice(choice_id)` | `select` | on success |
-| `advance_typed_reality_character()` | `advance` | when `advanced` is true |
-| `continue_typed_reality_conversation()` | `continue` | on success |
-| `confirm_doctor_sentence()` | `confirm_doctor` | on success |
-| `configure_conversation_locale(code)` | `locale` | when display fingerprint changes |
-
-**Adapter pattern:** connect `reality_conversation_changed` → `_render()`; remove redundant `_render()` after the intents above when the signal covers UI refresh. Keep `_after_effective_action`, locked-out cleanup, and doll sync side effects. Read `phase` / `mode` / `revealed_units` via `_reality_conversation_snapshot()` instead of bare `game.conversation_*` fields where trivial.
+**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps `_after_effective_action`, locked-out cleanup, and doll sync side effects.
 
 ---
 

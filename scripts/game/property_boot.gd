@@ -14,6 +14,9 @@ const DEFAULT_MAX_ACTIONS := 5
 const DEFAULT_LOCALE := "zh"
 const DEFAULT_MASTER_VOLUME := 80.0
 const DEFAULT_APP := "social"
+const DEFAULT_CONVERSATION_PHASE := "idle"
+const DEFAULT_CONVERSATION_MODE := "authored"
+const DEFAULT_CONVERSATION_ACTOR_TYPE := "npc"
 
 
 static func install() -> void:
@@ -35,6 +38,17 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COLLECTED_CHAR_UNITS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COMPLETED_MEMES, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CHAR_CANVAS_POSITIONS, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_PHASE, DEFAULT_CONVERSATION_PHASE))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_MODE, DEFAULT_CONVERSATION_MODE))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, DEFAULT_CONVERSATION_ACTOR_TYPE))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_PROMPT, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_RESULT_LINE, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_CHOICES, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_CAN_CONTINUE, false))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_FEEDBACK, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, 0))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEALED_UNITS, []))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

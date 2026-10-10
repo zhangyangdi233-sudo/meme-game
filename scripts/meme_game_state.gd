@@ -3,7 +3,6 @@ extends RefCounted
 
 signal social_engagement_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
-signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
 signal progression_changed(snapshot: Dictionary)
 
@@ -165,30 +164,74 @@ var relationship_residue: int = 0
 var last_relationship_residue_gain: int = 0
 var last_relationship_money_loss: int = 0
 var reality_dialogue_count: int = 0
-var conversation_phase: String = "idle"
+var conversation_phase: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_PHASE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_PHASE, value)
 var conversation_actor_id: String = ""
-var conversation_actor_type: String = "npc"
-var conversation_actor_label: String = ""
-var conversation_prompt: String = ""
-var conversation_result_line: String = ""
-var conversation_choices: Array = []
+var conversation_actor_type: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_ACTOR_TYPE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, value)
+var conversation_actor_label: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_ACTOR_LABEL)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, value)
+var conversation_prompt: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_PROMPT)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_PROMPT, value)
+var conversation_result_line: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_RESULT_LINE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_RESULT_LINE, value)
+var conversation_choices: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.CONVERSATION_CHOICES)
+	set(value):
+		_write_run_list(PropertyKeysScript.CONVERSATION_CHOICES, value)
 var conversation_selected_choice_id: String = ""
 var conversation_clean_sentence: String = ""
-var conversation_revealed_units: Array = []
-var conversation_reveal_index: int = 0
+var conversation_revealed_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.CONVERSATION_REVEALED_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.CONVERSATION_REVEALED_UNITS, value)
+var conversation_reveal_index: int:
+	get:
+		return _read_run_int(PropertyKeysScript.CONVERSATION_REVEAL_INDEX)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, value)
 var conversation_attempts: int = 0
 var conversation_understood: bool = false
 var conversation_understanding_rolls: Array[int] = []
-var conversation_feedback: String = ""
+var conversation_feedback: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_FEEDBACK)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_FEEDBACK, value)
 var conversation_locale: String = "zh"
 var conversation_clean_units: Array[String] = []
-var conversation_mode: String = "authored"
+var conversation_mode: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_MODE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_MODE, value)
 var conversation_world: String = "reality"
 var conversation_selected_token_ids: Array[String] = []
 var conversation_turns: Array = []
 var conversation_turn_index: int = 0
 var conversation_history: Array = []
-var conversation_can_continue: bool = false
+var conversation_can_continue: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.CONVERSATION_CAN_CONTINUE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_CAN_CONTINUE, value)
 var conversation_completed: bool = false
 var conversation_interrupted: bool = false
 var conversation_interrupt_line: String = ""
@@ -930,7 +973,6 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 	conversation_phase = "composing" if conversation_mode == "lexeme" else "choosing"
 	if conversation_mode == "lexeme":
 		reality_phase = "player_composing"
-	_emit_reality_conversation_changed("start", actor_id, true)
 	return true
 
 
@@ -939,8 +981,6 @@ func reset_typed_reality_conversation() -> void:
 	conversation_actor_id = ""
 	conversation_actor_type = "npc"
 	conversation_actor_label = ""
-	conversation_prompt = ""
-	conversation_result_line = ""
 	conversation_prompt = ""
 	conversation_result_line = ""
 	conversation_choices = []
@@ -966,7 +1006,6 @@ func reset_typed_reality_conversation() -> void:
 	conversation_interrupt_line = ""
 	conversation_action_spent = false
 	conversation_reward = {}
-	_emit_reality_conversation_changed("reset", "", false)
 
 
 func get_reality_conversation_snapshot() -> Dictionary:
@@ -983,16 +1022,6 @@ func get_reality_conversation_snapshot() -> Dictionary:
 		"reveal_index": conversation_reveal_index,
 		"revealed_units": conversation_revealed_units.duplicate(true),
 	}
-
-
-func _emit_reality_conversation_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_reality_conversation_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	reality_conversation_changed.emit(snapshot)
 
 
 func get_typed_reality_choices() -> Array:
@@ -1027,7 +1056,6 @@ func continue_typed_reality_conversation() -> bool:
 	conversation_can_continue = false
 	_load_typed_reality_turn(next_turn)
 	conversation_phase = "choosing"
-	_emit_reality_conversation_changed("continue", "", true)
 	return true
 
 
@@ -1038,14 +1066,15 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 	conversation_turn_index = turn_index
 	conversation_prompt = str(turn.get("line", "你打算说什么？"))
 	conversation_result_line = str(turn.get("result", "%s移开了视线。" % conversation_actor_label))
-	conversation_choices = (turn.get("choices", []) as Array).duplicate(true)
+	var turn_choices: Array = (turn.get("choices", []) as Array).duplicate(true)
 	if conversation_actor_type == "doll":
-		for choice_index in conversation_choices.size():
-			var choice: Dictionary = (conversation_choices[choice_index] as Dictionary).duplicate(true)
+		for choice_index in turn_choices.size():
+			var choice: Dictionary = (turn_choices[choice_index] as Dictionary).duplicate(true)
 			choice["locked"] = _doll_choice_is_locked(choice)
 			if bool(choice["locked"]) and not str(choice.get("locked_summary", "")).is_empty():
 				choice["summary"] = str(choice.get("locked_summary", ""))
-			conversation_choices[choice_index] = choice
+			turn_choices[choice_index] = choice
+	conversation_choices = turn_choices
 	conversation_selected_choice_id = ""
 	conversation_clean_sentence = ""
 	conversation_revealed_units = []
@@ -1057,13 +1086,10 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 
 
 func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Array[String] = []) -> void:
-	var previous_display := _conversation_display_fingerprint()
 	conversation_locale = locale_code if locale_code in ["zh", "ja", "en"] else "zh"
 	_localize_conversation_display()
 	if not conversation_clean_sentence.is_empty():
 		conversation_clean_units = _conversation_units(conversation_clean_sentence)
-	if _conversation_display_fingerprint() != previous_display:
-		_emit_reality_conversation_changed("locale", conversation_locale, true)
 
 
 func _localize_conversation_display() -> void:
@@ -1087,19 +1113,6 @@ func _localize_conversation_display() -> void:
 		localized_choice["sentence"] = locale.translate(str(localized_choice.get("sentence", "")))
 		localized_choices.append(localized_choice)
 	conversation_choices = localized_choices
-
-
-func _conversation_display_fingerprint() -> String:
-	var choice_summaries: Array[String] = []
-	for choice in conversation_choices:
-		if choice is Dictionary:
-			choice_summaries.append(str((choice as Dictionary).get("summary", "")))
-	return "%s|%s|%s|%s" % [
-		conversation_actor_label,
-		conversation_prompt,
-		conversation_result_line,
-		"|".join(choice_summaries),
-	]
 
 
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
@@ -1173,7 +1186,6 @@ func select_typed_reality_choice(choice_id: String) -> bool:
 	conversation_understood = false
 	conversation_understanding_rolls = []
 	conversation_phase = "typing"
-	_emit_reality_conversation_changed("select", choice_id, true)
 	return true
 
 
@@ -1200,16 +1212,17 @@ func advance_typed_reality_character() -> Dictionary:
 	var display_character := clean_character
 	if corrupted:
 		display_character = _conversation_corruption_text(roll, conversation_reveal_index)
-	conversation_revealed_units.append({
+	var revealed_units := conversation_revealed_units
+	revealed_units.append({
 		"clean": clean_character,
 		"display": display_character,
 		"corrupted": corrupted,
 		"roll": roll,
 	})
+	conversation_revealed_units = revealed_units
 	conversation_reveal_index += 1
 	result["advanced"] = true
 	if conversation_reveal_index < conversation_clean_units.size():
-		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	result["completed"] = true
@@ -1223,7 +1236,6 @@ func advance_typed_reality_character() -> Dictionary:
 			conversation_feedback = "今天已经没有能说出口的行动。"
 			result["locked_out"] = true
 			result["interrupted"] = true
-			_emit_reality_conversation_changed("advance", "", true)
 			return result
 		conversation_action_spent = true
 		result["action_spent"] = true
@@ -1260,13 +1272,11 @@ func advance_typed_reality_character() -> Dictionary:
 		if not conversation_interrupt_line.is_empty():
 			conversation_feedback += "\n" + conversation_interrupt_line
 		result["interrupted"] = true
-		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	if conversation_turn_index + 1 < conversation_turns.size():
 		conversation_can_continue = true
 		result["can_continue"] = true
-		_emit_reality_conversation_changed("advance", "", true)
 		return result
 
 	conversation_can_continue = false
@@ -1280,7 +1290,6 @@ func advance_typed_reality_character() -> Dictionary:
 		conversation_reward = _resolve_doll_choice_attempt()
 		result["reward"] = conversation_reward.duplicate(true)
 		conversation_feedback += "\n" + str(conversation_reward.get("feedback", ""))
-	_emit_reality_conversation_changed("advance", "", true)
 	return result
 
 
@@ -2116,12 +2125,13 @@ func confirm_doctor_sentence() -> bool:
 	last_relationship_money_loss = 0
 	change_pollution(clampi(2 + shifted_token_count, 2, 8))
 	conversation_clean_sentence = last_clean_sentence
-	conversation_revealed_units = []
+	var doctor_units: Array = []
 	for index in last_polluted_sentence.length():
 		var clean_unit := last_clean_sentence.substr(index, 1) if index < last_clean_sentence.length() else ""
 		var display_unit := last_polluted_sentence.substr(index, 1)
-		conversation_revealed_units.append({"clean": clean_unit, "display": display_unit, "corrupted": clean_unit != display_unit, "roll": -1})
-	conversation_reveal_index = conversation_revealed_units.size()
+		doctor_units.append({"clean": clean_unit, "display": display_unit, "corrupted": clean_unit != display_unit, "roll": -1})
+	conversation_revealed_units = doctor_units
+	conversation_reveal_index = doctor_units.size()
 	conversation_clean_units = _conversation_units(last_clean_sentence)
 	conversation_understood = npc_understanding >= 45
 	conversation_action_spent = true
@@ -2146,7 +2156,6 @@ func confirm_doctor_sentence() -> bool:
 	conversation_history.append(record.duplicate(true))
 	clear_language_sentence()
 	notify_tutorial("doctor_spoken", {"sentence_id": str(record.get("id", ""))})
-	_emit_reality_conversation_changed("confirm_doctor", "", true)
 	return true
 
 

@@ -1,6 +1,9 @@
 extends SceneTree
 
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 var _state_script: Script = null
@@ -8,8 +11,6 @@ var _engagement_signal_count := 0
 var _last_engagement_snapshot: Dictionary = {}
 var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
-var _reality_conversation_signal_count := 0
-var _last_reality_conversation_snapshot: Dictionary = {}
 var _day_progress_signal_count := 0
 var _last_day_progress_snapshot: Dictionary = {}
 var _progression_signal_count := 0
@@ -38,7 +39,7 @@ func _run() -> void:
 	test_phone_shell_state_lives_in_models()
 	test_action_economy_snapshot_and_signal()
 	test_autoplay_lives_in_the_run_model()
-	test_reality_conversation_snapshot_and_signal()
+	test_reality_conversation_snapshot_reads_the_models()
 	test_day_progress_snapshot_and_signal()
 	test_day_progress_settle_day_signal()
 	test_day_progress_floor_transition_signal()
@@ -241,12 +242,9 @@ func test_autoplay_lives_in_the_run_model() -> void:
 	_assert_true(game.exit_prompt_seen, "marking the exit prompt should stick")
 
 
-func test_reality_conversation_snapshot_and_signal() -> void:
+func test_reality_conversation_snapshot_reads_the_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_reality_conversation_signal_count = 0
-	_last_reality_conversation_snapshot = {}
-	game.reality_conversation_changed.connect(_capture_reality_conversation)
 
 	var idle: Dictionary = game.get_reality_conversation_snapshot()
 	_assert_eq(str(idle.get("phase", "")), "idle", "new run should start with idle conversation")
@@ -262,31 +260,21 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 	_assert_true(not idle.has("turns"), "display snapshot must not expose the turn engine")
 	_assert_true(not idle.has("history"), "display snapshot must not expose conversation history")
 	_assert_true(not idle.has("actor_id"), "display snapshot must not expose actor id")
+	_assert_true(not idle.has("change"), "display snapshot should not carry a change record any more")
 
 	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "npc conversation should start")
-	_assert_eq(_reality_conversation_signal_count, 1, "starting a conversation should emit once")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "choosing", "signal snapshot should enter choosing")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("mode", "")), "authored", "npc conversation should be authored")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("actor_type", "")), "npc", "signal snapshot should carry npc type")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("actor_label", "")), "迟到者", "signal snapshot should carry actor label")
-	_assert_eq(
-		str(_last_reality_conversation_snapshot.get("prompt", "")),
-		"这张票印的是明天。可车刚走。你能陪我等下一班吗？",
-		"signal snapshot should carry the authored prompt"
-	)
-	_assert_eq(
-		str(_last_reality_conversation_snapshot.get("result_line", "")),
-		"迟到者把票折回掌心，往旁边让出半个座位。",
-		"signal snapshot should carry the authored result line"
-	)
-	_assert_eq((_last_reality_conversation_snapshot.get("choices", []) as Array).size(), 3, "signal snapshot should include authored choices")
-	var start_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-	_assert_eq(str(start_change.get("kind", "")), "start", "change kind should be start")
-	_assert_eq(str(start_change.get("target_id", "")), "floor1npc0", "change target should be actor id")
-	_assert_true(bool(start_change.get("active", false)), "start should be active in change metadata")
+	var started: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(started.get("phase", "")), "choosing", "snapshot should enter choosing")
+	_assert_eq(str(started.get("mode", "")), "authored", "npc conversation should be authored")
+	_assert_eq(str(started.get("actor_type", "")), "npc", "snapshot should carry npc type")
+	_assert_eq(str(started.get("actor_label", "")), "迟到者", "snapshot should carry actor label")
+	_assert_eq(str(started.get("prompt", "")), "这张票印的是明天。可车刚走。你能陪我等下一班吗？", "snapshot should carry the authored prompt")
+	_assert_eq(str(started.get("result_line", "")), "迟到者把票折回掌心，往旁边让出半个座位。", "snapshot should carry the authored result line")
+	_assert_eq((started.get("choices", []) as Array).size(), 3, "snapshot should include authored choices")
+	_assert_eq(_conversation_model(PropertyKeysScript.CONVERSATION_PHASE).read(), "choosing", "the phase should live in its model")
+	_assert_eq((_conversation_model(PropertyKeysScript.CONVERSATION_CHOICES).read() as Array).size(), 3, "the choices should live in their model")
 
 	var snapshot: Dictionary = game.get_reality_conversation_snapshot()
-	_assert_eq(str(snapshot.get("prompt", "")), "这张票印的是明天。可车刚走。你能陪我等下一班吗？", "snapshot should match the live prompt")
 	snapshot["prompt"] = "mutated"
 	_assert_eq(game.conversation_prompt, "这张票印的是明天。可车刚走。你能陪我等下一班吗？", "snapshot strings must be copies")
 	var choices_copy: Array = snapshot.get("choices", [])
@@ -294,20 +282,12 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 	_assert_eq(game.get_typed_reality_choices().size(), 3, "snapshot choice arrays must be copies")
 
 	game.reset_typed_reality_conversation()
-	_assert_eq(_reality_conversation_signal_count, 2, "reset should emit")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "idle", "reset snapshot should return to idle")
-	var reset_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-	_assert_eq(str(reset_change.get("kind", "")), "reset", "change kind should be reset")
-	_assert_true(not bool(reset_change.get("active", true)), "reset should mark inactive")
+	_assert_eq(str(game.get_reality_conversation_snapshot().get("phase", "")), "idle", "reset should return to idle")
+	_assert_eq(_conversation_model(PropertyKeysScript.CONVERSATION_PHASE).read(), "idle", "reset should write the phase model back")
+	_assert_eq((_conversation_model(PropertyKeysScript.CONVERSATION_CHOICES).read() as Array).size(), 0, "reset should empty the choices model")
 
 	_assert_true(game.start_typed_reality_conversation("doctor_floor1", "doctor", "医生"), "doctor conversation should start")
-	_assert_eq(_reality_conversation_signal_count, 3, "starting doctor conversation should emit again")
 	game.configure_conversation_locale("en")
-	_assert_eq(_reality_conversation_signal_count, 4, "locale configure should emit when display fields change")
-	var locale_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-	_assert_eq(str(locale_change.get("kind", "")), "locale", "locale change kind should be locale")
-	_assert_eq(str(locale_change.get("target_id", "")), "en", "locale change target should be locale code")
-	_assert_true(bool(locale_change.get("active", false)), "locale change should be active")
 	var localized: Dictionary = game.get_reality_conversation_snapshot()
 	_assert_eq(str(localized.get("actor_label", "")), "Doctor", "locale intent should localize actor label in the snapshot")
 	_assert_eq(
@@ -323,45 +303,38 @@ func test_reality_conversation_snapshot_and_signal() -> void:
 	_assert_eq(str(localized.get("phase", "")), "composing", "doctor conversation should stay in composing")
 	_assert_eq(str(localized.get("mode", "")), "lexeme", "doctor conversation should stay in lexeme mode")
 
-	_reality_conversation_signal_count = 0
-	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "npc conversation should restart for intent signals")
+	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "npc conversation should restart for intents")
 	var npc_choice_id := str(game.get_typed_reality_choices()[0].get("id", ""))
 	_assert_true(game.select_typed_reality_choice(npc_choice_id), "select intent should succeed")
-	_assert_eq(_reality_conversation_signal_count, 2, "select should emit start and select")
-	var select_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-	_assert_eq(str(select_change.get("kind", "")), "select", "select change kind should be select")
-	_assert_eq(str(select_change.get("target_id", "")), npc_choice_id, "select change target should be choice id")
-	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "typing", "select snapshot should enter typing")
-	_assert_eq(int(_last_reality_conversation_snapshot.get("reveal_index", -1)), 0, "select snapshot should reset reveal index")
+	var selected: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(selected.get("phase", "")), "typing", "select should enter typing")
+	_assert_eq(int(selected.get("reveal_index", -1)), 0, "select should reset reveal index")
 
 	var advance_result: Dictionary = game.advance_typed_reality_character()
 	_assert_true(bool(advance_result.get("advanced", false)), "advance intent should reveal one character")
-	_assert_eq(_reality_conversation_signal_count, 3, "advance should emit once per character")
-	var advance_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-	_assert_eq(str(advance_change.get("kind", "")), "advance", "advance change kind should be advance")
-	_assert_eq(int(_last_reality_conversation_snapshot.get("reveal_index", -1)), 1, "advance snapshot should carry reveal index")
-	_assert_eq((_last_reality_conversation_snapshot.get("revealed_units", []) as Array).size(), 1, "advance snapshot should include revealed units")
+	var advanced: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(int(advanced.get("reveal_index", -1)), 1, "advance should carry the reveal index")
+	_assert_eq((advanced.get("revealed_units", []) as Array).size(), 1, "advance should include revealed units")
+	_assert_eq(_conversation_model(PropertyKeysScript.CONVERSATION_REVEAL_INDEX).read(), 1, "the reveal index should live in its model")
+	_assert_eq((_conversation_model(PropertyKeysScript.CONVERSATION_REVEALED_UNITS).read() as Array).size(), 1, "the revealed units should live in their model")
 
 	while str(game.conversation_phase) == "typing":
 		game.advance_typed_reality_character()
-	_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "result", "final advance should land in result")
-	if bool(_last_reality_conversation_snapshot.get("can_continue", false)):
-		_reality_conversation_signal_count = 0
+	var finished: Dictionary = game.get_reality_conversation_snapshot()
+	_assert_eq(str(finished.get("phase", "")), "result", "final advance should land in result")
+	if bool(finished.get("can_continue", false)):
 		_assert_true(game.continue_typed_reality_conversation(), "continue intent should advance to next turn")
-		_assert_eq(_reality_conversation_signal_count, 1, "continue should emit once")
-		var continue_change: Dictionary = _last_reality_conversation_snapshot.get("change", {})
-		_assert_eq(str(continue_change.get("kind", "")), "continue", "continue change kind should be continue")
-		_assert_eq(str(_last_reality_conversation_snapshot.get("phase", "")), "choosing", "continue snapshot should return to choosing")
+		_assert_eq(str(game.get_reality_conversation_snapshot().get("phase", "")), "choosing", "continue should return to choosing")
 
-	_reality_conversation_signal_count = 0
+	game.reset_typed_reality_conversation()
 	game.actions_remaining = 0
 	_assert_true(not game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "conversation should not start without actions")
-	_assert_eq(_reality_conversation_signal_count, 0, "failed start should not emit")
+	_assert_eq(str(game.get_reality_conversation_snapshot().get("phase", "")), "idle", "a failed start should leave the conversation idle")
 
 
-func _capture_reality_conversation(snapshot: Dictionary) -> void:
-	_reality_conversation_signal_count += 1
-	_last_reality_conversation_snapshot = snapshot
+func _conversation_model(property_name: String) -> PropertyModel:
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	return manager.model(property_name)
 
 
 func test_day_progress_snapshot_and_signal() -> void:

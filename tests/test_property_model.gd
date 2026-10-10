@@ -44,6 +44,7 @@ func _run() -> void:
 	_test_list_and_map_can_insert_or_replace_everything_once()
 	_test_holdings_live_only_in_the_run_models()
 	_test_canvas_positions_write_the_map_once_per_commit()
+	_test_conversation_progress_lives_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -96,6 +97,16 @@ func _test_list_and_map_reads_are_copies() -> void:
 	_assert_eq(int(listed.read()[0]["n"]), 3, "replace_at should change the stored item")
 	listed.remove_at(1)
 	_assert_eq(listed.read().size(), 1, "remove_at should drop the stored item")
+	var replaced_heard := heard.size()
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(listed.read().size(), 2, "replace_all should swap the whole list")
+	_assert_eq(heard.size(), replaced_heard + 1, "replace_all should notify once")
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(heard.size(), replaced_heard + 1, "replace_all with the same items should not notify")
+	var replacement := [{"n": 6}]
+	listed.replace_all(replacement)
+	replacement[0]["n"] = 0
+	_assert_eq(int(listed.read()[0]["n"]), 6, "replace_all should store a copy of the items")
 
 	var mapped: MapPropertyModel = FactoryScript.create("table", {"a": 1}) as MapPropertyModel
 	var map_heard: Array = []
@@ -524,6 +535,56 @@ func _test_canvas_positions_write_the_map_once_per_commit() -> void:
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
 	_assert_eq(restored.get_char_canvas_position("门", "zh"), Vector2(20.0, 30.0), "loading should write canvas positions back through the map model")
 	RegistryScript.clear()
+
+
+func _test_conversation_progress_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var phase: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_PHASE) as ValuePropertyModel
+	var prompt: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_PROMPT) as ValuePropertyModel
+	var reveal: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_REVEAL_INDEX) as ValuePropertyModel
+	var choices: ListPropertyModel = manager.model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel
+	var units: ListPropertyModel = manager.model(PropertyKeysScript.CONVERSATION_REVEALED_UNITS) as ListPropertyModel
+	var keys := [
+		PropertyKeysScript.CONVERSATION_PHASE, PropertyKeysScript.CONVERSATION_MODE, PropertyKeysScript.CONVERSATION_ACTOR_TYPE,
+		PropertyKeysScript.CONVERSATION_ACTOR_LABEL, PropertyKeysScript.CONVERSATION_PROMPT, PropertyKeysScript.CONVERSATION_RESULT_LINE,
+		PropertyKeysScript.CONVERSATION_CHOICES, PropertyKeysScript.CONVERSATION_CAN_CONTINUE, PropertyKeysScript.CONVERSATION_FEEDBACK,
+		PropertyKeysScript.CONVERSATION_REVEAL_INDEX, PropertyKeysScript.CONVERSATION_REVEALED_UNITS,
+	]
+	for key in keys:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
+	_assert_eq(phase.read(), BootScript.DEFAULT_CONVERSATION_PHASE, "the conversation should start idle")
+	_assert_eq(choices.read().size(), 0, "the conversation should start without choices")
+
+	var source = StateScript.new()
+	source.new_run()
+	_assert_true(source.start_typed_reality_conversation("floor1npc0", "npc", "talker"), "a conversation should start")
+	_assert_eq(phase.read(), "choosing", "starting should write the phase model")
+	_assert_eq(source.conversation_phase, "choosing", "the state should read the model, not keep a copy")
+	_assert_eq(prompt.read(), source.conversation_prompt, "the state prompt should be the model prompt")
+	_assert_eq(choices.read().size(), 3, "starting should write the choices model")
+	var choice_id := str(source.get_typed_reality_choices()[0].get("id", ""))
+	_assert_true(source.select_typed_reality_choice(choice_id), "a choice should be selectable")
+	source.advance_typed_reality_character()
+	_assert_eq(reveal.read(), 1, "advancing should write the reveal index model")
+	_assert_eq(units.read().size(), 1, "advancing should write the revealed units model")
+	_assert_eq(source.conversation_revealed_units.size(), 1, "the state should read the units from the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	for key in keys:
+		_assert_true(not state_data.has(key), "%s is not part of the save" % key)
+	source.reset_typed_reality_conversation()
+	_assert_eq(phase.read(), "idle", "resetting should write the phase model back")
+	_assert_eq(units.read().size(), 0, "resetting should empty the units model")
+
+	source.start_typed_reality_conversation("floor1npc0", "npc", "talker")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save should load")
+	_assert_eq(phase.read(), "idle", "loading starts from a clean conversation on the same model")
+	phase.write("typing")
+	phase.write(3)
+	_assert_eq(phase.read(), "typing", "a wrong type should keep the phase")
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

@@ -668,8 +668,6 @@ func _connect_game_state_signals() -> void:
 		game.social_engagement_changed.connect(_on_social_engagement_changed)
 	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
 		game.action_economy_changed.connect(_on_action_economy_changed)
-	if not game.reality_conversation_changed.is_connected(_on_reality_conversation_changed):
-		game.reality_conversation_changed.connect(_on_reality_conversation_changed)
 	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
 		game.day_progress_changed.connect(_on_day_progress_changed)
 	if not game.progression_changed.is_connected(_on_progression_changed):
@@ -686,12 +684,6 @@ func _on_action_economy_changed(_snapshot: Dictionary) -> void:
 	if not _session_is_in_run():
 		return
 	_refresh_phone_shell()
-
-
-func _on_reality_conversation_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_reality_hud()
 
 
 func _on_day_progress_changed(_snapshot: Dictionary) -> void:
@@ -2175,6 +2167,15 @@ func _reality_conversation_mount_deps() -> Dictionary:
 		"set_dialogue_text": _set_dialogue_text,
 		"set_richer_bbcode": _set_richer_bbcode,
 		"clear_children": _clear,
+		"day_line": func() -> String: return str(_day_plan()["line"]),
+		"fallback_actor_name": func() -> String: return _reality_hud_actor_label(_reality_hud_snapshot()),
+		"last_spoken_sentence": func() -> String: return game.last_polluted_sentence,
+		"npc_understanding": func() -> int: return game.npc_understanding,
+		"hover_choice_id": func() -> String: return _reality_hover_choice_id,
+		"hover_choice_preview": func() -> String: return game.preview_typed_reality_choice(_reality_hover_choice_id),
+		"playtest_assist_enabled": func() -> bool: return _playtest_assist_enabled,
+		"typed_bbcode": _typed_reality_bbcode,
+		"typing_unit_count": func() -> int: return game.get_typed_reality_unit_count(),
 	}
 
 
@@ -2570,6 +2571,11 @@ func _refresh_reality_hud() -> void:
 	_update_reality_hud_visibility()
 
 
+func _refresh_reality_hud_in_run() -> void:
+	if _session_is_in_run():
+		_refresh_reality_hud()
+
+
 func _refresh_ending() -> void:
 	if not _ending_screen_installed:
 		return
@@ -2788,36 +2794,8 @@ func _set_notebook_crafting_tab(tab_id: String) -> void:
 
 func _render_reality() -> void:
 	_render_reality_language_composer()
-	if _reality_conversation_panel == null:
-		return
-	var hud := _reality_hud_snapshot()
-	var plan := _day_plan()
-	var conversation: Dictionary = hud.get("conversation", {})
-	var interaction_active := bool(hud.get("interaction_active", false))
-	var prompt := str(conversation.get("prompt", ""))
-	var npc_line: String = prompt if interaction_active and not prompt.is_empty() else str(plan["line"])
-	var hover_preview := ""
-	if not _reality_hover_choice_id.is_empty():
-		hover_preview = game.preview_typed_reality_choice(_reality_hover_choice_id)
-	var actor_label := str(conversation.get("actor_label", ""))
-	_reality_conversation_panel.render({
-		"interaction_active": interaction_active,
-		"actor_name": actor_label if interaction_active and not actor_label.is_empty() else _reality_hud_actor_label(hud),
-		"npc_line": npc_line,
-		"conversation_feedback": str(conversation.get("feedback", "")),
-		"phase": str(conversation.get("phase", "")),
-		"conversation_can_continue": bool(conversation.get("can_continue", false)),
-		"conversation_actor_type": str(conversation.get("actor_type", "")),
-		"last_polluted_sentence": game.last_polluted_sentence,
-		"npc_understanding": game.npc_understanding,
-		"choices": conversation.get("choices", []),
-		"hover_choice_id": _reality_hover_choice_id,
-		"hover_choice_preview": hover_preview,
-		"playtest_assist_enabled": _playtest_assist_enabled,
-		"typed_reality_bbcode": _typed_reality_bbcode(),
-		"typing_reveal_index": int(conversation.get("reveal_index", 0)),
-		"typing_unit_count": game.get_typed_reality_unit_count(),
-	})
+	if _reality_conversation_panel != null:
+		_reality_conversation_panel.render()
 
 
 func _render_reality_language_composer() -> void:
@@ -2900,6 +2878,7 @@ func _on_reality_choice_unhovered(choice_id: String) -> void:
 func _on_reality_choice_selected(choice_id: String) -> void:
 	if game.select_typed_reality_choice(choice_id):
 		_reality_hover_choice_id = ""
+		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
 
 
@@ -2907,6 +2886,7 @@ func _on_reality_continue_pressed() -> void:
 	if str(_reality_conversation_snapshot().get("phase", "")) == "result" and game.continue_typed_reality_conversation():
 		_localize_active_conversation()
 		_reality_hover_choice_id = ""
+		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
 		return
 	_exit_reality_interaction()
@@ -2927,6 +2907,7 @@ func _advance_typed_reality_character() -> bool:
 	if bool(result.get("action_spent", false)):
 		_after_effective_action(actions_before)
 	else:
+		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
 	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null:
 		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
@@ -2967,7 +2948,7 @@ func _update_reality_hud_visibility() -> void:
 		if _world_prompt != null:
 			_world_prompt.visible = false
 		if _reality_conversation_panel != null:
-			_reality_conversation_panel.update_visibility(false, "", "")
+			_reality_conversation_panel.set_shown(false)
 		if _reality_language_composer_panel != null:
 			_reality_language_composer_panel.update_visibility(false, "", "")
 		return
@@ -2980,7 +2961,7 @@ func _update_reality_hud_visibility() -> void:
 	var interaction_visible := (not in_phone) and interaction_active
 	var conversation: Dictionary = hud.get("conversation", {})
 	if _reality_conversation_panel != null:
-		_reality_conversation_panel.update_visibility(interaction_visible, str(conversation.get("phase", "")), _reality_hover_choice_id)
+		_reality_conversation_panel.set_shown(interaction_visible)
 	if _reality_language_composer_panel != null:
 		_reality_language_composer_panel.update_visibility(
 			interaction_visible,
