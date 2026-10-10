@@ -383,7 +383,7 @@ The six day-progress facts moved into run property models. `day_progress_changed
 }
 ```
 
-**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word and meme models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. The notebook words the fusion slot labels from the fusion-slot and meme models.
+**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word, meme, sentence, world-rule and fusion-slot models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. The notebook words the fusion slot labels from the fusion-slot and meme models.
 
 ---
 
