@@ -119,7 +119,7 @@ func test_phone_shell_state_lives_in_models() -> void:
 	_assert_eq(str(game.active_app_window), "babel", "phone-down should sync foreground window")
 
 	game.close_app_window("babel")
-	_assert_true(str(game.active_app_window).is_empty() or str(game.active_app_window) == "social", "close should leave the closed app out of the foreground")
+	_assert_eq(str(game.active_app_window), "social", "closing the foreground window should fall back to the remaining open one")
 	_assert_true(not game.is_app_window_open("babel"), "a closed window should not read as open")
 
 	game.close_app_window("social")
@@ -154,6 +154,17 @@ func test_phone_shell_state_lives_in_models() -> void:
 	_assert_true(loaded.load_save_data({"version": _state_script.SAVE_DATA_VERSION, "state": old_state}), "an older save should load")
 	_assert_true(not bool(loaded.phone_open), "a save put down without a phone field should load with the phone closed")
 	_assert_true(str(loaded.active_app_window).is_empty(), "a save put down should load without a foreground app")
+
+	var shop_save = _state_script.new()
+	shop_save.new_run()
+	var shop_state: Dictionary = shop_save.to_save_data().get("state", {})
+	shop_state["active_app"] = "shop"
+	shop_state["active_app_window"] = "shop"
+	shop_state["open_app_windows"] = []
+	var shop_loaded = _state_script.new()
+	_assert_true(shop_loaded.load_save_data({"version": _state_script.SAVE_DATA_VERSION, "state": shop_state}), "a save from the removed shop app should load")
+	_assert_eq(str(shop_loaded.active_app_window), "social", "the removed shop app should fall back to social")
+	_assert_true(shop_loaded.is_app_window_open("social"), "the fallback foreground window should be listed as open")
 
 	game.set_phone_open(false)
 	_assert_true(not bool(game.phone_open), "closing the phone should write the model")

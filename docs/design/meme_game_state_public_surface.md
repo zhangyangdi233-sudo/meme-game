@@ -123,7 +123,7 @@ The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conv
 | Snapshot | `get_phone_shell_snapshot()` → `{ view_state }` |
 | Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `open_app_window(app_id)`, `close_app_window(app_id)`; read `is_app_window_open(app_id)` |
 
-Whether the phone is open, the current app, and the foreground app window live only in the `phone_open` / `active_app` / `active_app_window` property models (saved with the run). The state reads and writes them through those models; the phone launcher watches them while shown. `phone_visible` was always the same as `phone_open`, so it is gone. There is no phone signal: the launcher listens to the models, and the adapter refreshes after its own phone intents. `view_state` stays a plain field, saved and read through the snapshot.
+Whether the phone is open, the current app, and the foreground app window live only in the `phone_open` / `active_app` / `active_app_window` property models (saved with the run). The state reads and writes them through those models; the phone launcher watches them while shown. `phone_visible` was always the same as `phone_open`, so it is gone. There is no phone signal: the launcher listens to the models, and the adapter refreshes after its own phone intents. `view_state` and the list of open app windows (`open_app_windows`) are run models too; the snapshot only hands out a copy of the view.
 
 ### Phone / view (legacy listing)
 
