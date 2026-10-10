@@ -92,7 +92,7 @@ func set_settings_open(open: bool) -> void:
 func toggle_settings() -> void:
 	var model := _settings_open_model()
 	if model != null:
-		model.write(not bool(model.read()))
+		set_settings_open(not bool(model.read()))
 
 
 func close_settings() -> void:
