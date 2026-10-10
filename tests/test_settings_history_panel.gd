@@ -169,7 +169,7 @@ func _run() -> void:
 	if history_button != null:
 		history_button.pressed.emit()
 		_assert_eq(_history_toggle_events, [true], "the history button should emit history_toggle_requested")
-		_assert_true(history != null and not history.visible, "history toggle intent should not open the window until the adapter supplies entries")
+		_assert_true(history != null and not history.visible, "history toggle intent alone should not open the window; the host calls toggle()")
 
 	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
 	_test_history_window_follows_the_model(panel, host)
