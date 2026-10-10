@@ -45,6 +45,7 @@ func _run() -> void:
 	_test_holdings_live_only_in_the_run_models()
 	_test_canvas_positions_write_the_map_once_per_commit()
 	_test_conversation_progress_lives_only_in_the_run_models()
+	_test_social_engagement_lives_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -585,6 +586,45 @@ func _test_conversation_progress_lives_only_in_the_run_models() -> void:
 	phase.write("typing")
 	phase.write(3)
 	_assert_eq(phase.read(), "typing", "a wrong type should keep the phase")
+
+
+func _test_social_engagement_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var followed: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES) as ListPropertyModel
+	var liked: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS) as ListPropertyModel
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES), "the followed authors should belong to the run")
+	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.SOCIAL_LIKED_POST_IDS), "the liked posts should belong to the run")
+
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	followed.register(func(value: Variant) -> void:
+		heard.append((value as Array).size())
+	)
+	_assert_true(source.toggle_social_follow("author-a"), "following should work")
+	_assert_true(source.toggle_social_like("post-1"), "liking should work")
+	_assert_eq(heard, [0, 1], "following should add through the list model once")
+	_assert_eq(followed.read(), ["author-a"], "the followed model should hold the author")
+	_assert_eq(liked.read(), ["post-1"], "the liked model should hold the post")
+	var copy: Array = followed.read()
+	copy.append("outsider")
+	_assert_eq(followed.read(), ["author-a"], "the list read out should be a copy")
+	source.toggle_social_follow("author-a")
+	_assert_eq(heard, [0, 1, 0], "unfollowing should remove through the list model once")
+
+	source.toggle_social_follow("author-b")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("social_followed_handles", []), ["author-b"], "the run save should store the followed model")
+	_assert_eq(state_data.get("social_liked_post_ids", []), ["post-1"], "the run save should store the liked model")
+	followed.replace_all([])
+	liked.replace_all([])
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(followed.read(), ["author-b"], "loading should write the followed authors back through the model")
+	_assert_eq(liked.read(), ["post-1"], "loading should write the liked posts back through the model")
+	RegistryScript.clear()
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

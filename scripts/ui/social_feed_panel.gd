@@ -1,9 +1,13 @@
 class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
+## While the app is shown, it watches the followed authors and the liked posts and repaints itself.
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 signal channel_pressed(channel: String)
 signal screen_requested(screen: String)
@@ -50,7 +54,6 @@ var _load_texture_fn: Callable
 var _poster_texture_fn: Callable
 var _visible_post_indices_fn: Callable
 var _post_for_index_fn: Callable
-var _is_following_fn: Callable
 var _like_text_fn: Callable
 var _caption_text_fn: Callable
 var _corrupt_text_fn: Callable
@@ -77,6 +80,16 @@ var _channels: Array = []
 var _no_signal_icon_path := ""
 var _poster_sheet_path := ""
 var _poster_sheet_count := 0
+var _screen := ""
+var _channel := ""
+var _rendered := false
+var _shown := false
+var _observing := false
+var _registering := false
+var _followed: Array = []
+var _liked: Array = []
+var _painted_followed: Array = []
+var _painted_liked: Array = []
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
@@ -148,9 +161,19 @@ func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 	_detail_window.offset_bottom = viewport_size.y - 12.0
 
 
+## The phone decides whether the social app shows. While it shows, the models decide who is followed and what is liked.
 func update_visibility(in_phone: bool, social_app_open: bool) -> void:
 	if _detail_window != null:
 		_detail_window.visible = in_phone and _social_detail_open and social_app_open
+	_shown = in_phone and social_app_open
+	if _shown:
+		_start_observing()
+	else:
+		_stop_observing()
+
+
+func _exit_tree() -> void:
+	_stop_observing()
 
 
 func render_companion() -> void:
@@ -191,6 +214,11 @@ func layout_window(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 func render_app(screen: String, channel: String) -> void:
 	if _app_body == null:
 		return
+	_screen = screen
+	_channel = channel
+	_rendered = true
+	_painted_followed = _followed
+	_painted_liked = _liked
 	_clear(_app_body)
 	var phone_view := _panel_factory.call() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -311,7 +339,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_poster_texture_fn = deps.get("poster_texture", Callable())
 	_visible_post_indices_fn = deps.get("visible_post_indices", Callable())
 	_post_for_index_fn = deps.get("post_for_index", Callable())
-	_is_following_fn = deps.get("is_following", Callable())
 	_like_text_fn = deps.get("like_text", Callable())
 	_caption_text_fn = deps.get("caption_text", Callable())
 	_corrupt_text_fn = deps.get("corrupt_text", Callable())
@@ -441,7 +468,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 
 	var visible_post_indices: Array = []
 	if _visible_post_indices_fn.is_valid():
-		visible_post_indices = _visible_post_indices_fn.call()
+		visible_post_indices = _visible_post_indices_fn.call(_followed)
 	if channel == "following" and visible_post_indices.is_empty():
 		_render_channel_empty_state(
 			home_page,
@@ -555,7 +582,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		likes.name = "SocialPostLikeButton%d" % post_index
 		var like_text := ""
 		if _like_text_fn.is_valid():
-			like_text = str(_like_text_fn.call(post, post_index))
+			like_text = str(_like_text_fn.call(post, post_index, _liked))
 		likes.text = like_text
 		likes.set_meta("flat_phone_button", true)
 		likes.custom_minimum_size = Vector2(64, 44)
@@ -567,9 +594,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		var author_id := str(post.get("id", post.get("handle", "unknown-author")))
 		if _author_id_fn.is_valid():
 			author_id = str(_author_id_fn.call(post))
-		var following := false
-		if _is_following_fn.is_valid():
-			following = bool(_is_following_fn.call(author_id))
+		var following := _followed.has(author_id)
 		follow.text = "已关注" if following else "关注"
 		follow.set_meta("flat_phone_button", true)
 		follow.custom_minimum_size = Vector2(74, 44)
@@ -863,7 +888,7 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	detail_like.name = "SocialDetailLikeButton"
 	var like_text := ""
 	if _like_text_fn.is_valid():
-		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _social_detail_post_index))))
+		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _social_detail_post_index)), _liked))
 	detail_like.text = like_text
 	detail_like.custom_minimum_size = Vector2(120, 44)
 	detail_like.pressed.connect(_on_like_pressed.bind(post_card_id))
@@ -873,9 +898,7 @@ func _render_detail_page(parent: VBoxContainer, companion: bool = false) -> void
 	var author_id := str(post.get("id", post.get("handle", "unknown-author")))
 	if _author_id_fn.is_valid():
 		author_id = str(_author_id_fn.call(post))
-	var following := false
-	if _is_following_fn.is_valid():
-		following = bool(_is_following_fn.call(author_id))
+	var following := _followed.has(author_id)
 	detail_follow.text = "已关注" if following else "关注"
 	detail_follow.custom_minimum_size = Vector2(120, 44)
 	detail_follow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1229,6 +1252,66 @@ func _on_composer_answer_pressed(unit_index: int) -> void:
 
 func _on_composer_submit_pressed() -> void:
 	composer_submit_requested.emit()
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var followed := _property_model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
+	var liked := _property_model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
+	if followed == null or liked == null:
+		return
+	_observing = true
+	# Registering delivers each list once; one repaint after both covers a list that changed while hidden.
+	_registering = true
+	followed.register(_on_followed)
+	liked.register(_on_liked)
+	_registering = false
+	_repaint_if_stale()
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var followed := _property_model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
+	var liked := _property_model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
+	if followed != null:
+		followed.unregister(_on_followed)
+	if liked != null:
+		liked.unregister(_on_liked)
+
+
+func _on_followed(value: Variant) -> void:
+	_followed = value as Array
+	if not _registering:
+		_repaint_if_stale()
+
+
+func _on_liked(value: Variant) -> void:
+	_liked = value as Array
+	if not _registering:
+		_repaint_if_stale()
+
+
+## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
+func _repaint_if_stale() -> void:
+	if not _rendered or (_followed == _painted_followed and _liked == _painted_liked):
+		return
+	render_app(_screen, _channel)
+	render_companion()
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Social feed cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
 
 
 func _clear(node: Node) -> void:

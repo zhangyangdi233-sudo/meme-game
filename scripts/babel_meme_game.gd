@@ -265,8 +265,6 @@ func _social_content_deps() -> Dictionary:
 		"day_progress": _day_progress_snapshot(),
 		"current_locale": _locale.current_locale,
 		"translate": func(text: String) -> String: return _locale.translate(text),
-		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
-		"is_post_liked": func(post_id: String) -> bool: return _is_social_post_liked(post_id),
 		"level_display_name": func(floor_number: int) -> String: return _locale.level_display_name(floor_number),
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
 		"texture_cache": _texture_cache,
@@ -650,7 +648,7 @@ func _normalize_social_channel(channel: String) -> String:
 
 func _migrate_social_author_ids() -> void:
 	var migrated: Array[String] = []
-	for stored_author in game.social_followed_handles:
+	for stored_author in game.get_social_followed_handles():
 		var stable_id := str(stored_author)
 		for post in _social_post_cards:
 			if str(post.get("handle", "")) == stable_id:
@@ -664,20 +662,12 @@ func _migrate_social_author_ids() -> void:
 func _connect_game_state_signals() -> void:
 	if game == null:
 		return
-	if not game.social_engagement_changed.is_connected(_on_social_engagement_changed):
-		game.social_engagement_changed.connect(_on_social_engagement_changed)
 	if not game.action_economy_changed.is_connected(_on_action_economy_changed):
 		game.action_economy_changed.connect(_on_action_economy_changed)
 	if not game.day_progress_changed.is_connected(_on_day_progress_changed):
 		game.day_progress_changed.connect(_on_day_progress_changed)
 	if not game.progression_changed.is_connected(_on_progression_changed):
 		game.progression_changed.connect(_on_progression_changed)
-
-
-func _on_social_engagement_changed(_snapshot: Dictionary) -> void:
-	if not _session_is_in_run():
-		return
-	_refresh_phone_shell()
 
 
 func _on_action_economy_changed(_snapshot: Dictionary) -> void:
@@ -777,12 +767,6 @@ func _reality_hud_snapshot() -> Dictionary:
 	}
 
 
-func _social_engagement_snapshot() -> Dictionary:
-	if game == null:
-		return {"followed_handles": [], "liked_post_ids": []}
-	return game.get_social_engagement_snapshot()
-
-
 func _inventory_snapshot() -> Dictionary:
 	if game == null:
 		return {
@@ -804,14 +788,6 @@ func _progression_snapshot() -> Dictionary:
 			"floor4_task_complete": false,
 		}
 	return game.get_progression_snapshot()
-
-
-func _is_social_following(author_id: String) -> bool:
-	return author_id in (_social_engagement_snapshot().get("followed_handles", []) as Array)
-
-
-func _is_social_post_liked(post_id: String) -> bool:
-	return post_id in (_social_engagement_snapshot().get("liked_post_ids", []) as Array)
 
 
 func set_view_state(value: String) -> void:
@@ -2035,13 +2011,12 @@ func _social_feed_mount_deps() -> Dictionary:
 		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
 		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
 		"poster_sheet_count": SocialFeedContentScript.SOCIAL_POSTER_COUNT,
-		"visible_post_indices": func() -> Array[int]:
-			return SocialFeedContentScript.visible_post_indices(_social_content_deps()),
+		"visible_post_indices": func(followed_handles: Array) -> Array[int]:
+			return SocialFeedContentScript.visible_post_indices(_social_content_deps(), followed_handles),
 		"post_for_index": func(post_index: int) -> Dictionary:
 			return SocialFeedContentScript.post_for_index(post_index, _social_content_deps()),
-		"is_following": func(author_id: String) -> bool: return _is_social_following(author_id),
-		"like_text": func(post: Dictionary, post_index: int) -> String:
-			return SocialFeedContentScript.like_text(post, post_index, _social_content_deps()),
+		"like_text": func(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
+			return SocialFeedContentScript.like_text(post, post_index, liked_post_ids),
 		"caption_text": func(post: Dictionary, post_index: int) -> String:
 			return SocialFeedContentScript.caption(post, post_index, _social_content_deps()),
 		"corrupt_text": _corrupt,

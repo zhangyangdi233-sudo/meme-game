@@ -7,8 +7,6 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 var _state_script: Script = null
-var _engagement_signal_count := 0
-var _last_engagement_snapshot: Dictionary = {}
 var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
 var _day_progress_signal_count := 0
@@ -35,7 +33,7 @@ func _run() -> void:
 		return
 	test_navigation_is_free_and_five_actions_mark_day_end()
 	test_social_follow_and_like_toggles_are_free_and_persistent()
-	test_social_engagement_snapshot_and_signal()
+	test_social_engagement_lives_in_the_models()
 	test_phone_shell_state_lives_in_models()
 	test_action_economy_snapshot_and_signal()
 	test_autoplay_lives_in_the_run_model()
@@ -86,42 +84,28 @@ func test_social_follow_and_like_toggles_are_free_and_persistent() -> void:
 	_assert_true(game.is_social_post_liked("missing_window"), "like state should survive day settlement")
 
 
-func test_social_engagement_snapshot_and_signal() -> void:
+func test_social_engagement_lives_in_the_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_engagement_signal_count = 0
-	_last_engagement_snapshot = {}
-	game.social_engagement_changed.connect(_capture_social_engagement)
 	_assert_true(game.toggle_social_follow("author-a"), "follow should activate")
-	_assert_eq(_engagement_signal_count, 1, "follow toggle should emit once")
-	_assert_true("author-a" in _last_engagement_snapshot.get("followed_handles", []), "signal snapshot should list followed handle")
-	var follow_change: Dictionary = _last_engagement_snapshot.get("change", {})
-	_assert_eq(str(follow_change.get("kind", "")), "follow", "change kind should be follow")
-	_assert_true(bool(follow_change.get("active", false)), "follow should be active in change metadata")
-
+	_assert_true(game.is_social_following("author-a"), "a followed author should read as followed")
 	_assert_true(game.toggle_social_like("post-1"), "like should activate")
-	_assert_eq(_engagement_signal_count, 2, "like toggle should emit again")
-	var like_change: Dictionary = _last_engagement_snapshot.get("change", {})
-	_assert_eq(str(like_change.get("kind", "")), "like", "change kind should be like")
-	_assert_true("post-1" in _last_engagement_snapshot.get("liked_post_ids", []), "signal snapshot should list liked post")
+	_assert_true(game.is_social_post_liked("post-1"), "a liked post should read as liked")
+	_assert_true(not game.toggle_social_follow("  "), "a blank handle should not be followed")
+	_assert_true(not game.toggle_social_like(""), "a blank post should not be liked")
 
-	var snapshot: Dictionary = game.get_social_engagement_snapshot()
-	_assert_true("author-a" in snapshot.get("followed_handles", []), "snapshot should include followed handle")
-	_assert_true("post-1" in snapshot.get("liked_post_ids", []), "snapshot should include liked post")
-	var followed_copy: Array = snapshot.get("followed_handles", [])
+	var followed_copy: Array = game.get_social_followed_handles()
 	followed_copy.append("alias-test")
-	_assert_true("alias-test" not in game.social_followed_handles, "snapshot arrays must be copies")
+	_assert_true(not game.is_social_following("alias-test"), "the followed list read out must be a copy")
 
 	var migrated: Array[String] = ["author-b"]
 	game.replace_social_followed_handles(migrated)
-	_assert_eq(_engagement_signal_count, 3, "bulk replace should emit")
 	_assert_true(game.is_social_following("author-b"), "bulk replace should update follow state")
 	_assert_true(not game.is_social_following("author-a"), "bulk replace should drop prior follows")
-
-
-func _capture_social_engagement(snapshot: Dictionary) -> void:
-	_engagement_signal_count += 1
-	_last_engagement_snapshot = snapshot
+	_assert_true(not game.toggle_social_follow("author-b"), "toggling a followed author should unfollow")
+	_assert_true(not game.is_social_following("author-b"), "an unfollowed author should no longer read as followed")
+	_assert_true(not game.toggle_social_like("post-1"), "toggling a liked post should unlike")
+	_assert_true(not game.is_social_post_liked("post-1"), "an unliked post should no longer read as liked")
 
 
 func test_phone_shell_state_lives_in_models() -> void:

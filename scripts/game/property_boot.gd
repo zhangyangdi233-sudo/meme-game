@@ -38,6 +38,8 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COLLECTED_CHAR_UNITS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COMPLETED_MEMES, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CHAR_CANVAS_POSITIONS, {}))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SOCIAL_LIKED_POST_IDS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_PHASE, DEFAULT_CONVERSATION_PHASE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_MODE, DEFAULT_CONVERSATION_MODE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, DEFAULT_CONVERSATION_ACTOR_TYPE))

@@ -12,7 +12,7 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Public `func` methods | 103 |
 | Public `const` | 27 (19 content/config + 8 script preloads) |
 | Signals (before slice 1) | 0 |
-| Signals (slice 1) | 1 — `social_engagement_changed` |
+| Signals (slice 1) | 1 — `social_engagement_changed` (retired once the follows and likes moved to property models) |
 | Signals (slice 2A) | 2 — + `phone_shell_changed` (retired once the phone moved to property models) |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
@@ -78,7 +78,7 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Social / publishing
 
-`social_followed_handles`, `social_liked_post_ids`, `published_memes`, `last_publish_result`, `last_char_pick_day`, `free_sentence_units`, `world_rules`
+`published_memes`, `last_publish_result`, `last_char_pick_day`, `free_sentence_units`, `world_rules`
 
 ### Notebook / meme craft
 
@@ -191,15 +191,15 @@ The chosen ending language lives only in the `ending_language_choice` property m
 
 ### Social engagement — **slice 1 seam**
 
+The followed authors and the liked posts live only in two run property models (`social_followed_handles`, `social_liked_post_ids`), saved with the run. The state keeps no field for them.
+
 | Kind | API |
 |---|---|
-| Snapshot | `get_social_engagement_snapshot()` → `{ followed_handles, liked_post_ids }` |
-| Signal | `social_engagement_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
-| Intent | `toggle_social_follow(handle)`, `toggle_social_like(post_id)` |
-| Query | `is_social_following(handle)`, `is_social_post_liked(post_id)` |
-| Migration | `replace_social_followed_handles(handles)` — bulk replace + signal |
+| Intent | `toggle_social_follow(handle)`, `toggle_social_like(post_id)` — add or remove through the list model |
+| Query | `is_social_following(handle)`, `is_social_post_liked(post_id)`, `get_social_followed_handles()` (a copy) |
+| Migration | `replace_social_followed_handles(handles)` — replaces the whole list through the model |
 
-Legacy fields `social_followed_handles` / `social_liked_post_ids` remain for save/load; new adapter code should prefer snapshot + signal.
+The open social app registers on both models and repaints itself, so there is no change signal and no snapshot.
 
 ### Social char pickup / free sentence
 
@@ -252,26 +252,9 @@ The open conversation panel watches the progress models and repaints itself, so 
 
 ## Slice 1 contract (social engagement)
 
-```gdscript
-# Snapshot (read)
-{
-  "followed_handles": Array[String],
-  "liked_post_ids": Array[String],
-}
+No snapshot and no signal. The follows and likes are two list models; the social app registers on them while shown.
 
-# Signal payload = snapshot + change metadata
-{
-  "followed_handles": Array[String],
-  "liked_post_ids": Array[String],
-  "change": {
-    "kind": "follow" | "like" | "bulk_replace",
-    "target_id": String,
-    "active": bool,  # false for unfollow/unlike/bulk
-  },
-}
-```
-
-**Adapter pattern:** connect `social_engagement_changed` → `_render()`; read engagement via `get_social_engagement_snapshot()`; send intents via `toggle_social_*`. Log copy stays in adapter handlers for slice 1.
+**Adapter pattern:** send intents via `toggle_social_*`; the shown social app repaints itself. Log copy stays in adapter handlers.
 
 ---
 

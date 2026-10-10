@@ -1,7 +1,6 @@
 class_name MemeGameState
 extends RefCounted
 
-signal social_engagement_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
 signal progression_changed(snapshot: Dictionary)
@@ -130,8 +129,6 @@ var dialogue_blanks: Dictionary = {}
 var published_memes: Array = []
 var last_publish_result: Dictionary = {}
 var event_log: Array[String] = []
-var social_followed_handles: Array[String] = []
-var social_liked_post_ids: Array[String] = []
 
 var collected_world_item_ids: Array[String] = []
 var cover_watcher_seen_floors: Array[int] = []
@@ -267,8 +264,6 @@ func new_run() -> void:
 	published_memes = []
 	last_publish_result = {}
 	event_log = []
-	social_followed_handles = []
-	social_liked_post_ids = []
 	collected_world_item_ids = []
 	cover_watcher_seen_floors = []
 	revealed_prerequisite_item_ids = []
@@ -819,60 +814,46 @@ func mark_exit_prompt_seen() -> void:
 	exit_prompt_seen = true
 
 
-func get_social_engagement_snapshot() -> Dictionary:
-	return {
-		"followed_handles": social_followed_handles.duplicate(),
-		"liked_post_ids": social_liked_post_ids.duplicate(),
-	}
+## The followed authors, a copy. They change only through the follow methods below.
+func get_social_followed_handles() -> Array[String]:
+	var result: Array[String] = []
+	for handle in _read_run_array(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES):
+		result.append(str(handle))
+	return result
 
 
 func replace_social_followed_handles(handles: Array[String]) -> void:
-	social_followed_handles = handles.duplicate()
-	_emit_social_engagement_changed("bulk_replace", "", false)
+	_write_run_list(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, handles)
 
 
 func is_social_following(handle: String) -> bool:
-	return handle in social_followed_handles
+	return handle in _read_run_array(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
 
 
 func toggle_social_follow(handle: String) -> bool:
-	var normalized := handle.strip_edges()
-	if normalized.is_empty():
-		return false
-	if normalized in social_followed_handles:
-		social_followed_handles.erase(normalized)
-		_emit_social_engagement_changed("follow", normalized, false)
-		return false
-	social_followed_handles.append(normalized)
-	_emit_social_engagement_changed("follow", normalized, true)
-	return true
+	return _toggle_in_run_list(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, handle)
 
 
 func is_social_post_liked(post_id: String) -> bool:
-	return post_id in social_liked_post_ids
+	return post_id in _read_run_array(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
 
 
 func toggle_social_like(post_id: String) -> bool:
-	var normalized := post_id.strip_edges()
-	if normalized.is_empty():
+	return _toggle_in_run_list(PropertyKeysScript.SOCIAL_LIKED_POST_IDS, post_id)
+
+
+## Adds the entry when absent and removes it when present. Returns whether it is in the list afterwards.
+func _toggle_in_run_list(property_name: String, entry: String) -> bool:
+	var normalized := entry.strip_edges()
+	var model := _run_list(property_name)
+	if normalized.is_empty() or model == null:
 		return false
-	if normalized in social_liked_post_ids:
-		social_liked_post_ids.erase(normalized)
-		_emit_social_engagement_changed("like", normalized, false)
+	var index := (model.read() as Array).find(normalized)
+	if index >= 0:
+		model.remove_at(index)
 		return false
-	social_liked_post_ids.append(normalized)
-	_emit_social_engagement_changed("like", normalized, true)
+	model.add(normalized)
 	return true
-
-
-func _emit_social_engagement_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_social_engagement_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	social_engagement_changed.emit(snapshot)
 
 
 func check_pollution_flashback(previous_pollution: int) -> bool:

@@ -7,25 +7,23 @@ const SOCIAL_POSTER_ROWS := 3
 const SOCIAL_POSTER_COUNT := SOCIAL_POSTER_COLUMNS * SOCIAL_POSTER_ROWS
 
 
-static func visible_post_indices(deps: Dictionary) -> Array[int]:
+## The following channel lists only the posts of authors in followed_handles.
+static func visible_post_indices(deps: Dictionary, followed_handles: Array = []) -> Array[int]:
 	var result: Array[int] = []
 	var social_channel := str(deps.get("social_channel", "discover"))
 	var post_cards: Array = deps.get("post_cards", [])
 	for post_index in post_cards.size():
 		if social_channel == "following":
 			var post := post_for_index(post_index, deps)
-			var is_following: Callable = deps.get("is_following", Callable())
 			var author_id_fn: Callable = deps.get("author_id", Callable())
-			if is_following.is_valid() and author_id_fn.is_valid():
-				if not is_following.call(author_id_fn.call(post)):
-					continue
+			if author_id_fn.is_valid() and not followed_handles.has(author_id_fn.call(post)):
+				continue
 		result.append(post_index)
 	return result
 
 
-static func like_text(post: Dictionary, post_index: int, deps: Dictionary) -> String:
-	var is_liked_fn: Callable = deps.get("is_post_liked", Callable())
-	var liked: bool = is_liked_fn.call(str(post.get("id", ""))) if is_liked_fn.is_valid() else false
+static func like_text(post: Dictionary, post_index: int, liked_post_ids: Array = []) -> String:
+	var liked := liked_post_ids.has(str(post.get("id", "")))
 	var stable_index := int(post.get("card_index", post_index))
 	var count := 64 + (stable_index * 31) % 120 + (1 if liked else 0)
 	return "%s %d" % ["♥" if liked else "♡", count]
