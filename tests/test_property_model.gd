@@ -40,6 +40,7 @@ func _run() -> void:
 	_test_language_and_volume_are_preferences_and_autoplay_is_the_run()
 	_test_run_save_carries_autoplay_but_not_preferences()
 	_test_ending_choice_lives_only_in_the_run_model()
+	_test_phone_state_lives_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -346,6 +347,51 @@ func _test_ending_choice_lives_only_in_the_run_model() -> void:
 	choice.write("blank")
 	choice.write(3)
 	_assert_eq(choice.read(), "blank", "a wrong type should keep the ending choice")
+
+
+func _test_phone_state_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var open: ValuePropertyModel = manager.model(PropertyKeysScript.PHONE_OPEN) as ValuePropertyModel
+	var app: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP) as ValuePropertyModel
+	var window: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP_WINDOW) as ValuePropertyModel
+	for key in [PropertyKeysScript.PHONE_OPEN, PropertyKeysScript.ACTIVE_APP, PropertyKeysScript.ACTIVE_APP_WINDOW]:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+	_assert_eq(open.read(), true, "the phone should start open")
+	_assert_eq(app.read(), BootScript.DEFAULT_APP, "the current app should start on the default app")
+	_assert_eq(window.read(), BootScript.DEFAULT_APP, "the foreground app should start on the default app")
+
+	var source = StateScript.new()
+	source.new_run()
+	source.set_active_app("notebook")
+	_assert_eq(app.read(), "notebook", "choosing an app should write the current app model")
+	_assert_eq(window.read(), "notebook", "choosing an app should write the foreground model")
+	_assert_eq(source.active_app, "notebook", "the state should read the model, not keep a copy")
+	source.set_phone_open(false)
+	_assert_eq(open.read(), false, "closing the phone should write the model")
+	_assert_eq(window.read(), "", "closing the phone should clear the foreground model")
+	_assert_true(not source.get_phone_shell_snapshot().has("phone_open"), "the phone snapshot should not carry a second copy")
+
+	source.set_phone_open(true)
+	source.set_active_app("babel")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("phone_open", null), true, "the run save should store the phone model")
+	_assert_eq(state_data.get("active_app_window", null), "babel", "the run save should store the foreground model")
+	_assert_true(not state_data.has("phone_visible"), "the run save should not store a second copy of the phone")
+	open.write(false)
+	app.write("social")
+	window.write("")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(open.read(), true, "loading should write the phone back through the model")
+	_assert_eq(app.read(), "babel", "loading should write the current app back through the model")
+	_assert_eq(window.read(), "babel", "loading should write the foreground back through the model")
+	restored.new_run()
+	_assert_eq(window.read(), BootScript.DEFAULT_APP, "a new run should reset the foreground on the same model")
+	open.write(false)
+	open.write("yes")
+	_assert_eq(open.read(), false, "a wrong type should keep the phone state")
 
 
 func _test_registering_a_listener_does_not_open_a_screen() -> void:

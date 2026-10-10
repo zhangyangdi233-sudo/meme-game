@@ -6,8 +6,6 @@ var _failures: Array[String] = []
 var _state_script: Script = null
 var _engagement_signal_count := 0
 var _last_engagement_snapshot: Dictionary = {}
-var _phone_shell_signal_count := 0
-var _last_phone_shell_snapshot: Dictionary = {}
 var _action_economy_signal_count := 0
 var _last_action_economy_snapshot: Dictionary = {}
 var _reality_conversation_signal_count := 0
@@ -39,7 +37,7 @@ func _run() -> void:
 	test_navigation_is_free_and_five_actions_mark_day_end()
 	test_social_follow_and_like_toggles_are_free_and_persistent()
 	test_social_engagement_snapshot_and_signal()
-	test_phone_shell_snapshot_and_signal()
+	test_phone_shell_state_lives_in_models()
 	test_action_economy_snapshot_and_signal()
 	test_autoplay_lives_in_the_run_model()
 	test_reality_conversation_snapshot_and_signal()
@@ -127,71 +125,57 @@ func _capture_social_engagement(snapshot: Dictionary) -> void:
 	_last_engagement_snapshot = snapshot
 
 
-func test_phone_shell_snapshot_and_signal() -> void:
+func test_phone_shell_state_lives_in_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	_phone_shell_signal_count = 0
-	_last_phone_shell_snapshot = {}
-	game.phone_shell_changed.connect(_capture_phone_shell)
 
 	var initial: Dictionary = game.get_phone_shell_snapshot()
 	_assert_eq(str(initial.get("view_state", "")), "phone_down", "new run should start phone-down")
-	_assert_eq(str(initial.get("active_app", "")), "social", "new run should default to social app")
-	_assert_eq(str(initial.get("active_app_window", "")), "social", "phone-down should expose default app window")
-	_assert_true(bool(initial.get("phone_visible", false)), "phone should be visible at start")
-	_assert_true(bool(initial.get("phone_open", false)), "phone should be open at start")
+	_assert_eq(initial.keys(), ["view_state"], "the phone snapshot should carry only the view, not a second copy of the models")
+	_assert_eq(str(game.active_app), "social", "new run should default to social app")
+	_assert_eq(str(game.active_app_window), "social", "phone-down should expose default app window")
+	_assert_true(bool(game.phone_open), "phone should be open at start")
 
 	game.set_active_app("babel")
-	_assert_eq(_phone_shell_signal_count, 1, "active app toggle should emit once")
-	_assert_eq(str(_last_phone_shell_snapshot.get("active_app", "")), "babel", "signal should carry active app")
-	_assert_eq(str(_last_phone_shell_snapshot.get("active_app_window", "")), "babel", "phone-down should sync foreground window")
-	var app_change: Dictionary = _last_phone_shell_snapshot.get("change", {})
-	_assert_eq(str(app_change.get("kind", "")), "active_app", "change kind should be active_app")
-	_assert_eq(str(app_change.get("target_id", "")), "babel", "change target should be app id")
-	_assert_true(bool(app_change.get("active", false)), "opening an app should be active")
+	_assert_eq(str(game.active_app), "babel", "choosing an app should change the current app")
+	_assert_eq(str(game.active_app_window), "babel", "phone-down should sync foreground window")
 
 	game.close_app_window("babel", [] as Array[String])
-	_assert_eq(_phone_shell_signal_count, 2, "closing foreground app should emit")
-	_assert_true(str(_last_phone_shell_snapshot.get("active_app_window", "")).is_empty(), "close should clear foreground window")
-	var close_change: Dictionary = _last_phone_shell_snapshot.get("change", {})
-	_assert_eq(str(close_change.get("kind", "")), "close_app", "change kind should be close_app")
-	_assert_true(not bool(close_change.get("active", true)), "close should mark inactive")
+	_assert_true(str(game.active_app_window).is_empty(), "close should clear foreground window")
 
 	game.set_active_app("social")
 	game.set_active_app("notebook")
 	game.close_app_window("notebook", ["social"] as Array[String])
-	_assert_eq(str(_last_phone_shell_snapshot.get("active_app", "")), "social", "close should fall back to remaining open app")
-	_assert_eq(str(_last_phone_shell_snapshot.get("active_app_window", "")), "social", "foreground should follow remaining open app")
+	_assert_eq(str(game.active_app), "social", "close should fall back to remaining open app")
+	_assert_eq(str(game.active_app_window), "social", "foreground should follow remaining open app")
 
 	_assert_true(game.set_view_state("npc_up"), "npc_up should be accepted")
-	_assert_eq(_phone_shell_signal_count, 6, "view_state toggle should emit")
-	_assert_eq(str(_last_phone_shell_snapshot.get("view_state", "")), "npc_up", "signal should carry npc_up")
-	_assert_true(str(_last_phone_shell_snapshot.get("active_app_window", "")).is_empty(), "npc_up should hide app window")
-	_assert_true(not bool(_last_phone_shell_snapshot.get("phone_visible", true)), "npc_up should hide phone chrome")
-	var view_change: Dictionary = _last_phone_shell_snapshot.get("change", {})
-	_assert_eq(str(view_change.get("kind", "")), "view_state", "change kind should be view_state")
-	_assert_true(not bool(view_change.get("active", true)), "npc_up should not be phone-down active")
+	_assert_eq(str(game.get_phone_shell_snapshot().get("view_state", "")), "npc_up", "snapshot should carry npc_up")
+	_assert_true(str(game.active_app_window).is_empty(), "npc_up should hide app window")
+	_assert_true(not bool(game.phone_open), "npc_up should close the phone")
 
 	_assert_true(game.set_view_state("phone_down"), "phone_down should restore")
-	_assert_eq(str(_last_phone_shell_snapshot.get("view_state", "")), "phone_down", "signal should restore phone_down")
-	_assert_eq(str(_last_phone_shell_snapshot.get("active_app_window", "")), "social", "phone_down should restore foreground from active_app")
+	_assert_true(bool(game.phone_open), "phone_down should open the phone again")
+	_assert_eq(str(game.active_app_window), "social", "phone_down should restore foreground from active_app")
 
 	var snapshot: Dictionary = game.get_phone_shell_snapshot()
-	_assert_eq(str(snapshot.get("view_state", "")), "phone_down", "snapshot should reflect phone_down")
 	snapshot["view_state"] = "npc_up"
 	_assert_eq(str(game.view_state), "phone_down", "snapshot must be a copy, not live state")
 
+	var put_down = _state_script.new()
+	put_down.new_run()
+	put_down.set_view_state("npc_up")
+	var old_state: Dictionary = put_down.to_save_data().get("state", {})
+	old_state.erase("phone_open")
+	old_state.erase("active_app_window")
+	var loaded = _state_script.new()
+	_assert_true(loaded.load_save_data({"version": _state_script.SAVE_DATA_VERSION, "state": old_state}), "an older save should load")
+	_assert_true(not bool(loaded.phone_open), "a save put down without a phone field should load with the phone closed")
+	_assert_true(str(loaded.active_app_window).is_empty(), "a save put down should load without a foreground app")
+
 	game.set_phone_open(false)
-	_assert_eq(_phone_shell_signal_count, 8, "phone close should emit")
-	var phone_change: Dictionary = _last_phone_shell_snapshot.get("change", {})
-	_assert_eq(str(phone_change.get("kind", "")), "phone_open", "change kind should be phone_open")
-	_assert_true(not bool(_last_phone_shell_snapshot.get("phone_open", true)), "phone_open snapshot should reflect closed")
-	_assert_true(str(_last_phone_shell_snapshot.get("active_app_window", "")).is_empty(), "closing phone should clear foreground window")
-
-
-func _capture_phone_shell(snapshot: Dictionary) -> void:
-	_phone_shell_signal_count += 1
-	_last_phone_shell_snapshot = snapshot
+	_assert_true(not bool(game.phone_open), "closing the phone should write the model")
+	_assert_true(str(game.active_app_window).is_empty(), "closing phone should clear foreground window")
 
 
 func test_action_economy_snapshot_and_signal() -> void:

@@ -13,6 +13,7 @@ const DEFAULT_MONEY := 18
 const DEFAULT_MAX_ACTIONS := 5
 const DEFAULT_LOCALE := "zh"
 const DEFAULT_MASTER_VOLUME := 80.0
+const DEFAULT_APP := "social"
 
 
 static func install() -> void:
@@ -27,6 +28,9 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LOCALE, DEFAULT_LOCALE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MASTER_VOLUME, DEFAULT_MASTER_VOLUME, 0.0, 100.0))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PHONE_OPEN, true))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP, DEFAULT_APP))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP_WINDOW, DEFAULT_APP))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 

@@ -2,7 +2,6 @@ class_name MemeGameState
 extends RefCounted
 
 signal social_engagement_changed(snapshot: Dictionary)
-signal phone_shell_changed(snapshot: Dictionary)
 signal action_economy_changed(snapshot: Dictionary)
 signal reality_conversation_changed(snapshot: Dictionary)
 signal day_progress_changed(snapshot: Dictionary)
@@ -46,7 +45,7 @@ const SAVE_FIELD_NAMES := [
 	"pending_floor_transition", "autoplay_enabled", "exit_prompt_seen",
 	"money", "actions_remaining", "max_actions_per_day",
 	"needs_day_settlement", "day_ended_reason", "pollution_flashback_seen", "pollution_flashback_pending",
-	"view_state", "phone_visible", "phone_open", "active_app", "active_app_window",
+	"view_state", "phone_open", "active_app", "active_app_window",
 	"notebook_tokens", "draft_slots", "completed_memes", "owned_meme_frames", "owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
 	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
@@ -96,10 +95,21 @@ var pollution_flashback_seen: bool = false
 var pollution_flashback_pending: bool = false
 
 var view_state: String = "phone_down"
-var phone_visible: bool = true
-var phone_open: bool = true
-var active_app: String = "social"
-var active_app_window: String = "social"
+var phone_open: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.PHONE_OPEN)
+	set(value):
+		_write_run_field(PropertyKeysScript.PHONE_OPEN, value)
+var active_app: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ACTIVE_APP)
+	set(value):
+		_write_run_field(PropertyKeysScript.ACTIVE_APP, value)
+var active_app_window: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ACTIVE_APP_WINDOW)
+	set(value):
+		_write_run_field(PropertyKeysScript.ACTIVE_APP_WINDOW, value)
 
 var notebook_tokens: Array = []
 var draft_slots: Dictionary = {}
@@ -190,10 +200,6 @@ func new_run() -> void:
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
 	view_state = "phone_down"
-	phone_visible = true
-	phone_open = true
-	active_app = "social"
-	active_app_window = "social"
 	notebook_tokens = []
 	draft_slots = {}
 	completed_memes = []
@@ -275,6 +281,13 @@ func _read_run_int(property_name: String) -> int:
 	if model == null:
 		return 0
 	return int(model.read())
+
+
+func _read_run_bool(property_name: String) -> bool:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
+	if model == null:
+		return false
+	return bool(model.read())
 
 
 func _read_run_string(property_name: String) -> String:
@@ -364,6 +377,9 @@ func load_save_data(save_data: Dictionary) -> bool:
 	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
+	if view_state == "npc_up":
+		phone_open = false
+		active_app_window = ""
 	reset_typed_reality_conversation()
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
@@ -469,13 +485,9 @@ func _normalize_doll_state() -> void:
 
 
 func set_phone_open(value: bool) -> void:
-	if phone_open == value and phone_visible == value:
-		return
 	phone_open = value
-	phone_visible = value
 	if not value:
 		active_app_window = ""
-	_emit_phone_shell_changed("phone_open", "", value)
 
 
 func set_view_state(value: String) -> bool:
@@ -485,34 +497,24 @@ func set_view_state(value: String) -> bool:
 		return true
 	view_state = value
 	if view_state == "phone_down":
-		phone_visible = true
 		phone_open = true
 		if active_app_window.is_empty():
 			active_app_window = active_app
 	else:
-		phone_visible = false
 		phone_open = false
 		active_app_window = ""
 		reset_reality_phase_for_day()
-	_emit_phone_shell_changed("view_state", value, value == "phone_down")
 	return true
 
 
 func get_phone_shell_snapshot() -> Dictionary:
-	return {
-		"view_state": view_state,
-		"active_app": active_app,
-		"active_app_window": active_app_window,
-		"phone_visible": phone_visible,
-		"phone_open": phone_open,
-	}
+	return {"view_state": view_state}
 
 
 func close_app_window(app_id: String, remaining_open_apps: Array[String] = []) -> void:
 	var normalized := app_id.strip_edges()
 	if normalized.is_empty():
 		return
-	var previous_window := active_app_window
 	if active_app_window == normalized:
 		active_app_window = ""
 		for candidate in PHONE_APP_FALLBACK_ORDER:
@@ -521,18 +523,6 @@ func close_app_window(app_id: String, remaining_open_apps: Array[String] = []) -
 				if view_state == "phone_down":
 					active_app_window = candidate
 				break
-	if previous_window != active_app_window:
-		_emit_phone_shell_changed("close_app", normalized, false)
-
-
-func _emit_phone_shell_changed(change_kind: String, target_id: String, active: bool) -> void:
-	var snapshot := get_phone_shell_snapshot()
-	snapshot["change"] = {
-		"kind": change_kind,
-		"target_id": target_id,
-		"active": active,
-	}
-	phone_shell_changed.emit(snapshot)
 
 
 func is_world_item_collected(item_id: String) -> bool:
@@ -683,13 +673,9 @@ func get_ending_language_output(locale_code: String = "zh") -> String:
 
 
 func set_active_app(app_id: String) -> void:
-	var previous_app := active_app
-	var previous_window := active_app_window
 	active_app = app_id
 	if view_state == "phone_down":
 		active_app_window = app_id
-	if previous_app != active_app or previous_window != active_app_window:
-		_emit_phone_shell_changed("active_app", app_id, true)
 
 
 func spend_action(action_type: String) -> bool:

@@ -1,10 +1,15 @@
 class_name PhoneLauncherPanel
 extends Node
 ## Game-side phone launcher shell: popup chrome, app grid, and babel/notebook app windows.
+## While shown, it watches whether the phone is open and which app is in front, and updates itself.
 
 signal app_icon_pressed(app_id: String)
 signal phone_close_requested
 signal app_window_close_requested(app_id: String)
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 const LAUNCHER_APPS := [
 	{"id": "babel", "label": "塔\n楼层档案"},
@@ -48,14 +53,36 @@ var _notebook_window_left_fn: Callable
 var _launcher_wallpaper_path := ""
 var _no_signal_icon_path := ""
 var _ui_parent: Control
+var _shown := false
+var _observing := false
+var _phone_open := true
 
 
 func mount(parent: Control, deps: Dictionary) -> void:
 	_apply_mount_deps(deps)
 	_ui_parent = parent
+	var keep_shown := _shown
+	_stop_observing()
 	_build_phone_popup(parent)
 	_build_app_window("babel", BABEL_WINDOW_LAYOUT)
 	_build_app_window("notebook", NOTEBOOK_WINDOW_LAYOUT)
+	if keep_shown:
+		set_shown(true)
+
+
+## The play chrome decides whether the phone may appear at all. While it may, the models decide the rest.
+func set_shown(shown: bool) -> void:
+	_shown = shown
+	if shown:
+		_start_observing()
+		_apply_phone_open()
+	else:
+		_stop_observing()
+		_set_popup_visible(false)
+
+
+func _exit_tree() -> void:
+	_stop_observing()
 
 
 func get_phone_panel() -> PanelContainer:
@@ -83,9 +110,9 @@ func move_phone_to_front() -> void:
 		_phone_panel.move_to_front()
 
 
-func set_content_visible(visible: bool) -> void:
-	if _phone_content != null and is_instance_valid(_phone_content):
-		_phone_content.visible = visible
+## Lays the popup out again for the current open state, for example after the window was resized.
+func relayout() -> void:
+	layout_popup(_phone_open)
 
 
 func layout_popup(expanded: bool) -> void:
@@ -383,6 +410,65 @@ func _apply_app_window_layout(window: Control, app_id: String, left: float, top:
 	window.offset_left = window.offset_right - target_width
 	window.offset_top = top_margin
 	window.offset_bottom = viewport_size.y - 8.0
+
+
+func _start_observing() -> void:
+	if _observing:
+		return
+	var open := _property_model(PropertyKeysScript.PHONE_OPEN)
+	var window := _property_model(PropertyKeysScript.ACTIVE_APP_WINDOW)
+	if open == null or window == null:
+		return
+	_observing = true
+	open.register(_on_phone_open)
+	window.register(_on_active_app_window)
+
+
+func _stop_observing() -> void:
+	if not _observing:
+		return
+	_observing = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		return
+	var open := _property_model(PropertyKeysScript.PHONE_OPEN)
+	var window := _property_model(PropertyKeysScript.ACTIVE_APP_WINDOW)
+	if open != null:
+		open.unregister(_on_phone_open)
+	if window != null:
+		window.unregister(_on_active_app_window)
+
+
+func _on_phone_open(value: Variant) -> void:
+	_phone_open = bool(value)
+	layout_popup(_phone_open)
+	_apply_phone_open()
+
+
+func _on_active_app_window(value: Variant) -> void:
+	var window := get_app_window(str(value))
+	if window != null and is_instance_valid(window):
+		window.move_to_front()
+
+
+func _apply_phone_open() -> void:
+	_set_popup_visible(_shown and _phone_open)
+
+
+func _set_popup_visible(popup_visible: bool) -> void:
+	if _phone_panel != null and is_instance_valid(_phone_panel):
+		_phone_panel.visible = popup_visible
+	if _phone_content != null and is_instance_valid(_phone_content):
+		_phone_content.visible = popup_visible
+
+
+func _property_model(property_name: String) -> PropertyModel:
+	if not ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
+		push_error("Phone launcher cannot see the property service")
+		return null
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
 
 
 func _on_app_icon_pressed(app_id: String) -> void:

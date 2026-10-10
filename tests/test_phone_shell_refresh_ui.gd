@@ -3,6 +3,9 @@ extends SceneTree
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
 
 const HUD_SENTINEL := "HUD_SENTINEL_PHONE_SHELL"
 const ENDING_SENTINEL := "ENDING_SENTINEL_PHONE_SHELL"
@@ -20,6 +23,7 @@ func _run_async() -> void:
 	await _test_channel_refreshes_phone_shell_not_hud()
 	await _test_spend_action_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
+	await _test_phone_popup_follows_the_phone_model()
 	await _test_like_does_not_rerun_ending()
 	if _failures.is_empty():
 		print("phone shell refresh UI tests passed")
@@ -138,6 +142,33 @@ func _test_opening_app_refreshes_phone_shell_not_hud() -> void:
 	_assert_true(babel != null and babel.visible, "opening babel should show its phone-shell window")
 	_assert_true(heading != null, "phone shell should paint babel content")
 	_assert_hud_untouched(hud, "opening a phone app")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_phone_popup_follows_the_phone_model() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var open: PropertyModel = manager.model(PropertyKeysScript.PHONE_OPEN)
+	var popup := Harness.find_node_by_name(game_root, "PhonePopup") as Control
+	_assert_true(popup != null and popup.visible, "a new run should show the phone popup")
+	_assert_eq(open.changed.get_connections().size(), 1, "the shown phone should listen to the phone model once")
+
+	open.write(false)
+	_assert_true(popup != null and not popup.visible, "writing the phone model closed should hide the popup without a refresh")
+	open.write(true)
+	_assert_true(popup != null and popup.visible, "writing the phone model open should show the popup without a refresh")
+
+	game_root.set_view_state("npc_up")
+	await process_frame
+	_assert_true(popup != null and not popup.visible, "putting the phone down should hide the popup")
+	_assert_eq(open.changed.get_connections().size(), 1, "putting the phone down should keep one registration while the play chrome is shown")
+	game_root.set_view_state("phone_down")
+	await process_frame
+	_assert_true(popup != null and popup.visible, "picking the phone up should show the popup")
 
 	game_root.queue_free()
 	await process_frame

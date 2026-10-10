@@ -13,7 +13,7 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 | Public `const` | 27 (19 content/config + 8 script preloads) |
 | Signals (before slice 1) | 0 |
 | Signals (slice 1) | 1 — `social_engagement_changed` |
-| Signals (slice 2A) | 2 — + `phone_shell_changed` |
+| Signals (slice 2A) | 2 — + `phone_shell_changed` (retired once the phone moved to property models) |
 | Signals (slice 2B) | 3 — + `action_economy_changed` |
 | Signals (slice 2C) | 4 — + `settings_changed` |
 | Signals (slice 3a) | 5 — + `reality_conversation_changed` |
@@ -111,11 +111,10 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_phone_shell_snapshot()` → `{ view_state, active_app, active_app_window, phone_visible, phone_open }` |
-| Signal | `phone_shell_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
+| Snapshot | `get_phone_shell_snapshot()` → `{ view_state }` |
 | Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `close_app_window(app_id, remaining_open_apps)` |
 
-Legacy fields `view_state` / `active_app` / `active_app_window` / `phone_visible` / `phone_open` remain for save/load; new adapter code should prefer snapshot + signal.
+Whether the phone is open, the current app, and the foreground app window live only in the `phone_open` / `active_app` / `active_app_window` property models (saved with the run). The state reads and writes them through those models; the phone launcher watches them while shown. `phone_visible` was always the same as `phone_open`, so it is gone. There is no phone signal: the launcher listens to the models, and the adapter refreshes after its own phone intents. `view_state` stays a plain field, saved and read through the snapshot.
 
 ### Phone / view (legacy listing)
 
@@ -277,28 +276,12 @@ Legacy `conversation_*` fields remain for save/load and the typed turn engine; n
 # Snapshot (read)
 {
   "view_state": "phone_down" | "npc_up",
-  "active_app": String,
-  "active_app_window": String,
-  "phone_visible": bool,
-  "phone_open": bool,
-}
-
-# Signal payload = snapshot + change metadata
-{
-  "view_state": String,
-  "active_app": String,
-  "active_app_window": String,
-  "phone_visible": bool,
-  "phone_open": bool,
-  "change": {
-    "kind": "view_state" | "active_app" | "close_app" | "phone_open",
-    "target_id": String,
-    "active": bool,
-  },
 }
 ```
 
-**Adapter pattern:** connect `phone_shell_changed` → `_render()`; read shell via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`. Adapter-local `_open_app_windows` tracks multi-window chrome; state owns foreground app + view.
+`phone_open`, `active_app`, and `active_app_window` are property models, not snapshot fields. The old `phone_shell_changed` signal and its payload are gone.
+
+**Adapter pattern:** read the view via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`, then refresh the app content. The phone launcher shows, hides, and raises itself from the models. Adapter-local `_open_app_windows` tracks multi-window chrome.
 
 ---
 
