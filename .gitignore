@@ -32,3 +32,6 @@ exports/
 *.pck
 *.zip
 .cursor
+
+# 示意圖（僅供參考，不入版控）
+assets/image/*示意圖*
