@@ -5,6 +5,7 @@ const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const MainMenuScreenScript = preload("res://scripts/ui/main_menu_screen.gd")
 const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
@@ -47,14 +48,16 @@ func _test_first_open_attaches_without_clearing_the_layer() -> void:
 func _test_buttons_raise_the_four_intents() -> void:
 	var mounted := _mount(0, true)
 	var heard: Array[String] = []
-	mounted["bus"].intent_emitted.connect(func(intent_name: String) -> void:
+	var payloads: Array[Dictionary] = []
+	mounted["bus"].intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
 		heard.append(intent_name)
+		payloads.append(payload)
 	)
 	for pair in [
-		["MainMenuStartButton", "start_game"],
-		["MainMenuContinueButton", "continue_game"],
-		["MainMenuExitButton", "exit_game"],
-		["MainMenuLanguageButton", "language_picker"],
+		["MainMenuStartButton", UiIntentsScript.START_GAME],
+		["MainMenuContinueButton", UiIntentsScript.CONTINUE_GAME],
+		["MainMenuExitButton", UiIntentsScript.EXIT_GAME],
+		["MainMenuLanguageButton", UiIntentsScript.LANGUAGE_PICKER],
 	]:
 		var button := Harness.find_node_by_name(mounted["screen"], pair[0]) as BaseButton
 		_assert_true(button != null and not button.disabled, "%s should be pressable" % pair[0])
@@ -62,6 +65,7 @@ func _test_buttons_raise_the_four_intents() -> void:
 			button.pressed.emit()
 			_assert_eq(heard.back() if not heard.is_empty() else "", pair[1], "%s should raise %s" % [pair[0], pair[1]])
 	_assert_eq(heard.size(), 4, "the four buttons should raise one intent each")
+	_assert_true(payloads.all(func(payload: Dictionary) -> bool: return payload.is_empty()), "main menu intents carry no answer")
 	_dispose(mounted)
 
 

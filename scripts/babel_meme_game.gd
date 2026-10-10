@@ -43,6 +43,7 @@ const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const FlowManagerScript = preload("res://framework/flow/flow_manager.gd")
 const MainMenuFlowStateScript = preload("res://scripts/game/flow/main_menu_flow_state.gd")
 const PrologueFlowStateScript = preload("res://scripts/game/flow/prologue_flow_state.gd")
@@ -294,6 +295,7 @@ func _on_camera_source_ready(source: String, selected_index: int) -> void:
 
 func _ready() -> void:
 	PropertyBootScript.install()
+	_ensure_ui_event_bus()
 	_ui_theme_helper.configure({
 		"ui_font_path": UI_FONT_PATH,
 		"ui_font_grid": UI_FONT_GRID,
@@ -1609,23 +1611,37 @@ func _layout_settings_window() -> void:
 func _ensure_screen_manager() -> void:
 	if _screen_manager != null and is_instance_valid(_screen_manager):
 		return
-	_ui_event_bus = GameEventBusScript.new()
-	_ui_event_bus.intent_emitted.connect(_on_ui_intent)
+	_ensure_ui_event_bus()
 	_screen_manager = ScreenManagerScript.new(_ui_event_bus, MainMenuScreenScript, self)
 	_screen_manager.name = "ScreenManager"
 	add_child(_screen_manager)
 
 
-func _on_ui_intent(intent_name: String) -> void:
+## Binds the UI event bus as a service so runtime-built controls can resolve it.
+## A bus already bound (an earlier host in the same process) is reused, like the property manager.
+func _ensure_ui_event_bus() -> void:
+	if _ui_event_bus == null:
+		if ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
+			_ui_event_bus = ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+		else:
+			_ui_event_bus = GameEventBusScript.new()
+			ServiceRegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, _ui_event_bus)
+	if not _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
+		_ui_event_bus.intent_emitted.connect(_on_ui_intent)
+
+
+func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 	match intent_name:
-		"start_game":
+		UiIntentsScript.START_GAME:
 			new_game.call_deferred()
-		"continue_game":
+		UiIntentsScript.CONTINUE_GAME:
 			continue_game.call_deferred()
-		"exit_game":
+		UiIntentsScript.EXIT_GAME:
 			_request_quit_game()
-		"language_picker":
+		UiIntentsScript.LANGUAGE_PICKER:
 			_build_language_selection_overlay(false)
+		UiIntentsScript.LANGUAGE_SELECTED:
+			_on_language_selected(str(payload.get("locale", "")))
 
 
 func _ensure_language_selection_panel() -> void:
@@ -1634,7 +1650,6 @@ func _ensure_language_selection_panel() -> void:
 	_language_selection_panel = LanguageSelectionPanelScript.new()
 	_language_selection_panel.name = "LanguageSelectionPanel"
 	add_child(_language_selection_panel)
-	_connect_language_selection_panel_signals()
 
 
 func _language_selection_mount_deps() -> Dictionary:
@@ -1653,14 +1668,6 @@ func _language_selection_mount_deps() -> Dictionary:
 		"refresh_localized_ui": func() -> void:
 			_ui_theme_helper.refresh_localized_ui(_ui_root),
 	}
-
-
-func _connect_language_selection_panel_signals() -> void:
-	var panel := _language_selection_panel
-	if panel == null:
-		return
-	if not panel.language_selected.is_connected(_on_language_selected):
-		panel.language_selected.connect(_on_language_selected)
 
 
 func _ensure_prologue_panel() -> void:

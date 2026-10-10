@@ -4,6 +4,9 @@ const LocaleScript = preload("res://scripts/localization/game_locale.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const UICatalogScript = preload("res://scripts/localization/ui_catalog.gd")
 const StateCatalogScript = preload("res://scripts/localization/state_catalog.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 
 var _failures: Array[String] = []
 
@@ -261,8 +264,12 @@ func _test_language_selection_and_settings_ui() -> void:
 	_assert_true(_find_ui_node(game_root, "LanguageChoiceZH") != null, "language selection should offer Chinese")
 	_assert_true(_find_ui_node(game_root, "LanguageChoiceJA") != null, "language selection should offer Japanese")
 	_assert_true(_find_ui_node(game_root, "LanguageChoiceEN") != null, "language selection should offer English")
-	game_root._on_language_selected("en")
+	var english_choice := _find_ui_node(game_root, "LanguageChoiceEN") as Button
+	if english_choice != null:
+		english_choice.pressed.emit()
 	await process_frame
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	_assert_eq(str(manager.model(PropertyKeysScript.LOCALE).read()), "en", "pressing English should reach the host through the bus and write the language model")
 	var continue_button := _find_ui_node(game_root, "MainMenuContinueButton") as Button
 	_assert_true(continue_button != null, "choosing English should keep the main menu continue button")
 	if continue_button != null:

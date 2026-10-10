@@ -3,3 +3,4 @@ extends RefCounted
 ## Names of shared services. Property names do not live here.
 
 const PROPERTY_MANAGER := "property_manager"
+const UI_EVENT_BUS := "ui_event_bus"

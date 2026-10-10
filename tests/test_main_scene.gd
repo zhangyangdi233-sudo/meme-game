@@ -44,6 +44,7 @@ func _test_main_menu(game_root: Node) -> void:
 	_assert_true(main_menu != null and main_menu.visible, "launch should expose the main menu")
 	_assert_true(start_button != null, "main menu should expose start")
 	_assert_true(exit_button != null, "main menu should retain a direct system exit")
+	_assert_true(ServiceRegistry.has(ServiceKeys.UI_EVENT_BUS) and ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) == game_root._ui_event_bus, "the host should bind its UI event bus as a service")
 	exit_button.pressed.emit()
 	var confirmation := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
 	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation")

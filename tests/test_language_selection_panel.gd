@@ -1,11 +1,14 @@
 extends SceneTree
 ## LanguageSelectionPanel: an open picker watches the language model and marks the current choice; closing stops.
+## A choice is raised on the bound event bus with its locale.
 
 const PanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const LOCALES := [
 	{"code": "zh", "name": "中文"},
@@ -14,7 +17,7 @@ const LOCALES := [
 ]
 
 var _failures: Array[String] = []
-var _selected: Array[String] = []
+var _heard: Array = []
 
 
 func _init() -> void:
@@ -35,6 +38,9 @@ func _run_async() -> void:
 func _run() -> void:
 	RegistryScript.clear()
 	BootScript.install()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
 	var locale := _model(PropertyKeysScript.LOCALE)
 	locale.write("ja")
 
@@ -43,19 +49,18 @@ func _run() -> void:
 	root.add_child(host)
 	var panel := PanelScript.new() as LanguageSelectionPanel
 	root.add_child(panel)
-	panel.language_selected.connect(func(code: String) -> void: _selected.append(code))
 
 	panel.build(host, false, _deps())
 	_assert_eq(_marked(panel), ["ja"], "building the picker should mark the current language")
 
 	locale.write("en")
 	_assert_eq(_marked(panel), ["en"], "an open picker should follow language writes")
-	_assert_true(_selected.is_empty(), "following the model should not emit a selection")
+	_assert_true(_heard.is_empty(), "following the model should not raise an intent")
 
 	var choice := _choice(panel, "zh")
 	if choice != null:
 		choice.pressed.emit()
-	_assert_eq(_selected, ["zh"], "pressing a choice should still emit the locale code")
+	_assert_eq(_heard, [[UiIntentsScript.LANGUAGE_SELECTED, {"locale": "zh"}]], "pressing a choice should raise the language intent with its locale")
 	_assert_eq(_marked(panel), ["en"], "pressing a choice should not move the mark until the model changes")
 
 	panel.build(host, false, _deps())

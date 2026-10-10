@@ -2,11 +2,13 @@ class_name LanguageSelectionPanel
 extends Node
 ## Game-side language selection overlay: first-run picker and in-menu language switcher chrome.
 ## The open picker watches the language model and marks the current choice; closing stops.
-
-signal language_selected(locale_code: String)
+## A choice is raised on the bound event bus; the host's handler writes the language model.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _language_overlay: Control
 var _choice_buttons: Dictionary = {}
@@ -138,7 +140,9 @@ func _on_choice_pressed(locale_code: String) -> void:
 	# Toggling is the button's own reaction; the mark stays on the model's language.
 	if _watch.is_active():
 		_on_locale(_watch.read(PropertyKeysScript.LOCALE))
-	language_selected.emit(locale_code)
+	var bus := ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	if bus != null:
+		bus.emit_intent(UiIntentsScript.LANGUAGE_SELECTED, {"locale": locale_code})
 
 
 func _on_cancel_pressed() -> void:

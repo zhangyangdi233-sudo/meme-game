@@ -7,11 +7,12 @@ extends UIBase
 
 const SCENE_PATH := "res://scenes/ui/main_menu.tscn"
 const LAYER_NAME := "UIRoot"
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const BUTTON_INTENTS := {
-	"MainMenuStartButton": "start_game",
-	"MainMenuContinueButton": "continue_game",
-	"MainMenuExitButton": "exit_game",
-	"MainMenuLanguageButton": "language_picker",
+	"MainMenuStartButton": UiIntentsScript.START_GAME,
+	"MainMenuContinueButton": UiIntentsScript.CONTINUE_GAME,
+	"MainMenuExitButton": UiIntentsScript.EXIT_GAME,
+	"MainMenuLanguageButton": UiIntentsScript.LANGUAGE_PICKER,
 }
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
