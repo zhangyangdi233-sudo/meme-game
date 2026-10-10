@@ -18,7 +18,6 @@ func _run() -> void:
 	game_root._locale.set_locale("ja")
 	game_root.new_game()
 	game_root._skip_prologue()
-	game_root._open_app_windows["social"] = true
 	game_root.game.set_active_app("social")
 	game_root._set_social_screen("home")
 	for _frame in 8:

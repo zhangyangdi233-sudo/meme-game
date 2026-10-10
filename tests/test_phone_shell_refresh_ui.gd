@@ -24,6 +24,7 @@ func _run_async() -> void:
 	await _test_spend_action_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
 	await _test_phone_popup_follows_the_phone_model()
+	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
 	if _failures.is_empty():
 		print("phone shell refresh UI tests passed")
@@ -169,6 +170,50 @@ func _test_phone_popup_follows_the_phone_model() -> void:
 	game_root.set_view_state("phone_down")
 	await process_frame
 	_assert_true(popup != null and popup.visible, "picking the phone up should show the popup")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_app_windows_follow_the_open_windows_model() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	_assert_true(game_root.get("_open_app_windows") == null, "the host should not keep its own open-window table")
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var windows: ListPropertyModel = manager.model(PropertyKeysScript.OPEN_APP_WINDOWS) as ListPropertyModel
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	_assert_eq(windows.read(), ["social", "notebook"], "opening apps should list their windows in the model")
+	var social := game_root._app_windows.get("social") as Control
+	var notebook := game_root._app_windows.get("notebook") as Control
+	_assert_true(social != null and notebook != null, "the phone shell should build the social and notebook windows")
+	if social == null or notebook == null:
+		game_root.queue_free()
+		await process_frame
+		return
+	_assert_true(notebook.visible, "an open notebook window should show")
+
+	game_root._close_app_window("notebook")
+	await process_frame
+	_assert_eq(windows.read(), ["social"], "closing a window should drop it from the model")
+	_assert_true(not notebook.visible, "a closed notebook window should hide")
+	_assert_eq(game_root.game.active_app_window, "social", "closing the foreground window should fall back to the remaining one")
+	_assert_true(social.visible, "the remaining window should stay visible")
+
+	game_root.set_view_state("npc_up")
+	await process_frame
+	_assert_true(not social.visible, "putting the phone down should hide every window")
+	game_root.set_view_state("phone_down")
+	await process_frame
+	_assert_eq(windows.read(), ["social"], "picking the phone up should keep the same open windows")
+	_assert_true(social.visible, "picking the phone up should show the open window again")
+
+	var save_data: Dictionary = game_root.game.to_save_data()
+	windows.replace_all([])
+	_assert_true(game_root.game.load_save_data(save_data), "the save should load")
+	_assert_eq(windows.read(), ["social"], "loading should restore the windows that were open when saving")
 
 	game_root.queue_free()
 	await process_frame

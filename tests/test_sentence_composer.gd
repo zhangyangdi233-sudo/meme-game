@@ -249,7 +249,6 @@ func _test_ui_flow() -> void:
 
 	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。
 	game_root.game.set_active_app("notebook")
-	game_root._open_app_windows["notebook"] = true
 	game_root._render()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "the notebook should host the word canvas")
@@ -258,14 +257,12 @@ func _test_ui_flow() -> void:
 
 	game_root.game.set_active_app("social")
 	game_root._social_screen = "publish"
-	game_root._open_app_windows["social"] = true
 	game_root._render()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
 	game_root.game.set_active_app("notebook")
-	game_root._open_app_windows["notebook"] = true
 	game_root._render()
 	await process_frame
 	game_root.game.pick_social_char("floor_13", "门", "zh")
@@ -283,7 +280,6 @@ func _test_ui_flow() -> void:
 
 	game_root.game.set_active_app("social")
 	game_root._social_screen = "publish"
-	game_root._open_app_windows["social"] = true
 	game_root._render()
 	await process_frame
 	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button

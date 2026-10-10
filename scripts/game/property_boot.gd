@@ -15,6 +15,7 @@ const MAX_TOWER_FLOOR := 4
 const DEFAULT_LOCALE := "zh"
 const DEFAULT_MASTER_VOLUME := 80.0
 const DEFAULT_APP := "social"
+const DEFAULT_VIEW_STATE := "phone_down"
 const DEFAULT_CONVERSATION_PHASE := "idle"
 const DEFAULT_CONVERSATION_MODE := "authored"
 const DEFAULT_CONVERSATION_ACTOR_TYPE := "npc"
@@ -41,6 +42,8 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PHONE_OPEN, true))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP, DEFAULT_APP))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP_WINDOW, DEFAULT_APP))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.OPEN_APP_WINDOWS, []))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.VIEW_STATE, DEFAULT_VIEW_STATE))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NOTEBOOK_TOKENS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COLLECTED_CHAR_UNITS, []))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COMPLETED_MEMES, []))

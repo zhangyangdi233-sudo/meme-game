@@ -35,7 +35,6 @@ const SAVE_DATA_VERSION := 5
 const SAVE_FIELD_NAMES := [
 	"exit_prompt_seen",
 	"pollution_flashback_seen", "pollution_flashback_pending",
-	"view_state",
 	"draft_slots", "owned_meme_frames", "owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
 	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
@@ -120,7 +119,11 @@ var day_ended_reason: String:
 var pollution_flashback_seen: bool = false
 var pollution_flashback_pending: bool = false
 
-var view_state: String = "phone_down"
+var view_state: String:
+	get:
+		return _read_run_string(PropertyKeysScript.VIEW_STATE)
+	set(value):
+		_write_run_field(PropertyKeysScript.VIEW_STATE, value)
 var phone_open: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.PHONE_OPEN)
@@ -136,6 +139,9 @@ var active_app_window: String:
 		return _read_run_string(PropertyKeysScript.ACTIVE_APP_WINDOW)
 	set(value):
 		_write_run_field(PropertyKeysScript.ACTIVE_APP_WINDOW, value)
+var open_app_windows: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.OPEN_APP_WINDOWS)
 
 var notebook_tokens: Array:
 	get:
@@ -284,7 +290,7 @@ func new_run() -> void:
 	exit_prompt_seen = false
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
-	view_state = "phone_down"
+	open_app_window(active_app_window)
 	draft_slots = {}
 	owned_meme_frames = 0
 	owned_meme_frame_ids = []
@@ -506,6 +512,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 	if view_state == "npc_up":
 		phone_open = false
 		active_app_window = ""
+	open_app_window(active_app_window)
 	reset_typed_reality_conversation()
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
@@ -627,6 +634,7 @@ func set_view_state(value: String) -> bool:
 		phone_open = true
 		if active_app_window.is_empty():
 			active_app_window = active_app
+		open_app_window(active_app_window)
 	else:
 		phone_open = false
 		active_app_window = ""
@@ -638,14 +646,30 @@ func get_phone_shell_snapshot() -> Dictionary:
 	return {"view_state": view_state}
 
 
-func close_app_window(app_id: String, remaining_open_apps: Array[String] = []) -> void:
+func is_app_window_open(app_id: String) -> bool:
+	return open_app_windows.has(app_id)
+
+
+func open_app_window(app_id: String) -> void:
+	var normalized := app_id.strip_edges()
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.OPEN_APP_WINDOWS)
+	if normalized.is_empty() or model == null or is_app_window_open(normalized):
+		return
+	model.add(normalized)
+
+
+func close_app_window(app_id: String) -> void:
 	var normalized := app_id.strip_edges()
 	if normalized.is_empty():
 		return
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.OPEN_APP_WINDOWS)
+	var open_index := open_app_windows.find(normalized)
+	if model != null and open_index >= 0:
+		model.remove_at(open_index)
 	if active_app_window == normalized:
 		active_app_window = ""
 		for candidate in PHONE_APP_FALLBACK_ORDER:
-			if candidate in remaining_open_apps:
+			if is_app_window_open(candidate):
 				active_app = candidate
 				if view_state == "phone_down":
 					active_app_window = candidate
@@ -800,6 +824,7 @@ func set_active_app(app_id: String) -> void:
 	active_app = app_id
 	if view_state == "phone_down":
 		active_app_window = app_id
+		open_app_window(app_id)
 
 
 func spend_action(action_type: String) -> bool:

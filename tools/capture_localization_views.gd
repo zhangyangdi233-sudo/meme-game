@@ -34,7 +34,6 @@ func _capture() -> void:
 	main._on_language_selected("en")
 	main.new_game()
 	main._skip_prologue()
-	main._open_app_windows["social"] = true
 	main.game.set_active_app("social")
 	main._set_social_screen("home")
 	for frame in 12:

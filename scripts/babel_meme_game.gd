@@ -164,7 +164,6 @@ var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _doll_guide_panel
 var _ending_screen_panel
-var _open_app_windows: Dictionary = {}
 var _social_screen := "home"
 var _social_channel := "discover"
 var _social_detail_post_index := 0
@@ -487,10 +486,6 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	game = session_state
 	_migrate_social_author_ids()
 	selected_meme_id = ""
-	_open_app_windows = {}
-	var restored_app_window := _foreground_app()
-	if not restored_app_window.is_empty():
-		_open_app_windows[restored_app_window] = true
 	_social_screen = "home"
 	_social_channel = "discover"
 	_social_detail_post_index = 0
@@ -746,9 +741,6 @@ func set_view_state(value: String) -> void:
 		else:
 			_set_reality_mouse_look(false)
 			log_text = "你又低头看向手机。"
-			var foreground_app := _foreground_app()
-			if not foreground_app.is_empty():
-				_open_app_windows[foreground_app] = true
 			if _phone_launcher_panel != null:
 				_phone_launcher_panel.move_phone_to_front()
 		_refresh_phone_shell()
@@ -2856,6 +2848,10 @@ func _update_reality_hud_visibility() -> void:
 		)
 
 
+func _app_window_is_open(app_id: String) -> bool:
+	return game != null and game.is_app_window_open(app_id)
+
+
 func _phone_view_is_down() -> bool:
 	return str(_phone_shell_snapshot().get("view_state", "phone_down")) == "phone_down"
 
@@ -2869,20 +2865,16 @@ func _update_phone_shell_visibility() -> void:
 		_phone_launcher_panel.set_shown(show_play)
 	if _phone_tab != null:
 		_phone_tab.visible = false
-	if show_phone_home:
-		var foreground_app := _foreground_app()
-		if not foreground_app.is_empty():
-			_open_app_windows[foreground_app] = true
 	for app_id in _app_windows.keys():
 		var app_window := _app_windows[app_id] as Control
 		if app_window != null:
-			app_window.visible = show_phone_home and bool(_open_app_windows.get(app_id, false))
+			app_window.visible = show_phone_home and _app_window_is_open(app_id)
 	if _social_feed_panel != null:
-		_social_feed_panel.update_visibility(show_phone_home, bool(_open_app_windows.get("social", false)))
+		_social_feed_panel.update_visibility(show_phone_home, _app_window_is_open("social"))
 	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
-		_notebook_app_panel.set_shown(show_phone_home and bool(_open_app_windows.get("notebook", false)))
+		_notebook_app_panel.set_shown(show_phone_home and _app_window_is_open("notebook"))
 	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
-		_babel_app_panel.set_shown(show_phone_home and bool(_open_app_windows.get("babel", false)))
+		_babel_app_panel.set_shown(show_phone_home and _app_window_is_open("babel"))
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 	if _hand_phone_image != null:
@@ -2989,22 +2981,11 @@ func _is_pickable_social_character(character: String) -> bool:
 
 
 func _close_app_window(app_id: String) -> void:
-	_open_app_windows[app_id] = false
 	if app_id == "social":
 		_social_detail_open = false
 		if _social_feed_panel != null:
 			_social_feed_panel.close_detail()
-	if _foreground_app() == app_id:
-		var remaining_open_apps: Array[String] = []
-		for candidate in ["social", "babel", "notebook"]:
-			if bool(_open_app_windows.get(candidate, false)):
-				remaining_open_apps.append(candidate)
-		game.close_app_window(app_id, remaining_open_apps)
-	var any_open := false
-	for open_value in _open_app_windows.values():
-		if bool(open_value):
-			any_open = true
-			break
+	game.close_app_window(app_id)
 	log_text = "关闭 %s 窗口。" % app_id
 	_refresh_phone_shell()
 
@@ -3236,7 +3217,6 @@ func _on_app_pressed(app_id: String) -> void:
 		game.notify_tutorial("social_opened")
 	elif app_id == "notebook":
 		game.notify_tutorial("notebook_opened")
-	_open_app_windows[app_id] = true
 	if app_id == "social":
 		var social_window := _app_windows.get("social") as Control
 		if social_window != null:
@@ -3357,7 +3337,7 @@ func _build_pickup_flight_layer() -> void:
 
 ## 拾字时把笔记本窗口召回左上角初始位置并打开,让玩家看见字飞进去。
 func _ensure_notebook_window_home() -> void:
-	_open_app_windows["notebook"] = true
+	game.open_app_window("notebook")
 	var window := _notebook_window_control()
 	if window == null:
 		return

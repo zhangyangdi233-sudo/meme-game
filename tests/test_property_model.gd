@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_run_save_carries_autoplay_but_not_preferences()
 	_test_ending_choice_lives_only_in_the_run_model()
 	_test_phone_state_lives_only_in_the_run_models()
+	_test_open_windows_and_view_state_live_only_in_the_run_models()
 	_test_list_and_map_can_insert_or_replace_everything_once()
 	_test_holdings_live_only_in_the_run_models()
 	_test_canvas_positions_write_the_map_once_per_commit()
@@ -417,6 +418,46 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 	open.write(false)
 	open.write("yes")
 	_assert_eq(open.read(), false, "a wrong type should keep the phone state")
+
+
+func _test_open_windows_and_view_state_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var windows: ListPropertyModel = manager.model(PropertyKeysScript.OPEN_APP_WINDOWS) as ListPropertyModel
+	var view: ValuePropertyModel = manager.model(PropertyKeysScript.VIEW_STATE) as ValuePropertyModel
+	_assert_true(windows != null, "the open windows should be a list model")
+	_assert_true(view != null, "the view should be a value model")
+	if windows == null or view == null:
+		return
+	for key in [PropertyKeysScript.OPEN_APP_WINDOWS, PropertyKeysScript.VIEW_STATE]:
+		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+	_assert_eq(windows.read(), [], "no window should be open before a run starts")
+	_assert_eq(view.read(), "phone_down", "the view should start phone-down")
+
+	var source = StateScript.new()
+	source.new_run()
+	_assert_eq(windows.read(), ["social"], "a new run should open the foreground app window")
+	source.set_active_app("notebook")
+	_assert_eq(windows.read(), ["social", "notebook"], "choosing an app should open its window through the model")
+	source.set_active_app("notebook")
+	_assert_eq(windows.read(), ["social", "notebook"], "choosing an open app again should not list it twice")
+	source.set_view_state("npc_up")
+	_assert_eq(view.read(), "npc_up", "putting the phone down should write the view model")
+	_assert_eq(source.view_state, "npc_up", "the state should read the model, not keep a copy")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("open_app_windows", null), ["social", "notebook"], "the run save should store the open windows")
+	_assert_eq(state_data.get("view_state", null), "npc_up", "the run save should store the view model")
+	windows.replace_all([])
+	view.write("phone_down")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(windows.read(), ["social", "notebook"], "loading should write the open windows back through the model")
+	_assert_eq(view.read(), "npc_up", "loading should write the view back through the model")
+	restored.new_run()
+	_assert_eq(view.read(), "phone_down", "a new run should reset the view on the same model")
+	_assert_eq(windows.read(), ["social"], "a new run should reset the open windows on the same model")
 
 
 func _test_list_and_map_can_insert_or_replace_everything_once() -> void:

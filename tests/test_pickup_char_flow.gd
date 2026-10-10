@@ -160,7 +160,7 @@ func _test_ui_flow() -> void:
 	await process_frame
 	game_root._narrative_director.finish_action_spend_animation()
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
-	_assert_true(bool(game_root._open_app_windows.get("notebook", false)), "a pickup should open the notebook window")
+	_assert_true(game_root.game.is_app_window_open("notebook"), "a pickup should open the notebook window")
 	var notebook_window: Control = game_root._notebook_window_control()
 	_assert_true(notebook_window != null and notebook_window.get_global_rect().position.x < 400.0, "the notebook should return to its upper-left home position")
 	_assert_eq_int(game_root.game.actions_remaining, actions_before - 1, "the first pickup should cost one action")

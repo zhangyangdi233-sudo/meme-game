@@ -121,7 +121,7 @@ The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conv
 | Kind | API |
 |---|---|
 | Snapshot | `get_phone_shell_snapshot()` → `{ view_state }` |
-| Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `close_app_window(app_id, remaining_open_apps)` |
+| Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `open_app_window(app_id)`, `close_app_window(app_id)`; read `is_app_window_open(app_id)` |
 
 Whether the phone is open, the current app, and the foreground app window live only in the `phone_open` / `active_app` / `active_app_window` property models (saved with the run). The state reads and writes them through those models; the phone launcher watches them while shown. `phone_visible` was always the same as `phone_open`, so it is gone. There is no phone signal: the launcher listens to the models, and the adapter refreshes after its own phone intents. `view_state` stays a plain field, saved and read through the snapshot.
 
@@ -271,7 +271,7 @@ No snapshot and no signal. The follows and likes are two list models; the social
 
 `phone_open`, `active_app`, and `active_app_window` are property models, not snapshot fields. The old `phone_shell_changed` signal and its payload are gone.
 
-**Adapter pattern:** read the view via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`, then refresh the app content. The phone launcher shows, hides, and raises itself from the models. Adapter-local `_open_app_windows` tracks multi-window chrome.
+**Adapter pattern:** read the view via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`, then refresh the app content. The phone launcher shows, hides, and raises itself from the models. Which app windows are open lives in the `open_app_windows` model and the view in the `view_state` model (both saved with the run); the adapter keeps no window table of its own.
 
 ---
 

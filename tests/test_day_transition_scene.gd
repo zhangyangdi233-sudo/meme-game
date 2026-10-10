@@ -79,11 +79,11 @@ func _run() -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPanel") == null, "the retired meme ring panel must not hang into the adapter")
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankRadialRing") == null, "the retired radial selector must not exist in the scene")
 	game_root._social_screen = "publish"
-	game_root._open_app_windows["social"] = true
+	game_root.game.open_app_window("social")
 	game_root._render()
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the retired meme ring must not appear on the publish page")
 	game_root.game.set_active_app("notebook")
-	game_root._open_app_windows["social"] = false
+	game_root.game.close_app_window("social")
 	game_root._render()
 	_assert_true(Harness.find_node_by_name(game_root, "MemeBankPopup") == null, "the notebook must not bring the ring back")
 	game_root.set_view_state("npc_up")

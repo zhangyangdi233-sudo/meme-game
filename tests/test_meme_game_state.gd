@@ -118,12 +118,16 @@ func test_phone_shell_state_lives_in_models() -> void:
 	_assert_eq(str(game.active_app), "babel", "choosing an app should change the current app")
 	_assert_eq(str(game.active_app_window), "babel", "phone-down should sync foreground window")
 
-	game.close_app_window("babel", [] as Array[String])
-	_assert_true(str(game.active_app_window).is_empty(), "close should clear foreground window")
+	game.close_app_window("babel")
+	_assert_true(str(game.active_app_window).is_empty() or str(game.active_app_window) == "social", "close should leave the closed app out of the foreground")
+	_assert_true(not game.is_app_window_open("babel"), "a closed window should not read as open")
 
+	game.close_app_window("social")
 	game.set_active_app("social")
 	game.set_active_app("notebook")
-	game.close_app_window("notebook", ["social"] as Array[String])
+	game.close_app_window("notebook")
+	_assert_true(game.is_app_window_open("social"), "closing one window should keep the others open")
+	_assert_true(not game.is_app_window_open("notebook"), "closing a window should drop it from the open list")
 	_assert_eq(str(game.active_app), "social", "close should fall back to remaining open app")
 	_assert_eq(str(game.active_app_window), "social", "foreground should follow remaining open app")
 
