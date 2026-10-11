@@ -4,6 +4,10 @@ extends SceneTree
 const PanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _failures: Array[String] = []
 var _writes: Array = []
@@ -36,7 +40,12 @@ func _run() -> void:
 		{"unit": "开", "locale": "zh", "source_post_id": "floor_13", "day": 1},
 	]
 	panel.configure(_deps(game))
-	panel.canvas_positions_committed.connect(func(positions: Dictionary) -> void:
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
+		if intent_name != UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
+			return
+		var positions: Dictionary = payload.get(UiIntentsScript.KEY_TILE_POSITIONS, {})
 		_commits += 1
 		for unit in positions.keys():
 			_writes.append({"unit": str(unit), "position": positions[unit]})

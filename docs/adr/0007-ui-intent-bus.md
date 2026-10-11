@@ -18,7 +18,7 @@ The host is the only listener. It listens while it is in the tree and stops when
 
 Buttons that only hide or fold their own window (language "back", quit "return", doll-guide collapse) are UI too. They emit on this bus instead of a private signal or a direct call. Day transition, flashback, and action spend have no player control; when one is added, it uses this bus.
 
-**Already on the bus:** the main menu, the language picker's choice (`LANGUAGE_SELECTED`), the phone launcher (app icons, phone close, app window close), camera consent (allow / skip, chosen source), the phone-camera connection overlay (retry, continue, disable), the settings window (volume, autoplay, VHS, language option, save, return to menu, exit request and confirm, history toggle), the HUD settings button, prologue finished, and the ending screen (language choice, restart). The social feed also raises everything on the bus: channel tabs, page changes, cards, likes, follows, close, the publish confirm, pickup units, and the composer drops, taps and submit. The panel still repaints its own page, channel and open post first; the host hears the intent to re-theme or to act. The settings language option reuses `LANGUAGE_SELECTED`; the host sends it to the in-run handler during a run and to the picker handler otherwise. A runtime-built control raises with `GameEventBus.raise(intent, payload)`, which resolves the bound bus.
+**Already on the bus:** the main menu, the language picker's choice (`LANGUAGE_SELECTED`), the phone launcher (app icons, phone close, app window close), camera consent (allow / skip, chosen source), the phone-camera connection overlay (retry, continue, disable), the settings window (volume, autoplay, VHS, language option, save, return to menu, exit request and confirm, history toggle), the HUD settings button, prologue finished, and the ending screen (language choice, restart). The social feed also raises everything on the bus: channel tabs, page changes, cards, likes, follows, close, the publish confirm, pickup units, and the composer drops, taps and submit. The notebook does the same: craft, fusion, tab changes, the resting canvas positions (committed once, never per frame), tiles dropped off the canvas or tapped, and the fusion slots. The panel still repaints its own page, channel and open post first; the host hears the intent to re-theme or to act. The settings language option reuses `LANGUAGE_SELECTED`; the host sends it to the in-run handler during a run and to the picker handler otherwise. A runtime-built control raises with `GameEventBus.raise(intent, payload)`, which resolves the bound bus.
 
 **Still on private signals or callbacks** (this decision does not edit them):
 
@@ -26,6 +26,5 @@ Buttons that only hide or fold their own window (language "back", quit "return",
 - Whether settings is open (`settings_open_changed`)
 - Reality conversation choices
 - Reality language composer
-- Notebook craft, fusion, and canvas tiles
 
 Opening and closing via the screen manager (create once, hide, reuse) stays on the main menu until a later ticket. This decision is only the interface UI uses to notify the host. Tracker: #43.

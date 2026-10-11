@@ -3,12 +3,15 @@ extends SceneTree
 ## hiding writes canvas positions once and unregisters.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
+var _heard: Array = []
 
 
 func _init() -> void:
@@ -36,6 +39,10 @@ func _run() -> void:
 	await _test_showing_before_any_render_paints_nothing()
 	_test_selecting_a_tab_repaints_the_notebook_by_itself()
 	_test_reset_view_returns_to_the_frame_tab()
+	_test_selecting_a_tab_raises_its_intent_once()
+	_test_craft_and_fusion_buttons_raise_their_intents()
+	_test_canvas_tiles_carry_their_answers()
+	_test_fusion_slots_carry_their_answers()
 	await _test_a_placed_word_ghosts_its_tile_and_enables_posting()
 	await _test_a_new_world_rule_appears_by_itself()
 	await _test_filled_fusion_slots_name_their_memes_and_enable_fusing()
@@ -277,6 +284,62 @@ func _test_selecting_a_tab_repaints_the_notebook_by_itself() -> void:
 	_dispose(mounted)
 
 
+func _test_selecting_a_tab_raises_its_intent_once() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	_heard.clear()
+	panel.select_tab("fusion")
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_TAB_CHANGED, {UiIntentsScript.KEY_TAB_ID: "fusion"}]], "selecting a tab should tell the host which tab")
+	_heard.clear()
+	panel.select_tab("nowhere")
+	_assert_eq(_heard, [], "an unknown tab should tell the host nothing")
+	_dispose(mounted)
+
+
+func _test_craft_and_fusion_buttons_raise_their_intents() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "NotebookCraftButton") as Button).pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED, {}]], "the craft button should raise its intent")
+	panel.select_tab("fusion")
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "NotebookFusionButton") as Button).pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_REQUESTED, {}]], "the fusion button should raise its intent")
+	_dispose(mounted)
+
+
+func _test_canvas_tiles_carry_their_answers() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	var canvas := _canvas(mounted)
+	_heard.clear()
+	canvas.tile_dropped_outside.emit("门", Vector2(120.0, 80.0))
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: "门", UiIntentsScript.KEY_RELEASE_GLOBAL: Vector2(120.0, 80.0)}]], "a tile dropped off the canvas should carry its unit and release point")
+	_heard.clear()
+	canvas.tile_tapped.emit("开")
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"}]], "a tapped tile should carry its unit")
+	_dispose(mounted)
+
+
+func _test_fusion_slots_carry_their_answers() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	panel.select_tab("fusion")
+	var dropped := {"kind": "meme", "id": "meme-1"}
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "FusionSlotRight") as DropButton).dropped.emit(dropped, "right")
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_SLOT_ID: "right"}]], "a meme dropped on a slot should carry the whole drag data and the slot")
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "FusionSlotLeft") as Button).pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "left"}]], "a pressed slot should carry its id")
+	_dispose(mounted)
+
+
 func _test_reset_view_returns_to_the_frame_tab() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
@@ -303,11 +366,16 @@ func _mount() -> Dictionary:
 	var panel := NotebookAppPanel.new()
 	panel.name = "NotebookAppPanel"
 	root.add_child(panel)
+	_heard.clear()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
 	var commits: Array = []
 	var frame_paints: Array = [0]
 	panel.configure(_deps(frame_paints))
-	panel.canvas_positions_committed.connect(func(positions: Dictionary) -> void:
-		commits.append(positions)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
+		if intent_name == UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
+			commits.append(payload.get(UiIntentsScript.KEY_TILE_POSITIONS))
 	)
 	return {
 		"body": body,

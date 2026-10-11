@@ -1711,6 +1711,22 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_language_material.remove_at(int(payload.get(UiIntentsScript.KEY_UNIT_INDEX, -1)))
 		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED:
 			_language_material.submit()
+		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED:
+			_on_composer_submit_pressed()
+		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED:
+			_on_confirm_fusion_pressed()
+		UiIntentsScript.NOTEBOOK_TAB_CHANGED:
+			_on_notebook_tab_changed()
+		UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
+			_on_canvas_positions_committed(payload.get(UiIntentsScript.KEY_TILE_POSITIONS, {}))
+		UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE:
+			_on_canvas_tile_dropped_outside(str(payload.get(UiIntentsScript.KEY_UNIT, "")), payload.get(UiIntentsScript.KEY_RELEASE_GLOBAL, Vector2.ZERO))
+		UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED:
+			_on_composer_bank_tapped(str(payload.get(UiIntentsScript.KEY_UNIT, "")))
+		UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED:
+			_on_fusion_meme_dropped(payload.get(UiIntentsScript.KEY_DATA, {}), str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
+		UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED:
+			_on_fusion_slot_pressed(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
 
 
 func _ensure_language_selection_panel() -> void:
@@ -2066,7 +2082,6 @@ func _ensure_notebook_app_panel() -> void:
 	_notebook_app_panel.name = "NotebookAppPanel"
 	add_child(_notebook_app_panel)
 	_notebook_app_panel.configure(_notebook_mount_deps())
-	_connect_notebook_app_panel_signals()
 
 
 func _notebook_mount_deps() -> Dictionary:
@@ -2081,26 +2096,6 @@ func _notebook_mount_deps() -> Dictionary:
 			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
 		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
 	}
-
-
-func _connect_notebook_app_panel_signals() -> void:
-	var panel := _notebook_app_panel
-	if panel == null:
-		return
-	if not panel.craft_requested.is_connected(_on_composer_submit_pressed):
-		panel.craft_requested.connect(_on_composer_submit_pressed)
-	if not panel.fusion_requested.is_connected(_on_confirm_fusion_pressed):
-		panel.fusion_requested.connect(_on_confirm_fusion_pressed)
-	if not panel.canvas_positions_committed.is_connected(_on_canvas_positions_committed):
-		panel.canvas_positions_committed.connect(_on_canvas_positions_committed)
-	if not panel.canvas_tile_dropped_outside.is_connected(_on_canvas_tile_dropped_outside):
-		panel.canvas_tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
-	if not panel.composer_bank_tapped.is_connected(_on_composer_bank_tapped):
-		panel.composer_bank_tapped.connect(_on_composer_bank_tapped)
-	if not panel.fusion_meme_dropped.is_connected(_on_fusion_meme_dropped):
-		panel.fusion_meme_dropped.connect(_on_fusion_meme_dropped)
-	if not panel.fusion_slot_pressed.is_connected(_on_fusion_slot_pressed):
-		panel.fusion_slot_pressed.connect(_on_fusion_slot_pressed)
 
 
 func _inject_settings_camera_block() -> void:
@@ -2527,6 +2522,13 @@ func _on_social_page_changed() -> void:
 	if _ending_screen_installed:
 		return
 	_update_phone_shell_visibility()
+	_apply_phone_shell_theme()
+
+
+## The notebook already shows the new tab; the host only re-themes the new nodes.
+func _on_notebook_tab_changed() -> void:
+	if _ending_screen_installed:
+		return
 	_apply_phone_shell_theme()
 
 

@@ -4,15 +4,8 @@ extends Node
 ## While shown, it watches the held words, the finished memes, the sentence, the world rules and the fusion slots,
 ## and repaints itself.
 ## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
+## Every player action leaves as a UI intent on the event bus.
 ## The open tab is this screen's own view and lives only here; selecting one repaints at once.
-
-signal craft_requested
-signal fusion_requested
-signal canvas_positions_committed(tile_positions: Dictionary)
-signal canvas_tile_dropped_outside(unit: String, release_global: Vector2)
-signal composer_bank_tapped(unit: String)
-signal fusion_meme_dropped(data: Dictionary, slot_id: String)
-signal fusion_slot_pressed(slot_id: String)
 
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
@@ -20,6 +13,7 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const TABS := ["frame", "fusion"]
 const DEFAULT_TAB := "frame"
@@ -81,7 +75,7 @@ func commit_canvas_positions() -> void:
 	var positions: Dictionary = _word_canvas.settled_tile_positions()
 	if positions.is_empty():
 		return
-	canvas_positions_committed.emit(positions)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED, {UiIntentsScript.KEY_TILE_POSITIONS: positions})
 
 
 func render(app_body: VBoxContainer) -> void:
@@ -94,6 +88,7 @@ func select_tab(tab_id: String) -> void:
 		return
 	_active_tab = tab_id
 	_paint()
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_TAB_CHANGED, {UiIntentsScript.KEY_TAB_ID: tab_id})
 
 
 ## A new run opens the notebook on the frame tab.
@@ -325,24 +320,24 @@ func _read_map(property_name: String) -> Dictionary:
 
 
 func _on_craft_pressed() -> void:
-	craft_requested.emit()
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 
 
 func _on_fusion_pressed() -> void:
-	fusion_requested.emit()
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_REQUESTED)
 
 
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
-	canvas_tile_dropped_outside.emit(unit, release_global)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: unit, UiIntentsScript.KEY_RELEASE_GLOBAL: release_global})
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
-	composer_bank_tapped.emit(unit)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: unit})
 
 
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
-	fusion_meme_dropped.emit(data, slot_id)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: data, UiIntentsScript.KEY_SLOT_ID: slot_id})
 
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
-	fusion_slot_pressed.emit(slot_id)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: slot_id})
