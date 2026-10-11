@@ -12,6 +12,7 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 var _failures: Array[String] = []
 var _writes: Array = []
 var _commits := 0
+var _intents_heard := 0
 
 
 func _init() -> void:
@@ -43,6 +44,7 @@ func _run() -> void:
 	var bus: GameEventBus = GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
+		_intents_heard += 1
 		if intent_name != UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
 			return
 		var positions: Dictionary = payload.get(UiIntentsScript.KEY_TILE_POSITIONS, {})
@@ -68,6 +70,7 @@ func _run() -> void:
 
 	for _step in 160:
 		await physics_frame
+	_assert_eq(_intents_heard, 0, "tile movement on the canvas must not reach the bus")
 	_assert_true(_writes.is_empty(), "an open notebook with no commit must not write canvas positions")
 	_assert_true(game.char_canvas_positions.is_empty(), "idle frames must leave saved canvas positions untouched")
 
