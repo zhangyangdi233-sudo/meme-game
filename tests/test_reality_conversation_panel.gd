@@ -141,6 +141,10 @@ func _test_hover_is_raised_and_kept_by_the_panel() -> void:
 	panel.set_shown(false)
 	panel.set_shown(true)
 	_assert_true(not preview.visible, "a hidden panel should forget the hover")
+	(_node(mounted, "RealityResponseChoices").get_child(0) as Button).mouse_entered.emit()
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("typing")
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("choosing")
+	_assert_true(not preview.visible, "a conversation that left the choosing phase should forget the hover")
 	_dispose(mounted)
 
 

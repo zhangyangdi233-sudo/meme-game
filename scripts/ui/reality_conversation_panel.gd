@@ -108,6 +108,8 @@ func _paint() -> void:
 	_clear_children_fn.call(_choice_row)
 	var phase := str(_values.get(PropertyKeysScript.CONVERSATION_PHASE, ""))
 	var choosing := phase == "choosing"
+	if not choosing:
+		_hover_choice_id = ""
 	var typing := phase == "typing"
 	var result := phase == "result"
 	var actor_label := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))
@@ -368,6 +370,11 @@ func _build_chrome(parent: Control) -> void:
 	_hide_all()
 
 
+func _reset_hover() -> void:
+	_hover_choice_id = ""
+	_clear_intent_preview()
+
+
 func _on_choice_hovered(choice_id: String) -> void:
 	_hover_choice_id = choice_id
 	_set_intent_preview(_choice_preview(choice_id))
@@ -376,18 +383,15 @@ func _on_choice_hovered(choice_id: String) -> void:
 
 func _on_choice_unhovered(choice_id: String) -> void:
 	if _hover_choice_id == choice_id:
-		_hover_choice_id = ""
-		_clear_intent_preview()
+		_reset_hover()
 	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_UNHOVERED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_choice_pressed(choice_id: String) -> void:
-	_hover_choice_id = ""
-	_clear_intent_preview()
+	_reset_hover()
 	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_PRESSED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_continue_pressed() -> void:
-	_hover_choice_id = ""
-	_clear_intent_preview()
+	_reset_hover()
 	GameEventBus.raise(UiIntentsScript.CONVERSATION_CONTINUE_PRESSED)
