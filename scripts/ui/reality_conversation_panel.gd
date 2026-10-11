@@ -6,6 +6,7 @@ extends Node
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const WATCHED: Array[String] = [
 	PropertyKeysScript.CONVERSATION_PHASE,
@@ -18,11 +19,6 @@ const WATCHED: Array[String] = [
 	PropertyKeysScript.CONVERSATION_REVEAL_INDEX,
 	PropertyKeysScript.CONVERSATION_REVEALED_UNITS,
 ]
-
-signal choice_hovered(choice_id: String)
-signal choice_unhovered(choice_id: String)
-signal choice_pressed(choice_id: String)
-signal continue_pressed
 
 var _subtitle_panel: PanelContainer
 var _subtitle_label: RichTextLabel
@@ -44,13 +40,13 @@ var _day_line_fn: Callable
 var _fallback_actor_name_fn: Callable
 var _last_spoken_sentence_fn: Callable
 var _npc_understanding_fn: Callable
-var _hover_choice_id_fn: Callable
-var _hover_choice_preview_fn: Callable
+var _choice_preview_fn: Callable
 var _playtest_assist_fn: Callable
 var _typed_bbcode_fn: Callable
 var _typing_unit_count_fn: Callable
 
 var _shown := false
+var _hover_choice_id := ""
 var _values: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, _watched_listeners())
 
@@ -67,9 +63,11 @@ func set_shown(shown: bool) -> void:
 		if _watch.is_active():
 			_paint()
 		else:
+			_hover_choice_id = ""
 			_values.clear()
 			_watch.start()
 	else:
+		_hover_choice_id = ""
 		_watch.stop()
 		_hide_all()
 
@@ -141,8 +139,7 @@ func _paint() -> void:
 	_choice_row.visible = choosing
 	_typing_line.visible = typing
 	_typing_progress.visible = typing
-	var hover_choice_id := str(_call(_hover_choice_id_fn, ""))
-	_intent_preview.visible = choosing and not hover_choice_id.is_empty()
+	_intent_preview.visible = choosing and not _hover_choice_id.is_empty()
 	if choosing:
 		var playtest_assist_enabled := bool(_call(_playtest_assist_fn, false))
 		var viewport_size: Vector2 = _viewport_size_fn.call()
@@ -170,10 +167,10 @@ func _paint() -> void:
 			if not button.disabled:
 				button.pressed.connect(_on_choice_pressed.bind(choice_id))
 			_choice_row.add_child(button)
-		if hover_choice_id.is_empty():
+		if _hover_choice_id.is_empty():
 			_set_dialogue_text_fn.call(_intent_preview, "")
 		else:
-			_set_dialogue_text_fn.call(_intent_preview, str(_call(_hover_choice_preview_fn, "")))
+			_set_dialogue_text_fn.call(_intent_preview, _choice_preview(_hover_choice_id))
 	if typing:
 		_set_richer_bbcode_fn.call(_typing_line, str(_call(_typed_bbcode_fn, "")))
 		_typing_progress.text = "任意键  %d / %d" % [
@@ -225,14 +222,18 @@ func layout(hud_right: float) -> void:
 	_subtitle_panel.offset_bottom = -104.0
 
 
-func set_intent_preview(text: String) -> void:
+func _choice_preview(choice_id: String) -> String:
+	return str(_choice_preview_fn.call(choice_id)) if _choice_preview_fn.is_valid() else ""
+
+
+func _set_intent_preview(text: String) -> void:
 	if _intent_preview == null:
 		return
 	_set_dialogue_text_fn.call(_intent_preview, text)
 	_intent_preview.visible = not text.is_empty()
 
 
-func clear_intent_preview() -> void:
+func _clear_intent_preview() -> void:
 	if _intent_preview == null:
 		return
 	_set_dialogue_text_fn.call(_intent_preview, "")
@@ -254,8 +255,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_fallback_actor_name_fn = deps.get("fallback_actor_name", Callable())
 	_last_spoken_sentence_fn = deps.get("last_spoken_sentence", Callable())
 	_npc_understanding_fn = deps.get("npc_understanding", Callable())
-	_hover_choice_id_fn = deps.get("hover_choice_id", Callable())
-	_hover_choice_preview_fn = deps.get("hover_choice_preview", Callable())
+	_choice_preview_fn = deps.get("choice_preview", Callable())
 	_playtest_assist_fn = deps.get("playtest_assist_enabled", Callable())
 	_typed_bbcode_fn = deps.get("typed_bbcode", Callable())
 	_typing_unit_count_fn = deps.get("typing_unit_count", Callable())
@@ -369,16 +369,25 @@ func _build_chrome(parent: Control) -> void:
 
 
 func _on_choice_hovered(choice_id: String) -> void:
-	choice_hovered.emit(choice_id)
+	_hover_choice_id = choice_id
+	_set_intent_preview(_choice_preview(choice_id))
+	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_HOVERED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_choice_unhovered(choice_id: String) -> void:
-	choice_unhovered.emit(choice_id)
+	if _hover_choice_id == choice_id:
+		_hover_choice_id = ""
+		_clear_intent_preview()
+	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_UNHOVERED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_choice_pressed(choice_id: String) -> void:
-	choice_pressed.emit(choice_id)
+	_hover_choice_id = ""
+	_clear_intent_preview()
+	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_PRESSED, {UiIntentsScript.KEY_CHOICE_ID: choice_id})
 
 
 func _on_continue_pressed() -> void:
-	continue_pressed.emit()
+	_hover_choice_id = ""
+	_clear_intent_preview()
+	GameEventBus.raise(UiIntentsScript.CONVERSATION_CONTINUE_PRESSED)

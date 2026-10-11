@@ -24,6 +24,7 @@ const KEY_TILE_POSITIONS := "tile_positions"
 const KEY_UNIT := "unit"
 const KEY_RELEASE_GLOBAL := "release_global"
 const KEY_SLOT_ID := "slot_id"
+const KEY_TOKEN_ID := "token_id"
 
 ## Main menu. Payload: {}.
 const START_GAME := "start_game"
@@ -95,3 +96,16 @@ const NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE := "notebook_canvas_tile_dropped_outs
 const NOTEBOOK_COMPOSER_BANK_TAPPED := "notebook_composer_bank_tapped"
 const NOTEBOOK_FUSION_MEME_DROPPED := "notebook_fusion_meme_dropped"
 const NOTEBOOK_FUSION_SLOT_PRESSED := "notebook_fusion_slot_pressed"
+
+## Reality conversation. Payload: {KEY_CHOICE_ID: String} for a choice, {} for the continue button.
+const CONVERSATION_CHOICE_HOVERED := "conversation_choice_hovered"
+const CONVERSATION_CHOICE_UNHOVERED := "conversation_choice_unhovered"
+const CONVERSATION_CHOICE_PRESSED := "conversation_choice_pressed"
+const CONVERSATION_CONTINUE_PRESSED := "conversation_continue_pressed"
+
+## Reality language composer. Payload: {KEY_TOKEN_ID: String} for a pressed token, {KEY_DATA: Dictionary, KEY_SLOT_ID: String}
+## for a token dropped on a slot, {KEY_SLOT_ID: String} for a pressed slot, {} for the confirm button.
+const COMPOSER_TOKEN_PRESSED := "composer_token_pressed"
+const COMPOSER_TOKEN_DROPPED := "composer_token_dropped"
+const COMPOSER_SLOT_PRESSED := "composer_slot_pressed"
+const COMPOSER_CONFIRM_PRESSED := "composer_confirm_pressed"

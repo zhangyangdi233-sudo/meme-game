@@ -5,10 +5,12 @@ const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
-var _pressed: Array[String] = []
+var _heard: Array = []
 
 
 func _init() -> void:
@@ -30,6 +32,8 @@ func _run() -> void:
 	_test_showing_registers_and_syncs_the_current_progress()
 	_test_changing_a_value_repaints_the_panel()
 	_test_a_press_reaches_the_flow_and_the_choice_row_follows_the_models()
+	_test_hover_is_raised_and_kept_by_the_panel()
+	_test_continue_raises_its_intent()
 	_test_hiding_unregisters_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters()
 	_test_rendering_repaints_what_the_models_cannot_tell()
@@ -84,8 +88,7 @@ func _test_changing_a_value_repaints_the_panel() -> void:
 func _test_a_press_reaches_the_flow_and_the_choice_row_follows_the_models() -> void:
 	var mounted := _mount()
 	var panel: RealityConversationPanel = mounted["panel"]
-	_pressed.clear()
-	panel.choice_pressed.connect(func(choice_id: String) -> void: _pressed.append(choice_id))
+	_heard.clear()
 	(_model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel).replace_all([
 		{"id": "first", "summary": "First"},
 		{"id": "second", "summary": "Second", "locked": true},
@@ -100,10 +103,54 @@ func _test_a_press_reaches_the_flow_and_the_choice_row_follows_the_models() -> v
 	_assert_eq(first.text, "First", "a button should carry the choice summary")
 	_assert_true(second.disabled, "a locked choice should be disabled")
 	first.pressed.emit()
-	_assert_eq(_pressed, ["first"], "pressing a choice should send its id to the flow")
+	_assert_eq(_heard, [[UiIntentsScript.CONVERSATION_CHOICE_PRESSED, {UiIntentsScript.KEY_CHOICE_ID: "first"}]], "pressing a choice should raise its intent with the id")
 
 	(_model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel).replace_all([{"id": "third", "summary": "Third"}])
 	_assert_eq(row.get_child_count(), 1, "a changed choice list should rebuild the row")
+	_dispose(mounted)
+
+
+func _test_hover_is_raised_and_kept_by_the_panel() -> void:
+	var mounted := _mount()
+	var panel: RealityConversationPanel = mounted["panel"]
+	(_model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel).replace_all([
+		{"id": "first", "summary": "First"},
+		{"id": "second", "summary": "Second"},
+	])
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("choosing")
+	panel.set_shown(true)
+	var row := _node(mounted, "RealityResponseChoices")
+	var preview := _node(mounted, "RealityIntentPreview") as RichTextLabel
+	_assert_true(not preview.visible, "the preview should stay hidden before any hover")
+	_heard.clear()
+	(row.get_child(0) as Button).mouse_entered.emit()
+	_assert_eq(_heard, [[UiIntentsScript.CONVERSATION_CHOICE_HOVERED, {UiIntentsScript.KEY_CHOICE_ID: "first"}]], "hovering a choice should raise its intent with the id")
+	_assert_eq(preview.text, "preview of first", "hovering should show that choice's sentence without the host")
+	panel.render()
+	_assert_true(preview.visible and preview.text == "preview of first", "a repaint should keep the hovered preview")
+	_heard.clear()
+	(row.get_child(1) as Button).mouse_exited.emit()
+	_assert_eq(_heard, [[UiIntentsScript.CONVERSATION_CHOICE_UNHOVERED, {UiIntentsScript.KEY_CHOICE_ID: "second"}]], "leaving a choice should raise its intent with the id")
+	_assert_true(preview.visible, "leaving another choice should not clear the hovered preview")
+	(row.get_child(0) as Button).mouse_exited.emit()
+	_assert_true(not preview.visible, "leaving the hovered choice should clear the preview")
+	(row.get_child(0) as Button).mouse_entered.emit()
+	(row.get_child(0) as Button).pressed.emit()
+	_assert_true(not preview.visible, "pressing the hovered choice should drop the hover")
+	(row.get_child(0) as Button).mouse_entered.emit()
+	panel.set_shown(false)
+	panel.set_shown(true)
+	_assert_true(not preview.visible, "a hidden panel should forget the hover")
+	_dispose(mounted)
+
+
+func _test_continue_raises_its_intent() -> void:
+	var mounted := _mount()
+	var panel: RealityConversationPanel = mounted["panel"]
+	panel.set_shown(true)
+	_heard.clear()
+	(_node(mounted, "RealityConversationContinue") as Button).pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.CONVERSATION_CONTINUE_PRESSED, {}]], "the continue button should raise its intent with an empty payload")
 	_dispose(mounted)
 
 
@@ -158,6 +205,9 @@ func _test_rendering_repaints_what_the_models_cannot_tell() -> void:
 func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
 	var host := Control.new()
 	host.name = "ConversationHost"
 	host.size = Vector2(1600, 900)
@@ -179,8 +229,7 @@ func _mount() -> Dictionary:
 		"fallback_actor_name": func() -> String: return "fallback name",
 		"last_spoken_sentence": func() -> String: return "",
 		"npc_understanding": func() -> int: return 100,
-		"hover_choice_id": func() -> String: return "",
-		"hover_choice_preview": func() -> String: return "",
+		"choice_preview": func(choice_id: String) -> String: return "preview of %s" % choice_id,
 		"playtest_assist_enabled": func() -> bool: return false,
 		"typed_bbcode": func() -> String: return "typed",
 		"typing_unit_count": func() -> int: return 9,

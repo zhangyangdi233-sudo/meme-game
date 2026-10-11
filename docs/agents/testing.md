@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (91 tests)
+## What runs (92 tests)
 
-### GDScript (89)
+### GDScript (90)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -117,7 +117,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab; every notebook action raises its intent with the right name and payload |
-| `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models |
+| `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
 | `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
@@ -137,6 +137,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_intents_scene` | **adapter** | volume and autoplay intents are written to their models by the host; the settings intent toggles the window |
 | `test_social_intents_scene` | **adapter** | the host routes social likes, follows, pickups, composer drops, taps, submit and close to the state |
 | `test_notebook_intents_scene` | **adapter** | the host routes notebook bank taps, craft, commits, fusion drops, slot presses and fuse to the state |
+| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue, and the composer's token, drop, slot and confirm, to the state; the host keeps no transient selection |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility |

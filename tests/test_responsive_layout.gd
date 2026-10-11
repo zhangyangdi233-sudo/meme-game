@@ -112,7 +112,10 @@ func _run() -> void:
 	_assert_true(not doll_choices.is_empty(), "small-view doll discovery should expose authored choices")
 	var first_choice_id := str(doll_choices[0].get("id", "")) if not doll_choices.is_empty() else ""
 	if not first_choice_id.is_empty():
-		game_root._on_reality_choice_hovered(first_choice_id)
+		var first_choice_button := _find_node_by_name(game_root, "RealityChoice%s" % first_choice_id.to_pascal_case()) as Button
+		_assert_true(first_choice_button != null, "small-view dialogue should build a button for the first choice")
+		if first_choice_button != null:
+			first_choice_button.mouse_entered.emit()
 	var intent_preview := _find_node_by_name(game_root, "RealityIntentPreview") as RichTextLabel
 	_assert_true(intent_preview != null and intent_preview.visible, "small-view hover should reveal the full intended sentence")
 	if intent_preview != null:

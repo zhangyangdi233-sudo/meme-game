@@ -4,11 +4,7 @@ extends Node
 
 const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
-
-signal token_pressed(token_id: String)
-signal token_dropped(data: Dictionary, slot_id: String)
-signal slot_pressed(slot_id: String)
-signal confirm_pressed
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _frame: PanelContainer
 var _token_flow: HFlowContainer
@@ -164,16 +160,16 @@ func _build_chrome(parent: Control) -> void:
 
 
 func _on_token_pressed(token_id: String) -> void:
-	token_pressed.emit(token_id)
+	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_PRESSED, {UiIntentsScript.KEY_TOKEN_ID: token_id})
 
 
 func _on_token_dropped(data: Dictionary, slot_id: String) -> void:
-	token_dropped.emit(data, slot_id)
+	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_DROPPED, {UiIntentsScript.KEY_DATA: data, UiIntentsScript.KEY_SLOT_ID: slot_id})
 
 
 func _on_slot_pressed(slot_id: String) -> void:
-	slot_pressed.emit(slot_id)
+	GameEventBus.raise(UiIntentsScript.COMPOSER_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: slot_id})
 
 
 func _on_confirm_pressed() -> void:
-	confirm_pressed.emit()
+	GameEventBus.raise(UiIntentsScript.COMPOSER_CONFIRM_PRESSED)

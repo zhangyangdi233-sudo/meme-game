@@ -156,9 +156,7 @@ var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
 var _reality_conversation_panel
-var _reality_hover_choice_id := ""
 var _reality_language_composer_panel
-var _selected_language_token_id := ""
 var _playtest_assist_panel
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _pickup_flight_layer: FlyToTargetLayer
@@ -702,7 +700,6 @@ func set_view_state(value: String) -> void:
 		if _reality_scene_adapter != null:
 			_reality_scene_adapter.apply_interaction({"action": "end"})
 			_reality_scene_adapter.clear_nearby_targets()
-		_reality_hover_choice_id = ""
 		game.reset_typed_reality_conversation()
 		if value == "npc_up":
 			_set_reality_mouse_look(true)
@@ -1015,7 +1012,6 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 	if actor_type == "doll":
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
-	_reality_hover_choice_id = ""
 	_set_reality_mouse_look(false)
 	log_text = "你停在%s面前。" % _active_actor_display_name()
 	_update_world_for_phone_view()
@@ -1049,8 +1045,7 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 func _exit_reality_interaction(should_render: bool = true) -> void:
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
-	_reality_hover_choice_id = ""
-	_selected_language_token_id = ""
+	_write_selected_language_token("")
 	game.reset_typed_reality_conversation()
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
 		_set_reality_mouse_look(true)
@@ -1727,6 +1722,18 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_on_fusion_meme_dropped(payload.get(UiIntentsScript.KEY_DATA, {}), str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
 		UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED:
 			_on_fusion_slot_pressed(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
+		UiIntentsScript.CONVERSATION_CHOICE_PRESSED:
+			_on_reality_choice_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
+		UiIntentsScript.CONVERSATION_CONTINUE_PRESSED:
+			_on_reality_continue_pressed()
+		UiIntentsScript.COMPOSER_TOKEN_PRESSED:
+			_on_language_token_pressed(str(payload.get(UiIntentsScript.KEY_TOKEN_ID, "")))
+		UiIntentsScript.COMPOSER_TOKEN_DROPPED:
+			_on_language_token_dropped(payload.get(UiIntentsScript.KEY_DATA, {}), str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
+		UiIntentsScript.COMPOSER_SLOT_PRESSED:
+			_on_language_slot_pressed(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
+		UiIntentsScript.COMPOSER_CONFIRM_PRESSED:
+			_on_confirm_doctor_sentence_pressed()
 
 
 func _ensure_language_selection_panel() -> void:
@@ -1987,7 +1994,6 @@ func _ensure_reality_conversation_panel() -> void:
 	_reality_conversation_panel = RealityConversationPanelScript.new()
 	_reality_conversation_panel.name = "RealityConversationPanel"
 	add_child(_reality_conversation_panel)
-	_connect_reality_conversation_panel_signals()
 
 
 func _reality_conversation_mount_deps() -> Dictionary:
@@ -2004,25 +2010,11 @@ func _reality_conversation_mount_deps() -> Dictionary:
 		"fallback_actor_name": func() -> String: return _reality_hud_actor_label(_reality_hud_snapshot()),
 		"last_spoken_sentence": func() -> String: return game.last_polluted_sentence,
 		"npc_understanding": func() -> int: return game.npc_understanding,
-		"hover_choice_id": func() -> String: return _reality_hover_choice_id,
-		"hover_choice_preview": func() -> String: return game.preview_typed_reality_choice(_reality_hover_choice_id),
+		"choice_preview": func(choice_id: String) -> String: return game.preview_typed_reality_choice(choice_id),
 		"playtest_assist_enabled": func() -> bool: return _playtest_assist_enabled,
 		"typed_bbcode": _typed_reality_bbcode,
 		"typing_unit_count": func() -> int: return game.get_typed_reality_unit_count(),
 	}
-
-
-func _connect_reality_conversation_panel_signals() -> void:
-	if _reality_conversation_panel == null:
-		return
-	if not _reality_conversation_panel.choice_hovered.is_connected(_on_reality_choice_hovered):
-		_reality_conversation_panel.choice_hovered.connect(_on_reality_choice_hovered)
-	if not _reality_conversation_panel.choice_unhovered.is_connected(_on_reality_choice_unhovered):
-		_reality_conversation_panel.choice_unhovered.connect(_on_reality_choice_unhovered)
-	if not _reality_conversation_panel.choice_pressed.is_connected(_on_reality_choice_selected):
-		_reality_conversation_panel.choice_pressed.connect(_on_reality_choice_selected)
-	if not _reality_conversation_panel.continue_pressed.is_connected(_on_reality_continue_pressed):
-		_reality_conversation_panel.continue_pressed.connect(_on_reality_continue_pressed)
 
 
 func _ensure_reality_language_composer_panel() -> void:
@@ -2031,7 +2023,6 @@ func _ensure_reality_language_composer_panel() -> void:
 	_reality_language_composer_panel = RealityLanguageComposerPanelScript.new()
 	_reality_language_composer_panel.name = "RealityLanguageComposerPanel"
 	add_child(_reality_language_composer_panel)
-	_connect_reality_language_composer_panel_signals()
 
 
 func _reality_language_composer_mount_deps() -> Dictionary:
@@ -2041,19 +2032,6 @@ func _reality_language_composer_mount_deps() -> Dictionary:
 		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 	}
-
-
-func _connect_reality_language_composer_panel_signals() -> void:
-	if _reality_language_composer_panel == null:
-		return
-	if not _reality_language_composer_panel.token_pressed.is_connected(_on_language_token_pressed):
-		_reality_language_composer_panel.token_pressed.connect(_on_language_token_pressed)
-	if not _reality_language_composer_panel.token_dropped.is_connected(_on_language_token_dropped):
-		_reality_language_composer_panel.token_dropped.connect(_on_language_token_dropped)
-	if not _reality_language_composer_panel.slot_pressed.is_connected(_on_language_slot_pressed):
-		_reality_language_composer_panel.slot_pressed.connect(_on_language_slot_pressed)
-	if not _reality_language_composer_panel.confirm_pressed.is_connected(_on_confirm_doctor_sentence_pressed):
-		_reality_language_composer_panel.confirm_pressed.connect(_on_confirm_doctor_sentence_pressed)
 
 
 func _ensure_babel_app_panel() -> void:
@@ -2622,24 +2600,8 @@ func _escape_bbcode(value: String) -> String:
 	return value.replace("[", sentinel).replace("]", "[rb]").replace(sentinel, "[lb]")
 
 
-func _on_reality_choice_hovered(choice_id: String) -> void:
-	_reality_hover_choice_id = choice_id
-	if _reality_conversation_panel != null:
-		var preview := game.preview_typed_reality_choice(choice_id)
-		_reality_conversation_panel.set_intent_preview(preview)
-
-
-func _on_reality_choice_unhovered(choice_id: String) -> void:
-	if _reality_hover_choice_id != choice_id:
-		return
-	_reality_hover_choice_id = ""
-	if _reality_conversation_panel != null:
-		_reality_conversation_panel.clear_intent_preview()
-
-
 func _on_reality_choice_selected(choice_id: String) -> void:
 	if game.select_typed_reality_choice(choice_id):
-		_reality_hover_choice_id = ""
 		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
 
@@ -2647,7 +2609,6 @@ func _on_reality_choice_selected(choice_id: String) -> void:
 func _on_reality_continue_pressed() -> void:
 	if str(_reality_conversation_snapshot().get("phase", "")) == "result" and game.continue_typed_reality_conversation():
 		_localize_active_conversation()
-		_reality_hover_choice_id = ""
 		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
 		return
@@ -3279,8 +3240,16 @@ func _squash_notebook_window() -> void:
 	_notebook_squash_tween.tween_property(window, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
+func _selected_language_token() -> String:
+	return str(_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).read())
+
+
+func _write_selected_language_token(token_id: String) -> void:
+	_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).write(token_id)
+
+
 func _on_language_token_pressed(token_id: String) -> void:
-	_selected_language_token_id = token_id
+	_write_selected_language_token(token_id)
 	log_text = "选中了一个带到医生面前的词。"
 	_refresh_reality_hud()
 
@@ -3289,7 +3258,7 @@ func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
 	var token_id := str(data.get("id", ""))
 	if token_id.is_empty():
 		return
-	_selected_language_token_id = token_id
+	_write_selected_language_token(token_id)
 	if game.place_language_token(slot_id, token_id, "doctor"):
 		log_text = "词已经进入医生句槽。"
 	else:
@@ -3298,9 +3267,9 @@ func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
 
 
 func _on_language_slot_pressed(slot_id: String) -> void:
-	if _selected_language_token_id.is_empty():
+	if _selected_language_token().is_empty():
 		log_text = "先选择一个词。"
-	elif game.place_language_token(slot_id, _selected_language_token_id, "doctor"):
+	elif game.place_language_token(slot_id, _selected_language_token(), "doctor"):
 		log_text = "词已经进入医生句槽。"
 	else:
 		log_text = "这个词不能放在句子的这个位置。"
@@ -3310,7 +3279,7 @@ func _on_language_slot_pressed(slot_id: String) -> void:
 func _on_confirm_doctor_sentence_pressed() -> void:
 	var actions_before := int(game.actions_remaining)
 	if game.confirm_doctor_sentence():
-		_selected_language_token_id = ""
+		_write_selected_language_token("")
 		log_text = "同一句话到了医生那里，已经不是原来的样子。"
 		_after_effective_action(actions_before)
 	else:
@@ -3403,7 +3372,6 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 		if _reality_scene_adapter != null:
 			_reality_scene_adapter.apply_interaction({"action": "end"})
 			_reality_scene_adapter.clear_nearby_targets()
-		_reality_hover_choice_id = ""
 		_sync_audio_state(false)
 		if not _present_ending_if_unlocked():
 			_refresh_play_surfaces()

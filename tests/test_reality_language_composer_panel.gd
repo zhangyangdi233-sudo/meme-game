@@ -2,12 +2,13 @@ extends SceneTree
 ## RealityLanguageComposerPanel: named chrome, compose render, and token/slot intents.
 
 const PanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
-var _token_presses: Array = []
-var _token_drops: Array = []
-var _slot_presses: Array = []
-var _confirm_presses: Array = []
+var _heard: Array = []
 
 
 func _init() -> void:
@@ -26,6 +27,10 @@ func _run_async() -> void:
 
 
 func _run() -> void:
+	RegistryScript.clear()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
 	var host := Control.new()
 	host.name = "ComposerHost"
 	host.size = Vector2(1600, 900)
@@ -40,12 +45,6 @@ func _run() -> void:
 		"theme_color": _theme_color,
 		"clear_children": _clear,
 	})
-	panel.token_pressed.connect(func(token_id: String) -> void: _token_presses.append(token_id))
-	panel.token_dropped.connect(func(data: Dictionary, slot_id: String) -> void:
-		_token_drops.append({"data": data, "slot_id": slot_id})
-	)
-	panel.slot_pressed.connect(func(slot_id: String) -> void: _slot_presses.append(slot_id))
-	panel.confirm_pressed.connect(func() -> void: _confirm_presses.append(true))
 	await process_frame
 
 	var frame := _find_node_by_name(host, "RealityLanguagePuzzleFrame") as PanelContainer
@@ -116,18 +115,19 @@ func _run() -> void:
 
 	if token_button != null:
 		token_button.pressed.emit()
-	_assert_eq(_token_presses, ["subject-1"], "token press should emit token_pressed")
+	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_TOKEN_PRESSED, {UiIntentsScript.KEY_TOKEN_ID: "subject-1"}]], "token press should raise its intent with the token id")
+	_heard.clear()
 	if subject_slot != null:
 		subject_slot.pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "subject"}]], "slot press should raise its intent with the slot id")
+	_heard.clear()
+	if subject_slot != null:
 		subject_slot.dropped.emit({"kind": "language_token", "id": "subject-1"}, "subject")
-	_assert_eq(_slot_presses, ["subject"], "slot press should emit slot_pressed")
-	_assert_true(_token_drops.size() == 1, "slot drop should emit token_dropped once")
-	if _token_drops.size() == 1:
-		_assert_eq(str(_token_drops[0].get("slot_id", "")), "subject", "token_dropped should carry the slot id")
-		_assert_eq(str((_token_drops[0].get("data", {}) as Dictionary).get("id", "")), "subject-1", "token_dropped should carry the token id")
+	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_TOKEN_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "language_token", "id": "subject-1"}, UiIntentsScript.KEY_SLOT_ID: "subject"}]], "slot drop should raise its intent with the drag data and slot id")
+	_heard.clear()
 	if confirm != null:
 		confirm.pressed.emit()
-	_assert_eq(_confirm_presses, [true], "confirm should emit confirm_pressed")
+	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_CONFIRM_PRESSED, {}]], "confirm should raise its intent with an empty payload")
 
 	panel.update_visibility(false, "composing", "lexeme")
 	_assert_true(frame != null and not frame.visible, "update_visibility should hide the frame off the reality layer")
@@ -136,6 +136,7 @@ func _run() -> void:
 
 	host.queue_free()
 	panel.queue_free()
+	RegistryScript.clear()
 	await process_frame
 
 

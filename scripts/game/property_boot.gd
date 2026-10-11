@@ -78,6 +78,7 @@ static func install() -> void:
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.WORLD_RULES, {}))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SETTINGS_OPEN, false))
 	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SAVE_STATUS, ""))
+	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN, ""))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 
