@@ -30,4 +30,8 @@ Values that move every frame stay on the screen that owns them. The notebook can
 
 ## Migration
 
-Every single-copy fact moves, not only a short first list. The first implementation is the framework types plus the main menu observing `pollution` and `has_save`. Later tickets move HUD money and actions, settings, the ending, the phone, conversation, inventory, and the feed. As a domain moves, delete the matching field on `MemeGameState` and retire that domain's change signal. Leave the signals whose fields have not moved. Two notifications for one fact is the copy this decision removes.
+Every single-copy fact moves, not only a short first list. The first implementation was the framework types plus the main menu observing `pollution` and `has_save`. As a domain moves, delete the matching field on `MemeGameState` and retire that domain's change signal. Two notifications for one fact is the copy this decision removes.
+
+**Done:** the facts above are all models (`PropertyKeys`), and no panel keeps a private signal to the host any more (ADR 0007). Whether settings is open is one of them; the host registers on it instead of connecting to a panel.
+
+**Not finished:** the phone shell and the status line are still redrawn by the host when `LanguageMaterial` raises `ui_refresh_requested` and `status_refresh_requested`, even though the free sentence and the notebook are models now. The screens do not watch those models yet. When they do, the two signals go away.

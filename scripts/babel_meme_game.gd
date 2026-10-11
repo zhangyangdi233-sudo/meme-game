@@ -336,6 +336,9 @@ func _enter_tree() -> void:
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
+	var settings_open := _value_model(PropertyKeysScript.SETTINGS_OPEN)
+	if settings_open != null:
+		settings_open.register(_on_settings_open_changed)
 
 
 func _exit_tree() -> void:
@@ -347,6 +350,9 @@ func _exit_tree() -> void:
 		var volume := _master_volume_model()
 		if volume != null:
 			volume.unregister(_apply_master_volume)
+		var settings_open := _value_model(PropertyKeysScript.SETTINGS_OPEN)
+		if settings_open != null:
+			settings_open.unregister(_on_settings_open_changed)
 
 
 func _physics_process(delta: float) -> void:
@@ -1840,7 +1846,6 @@ func _ensure_settings_history_panel() -> void:
 	_settings_history_panel = SettingsHistoryPanelScript.new()
 	_settings_history_panel.name = "SettingsHistoryPanel"
 	add_child(_settings_history_panel)
-	_settings_history_panel.settings_open_changed.connect(_on_settings_open_changed)
 
 
 func _settings_history_mount_deps() -> Dictionary:
@@ -2175,7 +2180,9 @@ func _close_settings_window() -> void:
 		_settings_history_panel.close_settings()
 
 
-func _on_settings_open_changed(_open: bool) -> void:
+func _on_settings_open_changed(_open: Variant) -> void:
+	if not is_node_ready():
+		return
 	if _apple_hud_panel != null:
 		_apple_hud_panel.hide_tooltip()
 	_update_visibility()

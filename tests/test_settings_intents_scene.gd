@@ -42,6 +42,16 @@ func _run_async() -> void:
 		GameEventBus.raise(UiIntentsScript.SETTINGS_PRESSED)
 		_assert_true(settings != null and not settings.visible, "a second settings intent should close it")
 
+		var open_model := manager.model(PropertyKeysScript.SETTINGS_OPEN) as ValuePropertyModel
+		var view_toggle: Button = game_root._view_toggle_button
+		var toggle_shown_before: bool = view_toggle != null and view_toggle.visible
+		open_model.write(true)
+		_assert_true(settings != null and settings.visible, "writing the open model should show the settings window")
+		_assert_true(view_toggle != null and not view_toggle.visible, "the host should re-evaluate chrome when the open model changes")
+		open_model.write(false)
+		_assert_true(settings != null and not settings.visible, "writing the open model closed should hide the window")
+		_assert_eq(view_toggle != null and view_toggle.visible, toggle_shown_before, "closing by model should restore the chrome")
+
 		game_root.queue_free()
 		await process_frame
 

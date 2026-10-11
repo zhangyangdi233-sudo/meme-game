@@ -19,7 +19,6 @@ var _save_events: Array = []
 var _return_events: Array = []
 var _exit_events: Array = []
 var _history_toggle_events: Array = []
-var _settings_open_events: Array = []
 
 
 func _init() -> void:
@@ -84,7 +83,7 @@ func _run() -> void:
 	var bus: GameEventBus = GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.intent_emitted.connect(_on_intent)
-	panel.settings_open_changed.connect(func(open: bool) -> void: _settings_open_events.append(open))
+	_assert_true(not panel.has_signal("settings_open_changed"), "the panel should not keep a private signal for the open flag; the model is the only channel")
 	await process_frame
 
 	var settings := panel.get_settings_window() as Control
@@ -149,23 +148,18 @@ func _run() -> void:
 	panel.toggle_settings()
 	_assert_true(bool(open_model.read()), "toggle_settings should write the open model")
 	_assert_true(settings != null and settings.visible, "toggle_settings should show the settings window")
-	_assert_eq(_settings_open_events, [true], "toggle_settings should emit settings_open_changed(true)")
 	panel.close_settings()
 	_assert_true(not bool(open_model.read()), "close_settings should write the open model closed")
 	_assert_true(settings != null and not settings.visible, "close_settings should hide the settings window")
-	_assert_eq(_settings_open_events, [true, false], "close_settings should emit settings_open_changed(false)")
 	panel.toggle_settings()
 	var close_button := _find_node_by_name(settings, "SettingsCloseButton") as Button
 	if close_button != null:
 		close_button.pressed.emit()
 	_assert_true(not bool(open_model.read()), "the settings close button should close the window")
-	_assert_eq(_settings_open_events, [true, false, true, false], "the settings close button should emit settings_open_changed(false)")
 	open_model.write(true)
 	_assert_true(settings != null and settings.visible, "writing the open model should show the window by itself")
-	_assert_eq(_settings_open_events, [true, false, true, false, true], "a model write should emit settings_open_changed once")
 	open_model.write(false)
 	_assert_true(settings != null and not settings.visible, "writing the open model closed should hide the window")
-	_assert_eq(_settings_open_events, [true, false, true, false, true, false], "closing by model should emit settings_open_changed(false)")
 
 	if volume_slider != null:
 		volume_slider.value = 42.0

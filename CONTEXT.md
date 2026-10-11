@@ -63,8 +63,8 @@ Host-created opener for one fixed screen. The host builds it at boot (not an aut
 _Avoid_: autoload, a manager that also closes other screens
 
 **UI intent**:
-How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
-_Avoid_: a private signal or callback per panel, a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
+How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime; no panel keeps a private signal to the host. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
+_Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
 **Service registry**:
 Global table from a string to one shared object. The host binds services at boot. Callers resolve by that string. Service names live in `ServiceKeys`.
@@ -75,7 +75,7 @@ The service that stores models by name. It does not hold raw values and it does 
 _Avoid_: a bag pushed into each screen, a second copy of a fact on the host or on `MemeGameState`
 
 **Model**:
-One single-copy value with its observers. An open screen registers and is told the current value; a later write tells every listener. Callers fetch the model from the property manager each time. Lists and maps are copied on read and changed only through the model's methods. Names and save categories live in `PropertyKeys`.
+One single-copy value with its observers. An open screen registers and is told the current value; a later write tells every listener. The host observes a model the same way a screen does, instead of connecting to a panel. Callers fetch the model from the property manager each time. Lists and maps are copied on read and changed only through the model's methods. Names and save categories live in `PropertyKeys`.
 _Avoid_: keeping a model in a field, writing a list or map in place, storing a derived label or palette as its own model, a screen opening itself because a model changed
 
 **Property watch**:

@@ -13,8 +13,6 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-signal settings_open_changed(open: bool)
-
 var _history_window: PanelContainer
 var _history_content: VBoxContainer
 var _history_open := false
@@ -160,10 +158,9 @@ func _settings_open_model() -> ValuePropertyModel:
 	return manager.model(PropertyKeysScript.SETTINGS_OPEN) as ValuePropertyModel
 
 
-## Shows or hides the window, starts or stops the settings watch, and tells the host when the state really changed.
+## Shows or hides the window and starts or stops the settings watch. The host watches the same model for the rest.
 func _on_settings_open(value: Variant) -> void:
 	var open := bool(value)
-	var was_open := _watch.is_active()
 	if _settings_window != null:
 		_settings_window.visible = open
 		if open:
@@ -172,8 +169,6 @@ func _on_settings_open(value: Variant) -> void:
 		_watch.start()
 	else:
 		_watch.stop()
-	if open != was_open:
-		settings_open_changed.emit(open)
 
 
 func _on_pollution(value: Variant) -> void:
