@@ -2181,6 +2181,7 @@ func _close_settings_window() -> void:
 
 
 func _on_settings_open_changed(_open: Variant) -> void:
+	# Registering in _enter_tree delivers the current value before the UI exists.
 	if not is_node_ready():
 		return
 	if _apple_hud_panel != null:
