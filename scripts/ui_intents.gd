@@ -10,6 +10,15 @@ const KEY_ALLOWED := "allowed"
 const KEY_INDEX := "index"
 const KEY_VALUE := "value"
 const KEY_CHOICE_ID := "choice_id"
+const KEY_CHANNEL := "channel"
+const KEY_SCREEN := "screen"
+const KEY_POST_INDEX := "post_index"
+const KEY_POST_ID := "post_id"
+const KEY_AUTHOR_ID := "author_id"
+const KEY_META := "meta"
+const KEY_DATA := "data"
+const KEY_BEFORE_INDEX := "before_index"
+const KEY_UNIT_INDEX := "unit_index"
 
 ## Main menu. Payload: {}.
 const START_GAME := "start_game"
@@ -51,3 +60,21 @@ const SETTINGS_PRESSED := "settings_pressed"
 const PROLOGUE_FINISHED := "prologue_finished"
 const ENDING_LANGUAGE_SELECTED := "ending_language_selected"
 const RESTART_REQUESTED := "restart_requested"
+
+## Social feed. Payload: {KEY_CHANNEL: String} for a channel tab, {KEY_SCREEN: String} for a page change,
+## {KEY_POST_INDEX: int} for a card, {KEY_POST_ID: String} for a like, {KEY_AUTHOR_ID: String} for a follow,
+## {KEY_META: Variant, KEY_POST_ID: String} for a pickup unit, {KEY_DATA: Dictionary} for a drop on the sentence area,
+## {KEY_DATA: Dictionary, KEY_BEFORE_INDEX: int} for a drop before a tile, {KEY_UNIT_INDEX: int} for a placed tile, {} for the rest.
+const SOCIAL_CHANNEL_PRESSED := "social_channel_pressed"
+const SOCIAL_SCREEN_REQUESTED := "social_screen_requested"
+const SOCIAL_CARD_CLICKED := "social_card_clicked"
+const SOCIAL_LIKE_PRESSED := "social_like_pressed"
+const SOCIAL_FOLLOW_PRESSED := "social_follow_pressed"
+const SOCIAL_PICKUP_UNIT_CLICKED := "social_pickup_unit_clicked"
+const SOCIAL_COMPOSER_AREA_DROPPED := "social_composer_area_dropped"
+const SOCIAL_COMPOSER_TILE_DROPPED := "social_composer_tile_dropped"
+const SOCIAL_COMPOSER_ANSWER_TAPPED := "social_composer_answer_tapped"
+const SOCIAL_CLOSE_REQUESTED := "social_close_requested"
+const SOCIAL_DETAIL_CLOSE_REQUESTED := "social_detail_close_requested"
+const SOCIAL_PUBLISH_CONFIRM_REQUESTED := "social_publish_confirm_requested"
+const SOCIAL_COMPOSER_SUBMIT_REQUESTED := "social_composer_submit_requested"

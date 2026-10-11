@@ -1,11 +1,11 @@
 class_name SocialFeedPanel
 extends Node
-## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and intent signals.
+## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and UI intents on the event bus.
 ## While the app is shown, it watches the followed authors, the liked posts, the held words, the finished memes,
 ## the remaining actions, the sentence being composed, the last publish result and the published records,
 ## and repaints itself.
 ## The page, the channel and the open post are this screen's own view and live only here.
-## Moving between them repaints the panel at once; the host hears page_changed only to re-theme the new nodes.
+## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
@@ -13,20 +13,7 @@ const LanguageMaterialScript = preload("res://scripts/game/language_material.gd"
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
-
-## The panel already shows the new page, channel or open post.
-signal page_changed
-signal post_opened(post_index: int)
-signal like_pressed(post_id: String)
-signal follow_pressed(author_id: String)
-signal close_requested
-signal detail_closed
-signal publish_confirm_requested
-signal pickup_unit_clicked(meta: Variant, post_id: String)
-signal composer_area_dropped(data: Dictionary)
-signal composer_tile_dropped(data: Dictionary, before_index: int)
-signal composer_answer_tapped(unit_index: int)
-signal composer_submit_requested
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const SOCIAL_FEED_WHEEL_STEP := 2
 const SCREENS := ["home", "publish", "profile"]
@@ -151,7 +138,7 @@ func get_confirm_publish_button() -> Button:
 func open_post(post_index: int) -> void:
 	_open_detail(post_index)
 	render_companion()
-	post_opened.emit(post_index)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: post_index})
 
 
 ## Shuts the open post, for example when the app window closes.
@@ -166,7 +153,8 @@ func show_screen(screen: String) -> void:
 	_screen = screen
 	_channel = DEFAULT_CHANNEL
 	close_detail()
-	_repaint_page()
+	if _repaint_page():
+		GameEventBus.raise(UiIntentsScript.SOCIAL_SCREEN_REQUESTED, {UiIntentsScript.KEY_SCREEN: screen})
 
 
 func select_channel(channel: String) -> void:
@@ -176,7 +164,8 @@ func select_channel(channel: String) -> void:
 		_open_detail(0)
 	else:
 		close_detail()
-	_repaint_page()
+	if _repaint_page():
+		GameEventBus.raise(UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: channel})
 
 
 ## A new run starts on the home feed with no post open.
@@ -782,7 +771,7 @@ func _scroll_feed(feed_scroll: ScrollContainer, delta: int) -> void:
 
 
 func _on_close_pressed() -> void:
-	close_requested.emit()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
 
 
 func _on_channel_tab_pressed(channel_id: String) -> void:
@@ -794,11 +783,11 @@ func _on_nav_pressed(screen: String) -> void:
 
 
 func _on_like_pressed(post_id: String) -> void:
-	like_pressed.emit(post_id)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: post_id})
 
 
 func _on_follow_pressed(author_id: String) -> void:
-	follow_pressed.emit(author_id)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_FOLLOW_PRESSED, {UiIntentsScript.KEY_AUTHOR_ID: author_id})
 
 
 func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
@@ -993,7 +982,7 @@ func _on_detail_close_pressed() -> void:
 		_repaint_page()
 	else:
 		render_companion()
-	detail_closed.emit()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED)
 
 
 func _open_detail(post_index: int) -> void:
@@ -1008,13 +997,13 @@ func _show_detail_window() -> void:
 		_detail_window.visible = _app_shown and is_detail_open()
 
 
-## A page that was never drawn is left to the host, like the model repaints.
-func _repaint_page() -> void:
+## A page that was never drawn is left to the host, like the model repaints. Says whether it repainted.
+func _repaint_page() -> bool:
 	if not _rendered:
-		return
+		return false
 	render_app()
 	render_companion()
-	page_changed.emit()
+	return true
 
 
 func _render_publish_page(parent: VBoxContainer) -> void:
@@ -1152,7 +1141,7 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 
 
 func _on_publish_confirm_pressed() -> void:
-	publish_confirm_requested.emit()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
 
 
 func _social_feed_dark_style() -> StyleBoxFlat:
@@ -1280,23 +1269,23 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 
 
 func _on_pickup_meta_clicked(meta: Variant, post_id: String) -> void:
-	pickup_unit_clicked.emit(meta, post_id)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: meta, UiIntentsScript.KEY_POST_ID: post_id})
 
 
 func _on_composer_area_dropped(data: Dictionary) -> void:
-	composer_area_dropped.emit(data)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: data})
 
 
 func _on_composer_tile_dropped(data: Dictionary, before_index: int) -> void:
-	composer_tile_dropped.emit(data, before_index)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: data, UiIntentsScript.KEY_BEFORE_INDEX: before_index})
 
 
 func _on_composer_answer_pressed(unit_index: int) -> void:
-	composer_answer_tapped.emit(unit_index)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: unit_index})
 
 
 func _on_composer_submit_pressed() -> void:
-	composer_submit_requested.emit()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
 
 
 func _on_followed(value: Variant) -> void:

@@ -1687,6 +1687,30 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_hide_phone_camera_connection_overlay()
 		UiIntentsScript.PHONE_CAMERA_DISABLE:
 			_disable_phone_camera_from_connection()
+		UiIntentsScript.SOCIAL_CHANNEL_PRESSED, UiIntentsScript.SOCIAL_SCREEN_REQUESTED:
+			_on_social_page_changed()
+		UiIntentsScript.SOCIAL_CARD_CLICKED:
+			_on_social_post_opened(int(payload.get(UiIntentsScript.KEY_POST_INDEX, -1)))
+		UiIntentsScript.SOCIAL_LIKE_PRESSED:
+			_on_social_like_pressed(str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
+		UiIntentsScript.SOCIAL_FOLLOW_PRESSED:
+			_on_social_follow_pressed(str(payload.get(UiIntentsScript.KEY_AUTHOR_ID, "")))
+		UiIntentsScript.SOCIAL_CLOSE_REQUESTED:
+			_close_app_window("social")
+		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED:
+			_on_social_detail_closed()
+		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
+			_on_confirm_dialogue_pressed()
+		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
+			_language_material.pick_from_post(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
+		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
+			_language_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
+		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED:
+			_language_material.drop_before(payload.get(UiIntentsScript.KEY_DATA, {}), int(payload.get(UiIntentsScript.KEY_BEFORE_INDEX, 0)))
+		UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED:
+			_language_material.remove_at(int(payload.get(UiIntentsScript.KEY_UNIT_INDEX, -1)))
+		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED:
+			_language_material.submit()
 
 
 func _ensure_language_selection_panel() -> void:
@@ -1823,7 +1847,6 @@ func _ensure_social_feed_panel() -> void:
 	_social_feed_panel = SocialFeedPanelScript.new()
 	_social_feed_panel.name = "SocialFeedPanel"
 	add_child(_social_feed_panel)
-	_connect_social_feed_panel_signals()
 
 
 func _ensure_language_material() -> void:
@@ -1905,36 +1928,6 @@ func _social_feed_mount_deps() -> Dictionary:
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
 	}
-
-
-func _connect_social_feed_panel_signals() -> void:
-	var panel := _social_feed_panel
-	if panel == null:
-		return
-	if not panel.page_changed.is_connected(_on_social_page_changed):
-		panel.page_changed.connect(_on_social_page_changed)
-	if not panel.post_opened.is_connected(_on_social_post_opened):
-		panel.post_opened.connect(_on_social_post_opened)
-	if not panel.like_pressed.is_connected(_on_social_like_pressed):
-		panel.like_pressed.connect(_on_social_like_pressed)
-	if not panel.follow_pressed.is_connected(_on_social_follow_pressed):
-		panel.follow_pressed.connect(_on_social_follow_pressed)
-	if not panel.close_requested.is_connected(_close_app_window.bind("social")):
-		panel.close_requested.connect(_close_app_window.bind("social"))
-	if not panel.detail_closed.is_connected(_on_social_detail_closed):
-		panel.detail_closed.connect(_on_social_detail_closed)
-	if not panel.publish_confirm_requested.is_connected(_on_confirm_dialogue_pressed):
-		panel.publish_confirm_requested.connect(_on_confirm_dialogue_pressed)
-	if not panel.pickup_unit_clicked.is_connected(_language_material.pick_from_post):
-		panel.pickup_unit_clicked.connect(_language_material.pick_from_post)
-	if not panel.composer_area_dropped.is_connected(_language_material.drop_on_area):
-		panel.composer_area_dropped.connect(_language_material.drop_on_area)
-	if not panel.composer_tile_dropped.is_connected(_language_material.drop_before):
-		panel.composer_tile_dropped.connect(_language_material.drop_before)
-	if not panel.composer_answer_tapped.is_connected(_language_material.remove_at):
-		panel.composer_answer_tapped.connect(_language_material.remove_at)
-	if not panel.composer_submit_requested.is_connected(_language_material.submit):
-		panel.composer_submit_requested.connect(_language_material.submit)
 
 
 func _ensure_phone_launcher_panel() -> void:

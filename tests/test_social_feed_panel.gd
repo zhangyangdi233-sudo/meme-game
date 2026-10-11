@@ -4,9 +4,11 @@ extends SceneTree
 ## It also keeps its own page, channel and open post, and repaints itself when the player moves between them.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const POSTS := [
 	{"id": "post-a", "caption": "甲"},
@@ -15,6 +17,7 @@ const POSTS := [
 ]
 
 var _failures: Array[String] = []
+var _heard: Array = []
 
 
 func _init() -> void:
@@ -52,6 +55,10 @@ func _run() -> void:
 	_test_the_open_publish_page_shows_the_last_result()
 	_test_a_new_publication_repaints_the_open_post_echo()
 	_test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go()
+	_test_intent_names_and_payload_keys()
+	_test_navigation_raises_channel_screen_and_post_intents()
+	_test_like_follow_close_and_confirm_raise_their_intents()
+	_test_pickup_and_composer_actions_carry_their_answers()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -167,6 +174,10 @@ func _test_a_mounted_panel_is_not_opened_by_a_write() -> void:
 func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
+	_heard.clear()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	var parent := Control.new()
 	parent.name = "SocialTestParent"
@@ -363,12 +374,12 @@ func _test_a_channel_tab_repaints_the_feed_by_itself() -> void:
 	panel.render_app()
 	panel.update_visibility(true, true)
 	_assert_true(_underline_shown(mounted, "discover"), "a fresh feed should select the discover channel")
-	var page_changes := _count_page_changes(panel)
+	_heard.clear()
 	_press(mounted, "SocialChannelTabfollowing")
 	_assert_true(_underline_shown(mounted, "following"), "pressing a channel tab should select it without the host")
 	_assert_true(not _underline_shown(mounted, "discover"), "pressing a channel tab should deselect the old channel")
 	_assert_true(_find(mounted, "SocialFollowingEmptyState") != null, "the following channel should list followed authors only")
-	_assert_eq(page_changes[0], 1, "a channel change should tell the host once that the page changed")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: "following"}]], "a channel change should tell the host once which channel")
 	_press(mounted, "SocialChannelTabdiscover")
 	_assert_true(_find(mounted, "SocialPostFollowButton0") != null, "going back to discover should list every post again")
 	_dispose(mounted)
@@ -394,8 +405,6 @@ func _test_a_nav_button_switches_the_page_by_itself() -> void:
 func _test_a_card_opens_its_post_and_the_close_button_shuts_it() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
-	var opened: Array = []
-	panel.post_opened.connect(func(post_index: int) -> void: opened.append(post_index))
 	panel.render_app()
 	panel.update_visibility(true, true)
 	var detail := panel.get_detail_window()
@@ -404,7 +413,7 @@ func _test_a_card_opens_its_post_and_the_close_button_shuts_it() -> void:
 	_assert_true(panel.is_detail_open(), "clicking a card should open its post")
 	_assert_true(detail.visible, "an open post should show its window while the app shows")
 	_assert_true(_find(mounted, "SocialPickupLineText") != null, "an open post should paint its detail by itself")
-	_assert_eq(opened, [2], "opening a post should tell the host which post")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: 2}]], "opening a post should tell the host which post")
 	_press(mounted, "SocialNavMine")
 	_assert_true(not panel.is_detail_open() and not detail.visible, "switching pages should shut the open post")
 
@@ -418,16 +427,13 @@ func _test_a_card_opens_its_post_and_the_close_button_shuts_it() -> void:
 func _test_the_tower_base_channel_opens_the_first_post() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
-	var opened: Array = []
-	panel.post_opened.connect(func(post_index: int) -> void: opened.append(post_index))
 	panel.render_app()
 	panel.update_visibility(true, true)
-	var page_changes := _count_page_changes(panel)
+	_heard.clear()
 	_press(mounted, "SocialChannelTabtower_base")
 	_assert_true(panel.is_detail_open(), "the tower base channel should open the first post")
 	_assert_true(_underline_shown(mounted, "tower_base"), "the tower base channel should stay selected while its post is open")
-	_assert_eq(opened, [], "the tower base channel is not the player opening a post, so the tutorial should not hear of it")
-	_assert_eq(page_changes[0], 1, "the tower base channel should tell the host once that the page changed")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: "tower_base"}]], "the tower base channel is not the player opening a post, so the tutorial should hear only of the channel change")
 	_press(mounted, "SocialDetailWindowCloseButton")
 	_assert_true(_underline_shown(mounted, "discover"), "shutting the tower base post should go back to discover")
 	_dispose(mounted)
@@ -522,6 +528,101 @@ func _test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go() ->
 	_dispose(mounted)
 
 
+func _test_intent_names_and_payload_keys() -> void:
+	_assert_eq(UiIntentsScript.SOCIAL_CHANNEL_PRESSED, "social_channel_pressed", "channel intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_SCREEN_REQUESTED, "social_screen_requested", "screen intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_CARD_CLICKED, "social_card_clicked", "card intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_LIKE_PRESSED, "social_like_pressed", "like intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_FOLLOW_PRESSED, "social_follow_pressed", "follow intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, "social_pickup_unit_clicked", "pickup intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, "social_composer_area_dropped", "area drop intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, "social_composer_tile_dropped", "tile drop intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, "social_composer_answer_tapped", "answer tap intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_CLOSE_REQUESTED, "social_close_requested", "close intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED, "social_detail_close_requested", "detail close intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, "social_publish_confirm_requested", "publish confirm intent name")
+	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, "social_composer_submit_requested", "submit intent name")
+	_assert_eq(UiIntentsScript.KEY_CHANNEL, "channel", "channel payload key")
+	_assert_eq(UiIntentsScript.KEY_SCREEN, "screen", "screen payload key")
+	_assert_eq(UiIntentsScript.KEY_POST_INDEX, "post_index", "post index payload key")
+	_assert_eq(UiIntentsScript.KEY_POST_ID, "post_id", "post id payload key")
+	_assert_eq(UiIntentsScript.KEY_AUTHOR_ID, "author_id", "author id payload key")
+	_assert_eq(UiIntentsScript.KEY_META, "meta", "meta payload key")
+	_assert_eq(UiIntentsScript.KEY_DATA, "data", "data payload key")
+	_assert_eq(UiIntentsScript.KEY_BEFORE_INDEX, "before_index", "before index payload key")
+	_assert_eq(UiIntentsScript.KEY_UNIT_INDEX, "unit_index", "unit index payload key")
+
+
+func _test_navigation_raises_channel_screen_and_post_intents() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_heard.clear()
+	_press(mounted, "SocialNavMine")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_SCREEN_REQUESTED, {UiIntentsScript.KEY_SCREEN: "profile"}]], "a nav button should raise its screen")
+	_press(mounted, "SocialNavHome")
+	_heard.clear()
+	_click_card(mounted, 1)
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: 1}]], "a card click should raise its post index")
+	_heard.clear()
+	_press(mounted, "SocialDetailWindowCloseButton")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED, {}]], "the detail close button should raise its intent")
+	_dispose(mounted)
+
+
+func _test_like_follow_close_and_confirm_raise_their_intents() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_heard.clear()
+	_press(mounted, "SocialPostLikeButton1")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: "post-b"}]], "a like button should raise its post id")
+	_heard.clear()
+	_press(mounted, "SocialPostFollowButton0")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_FOLLOW_PRESSED, {UiIntentsScript.KEY_AUTHOR_ID: "post-a"}]], "a follow button should raise its author id")
+	_heard.clear()
+	_press(mounted, "SocialAppInlineCloseButton")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CLOSE_REQUESTED, {}]], "the app close button should raise its intent")
+	panel.show_screen("publish")
+	_heard.clear()
+	var confirm := panel.get_confirm_publish_button()
+	_assert_true(confirm != null, "the panel should own the publish confirm button")
+	if confirm != null:
+		confirm.pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, {}]], "the publish confirm button should raise its intent")
+	_dispose(mounted)
+
+
+func _test_pickup_and_composer_actions_carry_their_answers() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
+	panel.render_app()
+	panel.open_post(2)
+	panel.update_visibility(true, true)
+	_heard.clear()
+	(_find(mounted, "SocialPickupLineText") as RichTextLabel).meta_clicked.emit("门")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"}]], "a pickup click should raise the meta and its post")
+
+	panel.show_screen("publish")
+	var dropped := {"unit": "门", "index": 3}
+	_heard.clear()
+	(_find(mounted, "ComposerAnswerPanel") as ComposerDropArea).unit_dropped.emit(dropped)
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: dropped}]], "a drop on the area should raise the whole drag data")
+	_heard.clear()
+	(_find(mounted, "ComposerAnswerTile0") as ComposerAnswerTile).unit_dropped_before.emit(dropped, 1)
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_BEFORE_INDEX: 1}]], "a drop on a tile should raise the drag data and the index")
+	_heard.clear()
+	_press(mounted, "ComposerAnswerTile1")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1}]], "tapping a placed tile should raise its index")
+	_heard.clear()
+	_press(mounted, "SocialPublishPostButton")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, {}]], "the post button should raise its intent")
+	_dispose(mounted)
+
+
 func _label_text(mounted: Dictionary, node_name: String) -> String:
 	var label := _find(mounted, node_name) as Label
 	return label.text if label != null else "<missing %s>" % node_name
@@ -554,12 +655,6 @@ func _click_card_after_home(mounted: Dictionary, post_index: int) -> void:
 func _underline_shown(mounted: Dictionary, channel: String) -> bool:
 	var underline := _find(mounted, "SocialChannelTabUnderline%s" % channel) as ColorRect
 	return underline != null and underline.visible
-
-
-func _count_page_changes(panel: SocialFeedPanel) -> Array:
-	var count := [0]
-	panel.page_changed.connect(func() -> void: count[0] += 1)
-	return count
 
 
 func _post_button_text(mounted: Dictionary) -> String:
