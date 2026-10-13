@@ -94,7 +94,8 @@ func _test_actual_ui_drives_chapter_window() -> void:
 	receiver.frame_received.connect(main._on_hand_tracking_frame)
 	receiver.status_changed.connect(main._on_hand_tracking_status_changed)
 	receiver.source_ready.connect(main._on_camera_source_ready)
-	main._save_path = "user://test_chapter_xray.dat"
+	main._save_path = "/private/tmp/aphasia_test_chapter_xray.dat"
+	main._locale.preferences_path = "/private/tmp/aphasia_test_chapter_xray.cfg"
 	root.add_child(main)
 	main._resolve_camera_consent(false)
 	main._begin_game_session(_basement_state(), {}, false)
@@ -194,6 +195,7 @@ func _basement_state() -> MemeGameState:
 	var state := State.new()
 	state.new_run()
 	state.start_chapter1()
+	state.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_door_opened")
 	state.view_state = "npc_up"

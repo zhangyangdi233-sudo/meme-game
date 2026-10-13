@@ -123,7 +123,8 @@ func _test_invalid_tunnel_claims_are_removed() -> void:
 
 
 func _basement() -> Dictionary:
-	var progress := _accept(Director.initial_progress(), "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID})
+	var progress := _accept(Director.initial_progress(), "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID})
+	progress = _accept(progress, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID})
 	return _accept(progress, "opening_door_opened")
 
 

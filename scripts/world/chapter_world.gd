@@ -17,7 +17,6 @@ const OPENING_MANIFEST_PATH := "res://assets/chapter1/opening_manifest.json"
 const MODEL_PATHS := {"opening": "res://assets/chapter1/Opening_WhiteDoor_v2.glb", "basement": "res://assets/chapter1/Basement_Loop_v2.glb"}
 const BODY_CENTER := Vector3(0, 0.88, 0)
 const REACH_DISTANCE := 3.0
-const OPENING_WAIT_SECONDS := 6.5
 const OPENING_BLACK_SECONDS := 2.0
 const OPENING_WALK_DISTANCE := 29.5
 const TERMINAL_REACH_DISTANCE := 1.15
@@ -127,6 +126,7 @@ func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: N
 		_atmosphere = Atmosphere.new()
 		_atmosphere.name = "BasementAtmosphere"
 		add_child(_atmosphere)
+		_atmosphere.whisper_started.connect(_on_basement_whisper_started)
 		_atmosphere.configure(_asset, _contract, _progress)
 		var switch_actor: Area3D = _atmosphere.interaction_actor()
 		if switch_actor != null:
@@ -188,9 +188,12 @@ func _is_contract_xray_guide(node_name: String) -> bool:
 func sync_progress(progress: Dictionary) -> void:
 	_progress = progress.duplicate(true)
 	if not stage_ready or not _current_visit():
+		if is_instance_valid(_atmosphere):
+			_atmosphere.stop_whisper()
 		return
 	if stage == "opening":
-		_doors.opening.set_locked(not bool(progress.get("opening_knock_completed", false)))
+		_doors.opening.set_locked(not _opening_ready())
+		_start_opening_knock_if_ready()
 	elif stage == "basement":
 		if bool(progress.get("entrance_locked", false)):
 			_doors.entry.close_and_lock()
@@ -624,7 +627,7 @@ func interact(actor: Area3D) -> bool:
 		return false
 	match str(actor.get_meta("actor_type", "")):
 		"chapter1_opening":
-			if not bool(_progress.get("opening_knock_completed", false)) or _opening_requested:
+			if not _opening_ready() or _opening_requested:
 				return false
 			_opening_requested = true
 			# The authored opaque portal sits immediately behind the closed leaf.
@@ -693,10 +696,7 @@ func update_authored_events(delta: float, player_position: Vector3, _camera_forw
 		_opening_elapsed += maxf(delta, 0.0)
 		if _opening_elapsed >= OPENING_BLACK_SECONDS:
 			_asset.show()
-		if not bool(_progress.get("opening_knock_completed", false)) and not _opening_knock_started:
-			if _opening_elapsed >= OPENING_WAIT_SECONDS:
-				_opening_knock_started = true
-				_opening_knock.play()
+		_start_opening_knock_if_ready()
 		return
 	var local := _asset.to_local(player_position)
 	if not _has_previous:
@@ -817,7 +817,7 @@ func recovery_position(position: Vector3) -> Vector3:
 
 func get_interactable_actors() -> Array[Area3D]:
 	var result: Array[Area3D] = []
-	if stage == "opening" and (not bool(_progress.get("opening_knock_completed", false)) or _opening_requested):
+	if stage == "opening" and (not _opening_ready() or _opening_requested):
 		return result
 	if stage_ready and _current_visit():
 		for actor in _actors:
@@ -825,6 +825,25 @@ func get_interactable_actors() -> Array[Area3D]:
 				continue
 			result.append(actor)
 	return result
+
+
+func is_opening_narration_ready() -> bool:
+	return stage_ready and stage == "opening" and _opening_elapsed >= OPENING_BLACK_SECONDS
+
+
+func _opening_ready() -> bool:
+	return bool(_progress.get("narrator_completed", false)) and bool(_progress.get("opening_knock_completed", false))
+
+
+func _start_opening_knock_if_ready() -> void:
+	if not is_opening_narration_ready() or not _current_visit() or _exploration_paused:
+		return
+	if bool(_progress.get("opening_knock_completed", false)) or _opening_knock_started or not is_instance_valid(_opening_knock):
+		return
+	if int(_progress.get("opening_line_number", 1)) < Director.OPENING_KNOCK_LINE_NUMBER and not bool(_progress.get("narrator_completed", false)):
+		return
+	_opening_knock_started = true
+	_opening_knock.play()
 
 
 func _on_opening_knock_finished() -> void:
@@ -856,10 +875,23 @@ func tunnel_camera_target() -> Vector3:
 	return exit_camera_target()
 
 
+func _on_basement_whisper_started() -> void:
+	if _current_visit() and not _destination_preview_mode:
+		_emit_once("basement_whisper_started", _round_payload())
+
+
+func set_atmosphere_paused(value: bool) -> void:
+	if is_instance_valid(_atmosphere):
+		_atmosphere.set_audio_paused(value or _exploration_paused)
+
+
 func set_exploration_paused(value: bool) -> void:
 	_exploration_paused = value
+	set_atmosphere_paused(value)
 	if is_instance_valid(_opening_knock):
 		_opening_knock.stream_paused = value
+	if not value:
+		_start_opening_knock_if_ready()
 	for door in _doors.values():
 		door.set_paused(value)
 

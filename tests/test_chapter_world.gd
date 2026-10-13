@@ -107,24 +107,54 @@ func _test_opening(script: Script, contract: Dictionary) -> void:
 	_check(not world.get_door("opening").is_passable(), "opening stays physically closed before the knock")
 	_check(world.get_interactable_actors().is_empty(), "door has no F prompt before the knock finishes")
 	_check(not world.interact(opening_actor), "early F cannot queue an opening request")
-	world.update_authored_events(6.49, Vector3(0, 0, -17), Vector3.FORWARD)
-	_check(not knock.playing and events.is_empty(), "knock cannot start before 6.5 seconds of exploration")
+	_check(not world.is_opening_narration_ready(), "narration waits for the initial black interval")
+	world.update_authored_events(1.99, Vector3(0, 0, -17), Vector3.FORWARD)
+	_check(not world.is_opening_narration_ready(), "the black interval lasts two active seconds")
+	world.update_authored_events(0.01, Vector3(0, 0, -17), Vector3.FORWARD)
+	_check(world.is_opening_narration_ready(), "world exposes narration readiness when the ocean appears")
+	for line_number in range(1, 27):
+		world.update_authored_events(100.0, Vector3(0, 0, -17), Vector3.FORWARD)
+		_check(not knock.playing and events.is_empty(), "waiting at narration line %d cannot start the knock" % line_number)
+		_check(not world.interact(opening_actor), "no early narration line exposes the door action")
+		if line_number < 26:
+			progress = Director.dispatch(progress, "opening_narration_advanced", {"sequence_id": Director.OPENING_SEQUENCE_ID, "from_line": line_number}).progress
+			world.sync_progress(progress)
 	world.set_exploration_paused(true)
+	progress = Director.dispatch(progress, "opening_narration_advanced", {"sequence_id": Director.OPENING_SEQUENCE_ID, "from_line": 26}).progress
+	world.sync_progress(progress)
+	_check(progress.opening_line_number == 28, "the next displayed line skips the sound stage direction")
 	world.update_authored_events(30.0, Vector3(0, 0, -17), Vector3.FORWARD)
-	_check(not knock.playing, "paused exploration does not count toward the knock")
+	_check(not knock.playing, "reaching line 28 during settings cannot start the knock")
 	world.set_exploration_paused(false)
-	world.update_authored_events(0.02, Vector3(0, 0, -19), Vector3.FORWARD)
-	_check(knock.playing, "the knock begins at the authored door after 6.5 seconds")
+	_check(knock.playing, "line 28 starts the positional knock when exploration resumes")
 	_check(knock.global_position.distance_to(Vector3(0, 1.125, -18)) < 0.001, "knock originates from the door leaf center")
 	_check(not world.interact(opening_actor), "F remains unavailable during the knock")
 	_check(events.is_empty(), "playing the knock and crossing the doorway do not request the basement")
+	for frame in 3:
+		await physics_frame
+	world.set_exploration_paused(true)
+	await physics_frame
+	_check(knock.stream_paused, "settings pauses a playing knock")
+	var paused_position := knock.get_playback_position()
+	await create_timer(0.1).timeout
+	_check(absf(knock.get_playback_position() - paused_position) < 0.05, "paused settings do not consume audio playback")
+	world.set_exploration_paused(false)
 	await create_timer(knock.stream.get_length() + 0.3).timeout
 	_check(_count_event("opening_knock_completed") == 1, "finished audio emits one knock completion event")
 	progress = Director.dispatch(progress, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	world.sync_progress(progress)
 	_check(not world.get_door("opening").is_passable(), "synchronizing the completed knock does not open the door")
-	_check(world.get_interactable_actors().size() == 1, "completed knock exposes one opening actor")
-	_check(world.interact(opening_actor), "F after the knock requests the door transition")
+	_check(world.get_interactable_actors().is_empty(), "finished knock does not expose F while narration is unfinished")
+	_check(not world.interact(opening_actor), "finished knock cannot open the door while line 28 remains displayed")
+	for line_number in [28, 29]:
+		progress = Director.dispatch(progress, "opening_narration_advanced", {"sequence_id": Director.OPENING_SEQUENCE_ID, "from_line": line_number}).progress
+		world.sync_progress(progress)
+		_check(not world.interact(opening_actor), "remaining narration must be advanced before F is available")
+	progress = Director.dispatch(progress, "opening_narration_advanced", {"sequence_id": Director.OPENING_SEQUENCE_ID, "from_line": 30}).progress
+	world.sync_progress(progress)
+	_check(world.get_interactable_actors().size() == 1, "completed narration and knock expose one opening actor")
+	_check(not knock.playing, "synchronizing later narration never replays a completed knock")
+	_check(world.interact(opening_actor), "F after both completions requests the door transition")
 	_check(_count_event("opening_door_requested") == 1, "F emits one transition request")
 	_check(not world.interact(opening_actor), "repeat F cannot request a second transition")
 	_check(world.get_interactable_actors().is_empty(), "the opening prompt disappears after its request")
@@ -186,6 +216,7 @@ func _test_opening_feet_contract(script: Script, contract: Dictionary) -> void:
 	_check(configured, "flat v2 opening contract binds without legacy manifest")
 	if configured:
 		_check(is_equal_approx(world.start_position().y, 0.04), "v2 feet marker must never subtract old eye height")
+		progress = Director.dispatch(progress, "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 		progress = Director.dispatch(progress, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 		world.sync_progress(progress)
 		_check(world.get_door("opening").request_open(), "cinematic can open the unlocked authored leaf")
@@ -255,6 +286,7 @@ func _contract_fixture() -> Dictionary:
 
 func _basement_progress() -> Dictionary:
 	var p := Director.initial_progress()
+	p = Director.dispatch(p, "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	p = Director.dispatch(p, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	return Director.dispatch(p, "opening_door_opened").progress
 

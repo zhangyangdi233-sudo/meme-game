@@ -1,10 +1,10 @@
 # 第一章接入与运行
 
-更新：2026-10-10。当前路线为黑水白门开场、五轮地下室、空旷十字路口、第二层。最新说明和验证资料汇入 [2026-10-10 合并交接目录](handoff/2026-10-10/)；[2026-10-09](handoff/2026-10-09/README.md) 及更早文档保留作历史。旧隧道、三 App、资金与每日行动预算不再是当前流程。
+更新：2026-10-13。当前路线为黑水白门开场、五轮地下室、空旷十字路口、第二层。白门旁白已按用户返回稿接入，原有地下室及后续正文保持当前工程内容。[2026-10-10 合并交接目录](handoff/2026-10-10/) 记录此前验证；[2026-10-09](handoff/2026-10-09/README.md) 及更早文档保留作历史。旧隧道、三 App、资金与每日行动预算不再是当前流程。
 
 ## 启动与游玩
 
-本机普通启动使用 `D:/aphasia/Start-Aphasia.ps1`，独立开发验证使用：
+当前 Mac 本机普通启动使用父目录的 `开始第一章.command`，实际加载此 `第一章-20261009` 工程。Windows 原环境普通启动使用 `D:/aphasia/Start-Aphasia.ps1`，独立开发验证使用：
 
 ~~~powershell
 & 'D:\aphasia\Start-Chapter1-Dev.ps1'
@@ -14,6 +14,7 @@
 
 | 操作 | 入口 |
 | --- | --- |
+| 开场旁白 | 鼠标左键或触摸板点击，每次推进一句；不自动播放 |
 | 移动与转向 | WASD/方向键、鼠标；点击世界恢复鼠标视角 |
 | 交互 | 靠近目标按 F |
 | 手机、退出 CRT | Tab；开场不能打开手机 |
@@ -23,7 +24,7 @@
 
 Win/Alt-Tab 失焦释放鼠标。设置暂停开场计时、敲门、门和 CRT 镜头，关闭后继续；返回主菜单不留下旧场景推进回调。
 
-1. **开场。** 全黑 2 秒，初始门距 29.5 米，正常步速约 8–9 秒路程。有效计时到 6.5 秒开始敲门，计时包含最初黑场。完整录音约 6.243 秒；听完并靠近后按 F，镜头随慢开门向内推进，经短淡黑进入地下室。无需自行穿门。
+1. **开场。** 全黑 2 秒后显示黑水、29.5 米外白门与第一句旁白。鼠标左键或触摸板点击一次推进一句，阅读期间暂停移动、转向和手机操作。采用用户原稿编号：1 至 26 不响敲门；27 是音效说明，不显示成字幕；26 后点击进入 28，出现“看来你潜意识已经准备好了”时开始约 6.243 秒的完整敲门。继续点击 29、30，从 30 再点击结束旁白。旁白和录音都结束后，玩家可走近白门按 F，镜头随慢开门向内推进，经短淡黑进入地下室。无需自行穿门。
 2. **每轮教程。** 从楼梯顶安全平台进入，跨过入口后身后门锁住。下楼，在 CRT 内拾字、组句、投稿；退出屏幕，靠近本轮 NPC，点击“交付本轮投稿”。必须是本轮成功的非空自由组句投稿，已有字可以反复用。
 3. **普通出口。** 交付后靠近左后方门按 F，门开时镜头持续推进。前四轮门后衔接下一轮入口；第五轮使用真实十字路口场景的 portal 视图，进入十字路口。循环不再生成 12 米隧道、白光门或白闪，也不使用开场淡黑。
 4. **手机与远门。** 第 1、3 轮分别解锁信号瀑布和笔记本；第 2、4、5 轮没有新增 App，但仍须交付。十字路口无人，远门检查五轮完成与两款 App 权限，按 F 开门并穿过后进入第二层。
@@ -37,10 +38,12 @@ Win/Alt-Tab 失焦释放鼠标。设置暂停开场计时、敲门、门和 CRT 
 
 | 事件 | 参数与可信发送时机 |
 | --- | --- |
-| `narration_completed` | `{"sequence_id": "chapter1_opening"}`；只记录旁白完成，不解锁开场白门 |
+| `opening_narration_advanced` | `{"sequence_id": "chapter1_opening", "from_line": 当前编号}`；每次点击推进一句，26 跳到 28，30 后完成旁白 |
+| `narration_completed` | `{"sequence_id": "chapter1_opening"}`；受信兼容事件，记录旁白完成；仍需敲门完成才能开门 |
 | `opening_knock_completed` | 同上；由开场世界在完整敲门结束后发送 |
 | `opening_door_opened` | 开场门过场到达房间切换回调后发送，进入地下室 |
 | `entrance_threshold_crossed` | `{"round_token": captured_round_token}`；越过本轮安全入口后发送 |
+| `basement_whisper_started` | 当前 `round_token`；仅第二轮入口已锁、耳语开始时接受一次，立即持久化 `basement_whisper_played` |
 | `npc_help_completed` | 当前 NPC、任务及捕获的令牌；正式任务系统确认完成后发送 |
 | `basement_exit_requested` | 当前令牌；已完成任务且普通出口门过场完成时提交 |
 | `crossroads_gate_requested` | 由十字路口远门通过检查后发送，进入塔层 |
@@ -76,7 +79,7 @@ main.notify_chapter1("npc_help_completed", {
 | 常量/轮次 | 行为 |
 | --- | --- |
 | 第 1 轮 | 正常灯光和单钟 |
-| `FLICKER_VISIT = 1` | 第 2 轮入屋后闪灯约 3.6 秒，随后恢复 |
+| `FLICKER_VISIT = 1` | 第 2 轮入口锁住 2.5 秒后，D 耳语与闪灯同步持续 8 秒，随后声音停止、亮灯恢复 |
 | `BLACKOUT_VISIT = 2` | 第 3 轮入屋后停电，墙上开关按 F 可恢复；CRT 绿光保留 |
 | `CLOCK_WALL_VISIT = 3` | 第 4 轮 CRT 附近出现 18 个钟 |
 | `BROKEN_CLOCK_VISIT = 4` | 第 5 轮半钟，缺失手写数字仅在 X-ray 框内显示 |
@@ -102,9 +105,19 @@ video_screen.play()
 
 敲门录音来源与公有领域许可保存在 [opening_door_knock.LICENSE.txt](../assets/audio/sfx/opening_door_knock.LICENSE.txt)；地毯脚步来源、CC0 许可和剪辑记录保存在 [assets/audio/foley](../assets/audio/foley/)。文字主稿及任务动机笔记在 [docs/narrative](narrative/README.md)，原企划、流程 Word 和草图在 [docs/design_originals](design_originals/)。
 
+## 2026-10-13 旁白与耳语接入
+
+开场旁白使用用户选定的 03 六个单音，音高保持原样；[chapter_narration_blips.gd](../scripts/audio/chapter_narration_blips.gd) 按约 130ms 的基础字节奏播放、标点停顿。整句显示与单击推进规则不变。每帧刷新不重播，换句、隐藏、设置、失焦或退树会丢弃当前句剩余声音。两种声音都走 Master 音量。
+
+第二轮地下室使用 D 原始六单音重排成精确 8 秒 WAV，PCM16 / 44.1kHz，无损导入、不循环。耳语在耳边播放，音量为 -11dB；灯光继续沿用已有闪烁模式。主机在手机、设置、失焦、CRT、门过场统一冻结音频和闪灯时间。开关可提前取消；正常结束恢复亮灯。`basement_whisper_played` 在开始时自动保存，读取已触发存档不重播，旧存档缺失字段按未触发处理。门内下一房间预览不会开始事件。
+
+资源及来源见 [assets/audio/dialogue](../assets/audio/dialogue/README.md)。接入前两份可回溯源码备份及逐文件哈希位于外层工作区 `本地备份/2026-10-13-旁白耳语接入前/`。普通角色对白的女性/中性新音色仍处于试听阶段。
+
+本轮 Godot 4.6.3 headless 验证通过：`test_chapter_narration_blips.gd`、`test_basement_atmosphere.gd`、`test_basement_loop_director.gd`、`test_opening_door_flow.gd`、`test_chapter_world.gd` 和新增 `test_chapter_voice_integration.gd`（生产主场景/GLB，36 项检查）。最后一项覆盖实际入口跨越、事件转发、开始自动存档、手机/设置/失焦/CRT 暂停、自然结束、主菜单退出与 Continue 不重播。测试保存路径隔离到 `/private/tmp`。`test_chapter_world` 首次并发运行敲门结束时间断言失败，串行复测通过；不是手动完整通关或耳机混音验收。日志仍有本机 CA 证书和部分主场景退出资源诊断；资产导入成功，但沙盒不允许保存 Godot 安装目录中的编辑器个人设置。
+
 ## 存档与验证边界
 
-状态版本保持 5。`chapter1_progress` 保存阶段、轮次、敲门完成、入口锁定、任务完成、两款 App、转换令牌和陈设种子。旧权限只依据连续有效任务迁移；隐藏物品使用独立字段。旧活动 babel 窗口转为 social，旧资金与行动限制清理，旧隧道存档恢复到安全入口。已听完敲门不重播，未听完则重新开始当前开场计时。
+状态版本保持 5。`chapter1_progress` 保存阶段、轮次、旁白编号 `opening_line_number`、旁白与敲门完成状态、入口锁定、任务完成、两款 App、转换令牌和陈设种子。继续游戏恢复当前旁白编号。已听完敲门不重播，未听完且已到 28 则黑场结束后重播录音；1 至 26 不因载入或等待自动响起。没有旁白编号的旧存档在敲门已完成时兼容为旁白已完成。旧权限只依据连续有效任务迁移；隐藏物品使用独立字段。旧活动 babel 窗口转为 social，旧资金与行动限制清理，旧隧道存档恢复到安全入口。
 
 主菜单调用 `start_chapter1_game()`；`new_game()` 保留给旧路线测试与预览，不能用它代表普通新游戏。没有 `chapter1_progress` 的旧存档继续原塔层路线。
 

@@ -15,8 +15,10 @@ func _init() -> void:
 	_assert_true(_director != null, "chapter director should provide event-driven chapter progress")
 	if _director != null:
 		test_opening_requires_knock_then_opened_event()
+		test_numbered_narration_advances_once_and_restores()
 		test_legacy_narration_progress_migrates_only_after_opening()
 		test_five_visits_require_sealing_and_current_help()
+		test_basement_whisper_is_consumed_once_and_saved()
 		test_gate_requires_all_tasks_and_exact_apps()
 		test_rewards_are_configurable_and_idempotent()
 		test_corrupted_progress_never_grants_prerequisites()
@@ -62,9 +64,57 @@ func test_opening_requires_knock_then_opened_event() -> void:
 	_assert_rejected(progress, "narration_completed", {"sequence_id": "chapter1_opening"}, "narration cannot fire outside the opening")
 	var silent: Dictionary = _director.initial_progress()
 	silent = _accept(silent, "opening_knock_completed", {"sequence_id": "chapter1_opening"}, "opening_knock_completed")
-	silent = _accept(silent, "opening_door_opened", {}, "enter_basement")
-	_assert_eq(silent.get("narrator_completed"), false, "entering the basement never fabricates narration completion")
-	_assert_eq(silent.get("phase"), "basement", "the knock and door flow is independent of narration")
+	_assert_rejected(silent, "opening_door_opened", {}, "a completed knock cannot bypass unfinished narration")
+	_assert_eq(silent.get("narrator_completed"), false, "knock completion never fabricates narration completion")
+	_assert_eq(silent.get("phase"), "opening", "both narration and knock are required before the door animation")
+
+
+func test_numbered_narration_advances_once_and_restores() -> void:
+	var progress: Dictionary = _director.initial_progress()
+	_assert_eq(progress.opening_line_number, 1, "new narration starts at original line one")
+	for payload in [{}, {"sequence_id": "unrelated_sequence", "from_line": 1}, {"sequence_id": "chapter1_opening", "from_line": 2}, {"sequence_id": "chapter1_opening", "from_line": "1"}, {"sequence_id": "chapter1_opening", "from_line": true}]:
+		_assert_rejected(progress, "opening_narration_advanced", payload, "advancement requires the exact sequence and current numeric line")
+	progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 1}, "opening_narration_advanced")
+	_assert_eq(progress.opening_line_number, 2, "one click advances exactly one line")
+	_assert_rejected(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 1}, "a duplicated click cannot skip another line")
+	for line_number in range(2, 26):
+		progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": line_number}, "opening_narration_advanced")
+		_assert_eq(progress.opening_line_number, line_number + 1, "early narration advances in authored order")
+	_assert_eq(progress.opening_line_number, 26, "the last silent subtitle is original line 26")
+	_assert_eq(_director.normalize_progress(JSON.parse_string(JSON.stringify(progress))), progress, "a mid-narration checkpoint survives JSON")
+	var state = StateScript.new()
+	state.new_run()
+	state.start_chapter1()
+	state.chapter1_progress = progress.duplicate(true)
+	_check_roundtrip(state)
+	progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 26}, "opening_narration_advanced")
+	_assert_eq(progress.opening_line_number, 28, "line 27 is a stage direction and is never shown as a subtitle")
+	_assert_rejected(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 27}, "the stage direction is not an advanceable line")
+	_assert_eq(progress.narrator_completed, false, "reaching the knock cue does not finish the narration")
+	progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 28}, "opening_narration_advanced")
+	progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 29}, "opening_narration_advanced")
+	_assert_eq(progress.narrator_completed, false, "showing final line 30 still waits for the player's next click")
+	progress = _accept(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 30}, "narration_completed")
+	_assert_eq(progress.opening_line_number, 30, "completed narration retains its last authored line")
+	_assert_eq(progress.narrator_completed, true, "advancing the final line completes the narration")
+	_assert_eq(progress.opening_knock_completed, false, "clicking through narration never fakes the audio completion")
+	_assert_rejected(progress, "opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": 30}, "the final click is idempotent")
+	_assert_rejected(progress, "opening_door_opened", {}, "finished narration still waits for the full knock")
+	for invalid_line in [0, 27, 31, "28", 28.5, true, {"invalid": true}]:
+		var invalid := {"phase": "tower", "opening_line_number": invalid_line, "narrator_completed": true, "opening_knock_completed": true}
+		var normalized: Dictionary = _director.normalize_progress(invalid)
+		_assert_eq(normalized.opening_line_number, 1, "invalid new-format line numbers restart safely")
+		_assert_eq(normalized.narrator_completed, false, "an invalid line cannot inherit narration completion")
+		_assert_eq(normalized.phase, "opening", "claimed later phases cannot override invalid narration")
+	var forged := {"phase": "basement", "opening_line_number": 12, "narrator_completed": true, "opening_knock_completed": true}
+	var normalized: Dictionary = _director.normalize_progress(forged)
+	_assert_eq(normalized.opening_line_number, 12, "new-format saves keep their actual mid-narration line")
+	_assert_eq(normalized.narrator_completed, false, "a later phase and knock cannot fabricate completed narration")
+	_assert_eq(normalized.phase, "opening", "new-format incomplete narration returns to opening")
+	var missing_knock := {"phase": "basement", "opening_line_number": 30, "narrator_completed": true}
+	normalized = _director.normalize_progress(missing_knock)
+	_assert_eq(normalized.opening_knock_completed, false, "new-format saves cannot infer a missing knock from a later phase")
+	_assert_eq(normalized.phase, "opening", "new-format saves still require their recorded knock completion")
 
 
 func test_legacy_narration_progress_migrates_only_after_opening() -> void:
@@ -88,6 +138,13 @@ func test_legacy_narration_progress_migrates_only_after_opening() -> void:
 		legacy.narrator_completed = invalid_narration
 		normalized = _director.normalize_progress(legacy)
 		_assert_eq(normalized.get("phase"), "opening", "legacy migration requires strictly boolean completed narration")
+	for saved_phase in ["opening", "basement"]:
+		var old_knock_only := {"phase": saved_phase, "opening_knock_completed": true, "narrator_completed": false}
+		normalized = _director.normalize_progress(old_knock_only)
+		_assert_eq(normalized.phase, saved_phase, "pre-narration saves retain their reached phase")
+		_assert_eq(normalized.narrator_completed, true, "old completed knocks migrate to completed narration")
+		_assert_eq(normalized.opening_line_number, 30, "old completed knocks receive the final line marker")
+		_assert_eq(_director.normalize_progress(normalized), normalized, "numbered-narration migration is stable")
 
 
 func test_five_visits_require_sealing_and_current_help() -> void:
@@ -129,6 +186,64 @@ func test_five_visits_require_sealing_and_current_help() -> void:
 	_assert_eq(_director.get_current_round(progress), {}, "there is no active NPC outside the basement")
 
 
+func test_basement_whisper_is_consumed_once_and_saved() -> void:
+	var opening: Dictionary = _director.initial_progress()
+	_assert_eq(opening.get("basement_whisper_played"), false, "a new run has not heard the basement whisper")
+	_assert_rejected(opening, "basement_whisper_started", {"round_token": 0}, "the opening cannot consume the basement whisper")
+	var progress := _complete_current_round(_basement_progress())
+	_assert_rejected(progress, "basement_whisper_started", {"round_token": progress.transition_serial}, "the first basement cannot trigger the second visit's whisper")
+	progress = _accept(progress, "basement_exit_requested", {"round_token": progress.transition_serial}, "basement_loop")
+	var token: int = progress.transition_serial
+	_assert_rejected(progress, "basement_whisper_started", {"round_token": token}, "the whisper waits until the second basement entrance seals")
+	progress = _accept(progress, "entrance_threshold_crossed", {"round_token": token}, "entrance_locked")
+	_assert_rejected(progress, "basement_whisper_started", {}, "the whisper requires its current visit token")
+	for invalid_token in [token - 1, token + 1, str(token), true, 2.5, null, {"invalid": true}]:
+		_assert_rejected(progress, "basement_whisper_started", {"round_token": invalid_token}, "missing, stale and malformed tokens cannot consume the whisper")
+	var before := progress.duplicate(true)
+	progress = _accept(progress, "basement_whisper_started", {"round_token": float(token)}, "basement_whisper_started")
+	_assert_eq(progress.get("basement_whisper_played"), true, "the whisper is consumed at playback start, before its audio completes")
+	before.basement_whisper_played = true
+	_assert_eq(progress, before, "starting the whisper changes no route, task, reward or visit token")
+	_assert_rejected(progress, "basement_whisper_started", {"round_token": token}, "duplicate start callbacks cannot replay the whisper")
+	_assert_eq(_director.normalize_progress(progress), progress, "normalization retains the consumed whisper")
+	var state = StateScript.new()
+	state.new_run()
+	state.start_chapter1()
+	state.chapter1_progress = progress.duplicate(true)
+	_check_roundtrip(state)
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(state.to_save_data()))
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data(saved), "a consumed whisper loads through the ordinary JSON save envelope")
+	_assert_eq(restored.chapter1_progress.get("basement_whisper_played"), true, "loading after playback starts never resets the once-only marker")
+	_assert_true(not restored.notify_chapter1("basement_whisper_started", {"round_token": token}).accepted, "a restored consumed whisper rejects another start")
+	saved.state.chapter1_progress.erase("basement_whisper_played")
+	var legacy = StateScript.new()
+	_assert_true(legacy.load_save_data(saved), "pre-whisper saves remain loadable")
+	_assert_eq(legacy.chapter1_progress.get("basement_whisper_played"), false, "an absent legacy whisper flag defaults to false")
+	_assert_true(legacy.notify_chapter1("basement_whisper_started", {"round_token": token}).accepted, "an eligible old save can hear its first whisper")
+	for invalid_flag in ["true", 1, 1.0, [], {"invalid": true}]:
+		var invalid := progress.duplicate(true)
+		invalid.basement_whisper_played = invalid_flag
+		_assert_eq(_director.normalize_progress(invalid).get("basement_whisper_played"), false, "only a boolean true counts as a recorded whisper")
+	progress = _accept(progress, "npc_help_completed", _help_payload(progress), "help_completed")
+	progress = _accept(progress, "basement_exit_requested", {"round_token": token}, "basement_loop")
+	for round_index in range(2, 5):
+		_assert_eq(progress.get("basement_whisper_played"), true, "changing basement visits retains the once-only marker")
+		progress = _complete_current_round(progress)
+		var unheard_later := progress.duplicate(true)
+		unheard_later.basement_whisper_played = false
+		_assert_rejected(unheard_later, "basement_whisper_started", {"round_token": progress.transition_serial}, "later visits cannot play a missed second-visit whisper")
+		progress = _accept(progress, "basement_exit_requested", {"round_token": progress.transition_serial}, "basement_loop" if round_index < 4 else "enter_crossroads")
+	_assert_eq(progress.get("basement_whisper_played"), true, "crossroads keeps the consumed whisper")
+	_assert_rejected(progress, "basement_whisper_started", {"round_token": progress.transition_serial}, "crossroads cannot replay the basement whisper")
+	progress = _accept(progress, "crossroads_gate_requested", {}, "enter_tower")
+	_assert_eq(progress.get("basement_whisper_played"), true, "the rest of the chapter keeps the consumed whisper")
+	state.chapter1_progress = progress.duplicate(true)
+	_check_roundtrip(state)
+	state.start_chapter1()
+	_assert_eq(state.chapter1_progress.get("basement_whisper_played"), false, "starting a fresh chapter resets the whisper")
+
+
 func test_gate_requires_all_tasks_and_exact_apps() -> void:
 	var progress := _crossroads_progress()
 	_assert_rejected(_basement_progress(), "crossroads_gate_requested", {}, "the gate cannot be used out of stage")
@@ -150,6 +265,7 @@ func test_rewards_are_configurable_and_idempotent() -> void:
 	var progress: Dictionary = _director.initial_progress()
 	_assert_true(bool(progress.get("reward_config", {}).get("development_only", false)), "default reward mapping must be explicitly development-only")
 	progress.reward_config = {"development_only": false, "task_app_unlocks": {"basement_help_02": APP_IDS.duplicate()}}
+	progress = _accept(progress, "narration_completed", {"sequence_id": "chapter1_opening"}, "narration_completed")
 	progress = _accept(progress, "opening_knock_completed", {"sequence_id": "chapter1_opening"}, "opening_knock_completed")
 	progress = _accept(progress, "opening_door_opened", {}, "enter_basement")
 	progress = _complete_current_round(progress)
@@ -181,7 +297,7 @@ func test_corrupted_progress_never_grants_prerequisites() -> void:
 	_assert_eq(normalized.round_index, 1, "the first unfinished round must still be completed")
 	_assert_eq(normalized.completed_task_ids, [TASK_IDS[0]], "unknown, duplicate and out-of-order completions are removed")
 	_assert_eq(normalized.unlocked_app_ids, [APP_IDS[0]], "only app permissions supported by retained completion remain")
-	for key in ["completed_task_ids", "unlocked_app_ids", "gate_item_ids", "reward_config", "round_index", "transition_serial", "phase", "entrance_locked", "narrator_completed", "opening_knock_completed"]:
+	for key in ["completed_task_ids", "unlocked_app_ids", "gate_item_ids", "reward_config", "round_index", "transition_serial", "phase", "entrance_locked", "opening_line_number", "narrator_completed", "opening_knock_completed"]:
 		var invalid: Dictionary = _director.initial_progress()
 		invalid[key] = {"not": "the expected type"}
 		var safe: Dictionary = _director.normalize_progress(invalid)
@@ -290,6 +406,7 @@ func _check_roundtrip(state: RefCounted) -> void:
 
 func _basement_progress() -> Dictionary:
 	var progress: Dictionary = _director.initial_progress()
+	progress = _accept(progress, "narration_completed", {"sequence_id": "chapter1_opening"}, "narration_completed")
 	progress = _accept(progress, "opening_knock_completed", {"sequence_id": "chapter1_opening"}, "opening_knock_completed")
 	return _accept(progress, "opening_door_opened", {}, "enter_basement")
 

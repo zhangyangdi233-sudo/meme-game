@@ -2,6 +2,8 @@ class_name BasementLoopDirector
 extends RefCounted
 
 const OPENING_SEQUENCE_ID := "chapter1_opening"
+const OPENING_KNOCK_LINE_NUMBER := 28
+const OPENING_LAST_LINE_NUMBER := 30
 const TASK_IDS := ["basement_help_01", "basement_help_02", "basement_help_03", "basement_help_04", "basement_help_05"]
 const NPC_IDS := ["basement_npc_01", "basement_npc_02", "basement_npc_03", "basement_npc_04", "basement_npc_05"]
 const REQUIRED_GATE_ITEM_IDS := ["chapter1_gate_item_01", "chapter1_gate_item_02", "chapter1_gate_item_03"]
@@ -24,8 +26,10 @@ static func initial_progress(randomize_decoration: bool = true) -> Dictionary:
 	return {
 		"phase": "opening",
 		"round_index": 0,
+		"opening_line_number": 1,
 		"narrator_completed": false,
 		"opening_knock_completed": false,
+		"basement_whisper_played": false,
 		"entrance_locked": false,
 		"exit_tunnel_entered": false,
 		"completed_task_ids": [],
@@ -39,11 +43,19 @@ static func initial_progress(randomize_decoration: bool = true) -> Dictionary:
 
 static func normalize_progress(raw: Dictionary) -> Dictionary:
 	var progress := initial_progress(false)
+	# Consume the whisper when it starts, and retain that fact for the whole run.
+	# Older saves without this field still get their first eligible playback.
+	progress.basement_whisper_played = _is_true(raw.get("basement_whisper_played", false))
 	progress.decoration_seed = clampi(_integer_or(raw.get("decoration_seed", 1701), 1701), 1, 2147483646)
 	var raw_config: Variant = raw.get("reward_config", {})
 	var legacy_app_schema: bool = not raw.has("unlocked_app_ids") and not (raw_config is Dictionary and raw_config.has("task_app_unlocks"))
 	progress.reward_config = _normalize_reward_config(raw.get("reward_config", DEVELOPMENT_REWARD_CONFIG), legacy_app_schema)
-	progress.narrator_completed = _is_true(raw.get("narrator_completed", false))
+	var has_line_number := raw.has("opening_line_number")
+	var line_number := _integer_or(raw.get("opening_line_number", 1), 1)
+	if line_number < 1 or line_number > OPENING_LAST_LINE_NUMBER or line_number == OPENING_KNOCK_LINE_NUMBER - 1:
+		line_number = 1
+	progress.opening_line_number = line_number
+	progress.narrator_completed = _is_true(raw.get("narrator_completed", false)) and (not has_line_number or line_number == OPENING_LAST_LINE_NUMBER)
 	var phase_value: Variant = raw.get("phase", "opening")
 	var phase: String = phase_value if phase_value is String else "opening"
 	if phase not in ["opening", "basement", "crossroads", "tower"]:
@@ -51,10 +63,17 @@ static func normalize_progress(raw: Dictionary) -> Dictionary:
 	progress.opening_knock_completed = _is_true(raw.get("opening_knock_completed", false))
 	# Older saves already beyond the opening keep their reached stage. An old
 	# opening save still hears the knock; an explicit new flag always wins.
-	if not raw.has("opening_knock_completed") and phase != "opening" and progress.narrator_completed:
+	if not has_line_number and not raw.has("opening_knock_completed") and phase != "opening" and progress.narrator_completed:
 		progress.opening_knock_completed = true
+	# Before numbered narration existed, a completed knock was the whole gate.
+	# Preserve those checkpoints, but never infer narration from a claimed later
+	# phase when the save explicitly carries a new-format narration position.
+	if not has_line_number and progress.opening_knock_completed:
+		progress.narrator_completed = true
+	if progress.narrator_completed:
+		progress.opening_line_number = OPENING_LAST_LINE_NUMBER
 	# An asserted later phase never supplies a missing knock, task or reward.
-	if not progress.opening_knock_completed or phase == "opening":
+	if not progress.narrator_completed or not progress.opening_knock_completed or phase == "opening":
 		return progress
 
 	var round_index := clampi(_integer_or(raw.get("round_index", 0), 0), 0, 4)
@@ -116,8 +135,20 @@ static func dispatch(progress: Dictionary, event_id: String, payload: Dictionary
 	var next := normalize_progress(progress)
 	var transition := ""
 	match event_id:
+		"opening_narration_advanced":
+			if next.phase == "opening" and not next.narrator_completed and payload.get("sequence_id") == OPENING_SEQUENCE_ID and _integer_or(payload.get("from_line"), -1) == next.opening_line_number:
+				if next.opening_line_number == OPENING_LAST_LINE_NUMBER:
+					next.narrator_completed = true
+					transition = "narration_completed"
+				else:
+					next.opening_line_number += 1
+					# Original line 27 is the knock stage direction, not a subtitle.
+					if next.opening_line_number == OPENING_KNOCK_LINE_NUMBER - 1:
+						next.opening_line_number = OPENING_KNOCK_LINE_NUMBER
+					transition = "opening_narration_advanced"
 		"narration_completed":
 			if next.phase == "opening" and not next.narrator_completed and payload.get("sequence_id") == OPENING_SEQUENCE_ID:
+				next.opening_line_number = OPENING_LAST_LINE_NUMBER
 				next.narrator_completed = true
 				transition = "narration_completed"
 		"opening_knock_completed":
@@ -125,7 +156,7 @@ static func dispatch(progress: Dictionary, event_id: String, payload: Dictionary
 				next.opening_knock_completed = true
 				transition = "opening_knock_completed"
 		"opening_door_opened":
-			if next.phase == "opening" and next.opening_knock_completed:
+			if next.phase == "opening" and next.narrator_completed and next.opening_knock_completed:
 				next.phase = "basement"
 				next.transition_serial += 1
 				transition = "enter_basement"
@@ -133,6 +164,10 @@ static func dispatch(progress: Dictionary, event_id: String, payload: Dictionary
 			if next.phase == "basement" and not next.entrance_locked and _matches_round_token(next, payload):
 				next.entrance_locked = true
 				transition = "entrance_locked"
+		"basement_whisper_started":
+			if next.phase == "basement" and next.round_index == 1 and next.entrance_locked and not next.basement_whisper_played and _matches_round_token(next, payload):
+				next.basement_whisper_played = true
+				transition = "basement_whisper_started"
 		"npc_help_completed":
 			if next.phase == "basement" and next.entrance_locked and _matches_round_token(next, payload):
 				var current := get_current_round(next)

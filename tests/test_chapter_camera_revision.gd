@@ -22,6 +22,7 @@ func _run() -> void:
 	opening.update_authored_events(0.2, opening.start_position(), Vector3.FORWARD)
 	_check(opening.imported_root.visible, "door appears after two seconds")
 	opening.free()
+	progress = Director.dispatch(progress, "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	progress = Director.dispatch(progress, "opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	progress = Director.dispatch(progress, "opening_door_opened", {}).progress
 	var world := World.new()

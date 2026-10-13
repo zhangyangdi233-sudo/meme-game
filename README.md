@@ -2,11 +2,11 @@
 
 Godot 4.6 心理恐怖游戏。玩家在重复的地下室中拾字、组句、投稿，再把本轮投稿交给 NPC；语言规则和房间异常逐渐改变体验。
 
-**当前说明更新于 2026-10-10。** 以 [合并交接目录](docs/handoff/2026-10-10/)、[当前流程](GAME_FLOW_MEMORY.md) 和 [第一章接入说明](docs/chapter1-integration.md) 为准。[2026-10-09 交接](docs/handoff/2026-10-09/README.md) 与更早文档保留作历史资料，其中隧道、三款 App、资金和每日行动的描述已被取代。
+**当前说明更新于 2026-10-13。** 以 [当前流程](GAME_FLOW_MEMORY.md) 和 [第一章接入说明](docs/chapter1-integration.md) 为准。本次已接入用户确认的白门中文旁白与口语日语，角色名对应“埃弥亣 / エミダー”；当前剩余中文校对稿及定位资料见 [文本校对目录](docs/text_review/2026-10-13/)。[2026-10-10 合并交接](docs/handoff/2026-10-10/)、[2026-10-09 交接](docs/handoff/2026-10-09/README.md) 与更早文档保留作历史资料，其中旧隧道、三款 App、资金和每日行动的描述已被取代。
 
 ## 当前玩法
 
-1. 开场全黑 2 秒，之后显出黑水和较暗的白光门。初始门距为 29.5 米，正常步速约 8–9 秒路程；开场有效计时到 6.5 秒时开始敲门，完整录音约 6.243 秒。听完并靠近后按 F，镜头随门开启向内推进，经短淡黑进入地下室。
+1. 开场全黑 2 秒，之后显出黑水、29.5 米外的白光门与第一句旁白。鼠标或触摸板每点击一次推进一句，原稿第 28 条出现时才敲门；第 27 条是音效说明，不显示为字幕。第 30 条再点击后结束旁白，中文和日语均遵循相同顺序。旁白与完整敲门录音均结束后，靠近按 F，镜头随门开启向内推进，经短淡黑进入地下室。
 2. 地下室共五轮。每轮下楼，在真实 CRT 屏幕内浏览帖子、拾字、组句、投稿，然后退出屏幕，向当前 NPC 交付本轮成功投稿。已有字可以反复使用。
 3. 第 1 轮解锁手机“信号瀑布”，第 3 轮解锁“笔记本”。第 2、4、5 轮仍需交付，第 5 轮不再授予新 App。
 4. 交付后靠近左后方普通出口门按 F。门开时镜头持续推进，前四轮衔接下一轮楼梯入口；第五轮门内呈现真实十字路口视图，并进入该空间。循环没有黑隧道、白光门或白闪。
@@ -21,7 +21,7 @@ Godot 4.6 心理恐怖游戏。玩家在重复的地下室中拾字、组句、�
 | 轮次 | 当前异常 |
 | --- | --- |
 | 1 | 正常灯光、单个墙钟 |
-| 2 | 进屋后短暂闪灯约 3.6 秒，然后恢复 |
+| 2 | 入口锁住 2.5 秒后，耳语与闪灯持续 8 秒，然后停止声音、恢复亮灯 |
 | 3 | 进屋后停电，可在墙上开关按 F 重新开灯；CRT 绿光保留 |
 | 4 | CRT 附近出现 18 个钟组成的钟墙 |
 | 5 | 墙钟缺半边，缺失的手写数字只在手势 X-ray 窗口内显示 |
@@ -50,7 +50,8 @@ WASD/方向键移动，鼠标转向，F 交互，Tab 开关手机或退出 CRT�
 | UI、CRT 和字词物理 | [babel_meme_game.gd](scripts/babel_meme_game.gd)、[chapter_terminal_session.gd](scripts/ui/chapter_terminal_session.gd)、[word_physics_canvas.gd](scripts/ui/word_physics_canvas.gd) |
 | 正式任务与视频接入 API | [第一章接入说明](docs/chapter1-integration.md) |
 | 可编辑 Blender 源文件 | [source_assets/blender_basement_loop_v2](source_assets/blender_basement_loop_v2/README.md) |
-| 文字主稿与接入笔记 | [docs/narrative](docs/narrative/README.md) |
+| 当前中文修改稿与回填定位 | [docs/text_review/2026-10-13](docs/text_review/2026-10-13/)；保留编号，仅修改中文 |
+| 历史文字创作与接入笔记 | [docs/narrative](docs/narrative/README.md) |
 | 原企划、流程原稿与房型草图 | [docs/design_originals](docs/design_originals/) |
 
 原 Blender、GLB、旧文档和文字稿均保留。本轮房间修补、陈设和异常由运行时代码生成；游戏画面不能视为已经回写到 Blender 的版本。换模型时保留门轴、碰撞、锚点、独立 4:3 屏幕 UV 和 X-ray 标记，并同步 [资产合同](assets/chapter1/asset_contract.json)。五轮沿用已有角色贴图和对话，正式新任务正文与用户视频仍待接入。

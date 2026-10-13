@@ -1,7 +1,7 @@
 extends SceneTree
 ## Regression for the former tunnel route: each ordinary door now joins rooms.
 
-const OUTPUT := "D:/aphasia/outputs/door_camera_revision"
+const OUTPUT := "/private/tmp/aphasia_door_camera_revision"
 var main
 var viewport: SubViewport
 var failures: Array[String] = []
@@ -21,12 +21,14 @@ func _run() -> void:
 	root.add_child(viewport)
 	main = load("res://scenes/babel_meme_game.tscn").instantiate()
 	main._save_path = OUTPUT.path_join("door_flow_save.dat")
+	main._locale.preferences_path = OUTPUT.path_join("door_flow_preferences.cfg")
 	viewport.add_child(main)
 	main._resolve_camera_consent(false)
 	main._locale.set_locale("zh")
 	main.start_chapter1_game()
 	main.set_process(false)
 	main.set_physics_process(false)
+	main.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_door_opened")
 	for visit in 5:
@@ -92,6 +94,7 @@ func _run() -> void:
 		if visit == 0 or visit == 4:
 			await _capture("03_next_basement" if visit == 0 else "04_crossroads_arrival")
 	main.start_chapter1_game()
+	main.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_door_opened")
 	var token: int = main.game.chapter1_progress.transition_serial

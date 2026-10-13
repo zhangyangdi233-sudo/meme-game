@@ -3,7 +3,7 @@ extends SceneTree
 
 const World = preload("res://scripts/world/chapter_world.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
-const OUTPUT := "D:/aphasia/outputs/basement_followup_20261010/doors"
+const OUTPUT := "/private/tmp/aphasia_basement_exit_preview"
 var checks := 0
 var failures: Array[String] = []
 var rows: Array[Dictionary] = []
@@ -21,7 +21,7 @@ func _run() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(viewport)
 	for visit in 5:
-		var progress: Dictionary = Director.initial_progress()
+		var progress: Dictionary = Director.dispatch(Director.initial_progress(), "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 		progress.phase = "basement"
 		progress.narrator_completed = true
 		progress.opening_knock_completed = true

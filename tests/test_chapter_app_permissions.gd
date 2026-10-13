@@ -60,6 +60,7 @@ func _test_default_rewards_and_gate() -> void:
 func _test_custom_rewards_and_legacy_migration() -> void:
 	var progress := Director.initial_progress()
 	progress.reward_config = {"development_only": false, "task_app_unlocks": {"basement_help_02": ["babel", "social", "notebook", "social", "unknown"]}}
+	progress = _event(progress, "narration_completed", {"sequence_id": "chapter1_opening"})
 	progress = _event(progress, "opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	progress = _event(progress, "opening_door_opened")
 	progress = _complete(progress)
@@ -304,6 +305,7 @@ func _test_submission_belongs_to_current_visit_and_survives_save() -> void:
 
 func _basement() -> Dictionary:
 	var progress := Director.initial_progress()
+	progress = _event(progress, "narration_completed", {"sequence_id": "chapter1_opening"})
 	progress = _event(progress, "opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	return _event(progress, "opening_door_opened")
 

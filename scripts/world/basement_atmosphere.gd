@@ -3,6 +3,8 @@ extends Node3D
 ## All positions below are Godot metres in the imported room's local space.
 ## The original GLB remains intact; this module corrects its runtime instance.
 
+signal whisper_started
+
 const Binding = preload("res://scripts/world/chapter_asset_binding.gd")
 const XRAY_LAYER := 1 << 19
 const TEXTURE_DIR := "res://assets/chapter1/atmosphere/"
@@ -10,7 +12,9 @@ const FLICKER_VISIT := 1 # zero-based: second visit
 const BLACKOUT_VISIT := 2
 const CLOCK_WALL_VISIT := 3
 const BROKEN_CLOCK_VISIT := 4
-const FLICKER_SECONDS := 3.6
+const FLICKER_SECONDS := 8.0
+const FLICKER_DELAY := 2.5
+const WHISPER_PATH := "res://assets/audio/dialogue/basement_whisper_8s.wav"
 const WALL_WEAR_SEED := 604213 # Authoring seed, independent of run decorations.
 
 var _asset: Node3D
@@ -26,11 +30,18 @@ var _switch_rocker: Node3D
 var _clock_hands: Array[Node3D] = []
 var _textures: Dictionary = {}
 var _clock_time := 0.0
+var _audio_paused := false
+var _whisper: AudioStreamPlayer
+
+
+func _exit_tree() -> void:
+	stop_whisper()
 
 
 func configure(asset: Node3D, _contract: Dictionary, progress: Dictionary) -> void:
 	_asset = asset
 	_round = int(progress.get("round_index", 0))
+	_anomaly_cancelled = _round == FLICKER_VISIT and bool(progress.get("basement_whisper_played", false))
 	global_transform = asset.global_transform
 	_ground_npcs()
 	# Synthetic chapter fixtures intentionally have no furniture. Do not add
@@ -43,6 +54,12 @@ func configure(asset: Node3D, _contract: Dictionary, progress: Dictionary) -> vo
 	_dress_furniture()
 	_build_switch(int(progress.get("transition_serial", 0)))
 	_build_clocks()
+	if _round == FLICKER_VISIT:
+		_whisper = AudioStreamPlayer.new()
+		_whisper.name = "BasementWhisper"
+		_whisper.stream = load(WHISPER_PATH) as AudioStreamWAV
+		_whisper.volume_db = -11.0
+		add_child(_whisper)
 	_dress_exit_table(int(progress.get("decoration_seed", 1701)))
 	set_meta("anomaly", ["normal", "flicker", "blackout", "clock_wall", "xray_broken_clock"][clampi(_round, 0, 4)])
 
@@ -55,6 +72,7 @@ func toggle_lights() -> bool:
 	if _switch == null:
 		return false
 	_anomaly_cancelled = true
+	stop_whisper()
 	_apply_light_state(not _lights_on)
 	return true
 
@@ -63,20 +81,40 @@ func lights_are_on() -> bool:
 	return _lights_on
 
 
+func set_audio_paused(value: bool) -> void:
+	_audio_paused = value
+	if is_instance_valid(_whisper):
+		_whisper.stream_paused = value
+
+
+func stop_whisper() -> void:
+	if is_instance_valid(_whisper):
+		_whisper.stop()
+
+
 func update_visit(delta: float, entrance_locked: bool) -> void:
+	if _audio_paused:
+		return
 	_clock_time += maxf(delta, 0.0)
 	for hand in _clock_hands:
 		hand.rotation.z = float(hand.get_meta("initial_angle", 0.0)) - _clock_time * TAU / 60.0
 	if not entrance_locked or _lights.is_empty() or _anomaly_cancelled:
 		return
 	_elapsed += maxf(delta, 0.0)
-	if _round == FLICKER_VISIT and _elapsed >= 2.5:
-		_anomaly_started = true
-		var t := _elapsed - 2.5
+	if _round == FLICKER_VISIT and _elapsed >= FLICKER_DELAY:
+		var t := _elapsed - FLICKER_DELAY
+		if not _anomaly_started:
+			_anomaly_started = true
+			if t < FLICKER_SECONDS and is_instance_valid(_whisper):
+				_whisper.play(t)
+			# Persist at start. Progress synchronization must not restart or cancel
+			# the current instance; only configure() consumes a restored flag.
+			whisper_started.emit()
 		if t < FLICKER_SECONDS:
 			var phase := int(t * 11.0)
 			_apply_light_state(phase % 5 != 1 and phase % 7 != 2)
 		else:
+			stop_whisper()
 			_apply_light_state(true)
 			_anomaly_cancelled = true
 	elif _round == BLACKOUT_VISIT and _elapsed >= 3.0 and not _anomaly_started:

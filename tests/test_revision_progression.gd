@@ -34,6 +34,7 @@ func _init() -> void:
 	check(loaded.load_save_data(saved), "legacy-shaped resource save loads")
 	check(loaded.active_app == "social" and loaded.money == 0 and not loaded.needs_day_settlement and loaded.can_spend_action(), "old save migrates removed app and budgets")
 	var progress: Dictionary = Loop.initial_progress()
+	progress = Loop.dispatch(progress, "narration_completed", {"sequence_id": Loop.OPENING_SEQUENCE_ID}).progress
 	progress = Loop.dispatch(progress, "opening_knock_completed", {"sequence_id": Loop.OPENING_SEQUENCE_ID}).progress
 	progress = Loop.dispatch(progress, "opening_door_opened").progress
 	for index in 5:

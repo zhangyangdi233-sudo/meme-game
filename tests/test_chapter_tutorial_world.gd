@@ -167,7 +167,7 @@ func _actors_of_type(world: Node, actor_type: String) -> Array[Area3D]:
 
 
 func _progress(index: int) -> Dictionary:
-	var progress := Director.initial_progress()
+	var progress: Dictionary = Director.dispatch(Director.initial_progress(), "narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID}).progress
 	progress.phase = "basement"
 	progress.narrator_completed = true
 	progress.opening_knock_completed = true

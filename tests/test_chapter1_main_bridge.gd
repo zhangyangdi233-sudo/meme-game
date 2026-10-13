@@ -9,8 +9,9 @@ func _init() -> void:
 
 func _run() -> void:
 	var main = load("res://scenes/babel_meme_game.tscn").instantiate()
+	main._save_path = "/private/tmp/aphasia_test_chapter1_bridge.dat"
+	main._locale.preferences_path = "/private/tmp/aphasia_test_chapter1_bridge.cfg"
 	root.add_child(main)
-	main._save_path = "user://test_chapter1_bridge.dat"
 	if not main.has_method("start_chapter1_game"):
 		failures.append("main scene must expose the chapter route used by the New Game button")
 	else:
@@ -30,6 +31,8 @@ func _run() -> void:
 		_check(ready.accepted and main.game.chapter1_progress.phase == "opening", "completed knock waits for F without teleporting")
 		_check(main._chapter_world_ready, "production opening GLB and contract bind successfully")
 		if main._chapter_world_ready:
+			var narration: Dictionary = main.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
+			_check(narration.accepted, "trusted fixture completes narration independently from the knock")
 			var opening_route: String = main._chapter_route_key()
 			main._save_progress()
 			# An event already queued by the old host must not affect a continued

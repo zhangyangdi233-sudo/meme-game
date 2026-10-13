@@ -15,6 +15,8 @@ const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.g
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const ChapterDevelopmentPanelScript = preload("res://scripts/ui/chapter_development_panel.gd")
+const ChapterOpeningNarrationScript = preload("res://scripts/ui/chapter_opening_narration.gd")
+const ChapterOpeningContentScript = preload("res://scripts/narrative/chapter_opening_content.gd")
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const CanvasWordTileScript = preload("res://scripts/ui/canvas_word_tile.gd")
@@ -350,6 +352,10 @@ var _reality_built_floor := 0
 var _reality_built_day := 0
 var _reality_built_route := ""
 var _chapter_world_ready := false
+var _chapter_opening_narration: Control
+var _chapter_opening_mouse_down := false
+var _chapter_opening_touch_index := -1
+var _chapter_opening_emulated_until_ms := 0
 var _chapter_dev_panel: PanelContainer
 var _chapter_dev_enabled := OS.is_debug_build() and "--chapter1-dev" in OS.get_cmdline_user_args()
 var _chapter_dev_collapsed := false
@@ -582,9 +588,13 @@ func _notification(what: int) -> void:
 		_reality_touch_look_index = -1
 		_dragged_window = null
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		_chapter_opening_mouse_down = false
+		_chapter_opening_touch_index = -1
+		_set_chapter_exploration_paused(true)
 	elif what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
 		# A click in the world is the only recapture after returning from the OS.
 		_application_focused = true
+		_set_chapter_exploration_paused(_settings_open)
 
 
 func _physics_process(delta: float) -> void:
@@ -597,6 +607,10 @@ func _input(event: InputEvent) -> void:
 	if _handle_settings_shortcut(event):
 		return
 	if _settings_open:
+		return
+	if _handle_chapter_development_shortcut(event):
+		return
+	if _handle_chapter_opening_input(event):
 		return
 	if _prologue_overlay != null and _prologue_overlay.visible:
 		_reality_touch_look_index = -1
@@ -685,15 +699,11 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_settings_shortcut(event):
 		return
-	if _input_locked or not _game_started or _settings_open or _chapter_terminal_active() or _chapter_task_active():
+	if _handle_chapter_development_shortcut(event):
+		return
+	if _input_locked or not _game_started or _settings_open or not _application_focused or _chapter_opening_narration_active() or _chapter_terminal_active() or _chapter_task_active():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F9 and _chapter_active() and _chapter_dev_enabled:
-			_chapter_dev_collapsed = not _chapter_dev_collapsed
-			_set_reality_mouse_look(_chapter_dev_collapsed and game.view_state == "npc_up" and not _reality_interaction_active)
-			_update_chapter_development_panel()
-			get_viewport().set_input_as_handled()
-			return
 		if _reality_interaction_active and game.conversation_phase == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
 				get_viewport().set_input_as_handled()
@@ -719,6 +729,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var drag := event as InputEventScreenDrag
 		_apply_reality_look_delta(drag.relative, REALITY_TOUCH_SENSITIVITY)
 		get_viewport().set_input_as_handled()
+
+
+func _handle_chapter_development_shortcut(event: InputEvent) -> bool:
+	if not _chapter_dev_enabled or not _chapter_active() or _settings_open or _input_locked or not _application_focused:
+		return false
+	if not event is InputEventKey or not event.pressed or event.echo or event.keycode != KEY_F9:
+		return false
+	_chapter_dev_collapsed = not _chapter_dev_collapsed
+	_set_reality_mouse_look(_chapter_dev_collapsed and game.view_state == "npc_up" and not _reality_interaction_active)
+	_update_chapter_development_panel()
+	get_viewport().set_input_as_handled()
+	return true
 
 
 func _handle_settings_shortcut(event: InputEvent) -> bool:
@@ -750,6 +772,71 @@ func start_chapter1_game() -> void:
 
 func _chapter_active() -> bool:
 	return _game_started and game != null and not game.chapter1_progress.is_empty() and str(game.chapter1_progress.get("phase", "tower")) != "tower"
+
+
+## Narration has its own input gate: world timing and positional audio keep running.
+func _chapter_opening_narration_active() -> bool:
+	return _chapter_active() and str(game.chapter1_progress.get("phase", "")) == "opening" and not bool(game.chapter1_progress.get("narrator_completed", false))
+
+
+func _chapter_opening_narration_ready() -> bool:
+	return _chapter_opening_narration_active() and _chapter_world_ready and is_instance_valid(_reality_floor) and _reality_floor.is_opening_narration_ready()
+
+
+func _refresh_chapter_opening_narration() -> void:
+	if not is_instance_valid(_chapter_opening_narration):
+		return
+	_chapter_opening_narration.set_audio_paused(_settings_open or _input_locked or not _application_focused)
+	var show_line := _chapter_opening_narration_ready() and not _settings_open and not _input_locked
+	_chapter_opening_narration.visible = show_line
+	if not show_line:
+		return
+	var number := int(game.chapter1_progress.get("opening_line_number", 1))
+	_chapter_opening_narration.show_line(number, ChapterOpeningContentScript.line_text(number, _locale.current_locale), ChapterOpeningContentScript.click_hint(_locale.current_locale))
+
+
+func _advance_chapter_opening_narration() -> bool:
+	if not _chapter_opening_narration_ready() or _settings_open or _input_locked or not _application_focused:
+		return false
+	var number := int(game.chapter1_progress.get("opening_line_number", 1))
+	if not ChapterOpeningContentScript.is_spoken_line(number):
+		return false
+	var result := notify_chapter1("opening_narration_advanced", {"sequence_id": "chapter1_opening", "from_line": number})
+	# The click finishing the last line remains consumed. A later world click
+	# may capture the cursor once movement becomes available.
+	_refresh_chapter_opening_narration()
+	return bool(result.get("accepted", false))
+
+
+func _handle_chapter_opening_input(event: InputEvent) -> bool:
+	var active := _chapter_opening_narration_active()
+	# Godot marks mouse/touch events synthesized from another pointer device
+	# with device -1. Only the native half of a gesture may advance a line.
+	var emulated := event.device == -1 and (event is InputEventMouseButton or event is InputEventScreenTouch)
+	if emulated and (active or Time.get_ticks_msec() < _chapter_opening_emulated_until_ms):
+		get_viewport().set_input_as_handled()
+		return true
+	if not active:
+		return false
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if not _chapter_opening_mouse_down and _chapter_opening_touch_index < 0:
+				_chapter_opening_mouse_down = true
+				_chapter_opening_emulated_until_ms = Time.get_ticks_msec() + 500
+				_advance_chapter_opening_narration()
+		else:
+			_chapter_opening_mouse_down = false
+	elif event is InputEventScreenTouch:
+		if event.pressed and _chapter_opening_touch_index < 0 and not _chapter_opening_mouse_down:
+			_chapter_opening_touch_index = event.index
+			_chapter_opening_emulated_until_ms = Time.get_ticks_msec() + 500
+			_advance_chapter_opening_narration()
+		elif not event.pressed and event.index == _chapter_opening_touch_index:
+			_chapter_opening_touch_index = -1
+			_chapter_opening_emulated_until_ms = Time.get_ticks_msec() + 500
+	_reality_touch_look_index = -1
+	get_viewport().set_input_as_handled()
+	return true
 
 
 func _chapter_route_key() -> String:
@@ -1120,6 +1207,9 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_game_started = true
 	_input_locked = false
 	_settings_open = false
+	_chapter_opening_mouse_down = false
+	_chapter_opening_touch_index = -1
+	_chapter_opening_emulated_until_ms = 0
 	_phone_art_alpha = 1.0
 	_second_layer_texture = null
 	game = session_state
@@ -1388,7 +1478,7 @@ func _release_chapter_xray_view() -> void:
 
 
 func _set_reality_mouse_look(enabled: bool) -> void:
-	enabled = enabled and _application_focused and not _chapter_terminal_active() and not _chapter_task_active()
+	enabled = enabled and _application_focused and not _chapter_opening_narration_active() and not _chapter_terminal_active() and not _chapter_task_active()
 	_reality_mouse_look_enabled = enabled
 	if not enabled or game.view_state != "npc_up":
 		_reality_touch_look_index = -1
@@ -1404,6 +1494,7 @@ func _build_world() -> void:
 	_end_chapter_terminal(false)
 	_close_chapter_task(false)
 	_crt_vhs_toggle = null
+	_chapter_opening_narration = null
 	_release_chapter_xray_view()
 	if is_instance_valid(_chapter_door_transition):
 		_chapter_door_transition.cancel(false)
@@ -1670,7 +1761,7 @@ func _npc_count_for_floor(floor_number: int) -> int:
 
 
 func _update_reality_player(delta: float) -> void:
-	if _chapter_terminal_active() or _chapter_task_active():
+	if _chapter_opening_narration_active() or not _application_focused or _chapter_terminal_active() or _chapter_task_active():
 		_reality_player.velocity = Vector3.ZERO
 		return
 	if _chapter_active() and not _chapter_world_ready:
@@ -1732,7 +1823,7 @@ func _recover_reality_player() -> void:
 func _refresh_nearby_reality_actor() -> void:
 	var previous_actor := _nearby_reality_actor
 	var previous_item := _nearby_reality_item
-	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
+	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _chapter_opening_narration_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
 		_nearby_reality_actor = null
 		_nearby_reality_item = null
 		if previous_actor != null or previous_item != null:
@@ -1771,7 +1862,7 @@ func _refresh_nearby_reality_actor() -> void:
 
 
 func _try_reality_interaction() -> bool:
-	if game.view_state != "npc_up" or _settings_open or _input_locked:
+	if game.view_state != "npc_up" or _settings_open or _input_locked or _chapter_opening_narration_active():
 		return false
 	if _chapter_terminal_active() or _chapter_task_active():
 		return false
@@ -2542,6 +2633,9 @@ func _build_ui() -> void:
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
+
+	_chapter_opening_narration = ChapterOpeningNarrationScript.new()
+	_ui_root.add_child(_chapter_opening_narration)
 
 	var vignette := ColorRect.new()
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3984,6 +4078,8 @@ func _toggle_settings_window() -> void:
 		_close_settings_window()
 		return
 	_settings_open = true
+	_chapter_opening_mouse_down = false
+	_chapter_opening_touch_index = -1
 	_set_reality_mouse_look(false)
 	_settings_window.visible = true
 	_settings_window.move_to_front()
@@ -4007,6 +4103,9 @@ func _close_settings_window() -> void:
 
 
 func _set_chapter_exploration_paused(value: bool) -> void:
+	value = value or not _application_focused
+	if is_instance_valid(_chapter_opening_narration):
+		_chapter_opening_narration.set_audio_paused(value)
 	if _chapter_active() and is_instance_valid(_reality_floor):
 		_reality_floor.set_exploration_paused(value)
 	if is_instance_valid(_chapter_door_transition):
@@ -5931,6 +6030,7 @@ func _update_visibility() -> void:
 		if icon != null:
 			icon.disabled = not game.is_phone_app_unlocked(app_id)
 			icon.text = str(icon.get_meta("unlocked_label", "")) + ("\n未解锁" if icon.disabled else "")
+	_refresh_chapter_opening_narration()
 	_sync_chapter_xray_view()
 
 
@@ -5941,6 +6041,9 @@ func _animate_world(delta: float) -> void:
 			_camera.rotation_degrees = _camera.rotation_degrees.lerp(Vector3(-18.0, 0.0, 0.0), minf(1.0, delta * 3.0))
 		_animate_vhs(delta)
 		return
+	if _chapter_active() and is_instance_valid(_reality_floor):
+		var atmosphere_paused: bool = game.view_state != "npc_up" or _settings_open or not _application_focused or _chapter_terminal_active() or (is_instance_valid(_chapter_door_transition) and _chapter_door_transition.is_active())
+		_reality_floor.set_atmosphere_paused(atmosphere_paused)
 	if is_instance_valid(_chapter_door_transition) and _chapter_door_transition.is_active():
 		_animate_vhs(delta)
 		return
@@ -5981,8 +6084,9 @@ func _animate_world(delta: float) -> void:
 		for index in _road.get_child_count():
 			var tile := _road.get_child(index) as Node3D
 			tile.position.z = -2.0 - index * 3.8 + fmod(_road_scroll, 3.8)
-	if game.view_state == "npc_up" and _reality_floor != null and _reality_player != null and not _settings_open:
+	if game.view_state == "npc_up" and _reality_floor != null and _reality_player != null and not _settings_open and _application_focused:
 		_reality_floor.update_authored_events(delta, _reality_player.global_position, -_camera.global_basis.z)
+	_refresh_chapter_opening_narration()
 	_animate_vhs(delta)
 
 
@@ -7944,6 +8048,7 @@ func _refresh_localized_ui() -> void:
 	if _ui_root == null or not is_instance_valid(_ui_root):
 		return
 	_localize_control_tree(_ui_root)
+	_refresh_chapter_opening_narration()
 	if _chapter_terminal_active():
 		_localize_control_tree(_chapter_terminal_session.get_terminal().get_content_root())
 

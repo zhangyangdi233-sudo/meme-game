@@ -56,13 +56,39 @@ func _run() -> void:
 		atmosphere.update_visit(100.0, false)
 		_check(atmosphere.lights_are_on(), "anomalies cannot begin while player remains on entrance landing")
 		if round_index == 1:
+			var started: Array[bool] = []
+			atmosphere.whisper_started.connect(func(): started.append(true))
+			var voice := atmosphere.get_node("BasementWhisper") as AudioStreamPlayer
+			_check(is_equal_approx(voice.stream.get_length(), 8.0), "approved whisper montage is exactly eight seconds")
+			_check((voice.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_DISABLED, "whisper never loops")
+			atmosphere.update_visit(2.49, true)
+			_check(started.is_empty() and not voice.playing, "neither whisper nor flicker begins before the shared arrival delay")
+			atmosphere.update_visit(0.01, true)
+			_check(started.size() == 1 and voice.playing, "whisper and flicker start together")
+			var elapsed: float = atmosphere._elapsed
+			atmosphere.set_audio_paused(true)
+			atmosphere.update_visit(60.0, true)
+			_check(voice.stream_paused and is_equal_approx(atmosphere._elapsed, elapsed), "pause freezes both audio and event clock")
+			atmosphere.set_audio_paused(false)
+			_check(not voice.stream_paused, "resume releases whisper with the event clock")
 			var saw_dark := false
 			var saw_light := false
-			for frame in 68:
+			for frame in 79:
 				atmosphere.update_visit(0.1, true)
 				saw_dark = saw_dark or not atmosphere.lights_are_on()
 				saw_light = saw_light or atmosphere.lights_are_on()
-			_check(saw_dark and saw_light and atmosphere.lights_are_on(), "second visit flickers for a bounded period and recovers")
+			_check(saw_dark and saw_light and not atmosphere._anomaly_cancelled, "second visit still flickers at 7.9 seconds")
+			atmosphere.update_visit(0.101, true)
+			_check(atmosphere.lights_are_on() and not voice.playing and atmosphere._anomaly_cancelled, "at eight seconds whisper stops and lights recover")
+			atmosphere.update_visit(100.0, true)
+			_check(started.size() == 1 and not voice.playing, "finished event cannot repeat in the same visit")
+			# Independently exercise the existing manual switch cancellation path.
+			atmosphere._anomaly_cancelled = false
+			atmosphere._anomaly_started = false
+			atmosphere._elapsed = 0.0
+			atmosphere.update_visit(3.0, true)
+			atmosphere.toggle_lights()
+			_check(not voice.playing and atmosphere._anomaly_cancelled, "manual light switch immediately cancels the whisper too")
 		elif round_index == 2:
 			atmosphere.update_visit(3.1, true)
 			_check(not atmosphere.lights_are_on(), "third visit switches off after arrival")
