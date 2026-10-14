@@ -23,6 +23,19 @@ var _press_global := Vector2.ZERO
 var _drag_started := false
 var _last_drag_position := Vector2.ZERO
 var _last_drag_delta := Vector2.ZERO
+var _drag_velocity := Vector2.ZERO
+var _last_drag_time_usec := 0
+var _tile_size := TILE_SIZE
+var _tile_font_size := 0
+var _tile_font: Font
+
+
+## Configure subsequently added tiles. Existing tiles retain their own measured
+## footprints, so layout changes never reinterpret their saved top-left position.
+func configure_tile_metrics(tile_size: Vector2, font_size: int, font: Font = null) -> void:
+	_tile_size = Vector2(maxf(1.0, tile_size.x), maxf(1.0, tile_size.y))
+	_tile_font_size = maxi(1, font_size)
+	_tile_font = font
 
 
 func _ready() -> void:
@@ -66,6 +79,11 @@ func _rebuild_walls() -> void:
 		shape_node.shape = rectangle
 		shape_node.position = spec[0]
 		walls.add_child(shape_node)
+	# Containers resize several times while the paired CRT layout resolves.
+	# Hold the original positions until the completed layout can fit them.
+	for body: RigidBody2D in _bodies.values():
+		if is_instance_valid(body) and body != _dragging_body:
+			_queue_tile_placement(body)
 
 
 func clear_tiles() -> void:
@@ -81,9 +99,15 @@ func clear_tiles() -> void:
 func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool) -> void:
 	if _bodies.has(unit):
 		return
+	var actual_size := _tile_size
+	var reading_font := _tile_font if _tile_font != null else get_theme_font("font")
+	if _tile_font_size > 0:
+		var text_size := reading_font.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, _tile_font_size)
+		actual_size.x = maxf(actual_size.x, ceilf(text_size.x) + 18.0)
+		actual_size.y = maxf(actual_size.y, ceilf(reading_font.get_height(_tile_font_size)) + 12.0)
 	var body := RigidBody2D.new()
 	body.name = "WordBody_%s" % unit
-	body.position = spawn_position + TILE_SIZE * 0.5
+	body.position = spawn_position + actual_size * 0.5
 	body.gravity_scale = 1.0
 	body.mass = 0.6
 	body.physics_material_override = PhysicsMaterial.new()
@@ -93,18 +117,19 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 	body.angular_damp = 4.0
 	body.contact_monitor = false
 	body.set_meta("word_unit", unit)
+	body.set_meta("tile_size", actual_size)
 
 	var shape := CollisionShape2D.new()
 	shape.name = "TileShape"
 	var rectangle := RectangleShape2D.new()
-	rectangle.size = TILE_SIZE
+	rectangle.size = actual_size
 	shape.shape = rectangle
 	body.add_child(shape)
 
 	var panel := Panel.new()
 	panel.name = "TileFace"
-	panel.size = TILE_SIZE
-	panel.position = -TILE_SIZE * 0.5
+	panel.size = actual_size
+	panel.position = -actual_size * 0.5
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if panel_style != null:
 		panel.add_theme_stylebox_override("panel", panel_style)
@@ -113,12 +138,15 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 	var label := Label.new()
 	label.name = "TileLabel"
 	label.text = unit
-	label.size = TILE_SIZE
-	label.position = -TILE_SIZE * 0.5
+	label.size = actual_size
+	label.position = -actual_size * 0.5
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_color_override("font_color", label_color)
+	if _tile_font_size > 0:
+		label.add_theme_font_size_override("font_size", _tile_font_size)
+		label.add_theme_font_override("font", reading_font)
 	label.set_meta("skip_localization", true)
 	body.add_child(label)
 
@@ -127,6 +155,35 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 
 	_physics_root.add_child(body)
 	_bodies[unit] = body
+	_queue_tile_placement(body)
+
+
+func _queue_tile_placement(body: RigidBody2D) -> void:
+	if body.has_meta("pending_canvas_position"):
+		return
+	body.set_meta("pending_canvas_position", body.position - _body_tile_size(body) * 0.5)
+	body.freeze = true
+	_finish_tile_placement_after_layout(body)
+
+
+func _finish_tile_placement_after_layout(body: RigidBody2D) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(body) or body.is_queued_for_deletion() or not body.has_meta("pending_canvas_position") or body == _dragging_body:
+		return
+	_finish_tile_placement(body)
+
+
+func _finish_tile_placement(body: RigidBody2D) -> void:
+	if not body.has_meta("pending_canvas_position"):
+		return
+	var tile_size := _body_tile_size(body)
+	var saved_position: Vector2 = body.get_meta("pending_canvas_position")
+	body.remove_meta("pending_canvas_position")
+	var top_left := saved_position.clamp(Vector2.ZERO, (size - tile_size).max(Vector2.ZERO))
+	body.position = top_left + tile_size * 0.5
+	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+	body.freeze = false
+	body.sleeping = false
 
 
 func get_tile_position(unit: String) -> Vector2:
@@ -135,7 +192,11 @@ func get_tile_position(unit: String) -> Vector2:
 	var body: RigidBody2D = _bodies[unit]
 	if not is_instance_valid(body):
 		return Vector2.ZERO
-	return body.position - TILE_SIZE * 0.5
+	return body.position - _body_tile_size(body) * 0.5
+
+
+func _body_tile_size(body: RigidBody2D) -> Vector2:
+	return body.get_meta("tile_size", TILE_SIZE)
 
 
 func get_tile_count() -> int:
@@ -154,10 +215,10 @@ func _process(_delta: float) -> void:
 	# 落定的字把位置回报给存档层,重开游戏时字堆保持原样。
 	for unit in _bodies.keys():
 		var body: RigidBody2D = _bodies[unit]
-		if not is_instance_valid(body) or body == _dragging_body:
+		if not is_instance_valid(body) or body == _dragging_body or body.has_meta("pending_canvas_position"):
 			continue
 		if body.linear_velocity.length() < 4.0:
-			tile_settled.emit(str(unit), body.position - TILE_SIZE * 0.5)
+			tile_settled.emit(str(unit), body.position - _body_tile_size(body) * 0.5)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -175,8 +236,15 @@ func _gui_input(event: InputEvent) -> void:
 		_drag_started = true
 		var target := motion.position - _drag_grab_offset
 		_last_drag_delta = target - _last_drag_position
+		var now_usec := Time.get_ticks_usec()
+		var elapsed := maxf(0.008, float(now_usec - _last_drag_time_usec) / 1000000.0)
+		_drag_velocity = (_last_drag_delta / elapsed).limit_length(THROW_SPEED_LIMIT)
+		_last_drag_time_usec = now_usec
 		_last_drag_position = target
 		_dragging_body.position = target
+		# RigidBody's physics transform otherwise overwrites this visual move
+		# on the next simulation tick, even when the body is frozen.
+		PhysicsServer2D.body_set_state(_dragging_body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, _dragging_body.global_transform)
 		accept_event()
 
 
@@ -186,9 +254,12 @@ func _begin_drag(local_position: Vector2, global_position: Vector2) -> void:
 	_press_global = global_position
 	if _dragging_body == null:
 		return
+	_finish_tile_placement(_dragging_body)
 	_drag_grab_offset = local_position - _dragging_body.position
 	_last_drag_position = _dragging_body.position
 	_last_drag_delta = Vector2.ZERO
+	_drag_velocity = Vector2.ZERO
+	_last_drag_time_usec = Time.get_ticks_usec()
 	# 抓起时切成运动学:跟手,且不会被其它字挤走。
 	_dragging_body.freeze = true
 	_dragging_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
@@ -201,17 +272,26 @@ func _end_drag(release_global: Vector2) -> void:
 	var body := _dragging_body
 	_dragging_body = null
 	body.z_index = 0
+	# Release at the current pointer, not at the last physics-server transform.
+	if _drag_started:
+		body.position = get_global_transform().affine_inverse() * release_global - _drag_grab_offset
+		var half_size := _body_tile_size(body) * 0.5
+		body.position = body.position.clamp(half_size, (size - half_size).max(half_size))
+	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
 	body.freeze = false
 	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面。
-	body.linear_velocity = (_last_drag_delta * 60.0).limit_length(THROW_SPEED_LIMIT)
+	var still_time := float(Time.get_ticks_usec() - _last_drag_time_usec) / 1000000.0
+	body.linear_velocity = _drag_velocity if still_time < 0.09 else Vector2.ZERO
+	body.sleeping = false
 	var unit := str(body.get_meta("word_unit", ""))
 	if not _drag_started:
 		tile_tapped.emit(unit)
 		return
 	if not get_global_rect().has_point(release_global):
+		tile_settled.emit(unit, body.position - _body_tile_size(body) * 0.5)
 		tile_dropped_outside.emit(unit, release_global)
 	else:
-		tile_settled.emit(unit, body.position - TILE_SIZE * 0.5)
+		tile_settled.emit(unit, body.position - _body_tile_size(body) * 0.5)
 
 
 func _body_at(local_position: Vector2) -> RigidBody2D:
@@ -221,7 +301,8 @@ func _body_at(local_position: Vector2) -> RigidBody2D:
 		var body: RigidBody2D = _bodies[unit]
 		if not is_instance_valid(body):
 			continue
-		var rect := Rect2(body.position - TILE_SIZE * 0.5, TILE_SIZE)
+		var actual_size := _body_tile_size(body)
+		var rect := Rect2(body.position - actual_size * 0.5, actual_size)
 		if rect.has_point(local_position) and body.z_index >= best_z:
 			hit = body
 			best_z = body.z_index

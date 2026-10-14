@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-09",
+  "status": "verified",
+  "requested_changes": [
+    "Continuous 12m dark corridor after every basement exit",
+    "White-door animation, opaque white scene swap, then arrival fade; visit five leads to crossroads",
+    "Softer global VHS; 36px CRT body/tile type with character and line spacing",
+    "Separate Word handoff and dedicated GitHub backup chat"
+  ],
+  "source_sha256": {
+    "scripts/world/chapter_exit_tunnel.gd": "33118480EE5BBB03C1AA7D7A8E6BC22242B8CD159F988D66B7D8FBF441F2F9DA",
+    "scripts/world/chapter_world.gd": "7B3457F641D3FAAEFB696BA5E6CB24167D8D86417B5E8E9D375DE64B795162D4",
+    "scripts/world/chapter_door_transition.gd": "250FD04AC2C376534EE6916EE3C56522177B685FA54E9CE6BADA8A8A3267618B",
+    "scripts/progression/basement_loop_director.gd": "ABD299CEA472AA4930BB628ECAD850512B2984F653A2D4F94735DB16ED5442EB",
+    "scripts/babel_meme_game.gd": "90DF1823B191C5A7B73B9C7532B4BE64013756A7A3749102EBDF8BBFEEB95890",
+    "scripts/ui/chapter_terminal_session.gd": "242F1520514C79F38E1D9F2F911B037B909A7AF2C880222292F5E11205FF5024",
+    "scripts/ui/word_physics_canvas.gd": "29B4C42B43474F4167734C750E07A13199DA161E68C9E3E1585C255C292C86C7",
+    "shaders/vhs_screen.gdshader": "E9BEB58C89C1AA6F050CC5F0C6A595037177B906411B6303740F348CDC2A4FD0"
+  },
+  "tunnel_renderer": {
+    "checks": 79,
+    "swaps": [
+      {
+        "from_visit": 1,
+        "opaque_white": true,
+        "phase": "basement",
+        "round_index": 1
+      },
+      {
+        "from_visit": 2,
+        "opaque_white": true,
+        "phase": "basement",
+        "round_index": 2
+      },
+      {
+        "from_visit": 3,
+        "opaque_white": true,
+        "phase": "basement",
+        "round_index": 3
+      },
+      {
+        "from_visit": 4,
+        "opaque_white": true,
+        "phase": "basement",
+        "round_index": 4
+      },
+      {
+        "from_visit": 5,
+        "opaque_white": true,
+        "phase": "crossroads",
+        "round_index": 4
+      }
+    ],
+    "failures": [],
+    "report": "tunnel_flow_results.json"
+  },
+  "physical_walk": {
+    "scope": "Actual CharacterBody movement, 5 complete corridors and intermediate save/continue, crossroads gate to floor 2; NPC tasks completed using trusted test fixtures",
+    "passed": true,
+    "failures": [],
+    "report": "../basement_integration_audit/chapter1_walk_results.json",
+    "steps": 76
+  },
+  "terminal_ui": {
+    "checks": 307,
+    "log": "terminal_flow_regression.log",
+    "passed": true,
+    "scope": "Actual UI handlers, five NPC deliveries, three save/continues, fake camera"
+  },
+  "crt_render": {
+    "checks": 66,
+    "passed": true,
+    "scope": "Actual curved-screen UV interaction, first visit word collection/tile tap/submission/NPC delivery and visible control bounds",
+    "report": "../basement_readability_20261009/chapter1_terminal_capture_results.json"
+  },
+  "component_tests": {
+    "terminal_session": 62,
+    "world": "passed",
+    "door_transition": 103,
+    "word_canvas": "passed",
+    "tunnel_state": 166,
+    "main_bridge": "passed"
+  },
+  "visuals": [
+    "tunnel_01_exit_reveals_tunnel.png",
+    "tunnel_02_dark_corridor.png",
+    "tunnel_03_white_door_ready.png",
+    "tunnel_04_white_door_opening.png",
+    "tunnel_05_opaque_swap.png",
+    "tunnel_06_next_basement.png",
+    "tunnel_07_crossroads_arrival.png",
+    "../basement_readability_20261009/chapter1_terminal_05_sentence_preview.png"
+  ],
+  "source_asset_preservation": "GLB and Blender source unchanged; runtime disables exactly the imported Exit_VestibuleBack visual and its one matching collider to connect the physical corridor.",
+  "limitations": [
+    "Main-scene/capture shutdown still emits RID/ObjectDB/resource cleanup diagnostics; not investigated or claimed fixed",
+    "Physical webcam and user-provided video decoding were not exercised",
+    "Formal NPC task writing remains development content"
+  ],
+  "backup_chat": "01a120f7-7690-7bf2-87fd-05b8bf3a122e"
+}

@@ -1,0 +1,70 @@
+{
+  "output": "D:\\aphasia\\outputs\\handoff_20261009\\Aphasia_本机修改与流程交接说明_20261009.docx",
+  "sha256": "defc2fa12f81c7997b01ccc6bfba7fbae8142fbab8639659c9f76ce01c1a55a1",
+  "verified_at": "2026-10-09T23:08:47.744133+09:00",
+  "pages": 9,
+  "paragraphs": 83,
+  "tables": 9,
+  "visual_review": {
+    "pages_reviewed": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "dpi": 144,
+    "result": "Every page inspected at original resolution. No clipping, missing Chinese glyphs, overlap, broken tables, or orphan pages."
+  },
+  "original_revision_unchanged": true,
+  "renderer": "Packaged documents/26.1007.11041/render_docx.py with task-owned portable LibreOffice 26.2.4 and bundled Poppler; no desktop Word launch.",
+  "render_directory": "D:\\aphasia\\outputs\\handoff_20261009\\render_final",
+  "source_records": [
+    {
+      "path": "D:\\aphasia\\GAME_FLOW_MEMORY.md",
+      "sha256": "1eb89564721a0636abba6c0ad966559f44d00905b96326fea313900ab0720afd"
+    },
+    {
+      "path": "D:\\aphasia\\meme-game\\docs\\chapter1-integration.md",
+      "sha256": "062e9ebfa435b183dc1bfe0d3dcfbf483c9a72127889e051a210aa30728cd139"
+    },
+    {
+      "path": "D:\\aphasia\\《Aphasia》游戏整体流程_当前修订.docx",
+      "sha256": "8ce62c134743e45bfbbb63d5169ea9c814a00eb5062b75181112e7346489ce34"
+    },
+    {
+      "path": "D:\\aphasia\\《Aphasia》游戏整体流程.docx",
+      "sha256": "be5134451968413b0ac414620f60cc55fc54dfcdbe334f4d2c6c2e3e2ab846e2"
+    },
+    {
+      "path": "D:\\aphasia\\outputs\\basement_integration_audit\\chapter_terminal_verification.json",
+      "sha256": "76c96e8941a70b14fbd6d466e2e82979f0250e480c4d7aa4ea5698d92dc9063b"
+    },
+    {
+      "path": "D:\\aphasia\\outputs\\tunnel_readability_20261009\\tunnel_flow_results.json",
+      "sha256": "d77abc6cf038dd1bf65bf229811f98767404907ed0d13ad05555345b5606a32d"
+    },
+    {
+      "path": "D:\\aphasia\\outputs\\basement_readability_20261009\\chapter1_terminal_capture_results.json",
+      "sha256": "4fe270296a57441792efd5b47ddf4cc640f8528080cf98818ec38d81996ae400"
+    },
+    {
+      "path": "D:\\aphasia\\outputs\\basement_integration_audit\\chapter1_walk_results.json",
+      "sha256": "774e2faf6b8e8efe18f568caad8c9c3971e8a028d69db11a4a9c1c290cd0ea6f"
+    },
+    {
+      "path": "D:\\aphasia\\outputs\\tunnel_readability_20261009\\verification_summary.json",
+      "sha256": "bab6fbd1055708f0481f94ee2eff1eb5aee5f0b5624a625aad73bb9ad6722d72"
+    }
+  ],
+  "limits": [
+    "Word desktop pagination was not tested.",
+    "Game verification claims retain their specific automation and hardware boundaries; exit-time cleanup diagnostics remain.",
+    "GitHub publication is a separate task."
+  ],
+  "scope": "Only task-local authoring, output and QA files written. Original Word documents and game code unchanged by this document task. Temporary renderer files retained without recursive deletion."
+}

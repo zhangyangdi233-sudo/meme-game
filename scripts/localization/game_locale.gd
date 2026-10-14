@@ -21,6 +21,7 @@ const LEVEL_DISPLAY_SOURCE_PATTERNS := [
 var current_locale := "zh"
 var language_selected := false
 var preferences_path := PREFERENCES_PATH
+var crt_vhs_enabled := true
 var _entries: Dictionary = {}
 var _compiled_templates: Array[Dictionary] = []
 var _compiled_patterns: Array[Dictionary] = []
@@ -34,17 +35,21 @@ func load_preferences(default_volume: float, default_vhs: bool) -> Dictionary:
 	var result := {
 		"master_volume": default_volume,
 		"vhs_enabled": default_vhs,
+		"crt_vhs_enabled": true,
 		"camera_enabled": false,
 		"camera_source": "computer",
 	}
 	var config := ConfigFile.new()
 	if config.load(preferences_path) != OK:
+		crt_vhs_enabled = true
 		_set_locale_internal("zh")
 		return result
 	language_selected = bool(config.get_value("language", "selected", false))
 	_set_locale_internal(str(config.get_value("language", "locale", "zh")))
 	result["master_volume"] = clampf(float(config.get_value("audio", "master_volume", default_volume)), 0.0, 100.0)
 	result["vhs_enabled"] = bool(config.get_value("visual", "vhs_enabled", default_vhs))
+	crt_vhs_enabled = bool(config.get_value("visual", "crt_vhs_enabled", true))
+	result["crt_vhs_enabled"] = crt_vhs_enabled
 	result["camera_enabled"] = bool(config.get_value("camera", "enabled", false))
 	var camera_source := str(config.get_value("camera", "source", "computer"))
 	result["camera_source"] = camera_source if camera_source in ["computer", "phone"] else "computer"
@@ -57,9 +62,16 @@ func save_preferences(master_volume: float, vhs_enabled: bool, camera_enabled: b
 	config.set_value("language", "locale", current_locale)
 	config.set_value("audio", "master_volume", clampf(master_volume, 0.0, 100.0))
 	config.set_value("visual", "vhs_enabled", vhs_enabled)
+	config.set_value("visual", "crt_vhs_enabled", crt_vhs_enabled)
 	config.set_value("camera", "enabled", camera_enabled)
 	config.set_value("camera", "source", camera_source if camera_source in ["computer", "phone"] else "computer")
 	return config.save(preferences_path) == OK
+
+
+func set_crt_vhs_enabled(value: bool) -> void:
+	# Every save writes this retained value, so volume/language/camera changes
+	# cannot reset the independent screen effect.
+	crt_vhs_enabled = value
 
 
 func select_language(locale_code: String) -> bool:

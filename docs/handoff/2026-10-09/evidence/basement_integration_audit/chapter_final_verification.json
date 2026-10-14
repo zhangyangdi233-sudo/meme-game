@@ -1,0 +1,32 @@
+[
+  {
+    "suite": "test_chapter1_main_bridge",
+    "exit_code": 0,
+    "log": "D:/aphasia/outputs/basement_integration_audit/test_chapter1_main_bridge.final.log",
+    "pass_markers": "chapter1 main bridge tests passed"
+  },
+  {
+    "suite": "test_chapter_world",
+    "exit_code": 0,
+    "log": "D:/aphasia/outputs/basement_integration_audit/test_chapter_world.final.log",
+    "pass_markers": "chapter world tests passed"
+  },
+  {
+    "suite": "test_chapter_development_panel",
+    "exit_code": 0,
+    "log": "D:/aphasia/outputs/basement_integration_audit/test_chapter_development_panel.final.log",
+    "pass_markers": "chapter development panel tests passed"
+  },
+  {
+    "suite": "test_main_scene",
+    "exit_code": 0,
+    "log": "D:/aphasia/outputs/basement_integration_audit/test_main_scene.final.log",
+    "pass_markers": "main scene tests passed"
+  },
+  {
+    "suite": "test_localization",
+    "exit_code": 0,
+    "log": "D:/aphasia/outputs/basement_integration_audit/test_localization.final.log",
+    "pass_markers": "localization tests passed"
+  }
+]

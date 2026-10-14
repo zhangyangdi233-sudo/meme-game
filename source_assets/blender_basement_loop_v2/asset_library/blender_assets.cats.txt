@@ -1,0 +1,6 @@
+# Blender Asset Catalog Definition File
+VERSION 1
+
+2510f807-ae36-518e-a113-788a01a45d46:Basement/Furniture:Furniture
+10a21341-e5f9-5dd8-a738-85f8b2421dfe:Basement/Electronics and Details:Electronics and Details
+fa33b62f-128e-5d52-8075-89387d25da7e:Basement/Doors:Doors

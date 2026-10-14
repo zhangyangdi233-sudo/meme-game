@@ -1,0 +1,212 @@
+{
+  "scene": "Opening_WhiteDoor",
+  "blender_version": "4.5.5 LTS",
+  "basis": "Visual reconstruction of the public opening; central white door is a requested change.",
+  "not_extracted_from_game": true,
+  "units": "1 Blender unit = 1 metre",
+  "world": {
+    "ground_size_m": [
+      80,
+      80
+    ],
+    "walls": false,
+    "ceiling": false,
+    "fog": false,
+    "surface": "Black water-like reflection, transverse geometric microripples",
+    "roughness": 0.16,
+    "metallic": 0.78,
+    "ripple_peak_amplitude_m": 0.00285
+  },
+  "door": {
+    "location_blender": [
+      0,
+      18.0,
+      0
+    ],
+    "leaf_size_m": [
+      1.12,
+      0.078,
+      2.25
+    ],
+    "frame_outer_size_m": [
+      1.4,
+      0.22,
+      2.42
+    ],
+    "panel_count": 6,
+    "leaf_collision": false
+  },
+  "spawn": {
+    "location_blender": [
+      0,
+      0,
+      1.65
+    ],
+    "view_forward_blender": [
+      0,
+      1,
+      0
+    ],
+    "position_godot": [
+      0,
+      1.65,
+      0
+    ],
+    "view_forward_godot": [
+      0,
+      0,
+      -1
+    ],
+    "door_distance_m": 18.0,
+    "walking_speed_m_s": 2.0,
+    "nominal_walk_seconds": 9.0
+  },
+  "arrival": {
+    "position_blender": [
+      0,
+      17.35,
+      0
+    ],
+    "position_godot": [
+      0,
+      0,
+      -17.35
+    ],
+    "area_center_godot": [
+      0,
+      1.125,
+      -17.65
+    ],
+    "area_size_godot": [
+      1.05,
+      2.25,
+      1.2
+    ]
+  },
+  "preview_views": {
+    "Opening_WhiteDoor.png": "18 m from door, 20 mm, player eye height 1.65 m",
+    "Opening_WhiteDoor_Near.png": "6 m from door, 20 mm, player eye height 1.65 m",
+    "WhiteDoor_Detail.png": "Angled detail, camera offset (2.1, -4.4, 1.7) from door base"
+  },
+  "camera": {
+    "lens_mm": 20,
+    "resolution": [
+      1600,
+      900
+    ],
+    "door_projected_image_height_fraction": 0.1327
+  },
+  "collisions": [
+    {
+      "name": "Opening_Ground-colonly",
+      "size_blender": [
+        80,
+        80,
+        0.12
+      ],
+      "center_blender": [
+        0,
+        12.0,
+        -0.06
+      ]
+    },
+    {
+      "name": "DoorFrame_Left-colonly",
+      "size_blender": [
+        0.14,
+        0.24,
+        2.42
+      ],
+      "center_blender": [
+        -0.63,
+        18.0,
+        1.21
+      ]
+    },
+    {
+      "name": "DoorFrame_Right-colonly",
+      "size_blender": [
+        0.14,
+        0.24,
+        2.42
+      ],
+      "center_blender": [
+        0.63,
+        18.0,
+        1.21
+      ]
+    },
+    {
+      "name": "DoorFrame_Top-colonly",
+      "size_blender": [
+        1.12,
+        0.24,
+        0.17
+      ],
+      "center_blender": [
+        0,
+        18.0,
+        2.335
+      ]
+    }
+  ],
+  "godot_suggestions": {
+    "renderer": "Forward+ for glow; standard GLB PBR emission also works without glow.",
+    "environment": "Set background black; ambient light disabled; tune glow bloom subtly, retain six-panel detail.",
+    "exposure": "Start at 1.0, use filmic tone mapping; adjust point light energy to maintain a local floor glow.",
+    "collisions": "Import -colonly suffix as collision only; do not create collision from visual door leaf.",
+    "transition": "Create Area3D near DoorArrival; central door opening has no solid collider.",
+    "not_in_glb": [
+      "Blender world settings",
+      "Cycles lighting solve",
+      "compositor glare"
+    ],
+    "fog": "No fog required; if desired use near-black very low density, avoid a visible white room.",
+    "reflections": "Enable screen-space reflections or add a ReflectionProbe; emission alone cannot light or reflect in every real-time renderer. Keep background black.",
+    "asset_library": "Add asset_library as a Blender Asset Library; drag WhiteDoor_Reusable collection."
+  },
+  "verification": {
+    "unit_scales_pass": true,
+    "collision_names_pass": true,
+    "point_lights_only_pass": true,
+    "six_panels_pass": true,
+    "door_distance_and_marker_positions_pass": true,
+    "glb_nodes": 36,
+    "glb_meshes": 31,
+    "glb_bytes": 3889908,
+    "visual_review": "Passed via view_image: 18 m start, 6 m near view and angled detail. White door farther away; black background and rippled reflection retained.",
+    "asset_library_reopened_pass": true,
+    "asset_library_collection": "WhiteDoor_Reusable",
+    "asset_library_object_count": 26,
+    "asset_library_bounds_m": {
+      "minimum": [
+        -0.7,
+        -0.145,
+        0
+      ],
+      "maximum": [
+        0.7,
+        0.11,
+        2.42
+      ]
+    },
+    "standard_emission_strength_extension_pass": true,
+    "materials_equal_previous_12m_glb": true,
+    "godot_asset_copy_hash_match": true,
+    "glb_sha256": "0b9a292f06a6782506cba5ea3d12c2869aff19b56afd4f2d1a1e0d442e0c096f"
+  },
+  "outputs": [
+    "Opening_WhiteDoor.blend",
+    "Opening_WhiteDoor.glb",
+    "previews/Opening_WhiteDoor.png",
+    "previews/Opening_WhiteDoor_Near.png",
+    "previews/WhiteDoor_Detail.png",
+    "asset_library/WhiteDoor.blend"
+  ],
+  "adjustable_parameter": {
+    "script": "scripts/build_opening.py",
+    "name": "DOOR_DISTANCE",
+    "value_m": 18
+  },
+  "godot_asset_copy": "godot_preview/assets/Opening_WhiteDoor.glb"
+}

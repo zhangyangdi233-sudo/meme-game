@@ -1,0 +1,12 @@
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 610.88 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 4070 Ti
+
+WARNING: Depth of field blur is only available when using the Forward+ or Mobile renderer.
+   at: camera_attributes_set_dof_blur (servers/rendering/storage/camera_attributes_storage.cpp:70)
+   GDScript backtrace (most recent call first):
+       [0] _configure_reality_depth_of_field (res://scripts/babel_meme_game.gd:1534)
+       [1] _build_world (res://scripts/babel_meme_game.gd:1442)
+       [2] show_main_menu (res://scripts/babel_meme_game.gd:1199)
+       [3] _ready (res://scripts/babel_meme_game.gd:552)
+       [4] _run (res://tests/test_chapter_tunnel_flow.gd:24)
+chapter ordinary door flow: 54 checks, 0 failures

@@ -1,0 +1,378 @@
+{
+	"camera_transform": "[X: (-0.796084, 0.0, 0.605186), Y: (0.0, 1.0, 0.0), Z: (-0.605186, 0.0, -0.796084), O: (1.614445, 1.10375, 3.100209)]",
+	"captures": [
+		{
+			"error": 0,
+			"file": "chapter1_terminal_01_phone_locked.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_terminal_02_apps_vhs_on.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_terminal_03_apps_vhs_off.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_terminal_05_sentence_preview.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_terminal_04_phone_social_unlocked.png"
+		}
+	],
+	"checks": [
+		{
+			"description": "actual imported basement binds successfully",
+			"pass": true
+		},
+		{
+			"description": "all three phone apps are locked before first NPC delivery",
+			"pass": true
+		},
+		{
+			"description": "PNG saved: chapter1_terminal_01_phone_locked.png",
+			"pass": true
+		},
+		{
+			"description": "authored world contains interaction actor chapter1_terminal",
+			"pass": true
+		},
+		{
+			"description": "normal proximity selection reaches chapter1_terminal",
+			"pass": true
+		},
+		{
+			"description": "real F key dispatch activates chapter1_terminal",
+			"pass": true
+		},
+		{
+			"description": "real nearby F key opens the physical CRT session",
+			"pass": true
+		},
+		{
+			"description": "existing social and notebook Controls are inside the real CRT viewport",
+			"pass": true
+		},
+		{
+			"description": "CRT access itself does not unlock phone apps",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppSocial is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppSocial UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppSocial receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "actual on-screen toolbar keeps collection and notebook visible together",
+			"pass": true
+		},
+		{
+			"description": "real settings expose the local CRT VHS switch",
+			"pass": true
+		},
+		{
+			"description": "notebook scroll content fills the usable column width",
+			"pass": true
+		},
+		{
+			"description": "enlarged empty-state hint fits completely inside the word canvas and wraps when needed",
+			"pass": true
+		},
+		{
+			"description": "PNG saved: chapter1_terminal_02_apps_vhs_on.png",
+			"pass": true
+		},
+		{
+			"description": "actual settings signal enables CRT-only VHS",
+			"pass": true
+		},
+		{
+			"description": "PNG saved: chapter1_terminal_03_apps_vhs_off.png",
+			"pass": true
+		},
+		{
+			"description": "CRT switch disables its shader without enabling full-screen VHS",
+			"pass": true
+		},
+		{
+			"description": "VHS switch visibly changes pixels on the authored CRT",
+			"pass": true
+		},
+		{
+			"description": "VHS switch leaves sampled world pixels unchanged outside a 14 px screen-edge exclusion",
+			"pass": true
+		},
+		{
+			"description": "SocialPostPoster0 is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "SocialPostPoster0 UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "SocialPostPoster0 receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "UV click on the first original post opens its real detail",
+			"pass": true
+		},
+		{
+			"description": "first post contains an actual pickable RichTextLabel",
+			"pass": true
+		},
+		{
+			"description": "SocialPickupLineText link UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "SocialPickupLineText link receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "original detail text pickup reaches the shared notebook vocabulary",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "TerminalAppNotebook receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "notebook toolbar opens the original sentence preview beside the word canvas",
+			"pass": true
+		},
+		{
+			"description": "original notebook word canvas is visible inside CRT",
+			"pass": true
+		},
+		{
+			"description": "collected unit has its real notebook physics word tile",
+			"pass": true
+		},
+		{
+			"description": "actual main-created Chinese word tile uses 36px font in a 54px padded footprint",
+			"pass": true
+		},
+		{
+			"description": "actual word tile preserves CRT reading font and letter separation",
+			"pass": true
+		},
+		{
+			"description": "word tile is inside the visible notebook canvas",
+			"pass": true
+		},
+		{
+			"description": "Notebook word tile 门 UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "Notebook word tile 门 receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "real notebook word-tile UV tap places the collected word in the sentence",
+			"pass": true
+		},
+		{
+			"description": "original notebook submit button is visible and enabled for the composed sentence",
+			"pass": true
+		},
+		{
+			"description": "notebook submission button lies completely within the actual CRT's clickable pixels",
+			"pass": true
+		},
+		{
+			"description": "original publishing action is visible beside the notebook",
+			"pass": true
+		},
+		{
+			"description": "both real submission controls use the enlarged CRT type size",
+			"pass": true
+		},
+		{
+			"description": "PNG saved: chapter1_terminal_05_sentence_preview.png",
+			"pass": true
+		},
+		{
+			"description": "NotebookCraftButton is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "NotebookCraftButton UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "NotebookCraftButton receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "real CRT notebook submit click creates a current-task sentence record",
+			"pass": true
+		},
+		{
+			"description": "original app handlers produce a submission for the current NPC task",
+			"pass": true
+		},
+		{
+			"description": "TerminalExit is a real visible CRT Control",
+			"pass": true
+		},
+		{
+			"description": "TerminalExit UV lies on authored screen triangles",
+			"pass": true
+		},
+		{
+			"description": "TerminalExit receives real camera-ray mouse motion/press/release",
+			"pass": true
+		},
+		{
+			"description": "UV-projected Exit button returns control to the world",
+			"pass": true
+		},
+		{
+			"description": "exiting returns the same real app windows to the main UI tree",
+			"pass": true
+		},
+		{
+			"description": "authored world contains interaction actor chapter1_npc",
+			"pass": true
+		},
+		{
+			"description": "normal proximity selection reaches chapter1_npc",
+			"pass": true
+		},
+		{
+			"description": "real F key dispatch activates chapter1_npc",
+			"pass": true
+		},
+		{
+			"description": "matching NPC's delivery button accepts the current expression",
+			"pass": true
+		},
+		{
+			"description": "first NPC delivery unlocks only the phone social app",
+			"pass": true
+		},
+		{
+			"description": "PNG saved: chapter1_terminal_04_phone_social_unlocked.png",
+			"pass": true
+		}
+	],
+	"composition": {
+		"craft_font_size": 36,
+		"craft_rect": "[P: (828.0, 1080.0), S: (736.0, 60.0)]",
+		"draft_before_submission": [
+			"门"
+		],
+		"picked_unit": "门",
+		"publish_font_size": 36,
+		"publish_rect": "[P: (48.0, 988.0), S: (712.0, 60.0)]",
+		"social_page": "publish",
+		"submitted_by_uv_click": true
+	},
+	"failures": [],
+	"gui_size": "(1600, 1200)",
+	"phone_after": {
+		"babel": {
+			"button_exists": true,
+			"disabled": true,
+			"unlocked": false,
+			"visible": true
+		},
+		"notebook": {
+			"button_exists": true,
+			"disabled": true,
+			"unlocked": false,
+			"visible": true
+		},
+		"social": {
+			"button_exists": true,
+			"disabled": false,
+			"unlocked": true,
+			"visible": true
+		}
+	},
+	"phone_before": {
+		"babel": {
+			"button_exists": true,
+			"disabled": true,
+			"unlocked": false,
+			"visible": true
+		},
+		"notebook": {
+			"button_exists": true,
+			"disabled": true,
+			"unlocked": false,
+			"visible": true
+		},
+		"social": {
+			"button_exists": true,
+			"disabled": true,
+			"unlocked": false,
+			"visible": true
+		}
+	},
+	"readability_layout": {
+		"canvas_rect": "[P: (828.0, 478.0), S: (736.0, 300.0)]",
+		"content_rect": "[P: (818.0, 322.0), S: (756.0, 466.0)]",
+		"empty_hint_font_size": 36,
+		"empty_hint_lines": 1,
+		"empty_hint_rect": "[P: (838.0, 488.0), S: (716.0, 280.0)]",
+		"scroll_rect": "[P: (818.0, 322.0), S: (756.0, 740.0)]"
+	},
+	"renderer": "NVIDIA GeForce RTX 4070 Ti",
+	"scope": "Actual authored CRT, original app Controls, nearby F path, UV-projected toolbar/post/notebook-word/submit/Exit and NPC delivery button. Text pickup route is recorded separately. Fifth screenshot is taken before sentence submission. Fake webcam receiver; no physical camera or video decoding test. Exit cleanup diagnostics remain in process stderr.",
+	"screen_mesh": "Prop_CRT_TV_Screen_Video",
+	"screen_region": "[P: (377.6435, 133.2332), S: (844.7104, 633.5333)]",
+	"text_pickup": {
+		"mode": "actual RichTextLabel hover and UV mouse click",
+		"normal_font_size": 36,
+		"pixel": "(161.0, 659.0)",
+		"unit": "门"
+	},
+	"vhs_difference": {
+		"inside_changed_samples": 2886,
+		"inside_edge_exclusion_px": 8,
+		"inside_samples": 56580,
+		"outside_changed_samples": 0,
+		"outside_edge_exclusion_px": 14,
+		"outside_samples": 95889,
+		"rgb_difference_threshold": 0.025
+	},
+	"word_tile": {
+		"actual_size": "(54.0, 54.0)",
+		"collision_size": "(54.0, 54.0)",
+		"font_size": 36,
+		"font_spacing": 1
+	}
+}

@@ -1,0 +1,635 @@
+{
+	"checked_at_utc": "2026-10-07T12:31:47",
+	"checks": 454,
+	"engine": "4.6.3-stable (official)",
+	"failures": [],
+	"passed": true,
+	"targets": [
+		{
+			"id": "room",
+			"mesh_count": 16,
+			"path": "res://assets/chapter1/Basement_Loop_v2.glb",
+			"sha256": "2a23945d767b028877c11211676885effb1a9bafbb6d79b78c05beb7935d01ac",
+			"surface_count": 16,
+			"surfaces": [
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_483xd",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_BackPost_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_ng16a",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_BackPost_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_cilei",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_BackSlat_00_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_ogyi3",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_BackSlat_01_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_0cmpp",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_BackSlat_02_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_jwbxn",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_FrontLeg_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_ydjr1",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_FrontLeg_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_d3nge",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_LowerBackRail_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_ej8va",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_Seat_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_c4h31",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_SideRail_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_4d18o",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_SideRail_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_x0dev",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_SideStretcher_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_o2hb7",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_SideStretcher_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_crggs",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_TopRail_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_cl141",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_UnderSeatRail_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/Basement_Loop_v2_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/Basement_Loop_v2.glb::StandardMaterial3D_3ayf7",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/Basement_Loop_v2.glb::ArrayMesh_uhu7q",
+					"node": "Prop_TealChair/Prop_TealChair_Furniture_kids_chair_001/Prop_TealChair_Furniture_KidsChair_UnderSeatRail_0_001",
+					"surface": 0
+				}
+			]
+		},
+		{
+			"id": "standalone",
+			"mesh_count": 16,
+			"path": "res://assets/chapter1/asset_library/kids_chair.glb",
+			"sha256": "78646c398848116cad75a24102018e33cdfd688105e1485b5d79be7c92d3e195",
+			"surface_count": 16,
+			"surfaces": [
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_vr5o3",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_BackPost_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_tfnu4",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_BackPost_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_j1wrb",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_BackSlat_00_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_8fcxl",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_BackSlat_01_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_4xo32",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_BackSlat_02_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_5ftm5",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_FrontLeg_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_vbmy1",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_FrontLeg_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_0nhvr",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_LowerBackRail_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_qw0nl",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_Seat_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_6dh0r",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_SideRail_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_fiwm8",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_SideRail_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_hqfrk",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_SideStretcher_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_74y76",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_SideStretcher_0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_wamb0",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_TopRail_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_uq8on",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_UnderSeatRail_-0_001",
+					"surface": 0
+				},
+				{
+					"active_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_data_material": {
+						"albedo_texture": "res://assets/chapter1/asset_library/kids_chair_walnut_base.png",
+						"name": "PBR_AgedWalnut.001",
+						"path": "res://assets/chapter1/asset_library/kids_chair.glb::StandardMaterial3D_0begs",
+						"texture_height": 1024,
+						"texture_width": 1024
+					},
+					"mesh_resource": "res://assets/chapter1/asset_library/kids_chair.glb::ArrayMesh_ugo8p",
+					"node": "Furniture_kids_chair_001/Furniture_KidsChair_UnderSeatRail_0_001",
+					"surface": 0
+				}
+			]
+		}
+	]
+}

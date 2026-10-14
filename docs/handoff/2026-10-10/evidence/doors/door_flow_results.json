@@ -1,0 +1,33 @@
+{
+	"checks": 54,
+	"display_server": "Windows",
+	"failures": [],
+	"renderer": "gl_compatibility",
+	"swaps": [
+		{
+			"cover_alpha": 0.0,
+			"from_visit": 1,
+			"phase": "basement"
+		},
+		{
+			"cover_alpha": 0.0,
+			"from_visit": 2,
+			"phase": "basement"
+		},
+		{
+			"cover_alpha": 0.0,
+			"from_visit": 3,
+			"phase": "basement"
+		},
+		{
+			"cover_alpha": 0.0,
+			"from_visit": 4,
+			"phase": "basement"
+		},
+		{
+			"cover_alpha": 0.0,
+			"from_visit": 5,
+			"phase": "crossroads"
+		}
+	]
+}

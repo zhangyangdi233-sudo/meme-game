@@ -218,7 +218,10 @@ func _test_ui_flow() -> void:
 	game_root._update_doll_companion(0.016)
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
-	_assert_true(doll_panel.get_anchors_preset() == Control.PRESET_BOTTOM_LEFT, "the guide should dock to the bottom-left corner")
+	_assert_true(
+		Vector4(doll_panel.anchor_left, doll_panel.anchor_top, doll_panel.anchor_right, doll_panel.anchor_bottom) == Vector4(0.0, 1.0, 0.0, 1.0),
+		"the guide should dock to the bottom-left corner"
+	)
 	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
 	game_root._reality_interaction_active = true
 	game_root._update_doll_guide()
@@ -237,11 +240,10 @@ func _test_ui_flow() -> void:
 	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
 
 	# 造句台:空句禁投,入句/撤回/投稿全链路。
-	game_root.game.set_active_app("notebook")
-	game_root._render()
+	game_root._set_social_screen("publish")
 	await process_frame
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the notebook should host the composer answer panel")
-	var submit_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
+	var submit_button := _find_node_by_name(game_root, "SocialPublishPostButton") as Button
 	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
@@ -255,14 +257,13 @@ func _test_ui_flow() -> void:
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门开", "bank taps should build the sentence in order")
 	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
 	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
-	var ghost_found := false
-	var char_flow := _find_node_by_name(game_root, "NotebookCharFlow")
-	if char_flow != null:
-		for child in char_flow.get_children():
-			if child is Button and (child as Button).text == "门" and (child as Button).disabled:
-				ghost_found = true
-	_assert_true(ghost_found, "a placed unit should ghost its bank slot without reflow")
-	submit_button = _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	var word_canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
+	var ghost: RigidBody2D = null
+	if word_canvas != null:
+		ghost = word_canvas.get_node_or_null("WordPhysicsRoot/WordBody_门") as RigidBody2D
+	_assert_true(ghost != null and is_equal_approx(ghost.modulate.a, 0.45), "a placed unit should remain as a ghost in the notebook canvas")
+	_assert_true(word_canvas != null and word_canvas.get_tile_count() == 2, "placing units should preserve both collected word tiles")
+	submit_button = _find_node_by_name(game_root, "SocialPublishPostButton") as Button
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
 
 	game_root._on_composer_answer_tapped(1)
@@ -282,7 +283,7 @@ func _test_ui_flow() -> void:
 	game_root.game.free_sentence_place("出", "zh")
 	game_root._render()
 	await process_frame
-	var drained_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	var drained_button := _find_node_by_name(game_root, "SocialPublishPostButton") as Button
 	_assert_true(drained_button != null and drained_button.disabled, "no actions must gray out the post button")
 	game_root.game.actions_remaining = saved_actions
 	game_root.game.free_sentence_clear()

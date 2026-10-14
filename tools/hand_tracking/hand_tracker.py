@@ -54,6 +54,37 @@ def _stop(_signum: int, _frame: Any) -> None:
 def _process_exists(pid: int) -> bool:
     if pid <= 0:
         return False
+    if sys.platform == "win32":
+        # os.kill(pid, 0) sends a console event on Windows instead of checking
+        # whether the process is alive. A zero-time wait is non-destructive.
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not handle:
+            error = ctypes.get_last_error()
+            if error == 87:  # ERROR_INVALID_PARAMETER: the PID no longer exists.
+                return False
+            if error == 5:  # ERROR_ACCESS_DENIED: preserve the permission fallback.
+                return True
+            raise ctypes.WinError(error)
+        try:
+            state = kernel32.WaitForSingleObject(handle, 0)
+            if state == 0:  # WAIT_OBJECT_0: the process has terminated.
+                return False
+            if state == 258:  # WAIT_TIMEOUT: the process is still running.
+                return True
+            raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

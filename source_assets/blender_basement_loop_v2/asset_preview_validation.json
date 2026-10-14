@@ -1,0 +1,90 @@
+[
+  {
+    "name": "APH2_Asset_CRT_TV",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "APH2_Asset_Wall_Switch",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "APH2_Asset_Cardboard_Box",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "APH2_Asset_Framed_Picture",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "APH2_Asset_VHS_Stack",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "Asset_side_table.001",
+    "size": [
+      256,
+      256
+    ],
+    "custom": true
+  },
+  {
+    "name": "Asset_kids_table.001",
+    "size": [
+      256,
+      256
+    ],
+    "custom": true
+  },
+  {
+    "name": "Asset_kids_chair.001",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  },
+  {
+    "name": "Asset_console.001",
+    "size": [
+      256,
+      256
+    ],
+    "custom": true
+  },
+  {
+    "name": "Asset_chair.001",
+    "size": [
+      256,
+      256
+    ],
+    "custom": true
+  },
+  {
+    "name": "APH2_Asset_WhiteDoor_Interactive",
+    "size": [
+      128,
+      128
+    ],
+    "custom": true
+  }
+]

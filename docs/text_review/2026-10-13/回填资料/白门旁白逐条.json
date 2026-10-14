@@ -1,0 +1,191 @@
+{
+  "rows": [
+    {
+      "number": 1,
+      "zh": "你好",
+      "ja": "やあ。",
+      "stage_direction": false
+    },
+    {
+      "number": 2,
+      "zh": "看来你又一次遗忘了我……",
+      "ja": "また私のことを忘れたみたいだね……",
+      "stage_direction": false
+    },
+    {
+      "number": 3,
+      "zh": "哎……",
+      "ja": "はあ……",
+      "stage_direction": false
+    },
+    {
+      "number": 4,
+      "zh": "这是常有的事",
+      "ja": "まあ、いつものことだ。",
+      "stage_direction": false
+    },
+    {
+      "number": 5,
+      "zh": "我告诉过你",
+      "ja": "前にも言っただろう。",
+      "stage_direction": false
+    },
+    {
+      "number": 6,
+      "zh": "但你总是意气用事",
+      "ja": "なのに君は、いつも感情に流される。",
+      "stage_direction": false
+    },
+    {
+      "number": 7,
+      "zh": "我多么努力的帮你理智的做着决定",
+      "ja": "私は必死に、君が冷静に決められるよう手伝ってきたのに。",
+      "stage_direction": false
+    },
+    {
+      "number": 8,
+      "zh": "可是它……",
+      "ja": "でも、あいつは……",
+      "stage_direction": false
+    },
+    {
+      "number": 9,
+      "zh": "每次都在关键时刻",
+      "ja": "肝心なときになると、いつも",
+      "stage_direction": false
+    },
+    {
+      "number": 10,
+      "zh": "把我关起来",
+      "ja": "私を閉じ込める。",
+      "stage_direction": false
+    },
+    {
+      "number": 11,
+      "zh": "看来……",
+      "ja": "どうやら……",
+      "stage_direction": false
+    },
+    {
+      "number": 12,
+      "zh": "你也被它关起来了",
+      "ja": "君もあいつに閉じ込められたみたいだね。",
+      "stage_direction": false
+    },
+    {
+      "number": 13,
+      "zh": "没事……",
+      "ja": "大丈夫……",
+      "stage_direction": false
+    },
+    {
+      "number": 14,
+      "zh": "我能帮你如何出去",
+      "ja": "ここから出る方法なら、私が教えてあげる。",
+      "stage_direction": false
+    },
+    {
+      "number": 15,
+      "zh": "因为这一切都只是你自己创造的幻觉",
+      "ja": "だって、これは全部、君が自分で作り出した幻覚なんだから。",
+      "stage_direction": false
+    },
+    {
+      "number": 16,
+      "zh": "按理来说",
+      "ja": "本当なら、",
+      "stage_direction": false
+    },
+    {
+      "number": 17,
+      "zh": "其实你比我更了解这里",
+      "ja": "ここについては、私より君のほうが詳しいはずだよ。",
+      "stage_direction": false
+    },
+    {
+      "number": 18,
+      "zh": "我知道你现在在想什么",
+      "ja": "君が今、何を考えてるか分かるよ。",
+      "stage_direction": false
+    },
+    {
+      "number": 19,
+      "zh": "你在想……",
+      "ja": "こう思ってるんだろう……",
+      "stage_direction": false
+    },
+    {
+      "number": 20,
+      "zh": "“这个旁白是谁啊”",
+      "ja": "「このナレーター、誰なんだ？」",
+      "stage_direction": false
+    },
+    {
+      "number": 21,
+      "zh": "“我为啥说不出话”",
+      "ja": "「なんで喋れないんだ？」",
+      "stage_direction": false
+    },
+    {
+      "number": 22,
+      "zh": "“我就是想体验一下这个’游戏’”",
+      "ja": "「ただこの『ゲーム』をやってみたいだけなのに」",
+      "stage_direction": false
+    },
+    {
+      "number": 23,
+      "zh": "“它在这里指指点点是什么意思”",
+      "ja": "「あいつ、なんでいちいち口を出してくるんだ？」",
+      "stage_direction": false
+    },
+    {
+      "number": 24,
+      "zh": "请记住",
+      "ja": "覚えておいて。",
+      "stage_direction": false
+    },
+    {
+      "number": 25,
+      "zh": "你的目标是逃出这里",
+      "ja": "君の目的は、ここから逃げ出すこと。",
+      "stage_direction": false
+    },
+    {
+      "number": 26,
+      "zh": "你才是这具身体的“主人”",
+      "ja": "この体の「主人」は、君なんだから。",
+      "stage_direction": false
+    },
+    {
+      "number": 27,
+      "zh": "（游戏中出现敲门声）",
+      "ja": "（ゲーム内でノックの音がする）",
+      "stage_direction": true
+    },
+    {
+      "number": 28,
+      "zh": "看来你潜意识已经准备好了",
+      "ja": "君の潜在意識は、もう準備ができたみたいだね。",
+      "stage_direction": false
+    },
+    {
+      "number": 29,
+      "zh": "去吧！",
+      "ja": "さあ、行って！",
+      "stage_direction": false
+    },
+    {
+      "number": 30,
+      "zh": "埃弥亣……",
+      "ja": "エミダー……",
+      "stage_direction": false
+    }
+  ],
+  "brief_notes": [
+    "保留用户30条原稿的编号与中文原文；第27条为舞台提示，不作为字幕显示。",
+    "依用户最新指示，敲门声从第28条出现时开始，第28条之前保持无敲门声。",
+    "日文采用自然口语；旁白自称「私」，称玩家「君」，原文「它」统一为「あいつ」。第23条是旁白模拟玩家的想法，人称沿用原文。",
+    "用户于2026-10-13确认「埃弥亣」的日文名为「エミダー」，第30条日语采用「エミダー……」，中文原文保持不变。",
+    "译文维持熟悉、略带不耐烦又提供帮助的语气；不额外补充剧情或诊断。"
+  ]
+}

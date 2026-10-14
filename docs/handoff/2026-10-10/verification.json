@@ -1,0 +1,347 @@
+{
+  "engine": "D:/aphasia/tools/godot-4.6.3/Godot_v4.6.3-stable_win64_console.exe",
+  "save_profile": "artifacts/revision-final/isolated-profile",
+  "tests": [
+    {
+      "test": "test_revision_progression",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.26,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "revision progression passed"
+      ],
+      "log": "artifacts/revision-final/test_revision_progression.log"
+    },
+    {
+      "test": "test_carpet_footsteps",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.17,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "carpet footsteps passed"
+      ],
+      "log": "artifacts/revision-final/test_carpet_footsteps.log"
+    },
+    {
+      "test": "test_basement_atmosphere",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.17,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "basement atmosphere tests passed"
+      ],
+      "log": "artifacts/revision-final/test_basement_atmosphere.log"
+    },
+    {
+      "test": "test_basement_loop_director",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.25,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "basement loop director tests passed"
+      ],
+      "log": "artifacts/revision-final/test_basement_loop_director.log"
+    },
+    {
+      "test": "test_chapter_app_permissions",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.27,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter app permission tests passed"
+      ],
+      "log": "artifacts/revision-final/test_chapter_app_permissions.log"
+    },
+    {
+      "test": "test_word_physics_canvas",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 6.55,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "word physics canvas tests passed"
+      ],
+      "log": "artifacts/revision-final/test_word_physics_canvas.log"
+    },
+    {
+      "test": "test_notebook_canvas_reload",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.74,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "notebook canvas reload tests passed"
+      ],
+      "log": "artifacts/revision-final/test_notebook_canvas_reload.log"
+    },
+    {
+      "test": "test_ui_revision_regressions",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.47,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "UI revision regression tests passed"
+      ],
+      "log": "artifacts/revision-final/test_ui_revision_regressions.log"
+    },
+    {
+      "test": "test_localization",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.28,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "localization tests passed"
+      ],
+      "log": "artifacts/revision-final/test_localization.log"
+    },
+    {
+      "test": "test_social_feed_layout",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.45,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "social feed layout tests passed"
+      ],
+      "log": "artifacts/revision-final/test_social_feed_layout.log"
+    },
+    {
+      "test": "test_ui_font_theme",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.28,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "ui font theme tests passed"
+      ],
+      "log": "artifacts/revision-final/test_ui_font_theme.log"
+    },
+    {
+      "test": "test_mouse_look_input",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.64,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "mouse look input tests passed"
+      ],
+      "log": "artifacts/revision-final/test_mouse_look_input.log"
+    },
+    {
+      "test": "test_settings_exit_safety",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.26,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "settings exit safety tests passed"
+      ],
+      "log": "artifacts/revision-final/test_settings_exit_safety.log"
+    },
+    {
+      "test": "test_chapter_camera_revision",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.95,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter camera revision tests passed"
+      ],
+      "log": "artifacts/revision-final/test_chapter_camera_revision.log"
+    },
+    {
+      "test": "test_chapter_door_transition",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 11.45,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter door transition tests passed (103 checks; real camera and door tweens)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_door_transition.log"
+    },
+    {
+      "test": "test_chapter_world",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 9.14,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter world tests passed"
+      ],
+      "log": "artifacts/revision-final/test_chapter_world.log"
+    },
+    {
+      "test": "test_opening_door_flow",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 15.75,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "opening door flow tests passed"
+      ],
+      "log": "artifacts/revision-final/test_opening_door_flow.log"
+    },
+    {
+      "test": "test_chapter_terminal",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.27,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter terminal tests passed (60 checks; real Control input, synthetic screen geometry)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_terminal.log"
+    },
+    {
+      "test": "test_chapter_terminal_preferences",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.16,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter CRT preference tests passed"
+      ],
+      "log": "artifacts/revision-final/test_chapter_terminal_preferences.log"
+    },
+    {
+      "test": "test_chapter_terminal_session",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.25,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter terminal session tests passed (56 checks; shared Control instances)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_terminal_session.log"
+    },
+    {
+      "test": "test_chapter_terminal_flow",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 18.8,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "chapter terminal flow tests passed (298 checks; actual UI handlers, five NPC deliveries, three save/continues, fake camera)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_terminal_flow.log"
+    },
+    {
+      "test": "test_chapter_tunnel_flow",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 17.94,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "chapter ordinary door flow: 54 checks, 0 failures"
+      ],
+      "log": "artifacts/revision-final/test_chapter_tunnel_flow.log"
+    },
+    {
+      "test": "test_chapter_xray_layers",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.26,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter Xray layer tests passed (51 checks; synthetic metadata and render isolation)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_xray_layers.log"
+    },
+    {
+      "test": "test_chapter_xray_view",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.11,
+      "exit_cleanup_diagnostic": true,
+      "result_lines": [
+        "chapter X-ray view tests passed (48 checks; fake receiver, no physical camera activated)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_xray_view.log"
+    },
+    {
+      "test": "test_chapter_crossroads",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.25,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter crossroads tests passed"
+      ],
+      "log": "artifacts/revision-final/test_chapter_crossroads.log"
+    },
+    {
+      "test": "test_chapter_tutorial_world",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.62,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter tutorial world tests passed (111 checks)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_tutorial_world.log"
+    },
+    {
+      "test": "test_chapter_asset_binding",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.17,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter asset binding tests passed (29 checks; synthetic transforms and collisions)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_asset_binding.log"
+    },
+    {
+      "test": "test_chapter_components",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.55,
+      "exit_cleanup_diagnostic": false,
+      "result_lines": [
+        "chapter component tests passed (89 checks; synthetic nodes, no video playback claim)"
+      ],
+      "log": "artifacts/revision-final/test_chapter_components.log"
+    }
+  ],
+  "passed": 28,
+  "total": 28,
+  "date": "2026-10-10",
+  "engine_version": "Godot 4.6.3.stable.official.7d41c59c4",
+  "scope": "28 targeted regression scripts, not every legacy test in the repository",
+  "rendered_evidence": {
+    "ui": "evidence/ui: real OpenGL, CRT content, Japanese settings and floor title",
+    "atmosphere": "evidence/atmosphere: real OpenGL, furniture, ceiling, NPC, clocks; xray captures isolate the rendering layer rather than a physical hand camera",
+    "doors": "evidence/doors/door_flow_results.json: real OpenGL, five door sequences, no cover at room replacement",
+    "document": "3-page Word rendered via LibreOffice, each page visually inspected; matching PDF included"
+  },
+  "manual_verification_remaining": [
+    "Physical computer/mobile camera and real hand gestures (automated tests use a fake receiver)",
+    "Physical Windows key/Alt-Tab across desktop applications (focus notifications regression-tested)",
+    "User-supplied video decoding and headphone mix; no user video was supplied"
+  ],
+  "known_diagnostics": [
+    "Some main-scene tests report fixed-size RicherTextLabel static default prototype cleanup warnings at process exit; assertions and exit status pass.",
+    "Headless doorway rendering additionally reports DummyTexture RID cleanup diagnostics; real rendered evidence is recorded separately.",
+    "Initial headless editor import completed with no script parse errors but reported inaccessible default user-data snapshot storage and shutdown cleanup diagnostics. Regression runner isolates all user data."
+  ],
+  "review": {
+    "independent_review_completed": true,
+    "resolved_findings": [
+      "Hidden-pollution numeric debug leak",
+      "Wide CRT canvas position clipped to legacy 520px width",
+      "Test save-path isolation",
+      "X-ray marker duplication in next-room preview"
+    ],
+    "diff_check": "passed"
+  },
+  "archived_console_output": "verification-output.txt",
+  "rendered_door_console_output": "evidence/doors/door-rendered-output.txt"
+}

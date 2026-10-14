@@ -1,0 +1,238 @@
+### test_revision_progression
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+revision progression passed
+
+### test_carpet_footsteps
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+carpet footsteps passed
+
+### test_basement_atmosphere
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+basement atmosphere tests passed
+
+### test_basement_loop_director
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+basement loop director tests passed
+
+### test_chapter_app_permissions
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter app permission tests passed
+
+### test_word_physics_canvas
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+word physics canvas tests passed
+
+### test_notebook_canvas_reload
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+notebook canvas reload tests passed
+ERROR: 4 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_ui_revision_regressions
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+UI revision regression tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_localization
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+localization tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_social_feed_layout
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+social feed layout tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_ui_font_theme
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+ui font theme tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 3 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_mouse_look_input
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+mouse look input tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_settings_exit_safety
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+settings exit safety tests passed
+ERROR: 3 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_chapter_camera_revision
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter camera revision tests passed
+
+### test_chapter_door_transition
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter door transition tests passed (103 checks; real camera and door tweens)
+
+### test_chapter_world
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter world tests passed
+
+### test_opening_door_flow
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+opening door flow tests passed
+ERROR: 4 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_chapter_terminal
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter terminal tests passed (60 checks; real Control input, synthetic screen geometry)
+
+### test_chapter_terminal_preferences
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter CRT preference tests passed
+
+### test_chapter_terminal_session
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter terminal session tests passed (56 checks; shared Control instances)
+
+### test_chapter_terminal_flow
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter terminal flow tests passed (298 checks; actual UI handlers, five NPC deliveries, three save/continues, fake camera)
+ERROR: 4 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_chapter_tunnel_flow
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter ordinary door flow: 54 checks, 0 failures
+ERROR: 4 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_chapter_xray_layers
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter Xray layer tests passed (51 checks; synthetic metadata and render isolation)
+
+### test_chapter_xray_view
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter X-ray view tests passed (48 checks; fake receiver, no physical camera activated)
+ERROR: 2 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 2 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 2 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+   at: cleanup (core/object/object.cpp:2663)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)
+
+### test_chapter_crossroads
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter crossroads tests passed
+
+### test_chapter_tutorial_world
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter tutorial world tests passed (111 checks)
+
+### test_chapter_asset_binding
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter asset binding tests passed (29 checks; synthetic transforms and collisions)
+
+### test_chapter_components
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+chapter component tests passed (89 checks; synthetic nodes, no video playback claim)

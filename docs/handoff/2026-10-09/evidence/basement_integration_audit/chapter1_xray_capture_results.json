@@ -1,0 +1,54 @@
+{
+	"active_window": true,
+	"arrow_pixel_check": {
+		"active_red_pixels": 2861,
+		"disabled_red_pixels": 0,
+		"normal_red_pixels": 0,
+		"region": "[P: (680.8474, 390.4319), S: (248.2313, 122.9896)]"
+	},
+	"camera_feet": "(1.065341, 0.03, -0.299951)",
+	"captures": [
+		{
+			"error": 0,
+			"file": "chapter1_xray_01_normal.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_xray_02_active.png"
+		},
+		{
+			"error": 0,
+			"file": "chapter1_xray_03_disabled.png"
+		}
+	],
+	"disabled_window": true,
+	"failures": [],
+	"frame_normalized": "[P: (0.19, 0.2), S: (0.62, 0.6)]",
+	"main_camera_excludes_marks": true,
+	"marker": "XRAY_EXIT_GUIDE_02",
+	"marker_center": "(3.183005, 1.340188, -0.896189)",
+	"marker_meshes": [
+		{
+			"casts_shadow": false,
+			"layers": 524288,
+			"name": "XRAY_EXIT_GUIDE_01_Paint"
+		},
+		{
+			"casts_shadow": false,
+			"layers": 524288,
+			"name": "XRAY_EXIT_GUIDE_02_Paint"
+		},
+		{
+			"casts_shadow": false,
+			"layers": 524288,
+			"name": "XRAY_EXIT_GUIDE_03_Paint"
+		}
+	],
+	"outside_window_diff": {
+		"border_exclusion_px": 42,
+		"changed_samples_above_3pct": 0,
+		"total_samples": 85736
+	},
+	"renderer": "NVIDIA GeForce RTX 4070 Ti",
+	"scope": "Actual settings controls and hand-frame handler with synthetic landmarks/fake hardware receiver; no physical camera test."
+}

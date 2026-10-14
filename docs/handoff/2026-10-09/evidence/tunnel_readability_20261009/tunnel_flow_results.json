@@ -1,0 +1,37 @@
+{
+	"checks": 79,
+	"failures": [],
+	"renderer": "Windows",
+	"swaps": [
+		{
+			"from_visit": 1,
+			"opaque_white": true,
+			"phase": "basement",
+			"round_index": 1
+		},
+		{
+			"from_visit": 2,
+			"opaque_white": true,
+			"phase": "basement",
+			"round_index": 2
+		},
+		{
+			"from_visit": 3,
+			"opaque_white": true,
+			"phase": "basement",
+			"round_index": 3
+		},
+		{
+			"from_visit": 4,
+			"opaque_white": true,
+			"phase": "basement",
+			"round_index": 4
+		},
+		{
+			"from_visit": 5,
+			"opaque_white": true,
+			"phase": "crossroads",
+			"round_index": 4
+		}
+	]
+}
