@@ -35,8 +35,8 @@ func _run() -> void:
 	receiver.frame_received.connect(main._on_hand_tracking_frame)
 	receiver.status_changed.connect(main._on_hand_tracking_status_changed)
 	receiver.source_ready.connect(main._on_camera_source_ready)
-	main._save_path = "/private/tmp/aphasia_test_chapter_terminal_flow.dat"
-	main._locale.preferences_path = "/private/tmp/aphasia_test_chapter_terminal_flow_preferences.cfg"
+	main._save_path = "user://aphasia_test_chapter_terminal_flow.dat"
+	main._locale.preferences_path = "user://aphasia_test_chapter_terminal_flow_preferences.cfg"
 	main._locale.set_crt_vhs_enabled(true)
 	main._locale.save_preferences(80, true, false, "computer")
 	root.add_child(main)
@@ -243,8 +243,8 @@ func _test_settings_lifecycle() -> void:
 	receiver.frame_received.connect(main._on_hand_tracking_frame)
 	receiver.status_changed.connect(main._on_hand_tracking_status_changed)
 	receiver.source_ready.connect(main._on_camera_source_ready)
-	main._save_path = "/private/tmp/aphasia_test_chapter_terminal_settings.dat"
-	main._locale.preferences_path = "/private/tmp/aphasia_test_chapter_terminal_flow_preferences.cfg"
+	main._save_path = "user://aphasia_test_chapter_terminal_settings.dat"
+	main._locale.preferences_path = "user://aphasia_test_chapter_terminal_flow_preferences.cfg"
 	root.add_child(main)
 	main._resolve_camera_consent(false)
 	main._begin_game_session(_basement_state(), {}, false)

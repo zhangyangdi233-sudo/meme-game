@@ -8,8 +8,8 @@ func _init() -> void:
 func _run() -> void:
 	root.size = Vector2i(1600, 900)
 	var main = load("res://scenes/babel_meme_game.tscn").instantiate()
-	main._save_path = "/private/tmp/aphasia_test_notebook_canvas_reload.dat"
-	main._locale.preferences_path = "/private/tmp/aphasia_test_notebook_canvas_reload.cfg"
+	main._save_path = "user://aphasia_test_notebook_canvas_reload.dat"
+	main._locale.preferences_path = "user://aphasia_test_notebook_canvas_reload.cfg"
 	root.add_child(main)
 	var state = load("res://scripts/meme_game_state.gd").new()
 	state.new_run()

@@ -15,13 +15,19 @@ func _run() -> void:
 	for route in ["chapter", "legacy"]:
 		if route == "chapter":
 			main.start_chapter1_game()
+			_check(not main._reality_mouse_look_enabled, "chapter: opening narration keeps the cursor free")
+			# The opening-flow suite tests reading and completing every line.
+			# This fixture exercises free look after narration is complete.
+			var ready: Dictionary = main.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
+			_check(ready.accepted, "chapter: trusted fixture completes narration before free look")
+			_click(Vector2(800.0, 450.0))
 		else:
 			main.new_game()
 			main._skip_prologue()
 			main.set_view_state("npc_up")
 		await process_frame
 		await process_frame
-		_check(main._reality_mouse_look_enabled, route + ": entering reality captures the mouse")
+		_check(main._reality_mouse_look_enabled, route + ": free exploration captures the mouse")
 		var yaw_before: float = main._reality_yaw
 		var pitch_before: float = main._reality_pitch
 		var camera_rotation_before: Vector3 = main._camera.rotation

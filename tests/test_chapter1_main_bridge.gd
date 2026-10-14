@@ -9,8 +9,8 @@ func _init() -> void:
 
 func _run() -> void:
 	var main = load("res://scenes/babel_meme_game.tscn").instantiate()
-	main._save_path = "/private/tmp/aphasia_test_chapter1_bridge.dat"
-	main._locale.preferences_path = "/private/tmp/aphasia_test_chapter1_bridge.cfg"
+	main._save_path = "user://aphasia_test_chapter1_bridge.dat"
+	main._locale.preferences_path = "user://aphasia_test_chapter1_bridge.cfg"
 	root.add_child(main)
 	if not main.has_method("start_chapter1_game"):
 		failures.append("main scene must expose the chapter route used by the New Game button")
@@ -53,7 +53,7 @@ func _run() -> void:
 			settings_key.keycode = KEY_ESCAPE
 			settings_key.pressed = true
 			main._unhandled_input(settings_key)
-			_check(main._settings_window.visible and main._hud_panel.visible, "settings and save remain accessible with Esc")
+			_check(main._settings_window.visible and not main._hud_panel.visible and not main._hud_reveal_zone.visible, "Esc opens settings without restoring the retired status rail")
 			main._close_settings_window()
 			main._render_status()
 			_check(not main._playtest_assist_panel.visible, "partial status render cannot expose legacy test hints")
@@ -68,7 +68,7 @@ func _run() -> void:
 			main.notify_chapter1("crossroads_gate_requested")
 			_check(main.game.tower_floor == 2 and main.game.day == chapter_day and main.game.actions_remaining == 5, "tower handoff preserves the same day and five normal actions")
 			_check(not main.game.needs_day_settlement, "tutorial practice creates no unpaid day settlement")
-			_check(main._hud_panel.visible and main._hud_reveal_zone.visible, "legacy UI returns at tower handoff")
+			_check(not main._hud_panel.visible and not main._hud_reveal_zone.visible, "tower handoff keeps the retired status rail hidden")
 			main._chapter_dev_enabled = true
 			main.start_chapter1_game()
 			_check(main._chapter_dev_panel.visible, "explicit development launch displays labelled controls")

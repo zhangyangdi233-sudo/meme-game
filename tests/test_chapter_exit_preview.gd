@@ -3,7 +3,7 @@ extends SceneTree
 
 const World = preload("res://scripts/world/chapter_world.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
-const OUTPUT := "/private/tmp/aphasia_basement_exit_preview"
+const OUTPUT := "user://aphasia_basement_exit_preview"
 var checks := 0
 var failures: Array[String] = []
 var rows: Array[Dictionary] = []

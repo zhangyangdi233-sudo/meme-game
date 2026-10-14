@@ -1,7 +1,7 @@
 extends SceneTree
 ## Regression for the former tunnel route: each ordinary door now joins rooms.
 
-const OUTPUT := "/private/tmp/aphasia_door_camera_revision"
+const OUTPUT := "user://aphasia_door_camera_revision"
 var main
 var viewport: SubViewport
 var failures: Array[String] = []

@@ -17,7 +17,7 @@ func _run() -> void:
 	root.size = Vector2i(1600, 900)
 	main = load("res://scenes/babel_meme_game.tscn").instantiate()
 	# Redirect both paths before _ready: no production progress or preferences.
-	var stem := "/private/tmp/aphasia-chapter-voice-%d" % OS.get_process_id()
+	var stem := "user://aphasia-chapter-voice-%d" % OS.get_process_id()
 	main._save_path = stem + ".dat"
 	main._locale.preferences_path = stem + ".cfg"
 	main._locale.select_language("zh")

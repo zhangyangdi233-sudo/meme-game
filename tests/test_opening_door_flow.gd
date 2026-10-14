@@ -13,7 +13,7 @@ func _run() -> void:
 	root.size = Vector2i(1600, 900)
 	main = load("res://scenes/babel_meme_game.tscn").instantiate()
 	# Both preferences and progress are redirected BEFORE _ready touches them.
-	var test_stem := "/private/tmp/aphasia-opening-flow-%d" % OS.get_process_id()
+	var test_stem := "user://aphasia-opening-flow-%d" % OS.get_process_id()
 	main._save_path = test_stem + ".dat"
 	main._locale.preferences_path = test_stem + ".cfg"
 	main._locale.select_language("zh")
