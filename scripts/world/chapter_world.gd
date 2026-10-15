@@ -12,6 +12,7 @@ const VideoScreen = preload("res://scripts/world/chapter_video_screen.gd")
 const Director = preload("res://scripts/progression/basement_loop_director.gd")
 const Generator = preload("res://scripts/reality_floor_generator.gd")
 const Atmosphere = preload("res://scripts/world/basement_atmosphere.gd")
+const WhiteGate = preload("res://scripts/world/chapter_white_gate.gd")
 const CONTRACT_PATH := "res://assets/chapter1/asset_contract.json"
 const OPENING_MANIFEST_PATH := "res://assets/chapter1/opening_manifest.json"
 const MODEL_PATHS := {"opening": "res://assets/chapter1/Opening_WhiteDoor_v2.glb", "basement": "res://assets/chapter1/Basement_Loop_v2.glb"}
@@ -47,6 +48,7 @@ var _previous_position := Vector3.ZERO
 var _has_previous := false
 var _playtest_assist := false
 var _video: Node3D
+var _phone_pickup: Area3D
 var _screen_mesh: MeshInstance3D
 var _terminal_center := Vector3.ZERO
 var _terminal_front := Vector3.FORWARD
@@ -127,7 +129,10 @@ func configure_stage(progress: Dictionary, palette: Dictionary, imported_root: N
 		_atmosphere.name = "BasementAtmosphere"
 		add_child(_atmosphere)
 		_atmosphere.whisper_started.connect(_on_basement_whisper_started)
+		_atmosphere.crt_event_started.connect(func(): _emit_once("basement_crt_event_started", _round_payload()))
 		_atmosphere.configure(_asset, _contract, _progress)
+		_atmosphere.bind_primary_screen(_video)
+		_build_phone_pickup()
 		var switch_actor: Area3D = _atmosphere.interaction_actor()
 		if switch_actor != null:
 			_actors.append(switch_actor)
@@ -190,14 +195,46 @@ func sync_progress(progress: Dictionary) -> void:
 	if not stage_ready or not _current_visit():
 		if is_instance_valid(_atmosphere):
 			_atmosphere.stop_whisper()
+			_atmosphere.stop_crt_event()
 		return
 	if stage == "opening":
 		_doors.opening.set_locked(not _opening_ready())
 		_start_opening_knock_if_ready()
 	elif stage == "basement":
+		if is_instance_valid(_phone_pickup):
+			_phone_pickup.visible = not bool(progress.get("phone_collected", false))
 		if bool(progress.get("entrance_locked", false)):
 			_doors.entry.close_and_lock()
-		_doors.exit.set_locked(not _help_completed())
+		_doors.exit.set_locked(not _help_completed() or _phone_is_waiting())
+
+
+func _build_phone_pickup() -> void:
+	# Dressing places the existing table next to the stair foot at this pose.
+	# A missed pickup remains recoverable on a later visit; owned phones vanish.
+	if Binding.find_node(_asset, "Prop_ChildTable") == null or bool(_progress.get("phone_collected", false)):
+		return
+	var scene := load("res://assets/chapter1/phone_pickup.glb") as PackedScene
+	if scene == null:
+		return
+	_phone_pickup = Area3D.new()
+	_phone_pickup.name = "ChapterPhonePickup"
+	_phone_pickup.set_meta("actor_id", "chapter1_phone")
+	_phone_pickup.set_meta("actor_type", "chapter1_phone")
+	_phone_pickup.set_meta("display_name", "拾取手机")
+	_phone_pickup.set_meta("interaction_radius", 1.45)
+	_asset.add_child(_phone_pickup)
+	_phone_pickup.position = Vector3(-1.08, 0.81, 0.64)
+	_phone_pickup.rotation.y = -0.22
+	var model := scene.instantiate() as Node3D
+	model.name = "PhoneModel"
+	model.scale = Vector3.ONE * 1.25
+	_phone_pickup.add_child(model)
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.13, 0.045, 0.22)
+	collision.shape = shape
+	_phone_pickup.add_child(collision)
+	_actors.append(_phone_pickup)
 
 
 func _build_basement() -> bool:
@@ -544,23 +581,15 @@ func _build_crossroads(palette: Dictionary) -> void:
 	_spawn = _delegate.to_global(_delegate.start_position())
 	_spawn_yaw = _delegate.start_yaw_degrees() + _delegate.global_rotation_degrees.y
 	_gate_plane_z = -float(_delegate.map_length) * 0.5 + 14.0
+	var gate_size: Vector3 = WhiteGate.TARGET_LEAF_SIZE
 	var pivot := Node3D.new()
 	pivot.name = "ChapterFarGatePivot"
-	pivot.position = Vector3(-1.5, 0, _gate_plane_z)
+	pivot.position = Vector3(-gate_size.x * 0.5, 0, _gate_plane_z)
 	_delegate.add_child(pivot)
-	var leaf := MeshInstance3D.new()
-	leaf.name = "ChapterFarGateLeaf"
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(3.0, 2.6, 0.10)
-	leaf.mesh = mesh
-	leaf.position = Vector3(1.5, 1.3, 0)
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("4C5145")
-	leaf.material_override = material
-	pivot.add_child(leaf)
-	_bind_door("gate", {"pivot_node": "ChapterFarGatePivot", "closed_leaf_local_center": [1.5, 0.0, 1.3], "leaf_size_blender": [3.0, 0.10, 2.6], "open_blender_z_degrees": 90}, 0.4)
+	WhiteGate.attach(pivot, _delegate)
+	_bind_door("gate", {"pivot_node": "ChapterFarGatePivot", "closed_leaf_local_center": [gate_size.x * 0.5, 0.0, gate_size.y * 0.5], "leaf_size_blender": [gate_size.x, gate_size.z, gate_size.y], "open_blender_z_degrees": 90}, 0.4)
 	_make_actor("chapter1_crossroads_gate", "chapter1_gate", _delegate.to_global(Vector3(0, 0.02, _gate_plane_z + 1.1)), "TowerGate")
-	_triggers.gate = AABB(Vector3(-1.5, 0, _gate_plane_z - 0.8), Vector3(3, 2.6, 1.0))
+	_triggers.gate = AABB(Vector3(-gate_size.x * 0.5, 0, _gate_plane_z - 0.8), Vector3(gate_size.x, gate_size.y, 1.0))
 	set_meta("geometry_source", "RealityFloorGenerator.floor1")
 
 
@@ -626,6 +655,11 @@ func interact(actor: Area3D) -> bool:
 	if not stage_ready or _exploration_paused or not _current_visit() or not is_instance_valid(actor) or actor not in _actors:
 		return false
 	match str(actor.get_meta("actor_type", "")):
+		"chapter1_phone":
+			if bool(_progress.get("phone_collected", false)) or not actor.visible:
+				return false
+			event_requested.emit("phone_collected", _round_payload())
+			return true
 		"chapter1_opening":
 			if not _opening_ready() or _opening_requested:
 				return false
@@ -653,7 +687,7 @@ func interact(actor: Area3D) -> bool:
 		"chapter1_light_switch":
 			return is_instance_valid(_atmosphere) and _atmosphere.toggle_lights()
 		"chapter1_exit":
-			if not _help_completed() or not bool(_progress.get("entrance_locked", false)) or _exit_requested:
+			if not _help_completed() or _phone_is_waiting() or not bool(_progress.get("entrance_locked", false)) or _exit_requested:
 				return false
 			_doors.exit.set_locked(false)
 			_exit_requested = true
@@ -665,6 +699,10 @@ func interact(actor: Area3D) -> bool:
 			_doors.gate.set_locked(false)
 			return _doors.gate.request_open()
 	return false
+
+
+func _phone_is_waiting() -> bool:
+	return is_instance_valid(_phone_pickup) and not bool(_progress.get("phone_collected", false))
 
 
 func is_actor_reachable(actor: Area3D, player_position: Vector3) -> bool:
@@ -707,7 +745,7 @@ func update_authored_events(delta: float, player_position: Vector3, _camera_forw
 	_previous_position = local
 	if stage == "basement":
 		if is_instance_valid(_atmosphere):
-			_atmosphere.update_visit(delta, bool(_progress.get("entrance_locked", false)))
+			_atmosphere.update_visit(delta, bool(_progress.get("entrance_locked", false)), local)
 		var entrance: AABB = _triggers.EntrySealTrigger
 		var seal_z := entrance.get_center().z
 		if not bool(_progress.get("entrance_locked", false)) and previous.z < seal_z and local.z >= seal_z and _crossed_plane("EntrySealTrigger", previous, local, 2, seal_z):
@@ -821,6 +859,8 @@ func get_interactable_actors() -> Array[Area3D]:
 		return result
 	if stage_ready and _current_visit():
 		for actor in _actors:
+			if actor == _phone_pickup and (not actor.visible or bool(_progress.get("phone_collected", false))):
+				continue
 			if _exit_requested:
 				continue
 			result.append(actor)
@@ -1012,6 +1052,7 @@ func _clear_stage() -> void:
 	_asset = null
 	_delegate = null
 	_video = null
+	_phone_pickup = null
 	_screen_mesh = null
 	_terminal_center = Vector3.ZERO
 	_terminal_front = Vector3.FORWARD

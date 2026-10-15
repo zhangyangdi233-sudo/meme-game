@@ -26,9 +26,14 @@ func _run() -> void:
 	if scene == null:
 		return
 	var game_root := scene.instantiate()
+	game_root._save_path = "user://test_audio_runtime.dat"
+	game_root._locale.preferences_path = "user://test_audio_runtime.cfg"
+	game_root._locale.save_preferences(80, false, false, "computer")
 	root.add_child(game_root)
 	await process_frame
+	game_root._resolve_camera_consent(false)
 	game_root.new_game()
+	game_root._skip_prologue()
 	await process_frame
 
 	var phone := game_root.get_node_or_null("PhoneRoadAmbience") as AudioStreamPlayer
@@ -83,7 +88,7 @@ func _run() -> void:
 	game_root.game.pollution = 50
 	game_root._sync_audio_state(true)
 	if pollution_music != null:
-		_assert_near(pollution_music.volume_db, game_root._pollution_music_target(50), 0.1, "mid pollution should fade the corruption score into the mix")
+		_assert_near(pollution_music.volume_db, game_root._pollution_music_target(50) - 5.0, 0.1, "mid pollution should preserve the quieter world mix")
 	_assert_near(game_root._pollution_music_target(60), -24.0, 0.1, "the 60 percent threshold should expose the pollution stem")
 	_assert_near(game_root._pollution_music_target(100), -3.0, 0.1, "maximum pollution should bring the corruption stem near the foreground")
 	game_root.game.pollution = 0
@@ -93,7 +98,7 @@ func _run() -> void:
 	await create_timer(0.65).timeout
 	if phone != null and reality != null:
 		_assert_true(reality.volume_db > phone.volume_db, "raising the camera should crossfade toward room ambience")
-		_assert_near(reality.volume_db, -10.0, 0.2, "NPC speaking mix should reach its audible liminal-score target")
+		_assert_near(reality.volume_db, -15.0, 0.2, "NPC speaking mix should reach its quieter liminal-score target")
 
 	var player := game_root.get_node_or_null("RealityPlayer") as CharacterBody3D
 	var doll := game_root.get_node_or_null("RealityFloor/Actors/DollEncounter") as Area3D
@@ -101,14 +106,10 @@ func _run() -> void:
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 		game_root._refresh_nearby_reality_actor()
 		game_root._try_reality_interaction()
-	var doll_choices: Array = game_root.game.get_typed_reality_choices()
-	_assert_true(not doll_choices.is_empty(), "stitched doll conversation should expose choices for the intimate mix")
-	if not doll_choices.is_empty():
-		var first_choice_id := str(doll_choices[0].get("id", ""))
-		game_root._on_reality_choice_selected(first_choice_id)
+	_assert_true(game_root._reality_interaction_active and game_root.game.conversation_phase == "typing", "actual F interaction starts the fixed protagonist typing line for the intimate mix")
 	await create_timer(0.65).timeout
 	if reality != null:
-		_assert_near(reality.volume_db, -7.0, 0.2, "player composing should make the room score more intimate")
+		_assert_near(reality.volume_db, -12.0, 0.2, "player composing should make the room score more intimate")
 
 	game_root._play_pollution_flashback()
 	await process_frame
@@ -129,6 +130,11 @@ func _run() -> void:
 	await process_frame
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")
 	if cover_watcher_stinger != null:
+		game_root._on_cover_watcher_appeared(2)
+		_assert_eq(str(cover_watcher_stinger.get_meta("generated_audio_path", "")), game_root.FLOOR_TWO_WHISPER_PATH, "second floor arrival should reuse the existing whisper")
+		_assert_near(cover_watcher_stinger.stream.get_length(), 8.0, 0.02, "the familiar whisper should play in full")
+		game_root._on_cover_watcher_appeared(3)
+		_assert_eq(str(cover_watcher_stinger.get_meta("generated_audio_path", "")), game_root.COVER_WATCHER_STINGER_PATH, "other floors retain their existing cue")
 		cover_watcher_stinger.stop()
 	game_root.queue_free()
 	await process_frame

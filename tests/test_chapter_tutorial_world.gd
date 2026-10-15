@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_round_identities(contract, textures)
 	_test_terminal(contract)
 	_test_crossroads_gate()
+	_test_phone_pickup()
 	await _test_authored_terminal()
 	for failure in failures:
 		push_error(failure)
@@ -136,6 +137,36 @@ func _test_crossroads_gate() -> void:
 		_check(world.find_child("CrossRoad", true, false) != null and world.find_child("CrossroadGround", true, false) != null, "original crossroads geometry and collision remain")
 		_check(world.interact(actors[0]) == scenario.ready, scenario.label)
 		world.free()
+
+
+func _test_phone_pickup() -> void:
+	var world = World.new()
+	root.add_child(world)
+	var pickup_events: Array[Dictionary] = []
+	world.event_requested.connect(func(id: String, payload: Dictionary): pickup_events.append({"id": id, "payload": payload}))
+	var progress := _progress(0)
+	_check(world.configure_stage(progress, {}), "actual first basement binds before phone ownership")
+	var phones := _actors_of_type(world, "chapter1_phone")
+	_check(phones.size() == 1, "actual basement provides one physical phone to pick up")
+	if phones.size() == 1:
+		var phone: Area3D = phones[0]
+		var table := Binding.find_node(world.imported_root, "Prop_ChildTable") as Node3D
+		_check(table != null and phone.global_position.distance_to(table.global_position) < 1.5, "phone sits near the authored small table")
+		_check(not phone.find_children("*", "MeshInstance3D", true, false).is_empty(), "phone pickup includes visible 3D model geometry")
+		world.set_exploration_paused(true)
+		_check(not world.interact(phone) and pickup_events.is_empty(), "settings or focus pause prevents phone pickup events")
+		world.set_exploration_paused(false)
+		_check(world.interact(phone), "F requests acquisition of the physical phone")
+		_check(pickup_events.size() == 1 and pickup_events[0].id == "phone_collected" and pickup_events[0].payload.round_token == 1, "phone event carries the active visit token")
+		progress = Director.dispatch(progress, "phone_collected", {"round_token": 1}).progress
+		world.sync_progress(progress)
+		_check(not phone.visible and _actors_of_type(world, "chapter1_phone").is_empty(), "collected phone disappears from scene and nearby interaction search")
+		_check(not world.interact(phone), "the same physical phone cannot be collected twice")
+		progress.round_index = 1
+		progress.transition_serial = 2
+		_check(world.configure_stage(progress, {}), "next basement visit restores phone ownership")
+		_check(_actors_of_type(world, "chapter1_phone").is_empty(), "later visits do not respawn an already acquired phone")
+	world.free()
 
 
 func _test_authored_terminal() -> void:

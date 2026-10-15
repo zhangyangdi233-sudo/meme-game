@@ -31,6 +31,7 @@ func _run() -> void:
 	main.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	main.notify_chapter1("opening_door_opened")
+	main.notify_chapter1("phone_collected", {"round_token": 1})
 	for visit in 5:
 		var token: int = main.game.chapter1_progress.transition_serial
 		main.notify_chapter1("entrance_threshold_crossed", {"round_token": token})

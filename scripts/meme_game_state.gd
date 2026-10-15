@@ -9,6 +9,7 @@ const BasementLoopDirectorScript = preload("res://scripts/progression/basement_l
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
+const FloorTwoJourneyScript = preload("res://scripts/progression/floor_two_journey.gd")
 const MAX_TOWER_FLOOR := 4
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const PREREQUISITE_ITEMS := {
@@ -77,6 +78,8 @@ const SAVE_FIELD_NAMES := [
 	"money", "actions_remaining", "max_actions_per_day",
 	"needs_day_settlement", "day_ended_reason", "pollution_flashback_seen", "pollution_flashback_pending",
 	"view_state", "phone_visible", "phone_open", "active_app", "active_app_window",
+	"dialogue_typing_hint_seen",
+	"floor_two_progress", "exploration_maps",
 	"notebook_tokens", "draft_slots", "completed_memes", "owned_meme_frames", "owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
 	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
@@ -112,6 +115,9 @@ var pollution_flashback_pending: bool = false
 
 var view_state: String = "phone_down"
 var phone_visible: bool = true
+var dialogue_typing_hint_seen: bool = false
+var floor_two_progress: Dictionary = {}
+var exploration_maps: Dictionary = {}
 var phone_open: bool = true
 var active_app: String = "social"
 var active_app_window: String = "social"
@@ -209,6 +215,9 @@ func new_run() -> void:
 	pollution_flashback_pending = false
 	view_state = "phone_down"
 	phone_visible = true
+	dialogue_typing_hint_seen = false
+	floor_two_progress = FloorTwoJourneyScript.normalize({})
+	exploration_maps = {}
 	phone_open = true
 	active_app = "social"
 	active_app_window = "social"
@@ -342,6 +351,12 @@ func load_save_data(save_data: Dictionary) -> bool:
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
+		if field_name == "floor_two_progress":
+			floor_two_progress = FloorTwoJourneyScript.normalize(value)
+			continue
+		if field_name == "exploration_maps":
+			exploration_maps = value.duplicate(true) if value is Dictionary else {}
+			continue
 		if field_name == "chapter1_progress":
 			chapter1_progress = BasementLoopDirectorScript.normalize_progress(value) if value is Dictionary and not value.is_empty() else {}
 			continue
@@ -376,6 +391,9 @@ func load_save_data(save_data: Dictionary) -> bool:
 	_normalize_doll_state()
 	_normalize_language_bridge_state(loaded_version)
 	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
+	floor_two_progress = FloorTwoJourneyScript.normalize(floor_two_progress)
+	if tower_floor == 2:
+		pending_floor_transition = 0
 	_normalize_phone_app_window()
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
@@ -577,7 +595,12 @@ func collect_prerequisite_item(item_id: String) -> bool:
 
 
 func is_hidden_layer_unlocked() -> bool:
-	return _contains_all_ids(collected_prerequisite_item_ids, get_prerequisite_item_ids())
+	# The new second-floor route replaces its retired tape clue. Old saves
+	# carrying the tape remain valid; the other floors keep their own clues.
+	var satisfied := collected_prerequisite_item_ids.duplicate()
+	if is_phone_app_unlocked("map"):
+		satisfied.append(str(PREREQUISITE_ITEMS[2].id))
+	return _contains_all_ids(satisfied, get_prerequisite_item_ids())
 
 
 func record_history_line(line_data: Dictionary) -> bool:
@@ -623,6 +646,9 @@ func complete_floor_three() -> String:
 
 
 func request_floor_transition_for_pollution() -> int:
+	if tower_floor == 2:
+		pending_floor_transition = 0
+		return 0
 	if pending_floor_transition > tower_floor:
 		return pending_floor_transition
 	if tower_floor == 1 and pollution >= int(POLLUTION_FLOOR_THRESHOLDS[1]):
@@ -682,6 +708,8 @@ func get_ending_language_output() -> String:
 
 
 func is_phone_app_unlocked(app_id: String) -> bool:
+	if app_id == "map":
+		return bool(FloorTwoJourneyScript.normalize(floor_two_progress).map_unlocked)
 	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
 		return false
 	if chapter1_progress.is_empty():
@@ -691,6 +719,8 @@ func is_phone_app_unlocked(app_id: String) -> bool:
 
 
 func can_use_app(app_id: String, context: String = "phone") -> bool:
+	if app_id == "map":
+		return context == "phone" and is_phone_app_unlocked("map")
 	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
 		return false
 	if context == "phone":
@@ -716,6 +746,39 @@ func _normalize_phone_app_window() -> void:
 
 func _is_basement_practice() -> bool:
 	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase == "basement"
+
+
+func visit_floor_two_turn(checkpoint_id: String) -> bool:
+	if tower_floor != 2 or _is_chapter_practice():
+		return false
+	var next: Dictionary = FloorTwoJourneyScript.visit_turn(floor_two_progress, checkpoint_id)
+	if next == floor_two_progress:
+		return false
+	floor_two_progress = next
+	return true
+
+
+func finish_floor_two_dialogue() -> bool:
+	if tower_floor != 2 or _is_chapter_practice() or conversation_phase != "result" or not conversation_completed:
+		return false
+	var next: Dictionary = FloorTwoJourneyScript.finish_dialogue(floor_two_progress, conversation_actor_id)
+	if next == floor_two_progress:
+		return false
+	floor_two_progress = next
+	return true
+
+
+func try_exit_floor_two() -> bool:
+	if tower_floor != 2 or _is_chapter_practice() or not is_phone_app_unlocked("map"):
+		return false
+	floor_two_progress = FloorTwoJourneyScript.normalize(floor_two_progress)
+	floor_two_progress.exit_reached = true
+	tower_floor = 3
+	pending_floor_transition = 0
+	day += 1
+	reset_typed_reality_conversation()
+	_latch_ultimate_tasks_for_current_floor()
+	return true
 
 
 func _is_chapter_practice() -> bool:
@@ -941,6 +1004,8 @@ func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Ar
 
 
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
+	if tower_floor == 2 and actor_id in ["floor2_wayfinder", "floor2_cartographer"]:
+		return FloorTwoJourneyScript.dialogue_for(actor_id, floor_two_progress)
 	var floor_number := clampi(tower_floor, 1, 3)
 	if actor_type == "doctor":
 		var doctor_dialogue: Dictionary = DOCTOR_DIALOGUES_BY_FLOOR.get(clampi(tower_floor, 1, 4), DOCTOR_DIALOGUES_BY_FLOOR[1])

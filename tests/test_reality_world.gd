@@ -76,12 +76,12 @@ func _run() -> void:
 	for floor_number in range(2, 5):
 		var growth: int = game_root._room_count_for_floor(floor_number) - game_root._room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
-	var expected_npc_counts := [4, 3, 2, 0]
+	var expected_npc_counts := [4, 2, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
 		_assert_eq(game_root._npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
 		if floor_index > 0:
-			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
+			_assert_true(expected_npc_counts[floor_index] <= expected_npc_counts[floor_index - 1], "authored NPC population should never increase on ascent")
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 4, "generated first floor should match the room formula")
 	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 4, "first floor should contain four ordinary NPCs")
 	_assert_eq(str(floor_root.get_meta("district_style", "")), "sunlit_brick_street", "first floor should use the sunlit brick-road reference grammar")
@@ -92,9 +92,8 @@ func _run() -> void:
 	if first_brick_wall != null:
 		_assert_true(absf(first_brick_wall.position.x) >= map_width * 0.5 - 1.0, "sunlit brick walls should follow the outer terrain edge")
 	var first_reference_portal := _find_node_by_name(floor_root, "ReferencePortal") as MeshInstance3D
-	_assert_true(first_reference_portal != null and str(first_reference_portal.get_meta("reference_texture", "")).contains("sunlit_brick_street"), "sunlit district should extend its geometry with the supplied reference image")
-	if first_reference_portal != null and first_reference_portal.mesh is QuadMesh:
-		_assert_true((first_reference_portal.mesh as QuadMesh).size.x >= 12.0, "sunlit reference continuation should fill the road horizon rather than appear as a small poster")
+	_assert_true(first_reference_portal == null, "sunlit district should have no rectangular reference photograph above its far wall")
+	_assert_true(floor_root.find_children("MemoryPanel*", "MeshInstance3D", true, false).is_empty(), "sunlit district should have no pixel picture mounted on the yellow walls")
 	_assert_eq(int(floor_root.get_meta("useful_item_count", 0)), 1, "each normal floor should reserve one physical hidden-route prerequisite")
 	var hidden_prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor1") as Area3D
 	_assert_true(hidden_prerequisite != null and not hidden_prerequisite.visible, "the prerequisite should exist in reachable geometry but remain hidden before its NPC clue")
@@ -306,127 +305,100 @@ func _run() -> void:
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 		game_root._refresh_nearby_reality_actor()
 		_assert_true(game_root._nearby_reality_actor == doll, "approaching the stitched doll should select it as the nearby actor")
+		var actions_before_dialogue := int(game_root.game.actions_remaining)
 		_assert_true(game_root._try_reality_interaction(), "F interaction path should open the nearby actor")
 		_assert_true(game_root._reality_interaction_active, "world interaction should enter the dialogue state")
 		_assert_true(game_root._active_reality_actor == doll, "world interaction should remember the discovered doll")
-		var leave_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
-		var actions_before_leave := int(game_root.game.actions_remaining)
-		_assert_true(leave_button != null and leave_button.visible and leave_button.text == "离开", "doll and NPC conversations should expose an immediate Leave button")
-		if leave_button != null:
-			leave_button.pressed.emit()
-		_assert_true(not game_root._reality_interaction_active, "Leave should close a conversation before the player speaks")
-		_assert_eq(game_root.game.actions_remaining, actions_before_leave, "leaving without speaking should not spend an action")
-		game_root._refresh_nearby_reality_actor()
-		_assert_true(game_root._try_reality_interaction(), "the same actor should remain available after leaving")
+		var continue_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
+		_assert_true(continue_button == null or not continue_button.is_visible_in_tree(), "linear conversations should not expose a continue, end, or leave button")
+		_assert_eq(game_root.game.conversation_phase, "typing", "opening the doll dialogue should prepare its fixed protagonist line without a choice")
 		var yaw_during_dialogue := float(game_root._reality_yaw)
-		game_root._unhandled_input(touch_turn)
-		_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_during_dialogue), "touchscreen drag should not turn the camera during a reality conversation")
-		var choice_id := str(game_root.game.get_typed_reality_choices()[0].get("id", ""))
-		game_root._on_reality_choice_selected(choice_id)
-		var arbitrary_key := InputEventKey.new()
-		arbitrary_key.keycode = KEY_SPACE
-		arbitrary_key.pressed = true
-		game_root._unhandled_input(arbitrary_key)
-		_assert_eq(game_root.game.conversation_reveal_index, 1, "an arbitrary physical key should reveal exactly one spoken character")
-		_assert_eq(game_root.game.actions_remaining, 5, "partial typed speech should remain action-free")
-		game_root._exit_reality_interaction()
-		_assert_true(not game_root._reality_interaction_active, "leaving dialogue should return to free walking")
+		var pitch_during_dialogue := float(game_root._reality_pitch)
+		game_root._input(touch_start)
+		game_root._input(touch_turn)
+		game_root._input(touch_end)
+		game_root._input(trackpad_left)
+		game_root._input(trackpad_up)
+		game_root._unhandled_input(mouse_turn)
+		_assert_near(float(game_root._reality_yaw), yaw_during_dialogue, 0.001, "touch, trackpad, and mouse input should keep the dialogue camera facing the actor")
+		_assert_near(float(game_root._reality_pitch), pitch_during_dialogue, 0.001, "touch and trackpad input should not tilt the camera during a reality conversation")
+		var keyboard := _find_node_by_name(game_root, "LinearDialogueKeyboard")
+		_assert_true(keyboard != null, "linear dialogue should expose its dedicated printable-key input control")
+		if keyboard != null:
+			var spoken_key := InputEventKey.new()
+			spoken_key.keycode = KEY_SPACE
+			spoken_key.physical_keycode = KEY_SPACE
+			spoken_key.unicode = 32
+			spoken_key.pressed = true
+			keyboard._input(spoken_key)
+			_assert_eq(game_root.game.conversation_reveal_index, 1, "one printable key should reveal exactly one spoken character")
+			_assert_eq(game_root.game.actions_remaining, actions_before_dialogue, "partial typed speech should remain action-free")
+			for _turn in 10:
+				if not game_root._reality_interaction_active:
+					break
+				_assert_eq(game_root.game.conversation_phase, "typing", "each automatically continued turn should await the protagonist's keyboard input")
+				var units_remaining := int(game_root.game.get_typed_reality_unit_count()) - int(game_root.game.conversation_reveal_index)
+				for _unit in units_remaining:
+					keyboard._input(spoken_key)
+				_assert_eq(game_root.game.conversation_phase, "result", "finishing a protagonist line should show the NPC reply")
+				var final_reply := bool(game_root.game.conversation_completed)
+				var completed_turn := int(game_root.game.conversation_turn_index)
+				game_root._update_reality_dialogue(0.0)
+				game_root._update_reality_dialogue(0.01)
+				_assert_true(game_root._reality_interaction_active, "the NPC reply should remain visible for a reading interval")
+				_assert_eq(game_root.game.conversation_phase, "result", "automatic continuation should not skip the NPC reply immediately")
+				game_root._update_reality_dialogue(120.0)
+				if final_reply:
+					_assert_true(not game_root._reality_interaction_active, "the final NPC reply should automatically end the dialogue")
+				else:
+					_assert_eq(game_root.game.conversation_turn_index, completed_turn + 1, "the NPC reading interval should automatically select the next authored turn")
+			_assert_true(not game_root._reality_interaction_active, "completing the conversation should return to free walking without a button")
+			_assert_eq(game_root.game.actions_remaining, actions_before_dialogue, "the complete guide-doll conversation should retain its action-free behavior")
+			_assert_true(bool(game_root._reality_mouse_look_enabled), "automatic dialogue completion should restore free mouse look")
 
 	game_root.game.tower_floor = 2
 	game_root._ensure_reality_floor_current()
 	floor_root = game_root.get_node_or_null("RealityFloor") as Node3D
 	await physics_frame
-	_assert_eq(int(floor_root.get_meta("room_count", 0)), 6, "second floor should retain its six gameplay rooms")
-	_assert_eq(int(floor_root.get_meta("logical_room_count", 0)), 6, "second floor should expose all six rooms as logical gameplay anchors")
-	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 3, "second floor should reduce ordinary NPCs to three")
-	_assert_eq(_count_actors(floor_root, "npc") + _count_actors(floor_root, "doctor"), 3, "second-floor actor population should match its metadata")
-	_assert_eq(_count_actors(floor_root, "doctor"), 0, "second floor should contain exactly one doctor — retired")
-	_assert_eq(str(floor_root.get_meta("district_style", "")), "night_white_blocks", "second floor should use the night white-block district")
-	_assert_eq(str(floor_root.get_meta("layout_mode", "")), "irregular_disc", "second floor should replace the linear street with one broad irregular clearing")
-	_assert_eq(str(floor_root.get_meta("terrain_profile", "")), "undulating_irregular_disc", "second floor should identify its filled rolling-disc terrain")
-	_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "slow_burn_suspense", "suspense atmosphere should begin on the second floor")
-	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "near_black_disc", "second floor should advertise its deliberately near-black clearing profile")
-	_assert_true(float(floor_root.get_meta("fog_density", 0.0)) >= 0.018, "second-floor fog should remain visibly denser than first-floor daylight haze")
-	_assert_true(float(floor_root.get_meta("ambient_light_energy", 1.0)) <= 0.15, "second-floor ambient light should stay dark while preserving terrain silhouettes")
-	_assert_true(float(floor_root.get_meta("key_light_energy", 1.0)) <= 0.31, "second-floor key light should preserve the near-black ring silhouette")
-	_assert_eq(str(floor_root.get_meta("suspense_color_temperature", "")), "cold_green", "second-floor global light should use a cold green temperature against warm lamps")
-	_assert_true(_find_node_by_name(floor_root, "SuspenseLight00") != null, "second floor should retain sparse clearing lights")
-	_assert_eq(int(floor_root.get_meta("suspense_light_count", 0)), 7, "second-floor clearing should scatter seven readable light pools across its area")
-	_assert_true(_find_node_by_name(floor_root, "SuspenseOcclusion") != null, "second floor should add procedural sightline occlusion")
-	_assert_true(int(floor_root.get_meta("suspense_occluder_count", 0)) >= 5, "slow-burn atmosphere should repeat several non-blocking sightline screens")
-	_assert_true(int(floor_root.get_meta("controlled_repeat_count", 0)) > int(floor_root.get_meta("suspense_occluder_count", 0)), "architectural repetition should include one restrained spatial anomaly")
-	_assert_eq(int(floor_root.get_meta("jump_scare_trigger_count", -1)), 0, "suspense geometry should not add jump-scare trigger areas")
-	_assert_true(float(floor_root.get_meta("minimum_clear_path_width", 0.0)) >= 5.6, "occluders should preserve a generous continuous walking lane")
-	_assert_true(float(floor_root.get_meta("map_width", 0.0)) >= 245.0 and float(floor_root.get_meta("map_length", 0.0)) >= 255.0, "second-floor clearing diameter should be comparable to the full first-floor journey")
-	_assert_true(int(floor_root.get_meta("disc_angular_segment_count", 0)) >= 96, "second-floor clearing should use enough boundary segments for an irregular circular silhouette")
-	_assert_true(int(floor_root.get_meta("disc_radial_segment_count", 0)) >= 24, "second-floor clearing should tessellate its filled interior densely enough to shape walkable mounds")
-	_assert_true(float(floor_root.get_meta("disc_radius_x", 0.0)) >= 110.0 and float(floor_root.get_meta("disc_radius_z", 0.0)) >= 115.0, "second-floor clearing should expose its large unequal radii")
-	_assert_true(float(floor_root.get_meta("disc_height_variation", 0.0)) >= 4.0, "second-floor procedural surface should include player-visible hill elevation changes")
-	_assert_eq(int(floor_root.get_meta("disc_mound_count", 0)), 13, "second-floor terrain should distribute a field of small authored hill mounds")
+	_assert_eq(int(floor_root.get_meta("room_count", 0)), 2, "second floor contains two actual walkthrough rooms")
+	_assert_eq(int(floor_root.get_meta("logical_room_count", 0)), 2, "retired reward anchors are replaced by the two NPC passage rooms")
+	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 2, "second floor contains exactly two journey NPCs")
+	_assert_eq(_count_actors(floor_root, "npc"), 2, "actual second-floor actor population matches journey metadata")
+	_assert_eq(_count_actors(floor_root, "floor2_exit"), 1, "second floor has a real F-interactable exit")
+	_assert_true(_find_actor(floor_root, "doll") == null and _find_actor(floor_root, "key_npc") == null, "old doll and prerequisite clue actors stay removed")
+	_assert_eq(str(floor_root.get_meta("layout_mode", "")), "residential_maze", "second floor uses the shared residential maze plan")
+	_assert_eq(str(floor_root.get_meta("terrain_profile", "")), "undulating_irregular_disc", "the original rolling-disc terrain is preserved")
+	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "residential_blue_night", "second floor uses readable blue night residential lighting")
+	_assert_eq(str(floor_root.get_meta("suspense_color_temperature", "")), "moonlit_blue", "second-floor light no longer uses the old green tint")
+	_assert_true(_find_node_by_name(floor_root, "SuspenseOcclusion") == null and _find_node_by_name(floor_root, "DreamcoreArtifacts") == null, "only buildings form the maze, without old scattered clutter")
+	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 0, "second-floor signs, mirages and hanging event fixtures are removed")
+	_assert_eq(float(floor_root.get_meta("minimum_clear_path_width", 0.0)), 2.8, "the narrowest roofed passage remains walkable")
+	_assert_true(float(floor_root.get_meta("map_width", 0.0)) >= 245.0 and float(floor_root.get_meta("map_length", 0.0)) >= 255.0, "original full terrain bounds are retained")
+	_assert_eq(int(floor_root.get_meta("disc_mound_count", 0)), 13, "all original authored hill mounds remain")
 	var disc_ground := _find_node_by_name(floor_root, "IrregularDiscGround") as StaticBody3D
-	var disc_surface: MeshInstance3D = null
-	_assert_true(disc_ground != null and bool(disc_ground.get_meta("irregular_disc", false)), "second floor should build one metadata-tagged filled procedural ground body")
-	if disc_ground != null:
-		disc_surface = disc_ground.get_node_or_null("DiscSurface") as MeshInstance3D
-		var disc_collision := disc_ground.get_node_or_null("Collision") as CollisionShape3D
-		_assert_true(disc_surface != null and disc_surface.mesh is ArrayMesh, "disc terrain should be generated as an original low-poly ArrayMesh")
-		if disc_surface != null:
-			var disc_material := disc_surface.material_override as StandardMaterial3D
-			_assert_true(disc_material != null and disc_material.cull_mode == BaseMaterial3D.CULL_DISABLED, "second-floor terrain should remain visible from the playable side even when procedural winding flips")
-			var height_profile := _mesh_height_profile(disc_surface)
-			_assert_true(float(height_profile.get("range", 0.0)) >= 4.0, "actual terrain vertices should span at least four metres vertically")
-			for quadrant_peak in height_profile.get("quadrant_peaks", []):
-				_assert_true(float(quadrant_peak) >= 1.2, "each map quadrant should contain a clearly raised hill crest")
-		_assert_true(disc_collision != null and disc_collision.shape is ConcavePolygonShape3D, "disc elevation should be backed by matching trimesh collision")
+	_assert_true(disc_ground != null and disc_ground.get_node("Collision").shape is ConcavePolygonShape3D, "original terrain still has matching concave physical collision")
+	var disc_surface := disc_ground.get_node("DiscSurface") as MeshInstance3D
+	var height_profile := _mesh_height_profile(disc_surface)
+	_assert_true(float(height_profile.get("range", 0.0)) >= 4.0, "original terrain vertices still span four metres vertically")
+	var disc_material := disc_surface.material_override as StandardMaterial3D
+	_assert_true(disc_material.cull_mode == BaseMaterial3D.CULL_DISABLED and disc_material.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST, "terrain remains visible with original pixel stone material")
 	var logical_rooms: Array[Node3D] = []
 	_collect_nodes_with_meta(floor_root, "logical_room", logical_rooms)
-	_assert_eq(logical_rooms.size(), 6, "the broad second-floor clearing should retain six gameplay houses")
+	_assert_eq(logical_rooms.size(), 2, "both mandatory NPC rooms are physical roofed passages")
+	var layout: Dictionary = floor_root.get_floor_two_map_layout()
+	_assert_eq(layout.walkable_cells.size(), 46, "phone and world share the forty-six-cell path graph")
 	var physical_houses: Array[Node3D] = []
 	_collect_nodes_with_meta(floor_root, "physical_house", physical_houses)
-	_assert_eq(physical_houses.size(), int(floor_root.get_meta("physical_house_count", -1)), "physical-house metadata should match generated second-floor buildings")
-	_assert_eq(physical_houses.size(), 9, "nine houses should populate the broad map while remaining sparse and disconnected")
-	var scenery_houses: Array[Node3D] = []
-	_collect_nodes_with_meta(floor_root, "scenery_only", scenery_houses)
-	_assert_eq(scenery_houses.size(), 3, "three extra scenery houses should add density without adding gameplay rewards")
-	var house_min_x := INF
-	var house_max_x := -INF
-	var house_min_y := INF
-	var house_max_y := -INF
-	var house_min_z := INF
-	var house_max_z := -INF
-	for house in physical_houses:
-		house_min_x = minf(house_min_x, house.global_position.x)
-		house_max_x = maxf(house_max_x, house.global_position.x)
-		house_min_y = minf(house_min_y, house.global_position.y)
-		house_max_y = maxf(house_max_y, house.global_position.y)
-		house_min_z = minf(house_min_z, house.global_position.z)
-		house_max_z = maxf(house_max_z, house.global_position.z)
-	_assert_true(house_max_x - house_min_x >= 100.0 and house_max_z - house_min_z >= 100.0, "second-floor houses should scatter across both axes instead of forming two straight rows")
-	_assert_true(house_max_y - house_min_y >= 1.4, "scattered houses should visibly sit at different elevations across the hill field")
-	var measured_house_area := 0.0
-	for house in physical_houses:
-		var house_mesh := house.get_node_or_null("Mesh") as MeshInstance3D
-		if house_mesh != null and house_mesh.mesh is BoxMesh:
-			var house_size := (house_mesh.mesh as BoxMesh).size
-			measured_house_area += house_size.x * house_size.z
-	var measured_disc_area := _projected_mesh_area(disc_surface)
-	var measured_coverage := measured_house_area / maxf(1.0, measured_disc_area)
-	_assert_true(measured_disc_area > 35000.0, "the filled irregular disc should expose a broad independently measured planar area")
-	_assert_true(measured_coverage > 0.0 and measured_coverage <= 0.01, "nine houses should still occupy less than one percent of the broad clearing (got %.5f)" % measured_coverage)
-	_assert_near(float(floor_root.get_meta("night_house_coverage_ratio", -1.0)), measured_coverage, 0.0001, "coverage metadata should derive from actual house footprints and disc geometry")
-	_assert_eq(str(floor_root.get_meta("night_house_coverage_method", "")), "procedural_footprints_over_boundary_polygon", "coverage metadata should name its geometry-based calculation")
+	_assert_eq(physical_houses.size(), layout.buildings.size(), "each blocked map parcel is backed by a residential building")
+	_assert_eq(physical_houses.size(), 123, "regular residential grid encloses the maze without exterior shortcuts")
 	var floor_two_spawn: Vector3 = floor_root.call("start_position")
-	_assert_true(bool(floor_root.call("contains_playable_position", floor_two_spawn)), "second-floor spawn should remain inside the playable clearing")
-	_assert_near(float(floor_root.call("start_yaw_degrees")), 0.0, 0.01, "second-floor spawn should face inward across the scattered settlement")
-	_assert_true(bool(floor_root.call("contains_playable_position", Vector3.ZERO)), "the irregular clearing should fill its center with walkable terrain")
-	var far_outside := Vector3(float(floor_root.get_meta("map_width", 0.0)), 0.08, float(floor_root.get_meta("map_length", 0.0)))
-	_assert_true(not bool(floor_root.call("contains_playable_position", far_outside)), "positions beyond the irregular circular edge should remain outside the map")
-	var clamped_outside: Vector3 = floor_root.call("clamp_to_playable_position", far_outside)
-	_assert_true(bool(floor_root.call("contains_playable_position", clamped_outside, 1.2)), "clamping should move an exterior point onto the irregular circular boundary")
-	_assert_true(not _vertical_ground_collision(floor_root, floor_two_spawn, player).is_empty(), "second-floor spawn should stand above the undulating disc collision")
-	_assert_true(not _vertical_ground_collision(floor_root, Vector3.ZERO, player).is_empty(), "second-floor center should be backed by real filled terrain collision")
-	_assert_dreamcore_objects(floor_root, "second floor")
-	var floor_two_fog_density := float(floor_root.get_meta("fog_density", 0.0))
+	_assert_true(bool(floor_root.call("contains_playable_position", floor_two_spawn)), "second-floor spawn is inside its first corridor")
+	_assert_near(float(floor_root.call("start_yaw_degrees")), 0.0, 0.01, "spawn faces the mandatory first room")
+	_assert_true(not bool(floor_root.call("contains_playable_position", Vector3.ZERO)), "a house parcel cannot be treated as walkable merely because it has terrain below")
+	var clamped_inside: Vector3 = floor_root.call("clamp_to_playable_position", Vector3.ZERO)
+	_assert_true(bool(floor_root.call("contains_playable_position", clamped_inside)), "old save in a new residence recovers to the nearest passage")
+	_assert_true(not _vertical_ground_collision(floor_root, floor_two_spawn, player).is_empty(), "the spawn has actual terrain support")
+	_assert_true(floor_root.get_interactable_items().is_empty(), "removed second-floor pickups do not return in the main scene")
 	var floor_two_ambient_energy := float(floor_root.get_meta("ambient_light_energy", 0.0))
 
 	game_root.game.tower_floor = 3
@@ -468,9 +440,9 @@ func _run() -> void:
 	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "natural_skylight", "third floor should switch from horror darkness to natural skylight")
 	_assert_eq(str(floor_root.get_meta("suspense_color_temperature", "")), "natural_daylight", "third-floor global illumination should use a natural daylight temperature")
 	_assert_true(float(floor_root.get_meta("ambient_light_energy", 0.0)) >= 0.65, "third floor should be substantially brighter and more natural than floor two")
-	_assert_true(float(floor_root.get_meta("ambient_light_energy", 0.0)) > floor_two_ambient_energy * 4.5, "third-floor ambient light should clearly separate itself from the near-black ring")
+	_assert_true(float(floor_root.get_meta("ambient_light_energy", 0.0)) > floor_two_ambient_energy, "third-floor daylight remains brighter than the residential night")
 	_assert_true(float(floor_root.get_meta("key_light_energy", 0.0)) >= 1.1, "third-floor key light should read as strong daylight through the skylights")
-	_assert_true(float(floor_root.get_meta("fog_density", 1.0)) < floor_two_fog_density * 0.5, "third-floor daylight should use cleaner air than the dark ring")
+	_assert_true(float(floor_root.get_meta("fog_density", 1.0)) <= 0.009, "third-floor daylight retains its established clean-air fog density")
 	_assert_eq(int(floor_root.get_meta("jump_scare_trigger_count", -1)), 0, "third-floor suspense should rely on space and repetition instead of jump-scare areas")
 	_assert_true(_centerline_collision(floor_root, player).is_empty(), "third-floor continuous colonnade should keep its centerline walkable")
 	var grass_field := _find_node_by_name(floor_root, "FullMapGrass") as MultiMeshInstance3D

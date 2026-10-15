@@ -34,11 +34,11 @@ func _run_async() -> void:
 func _run() -> void:
 	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(1, 1), PackedStringArray(), "floor one should preserve a calm baseline")
 	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(1, 4), PackedStringArray(), "the calm baseline should suppress the rare mirage even on a scheduled day")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), PackedStringArray(["light_memory", "dead_sign"]), "floor two day one should use the authored light/sign pair")
-	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 4), PackedStringArray(["light_memory", "dead_sign", "distant_mirage"]), "day four should add the first rare image mirage")
+	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), PackedStringArray(), "floor two residential maze has no old light/sign props")
+	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 4), PackedStringArray(), "floor two never resurrects a floating mirage")
 	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(4, 9), PackedStringArray(["light_memory", "dead_sign", "distant_mirage"]), "hidden floor four day nine should add the final rare image mirage")
 	_assert_eq(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), "the same floor and day should always return the same events")
-	_assert_true(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1) != RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 2), "day changes should rotate the authored event schedule")
+	_assert_true(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(3, 1) != RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(3, 2), "day changes should retain the third-floor authored event schedule")
 	_assert_true(RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(3, 1) != RealityFloorGeneratorScript.authored_event_kinds_for_floor_day(2, 1), "floor changes should alter the event composition")
 	var mirage_days := 0
 	for day_number in range(1, 13):
@@ -49,7 +49,13 @@ func _run() -> void:
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	floor_root.rebuild(2, TEST_PALETTE, {}, 1)
-	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 2, "floor two should instantiate its two scheduled events")
+	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 0, "floor two has no authored visual events")
+	_assert_true(floor_root.get_cover_watcher_state().is_empty(), "floor two has no watcher model")
+	floor_root.configure_authored_events(9, TEST_PALETTE)
+	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 0, "later visits do not revive removed floor-two content")
+	# Exercise the retained event mechanisms on floor three's existing two-event day.
+	floor_root.rebuild(3, TEST_PALETTE, {}, 2)
+	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 2, "floor three day two retains its two scheduled events")
 	_assert_true(not bool(floor_root.get_meta("authored_event_randomized", true)), "authored events should not depend on random timers")
 	_assert_eq(str(floor_root.get_meta("authored_event_trigger_mode", "")), "movement_then_observation_then_look_away", "event metadata should expose the slow-burn trigger grammar")
 	_assert_eq(int(floor_root.get_meta("jump_scare_trigger_count", -1)), 0, "authored events must not add jump-scare trigger volumes")
@@ -101,8 +107,8 @@ func _run() -> void:
 		if sign_label != null:
 			_assert_eq(sign_label.text, "EX_T", "the failed EXIT sign should retain a restrained one-letter absence")
 
-	floor_root.configure_authored_events(2, TEST_PALETTE)
-	_assert_eq(floor_root.get_meta("authored_event_kinds", PackedStringArray()), PackedStringArray(["light_memory"]), "floor two day two should retain only the finite light event")
+	floor_root.configure_authored_events(3, TEST_PALETTE)
+	_assert_eq(floor_root.get_meta("authored_event_kinds", PackedStringArray()), PackedStringArray(["light_memory"]), "floor three day three retains only the finite light event")
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 1, "a single-event day should instantiate exactly one event root")
 	_assert_true(_find_node_by_name(floor_root, "DeadSignEvent") == null, "an unscheduled sign should not remain in the scene tree")
 

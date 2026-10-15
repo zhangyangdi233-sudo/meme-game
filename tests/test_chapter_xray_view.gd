@@ -198,6 +198,7 @@ func _basement_state() -> MemeGameState:
 	state.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_door_opened")
+	state.notify_chapter1("phone_collected", {"round_token": 1})
 	state.view_state = "npc_up"
 	state.active_app_window = ""
 	return state

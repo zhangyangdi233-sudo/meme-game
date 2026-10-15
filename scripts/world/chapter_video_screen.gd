@@ -24,6 +24,10 @@ var _powered_on: bool = true
 var _display_owner: WeakRef
 var _display_material: Material
 var _display_playback_material: Material
+var _signal_material: StandardMaterial3D
+var _signal_override := false
+var _pause_before_signal := false
+var _ambient_playback := false
 
 
 func is_bound_to(mesh: MeshInstance3D, surface_index: int = 0) -> bool:
@@ -57,13 +61,14 @@ func detach_display(owner: Object) -> void:
 	_display_playback_material = null
 	if owns_surface:
 		_mesh.set_surface_override_material(_surface_index, _material)
+		_refresh_display_material()
 
 
 func _owns_surface_material() -> bool:
 	if not is_instance_valid(_mesh) or _mesh.mesh == null or _surface_index >= _mesh.mesh.get_surface_count():
 		return false
 	var current := _mesh.get_surface_override_material(_surface_index)
-	return current == _material or (_display_material != null and current == _display_material) or (_display_playback_material != null and current == _display_playback_material)
+	return current == _material or (_display_material != null and current == _display_material) or (_display_playback_material != null and current == _display_playback_material) or (_signal_material != null and current == _signal_material)
 
 
 func _refresh_display_material() -> void:
@@ -71,12 +76,63 @@ func _refresh_display_material() -> void:
 		return
 	var display_alive := _display_owner != null and _display_owner.get_ref() != null
 	var next: Material = _material
-	if _powered_on and display_alive:
-		if not _has_active_display():
+	if _signal_override:
+		next = _signal_material
+	elif _powered_on and display_alive:
+		if _ambient_playback or not _has_active_display():
 			next = _display_material
 		elif _display_playback_material != null:
 			next = _display_playback_material
 	_mesh.set_surface_override_material(_surface_index, next)
+
+
+## Temporarily replace the signal without touching power, stream, UI ownership,
+## or playback position. Used by the fifth-room synchronized CRT interruption.
+func set_signal_override(color: Color) -> void:
+	_ensure_runtime()
+	if not _signal_override:
+		_pause_before_signal = _player.paused
+		_signal_override = true
+		_player.paused = true
+	if _signal_material == null:
+		_signal_material = StandardMaterial3D.new()
+		_signal_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_signal_material.albedo_color = color
+	_refresh_display_material()
+
+
+func clear_signal_override() -> void:
+	if not _signal_override:
+		return
+	_signal_override = false
+	if is_instance_valid(_player) and _player.is_inside_tree():
+		_player.paused = _pause_before_signal
+	_refresh_display_material()
+
+
+func set_playback_paused(value: bool) -> void:
+	if not is_instance_valid(_player):
+		return
+	if _signal_override:
+		_pause_before_signal = value
+	_player.paused = value or _signal_override
+
+
+func set_looping(value: bool) -> void:
+	_ensure_runtime()
+	_player.loop = value
+
+
+## Background room video yields its surface to an attached interactive terminal.
+## Detaching the terminal reveals the same live playback without restarting it.
+func set_ambient_playback(value: bool) -> void:
+	_ambient_playback = value
+	_refresh_display_material()
+
+
+func set_volume_db(value: float) -> void:
+	_ensure_runtime()
+	_player.volume_db = value
 
 
 func get_playback_texture() -> Texture2D:
@@ -141,7 +197,7 @@ func power_on() -> void:
 ## externally validated. Without a stream or valid mesh binding this safely returns false.
 ## Failed requests emit playback_failed with not_in_tree, unbound_screen, no_stream,
 ## or playback_not_started. Missing optional media is a normal no_stream result.
-func play() -> bool:
+func play(from_seconds: float = 0.0) -> bool:
 	if not is_inside_tree():
 		return _fail_playback("not_in_tree")
 	if not is_instance_valid(_mesh):
@@ -150,6 +206,9 @@ func play() -> bool:
 		return _fail_playback("no_stream")
 	_player.paused = false
 	_player.play()
+	if from_seconds > 0.0:
+		var duration := _player.get_stream_length()
+		_player.stream_position = fmod(from_seconds, duration) if duration > 0.0 else from_seconds
 	if not _player.is_playing():
 		return _fail_playback("playback_not_started")
 	var power_was_off := not _powered_on
@@ -243,6 +302,7 @@ func _restore_material() -> void:
 	_display_owner = null
 	_display_material = null
 	_display_playback_material = null
+	_signal_override = false
 
 
 func _exit_tree() -> void:

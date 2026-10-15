@@ -1,6 +1,7 @@
 extends SceneTree
 
 var failures: Array[String] = []
+var checks := 0
 
 
 func _init() -> void:
@@ -28,6 +29,8 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		_check(main._reality_mouse_look_enabled, route + ": free exploration captures the mouse")
+		if DisplayServer.get_name() != "headless":
+			_check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, route + ": exploration hides the cursor using captured mode")
 		var yaw_before: float = main._reality_yaw
 		var pitch_before: float = main._reality_pitch
 		var camera_rotation_before: Vector3 = main._camera.rotation
@@ -39,11 +42,20 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		_check(not main._camera.rotation.is_equal_approx(camera_rotation_before), route + ": mouse input reaches the actual camera")
+		for sweep in range(6):
+			yaw_before = main._reality_yaw
+			_move_mouse(Vector2(1000.0, 0.0))
+			_check(main._reality_mouse_look_enabled, route + ": repeated rightward motion never releases mouse capture")
+			_check(not is_equal_approx(main._reality_yaw, yaw_before), route + ": camera keeps turning right across viewport edges")
 		var escape := InputEventKey.new()
 		escape.keycode = KEY_ESCAPE
 		escape.pressed = true
 		root.push_input(escape, true)
 		_check(main._settings_open and not main._reality_mouse_look_enabled, route + ": Escape opens settings and releases the mouse")
+		_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, route + ": settings keep the system cursor visible")
+		main._set_reality_mouse_look(true)
+		_check(not main._reality_mouse_look_enabled, route + ": a late capture callback cannot override settings")
+		main._set_reality_mouse_look(false)
 		yaw_before = main._reality_yaw
 		_move_mouse(Vector2(64.0, 0.0))
 		_check(is_equal_approx(main._reality_yaw, yaw_before), route + ": released mouse cannot turn the camera")
@@ -76,19 +88,30 @@ func _run() -> void:
 			_check(main._reality_mouse_look_enabled, "chapter: world click resumes mouse look after closing settings")
 		else:
 			main._set_reality_mouse_look(false)
-			_click(main._view_toggle_button.get_global_rect().get_center())
-			_check(main.game.view_state == "phone_down", "legacy: phone button still receives clicks through the UI root")
+			_click(main._phone_tab.get_global_rect().get_center())
+			_check(main.game.view_state == "phone_down", "legacy: phone edge tab receives clicks through the UI root")
 			_check(not main._reality_mouse_look_enabled, "legacy: phone UI releases the mouse")
+			main._set_reality_mouse_look(true)
+			_check(not main._reality_mouse_look_enabled, "legacy: a late capture callback cannot override the phone")
+			main._set_reality_mouse_look(false)
 			yaw_before = main._reality_yaw
 			_move_mouse(Vector2(64.0, 0.0))
 			_check(is_equal_approx(main._reality_yaw, yaw_before), "legacy: phone UI mouse motion does not turn the camera")
+	main.set_view_state("npc_up")
+	main._show_phone_camera_connection_overlay()
+	await process_frame
+	await process_frame
+	_check(not main._reality_mouse_look_enabled, "opening a modal releases active mouse capture")
+	main._set_reality_mouse_look(true)
+	_check(not main._reality_mouse_look_enabled, "a visible modal rejects recapture")
+	main._hide_phone_camera_connection_overlay()
 	main._set_reality_mouse_look(false)
 	main.queue_free()
 	await process_frame
 	for failure in failures:
 		push_error(failure)
 	if failures.is_empty():
-		print("mouse look input tests passed")
+		print("mouse look input tests passed (%d checks; continuous rightward rotation, phone and settings)" % checks)
 	quit(0 if failures.is_empty() else 1)
 
 
@@ -115,5 +138,6 @@ func _click(position: Vector2) -> void:
 
 
 func _check(value: bool, message: String) -> void:
+	checks += 1
 	if not value:
 		failures.append(message)

@@ -138,6 +138,7 @@ func _second_visit_state(sealed: bool = false) -> MemeGameState:
 	state.notify_chapter1("narration_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID})
 	state.notify_chapter1("opening_knock_completed", {"sequence_id": Director.OPENING_SEQUENCE_ID})
 	state.notify_chapter1("opening_door_opened")
+	state.notify_chapter1("phone_collected", {"round_token": 1})
 	state.notify_chapter1("entrance_threshold_crossed", {"round_token": 1})
 	state.notify_chapter1("npc_help_completed", {"round_token": 1, "task_id": "basement_help_01", "npc_id": "basement_npc_01"})
 	state.notify_chapter1("basement_exit_requested", {"round_token": 1})

@@ -56,7 +56,7 @@ func _run() -> void:
 			_check(main._settings_window.visible and not main._hud_panel.visible and not main._hud_reveal_zone.visible, "Esc opens settings without restoring the retired status rail")
 			main._close_settings_window()
 			main._render_status()
-			_check(not main._playtest_assist_panel.visible, "partial status render cannot expose legacy test hints")
+			_check(main._playtest_assist_panel == null, "partial status render cannot recreate retired test hints")
 			for visit in range(5):
 				var token: int = main.game.chapter1_progress.transition_serial
 				main.notify_chapter1("entrance_threshold_crossed", {"round_token": token})

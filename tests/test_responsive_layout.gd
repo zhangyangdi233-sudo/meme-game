@@ -28,15 +28,20 @@ func _run() -> void:
 	if scene == null:
 		return
 	var game_root := scene.instantiate()
+	game_root._save_path = "user://aphasia_test_responsive_layout.dat"
+	game_root._locale.preferences_path = "user://aphasia_test_responsive_layout.cfg"
+	game_root._camera_session_decided = true
+	game_root._camera_enabled = false
 	root.add_child(game_root)
+	game_root._resolve_camera_consent(false)
 	# 布局断言以源语言(中文)几何为准:显式固定 locale,隔离持久化偏好文件的污染
 	# (外部工具/探针可能把偏好写成 en/ja,英文长字符串会让小窗布局溢出)。
 	game_root._locale.set_locale("zh")
 	if game_root.has_method("new_game"):
 		game_root.new_game()
+	game_root._skip_prologue()
 	game_root._render()
-	await process_frame
-	await process_frame
+	await create_timer(0.60).timeout
 
 	var viewport_rect := Rect2(Vector2.ZERO, root.get_visible_rect().size)
 	_assert_true(viewport_rect.size == Vector2(SMALL_VIEW_SIZE), "responsive test should run at the requested small viewport size")
@@ -44,21 +49,19 @@ func _run() -> void:
 	var social_window := _find_node_by_name(game_root, "SocialAppWindow") as PanelContainer
 	var social_bottom_nav := _find_node_by_name(game_root, "SocialBottomNav") as HBoxContainer
 	var social_inline_close := _find_node_by_name(game_root, "SocialAppInlineCloseButton") as Button
-	var view_toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var view_toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	var meme_bank := _find_node_by_name(game_root, "MemeBankPopup") as Control
-	var actions_label := _find_node_by_name(game_root, "HUDActionsLabel") as Label
-	_assert_true(hud != null, "small view should keep the left HUD rail")
+	_assert_true(hud == null or not hud.visible, "small view keeps the retired HUD rail hidden")
 	_assert_true(social_window != null and social_window.visible, "small view should open the social phone")
-	if hud != null and social_window != null:
+	if social_window != null:
 		_assert_true(_inside_rect(social_window, viewport_rect), "small-view social phone should stay inside the viewport")
-		_assert_true(social_window.get_global_rect().position.x >= hud.get_global_rect().end.x + 8.0, "small-view social phone should not cover the HUD rail")
 	if social_bottom_nav != null:
 		_assert_true(_inside_rect(social_bottom_nav, viewport_rect), "small-view social bottom nav should stay reachable")
 	if social_inline_close != null:
 		_assert_true(_inside_rect(social_inline_close, viewport_rect), "small-view social close button should stay reachable")
 		_assert_true(social_inline_close.custom_minimum_size.x >= 44.0, "small-view social close target should meet mobile touch guidance")
 	if view_toggle != null:
-		_assert_true(_inside_rect(view_toggle, viewport_rect), "small-view put-phone button should stay reachable")
+		_assert_true(_inside_rect(view_toggle, viewport_rect), "small-view phone edge handle should stay reachable")
 	if meme_bank != null:
 		_assert_true(not meme_bank.visible, "small-view passive social browsing should hide the publish-only meme bank")
 	if game_root.has_method("_open_social_post"):
@@ -66,9 +69,12 @@ func _run() -> void:
 		await process_frame
 		var detail_window := _find_node_by_name(game_root, "SocialDetailWindow") as PanelContainer
 		var detail_close := _find_node_by_name(game_root, "SocialDetailWindowCloseButton") as Button
-		_assert_true(detail_window != null and detail_window.visible, "small view should open the independent post detail companion")
+		_assert_true(detail_window != null and detail_window.visible, "small view should open the embedded post detail page")
 		if detail_window != null:
-			_assert_true(_inside_rect(detail_window, viewport_rect), "small-view detail companion should stay inside the viewport")
+			_assert_true(_inside_rect(detail_window, viewport_rect), "small-view detail page should stay inside the viewport")
+			_assert_true(detail_window.get_parent() == game_root._phone_panel.screen, "post detail remains inside the phone screen")
+			var detail_style := detail_window.get_theme_stylebox("panel") as StyleBoxFlat
+			_assert_true(detail_style != null and detail_style.bg_color.get_luminance() < 0.2, "embedded post detail receives its dark theme behind cream text")
 		if detail_close != null:
 			detail_close.pressed.emit()
 			_assert_true(detail_window != null and not detail_window.visible, "small-view detail close should return focus to the phone feed")
@@ -76,21 +82,19 @@ func _run() -> void:
 
 	if social_inline_close != null:
 		social_inline_close.pressed.emit()
-	await process_frame
+	await create_timer(0.60).timeout
 	var phone_home := _find_node_by_name(game_root, "PhonePopup") as PanelContainer
-	var phone_content := _find_node_by_name(game_root, "PhoneContent") as Control
+	var phone_content := _find_node_by_name(game_root, "PhoneLauncherScreen") as Control
 	var phone_social_icon := _find_node_by_name(game_root, "PhoneAppIconSocial") as Button
 	_assert_true(phone_home != null and phone_home.visible, "closing social on small view should reveal the phone home")
 	if phone_home != null:
 		_assert_true(_inside_rect(phone_home, viewport_rect), "small-view phone home should stay inside the viewport")
-		if hud != null:
-			_assert_true(phone_home.get_global_rect().position.x >= hud.get_global_rect().end.x + 8.0, "small-view phone home should not cover the HUD rail")
 	_assert_true(phone_content != null and phone_content.visible, "small-view phone home should expose app icons")
 	if phone_social_icon != null:
 		_assert_true(_inside_rect(phone_social_icon, viewport_rect), "small-view phone app icons should stay reachable")
 	if game_root.has_method("set_view_state"):
 		game_root.set_view_state("npc_up")
-	await process_frame
+	await create_timer(0.60).timeout
 	var reality_subtitle := _find_node_by_name(game_root, "RealitySubtitlePanel") as PanelContainer
 	var reality_choices := _find_node_by_name(game_root, "RealityResponseChoices") as HBoxContainer
 	var phone_tab := _find_node_by_name(game_root, "PhoneTab") as Button
@@ -104,35 +108,21 @@ func _run() -> void:
 		game_root._try_reality_interaction()
 	await process_frame
 	_assert_true(reality_subtitle != null and reality_subtitle.visible, "small-view F interaction should show the movie subtitle")
-	_assert_true(reality_choices != null and reality_choices.visible and reality_choices.get_child_count() == 3, "small-view dialogue should fit all three response choices")
+	_assert_true(reality_choices != null and not reality_choices.visible and reality_choices.get_child_count() == 0, "small-view dialogue proceeds without response options")
+	_assert_true(game_root.game.conversation_phase == "typing", "small-view NPC dialogue begins the protagonist's single keyboard line")
 	if reality_subtitle != null:
 		_assert_true(_inside_rect(reality_subtitle, viewport_rect), "small-view movie subtitle should stay inside the viewport")
-	if reality_choices != null:
-		_assert_true(_inside_rect(reality_choices, viewport_rect), "small-view response choices should stay inside the viewport")
-	var doll_choices: Array = game_root.game.get_typed_reality_choices()
-	_assert_true(not doll_choices.is_empty(), "small-view doll discovery should expose authored choices")
-	var first_choice_id := str(doll_choices[0].get("id", "")) if not doll_choices.is_empty() else ""
-	if not first_choice_id.is_empty():
-		game_root._on_reality_choice_hovered(first_choice_id)
 	var intent_preview := _find_node_by_name(game_root, "RealityIntentPreview") as RichTextLabel
-	_assert_true(intent_preview != null and intent_preview.visible, "small-view hover should reveal the full intended sentence")
-	if intent_preview != null:
-		_assert_true(_inside_rect(intent_preview, viewport_rect), "small-view intent preview should stay inside the viewport")
-		if reality_subtitle != null:
-			_assert_true(not intent_preview.get_global_rect().intersects(reality_subtitle.get_global_rect()), "small-view intent preview should not cover the subtitle")
-	if not first_choice_id.is_empty():
-		game_root._on_reality_choice_selected(first_choice_id)
+	_assert_true(intent_preview == null or not intent_preview.visible, "single-line dialogue has no retired hover preview")
 	await process_frame
 	var typing_line := _find_node_by_name(game_root, "RealityTypingLine") as RichTextLabel
 	var typing_progress := _find_node_by_name(game_root, "RealityTypingProgress") as Label
-	_assert_true(typing_line != null and typing_line.visible, "small-view selected response should become the per-key typing line")
-	_assert_true(typing_progress != null and typing_progress.visible, "small-view typing should expose concise progress")
+	_assert_true(typing_line != null and typing_line.visible, "small-view protagonist response is the per-key typing line")
+	_assert_true(typing_progress != null and typing_progress.visible and not typing_progress.text.is_empty(), "first small-view protagonist line explains keyboard typing")
 	_assert_true(_find_node_by_name(game_root, "LanguagePuzzleFrame") == null, "small-view dialogue should not restore the retired Florence puzzle")
 	for control in [typing_line, typing_progress, reality_subtitle]:
 		if control != null and control.visible:
 			_assert_true(_inside_rect(control, viewport_rect), "small-view reality control should stay inside the viewport: %s" % control.name)
-	if hud != null and typing_line != null:
-		_assert_true(typing_line.get_global_rect().position.x >= hud.get_global_rect().end.x + 8.0, "small-view typing line should keep clear of the HUD rail")
 	_assert_true(_find_node_by_name(game_root, "Merchant") == null, "small view must not restore the removed merchant actor")
 	_assert_true(_find_node_by_name(game_root, "RealityMerchantOffer") == null, "doll dialogue should use the shared result surface instead of a trade panel")
 	_assert_true(_find_node_by_name(game_root, "RealityMerchantBuyButton") == null, "doll frames should never expose a purchase button")

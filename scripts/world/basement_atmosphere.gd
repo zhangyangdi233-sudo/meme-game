@@ -4,8 +4,10 @@ extends Node3D
 ## The original GLB remains intact; this module corrects its runtime instance.
 
 signal whisper_started
+signal crt_event_started
 
 const Binding = preload("res://scripts/world/chapter_asset_binding.gd")
+const CRTAnomaly = preload("res://scripts/world/basement_crt_anomaly.gd")
 const XRAY_LAYER := 1 << 19
 const TEXTURE_DIR := "res://assets/chapter1/atmosphere/"
 const FLICKER_VISIT := 1 # zero-based: second visit
@@ -32,10 +34,12 @@ var _textures: Dictionary = {}
 var _clock_time := 0.0
 var _audio_paused := false
 var _whisper: AudioStreamPlayer
+var _crt_anomaly: Node3D
 
 
 func _exit_tree() -> void:
 	stop_whisper()
+	stop_crt_event()
 
 
 func configure(asset: Node3D, _contract: Dictionary, progress: Dictionary) -> void:
@@ -54,6 +58,12 @@ func configure(asset: Node3D, _contract: Dictionary, progress: Dictionary) -> vo
 	_dress_furniture()
 	_build_switch(int(progress.get("transition_serial", 0)))
 	_build_clocks()
+	if _round == BROKEN_CLOCK_VISIT:
+		_crt_anomaly = CRTAnomaly.new()
+		_crt_anomaly.name = "CRTAnomaly"
+		add_child(_crt_anomaly)
+		_crt_anomaly.started.connect(func(): crt_event_started.emit())
+		_crt_anomaly.configure(get_parent(), _asset, progress, str(_contract.get("basement_crt_video_path", CRTAnomaly.DEFAULT_VIDEO_PATH)))
 	if _round == FLICKER_VISIT:
 		_whisper = AudioStreamPlayer.new()
 		_whisper.name = "BasementWhisper"
@@ -71,6 +81,8 @@ func interaction_actor() -> Area3D:
 func toggle_lights() -> bool:
 	if _switch == null:
 		return false
+	if is_instance_valid(_crt_anomaly) and _crt_anomaly.is_active():
+		return false
 	_anomaly_cancelled = true
 	stop_whisper()
 	_apply_light_state(not _lights_on)
@@ -85,6 +97,18 @@ func set_audio_paused(value: bool) -> void:
 	_audio_paused = value
 	if is_instance_valid(_whisper):
 		_whisper.stream_paused = value
+	if is_instance_valid(_crt_anomaly):
+		_crt_anomaly.set_paused(value)
+
+
+func bind_primary_screen(video: Node) -> void:
+	if is_instance_valid(_crt_anomaly):
+		_crt_anomaly.bind_primary_screen(video)
+
+
+func stop_crt_event() -> void:
+	if is_instance_valid(_crt_anomaly):
+		_crt_anomaly.cancel()
 
 
 func stop_whisper() -> void:
@@ -92,9 +116,11 @@ func stop_whisper() -> void:
 		_whisper.stop()
 
 
-func update_visit(delta: float, entrance_locked: bool) -> void:
+func update_visit(delta: float, entrance_locked: bool, player_local: Vector3 = Vector3.INF) -> void:
 	if _audio_paused:
 		return
+	if is_instance_valid(_crt_anomaly):
+		_crt_anomaly.update_visit(delta, entrance_locked, player_local)
 	_clock_time += maxf(delta, 0.0)
 	for hand in _clock_hands:
 		hand.rotation.z = float(hand.get_meta("initial_angle", 0.0)) - _clock_time * TAU / 60.0

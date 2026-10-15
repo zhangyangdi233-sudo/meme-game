@@ -17,6 +17,8 @@ const COVER_WATCHER_PIXEL_SIZE := 0.00155
 const ACTOR_PORTRAIT_WORLD_HEIGHT := 1.90
 const ACTOR_CAMERA_EYE_HEIGHT := 1.56
 const DOLL_PORTRAIT_WORLD_HEIGHT := 0.96
+const FloorTwoLayout = preload("res://scripts/world/floor_two_maze_layout.gd")
+const FloorTwoResidences = preload("res://scripts/world/floor_two_residential_maze.gd")
 
 const BASE_ROOM_COUNT := 4
 const WORLD_LENGTH_SCALE := 5.0
@@ -126,6 +128,7 @@ var _cover_watcher_root: Node3D
 var _cover_watcher_sprite: Sprite3D
 var _cover_watcher_state: Dictionary = {}
 var _playtest_assist_enabled := false
+var _floor_two_layout: Dictionary = {}
 
 
 static func room_count_for_floor(floor_number: int) -> int:
@@ -134,6 +137,8 @@ static func room_count_for_floor(floor_number: int) -> int:
 
 
 static func npc_count_for_floor(floor_number: int) -> int:
+	if floor_number == 2:
+		return 2
 	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
 	return int(ORDINARY_NPC_COUNTS[floor_index])
 
@@ -143,6 +148,8 @@ static func district_style_for_floor(floor_number: int) -> String:
 
 
 static func authored_event_kinds_for_floor_day(floor_number: int, day_number: int) -> PackedStringArray:
+	if floor_number == 2:
+		return PackedStringArray()
 	var floor_schedules: Array = AUTHORED_EVENT_TABLE.get(clampi(floor_number, 1, 4), [])
 	if floor_schedules.is_empty():
 		return PackedStringArray()
@@ -167,7 +174,11 @@ func rebuild(
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
 	room_count = room_count_for_floor(built_floor)
+	if built_floor == 2:
+		room_count = 2
 	ordinary_npc_count = npc_count_for_floor(built_floor)
+	if built_floor == 2:
+		_floor_two_layout = FloorTwoLayout.build(_floor_two_ground_height)
 	useful_item_count = 0
 	var lot_rows := int(ceil(float(room_count) / 2.0))
 	if built_floor == 2:
@@ -181,13 +192,13 @@ func rebuild(
 	set_meta("logical_room_count", room_count)
 	set_meta("ordinary_npc_count", ordinary_npc_count)
 	set_meta("doll_encounter_count", 0)
-	set_meta("layout_mode", "irregular_disc" if built_floor == 2 else ("skylit_overgrown_gallery" if built_floor == 3 else "shared_street"))
+	set_meta("layout_mode", "residential_maze" if built_floor == 2 else ("skylit_overgrown_gallery" if built_floor == 3 else "shared_street"))
 	set_meta("map_width", map_width)
 	set_meta("map_length", map_length)
 	set_meta("world_length_scale", WORLD_LENGTH_SCALE)
 	set_meta("air_wall_count", 12 if district_style == "sunlit_brick_street" else (FLOOR_TWO_DISC_AIR_WALL_SEGMENTS if built_floor == 2 else 4))
 	set_meta("district_style", district_style)
-	set_meta("npc_population_rule", "strictly_descending")
+	set_meta("npc_population_rule", "two_authored_journey_npcs" if built_floor == 2 else "legacy_floor_population")
 	set_meta("atmosphere_mode", "open_daylight" if built_floor == 1 else "slow_burn_suspense")
 	set_meta("suspense_occluder_count", 0)
 	set_meta("suspense_light_count", 0)
@@ -241,14 +252,17 @@ func rebuild(
 	_build_environment(palette)
 	_build_architecture(palette)
 	if populate:
-		_build_prerequisite_item(prerequisite_item, palette)
-		_build_actors(actor_textures)
+		if built_floor == 2:
+			_build_floor_two_actors(actor_textures)
+		else:
+			_build_prerequisite_item(prerequisite_item, palette)
+			_build_actors(actor_textures)
 	else:
 		ordinary_npc_count = 0
 		set_meta("ordinary_npc_count", 0)
 	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette)
-	if populate:
+	if populate and built_floor != 2:
 		_build_cover_watcher_event(palette, cover_watcher_seen)
 	set_meta("useful_item_count", useful_item_count)
 
@@ -372,6 +386,12 @@ func configure_authored_events(day_number: int, palette: Dictionary) -> void:
 	_authored_event_nodes.clear()
 	_authored_event_states.clear()
 	_authored_event_day = maxi(1, day_number)
+	if built_floor == 2:
+		_authored_event_root = null
+		set_meta("authored_event_count", 0)
+		set_meta("authored_event_kinds", PackedStringArray())
+		set_meta("authored_event_day", _authored_event_day)
+		return
 	_authored_event_origin = start_position()
 	_authored_event_root = Node3D.new()
 	_authored_event_root.name = "AuthoredHorrorEvents"
@@ -768,9 +788,7 @@ func _update_distant_mirage_event(delta: float, horizontal_travel: float, player
 
 func start_position() -> Vector3:
 	if built_floor == 2:
-		var disc_spawn := _floor_two_disc_point(PI * 0.5, 0.82)
-		disc_spawn.y += 0.08
-		return disc_spawn
+		return _floor_two_layout.spawn
 	return Vector3(0.0, 0.08, map_length * 0.5 - 9.0)
 
 
@@ -780,7 +798,7 @@ func start_yaw_degrees() -> float:
 
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 	if built_floor == 2:
-		return _floor_two_disc_contains(position, inset)
+		return bool(FloorTwoLayout.probe(position).walkable)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
 	var inside_trunk := absf(position.x) <= half_width and absf(position.z) <= half_length
@@ -793,7 +811,7 @@ func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 
 func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector3:
 	if built_floor == 2:
-		return _clamp_to_floor_two_disc(position, inset)
+		return FloorTwoLayout.nearest_walkable(position, _floor_two_ground_height, inset)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
 	var trunk_candidate := Vector3(
@@ -817,6 +835,26 @@ func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector
 
 func _sunlit_crossroad_span() -> float:
 	return map_width + SUNLIT_CROSSROAD_ARM_LENGTH * 2.0
+
+
+func get_floor_two_map_layout() -> Dictionary:
+	return _floor_two_layout.duplicate(true) if built_floor == 2 else {}
+
+
+func floor_two_probe(world_point: Vector3) -> Dictionary:
+	if built_floor != 2:
+		return {"inside": false, "walkable": false, "cell": Vector2i(-1, -1), "cell_key": "", "checkpoint": "", "ground_height": 0.0}
+	return FloorTwoLayout.probe(to_local(world_point), _floor_two_ground_height)
+
+
+func floor2_probe(world_point: Vector3) -> Dictionary:
+	return floor_two_probe(world_point)
+
+
+func _floor_two_ground_height(x: float, z: float) -> float:
+	var point := Vector3(x, 0, z)
+	var ratio := Vector2(x, z).length() / maxf(1.0, _floor_two_disc_boundary_distance(_floor_two_disc_angle(point)))
+	return _floor_two_disc_height(x, z, clampf(ratio, 0.0, 1.0))
 
 
 func _floor_two_disc_irregularity(angle: float) -> float:
@@ -890,6 +928,10 @@ func _clamp_to_floor_two_disc(position: Vector3, inset: float) -> Vector3:
 
 
 func apply_palette(palette: Dictionary) -> void:
+	# This district has a fixed moonlight/plaster palette. Main refreshes its UI
+	# theme frequently; do not recolor (or traverse) thousands of facade pieces.
+	if built_floor == 2:
+		return
 	if _environment != null and _environment.environment != null:
 		var environment := _environment.environment
 		environment.background_color = _style_background_color(palette)
@@ -911,6 +953,7 @@ func apply_palette(palette: Dictionary) -> void:
 
 
 func _clear_floor() -> void:
+	_floor_two_layout.clear()
 	_actors.clear()
 	_items.clear()
 	_environment = null
@@ -938,7 +981,7 @@ func _build_environment(palette: Dictionary) -> void:
 	if built_floor == 1:
 		environment.ambient_light_energy = 0.78
 	elif built_floor == 2:
-		environment.ambient_light_energy = 0.14
+		environment.ambient_light_energy = 0.48
 	elif built_floor == 3:
 		environment.ambient_light_energy = 0.68
 	elif district_style == "night_white_blocks":
@@ -956,10 +999,10 @@ func _build_environment(palette: Dictionary) -> void:
 		environment.fog_height = 1.1
 		environment.fog_height_density = 0.16
 	elif built_floor == 2:
-		environment.fog_light_energy = 0.17
-		environment.fog_density = 0.0185
-		environment.fog_height = 0.52
-		environment.fog_height_density = 0.34
+		environment.fog_light_energy = 0.20
+		environment.fog_density = 0.006
+		environment.fog_height = -1.0
+		environment.fog_height_density = 0.025
 	elif built_floor == 3:
 		environment.fog_light_energy = 0.64
 		environment.fog_density = 0.008
@@ -975,8 +1018,8 @@ func _build_environment(palette: Dictionary) -> void:
 	set_meta("fog_density", environment.fog_density)
 	set_meta("fog_height_density", environment.fog_height_density)
 	set_meta("ambient_light_energy", environment.ambient_light_energy)
-	set_meta("suspense_color_temperature", "daylight" if built_floor == 1 else ("cold_green" if built_floor == 2 else ("natural_daylight" if built_floor == 3 else "cold_blue")))
-	set_meta("lighting_profile", "open_daylight" if built_floor == 1 else ("near_black_disc" if built_floor == 2 else ("natural_skylight" if built_floor == 3 else "slow_burn_suspense")))
+	set_meta("suspense_color_temperature", "daylight" if built_floor == 1 else ("moonlit_blue" if built_floor == 2 else ("natural_daylight" if built_floor == 3 else "cold_blue")))
+	set_meta("lighting_profile", "open_daylight" if built_floor == 1 else ("residential_blue_night" if built_floor == 2 else ("natural_skylight" if built_floor == 3 else "slow_burn_suspense")))
 
 	var key_light := DirectionalLight3D.new()
 	key_light.name = "RealityKeyLight"
@@ -985,8 +1028,8 @@ func _build_environment(palette: Dictionary) -> void:
 		key_light.light_color = Color("FFF3D3")
 		key_light.light_energy = 1.32
 	elif built_floor == 2:
-		key_light.light_color = Color("78918C")
-		key_light.light_energy = 0.30
+		key_light.light_color = Color("A6B9EC")
+		key_light.light_energy = 0.78
 	elif built_floor == 3:
 		key_light.light_color = Color("FFF4CB")
 		key_light.light_energy = 1.18
@@ -1033,19 +1076,34 @@ func _build_architecture(palette: Dictionary) -> void:
 		branch_ground.set_meta("crossroad_extension", true)
 	match district_style:
 		"night_white_blocks" when built_floor == 2:
-			_build_floor_two_scattered_district(architecture, palette)
+			_build_floor_two_residential_maze(architecture)
 		"night_white_blocks":
 			_build_night_white_blocks(architecture, palette)
 		"overgrown_gallery":
 			_build_overgrown_gallery(architecture, palette)
 		_:
 			_build_sunlit_brick_street(architecture, palette)
-	if built_floor == 2 or built_floor == 3:
+	if built_floor == 3:
 		_build_dreamcore_artifacts(architecture, palette)
-	if built_floor >= 2:
+	if built_floor >= 3:
 		_build_suspense_layer(architecture, palette)
 
 	_build_air_walls(architecture)
+
+
+func _build_floor_two_residential_maze(parent: Node3D) -> void:
+	var residences := FloorTwoResidences.new()
+	parent.add_child(residences)
+	residences.build(_floor_two_layout, _floor_two_ground_height)
+	var terrain := parent.get_node("IrregularDiscGround/DiscSurface") as MeshInstance3D
+	terrain.remove_meta("theme_role")
+	terrain.material_override = residences.ground_material()
+	set_meta("physical_house_count", _floor_two_layout.buildings.size())
+	set_meta("maze_walkable_cell_count", _floor_two_layout.walkable_cells.size())
+	set_meta("maze_layout_version", 1)
+	set_meta("minimum_clear_path_width", 2.8)
+	set_meta("walkthrough_room_count", 2)
+	set_meta("night_facade_bay_count", residences.find_children("Facade_*", "Node3D", true, false).size())
 
 
 func _build_floor_two_disc_ground(parent: Node3D, palette: Dictionary) -> void:
@@ -1204,19 +1262,15 @@ func _build_sunlit_brick_street(parent: Node3D, palette: Dictionary) -> void:
 		var side := -1.0 if room_index % 2 == 0 else 1.0
 		var center_z := (float(lot_rows - 1) * LOT_SPACING * 0.5) - float(row) * LOT_SPACING
 		_build_sunlit_brick_room(parent, room_index, row, side, center_z, palette)
-	_build_reference_portal(parent, str(DISTRICT_REFERENCE_TEXTURES[district_style]), palette)
 
 
 func _build_sunlit_brick_room(parent: Node3D, room_index: int, row: int, side: float, center_z: float, palette: Dictionary) -> void:
 	var room := _new_room(parent, room_index)
-	var edge_wall_x := side * (map_width * 0.5 - SUNLIT_EDGE_WALL_THICKNESS)
 	_add_box(room, "SidewalkInset", Vector3(3.1, 0.08, LOT_WIDTH + 1.2), Vector3(side * (STREET_WIDTH * 0.5 + 1.55), 0.045, center_z), "sunlit_paving", palette, false)
 	if row % 2 == 1:
 		_add_box(room, "BrickTurn", Vector3(3.35, 4.6, 0.52), Vector3(side * (STREET_WIDTH * 0.5 + 1.75), 2.3, center_z + LOT_WIDTH * 0.53), "brick_dark", palette, true)
 	if row % 2 == 0:
 		_build_street_lamp(room, Vector3(side * (STREET_WIDTH * 0.5 - 0.65), 0.0, center_z - 2.6), palette, true)
-	if room_index % 4 == 1:
-		_build_mood_panel(room, room_index, Vector3(edge_wall_x - side * 0.40, 2.15, center_z), side, palette)
 	_place_room_reward(room, room_index, Vector3(side * (STREET_WIDTH * 0.5 + 1.45), 0.0, center_z), palette)
 
 
@@ -2493,6 +2547,38 @@ func _build_actors(actor_textures: Dictionary) -> void:
 		_actors.append(actor)
 
 
+func _build_floor_two_actors(actor_textures: Dictionary) -> void:
+	var actors := Node3D.new()
+	actors.name = "Actors"
+	add_child(actors)
+	var textures: Array = actor_textures.get("npcs", [])
+	var actor_ids := ["floor2_wayfinder", "floor2_cartographer"]
+	var labels := ["寻路人", "绘图人"]
+	for index in 2:
+		var texture: Texture2D = textures[index % textures.size()] if not textures.is_empty() else actor_textures.get("key_npc")
+		var actor := _make_actor(actor_ids[index], "npc", labels[index], _floor_two_layout.npcs[actor_ids[index]], texture, index)
+		actor.set_meta("actor_id", actor_ids[index])
+		actor.set_meta("floor_two_journey", true)
+		actors.add_child(actor)
+		_actors.append(actor)
+	var exit := Area3D.new()
+	exit.name = "FloorTwoExit"
+	exit.position = _floor_two_layout.exit_position
+	exit.collision_layer = 2
+	exit.collision_mask = 0
+	exit.set_meta("actor_id", "floor2_exit")
+	exit.set_meta("actor_type", "floor2_exit")
+	exit.set_meta("display_name", "白光门")
+	var collider := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.8, 2.5, 0.8)
+	collider.shape = shape
+	collider.position.y = 1.25
+	exit.add_child(collider)
+	actors.add_child(exit)
+	_actors.append(exit)
+
+
 func _doll_position_for_floor(spawn: Vector3) -> Vector3:
 	match built_floor:
 		1:
@@ -2783,7 +2869,7 @@ func _role_color(role: String, palette: Dictionary) -> Color:
 
 func _style_background_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("030607").lerp(_color(palette, "ink"), 0.08)
+		return Color("030619")
 	if built_floor == 3:
 		return Color("82B9B0").lerp(_color(palette, "surface"), 0.10)
 	if built_floor >= 2:
@@ -2807,7 +2893,7 @@ func _style_background_color(palette: Dictionary) -> Color:
 
 func _style_ambient_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("55716B").lerp(_color(palette, "muted"), 0.08)
+		return Color("9CAFD8")
 	if built_floor == 3:
 		return Color("E1EBCF").lerp(_color(palette, "surface"), 0.12)
 	if built_floor >= 2:
@@ -2829,7 +2915,7 @@ func _style_ambient_color(palette: Dictionary) -> Color:
 
 func _style_fog_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("111A19").lerp(_color(palette, "ink"), 0.10)
+		return Color("080E25")
 	if built_floor == 3:
 		return Color("B5D4B4").lerp(_color(palette, "surface"), 0.10)
 	if built_floor >= 2:

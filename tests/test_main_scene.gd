@@ -175,16 +175,11 @@ func _test_language_and_playtest_contract(game_root: Node) -> void:
 	_assert_true(doctor == null, "the retired doctor actor must not spawn any more")
 	var assist_panel := _find_node_by_name(game_root, "PlaytestAssistPanel") as Control
 	var assist_label := _find_node_by_name(game_root, "PlaytestAssistLabel") as Label
-	_assert_true(assist_panel != null and assist_label != null, "debug builds should expose the explicit playtest route panel")
-	if assist_label != null:
-		_assert_true(assist_label.text.contains("测试提示"), "playtest panel should state the current tutorial action plainly")
+	_assert_true(assist_panel == null and assist_label == null, "retired playtest panels must not be created")
 	var guide := _find_actor_by_type(game_root, "doll")
 	var key_npc := _find_actor_by_type(game_root, "key_npc")
-	_assert_true(guide != null and guide.get_node_or_null("PlaytestMarker") is Label3D, "guide should have a debug-only world marker")
-	_assert_true(key_npc != null and key_npc.get_node_or_null("PlaytestMarker") is Label3D, "key NPC should have a debug-only world marker")
-	if guide != null:
-		var marker := guide.get_node_or_null("PlaytestMarker") as Label3D
-		_assert_true(marker != null and marker.font_size <= 16, "playtest labels should remain compact enough to reveal the world and actor")
+	_assert_true(guide != null and guide.get_node_or_null("PlaytestMarker") == null, "guide retains interaction without obsolete floating text")
+	_assert_true(key_npc != null and key_npc.get_node_or_null("PlaytestMarker") == null, "key NPC retains interaction without obsolete floating text")
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:

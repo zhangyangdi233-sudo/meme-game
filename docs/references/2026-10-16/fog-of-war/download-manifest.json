@@ -1,0 +1,143 @@
+{
+  "retrieved": "2026-10-16",
+  "downloaded_code_executed": false,
+  "scope": "Selected source and license files, not complete runnable projects",
+  "files": [
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/LICENSE",
+      "local_path": "TABmk-godot-4-fog-of-war/LICENSE",
+      "bytes": 1063,
+      "sha256": "b781c7102454342cd70f0caffef9c07dde0b9e77fbc6d4b5c05f81cd8211353e"
+    },
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/README.md",
+      "local_path": "TABmk-godot-4-fog-of-war/README.md",
+      "bytes": 2137,
+      "sha256": "98d51ec0bfe173aeae3003e51402e2d056a270316af226b1d9f2de0413e223d6"
+    },
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/project.godot",
+      "local_path": "TABmk-godot-4-fog-of-war/project.godot",
+      "bytes": 1743,
+      "sha256": "44b3e0e92c66f7dc079a73045237ca27811516c81520ab9d91827cc65002f2cf"
+    },
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/game.gd",
+      "local_path": "TABmk-godot-4-fog-of-war/game.gd",
+      "bytes": 2062,
+      "sha256": "84a2e4ee27ed872d6350233d8092a469e19fb834e7f3ae2e15fe2b55ad4b2a78"
+    },
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/game.tscn",
+      "local_path": "TABmk-godot-4-fog-of-war/game.tscn",
+      "bytes": 1358,
+      "sha256": "6669ad43e6fe3d3414116d209118e0a1f1bc52bccbff9a571ff2f93924cd6a79"
+    },
+    {
+      "repository": "TABmk/godot-4-fog-of-war",
+      "commit": "e98acd3ccab1d8913d4e5ff0ee5a052c096a4007",
+      "source_url": "https://raw.githubusercontent.com/TABmk/godot-4-fog-of-war/e98acd3ccab1d8913d4e5ff0ee5a052c096a4007/player.gd",
+      "local_path": "TABmk-godot-4-fog-of-war/player.gd",
+      "bytes": 383,
+      "sha256": "34fe163b350c5da43376b4046237f679eaac6738e9c09dd6c57ff51d0121d315"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/LICENSE",
+      "local_path": "JavierIslas-hex-strategy-map-free/LICENSE",
+      "bytes": 1069,
+      "sha256": "5ef5d0db1c7b0d0fc340ea62120d13d94e0e046665a637685a5eed064a2b842d"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/README.md",
+      "local_path": "JavierIslas-hex-strategy-map-free/README.md",
+      "bytes": 6741,
+      "sha256": "3ad58d593ce6343bcf1430a55a22db55d3634dce839a966c9a19c1a634f800e0"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/plugin.cfg",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/plugin.cfg",
+      "bytes": 208,
+      "sha256": "d5755ed3a4b484d4d61f926b3f0f10492c0bf296466da2b69090b4919f81257a"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/fog_of_war.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/fog_of_war.gd",
+      "bytes": 7590,
+      "sha256": "7cac442352ae228325b8302c496caab02717b67c8bf8c796e7df4f075a203c91"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/fog_state.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/fog_state.gd",
+      "bytes": 493,
+      "sha256": "49260fa9ac4dfaa5d54411323e21a208616350ab7bb14002e22a426220a83324"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/hex_cell.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/hex_cell.gd",
+      "bytes": 6664,
+      "sha256": "018e40dfbba31ef8b5eafc0e0d2be4b86829b96104859b919f10245cbb9bd836"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/hex_grid.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/hex_grid.gd",
+      "bytes": 17541,
+      "sha256": "4ff1300d5f8b0d11fbf6dceed200291eb29672bd60416f28767ce08bd448b802"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/fog_overlay.gdshader",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/fog_overlay.gdshader",
+      "bytes": 1539,
+      "sha256": "b7c166106a0dc6b4b3bf03357788f3570fbdfe9b82755d453c75a1a25e460687"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/hex_palette.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/hex_palette.gd",
+      "bytes": 2794,
+      "sha256": "08fdcfe2c0291a896d8288c3cabc9aa14ef1bff1e446f9480b6c3f6a2d60a579"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/hex_batch_renderer.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/hex_batch_renderer.gd",
+      "bytes": 8000,
+      "sha256": "ce37ce472e92b9679217ead60259d44ad3ec4c5d91118194c616bfe35094a4ad"
+    },
+    {
+      "repository": "JavierIslas/hex-strategy-map-free",
+      "commit": "c55fe2f02805e28675d1b274830afb7b2ec22e7a",
+      "source_url": "https://raw.githubusercontent.com/JavierIslas/hex-strategy-map-free/c55fe2f02805e28675d1b274830afb7b2ec22e7a/addons/hex_strategy_map/batch_hex_layer.gd",
+      "local_path": "JavierIslas-hex-strategy-map-free/addons/hex_strategy_map/batch_hex_layer.gd",
+      "bytes": 2908,
+      "sha256": "a192376dd2fd0d7a1649a43451ae8ce0971e5156e7cc2c90621e7bf514d7d0b4"
+    }
+  ]
+}

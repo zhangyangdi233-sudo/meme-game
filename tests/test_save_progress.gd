@@ -42,22 +42,15 @@ func _run() -> void:
 	}]
 	game_root.set_view_state("npc_up")
 	game_root._ensure_reality_floor_current()
-	var watcher_event := _find_node_by_name(game_root._reality_floor, "CoverWatcherEvent") as Node3D
-	var watcher_sprite := _find_node_by_name(game_root._reality_floor, "CoverWatcherSprite") as Sprite3D
-	_assert_true(watcher_event != null and watcher_sprite != null, "an unseen floor should build its cover watcher before saving")
-	if watcher_event != null and watcher_sprite != null:
-		var watcher_start: Vector3 = game_root._reality_floor.start_position()
-		game_root._reality_player.position = watcher_start
-		var toward_watcher := (watcher_event.global_position - watcher_start).normalized()
-		game_root._reality_floor.update_authored_events(0.80, watcher_start, toward_watcher)
-		_assert_true(watcher_sprite.visible and game_root.game.has_seen_cover_watcher(2), "runtime observation should route through the main-scene signal and record floor two")
-		var stinger := game_root.get_node_or_null("CoverWatcherStinger") as AudioStreamPlayer
-		_assert_true(stinger != null and stinger.playing, "the real watcher appearance signal should start its short horror cue")
-		var near_watcher := watcher_event.global_position + Vector3(0.0, 0.0, 5.7)
-		game_root._reality_floor.update_authored_events(0.08, near_watcher, toward_watcher)
-		game_root._reality_floor.update_authored_events(0.72, near_watcher, toward_watcher)
-		_assert_true(not watcher_sprite.visible and bool(game_root._reality_floor.get_cover_watcher_state().get("vanished", false)), "approaching through the runtime path should fully withdraw the watcher")
-	var saved_position := Vector3(2.25, 0.08, 17.5)
+	_assert_true(_find_node_by_name(game_root._reality_floor, "CoverWatcherEvent") == null, "second floor no longer creates the retired watcher")
+	game_root._update_floor_two_exploration(0.1)
+	_assert_true(game_root.game.has_seen_cover_watcher(2), "entering the new second floor records its one-time whisper")
+	var stinger := game_root.get_node_or_null("CoverWatcherStinger") as AudioStreamPlayer
+	_assert_true(stinger != null and stinger.playing, "second-floor arrival starts its whisper")
+	_assert_true(stinger != null and str(stinger.get_meta("generated_audio_path", "")) == "res://assets/audio/dialogue/basement_whisper_8s.wav", "second-floor opening reuses the approved whisper")
+	if stinger != null and stinger.stream is AudioStreamWAV:
+		_assert_true(is_equal_approx(stinger.stream.get_length(), 8.0) and stinger.stream.loop_mode == AudioStreamWAV.LOOP_DISABLED, "second-floor whisper plays the full eight seconds without looping")
+	var saved_position: Vector3 = game_root._reality_floor.get_floor_two_map_layout().primary_route[3]
 	game_root._reality_player.position = saved_position
 	game_root._reality_yaw = 38.0
 	game_root._reality_pitch = -12.0
@@ -71,9 +64,9 @@ func _run() -> void:
 	await process_frame
 	_assert_eq(game_root.game.day, 4, "Continue should restore the saved day")
 	_assert_eq(game_root.game.pollution, 47, "Continue should restore pollution")
-	_assert_eq(game_root.game.money, 31, "Continue should restore money")
+	_assert_eq(game_root.game.money, 0, "Continue clears the retired money resource")
 	_assert_eq(game_root.game.tower_floor, 2, "Continue should restore tower progress")
-	_assert_eq(game_root.game.actions_remaining, 3, "Continue should restore today's remaining actions")
+	_assert_eq(game_root.game.actions_remaining, game_root.game.max_actions_per_day, "Continue preserves unlimited actions after the retired daily budget migration")
 	_assert_eq(game_root.game.completed_memes.size(), 1, "Continue should restore crafted memes")
 	_assert_true(game_root.game.has_seen_cover_watcher(2), "Continue should restore the watcher floor history from the actual save file")
 	_assert_true(_find_node_by_name(game_root._reality_floor, "CoverWatcherEvent") == null, "reloading the same floor should not rebuild an already observed watcher")

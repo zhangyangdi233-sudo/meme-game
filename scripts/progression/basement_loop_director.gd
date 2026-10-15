@@ -30,6 +30,8 @@ static func initial_progress(randomize_decoration: bool = true) -> Dictionary:
 		"narrator_completed": false,
 		"opening_knock_completed": false,
 		"basement_whisper_played": false,
+		"phone_collected": false,
+		"basement_crt_event_played": false,
 		"entrance_locked": false,
 		"exit_tunnel_entered": false,
 		"completed_task_ids": [],
@@ -46,6 +48,8 @@ static func normalize_progress(raw: Dictionary) -> Dictionary:
 	# Consume the whisper when it starts, and retain that fact for the whole run.
 	# Older saves without this field still get their first eligible playback.
 	progress.basement_whisper_played = _is_true(raw.get("basement_whisper_played", false))
+	progress.phone_collected = _is_true(raw.get("phone_collected", false))
+	progress.basement_crt_event_played = _is_true(raw.get("basement_crt_event_played", false))
 	progress.decoration_seed = clampi(_integer_or(raw.get("decoration_seed", 1701), 1701), 1, 2147483646)
 	var raw_config: Variant = raw.get("reward_config", {})
 	var legacy_app_schema: bool = not raw.has("unlocked_app_ids") and not (raw_config is Dictionary and raw_config.has("task_app_unlocks"))
@@ -89,6 +93,9 @@ static func normalize_progress(raw: Dictionary) -> Dictionary:
 	progress.round_index = round_index
 	progress.entrance_locked = locked
 	progress.completed_task_ids = completed
+	# Older players already beyond their first delivery owned the former phone.
+	if not raw.has("phone_collected") and (round_index > 0 or not completed.is_empty()):
+		progress.phone_collected = true
 	progress.phase = "basement"
 	progress.transition_serial = round_index + 1
 	# Entering the continuous exit tunnel does not create a new visit. Missing
@@ -168,6 +175,14 @@ static func dispatch(progress: Dictionary, event_id: String, payload: Dictionary
 			if next.phase == "basement" and next.round_index == 1 and next.entrance_locked and not next.basement_whisper_played and _matches_round_token(next, payload):
 				next.basement_whisper_played = true
 				transition = "basement_whisper_started"
+		"phone_collected":
+			if next.phase == "basement" and not next.phone_collected and _matches_round_token(next, payload):
+				next.phone_collected = true
+				transition = "phone_collected"
+		"basement_crt_event_started":
+			if next.phase == "basement" and next.round_index == 4 and next.entrance_locked and not next.basement_crt_event_played and _matches_round_token(next, payload):
+				next.basement_crt_event_played = true
+				transition = "basement_crt_event_started"
 		"npc_help_completed":
 			if next.phase == "basement" and next.entrance_locked and _matches_round_token(next, payload):
 				var current := get_current_round(next)

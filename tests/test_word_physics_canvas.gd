@@ -14,6 +14,7 @@ func _run_async() -> void:
 	_test_display_metrics()
 	await _test_drag_release_across_physics_frames()
 	await _test_saved_position_after_container_layout()
+	await _test_canvas_transform_tracks_phone_slide()
 	await _run()
 	if _failures.is_empty():
 		print("word physics canvas tests passed")
@@ -22,6 +23,32 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _test_canvas_transform_tracks_phone_slide() -> void:
+	var phone := Control.new()
+	phone.position = Vector2(900, 0)
+	root.add_child(phone)
+	var canvas: Control = CanvasScript.new()
+	canvas.size = Vector2(400, 240)
+	phone.add_child(canvas)
+	canvas.add_tile("门", Vector2(100, 40), Color.BLACK, null, false)
+	for frame in 3:
+		await physics_frame
+	var body: RigidBody2D = canvas.get_node("WordPhysicsRoot/WordBody_门")
+	body.gravity_scale = 0
+	body.linear_velocity = Vector2.ZERO
+	var local_before := body.position
+	for frame in 30:
+		phone.position.x -= 16
+		phone.scale = Vector2.ONE * lerpf(1.0, 0.6, float(frame) / 29.0)
+		await physics_frame
+	for frame in 3:
+		await physics_frame
+	_assert_true(body.position.distance_to(local_before) < 8, "physics tiles follow a moving/scaling phone in local coordinates (%s -> %s)" % [local_before, body.position])
+	_assert_true(Rect2(Vector2.ZERO, canvas.size).has_point(body.position), "phone opening never leaves a collected word outside its bank")
+	phone.free()
+	await process_frame
 
 
 func _test_display_metrics() -> void:

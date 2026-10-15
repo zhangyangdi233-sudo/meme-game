@@ -15,6 +15,21 @@ const TILE_SIZE := Vector2(44.0, 40.0)
 const DRAG_THRESHOLD := 6.0
 const THROW_SPEED_LIMIT := 900.0
 
+class CanvasWordBody extends RigidBody2D:
+	var canvas: Control
+	var canvas_transform := Transform2D.IDENTITY
+	func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
+		if not is_instance_valid(canvas):
+			return
+		var current := canvas.get_global_transform()
+		if not current.is_equal_approx(canvas_transform):
+			# Physics keeps world coordinates when a Control ancestor slides or
+			# scales. Transport the body into the bank's new coordinate frame.
+			var transport := current * canvas_transform.affine_inverse()
+			state.transform = transport * state.transform
+			state.linear_velocity = transport.basis_xform(state.linear_velocity)
+			canvas_transform = current
+
 var _physics_root: Node2D
 var _bodies: Dictionary = {}
 var _dragging_body: RigidBody2D = null
@@ -105,7 +120,9 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 		var text_size := reading_font.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, _tile_font_size)
 		actual_size.x = maxf(actual_size.x, ceilf(text_size.x) + 18.0)
 		actual_size.y = maxf(actual_size.y, ceilf(reading_font.get_height(_tile_font_size)) + 12.0)
-	var body := RigidBody2D.new()
+	var body := CanvasWordBody.new()
+	body.canvas = self
+	body.canvas_transform = get_global_transform()
 	body.name = "WordBody_%s" % unit
 	body.position = spawn_position + actual_size * 0.5
 	body.gravity_scale = 1.0
@@ -181,6 +198,7 @@ func _finish_tile_placement(body: RigidBody2D) -> void:
 	body.remove_meta("pending_canvas_position")
 	var top_left := saved_position.clamp(Vector2.ZERO, (size - tile_size).max(Vector2.ZERO))
 	body.position = top_left + tile_size * 0.5
+	(body as CanvasWordBody).canvas_transform = get_global_transform()
 	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
 	body.freeze = false
 	body.sleeping = false
@@ -242,6 +260,7 @@ func _gui_input(event: InputEvent) -> void:
 		_last_drag_time_usec = now_usec
 		_last_drag_position = target
 		_dragging_body.position = target
+		(_dragging_body as CanvasWordBody).canvas_transform = get_global_transform()
 		# RigidBody's physics transform otherwise overwrites this visual move
 		# on the next simulation tick, even when the body is frozen.
 		PhysicsServer2D.body_set_state(_dragging_body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, _dragging_body.global_transform)
@@ -278,6 +297,7 @@ func _end_drag(release_global: Vector2) -> void:
 		var half_size := _body_tile_size(body) * 0.5
 		body.position = body.position.clamp(half_size, (size - half_size).max(half_size))
 	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+	(body as CanvasWordBody).canvas_transform = get_global_transform()
 	body.freeze = false
 	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面。
 	var still_time := float(Time.get_ticks_usec() - _last_drag_time_usec) / 1000000.0

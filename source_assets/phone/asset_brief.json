@@ -1,0 +1,18 @@
+{
+  "purpose": "Table pickup, first chapter; original low-poly phone",
+  "size_m": [
+    0.075,
+    0.155,
+    0.01
+  ],
+  "camera_distance_m": [
+    0.4,
+    2.0
+  ],
+  "triangle_budget": 900,
+  "texture_budget": "No textures; five flat-color materials",
+  "rigging": "None",
+  "collision": "Use a host-engine box; asset contains no collision",
+  "export": "GLB, meters, screen +Y, top -Z, centered pivot",
+  "design": "Muted plum narrow frame; broad shallow notch; cream screen; two simple app marks; sparse fine cracks"
+}

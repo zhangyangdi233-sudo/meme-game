@@ -200,44 +200,16 @@ func _test_ui_flow() -> void:
 	game_root.new_game()
 	await process_frame
 
-	# 玩偶引导:常驻、可拖、可折叠、文本非空。
-	var doll_panel := _find_node_by_name(game_root, "DollGuideOverlay") as PanelContainer
-	_assert_true(doll_panel != null and doll_panel.visible, "the doll guide should stay in view from the start")
-	var doll_line := _find_node_by_name(game_root, "DollGuideLine") as Label
-	_assert_true(doll_line != null and not doll_line.text.is_empty(), "the doll should always have a guide line")
-	_assert_true(game_root._move_window_for_test("doll_guide", Vector2(12, -8)), "the doll guide should be draggable")
-	var doll_body := _find_node_by_name(game_root, "DollGuideBody") as Container
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and not doll_body.visible, "collapsing should hide the doll body")
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and doll_body.visible, "unfolding should restore the doll body")
-	var doll_close := _find_node_by_name(game_root, "DollGuideCloseButton")
-	_assert_true(doll_close == null, "the doll guide must not have a close button")
-
-	# 玩偶合并进左下角引导小窗:3D 跟随体不再存在,交互时整体隐身。
+	# Legacy guide UI is retired; normal dialogue must not recreate it.
+	_assert_true(_find_node_by_name(game_root, "DollGuideOverlay") == null, "the obsolete doll overlay must be absent")
+	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") == null, "the obsolete doll portrait must be absent")
 	game_root._update_doll_companion(0.016)
-	await process_frame
-	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
-	_assert_true(
-		Vector4(doll_panel.anchor_left, doll_panel.anchor_top, doll_panel.anchor_right, doll_panel.anchor_bottom) == Vector4(0.0, 1.0, 0.0, 1.0),
-		"the guide should dock to the bottom-left corner"
-	)
-	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
+	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body remains retired")
 	game_root._reality_interaction_active = true
 	game_root._update_doll_guide()
-	_assert_true(not doll_panel.visible, "the guide should vanish during NPC interactions")
 	game_root._reality_interaction_active = false
 	game_root._update_doll_guide()
-	_assert_true(doll_panel.visible, "the guide should return after the interaction ends")
-
-	# 一步一步教:多次数步骤显示进度计数。
-	game_root.game.replay_tutorial()
-	game_root.game.notify_tutorial("guide_found")
-	game_root.game.notify_tutorial("social_opened")
-	game_root.game.notify_tutorial("post_opened")
-	game_root.game.notify_tutorial("collect_word")
-	var progress_line: String = game_root._doll_guide_current_line()
-	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
+	_assert_true(_find_node_by_name(game_root, "DollGuideOverlay") == null, "dialogue must not restore the obsolete guide")
 
 	# 造句台:空句禁投,入句/撤回/投稿全链路。
 	game_root._set_social_screen("publish")

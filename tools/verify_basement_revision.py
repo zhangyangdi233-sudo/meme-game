@@ -7,6 +7,14 @@ import subprocess
 import time
 
 TESTS = [
+    'test_notebook_phone_flow', 'test_published_social_feed', 'test_retired_guide_ui',
+    'test_audio_runtime', 'test_crossroads_white_gate',
+    'test_floor_two_journey', 'test_exploration_map_state',
+    'test_phone_map_page', 'test_floor_two_maze', 'test_floor_two_map_flow',
+    'test_floor_two_walkthrough', 'test_reality_world', 'test_authored_horror_events',
+    'test_phone_pickup_revision', 'test_phone_dock_flow',
+    'test_linear_dialogue_flow', 'test_dialogue_realtime_finish', 'test_basement_crt_anomaly',
+    'test_responsive_layout', 'test_save_progress',
     'test_revision_progression', 'test_carpet_footsteps', 'test_basement_atmosphere',
     'test_basement_wall_wear', 'test_chapter_exit_preview',
     'test_basement_loop_director', 'test_chapter_app_permissions',

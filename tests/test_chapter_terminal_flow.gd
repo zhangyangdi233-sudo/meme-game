@@ -65,6 +65,13 @@ func _run() -> void:
 
 func _test_five_visits(main: Node) -> void:
 	var hidden_item_id := ""
+	_check(not main.game.chapter1_progress.phone_collected and not main._phone_panel.visible and not main._phone_tab.visible, "new basement visit has no phone UI before picking up the physical phone")
+	main._toggle_view_state()
+	_check(main.game.view_state == "npc_up", "Tab cannot summon a phone that has not been picked up")
+	if not await _interact(main, "chapter1_phone"):
+		return
+	_check(main.game.chapter1_progress.phone_collected and main._phone_tab.visible, "F on the physical phone grants ownership and reveals its right-edge handle")
+	_check(main._phone_panel.app_buttons.values().filter(func(button: Button): return button.visible).size() == 2 and not main._phone_panel.app_buttons.map.visible and main._phone_panel.app_buttons.social.disabled and main._phone_panel.app_buttons.notebook.disabled, "picking up the phone exposes exactly two locked apps, keeps map hidden and does not grant NPC permissions")
 	main._on_pickup_unit_meta("门", "floor_13")
 	_check(not main.game.is_social_char_collected("门", "zh"), "direct pickup callback cannot bypass the initially locked phone app")
 	for visit in range(5):
@@ -87,21 +94,15 @@ func _test_five_visits(main: Node) -> void:
 		_check(not main.game.has_current_chapter_submission(), "a previous visit's expression never satisfies this visit")
 		if not await _interact(main, "chapter1_npc"):
 			return
-		var submit := _button(main, "ChapterTaskSubmitButton")
 		var panel := main.find_child("ChapterTaskPanel", true, false) as Control
-		_check(panel != null and panel.visible, "real NPC interaction opens its task panel")
-		_check(submit != null and submit.disabled, "NPC submit is disabled until this visit has an expression")
+		_check(panel == null and main._reality_interaction_active, "real NPC interaction immediately opens the single authored conversation without a task menu")
+		_check(main.game.conversation_phase == "typing" and main._reality_choice_row.get_child_count() == 0, "NPC's protagonist line is ready for typing without response choices")
 		if visit == 0:
 			hidden_item_id = await _reveal_first_key_clue(main)
-		elif visit == 1 and not hidden_item_id.is_empty():
-			var collect := _button(main, "ChapterHiddenClueCollectButton")
-			_check(collect != null and collect.visible and not collect.disabled, "a revealed first-floor clue remains collectable from the next visit's NPC")
-			var apps_before: Array = main.game.chapter1_progress.unlocked_app_ids.duplicate()
-			if collect != null and not collect.disabled:
-				collect.pressed.emit()
-				await _frames()
-			_check(main.game.collected_prerequisite_item_ids.has(hidden_item_id), "the real clue collection button preserves the existing hidden-ending item route")
-			_check(main.game.chapter1_progress.unlocked_app_ids == apps_before and not main.game.chapter1_progress.completed_task_ids.has(task_id), "collecting the clue neither grants app permissions nor completes the tutorial task")
+		else:
+			await _finish_npc_conversation(main)
+			_check(not main.game.chapter1_progress.completed_task_ids.has(task_id), "finishing dialogue without this visit's submission does not deliver its task")
+			_check(main.game.collected_prerequisite_item_ids.has(hidden_item_id), "the independently collected hidden clue survives later NPC conversations")
 		_dismiss_task(main)
 		await _frames()
 		var original_controls: Dictionary = {}
@@ -189,13 +190,9 @@ func _test_five_visits(main: Node) -> void:
 			_check(window != null and window.get_instance_id() == before.instance and window.get_parent().get_instance_id() == before.parent, "%s returns from CRT to its exact original parent without being replaced" % app_id)
 		if not await _interact(main, "chapter1_npc"):
 			return
-		submit = _button(main, "ChapterTaskSubmitButton")
-		_check(submit != null and not submit.disabled, "current NPC enables explicit delivery only after the matching expression")
-		if submit == null or submit.disabled:
-			return
-		submit.pressed.emit()
-		await _frames()
-		_check(main.game.chapter1_progress.completed_task_ids.has(task_id), "NPC button delivers the current NPC/task/token in visit %d" % (visit + 1))
+		_check(main._reality_interaction_active and not main.game.chapter1_progress.completed_task_ids.has(task_id), "a valid submission still waits for the player's current NPC dialogue to finish")
+		await _finish_npc_conversation(main)
+		_check(main.game.chapter1_progress.completed_task_ids.has(task_id), "typed dialogue naturally delivers the current NPC/task/token in visit %d" % (visit + 1))
 		var expected_apps: Array = ["social"]
 		if visit >= 2:
 			expected_apps.append("notebook")
@@ -208,6 +205,7 @@ func _test_five_visits(main: Node) -> void:
 			main._set_reality_mouse_look(false)
 			await _frames()
 			_check(main.game.chapter1_progress.unlocked_app_ids == expected_apps and main.game.is_social_char_collected("门", "zh"), "continue preserves earned phone permissions and the shared vocabulary")
+			_check(main.game.chapter1_progress.phone_collected and main.game.dialogue_typing_hint_seen and main._phone_tab.visible, "continue preserves the acquired phone and acknowledged first typing hint")
 			_check(main.game.has_current_chapter_submission() and main.game.chapter1_progress.completed_task_ids.has(task_id), "continue preserves both expression provenance and delivered task")
 			_check(not main.call("_chapter_terminal_active"), "a terminal session never persists into a continued game")
 		var departed: Dictionary = main.notify_chapter1("basement_exit_requested", {"round_token": token})
@@ -368,39 +366,46 @@ func _mouse_motion(position: Vector2) -> InputEventMouseMotion:
 
 func _reveal_first_key_clue(main: Node) -> String:
 	var actor := _actor(main, "chapter1_npc")
-	var talk := _button(main, "ChapterTaskTalkButton")
 	# RealityFloorGenerator._make_actor derives this ID from type, floor and
 	# the original KeyNPC node name; chapter IDs must not replace that source.
 	_check(actor != null and str(actor.get_meta("source_actor_id", "")) == "key_npc_1_keynpc" and str(actor.get_meta("source_actor_type", "")) == "key_npc", "first tutorial NPC retains its existing canonical key NPC source")
-	_check(talk != null and not talk.disabled, "task panel retains the separate authored talk route")
-	if actor == null or talk == null:
+	_check(main._reality_interaction_active and main.game.conversation_phase == "typing", "F opens the original authored key NPC content directly")
+	if actor == null:
 		return ""
-	talk.pressed.emit()
-	await _frames()
-	_check(main.game.conversation_actor_id == actor.get_meta("source_actor_id") and main.game.conversation_actor_type == "key_npc", "Talk opens existing key NPC content with its canonical source ID")
+	_check(main.game.conversation_actor_id == actor.get_meta("source_actor_id") and main.game.conversation_actor_type == "key_npc", "direct dialogue retains the key NPC's canonical source ID")
 	var item_id := str(main.game.get_prerequisite_item_for_floor(1).get("id", ""))
-	for turn in range(2):
-		var choice_id := ""
-		for choice: Dictionary in main.game.get_typed_reality_choices():
-			if bool(choice.get("correct", false)):
-				choice_id = str(choice.get("id", ""))
-		_check(not choice_id.is_empty(), "existing key clue turn %d retains its authored correct answer" % (turn + 1))
-		if choice_id.is_empty():
-			break
-		main._on_reality_choice_selected(choice_id)
-		var safety := 0
-		while main.game.conversation_phase == "typing" and safety < 1000:
-			main.game.advance_typed_reality_character()
-			safety += 1
-		if turn == 0:
-			main._on_reality_continue_pressed()
-			await _frames()
-	_check(main.game.is_prerequisite_item_revealed(item_id), "two existing authored answers reveal the original hidden-ending clue")
-	_check(not main.game.collected_prerequisite_item_ids.has(item_id), "revealing a clue remains separate from collecting it")
+	_check(not main.game.is_prerequisite_item_revealed(item_id) and not main.game.collected_prerequisite_item_ids.has(item_id), "the hidden clue is unavailable before completing the key NPC dialogue")
+	await _finish_npc_conversation(main)
+	_check(main.game.conversation_history.size() == 2, "both original key NPC turns are spoken")
+	_check(main.game.is_prerequisite_item_revealed(item_id), "completing both authored turns reveals the original hidden-ending clue")
+	_check(main.game.collected_prerequisite_item_ids.has(item_id), "the single conversation naturally receives its revealed clue without a separate menu")
 	_check(main.game.chapter1_progress.unlocked_app_ids.is_empty() and main.game.chapter1_progress.completed_task_ids.is_empty(), "old key dialogue neither grants apps nor delivers a tutorial task")
-	main._exit_reality_interaction()
-	await _frames()
 	return item_id
+
+
+func _finish_npc_conversation(main: Node) -> void:
+	var keyboard: Node = main._ui_root.get_node_or_null("LinearDialogueKeyboard")
+	_check(keyboard != null, "conversation has its actual keyboard input control")
+	if keyboard == null:
+		return
+	var event := InputEventKey.new()
+	event.pressed = true
+	event.keycode = KEY_A
+	event.unicode = "a".unicode_at(0)
+	for turn in range(10):
+		_check(main.game.conversation_phase == "typing", "each authored protagonist turn enters typing without a menu")
+		var expected_units: int = main.game.get_typed_reality_unit_count()
+		for unit in range(expected_units):
+			keyboard._input(event)
+		_check(main.game.conversation_phase == "result", "one key per authored unit completes the current protagonist turn")
+		await _frames()
+		if not main.game.conversation_can_continue:
+			_check(main.game.conversation_completed, "all authored turns finish even after heavy terminal practice pollution")
+			return
+		_check(_button(main, "RealityConversationContinue") == null, "completed NPC turn has no continue or end button")
+		main._update_reality_dialogue(1000.0)
+		await _frames()
+	_check(false, "authored conversation terminates within ten turns")
 
 
 func _interact(main: Node, actor_type: String) -> bool:
@@ -437,9 +442,9 @@ func _button(main: Node, node_name: String) -> Button:
 
 
 func _dismiss_task(main: Node) -> void:
-	var button := _button(main, "ChapterTaskDismissButton")
-	if button != null and button.is_visible_in_tree():
-		button.pressed.emit()
+	if main._reality_interaction_active:
+		main._update_reality_dialogue(1000.0)
+	_check(not main._reality_interaction_active, "the final NPC reply automatically returns control to exploration")
 
 
 func _basement_state() -> MemeGameState:

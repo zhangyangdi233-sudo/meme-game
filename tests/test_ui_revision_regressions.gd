@@ -20,7 +20,7 @@ func _run() -> void:
 	_check(not main._hud_panel.visible and not main._hud_reveal_zone.visible, "retired resource HUD must not reappear in phone view")
 	main._playtest_assist_enabled = true
 	main._render_playtest_assist()
-	_check(not main._playtest_assist_label.text.contains("污染") and not main._playtest_assist_label.text.contains("隐藏层"), "debug assist cannot expose hidden pollution or the hidden-floor route")
+	_check(main._playtest_assist_panel == null and main._playtest_assist_label == null, "retired debug assist stays absent even when an old flag is enabled")
 	_check(not main._app_windows.has("babel"), "retired tower app must not create a window")
 	_check(main._settings_window.find_child("SettingsAutoplayButton", true, false) == null, "settings must not show autoplay")
 	_check(main._settings_window.find_child("SettingsHistoryButton", true, false) == null, "settings must not show history")

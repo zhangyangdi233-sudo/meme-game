@@ -28,6 +28,7 @@ func _run() -> void:
 		progress.round_index = visit
 		progress.transition_serial = visit + 1
 		progress.entrance_locked = true
+		progress.phone_collected = true
 		progress.completed_task_ids = Director.TASK_IDS.slice(0, visit + 1)
 		var world = World.new()
 		viewport.add_child(world)
