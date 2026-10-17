@@ -321,7 +321,7 @@ func test_day_progress_lives_in_models() -> void:
 	game.new_run()
 	_assert_true(not game.has_signal("day_progress_changed"), "the day progress signal should be gone")
 	for field_name in ["day", "tower_floor", "pending_floor_transition", "needs_day_settlement", "day_ended_reason", "max_actions_per_day"]:
-		_assert_true(PropertyKeysScript.RUN.has(field_name), "%s should be a run model" % field_name)
+		_assert_true(PropertyKeysScript.is_run(field_name), "%s should be a run model" % field_name)
 		_assert_true(not _state_script.SAVE_FIELD_NAMES.has(field_name), "%s should be saved from its model, not the field list" % field_name)
 
 	var initial: Dictionary = game.get_day_progress_snapshot()

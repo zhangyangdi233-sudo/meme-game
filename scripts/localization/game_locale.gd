@@ -36,7 +36,7 @@ var current_locale: String:
 		if not _pinned_locale.is_empty():
 			return _pinned_locale
 		var model := _locale_model()
-		return str(model.read()) if model != null else PropertyBootScript.DEFAULT_LOCALE
+		return str(model.read()) if model != null else PropertyKeysScript.DEFAULT_LOCALE
 	set(value):
 		_set_locale_internal(value)
 var language_selected := false
@@ -62,10 +62,10 @@ func load_preferences(default_vhs: bool) -> Dictionary:
 	}
 	var config := ConfigFile.new()
 	if config.load(preferences_path) != OK:
-		_set_locale_internal(PropertyBootScript.DEFAULT_LOCALE)
+		_set_locale_internal(PropertyKeysScript.DEFAULT_LOCALE)
 		return result
 	language_selected = bool(config.get_value("language", "selected", false))
-	for property_name in PropertyKeysScript.PREFERENCES:
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
 		var model := _preference_model(property_name)
 		if model == null:
 			continue
@@ -86,7 +86,7 @@ func load_preferences(default_vhs: bool) -> Dictionary:
 func save_preferences(vhs_enabled: bool, camera_enabled: bool = false, camera_source: String = "computer") -> bool:
 	var config := ConfigFile.new()
 	config.set_value("language", "selected", language_selected)
-	for property_name in PropertyKeysScript.PREFERENCES:
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
 		var model := _preference_model(property_name)
 		if model == null:
 			continue

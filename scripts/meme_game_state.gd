@@ -17,7 +17,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
-const MAX_TOWER_FLOOR := PropertyBootScript.MAX_TOWER_FLOOR
+const MAX_TOWER_FLOOR := PropertyKeysScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
 	"lineId", "originalSpeaker", "currentSpeaker", "originalText",
@@ -32,7 +32,7 @@ const LANGUAGE_RECIPE_SLOTS := [
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
 const SAVE_DATA_VERSION := 5
-## Run fields that still live on this object. Fields kept in models are saved from PropertyKeys.RUN instead.
+## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
 	"exit_prompt_seen",
 	"pollution_flashback_seen", "pollution_flashback_pending",
@@ -356,7 +356,7 @@ func new_run() -> void:
 
 
 func _read_save_field(field_name: String) -> Variant:
-	if PropertyKeysScript.RUN.has(field_name):
+	if PropertyKeysScript.is_run(field_name):
 		var model: PropertyModel = _run_model(field_name)
 		if model == null:
 			return null
@@ -510,9 +510,7 @@ func to_save_data() -> Dictionary:
 ## Every saved run model, then the fields this object still holds.
 func _save_field_names() -> Array[String]:
 	var names: Array[String] = []
-	for property_name in PropertyKeysScript.RUN:
-		if not PropertyKeysScript.RUN_NOT_SAVED.has(property_name):
-			names.append(property_name)
+	names.append_array(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN))
 	for field_name in SAVE_FIELD_NAMES:
 		names.append(str(field_name))
 	return names
@@ -531,7 +529,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
-		if PropertyKeysScript.RUN.has(field_name):
+		if PropertyKeysScript.is_run(field_name):
 			_load_run_field(field_name, value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)

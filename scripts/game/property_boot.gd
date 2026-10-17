@@ -1,6 +1,6 @@
 class_name PropertyBoot
 extends RefCounted
-## Creates this game's models and binds the property manager.
+## Creates this game's models from the fact table and binds the property manager.
 ## install() does not replace a manager that is already bound.
 
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -9,77 +9,13 @@ const PropertyFactoryScript = preload("res://framework/properties/property_facto
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
-const DEFAULT_MONEY := 18
-const DEFAULT_MAX_ACTIONS := 5
-const MAX_TOWER_FLOOR := 4
-const DEFAULT_LOCALE := "zh"
-const DEFAULT_MASTER_VOLUME := 80.0
-const DEFAULT_APP := "social"
-const DEFAULT_VIEW_STATE := "phone_down"
-const DEFAULT_CONVERSATION_PHASE := "idle"
-const DEFAULT_CONVERSATION_MODE := "authored"
-const DEFAULT_CONVERSATION_ACTOR_TYPE := "npc"
-
 
 static func install() -> void:
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		return
 	var manager = PropertyManagerScript.new()
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.POLLUTION, 0, 0, 100))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HAS_SAVE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MONEY, DEFAULT_MONEY))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIONS_REMAINING, DEFAULT_MAX_ACTIONS))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DAY, 1, 1))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.TOWER_FLOOR, 1, 1, MAX_TOWER_FLOOR))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PENDING_FLOOR_TRANSITION, 0))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NEEDS_DAY_SETTLEMENT, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DAY_ENDED_REASON, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MAX_ACTIONS_PER_DAY, DEFAULT_MAX_ACTIONS, 1))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.AUTOPLAY_ENABLED, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LOCALE, DEFAULT_LOCALE))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.MASTER_VOLUME, DEFAULT_MASTER_VOLUME, 0.0, 100.0))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PHONE_OPEN, true))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP, DEFAULT_APP))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ACTIVE_APP_WINDOW, DEFAULT_APP))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.OPEN_APP_WINDOWS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.VIEW_STATE, DEFAULT_VIEW_STATE))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.NOTEBOOK_TOKENS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COLLECTED_CHAR_UNITS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.COMPLETED_MEMES, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CHAR_CANVAS_POSITIONS, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SOCIAL_LIKED_POST_IDS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_PHASE, DEFAULT_CONVERSATION_PHASE))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_MODE, DEFAULT_CONVERSATION_MODE))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, DEFAULT_CONVERSATION_ACTOR_TYPE))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_PROMPT, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_RESULT_LINE, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_CHOICES, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_CAN_CONTINUE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_FEEDBACK, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, 0))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.CONVERSATION_REVEALED_UNITS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.TUTORIAL_PROGRESS, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_UNLOCKED, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.ENDING_ROUTE, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR3_TASK_COMPLETE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FLOOR4_TASK_COMPLETE, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.EVENT_LOG, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.HISTORY_ENTRIES, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FUSION_SLOTS, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.DRAFT_SLOTS, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.OWNED_MEME_FRAMES, 0, 0))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.PUBLISHED_MEMES, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.LAST_PUBLISH_RESULT, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FREE_SENTENCE_UNITS, []))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.WORLD_RULES, {}))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SETTINGS_OPEN, false))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SAVE_STATUS, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN, ""))
-	manager.add(PropertyFactoryScript.create(PropertyKeysScript.FEEDBACK_TEXT, ""))
+	for fact in PropertyKeysScript.FACTS:
+		manager.add(PropertyFactoryScript.create(str(fact["name"]), fact["initial"], fact.get("min"), fact.get("max")))
 	ServiceRegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
 
 
@@ -88,7 +24,7 @@ static func reset_run() -> void:
 	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	if manager == null:
 		return
-	for property_name in PropertyKeysScript.RUN:
+	for property_name in PropertyKeysScript.run_names():
 		var found: PropertyModel = manager.model(property_name)
 		if found != null:
 			found.reset()

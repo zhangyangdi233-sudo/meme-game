@@ -31,7 +31,7 @@ func _run() -> void:
 
 
 func _test_every_preference_has_a_place_in_the_file() -> void:
-	for property_name in PropertyKeysScript.PREFERENCES:
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
 		_assert_true(LocaleScript.PREFERENCE_FILE_KEYS.has(property_name), "preference %s should have a section in the preferences file" % property_name)
 
 

@@ -197,17 +197,17 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
 	var has_save: ValuePropertyModel = manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
 	var pollution_id: int = pollution.get_instance_id()
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
-	_assert_true(PropertyKeysScript.UNSAVED.has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
 	for property_name in [PropertyKeysScript.SETTINGS_OPEN, PropertyKeysScript.SAVE_STATUS, PropertyKeysScript.SELECTED_LANGUAGE_TOKEN, PropertyKeysScript.FEEDBACK_TEXT]:
-		_assert_true(PropertyKeysScript.UNSAVED.has(property_name), "%s should not be saved" % property_name)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(property_name), "%s should not be saved" % property_name)
 		_assert_true(manager.model(property_name) != null, "boot should create %s" % property_name)
 	_assert_eq(manager.model(PropertyKeysScript.SETTINGS_OPEN).read(), false, "settings should start closed")
 	_assert_eq(manager.model(PropertyKeysScript.SAVE_STATUS).read(), "", "save status should start empty")
 	_assert_eq(manager.model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).read(), "", "no language token should start selected")
 	_assert_eq(manager.model(PropertyKeysScript.FEEDBACK_TEXT).read(), "", "feedback text should start empty")
-	for property_name in PropertyKeysScript.PREFERENCES:
-		_assert_true(not PropertyKeysScript.RUN.has(property_name), "preference %s should not be saved with the run" % property_name)
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
+		_assert_true(not PropertyKeysScript.is_run(property_name), "preference %s should not be saved with the run" % property_name)
 	_assert_eq(pollution.read(), 0, "pollution should start at zero")
 	_assert_eq(has_save.read(), false, "has_save should start false")
 	pollution.write(140)
@@ -234,8 +234,8 @@ func _test_boot_resets_the_same_money_and_actions_models() -> void:
 	var actions: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
 	var money_id: int = money.get_instance_id()
 	var actions_id: int = actions.get_instance_id()
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.MONEY), "money should be saved with the run")
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.ACTIONS_REMAINING), "remaining actions should be saved with the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.MONEY), "money should be saved with the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.ACTIONS_REMAINING), "remaining actions should be saved with the run")
 	_assert_eq(money.read(), 18, "money should start at 18")
 	_assert_eq(actions.read(), 5, "remaining actions should start at five")
 
@@ -315,9 +315,9 @@ func _test_language_and_volume_are_preferences_and_autoplay_is_the_run() -> void
 	var locale: ValuePropertyModel = manager.model(PropertyKeysScript.LOCALE) as ValuePropertyModel
 	var volume: ValuePropertyModel = manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
 	var autoplay: ValuePropertyModel = manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
-	_assert_true(PropertyKeysScript.PREFERENCES.has(PropertyKeysScript.LOCALE), "language should be a preference")
-	_assert_true(PropertyKeysScript.PREFERENCES.has(PropertyKeysScript.MASTER_VOLUME), "volume should be a preference")
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.AUTOPLAY_ENABLED), "autoplay should be saved with the run")
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE).has(PropertyKeysScript.LOCALE), "language should be a preference")
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE).has(PropertyKeysScript.MASTER_VOLUME), "volume should be a preference")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.AUTOPLAY_ENABLED), "autoplay should be saved with the run")
 	_assert_eq(locale.read(), "zh", "language should start as Chinese")
 	_assert_eq(volume.read(), 80.0, "volume should start at 80")
 	_assert_eq(autoplay.read(), false, "autoplay should start off")
@@ -345,7 +345,7 @@ func _test_run_save_carries_autoplay_but_not_preferences() -> void:
 	source.set_autoplay_enabled(true)
 	var state_data: Dictionary = source.to_save_data().get("state", {})
 	_assert_eq(state_data.get("autoplay_enabled", null), true, "the run save should store the autoplay model")
-	for property_name in PropertyKeysScript.PREFERENCES:
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
 		_assert_true(not state_data.has(property_name), "the run save should not store preference %s" % property_name)
 	autoplay.write(false)
 	var restored = StateScript.new()
@@ -358,7 +358,7 @@ func _test_ending_choice_lives_only_in_the_run_model() -> void:
 	BootScript.install()
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	var choice: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_LANGUAGE_CHOICE) as ValuePropertyModel
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.ENDING_LANGUAGE_CHOICE), "the ending choice should be saved with the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.ENDING_LANGUAGE_CHOICE), "the ending choice should be saved with the run")
 	_assert_eq(choice.read(), "", "the ending choice should start empty")
 
 	var source = StateScript.new()
@@ -392,10 +392,10 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 	var app: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP) as ValuePropertyModel
 	var window: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP_WINDOW) as ValuePropertyModel
 	for key in [PropertyKeysScript.PHONE_OPEN, PropertyKeysScript.ACTIVE_APP, PropertyKeysScript.ACTIVE_APP_WINDOW]:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
 	_assert_eq(open.read(), true, "the phone should start open")
-	_assert_eq(app.read(), BootScript.DEFAULT_APP, "the current app should start on the default app")
-	_assert_eq(window.read(), BootScript.DEFAULT_APP, "the foreground app should start on the default app")
+	_assert_eq(app.read(), PropertyKeysScript.DEFAULT_APP, "the current app should start on the default app")
+	_assert_eq(window.read(), PropertyKeysScript.DEFAULT_APP, "the foreground app should start on the default app")
 
 	var source = StateScript.new()
 	source.new_run()
@@ -423,7 +423,7 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 	_assert_eq(app.read(), "babel", "loading should write the current app back through the model")
 	_assert_eq(window.read(), "babel", "loading should write the foreground back through the model")
 	restored.new_run()
-	_assert_eq(window.read(), BootScript.DEFAULT_APP, "a new run should reset the foreground on the same model")
+	_assert_eq(window.read(), PropertyKeysScript.DEFAULT_APP, "a new run should reset the foreground on the same model")
 	open.write(false)
 	open.write("yes")
 	_assert_eq(open.read(), false, "a wrong type should keep the phone state")
@@ -440,7 +440,7 @@ func _test_open_windows_and_view_state_live_only_in_the_run_models() -> void:
 	if windows == null or view == null:
 		return
 	for key in [PropertyKeysScript.OPEN_APP_WINDOWS, PropertyKeysScript.VIEW_STATE]:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
 	_assert_eq(windows.read(), [], "no window should be open before a run starts")
 	_assert_eq(view.read(), "phone_down", "the view should start phone-down")
 
@@ -517,7 +517,7 @@ func _test_holdings_live_only_in_the_run_models() -> void:
 	if chars == null or tokens == null or memes == null or positions == null:
 		return
 	for key in [PropertyKeysScript.COLLECTED_CHAR_UNITS, PropertyKeysScript.NOTEBOOK_TOKENS, PropertyKeysScript.COMPLETED_MEMES, PropertyKeysScript.CHAR_CANVAS_POSITIONS]:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should be saved with the run" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
 
 	var source = StateScript.new()
 	source.new_run()
@@ -614,8 +614,8 @@ func _test_conversation_progress_lives_only_in_the_run_models() -> void:
 		PropertyKeysScript.CONVERSATION_REVEAL_INDEX, PropertyKeysScript.CONVERSATION_REVEALED_UNITS,
 	]
 	for key in keys:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
-	_assert_eq(phase.read(), BootScript.DEFAULT_CONVERSATION_PHASE, "the conversation should start idle")
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+	_assert_eq(phase.read(), PropertyKeysScript.DEFAULT_CONVERSATION_PHASE, "the conversation should start idle")
 	_assert_eq(choices.read().size(), 0, "the conversation should start without choices")
 
 	var source = StateScript.new()
@@ -654,8 +654,8 @@ func _test_social_engagement_lives_only_in_the_run_models() -> void:
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	var followed: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES) as ListPropertyModel
 	var liked: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS) as ListPropertyModel
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES), "the followed authors should belong to the run")
-	_assert_true(PropertyKeysScript.RUN.has(PropertyKeysScript.SOCIAL_LIKED_POST_IDS), "the liked posts should belong to the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES), "the followed authors should belong to the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.SOCIAL_LIKED_POST_IDS), "the liked posts should belong to the run")
 
 	var source = StateScript.new()
 	source.new_run()
@@ -694,8 +694,8 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	var keys := [PropertyKeysScript.TUTORIAL_PROGRESS, PropertyKeysScript.ENDING_UNLOCKED, PropertyKeysScript.ENDING_ROUTE,
 		PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, PropertyKeysScript.FLOOR3_TASK_COMPLETE, PropertyKeysScript.FLOOR4_TASK_COMPLETE]
 	for key in keys:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
-		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
 		_assert_true(manager.model(key) != null, "%s should have a model" % key)
 	var progress: MapPropertyModel = manager.model(PropertyKeysScript.TUTORIAL_PROGRESS) as MapPropertyModel
 	var unlocked: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_UNLOCKED) as ValuePropertyModel
@@ -760,8 +760,8 @@ func _test_event_log_and_history_live_only_in_the_run_models() -> void:
 	BootScript.install()
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	for key in [PropertyKeysScript.EVENT_LOG, PropertyKeysScript.HISTORY_ENTRIES]:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
-		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
 		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
 	var log_model: ListPropertyModel = manager.model(PropertyKeysScript.EVENT_LOG) as ListPropertyModel
 	var history_model: ListPropertyModel = manager.model(PropertyKeysScript.HISTORY_ENTRIES) as ListPropertyModel
@@ -813,8 +813,8 @@ func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
 		PropertyKeysScript.LAST_PUBLISH_RESULT, PropertyKeysScript.WORLD_RULES]
 	var lists := [PropertyKeysScript.PUBLISHED_MEMES, PropertyKeysScript.FREE_SENTENCE_UNITS]
 	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
-		_assert_true(PropertyKeysScript.RUN.has(key), "%s should belong to the run" % key)
-		_assert_true(not PropertyKeysScript.RUN_NOT_SAVED.has(key), "%s should be saved" % key)
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
 		_assert_true(not StateScript.SAVE_FIELD_NAMES.has(key), "%s should not also be saved from the state" % key)
 	for key in maps:
 		_assert_true(manager.model(key) is MapPropertyModel, "%s should be a map model" % key)

@@ -2445,7 +2445,7 @@ func _playtest_assist_snapshot() -> Dictionary:
 
 
 func _action_text(actions: int) -> String:
-	var cap := PropertyBootScript.DEFAULT_MAX_ACTIONS
+	var cap := PropertyKeysScript.DEFAULT_MAX_ACTIONS
 	if game != null:
 		cap = int(game.max_actions_per_day)
 	return AppleHudPanelScript.action_label(actions, cap)
