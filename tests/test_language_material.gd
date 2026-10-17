@@ -265,9 +265,7 @@ func _test_feedback_lines_are_pure() -> void:
 	_assert_eq_text(LanguageMaterialScript.submit_feedback({"reason": "x"}), "投稿没有发出去。", "fallback submit line")
 	_assert_eq_text(
 		LanguageMaterialScript.submit_feedback({"submitted": true, "tier": "rule", "floor3_task_completed": true, "floor4_task_completed": true}),
-		"投稿已发出。有什么地方遵守了它。
-第三层的门开了。
-出口开始存在。",
+		"投稿已发出。有什么地方遵守了它。\n第三层的门开了。\n出口开始存在。",
 		"rule tier with both floor tasks"
 	)
 	_assert_eq_text(LanguageMaterialScript.submit_feedback({"submitted": true, "tier": "misread"}), "投稿已发出。世界读错了它。", "misread line")

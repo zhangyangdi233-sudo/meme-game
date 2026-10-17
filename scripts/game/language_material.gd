@@ -124,11 +124,9 @@ static func submit_feedback(submit_result: Dictionary) -> String:
 		_:
 			line = "投稿已发出。没有回应,只有噪声。"
 	if bool(submit_result.get("floor3_task_completed", false)):
-		line += "
-" + "第三层的门开了。"
+		line += "\n" + "第三层的门开了。"
 	if bool(submit_result.get("floor4_task_completed", false)):
-		line += "
-" + "出口开始存在。"
+		line += "\n" + "出口开始存在。"
 	return line
 
 
