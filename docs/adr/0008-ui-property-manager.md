@@ -34,6 +34,6 @@ Every single-copy fact moves, not only a short first list. The first implementat
 
 **Done:** the facts above are all models (`PropertyKeys`), and no panel keeps a private signal to the host any more (ADR 0007). Whether settings is open is one of them; the host registers on it instead of connecting to a panel.
 
-The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host only writes that model, including the line it words from an action outcome. Tracker: #73.
+The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host and Language material only write that model; the host words the line from an action outcome, and Language material writes its own pickup and submit lines. Trackers: #73, #75.
 
 Editing the free sentence or picking up a word no longer makes the host redraw the phone shell or the status line. The social publish page and the notebook watch the free sentence and held-word models and repaint themselves; the guide and playtest windows watch the tutorial progress. `LanguageMaterial` only changes the state, and its two redraw signals are gone. After the social panel repaints itself it calls the host's `theme_window` pass on that window, so the new nodes match a host redraw. A pickup or a post that spends an action still goes through the settlement, which redraws what an action changes. Tracker: #74.
