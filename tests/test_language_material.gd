@@ -33,6 +33,8 @@ func _run() -> void:
 	_test_material_raises_no_redraw_requests()
 	_test_pickup_returns_outcome()
 	_test_signals_retired()
+	_test_material_has_no_signals_and_typed_deps()
+	_test_feedback_lines_are_pure()
 
 
 func _test_bbcode_marking() -> void:
@@ -67,10 +69,7 @@ func _test_bbcode_marking() -> void:
 	var game := Harness.new_state()
 	game.pick_social_char("floor_13", "门", "zh")
 	var material = LanguageMaterialScript.new()
-	material.configure({
-		"game": func(): return game,
-		"locale": func() -> String: return "zh",
-	})
+	material.configure(game, _zh_locale())
 	var held_marked: String = LanguageMaterialScript.pickup_bbcode("门还在", "zh", game.get_collected_char_units("zh"), pickable)
 	_assert_true(not held_marked.contains("[url=门]"), "marking should grey out the held units it is handed")
 	_assert_eq_text(
@@ -118,10 +117,7 @@ func _test_composer_drop() -> void:
 	_assert_true(not bool(blocked.get("applied", false)), "already placed units cannot drop in twice")
 
 	var material = LanguageMaterialScript.new()
-	material.configure({
-		"game": func(): return game,
-		"locale": func() -> String: return "zh",
-	})
+	material.configure(game, _zh_locale())
 	var actions_left: int = game.actions_remaining
 	_assert_true(material.remove_at(2), "answer-tile remove should go through the module")
 	_assert_eq_text(game.get_free_sentence_text("zh"), "打开", "answer-tile remove should go through the module")
@@ -224,10 +220,7 @@ func _test_material_raises_no_redraw_requests() -> void:
 func _test_pickup_returns_outcome() -> void:
 	var game := Harness.new_state()
 	var material = LanguageMaterialScript.new()
-	material.configure({
-		"game": func(): return game,
-		"locale": func() -> String: return "zh",
-	})
+	material.configure(game, _zh_locale())
 	var first = material.pick_from_post("门", "floor_13")
 	_assert_true(first is ActionOutcomeScript, "pickup should return an action outcome")
 	_assert_true(first.succeeded and first.spent_action, "the day's first pickup should succeed and spend an action")
@@ -252,6 +245,39 @@ func _test_signals_retired() -> void:
 	var adapter := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
 	_assert_true(not adapter.contains("effective_action"), "adapter should not wire effective_action")
 	_assert_true(not adapter.contains("log_requested"), "adapter should not wire log_requested")
+
+
+## Flights, sounds, and the notebook home belong to LanguagePresenter.
+func _test_material_has_no_signals_and_typed_deps() -> void:
+	var material = LanguageMaterialScript.new()
+	_assert_true(material.get_script().get_script_signal_list().is_empty(), "language material should declare no signals")
+	var source := FileAccess.get_file_as_string("res://scripts/game/language_material.gd")
+	_assert_true(source.contains("func configure(game: MemeGameState, locale: BabelGameLocale)"), "configure should take typed game and locale")
+	_assert_true(not source.contains("Callable"), "language material should not hold Callable getters")
+
+
+func _test_feedback_lines_are_pure() -> void:
+	_assert_eq_text(LanguageMaterialScript.pickup_feedback({"picked": true}), "一个字进入了笔记本。", "picked line")
+	_assert_eq_text(LanguageMaterialScript.pickup_feedback({"reason": "duplicate"}), "这个字已经在笔记本里了。", "duplicate line")
+	_assert_eq_text(LanguageMaterialScript.pickup_feedback({"reason": "no-actions"}), "今天没有行动了。明天第一次拾字会重新消耗行动。", "no-actions pickup line")
+	_assert_eq_text(LanguageMaterialScript.pickup_feedback({}), "这个字没有进入笔记本。", "fallback pickup line")
+	_assert_eq_text(LanguageMaterialScript.submit_feedback({"reason": "empty"}), "句子还空着。", "empty submit line")
+	_assert_eq_text(LanguageMaterialScript.submit_feedback({"reason": "x"}), "投稿没有发出去。", "fallback submit line")
+	_assert_eq_text(
+		LanguageMaterialScript.submit_feedback({"submitted": true, "tier": "rule", "floor3_task_completed": true, "floor4_task_completed": true}),
+		"投稿已发出。有什么地方遵守了它。
+第三层的门开了。
+出口开始存在。",
+		"rule tier with both floor tasks"
+	)
+	_assert_eq_text(LanguageMaterialScript.submit_feedback({"submitted": true, "tier": "misread"}), "投稿已发出。世界读错了它。", "misread line")
+	_assert_eq_text(LanguageMaterialScript.submit_feedback({"submitted": true}), "投稿已发出。没有回应,只有噪声。", "noise line")
+
+
+func _zh_locale() -> BabelGameLocale:
+	var locale := BabelGameLocale.new()
+	locale.current_locale = "zh"
+	return locale
 
 
 func _feedback_text() -> String:

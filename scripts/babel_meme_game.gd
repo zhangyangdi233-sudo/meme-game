@@ -37,6 +37,7 @@ const GameAudioControllerScript = preload("res://scripts/integrations/game_audio
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
+const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
@@ -151,7 +152,8 @@ var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel: SocialFeedPanel
-var _language_material
+var _language_material: LanguageMaterial
+var _language_presenter: LanguagePresenter
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
 var _babel_app_panel: BabelAppPanel
@@ -495,6 +497,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	if _camera_session != null:
 		_camera_session.second_layer_texture = null
 	game = session_state
+	if _language_material != null:
+		_language_material.configure(game, _locale)
 	_migrate_social_author_ids()
 	selected_meme_id = ""
 	if _social_feed_panel != null:
@@ -1716,7 +1720,7 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
 			_on_confirm_dialogue_pressed()
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
-			_present_pickup_outcome(_language_material.pick_from_post(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))
+			_on_pickup_unit_meta(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
 		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
 			_language_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
 		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED:
@@ -1894,25 +1898,23 @@ func _ensure_language_material() -> void:
 	if _language_material != null:
 		return
 	_language_material = LanguageMaterialScript.new()
-	_language_material.configure({
-		"game": func(): return game,
-		"locale": func() -> String: return _locale.current_locale,
-		"mouse_origin": func() -> Vector2: return get_viewport().get_mouse_position(),
-	})
-	_connect_language_material()
+	_language_material.configure(game, _locale)
 
 
-func _connect_language_material() -> void:
-	if _language_material == null:
-		return
-	if not _language_material.sfx_requested.is_connected(_on_language_material_sfx):
-		_language_material.sfx_requested.connect(_on_language_material_sfx)
-	if not _language_material.notebook_home_requested.is_connected(_ensure_notebook_window_home):
-		_language_material.notebook_home_requested.connect(_ensure_notebook_window_home)
-	if not _language_material.pickup_flight_requested.is_connected(_on_language_pickup_flight):
-		_language_material.pickup_flight_requested.connect(_on_language_pickup_flight)
-	if not _language_material.place_flight_requested.is_connected(_on_language_place_flight):
-		_language_material.place_flight_requested.connect(_on_language_place_flight)
+## Rebinds the presenter each use: the flight layer and audio players are built after the material.
+func _presenter() -> LanguagePresenter:
+	if _language_presenter == null:
+		_language_presenter = LanguagePresenterScript.new()
+		_language_presenter.notebook_home_requested.connect(_ensure_notebook_window_home)
+	_language_presenter.configure(
+		_pickup_flight_layer,
+		_audio_controller.pickup_press_audio if _audio_controller != null else null,
+		_notebook_flight_target,
+		_composer_answer_target,
+		_ui_theme_helper.theme_color("flash_text"),
+		_ui_theme_helper.theme_color("accent"),
+	)
+	return _language_presenter
 
 
 func _social_feed_mount_deps() -> Dictionary:
@@ -3130,7 +3132,7 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 
 func _on_composer_bank_tapped(unit: String) -> void:
 	_ensure_language_material()
-	_language_material.place_from_bank(unit)
+	_presenter().present_place(_language_material.place_from_bank(unit), unit, get_viewport().get_mouse_position())
 
 
 func _on_composer_answer_tapped(unit_index: int) -> void:
@@ -3188,7 +3190,9 @@ func _ensure_notebook_window_home() -> void:
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	_ensure_language_material()
-	_present_pickup_outcome(_language_material.pick_from_post(meta, post_id))
+	var outcome := _language_material.pick_from_post(meta, post_id)
+	_presenter().present_pickup(outcome, str(meta), get_viewport().get_mouse_position())
+	_present_pickup_outcome(outcome)
 
 
 ## A pickup settles only when it spent the day's first action; later pickups are free.
@@ -3203,35 +3207,9 @@ func _present_submit_outcome(outcome: ActionOutcomeScript) -> void:
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
-	_play_ui_sound(_audio_controller.pickup_land_audio if _audio_controller != null else null)
-	_play_ui_sound(_audio_controller.notebook_hinge_audio if _audio_controller != null else null)
+	LanguagePresenterScript.play_ui_sound(_audio_controller.pickup_land_audio if _audio_controller != null else null)
+	LanguagePresenterScript.play_ui_sound(_audio_controller.notebook_hinge_audio if _audio_controller != null else null)
 	_squash_notebook_window()
-
-
-func _on_language_material_sfx(kind: String) -> void:
-	if _audio_controller == null:
-		return
-	match kind:
-		"pickup_press":
-			_play_ui_sound(_audio_controller.pickup_press_audio)
-
-
-func _on_language_pickup_flight(unit: String, origin: Vector2) -> void:
-	if _pickup_flight_layer != null:
-		_pickup_flight_layer.play_hold_flight(unit, origin, _notebook_flight_target, _ui_theme_helper.theme_color("flash_text"))
-
-
-func _on_language_place_flight(unit: String) -> void:
-	if _pickup_flight_layer != null:
-		_pickup_flight_layer.play_place_flight(unit, get_viewport().get_mouse_position(), _composer_answer_target, _ui_theme_helper.theme_color("accent"))
-
-
-## 短促 UI 音效:重复触发时从头播放,不叠加成噪音。
-func _play_ui_sound(player: AudioStreamPlayer) -> void:
-	if player == null or not is_instance_valid(player) or player.stream == null or not player.is_inside_tree():
-		return
-	player.stop()
-	player.play()
 
 
 func _notebook_window_control() -> Control:

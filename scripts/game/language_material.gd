@@ -1,6 +1,7 @@
 class_name LanguageMaterial
 extends RefCounted
-## Pickup marking, composer place/reorder/submit, and flight-target helpers.
+## Pickup marking, composer place/reorder/submit, feedback lines, and flight-target helpers.
+## Flights, sounds, and the notebook home are LanguagePresenter's job.
 ## Language material stays in Game; it is not a Content catalog.
 
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
@@ -16,80 +17,52 @@ const COLLECTED_COLOR := "8b8f84"
 const NOTEBOOK_FLIGHT_FALLBACK := Vector2(84.0, 64.0)
 const NOTEBOOK_FLIGHT_INSET := Vector2(56.0, 40.0)
 const COMPOSER_FLIGHT_INSET_Y := 20.0
+const PLACED_LINE := "字进入了句子。"
+const NO_ACTIONS_LINE := "今天没有行动了。明天第一次拾字会重新消耗行动。"
 
-signal sfx_requested(kind: String)
-signal notebook_home_requested
-signal pickup_flight_requested(unit: String, origin: Vector2)
-signal place_flight_requested(unit: String)
-
-var _game_getter: Callable = Callable()
-var _locale_getter: Callable = Callable()
-var _mouse_origin_getter: Callable = Callable()
+var _game: MemeGameState
+var _locale: BabelGameLocale
 
 
-func configure(deps: Dictionary) -> void:
-	if deps.is_empty():
-		return
-	_game_getter = deps.get("game", _game_getter)
-	_locale_getter = deps.get("locale", _locale_getter)
-	_mouse_origin_getter = deps.get("mouse_origin", _mouse_origin_getter)
+func configure(game: MemeGameState, locale: BabelGameLocale) -> void:
+	_game = game
+	_locale = locale
 
 
 ## Picks one unit into the notebook. The host settles the returned outcome when it spent an action.
 func pick_from_post(meta: Variant, post_id: String) -> ActionOutcomeScript:
-	var game = _game()
-	if game == null:
+	if _game == null:
 		return ActionOutcomeScript.new()
-	var unit := str(meta)
-	var locale_code := _locale()
-	var pick_result: Dictionary = game.pick_social_char(post_id, unit, locale_code)
+	var pick_result: Dictionary = _game.pick_social_char(post_id, str(meta), _locale_code())
 	var outcome: ActionOutcomeScript = pick_result["outcome"]
 	outcome.succeeded = bool(pick_result.get("picked", false))
-	if outcome.succeeded:
-		_write_feedback("一个字进入了笔记本。")
-		sfx_requested.emit("pickup_press")
-		notebook_home_requested.emit()
-		pickup_flight_requested.emit(unit, _mouse_origin())
-		return outcome
-	match str(pick_result.get("reason", "")):
-		"duplicate":
-			_write_feedback("这个字已经在笔记本里了。")
-		"no-actions":
-			_write_feedback("今天没有行动了。明天第一次拾字会重新消耗行动。")
-		_:
-			_write_feedback("这个字没有进入笔记本。")
+	_write_feedback(pickup_feedback(pick_result))
 	return outcome
 
 
 func place_from_bank(unit: String) -> bool:
-	var game = _game()
-	if game == null:
+	if _game == null or not _game.free_sentence_place(unit, _locale_code()):
 		return false
-	if not game.free_sentence_place(unit, _locale()):
-		return false
-	_write_feedback("字进入了句子。")
-	place_flight_requested.emit(unit)
+	_write_feedback(PLACED_LINE)
 	return true
 
 
 func place_if_over_answer(unit: String, release_global: Vector2, answer_panel: Control) -> bool:
-	var game = _game()
-	if game == null:
+	if _game == null:
 		return false
 	var dropped_into_sentence := false
 	if answer_panel != null and is_instance_valid(answer_panel) and answer_panel.is_visible_in_tree():
 		if answer_panel.get_global_rect().has_point(release_global):
-			dropped_into_sentence = game.free_sentence_place(unit, _locale())
+			dropped_into_sentence = _game.free_sentence_place(unit, _locale_code())
 	if dropped_into_sentence:
-		_write_feedback("字进入了句子。")
+		_write_feedback(PLACED_LINE)
 	return dropped_into_sentence
 
 
 func drop_on_area(data: Dictionary) -> Dictionary:
-	var game = _game()
 	var target_index := 0
-	if game != null:
-		target_index = game.get_free_sentence_units().size()
+	if _game != null:
+		target_index = _game.get_free_sentence_units().size()
 	return apply_drop_at(data, target_index)
 
 
@@ -98,50 +71,65 @@ func drop_before(data: Dictionary, before_index: int) -> Dictionary:
 
 
 func apply_drop_at(data: Dictionary, target_index: int) -> Dictionary:
-	var result: Dictionary = apply_drop(_game(), data, target_index, _locale())
+	var result: Dictionary = apply_drop(_game, data, target_index, _locale_code())
 	if bool(result.get("applied", false)) and str(result.get("kind", "")) == "composer_unit":
-		_write_feedback("字进入了句子。")
+		_write_feedback(PLACED_LINE)
 	return result
 
 
 func remove_at(unit_index: int) -> bool:
-	var game = _game()
-	if game == null or not game.free_sentence_remove(unit_index):
-		return false
-	return true
+	return _game != null and _game.free_sentence_remove(unit_index)
 
 
 ## Posts the free sentence. The host settles the returned outcome when it succeeded.
 func submit() -> ActionOutcomeScript:
-	var game = _game()
-	if game == null:
+	if _game == null:
 		return ActionOutcomeScript.new()
-	var submit_result: Dictionary = game.submit_free_sentence(_locale())
+	var submit_result: Dictionary = _game.submit_free_sentence(_locale_code())
 	var outcome: ActionOutcomeScript = submit_result["outcome"]
 	outcome.succeeded = bool(submit_result.get("submitted", false))
-	if not outcome.succeeded:
+	_write_feedback(submit_feedback(submit_result))
+	return outcome
+
+
+## The feedback line for one pickup result.
+static func pickup_feedback(pick_result: Dictionary) -> String:
+	if bool(pick_result.get("picked", false)):
+		return "一个字进入了笔记本。"
+	match str(pick_result.get("reason", "")):
+		"duplicate":
+			return "这个字已经在笔记本里了。"
+		"no-actions":
+			return NO_ACTIONS_LINE
+		_:
+			return "这个字没有进入笔记本。"
+
+
+## The feedback line for one submit result, including any floor task it completed.
+static func submit_feedback(submit_result: Dictionary) -> String:
+	if not bool(submit_result.get("submitted", false)):
 		match str(submit_result.get("reason", "")):
 			"empty":
-				_write_feedback("句子还空着。")
+				return "句子还空着。"
 			"no-actions":
-				_write_feedback("今天没有行动了。明天第一次拾字会重新消耗行动。")
+				return NO_ACTIONS_LINE
 			_:
-				_write_feedback("投稿没有发出去。")
-		return outcome
-	var log_line := ""
+				return "投稿没有发出去。"
+	var line := ""
 	match str(submit_result.get("tier", "")):
 		"rule":
-			log_line = "投稿已发出。有什么地方遵守了它。"
+			line = "投稿已发出。有什么地方遵守了它。"
 		"misread":
-			log_line = "投稿已发出。世界读错了它。"
+			line = "投稿已发出。世界读错了它。"
 		_:
-			log_line = "投稿已发出。没有回应,只有噪声。"
+			line = "投稿已发出。没有回应,只有噪声。"
 	if bool(submit_result.get("floor3_task_completed", false)):
-		log_line += "\n" + "第三层的门开了。"
+		line += "
+" + "第三层的门开了。"
 	if bool(submit_result.get("floor4_task_completed", false)):
-		log_line += "\n" + "出口开始存在。"
-	_write_feedback(log_line)
-	return outcome
+		line += "
+" + "出口开始存在。"
+	return line
 
 
 static func pickup_line(post_id: String, locale_code: String) -> String:
@@ -198,7 +186,7 @@ static func pickup_bbcode(source_text: String, locale_code: String, collected: A
 	return result
 
 
-static func apply_drop(game, data: Dictionary, target_index: int, locale_code: String) -> Dictionary:
+static func apply_drop(game: MemeGameState, data: Dictionary, target_index: int, locale_code: String) -> Dictionary:
 	if game == null:
 		return {"applied": false, "kind": "", "reason": "no-game"}
 	var kind := str(data.get("kind", ""))
@@ -238,10 +226,6 @@ static func _word_boundary_ok(text: String, start_index: int, unit_length: int) 
 	return true
 
 
-func _game():
-	return _game_getter.call() if _game_getter.is_valid() else null
-
-
 func _write_feedback(text: String) -> void:
 	PropertyBootScript.install()
 	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
@@ -250,11 +234,5 @@ func _write_feedback(text: String) -> void:
 	(manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).write(text)
 
 
-func _locale() -> String:
-	return str(_locale_getter.call()) if _locale_getter.is_valid() else "zh"
-
-
-func _mouse_origin() -> Vector2:
-	if _mouse_origin_getter.is_valid():
-		return _mouse_origin_getter.call()
-	return Vector2.ZERO
+func _locale_code() -> String:
+	return _locale.current_locale if _locale != null else "zh"
