@@ -305,6 +305,7 @@ func _on_camera_source_ready(source: String, selected_index: int) -> void:
 
 func _ready() -> void:
 	PropertyBootScript.install()
+	_bind_ui_theme()
 	_ui_theme_helper.configure({
 		"ui_font_path": UI_FONT_PATH,
 		"ui_font_grid": UI_FONT_GRID,
@@ -358,6 +359,8 @@ func _exit_tree() -> void:
 		_camera_session.stop_receiver()
 	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
+	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
+	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		var volume := _master_volume_model()
 		if volume != null:
@@ -1635,6 +1638,15 @@ func _ensure_screen_manager() -> void:
 	add_child(_screen_manager)
 
 
+## Binds the UI theme as a service so panels can resolve it instead of taking theme callables.
+## A theme already bound (an earlier host in the same process) is reused and reconfigured by this host.
+func _bind_ui_theme() -> void:
+	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
+		_ui_theme_helper = ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	else:
+		ServiceRegistryScript.bind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
+
+
 ## Binds the UI event bus as a service so runtime-built controls can resolve it.
 ## A bus already bound (an earlier host in the same process) is reused, like the property manager.
 func _ensure_ui_event_bus() -> void:
@@ -2053,8 +2065,6 @@ func _ensure_babel_app_panel() -> void:
 
 func _babel_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 		"level_display_name": func(floor_number: int) -> String:
 			return _locale.level_display_name(floor_number),

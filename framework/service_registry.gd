@@ -24,6 +24,12 @@ static func resolve(key: String) -> Object:
 	return _bound[key] as Object
 
 
+## Drops the binding only while it still points at this service, so a later owner's binding survives.
+static func unbind(key: String, service: Object) -> void:
+	if _bound.get(key) == service:
+		_bound.erase(key)
+
+
 static func has(key: String) -> bool:
 	return _bound.has(key)
 

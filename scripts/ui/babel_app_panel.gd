@@ -6,9 +6,9 @@ extends Node
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _clear_fn: Callable
 var _level_display_name_fn: Callable
 var _app_body: VBoxContainer
@@ -23,8 +23,6 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 func configure(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_clear_fn = deps.get("clear_children", Callable())
 	_level_display_name_fn = deps.get("level_display_name", Callable())
 
@@ -50,45 +48,46 @@ func _repaint_on_change(_value: Variant) -> void:
 
 func _paint() -> void:
 	var app_body := _app_body
-	if app_body == null or not is_instance_valid(app_body) or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if app_body == null or not is_instance_valid(app_body) or not ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
 		return
+	var theme := ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
 	_clear_fn.call(app_body)
 
 	var displayed_floor := _read_int(PropertyKeysScript.TOWER_FLOOR, 1)
 	var floor_heading := str(_level_display_name_fn.call(displayed_floor)) if _level_display_name_fn.is_valid() else ""
-	var heading := _label_factory.call(floor_heading, 24, _theme_color_fn.call("ink")) as Label
+	var heading := theme.label(floor_heading, 24, theme.theme_color("ink"))
 	heading.name = "BabelFloorHeading"
 	app_body.add_child(heading)
 
 	var floor_card: Dictionary = LanguageCorruptionContentScript.get_floor_card_display(displayed_floor)
 	var floor_field_names := {"危险": "Danger", "提示": "Hint"}
 	for field_name in ["危险", "提示"]:
-		var card_line := _label_factory.call(
+		var card_line := theme.label(
 			"%s：%s" % [field_name, str(floor_card.get(field_name, ""))],
 			16,
-			_theme_color_fn.call("ink")
-		) as Label
+			theme.theme_color("ink")
+		)
 		card_line.name = "BabelFloor%sLabel" % floor_field_names[field_name]
 		card_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		app_body.add_child(card_line)
 
 	var money := _read_int(PropertyKeysScript.MONEY, 0)
-	app_body.add_child(_label_factory.call(
+	app_body.add_child(theme.label(
 		"资金 %d  /  通过发布完整表达获得" % money,
 		16,
-		_theme_color_fn.call("accent")
+		theme.theme_color("accent")
 	))
 
 	var pollution := _read_int(PropertyKeysScript.POLLUTION, 0)
-	app_body.add_child(_label_factory.call(
+	app_body.add_child(theme.label(
 		"污染 %d%%  /  发布与现实表达会推进污染" % pollution,
 		16,
-		_theme_color_fn.call("accent")
+		theme.theme_color("accent")
 	))
 
 	var event_log: Variant = _watch.read(PropertyKeysScript.EVENT_LOG)
 	for item in (event_log as Array if event_log is Array else []):
-		app_body.add_child(_label_factory.call(str(item), 15, _theme_color_fn.call("accent")))
+		app_body.add_child(theme.label(str(item), 15, theme.theme_color("accent")))
 
 
 func _read_int(property_name: String, fallback: int) -> int:

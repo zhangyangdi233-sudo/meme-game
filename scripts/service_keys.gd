@@ -4,3 +4,4 @@ extends RefCounted
 
 const PROPERTY_MANAGER := "property_manager"
 const UI_EVENT_BUS := "ui_event_bus"
+const UI_THEME := "ui_theme"

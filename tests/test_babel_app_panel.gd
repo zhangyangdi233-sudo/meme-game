@@ -6,6 +6,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
@@ -30,6 +31,7 @@ func _run() -> void:
 	_test_showing_registers_once_and_follows_writes()
 	_test_hiding_unregisters_and_showing_again_syncs()
 	_test_event_log_lines_follow_the_model()
+	_test_paints_with_the_registered_theme()
 	await _test_a_freed_panel_unregisters()
 
 
@@ -99,6 +101,18 @@ func _test_event_log_lines_follow_the_model() -> void:
 	_dispose(mounted)
 
 
+func _test_paints_with_the_registered_theme() -> void:
+	var mounted := _mount()
+	var panel: BabelAppPanel = mounted["panel"]
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	panel.render(mounted["body"])
+	var heading := Harness.find_node_by_name(mounted["body"], "BabelFloorHeading") as Label
+	_assert_true(heading != null, "the babel app should paint with the theme it resolves from the registry")
+	if heading != null:
+		_assert_eq(heading.get_theme_color("font_color"), theme.theme_color("ink"), "the heading should use the registered theme's ink color")
+	_dispose(mounted)
+
+
 func _test_a_freed_panel_unregisters() -> void:
 	var mounted := _mount()
 	var panel: BabelAppPanel = mounted["panel"]
@@ -122,9 +136,8 @@ func _mount() -> Dictionary:
 	var panel: BabelAppPanel = BabelAppPanelScript.new()
 	panel.name = "BabelAppPanelHost"
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.configure({
-		"label_factory": _label,
-		"theme_color": func(_key: String) -> Color: return Color.WHITE,
 		"clear_children": _clear,
 		"level_display_name": func(floor_number: int) -> String: return "F%d" % floor_number,
 	})
@@ -159,12 +172,6 @@ func _listener_count(model: PropertyModel) -> int:
 	if model == null:
 		return -1
 	return model.changed.get_connections().size()
-
-
-func _label(text: String, _size: int, _color: Color) -> Label:
-	var label_node := Label.new()
-	label_node.text = text
-	return label_node
 
 
 func _clear(node: Node) -> void:
