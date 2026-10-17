@@ -37,6 +37,7 @@ func _run() -> void:
 	_test_the_shown_page_shows_the_last_result()
 	_test_showing_registers_once_and_hiding_lets_go()
 	_test_a_released_page_is_not_repainted()
+	_test_painting_before_showing_reads_the_models_now()
 	_test_composer_and_confirm_raise_their_intents()
 
 
@@ -120,6 +121,16 @@ func _test_a_released_page_is_not_repainted() -> void:
 	(mounted["units"] as ListPropertyModel).add("门")
 	_assert_true(page != null and _find(mounted, "SocialPublishPage") == page, "a released page should be left to whoever clears the host")
 	_assert_true(panel.get_confirm_button() == null, "a released page should hand back no confirm button")
+	_dispose(mounted)
+
+
+func _test_painting_before_showing_reads_the_models_now() -> void:
+	var mounted := _mount()
+	(mounted["units"] as ListPropertyModel).replace_all(["门"])
+	(mounted["result"] as MapPropertyModel).replace_all({"money_gain": 3, "pollution_gain": 4})
+	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
+	_assert_eq(_post_button_text(mounted), "投稿", "a page painted before showing should read the sentence now")
+	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  +3", "a page painted before showing should read the last result now")
 	_dispose(mounted)
 
 
