@@ -6,8 +6,6 @@ class_name GameAudioController
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 const PHONE_AMBIENCE_PATHS := {
 	1: "res://assets/generated/audio/babel_phone_signal_floor_1.wav",
@@ -45,10 +43,9 @@ func attach_to(host: Node) -> void:
 	host.add_child(self)
 
 
+## The host binds the bus in its own _enter_tree, which runs before this one.
 func _enter_tree() -> void:
-	if not ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
-		return
-	_event_bus = ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	_event_bus = GameEventBusScript.bound()
 	if _event_bus != null:
 		_event_bus.subscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
 

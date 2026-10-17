@@ -16,20 +16,23 @@ var _listeners: Dictionary = {}
 
 ## A control built at runtime raises its action on the bound bus; with no bus bound there is no host to hear it.
 static func raise(intent_name: String, payload: Dictionary = {}) -> void:
-	if not ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
-		return
-	var bus := ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	var bus := bound()
 	if bus != null:
 		bus.emit_intent(intent_name, payload)
 
 
 ## A collaborator raises a game event on the bound bus; with no bus bound nobody is listening.
 static func raise_event(event_name: String, payload: Dictionary = {}) -> void:
-	if not ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
-		return
-	var bus := ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	var bus := bound()
 	if bus != null:
 		bus.emit_event(event_name, payload)
+
+
+## The bus the host bound under ServiceKeys.UI_EVENT_BUS, or null when none is bound.
+static func bound() -> GameEventBus:
+	if not ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
+		return null
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
 
 
 func emit_intent(intent_name: String, payload: Dictionary = {}) -> void:
@@ -51,8 +54,10 @@ func unsubscribe(event_name: String, listener: Callable) -> void:
 		_listeners.erase(event_name)
 
 
-## Delivers to the listeners subscribed when the event was raised; a listener whose owner was freed is skipped.
+## Delivers to the listeners subscribed when the event was raised; a listener whose owner was freed is dropped.
 func emit_event(event_name: String, payload: Dictionary = {}) -> void:
 	for listener in (_listeners.get(event_name, []) as Array).duplicate():
 		if (listener as Callable).is_valid():
 			(listener as Callable).call(payload)
+		else:
+			unsubscribe(event_name, listener)

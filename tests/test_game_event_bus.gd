@@ -78,16 +78,16 @@ func _test_subscriber_hears_its_event() -> void:
 	var second: Array = []
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, func(payload: Dictionary) -> void: first.append(payload))
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, func(payload: Dictionary) -> void: second.append(payload))
-	bus.emit_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_press"})
-	_assert_eq(first, [{"cue": "pickup_press"}], "a subscriber should hear its event with the payload")
-	_assert_eq(second, [{"cue": "pickup_press"}], "a game event may have more than one listener")
+	bus.emit_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
+	_assert_eq(first, [{GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS}], "a subscriber should hear its event with the payload")
+	_assert_eq(second, [{GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS}], "a game event may have more than one listener")
 
 
 func _test_unsubscribed_event_is_not_delivered() -> void:
 	var bus: GameEventBus = GameEventBusScript.new()
 	var heard: Array = []
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, func(payload: Dictionary) -> void: heard.append(payload))
-	bus.emit_event("some_other_event", {"cue": "pickup_press"})
+	bus.emit_event("some_other_event", {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
 	_assert_eq(heard, [], "a listener should not hear an event it did not subscribe to")
 
 
@@ -97,10 +97,10 @@ func _test_unsubscribed_listener_hears_nothing_more() -> void:
 	var listener := func(payload: Dictionary) -> void: heard.append(payload)
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, listener)
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, listener)
-	bus.emit_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_press"})
+	bus.emit_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
 	_assert_eq(heard.size(), 1, "subscribing the same listener twice should deliver once")
 	bus.unsubscribe(GameEventsScript.SFX_REQUESTED, listener)
-	bus.emit_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_land"})
+	bus.emit_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_LAND})
 	_assert_eq(heard.size(), 1, "a listener that left should hear nothing more")
 
 
@@ -110,7 +110,7 @@ func _test_game_events_do_not_touch_the_intent_listener() -> void:
 	var events: Array = []
 	bus.intent_emitted.connect(func(intent_name: String, _payload: Dictionary) -> void: intents.append(intent_name))
 	bus.subscribe(UiIntentsScript.START_GAME, func(payload: Dictionary) -> void: events.append(payload))
-	bus.emit_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_press"})
+	bus.emit_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
 	bus.emit_intent(UiIntentsScript.START_GAME)
 	_assert_eq(intents, [UiIntentsScript.START_GAME], "a game event should not reach the intent listener")
 	_assert_eq(events, [], "an intent should reach only the intent listener, never an event subscriber")
@@ -119,13 +119,13 @@ func _test_game_events_do_not_touch_the_intent_listener() -> void:
 
 func _test_raise_event_reaches_the_bound_bus() -> void:
 	RegistryScript.clear()
-	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_press"})
+	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
 	var bus: GameEventBus = GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	var heard: Array = []
 	bus.subscribe(GameEventsScript.SFX_REQUESTED, func(payload: Dictionary) -> void: heard.append(payload))
-	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {"cue": "pickup_land"})
-	_assert_eq(heard, [{"cue": "pickup_land"}], "raising an event should reach the bound bus's subscribers")
+	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_LAND})
+	_assert_eq(heard, [{GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_LAND}], "raising an event should reach the bound bus's subscribers")
 	RegistryScript.clear()
 
 
