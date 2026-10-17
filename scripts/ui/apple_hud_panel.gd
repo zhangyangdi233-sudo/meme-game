@@ -3,6 +3,8 @@ extends Node
 ## Left HUD rail. While shown, it watches pollution, money, and today's actions and paints those numbers itself.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
@@ -12,10 +14,6 @@ var _actions_label: Label
 var _tooltip: PanelContainer
 var _tooltip_label: Label
 
-var _panel_factory: Callable
-var _label_factory: Callable
-var _theme_color_fn: Callable
-var _style_fn: Callable
 var _load_texture_fn: Callable
 var _on_tooltip_hidden: Callable
 
@@ -52,7 +50,7 @@ static func action_label(actions: int, max_actions: int) -> String:
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _panel_factory.is_valid() or not _label_factory.is_valid():
+	if parent == null or _theme() == null:
 		return
 	var keep_shown := _shown
 	_watch.stop()
@@ -106,10 +104,6 @@ func hide_tooltip() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_style_fn = deps.get("style_factory", Callable())
 	_load_texture_fn = deps.get("load_texture", Callable())
 	_on_tooltip_hidden = deps.get("on_tooltip_hidden", Callable())
 	_rail_width = float(deps.get("rail_width", _rail_width))
@@ -124,7 +118,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 
 
 func _build_rail(parent: Control) -> void:
-	_rail = _panel_factory.call() as PanelContainer
+	_rail = _theme().panel() as PanelContainer
 	_rail.name = "InternationalHUDRail"
 	_rail.set_meta("dark_rail", true)
 	_rail.set_meta("drawer_state", "collapsed")
@@ -141,7 +135,7 @@ func _build_rail(parent: Control) -> void:
 	_rail.mouse_filter = Control.MOUSE_FILTER_STOP
 	_rail.add_theme_stylebox_override(
 		"panel",
-		_style_fn.call(_theme_color_fn.call("ink"), Color(_theme_color_fn.call("muted"), 0.22))
+		_theme().style(_theme().theme_color("ink"), Color(_theme().theme_color("muted"), 0.22))
 	)
 	parent.add_child(_rail)
 	_rail.tree_exiting.connect(_stop_if_current_rail_exits.bind(_rail))
@@ -159,7 +153,7 @@ func _build_rail(parent: Control) -> void:
 	_add_hud_icon(box, "HUDMoneyIcon", "money", _money_icon_path)
 
 	var action_divider := ColorRect.new()
-	action_divider.color = _theme_color_fn.call("muted")
+	action_divider.color = _theme().theme_color("muted")
 	action_divider.modulate.a = 0.42
 	action_divider.custom_minimum_size.y = 1
 	box.add_child(action_divider)
@@ -168,7 +162,7 @@ func _build_rail(parent: Control) -> void:
 	action_spacer.custom_minimum_size.y = 6
 	box.add_child(action_spacer)
 
-	_actions_label = _label_factory.call("", 18, _theme_color_fn.call("muted")) as Label
+	_actions_label = _theme().label("", 18, _theme().theme_color("muted")) as Label
 	_actions_label.name = "HUDActionsLabel"
 	_actions_label.set_meta("action_animation_mode", "inline_pulse")
 	_actions_label.set_meta("hud_action_label", true)
@@ -199,7 +193,7 @@ func _build_reveal_zone(parent: Control) -> void:
 
 	var reveal_indicator := ColorRect.new()
 	reveal_indicator.name = "HUDRevealIndicator"
-	reveal_indicator.color = _theme_color_fn.call("muted")
+	reveal_indicator.color = _theme().theme_color("muted")
 	reveal_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reveal_indicator.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	reveal_indicator.offset_left = 0.0
@@ -211,17 +205,17 @@ func _build_reveal_zone(parent: Control) -> void:
 
 
 func _build_tooltip(parent: Control) -> void:
-	_tooltip = _panel_factory.call() as PanelContainer
+	_tooltip = _theme().panel() as PanelContainer
 	_tooltip.name = "HUDTooltip"
 	_tooltip.set_meta("tooltip_panel", true)
 	_tooltip.visible = false
 	_tooltip.z_index = 45
 	_tooltip.add_theme_stylebox_override(
 		"panel",
-		_style_fn.call(_theme_color_fn.call("muted"), _theme_color_fn.call("accent"))
+		_theme().style(_theme().theme_color("muted"), _theme().theme_color("accent"))
 	)
 	parent.add_child(_tooltip)
-	_tooltip_label = _label_factory.call("", 19, _theme_color_fn.call("ink")) as Label
+	_tooltip_label = _theme().label("", 19, _theme().theme_color("ink")) as Label
 	_tooltip_label.name = "HUDTooltipLabel"
 	_tooltip.add_child(_tooltip_label)
 
@@ -291,3 +285,8 @@ func _on_actions(_value: Variant) -> void:
 	if _actions_label == null or not is_instance_valid(_actions_label):
 		return
 	_actions_label.text = action_label(int(_watch.read(PropertyKeysScript.ACTIONS_REMAINING)), int(_watch.read(PropertyKeysScript.MAX_ACTIONS_PER_DAY)))
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

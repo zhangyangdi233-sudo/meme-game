@@ -4,6 +4,7 @@ extends SceneTree
 ## It also keeps its own page, channel and open post, and repaints itself when the player moves between them.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -24,10 +25,12 @@ func _init() -> void:
 	_run()
 	if _failures.is_empty():
 		print("social feed panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -203,15 +206,9 @@ func _mount() -> Dictionary:
 
 func _deps() -> Dictionary:
 	var author_id := func(post: Dictionary) -> String: return str(post.get("id", ""))
+	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
+		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	return {
-		"panel_factory": func(): return PanelContainer.new(),
-		"label_factory": func(text: String, _size: int, _color: Color) -> Label:
-			var label := Label.new()
-			label.text = text
-			return label,
-		"theme_color": func(_key: String) -> Color: return Color.WHITE,
-		"style_fn": func(_fill: Color, _border: Color) -> StyleBoxFlat: return StyleBoxFlat.new(),
-		"ui_font_size": func(size: int) -> int: return size,
 		"register_draggable": func(_window: Control, _id: String, _handle: Control) -> void: pass,
 		"load_texture": func(_path: String): return null,
 		"poster_texture": func(_post_index: int): return null,

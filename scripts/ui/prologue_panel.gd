@@ -3,6 +3,8 @@ extends Node
 ## Game-side prologue overlay: transmission lines, counter, and continue/skip chrome.
 
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _prologue_overlay: Control
 var _prologue_line_label: Label
@@ -11,14 +13,12 @@ var _prologue_continue_button: Button
 var _prologue_index := 0
 var _prologue_lines: Array = []
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _set_localized_property_fn: Callable
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _prologue_overlay != null and is_instance_valid(_prologue_overlay):
 		_prologue_overlay.queue_free()
@@ -60,8 +60,6 @@ func skip() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 	var lines: Variant = deps.get("prologue_lines", [])
 	if lines is Array:
@@ -85,7 +83,7 @@ func _build_prologue_overlay(parent: Control) -> void:
 
 	var signal_rule := ColorRect.new()
 	signal_rule.name = "PrologueSignalRule"
-	signal_rule.color = _theme_color_fn.call("flash_text")
+	signal_rule.color = _theme().theme_color("flash_text")
 	signal_rule.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	signal_rule.offset_left = 78
 	signal_rule.offset_right = 90
@@ -101,23 +99,23 @@ func _build_prologue_overlay(parent: Control) -> void:
 	copy_column.add_theme_constant_override("separation", 22)
 	_prologue_overlay.add_child(copy_column)
 
-	var signal_header := _label_factory.call(
+	var signal_header := _theme().label(
 		"NO SIGNAL  /  DAY 01  /  PRIVATE FREQUENCY",
 		15,
-		_theme_color_fn.call("flash_text"),
+		_theme().theme_color("flash_text"),
 	) as Label
 	signal_header.name = "PrologueSignalHeader"
 	signal_header.set_meta("on_dark", true)
 	signal_header.set_meta("skip_localization", true)
 	copy_column.add_child(signal_header)
 
-	_prologue_counter_label = _label_factory.call("", 14, _theme_color_fn.call("muted")) as Label
+	_prologue_counter_label = _theme().label("", 14, _theme().theme_color("muted")) as Label
 	_prologue_counter_label.name = "PrologueCounter"
 	_prologue_counter_label.set_meta("on_dark", true)
 	_prologue_counter_label.set_meta("skip_localization", true)
 	copy_column.add_child(_prologue_counter_label)
 
-	_prologue_line_label = _label_factory.call("", 34, _theme_color_fn.call("surface")) as Label
+	_prologue_line_label = _theme().label("", 34, _theme().theme_color("surface")) as Label
 	_prologue_line_label.name = "PrologueLine"
 	_prologue_line_label.custom_minimum_size.y = 190
 	_prologue_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -149,3 +147,8 @@ func _render_prologue_line() -> void:
 func _finish_prologue() -> void:
 	_prologue_overlay.visible = false
 	GameEventBus.raise(UiIntentsScript.PROLOGUE_FINISHED)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

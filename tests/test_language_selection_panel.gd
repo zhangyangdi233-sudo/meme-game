@@ -3,6 +3,7 @@ extends SceneTree
 ## A choice is raised on the bound event bus with its locale.
 
 const PanelScript = preload("res://scripts/ui/language_selection_panel.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -28,10 +29,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("language selection panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -84,10 +87,9 @@ func _run() -> void:
 
 
 func _deps() -> Dictionary:
+	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
+		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	return {
-		"soft_style": func(_bg: Color, _border: Color) -> StyleBoxFlat: return StyleBoxFlat.new(),
-		"theme_color": func(_key: String) -> Color: return Color.WHITE,
-		"ui_font_size": func(requested: int) -> int: return requested,
 		"locales": LOCALES,
 	}
 

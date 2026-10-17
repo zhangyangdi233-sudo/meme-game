@@ -2,6 +2,7 @@ extends SceneTree
 ## Phone launcher, camera consent, and phone-camera connection raise their actions on the event bus.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -17,10 +18,12 @@ func _init() -> void:
 	_run()
 	if _failures.is_empty():
 		print("phone camera intents tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -52,10 +55,8 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	root.add_child(host)
 	var panel := PhoneLauncherPanel.new()
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.mount(host, {
-		"panel_factory": func() -> PanelContainer: return PanelContainer.new(),
-		"label_factory": _label,
-		"theme_color": _theme_color,
 		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
 	})
 	panel.set_shown(true)
@@ -83,10 +84,8 @@ func _test_camera_consent_raises_allow_skip_and_source() -> void:
 	root.add_child(host)
 	var panel := CameraConsentPanelScript.new()
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.build(host, {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"soft_style": func(_bg: Color, _border: Color) -> StyleBoxFlat: return StyleBoxFlat.new(),
 		"populate_camera_source_option": func(option: OptionButton) -> void:
 			option.add_item("computer")
 			option.add_item("phone"),
@@ -112,11 +111,8 @@ func _test_phone_camera_connection_raises_retry_continue_disable() -> void:
 	root.add_child(host)
 	var panel := PhoneCameraConnectionPanelScript.new()
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.build(host, {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"soft_style": func(_bg: Color, _border: Color) -> StyleBoxFlat: return StyleBoxFlat.new(),
-		"panel_factory": func() -> PanelContainer: return PanelContainer.new(),
 		"set_localized_property": func(_node: Object, _property: String, _text: String) -> void: pass,
 	})
 

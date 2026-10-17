@@ -2,6 +2,7 @@ extends SceneTree
 ## Phone launcher watches whether the phone is open and which app is in front on their property models.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -13,10 +14,12 @@ func _init() -> void:
 	_run()
 	if _failures.is_empty():
 		print("phone launcher panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -162,10 +165,8 @@ func _mount() -> Dictionary:
 	var panel := PhoneLauncherPanel.new()
 	panel.name = "PhoneLauncherPanelHost"
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	var deps := {
-		"panel_factory": func() -> PanelContainer: return PanelContainer.new(),
-		"label_factory": _label,
-		"theme_color": _theme_color,
 		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
 	}
 	panel.mount(host, deps)

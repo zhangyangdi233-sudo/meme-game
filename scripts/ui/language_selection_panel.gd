@@ -14,9 +14,6 @@ var _language_overlay: Control
 var _choice_buttons: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {PropertyKeysScript.LOCALE: _on_locale})
 var _language_overlay_first_run := false
-var _soft_style_fn: Callable
-var _theme_color_fn: Callable
-var _ui_font_size_fn: Callable
 var _language_selected_fn: Callable
 var _refresh_localized_ui_fn: Callable
 var _locales: Array = []
@@ -24,7 +21,7 @@ var _locales: Array = []
 
 func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _soft_style_fn.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	_watch.stop()
 	if _language_overlay != null and is_instance_valid(_language_overlay):
@@ -40,7 +37,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 
 	var blackout := ColorRect.new()
 	blackout.name = "LanguageSelectionBackdrop"
-	blackout.color = Color(_theme_color_fn.call("ink"), 0.92)
+	blackout.color = Color(_theme().theme_color("ink"), 0.92)
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
 	_language_overlay.add_child(blackout)
@@ -51,7 +48,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	var panel := PanelContainer.new()
 	panel.name = "LanguageSelectionPanel"
 	panel.custom_minimum_size = Vector2(620, 390)
-	panel.add_theme_stylebox_override("panel", _soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent")))
+	panel.add_theme_stylebox_override("panel", _theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent")))
 	center.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 18)
@@ -59,14 +56,14 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 
 	var eyebrow := Label.new()
 	eyebrow.text = "BABEL PHONE  /  LANGUAGE"
-	eyebrow.add_theme_font_size_override("font_size", _ui_font_size_fn.call(15))
-	eyebrow.add_theme_color_override("font_color", _theme_color_fn.call("accent"))
+	eyebrow.add_theme_font_size_override("font_size", _theme().ui_font_size(15))
+	eyebrow.add_theme_color_override("font_color", _theme().theme_color("accent"))
 	box.add_child(eyebrow)
 	var title := Label.new()
 	title.name = "LanguageSelectionTitle"
 	title.text = "选择语言  /  言語を選択  /  CHOOSE LANGUAGE"
-	title.add_theme_font_size_override("font_size", _ui_font_size_fn.call(27))
-	title.add_theme_color_override("font_color", _theme_color_fn.call("ink"))
+	title.add_theme_font_size_override("font_size", _theme().ui_font_size(27))
+	title.add_theme_color_override("font_color", _theme().theme_color("ink"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title)
 	var rule := HSeparator.new()
@@ -128,9 +125,6 @@ func _on_locale(value: Variant) -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_soft_style_fn = deps.get("soft_style", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_language_selected_fn = deps.get("language_selected", Callable())
 	_refresh_localized_ui_fn = deps.get("refresh_localized_ui", Callable())
 	_locales = deps.get("locales", [])
@@ -147,3 +141,8 @@ func _on_choice_pressed(locale_code: String) -> void:
 
 func _on_cancel_pressed() -> void:
 	close()
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

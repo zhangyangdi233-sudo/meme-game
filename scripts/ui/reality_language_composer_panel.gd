@@ -3,6 +3,8 @@ extends Node
 ## Reality doctor lexeme puzzle: token bank, grammar slots, preview, and confirm chrome.
 
 const DraggableButtonScript = preload("res://framework/ui/draggable_button.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
@@ -12,9 +14,6 @@ var _slot_row: HBoxContainer
 var _preview: Label
 var _confirm: Button
 
-var _panel_factory: Callable
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _clear_children_fn: Callable
 
 
@@ -26,7 +25,7 @@ func mount(parent: Control, deps: Dictionary) -> void:
 func render(state: Dictionary) -> void:
 	if _frame == null or _token_flow == null or _slot_row == null:
 		return
-	if not _clear_children_fn.is_valid() or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if not _clear_children_fn.is_valid() or _theme() == null:
 		return
 	_clear_children_fn.call(_token_flow)
 	_clear_children_fn.call(_slot_row)
@@ -37,10 +36,10 @@ func render(state: Dictionary) -> void:
 
 	var options: Array = state.get("token_options", [])
 	if options.is_empty():
-		var empty_label := _label_factory.call(
+		var empty_label := _theme().label(
 			"还没有能带到医生面前的词。先在手机里发布一句完整的话。",
 			14,
-			_theme_color_fn.call("accent")
+			_theme().theme_color("accent")
 		) as Label
 		empty_label.name = "RealityLanguageEmptyState"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -97,19 +96,16 @@ func update_visibility(interaction_visible: bool, phase: String, mode: String) -
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_clear_children_fn = deps.get("clear_children", Callable())
 
 
 func _build_chrome(parent: Control) -> void:
 	if _frame != null and is_instance_valid(_frame):
 		return
-	if parent == null or not _panel_factory.is_valid() or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 
-	_frame = _panel_factory.call() as PanelContainer
+	_frame = _theme().panel() as PanelContainer
 	_frame.name = "RealityLanguagePuzzleFrame"
 	_frame.set_meta("soft_panel", true)
 	_frame.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -126,10 +122,10 @@ func _build_chrome(parent: Control) -> void:
 	composer_box.add_theme_constant_override("separation", 10)
 	_frame.add_child(composer_box)
 
-	var heading := _label_factory.call("把发布过的词重新说给医生", 20, _theme_color_fn.call("ink")) as Label
+	var heading := _theme().label("把发布过的词重新说给医生", 20, _theme().theme_color("ink")) as Label
 	heading.name = "RealityLanguagePuzzleHeading"
 	composer_box.add_child(heading)
-	var hint := _label_factory.call("同一个词到了这里会换一种说法。拖拽词块，或先点词块再点句槽。", 14, _theme_color_fn.call("accent")) as Label
+	var hint := _theme().label("同一个词到了这里会换一种说法。拖拽词块，或先点词块再点句槽。", 14, _theme().theme_color("accent")) as Label
 	hint.name = "RealityLanguagePuzzleHint"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	composer_box.add_child(hint)
@@ -146,7 +142,7 @@ func _build_chrome(parent: Control) -> void:
 	_slot_row.add_theme_constant_override("separation", 8)
 	composer_box.add_child(_slot_row)
 
-	_preview = _label_factory.call("", 16, _theme_color_fn.call("ink")) as Label
+	_preview = _theme().label("", 16, _theme().theme_color("ink")) as Label
 	_preview.name = "RealityLanguagePreview"
 	_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	composer_box.add_child(_preview)
@@ -173,3 +169,8 @@ func _on_slot_pressed(slot_id: String) -> void:
 
 func _on_confirm_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.COMPOSER_CONFIRM_PRESSED)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

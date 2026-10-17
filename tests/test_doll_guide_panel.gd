@@ -2,6 +2,7 @@ extends SceneTree
 ## Shown doll guide watches the tutorial progress and the floor facts and words its own line.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -21,10 +22,12 @@ func _run_async() -> void:
 	await _test_a_freed_guide_unregisters()
 	if _failures.is_empty():
 		print("doll guide panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -104,7 +107,8 @@ func _mount() -> Dictionary:
 	root.add_child(host)
 	var panel := DollGuidePanel.new()
 	root.add_child(panel)
-	panel.mount(host, {"label_factory": _label, "theme_color": _theme_color})
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
+	panel.mount(host, {})
 	return {
 		"host": host,
 		"panel": panel,

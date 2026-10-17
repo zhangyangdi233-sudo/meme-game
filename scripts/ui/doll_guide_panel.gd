@@ -4,6 +4,8 @@ extends Node
 ## While shown, it watches the tutorial progress and the floor facts and words its own line.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const GuideLineScript = preload("res://scripts/tutorial/guide_line.gd")
 
@@ -11,8 +13,6 @@ var _overlay: PanelContainer
 var _body: VBoxContainer
 var _line_label: Label
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _load_texture_fn: Callable
 var _register_draggable_fn: Callable
 var _portrait_path := ""
@@ -30,7 +30,7 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	var keep_shown := _overlay != null and is_instance_valid(_overlay) and _overlay.visible
 	_watch.stop()
@@ -93,8 +93,6 @@ func _paint() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_load_texture_fn = deps.get("load_texture", Callable())
 	_register_draggable_fn = deps.get("register_draggable", Callable())
 	_portrait_path = str(deps.get("portrait_path", ""))
@@ -126,7 +124,7 @@ func _build_overlay(parent: Control) -> void:
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	header.add_child(portrait)
 
-	var title: Label = _label_factory.call("缝线布偶", 15, _theme_color_fn.call("accent")) if _label_factory.is_valid() else Label.new()
+	var title: Label = _theme().label("缝线布偶", 15, _theme().theme_color("accent")) if _theme() != null else Label.new()
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
@@ -142,7 +140,7 @@ func _build_overlay(parent: Control) -> void:
 	_body.name = "DollGuideBody"
 	guide_box.add_child(_body)
 
-	_line_label = _label_factory.call("", 14, _theme_color_fn.call("ink")) if _label_factory.is_valid() else Label.new()
+	_line_label = _theme().label("", 14, _theme().theme_color("ink")) if _theme() != null else Label.new()
 	_line_label.name = "DollGuideLine"
 	_line_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_line_label.custom_minimum_size = Vector2(236, 0)
@@ -169,3 +167,8 @@ func _find_control_by_name(root: Node, target_name: String) -> Node:
 		if found != null:
 			return found
 	return null
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

@@ -84,8 +84,6 @@ func build_action_spend_overlay() -> void:
 	action_spend_panel.mount(ui_root, {
 		"hud_actions_label": _hud_actions_label(),
 		"action_text": _deps.get("action_text", Callable()),
-		"theme_color": _deps.get("theme_color", Callable()),
-		"ui_font_size": _deps.get("ui_font_size", Callable()),
 		"on_animation_finished": finish_action_spend_animation,
 	})
 	_sync_action_spend_refs()
@@ -97,8 +95,6 @@ func build_day_transition_overlay() -> void:
 	if day_transition_panel == null or ui_root == null:
 		return
 	day_transition_panel.mount(ui_root, {
-		"label_factory": _deps.get("label_factory", Callable()),
-		"theme_color": _deps.get("theme_color", Callable()),
 		"level_display_name": _deps.get("level_display_name", Callable()),
 	})
 	_sync_day_transition_refs()
@@ -110,7 +106,6 @@ func build_flashback_overlay() -> void:
 	if flashback_panel == null or ui_root == null:
 		return
 	flashback_panel.mount(ui_root, {
-		"theme_color": _deps.get("theme_color", Callable()),
 		"on_sequence_finished": finish_pollution_flashback,
 	})
 	_sync_flashback_refs()
@@ -286,13 +281,7 @@ func _play_day_transition_visual() -> bool:
 func _play_flashback_visual() -> bool:
 	if flashback_panel == null:
 		return false
-	var theme_color: Callable = _deps.get("theme_color", Callable())
-	if theme_color.is_valid():
-		flashback_panel.configure_colors({
-			"ink": theme_color.call("ink"),
-			"surface": theme_color.call("surface"),
-			"flash_text": theme_color.call("flash_text"),
-		})
+	flashback_panel.refresh_colors()
 	flashback_panel.build_phases()
 	var capture: Callable = _deps.get("capture_frozen_frame", Callable())
 	var frozen_texture: Texture2D = null

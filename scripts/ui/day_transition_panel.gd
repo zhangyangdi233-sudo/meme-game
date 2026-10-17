@@ -3,6 +3,8 @@ extends Node
 ## Game-side day transition overlay: floor card chrome and copy refresh.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _overlay: Control
 var _day_label: Label
@@ -10,14 +12,12 @@ var _meta_label: Label
 var _hint_label: Label
 var _rule: ColorRect
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _level_display_name_fn: Callable
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
@@ -75,8 +75,6 @@ func hide_overlay() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_level_display_name_fn = deps.get("level_display_name", Callable())
 
 
@@ -98,7 +96,7 @@ func _build_overlay(parent: Control) -> void:
 
 	_rule = ColorRect.new()
 	_rule.name = "DayTransitionRule"
-	_rule.color = _theme_color_fn.call("flash_text")
+	_rule.color = _theme().theme_color("flash_text")
 	_rule.set_anchors_preset(Control.PRESET_CENTER)
 	_rule.offset_left = -620
 	_rule.offset_top = -8
@@ -108,7 +106,7 @@ func _build_overlay(parent: Control) -> void:
 	_rule.rotation = deg_to_rad(-5.0)
 	_overlay.add_child(_rule)
 
-	_day_label = _label_factory.call("第一层", 58, _theme_color_fn.call("surface")) as Label
+	_day_label = _theme().label("第一层", 58, _theme().theme_color("surface")) as Label
 	_day_label.name = "FloorTransitionAreaLabel"
 	_day_label.set_meta("on_dark", true)
 	_day_label.set_anchors_preset(Control.PRESET_CENTER)
@@ -121,7 +119,7 @@ func _build_overlay(parent: Control) -> void:
 	_day_label.pivot_offset = Vector2(520, 70)
 	_overlay.add_child(_day_label)
 
-	_meta_label = _label_factory.call("危险：B", 28, _theme_color_fn.call("flash_text")) as Label
+	_meta_label = _theme().label("危险：B", 28, _theme().theme_color("flash_text")) as Label
 	_meta_label.name = "FloorTransitionDangerLabel"
 	_meta_label.set_meta("on_dark", true)
 	_meta_label.set_anchors_preset(Control.PRESET_CENTER)
@@ -133,7 +131,7 @@ func _build_overlay(parent: Control) -> void:
 	_meta_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_overlay.add_child(_meta_label)
 
-	_hint_label = _label_factory.call("提示：《游戏与现实》", 22, _theme_color_fn.call("muted")) as Label
+	_hint_label = _theme().label("提示：《游戏与现实》", 22, _theme().theme_color("muted")) as Label
 	_hint_label.name = "FloorTransitionHintLabel"
 	_hint_label.set_meta("on_dark", true)
 	_hint_label.set_anchors_preset(Control.PRESET_CENTER)
@@ -145,3 +143,8 @@ func _build_overlay(parent: Control) -> void:
 	_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_overlay.add_child(_hint_label)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

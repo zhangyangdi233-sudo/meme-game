@@ -8,6 +8,8 @@ extends Node
 ## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
@@ -42,11 +44,6 @@ var _detail_window: PanelContainer
 var _detail_body: VBoxContainer
 var _detail_title: Label
 var _detail_post_index := NO_POST
-var _panel_factory: Callable
-var _label_factory: Callable
-var _style_fn: Callable
-var _theme_color_fn: Callable
-var _ui_font_size_fn: Callable
 var _register_draggable: Callable
 var _load_texture_fn: Callable
 var _poster_texture_fn: Callable
@@ -63,8 +60,6 @@ var _player_echo_quote_fn: Callable
 var _echo_comment_handle_fn: Callable
 var _game_day_fn: Callable
 var _current_locale_fn: Callable
-var _soft_style_fn: Callable
-var _apply_composer_tile_theme_fn: Callable
 ## Themes and localizes a window this panel repainted on its own. The host passes the phone-shell theme pass.
 var _theme_window_fn: Callable
 var _pollution_fn: Callable
@@ -259,7 +254,7 @@ func render_app() -> void:
 	_painted_sentence_units = _sentence_units
 	_painted_last_result = _last_result
 	_clear(_app_body)
-	var phone_view := _panel_factory.call() as PanelContainer
+	var phone_view := _theme().panel() as PanelContainer
 	phone_view.name = "SocialPhoneView"
 	phone_view.set_meta("phone_surface", true)
 	phone_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -276,7 +271,7 @@ func render_app() -> void:
 	status_bar.add_theme_constant_override("separation", 6)
 	phone_box.add_child(status_bar)
 	_register_draggable.call(_app_window, "app:social", status_bar)
-	var time_label := _label_factory.call("9:41", 14, _theme_color_fn.call("ink")) as Label
+	var time_label := _theme().label("9:41", 14, _theme().theme_color("ink")) as Label
 	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	time_label.custom_minimum_size.x = 40
 	status_bar.add_child(time_label)
@@ -293,7 +288,7 @@ func render_app() -> void:
 	no_signal_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	no_signal_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	no_signal_group.add_child(no_signal_icon)
-	var signal_label := _label_factory.call("无信号", 13, _theme_color_fn.call("accent")) as Label
+	var signal_label := _theme().label("无信号", 13, _theme().theme_color("accent")) as Label
 	signal_label.name = "SocialNoSignalLabel"
 	signal_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	no_signal_group.add_child(signal_label)
@@ -303,7 +298,7 @@ func render_app() -> void:
 	status_bar.add_child(top_spacer)
 	var drag_grip := ColorRect.new()
 	drag_grip.name = "SocialStatusDragGrip"
-	drag_grip.color = _theme_color_fn.call("accent")
+	drag_grip.color = _theme().theme_color("accent")
 	drag_grip.modulate.a = 0.45
 	drag_grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	drag_grip.custom_minimum_size = Vector2(36, 3)
@@ -340,7 +335,7 @@ func render_app() -> void:
 		tab_item.add_child(tab)
 		var underline := ColorRect.new()
 		underline.name = "SocialChannelTabUnderline%s" % channel_id
-		underline.color = _theme_color_fn.call("muted")
+		underline.color = _theme().theme_color("muted")
 		underline.custom_minimum_size.y = 3
 		underline.visible = channel_id == channel
 		tab_item.add_child(underline)
@@ -366,11 +361,6 @@ func render_app() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_style_fn = deps.get("style_fn", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
 	_load_texture_fn = deps.get("load_texture", Callable())
 	_poster_texture_fn = deps.get("poster_texture", Callable())
@@ -387,8 +377,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
 	_game_day_fn = deps.get("game_day", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
-	_soft_style_fn = deps.get("soft_style", Callable())
-	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
 	_theme_window_fn = deps.get("theme_window", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
@@ -402,7 +390,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 func _build_social_app_window(parent: Control) -> void:
 	if _app_window != null:
 		return
-	_app_window = _panel_factory.call() as PanelContainer
+	_app_window = _theme().panel() as PanelContainer
 	_app_window.name = "SocialAppWindow"
 	_app_window.clip_contents = true
 	_app_window.set_meta("phone_shell", true)
@@ -415,7 +403,7 @@ func _build_social_app_window(parent: Control) -> void:
 	app_box.add_theme_constant_override("separation", 4)
 	_app_window.add_child(app_box)
 
-	_app_title = _label_factory.call("社交媒体 App", 21, _theme_color_fn.call("accent")) as Label
+	_app_title = _theme().label("社交媒体 App", 21, _theme().theme_color("accent")) as Label
 	_app_title.name = "SocialAppWindowHandle"
 	_app_title.visible = false
 	_app_title.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -432,7 +420,7 @@ func _build_social_app_window(parent: Control) -> void:
 func _build_social_detail_window(parent: Control) -> void:
 	if _detail_window != null:
 		return
-	_detail_window = _panel_factory.call() as PanelContainer
+	_detail_window = _theme().panel() as PanelContainer
 	_detail_window.name = "SocialDetailWindow"
 	_detail_window.add_theme_stylebox_override("panel", _detail_dark_style())
 	_detail_window.clip_contents = true
@@ -452,7 +440,7 @@ func _build_social_detail_window(parent: Control) -> void:
 	header.add_theme_constant_override("separation", 8)
 	shell.add_child(header)
 
-	_detail_title = _label_factory.call("第 1 层 / 3", 18, _theme_color_fn.call("surface")) as Label
+	_detail_title = _theme().label("第 1 层 / 3", 18, _theme().theme_color("surface")) as Label
 	_detail_title.name = "SocialDetailWindowHandle"
 	_detail_title.set_meta("on_dark", true)
 	_detail_title.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -556,7 +544,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 			post = _post_for_index_fn.call(post_index)
 		var card_height := _feed_card_height(post_index)
 		var column_index := 0 if float(masonry_heights[0]) <= float(masonry_heights[1]) else 1
-		var card_panel := _panel_factory.call() as PanelContainer
+		var card_panel := _theme().panel() as PanelContainer
 		card_panel.name = "SocialPostCard%d" % post_index
 		card_panel.set_meta("social_card", true)
 		card_panel.add_theme_stylebox_override("panel", _social_card_style())
@@ -595,7 +583,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		var caption_text := ""
 		if _caption_text_fn.is_valid():
 			caption_text = str(_caption_text_fn.call(post, post_index))
-		var caption := _label_factory.call(caption_text, 14, _theme_color_fn.call("ink")) as Label
+		var caption := _theme().label(caption_text, 14, _theme().theme_color("ink")) as Label
 		caption.name = "SocialPostCaption%d" % post_index
 		caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -639,7 +627,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 	hint_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint_slot.clip_contents = true
 	feed_content.add_child(hint_slot)
-	var scroll_hint := _label_factory.call("继续下滑浏览更多信号", 13, _theme_color_fn.call("accent")) as Label
+	var scroll_hint := _theme().label("继续下滑浏览更多信号", 13, _theme().theme_color("accent")) as Label
 	scroll_hint.name = "SocialScrollHint"
 	scroll_hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -664,15 +652,15 @@ func _render_channel_empty_state(parent: VBoxContainer, node_name: String, title
 	copy.custom_minimum_size.x = 300
 	copy.add_theme_constant_override("separation", 12)
 	center.add_child(copy)
-	var eyebrow := _label_factory.call("NO SIGNAL / 00", 13, _theme_color_fn.call("muted")) as Label
+	var eyebrow := _theme().label("NO SIGNAL / 00", 13, _theme().theme_color("muted")) as Label
 	eyebrow.set_meta("on_dark", true)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	copy.add_child(eyebrow)
-	var heading := _label_factory.call(title, 24, _theme_color_fn.call("surface")) as Label
+	var heading := _theme().label(title, 24, _theme().theme_color("surface")) as Label
 	heading.set_meta("on_dark", true)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	copy.add_child(heading)
-	var message := _label_factory.call(body, 15, _theme_color_fn.call("muted")) as Label
+	var message := _theme().label(body, 15, _theme().theme_color("muted")) as Label
 	message.name = "%sMessage" % node_name
 	message.set_meta("on_dark", true)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -687,7 +675,7 @@ func _render_card_poster(parent: VBoxContainer, post_index: int, post: Dictionar
 	poster.custom_minimum_size.y = _feed_poster_height(post_index)
 	poster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	poster.mouse_filter = Control.MOUSE_FILTER_PASS
-	poster.add_theme_stylebox_override("panel", _style_fn.call(_poster_color(post_index), _theme_color_fn.call("accent")))
+	poster.add_theme_stylebox_override("panel", _theme().style(_poster_color(post_index), _theme().theme_color("accent")))
 	parent.add_child(poster)
 
 	var poster_texture := TextureRect.new()
@@ -727,11 +715,11 @@ func _render_bottom_nav(phone_box: VBoxContainer) -> void:
 			nav_button.custom_minimum_size = Vector2(132, 50)
 			nav_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			nav_button.size_flags_stretch_ratio = 1.35
-			nav_button.add_theme_stylebox_override("normal", _style_fn.call(_theme_color_fn.call("accent"), _theme_color_fn.call("ink")))
-			nav_button.add_theme_stylebox_override("hover", _style_fn.call(_theme_color_fn.call("accent").lightened(0.12), _theme_color_fn.call("ink")))
-			nav_button.add_theme_stylebox_override("pressed", _style_fn.call(_theme_color_fn.call("accent").darkened(0.12), _theme_color_fn.call("ink")))
-			nav_button.add_theme_color_override("font_color", _theme_color_fn.call("surface"))
-			nav_button.add_theme_font_size_override("font_size", _ui_font_size_fn.call(17))
+			nav_button.add_theme_stylebox_override("normal", _theme().style(_theme().theme_color("accent"), _theme().theme_color("ink")))
+			nav_button.add_theme_stylebox_override("hover", _theme().style(_theme().theme_color("accent").lightened(0.12), _theme().theme_color("ink")))
+			nav_button.add_theme_stylebox_override("pressed", _theme().style(_theme().theme_color("accent").darkened(0.12), _theme().theme_color("ink")))
+			nav_button.add_theme_color_override("font_color", _theme().theme_color("surface"))
+			nav_button.add_theme_font_size_override("font_size", _theme().ui_font_size(17))
 		else:
 			nav_button.set_meta("flat_phone_button", true)
 			nav_button.custom_minimum_size = Vector2(100, 50)
@@ -743,7 +731,7 @@ func _render_bottom_nav(phone_box: VBoxContainer) -> void:
 	phone_box.add_child(indicator_wrap)
 	var home_indicator := ColorRect.new()
 	home_indicator.name = "SocialHomeIndicator"
-	home_indicator.color = _theme_color_fn.call("ink")
+	home_indicator.color = _theme().theme_color("ink")
 	home_indicator.custom_minimum_size = Vector2(94, 4)
 	indicator_wrap.add_child(home_indicator)
 
@@ -759,13 +747,13 @@ func _feed_card_height(post_index: int) -> float:
 func _poster_color(post_index: int) -> Color:
 	match post_index % 4:
 		0:
-			return _theme_color_fn.call("muted")
+			return _theme().theme_color("muted")
 		1:
-			return _theme_color_fn.call("surface")
+			return _theme().theme_color("surface")
 		2:
-			return _theme_color_fn.call("accent").lightened(0.46)
+			return _theme().theme_color("accent").lightened(0.46)
 		_:
-			return _theme_color_fn.call("bg").lightened(0.10)
+			return _theme().theme_color("bg").lightened(0.10)
 
 
 func _scroll_feed(feed_scroll: ScrollContainer, delta: int) -> void:
@@ -834,16 +822,16 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	var handle_text := str(post.get("handle", ""))
 	if _translate_fn.is_valid():
 		handle_text = str(_translate_fn.call(handle_text))
-	var companion_handle := _label_factory.call("@%s" % handle_text, 15, _theme_color_fn.call("surface")) as Label
+	var companion_handle := _theme().label("@%s" % handle_text, 15, _theme().theme_color("surface")) as Label
 	companion_handle.set_meta("on_dark", true)
 	companion_handle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	companion_meta.add_child(companion_handle)
-	var floor_marker := _label_factory.call("信号档案", 13, _theme_color_fn.call("muted")) as Label
+	var floor_marker := _theme().label("信号档案", 13, _theme().theme_color("muted")) as Label
 	floor_marker.name = "SocialDetailSignalArchive"
 	floor_marker.set_meta("on_dark", true)
 	companion_meta.add_child(floor_marker)
 
-	var detail_card := _panel_factory.call() as PanelContainer
+	var detail_card := _theme().panel() as PanelContainer
 	detail_card.name = "SocialPostDetailCard"
 	detail_card.add_theme_stylebox_override("panel", _detail_dark_style())
 	detail_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -854,7 +842,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	var media := PanelContainer.new()
 	media.custom_minimum_size.y = 320
 	media.set_meta("poster_frame", true)
-	media.add_theme_stylebox_override("panel", _style_fn.call(_theme_color_fn.call("muted"), _theme_color_fn.call("accent")))
+	media.add_theme_stylebox_override("panel", _theme().style(_theme().theme_color("muted"), _theme().theme_color("accent")))
 	detail_box.add_child(media)
 	var media_texture := TextureRect.new()
 	media_texture.name = "SocialDetailPostTexture"
@@ -872,7 +860,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	var post_body := str(post.get("text", ""))
 	if _corrupt_text_fn.is_valid():
 		post_body = str(_corrupt_text_fn.call(post_body))
-	var post_text := _label_factory.call(post_body, 17, _theme_color_fn.call("surface")) as Label
+	var post_text := _theme().label(post_body, 17, _theme().theme_color("surface")) as Label
 	post_text.set_meta("on_dark", true)
 	post_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(post_text)
@@ -885,7 +873,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 		pickup_line = str(_language_material.pickup_line(post_card_id, locale))
 	if not pickup_line.is_empty():
 		detail_box.add_child(_make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id))
-		var pickup_hint := _label_factory.call("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme_color_fn.call("muted")) as Label
+		var pickup_hint := _theme().label("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme().theme_color("muted")) as Label
 		pickup_hint.name = "SocialPickupCostHint"
 		pickup_hint.set_meta("on_dark", true)
 		pickup_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -914,7 +902,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	detail_follow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_follow.pressed.connect(_on_follow_pressed.bind(author_id))
 	engagement.add_child(detail_follow)
-	var signal_profile := _label_factory.call("拾取字词不增加污染；使用它才会改变语言。", 13, _theme_color_fn.call("muted")) as Label
+	var signal_profile := _theme().label("拾取字词不增加污染；使用它才会改变语言。", 13, _theme().theme_color("muted")) as Label
 	signal_profile.name = "SocialCardSignalProfile"
 	signal_profile.set_meta("on_dark", true)
 	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -925,10 +913,10 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
 		comments_rule.name = "SocialCommentsRule"
-		comments_rule.color = Color(_theme_color_fn.call("muted"), 0.35)
+		comments_rule.color = Color(_theme().theme_color("muted"), 0.35)
 		comments_rule.custom_minimum_size.y = 1.0
 		detail_box.add_child(comments_rule)
-		var comments_header := _label_factory.call("评论 · %d" % post_comments.size(), 14, _theme_color_fn.call("muted")) as Label
+		var comments_header := _theme().label("评论 · %d" % post_comments.size(), 14, _theme().theme_color("muted")) as Label
 		comments_header.name = "SocialCommentsHeader"
 		comments_header.set_meta("on_dark", true)
 		detail_box.add_child(comments_header)
@@ -938,7 +926,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 			comment_box.name = "SocialComment%d" % comment_index
 			comment_box.add_theme_constant_override("separation", 2)
 			detail_box.add_child(comment_box)
-			var comment_meta := _label_factory.call("%s  ·  %s" % [str(comment.get("handle", "")), str(comment.get("time", ""))], 12, _theme_color_fn.call("muted")) as Label
+			var comment_meta := _theme().label("%s  ·  %s" % [str(comment.get("handle", "")), str(comment.get("time", ""))], 12, _theme().theme_color("muted")) as Label
 			comment_meta.name = "SocialCommentMeta%d" % comment_index
 			comment_meta.set_meta("on_dark", true)
 			comment_meta.set_meta("skip_localization", true)
@@ -964,12 +952,12 @@ func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) 
 	var game_day := 0
 	if _game_day_fn.is_valid():
 		game_day = int(_game_day_fn.call())
-	var echo_meta := _label_factory.call("%s  ·  %02d:%02d" % [handle, 3 + comment_index, 7 + game_day], 12, _theme_color_fn.call("muted")) as Label
+	var echo_meta := _theme().label("%s  ·  %02d:%02d" % [handle, 3 + comment_index, 7 + game_day], 12, _theme().theme_color("muted")) as Label
 	echo_meta.name = "SocialEchoCommentMeta"
 	echo_meta.set_meta("on_dark", true)
 	echo_meta.set_meta("skip_localization", true)
 	echo_box.add_child(echo_meta)
-	var echo_text := _label_factory.call(quote, 14, _theme_color_fn.call("surface")) as Label
+	var echo_text := _theme().label(quote, 14, _theme().theme_color("surface")) as Label
 	echo_text.name = "SocialEchoCommentText"
 	echo_text.set_meta("on_dark", true)
 	echo_text.set_meta("skip_localization", true)
@@ -1022,13 +1010,13 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	page_header.custom_minimum_size.y = 44
 	page_header.add_theme_constant_override("separation", 8)
 	publish_page.add_child(page_header)
-	var page_title := _label_factory.call("发布新信号", 22, _theme_color_fn.call("ink")) as Label
+	var page_title := _theme().label("发布新信号", 22, _theme().theme_color("ink")) as Label
 	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page_header.add_child(page_title)
 	var game_day := 0
 	if _game_day_fn.is_valid():
 		game_day = int(_game_day_fn.call())
-	page_header.add_child(_label_factory.call("DAY %02d" % game_day, 12, _theme_color_fn.call("accent")) as Label)
+	page_header.add_child(_theme().label("DAY %02d" % game_day, 12, _theme().theme_color("accent")) as Label)
 
 	var publish_scroll := ScrollContainer.new()
 	publish_scroll.name = "SocialPublishScroll"
@@ -1045,7 +1033,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 
 	var publish_result := _last_result
 
-	var composer := _panel_factory.call() as PanelContainer
+	var composer := _theme().panel() as PanelContainer
 	composer.name = "SocialPublishComposer"
 	composer.set_meta("soft_panel", true)
 	publish_content.add_child(composer)
@@ -1056,47 +1044,47 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	var composer_header := HBoxContainer.new()
 	composer_header.add_theme_constant_override("separation", 8)
 	composer_box.add_child(composer_header)
-	var composer_step := _label_factory.call("01  /  内容", 13, _theme_color_fn.call("accent")) as Label
+	var composer_step := _theme().label("01  /  内容", 13, _theme().theme_color("accent")) as Label
 	composer_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	composer_header.add_child(composer_step)
 	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
-	var unit_counter := _label_factory.call(
+	var unit_counter := _theme().label(
 		"%d / %d 字" % [placed_sentence_units.size(), _composer_soft_unit_limit],
 		12,
-		_theme_color_fn.call("accent")
+		_theme().theme_color("accent")
 	) as Label
 	unit_counter.name = "SocialPublishUnitCounter"
 	composer_header.add_child(unit_counter)
-	composer_box.add_child(_label_factory.call("把笔记本里的字拖进来", 17, _theme_color_fn.call("ink")) as Label)
+	composer_box.add_child(_theme().label("把笔记本里的字拖进来", 17, _theme().theme_color("ink")) as Label)
 	_render_publish_sentence_area(composer_box, placed_sentence_units)
 
-	var result_panel := _panel_factory.call() as PanelContainer
+	var result_panel := _theme().panel() as PanelContainer
 	result_panel.name = "SocialPublishOutcomePanel"
 	result_panel.set_meta("soft_panel", true)
 	publish_content.add_child(result_panel)
 	var result_box := VBoxContainer.new()
 	result_box.add_theme_constant_override("separation", 8)
 	result_panel.add_child(result_box)
-	result_box.add_child(_label_factory.call("02  /  本次变化", 13, _theme_color_fn.call("accent")) as Label)
+	result_box.add_child(_theme().label("02  /  本次变化", 13, _theme().theme_color("accent")) as Label)
 	var outcome_row := HBoxContainer.new()
 	outcome_row.add_theme_constant_override("separation", 12)
 	result_box.add_child(outcome_row)
 	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
-	var money_outcome := _label_factory.call("资金  %s" % money_text, 22, _theme_color_fn.call("ink")) as Label
+	var money_outcome := _theme().label("资金  %s" % money_text, 22, _theme().theme_color("ink")) as Label
 	money_outcome.name = "SocialPublishMoneyOutcome"
 	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outcome_row.add_child(money_outcome)
 	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
-	var pollution_outcome := _label_factory.call("污染  %s" % pollution_text, 22, _theme_color_fn.call("ink")) as Label
+	var pollution_outcome := _theme().label("污染  %s" % pollution_text, 22, _theme().theme_color("ink")) as Label
 	pollution_outcome.name = "SocialPublishPollutionOutcome"
 	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outcome_row.add_child(pollution_outcome)
 
-	var hint := _label_factory.call("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme_color_fn.call("accent")) as Label
+	var hint := _theme().label("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme().theme_color("accent")) as Label
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	publish_content.add_child(hint)
 
-	var action_bar := _panel_factory.call() as PanelContainer
+	var action_bar := _theme().panel() as PanelContainer
 	action_bar.name = "SocialPublishActionBar"
 	action_bar.set_meta("fixed_action_bar", true)
 	action_bar.set_meta("soft_panel", true)
@@ -1118,12 +1106,12 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 	profile_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	profile_page.add_theme_constant_override("separation", 10)
 	parent.add_child(profile_page)
-	profile_page.add_child(_label_factory.call("我的", 22, _theme_color_fn.call("accent")) as Label)
+	profile_page.add_child(_theme().label("我的", 22, _theme().theme_color("accent")) as Label)
 	var identity_frame := PanelContainer.new()
 	identity_frame.name = "SocialPlayerIdentityFrame"
 	identity_frame.custom_minimum_size.y = 188
 	identity_frame.set_meta("poster_frame", true)
-	identity_frame.add_theme_stylebox_override("panel", _style_fn.call(_theme_color_fn.call("ink"), _theme_color_fn.call("accent")))
+	identity_frame.add_theme_stylebox_override("panel", _theme().style(_theme().theme_color("ink"), _theme().theme_color("accent")))
 	profile_page.add_child(identity_frame)
 	var identity_portrait := TextureRect.new()
 	identity_portrait.name = "SocialPlayerIdentityPortrait"
@@ -1136,9 +1124,9 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 	var pollution := 0
 	if _pollution_fn.is_valid():
 		pollution = int(_pollution_fn.call())
-	profile_page.add_child(_label_factory.call("已合成梗：%d" % completed_count, 17, _theme_color_fn.call("ink")) as Label)
-	profile_page.add_child(_label_factory.call("污染：%d%%" % pollution, 17, _theme_color_fn.call("ink")) as Label)
-	var note := _label_factory.call("你的语言档案会随着塔层上升变窄。", 16, _theme_color_fn.call("accent")) as Label
+	profile_page.add_child(_theme().label("已合成梗：%d" % completed_count, 17, _theme().theme_color("ink")) as Label)
+	profile_page.add_child(_theme().label("污染：%d%%" % pollution, 17, _theme().theme_color("ink")) as Label)
+	var note := _theme().label("你的语言档案会随着塔层上升变窄。", 16, _theme().theme_color("accent")) as Label
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_page.add_child(note)
 
@@ -1149,8 +1137,8 @@ func _on_publish_confirm_pressed() -> void:
 
 func _social_feed_dark_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color_fn.call("ink")
-	style.border_color = Color(_theme_color_fn.call("muted"), 0.18)
+	style.bg_color = _theme().theme_color("ink")
+	style.border_color = Color(_theme().theme_color("muted"), 0.18)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(6)
@@ -1159,8 +1147,8 @@ func _social_feed_dark_style() -> StyleBoxFlat:
 
 func _social_card_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color_fn.call("surface")
-	style.border_color = Color(_theme_color_fn.call("muted"), 0.62)
+	style.bg_color = _theme().theme_color("surface")
+	style.border_color = Color(_theme().theme_color("muted"), 0.62)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(6)
@@ -1169,8 +1157,8 @@ func _social_card_style() -> StyleBoxFlat:
 
 func _detail_dark_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = _theme_color_fn.call("ink")
-	style.border_color = _theme_color_fn.call("ink")
+	style.bg_color = _theme().theme_color("ink")
+	style.border_color = _theme().theme_color("ink")
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(10)
@@ -1184,12 +1172,12 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.fit_content = true
 	rich.scroll_active = false
 	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rich.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(16))
-	rich.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
+	rich.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(16))
+	rich.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	rich.set_meta("on_dark", true)
 	var bbcode := source_text
 	if _language_material != null:
-		var pickable_color = _theme_color_fn.call("flash_text") if _theme_color_fn.is_valid() else Color("9cff24")
+		var pickable_color = _theme().theme_color("flash_text") if _theme() != null else Color("9cff24")
 		var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
 		bbcode = LanguageMaterialScript.pickup_bbcode(
 			source_text,
@@ -1206,10 +1194,10 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	var answer_panel := ComposerDropAreaScript.new()
 	answer_panel.name = "ComposerAnswerPanel"
 	answer_panel.custom_minimum_size.y = 92
-	if _soft_style_fn.is_valid():
+	if _theme() != null:
 		answer_panel.add_theme_stylebox_override(
 			"panel",
-			_soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent"))
+			_theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent"))
 		)
 	answer_panel.unit_dropped.connect(_on_composer_area_dropped)
 	composer_box.add_child(answer_panel)
@@ -1223,7 +1211,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	answer_flow.custom_minimum_size.y = 46
 	answer_box.add_child(answer_flow)
 	if placed_units.is_empty():
-		var placeholder := _label_factory.call("……(句子还空着)", 14, _theme_color_fn.call("muted")) as Label
+		var placeholder := _theme().label("……(句子还空着)", 14, _theme().theme_color("muted")) as Label
 		placeholder.name = "ComposerAnswerPlaceholder"
 		answer_flow.add_child(placeholder)
 	for unit_index in placed_units.size():
@@ -1236,18 +1224,18 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
 		placed_tile.pressed.connect(_on_composer_answer_pressed.bind(unit_index))
 		placed_tile.unit_dropped_before.connect(_on_composer_tile_dropped)
-		if _apply_composer_tile_theme_fn.is_valid():
-			_apply_composer_tile_theme_fn.call(placed_tile, false)
+		if _theme() != null:
+			_theme().apply_composer_tile_theme(placed_tile, false)
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()
 	answer_rule.name = "ComposerAnswerUnderline"
-	answer_rule.color = Color(_theme_color_fn.call("accent"), 0.8)
+	answer_rule.color = Color(_theme().theme_color("accent"), 0.8)
 	answer_rule.custom_minimum_size.y = 2.0
 	answer_box.add_child(answer_rule)
 
 	var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
 	var preview_text := MemeGameStateScript.sentence_text(placed_units, locale)
-	var preview_label := _label_factory.call(preview_text, 15, _theme_color_fn.call("ink")) as Label
+	var preview_label := _theme().label(preview_text, 15, _theme().theme_color("ink")) as Label
 	preview_label.name = "ComposerPreviewLabel"
 	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_label.set_meta("skip_localization", true)
@@ -1265,8 +1253,8 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	else:
 		post_button.text = "投稿"
 		post_button.disabled = false
-		post_button.add_theme_stylebox_override("normal", _style_fn.call(_theme_color_fn.call("accent"), _theme_color_fn.call("ink")))
-		post_button.add_theme_color_override("font_color", _theme_color_fn.call("surface"))
+		post_button.add_theme_stylebox_override("normal", _theme().style(_theme().theme_color("accent"), _theme().theme_color("ink")))
+		post_button.add_theme_color_override("font_color", _theme().theme_color("surface"))
 	post_button.pressed.connect(_on_composer_submit_pressed)
 	composer_box.add_child(post_button)
 
@@ -1370,3 +1358,8 @@ func _clear(node: Node) -> void:
 		return
 	for child in node.get_children():
 		child.queue_free()
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

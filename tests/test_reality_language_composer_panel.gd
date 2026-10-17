@@ -2,6 +2,7 @@ extends SceneTree
 ## RealityLanguageComposerPanel: named chrome, compose render, and token/slot intents.
 
 const PanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -19,10 +20,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("reality language composer panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -39,10 +42,8 @@ func _run() -> void:
 	var panel = PanelScript.new()
 	panel.name = "RealityLanguageComposerPanel"
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.mount(host, {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"theme_color": _theme_color,
 		"clear_children": _clear,
 	})
 	await process_frame

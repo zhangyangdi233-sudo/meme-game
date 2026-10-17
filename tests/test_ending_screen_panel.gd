@@ -2,6 +2,7 @@ extends SceneTree
 ## Ending screen watches the chosen ending language on its property model.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -23,10 +24,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("ending screen panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -139,9 +142,8 @@ func _mount() -> Dictionary:
 	var panel := EndingScreenPanel.new()
 	panel.name = "EndingScreenPanelHost"
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.mount(host, {
-		"label_factory": _label,
-		"theme_color": _theme_color,
 		"epilogue_lines": func() -> Array: return ["line one", "line two"],
 		"language_choices": func() -> Array: return [
 			{"id": "blank", "label": "Blank"},

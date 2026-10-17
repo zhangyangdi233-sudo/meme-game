@@ -4,11 +4,11 @@ extends Node
 ## While open it watches the chosen ending language and swaps choices for the result itself.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _translate_fn: Callable
 var _set_localized_property_fn: Callable
 var _refresh_localized_fn: Callable
@@ -39,7 +39,7 @@ func unmount() -> void:
 
 ## Opens the screen on the current choice. Rendering again repaints, for example after a language change.
 func render() -> void:
-	if _parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if _parent == null or _theme() == null:
 		return
 	if _watch.is_active():
 		_rebuild()
@@ -64,8 +64,6 @@ func _rebuild() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_translate_fn = deps.get("translate", Callable())
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 	_refresh_localized_fn = deps.get("refresh_localized", Callable())
@@ -97,14 +95,14 @@ func _build_screen(parent: Control) -> Control:
 
 	var bg := ColorRect.new()
 	bg.name = "EndingBlack"
-	bg.color = _theme_color_fn.call("ink")
+	bg.color = _theme().theme_color("ink")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	screen.add_child(bg)
 
 	var rule := ColorRect.new()
 	rule.name = "EndingSignalRule"
-	rule.color = _theme_color_fn.call("flash_text")
+	rule.color = _theme().theme_color("flash_text")
 	rule.set_anchors_preset(Control.PRESET_CENTER)
 	rule.offset_left = -610
 	rule.offset_right = 610
@@ -113,10 +111,10 @@ func _build_screen(parent: Control) -> Control:
 	rule.rotation = deg_to_rad(-4.0)
 	screen.add_child(rule)
 
-	var system_line := _label_factory.call(
+	var system_line := _theme().label(
 		"FLOOR 05  /  NO SIGNAL  /  WISDOM USER NOT FOUND",
 		16,
-		_theme_color_fn.call("flash_text"),
+		_theme().theme_color("flash_text"),
 	) as Label
 	system_line.name = "EndingSystemLine"
 	system_line.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -139,7 +137,7 @@ func _build_screen(parent: Control) -> Control:
 	center.add_theme_constant_override("separation", 18)
 	screen.add_child(center)
 
-	var title := _label_factory.call("塔顶没有人", 54, _theme_color_fn.call("surface")) as Label
+	var title := _theme().label("塔顶没有人", 54, _theme().theme_color("surface")) as Label
 	title.name = "EndingTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.set_meta("on_dark", true)
@@ -147,7 +145,7 @@ func _build_screen(parent: Control) -> Control:
 
 	var epilogue_lines: Array = _epilogue_lines_fn.call() if _epilogue_lines_fn.is_valid() else []
 	var body_text := "\n".join(epilogue_lines)
-	var body := _label_factory.call(body_text, 22, _theme_color_fn.call("muted")) as Label
+	var body := _theme().label(body_text, 22, _theme().theme_color("muted")) as Label
 	body.name = "EndingBody"
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -156,7 +154,7 @@ func _build_screen(parent: Control) -> Control:
 	center.add_child(body)
 
 	if _choice.is_empty():
-		var prompt := _label_factory.call("你还能留下一个声音。", 20, _theme_color_fn.call("surface")) as Label
+		var prompt := _theme().label("你还能留下一个声音。", 20, _theme().theme_color("surface")) as Label
 		prompt.name = "EndingLanguagePrompt"
 		prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		prompt.set_meta("on_dark", true)
@@ -179,10 +177,10 @@ func _build_screen(parent: Control) -> Control:
 			button.set_meta("skip_localization", true)
 			choices.add_child(button)
 	else:
-		var result := _label_factory.call(
+		var result := _theme().label(
 			_localized_text("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。") % _language_output(),
 			27,
-			_theme_color_fn.call("surface"),
+			_theme().theme_color("surface"),
 		) as Label
 		result.name = "EndingLanguageResult"
 		result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -191,10 +189,10 @@ func _build_screen(parent: Control) -> Control:
 		result.set_meta("skip_localization", true)
 		center.add_child(result)
 
-	var residue := _label_factory.call(
+	var residue := _theme().label(
 		_localized_text("关系残留 %d / 100  ·  %s") % [_relationship_residue(), _localized_text(_relationship_label())],
 		16,
-		_theme_color_fn.call("muted"),
+		_theme().theme_color("muted"),
 	) as Label
 	residue.name = "EndingResidue"
 	residue.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -242,3 +240,8 @@ func _on_language_choice_pressed(choice_id: String) -> void:
 
 func _on_restart_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.RESTART_REQUESTED)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

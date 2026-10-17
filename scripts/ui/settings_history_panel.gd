@@ -43,11 +43,6 @@ var _history_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.HISTORY_ENTRIES: _paint_history,
 })
 var _exit_confirmation_overlay: Control
-var _panel_factory: Callable
-var _label_factory: Callable
-var _soft_style_fn: Callable
-var _theme_color_fn: Callable
-var _ui_font_size_fn: Callable
 var _register_draggable: Callable
 
 
@@ -61,11 +56,6 @@ func mount(parent: Control, deps: Dictionary) -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_soft_style_fn = deps.get("soft_style", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
 
 
@@ -195,7 +185,7 @@ func _on_save_status(value: Variant) -> void:
 
 func build_exit_confirmation_overlay(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _label_factory.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _exit_confirmation_overlay != null and is_instance_valid(_exit_confirmation_overlay):
 		_exit_confirmation_overlay.queue_free()
@@ -208,22 +198,22 @@ func build_exit_confirmation_overlay(parent: Control, deps: Dictionary = {}) -> 
 
 	var blackout := ColorRect.new()
 	blackout.name = "ExitConfirmationBackdrop"
-	blackout.color = Color(_theme_color_fn.call("ink"), 0.88)
+	blackout.color = Color(_theme().theme_color("ink"), 0.88)
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_exit_confirmation_overlay.add_child(blackout)
 
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_exit_confirmation_overlay.add_child(center)
-	var panel := _panel_factory.call() as PanelContainer
+	var panel := _theme().panel() as PanelContainer
 	panel.name = "ExitConfirmationPanel"
 	panel.custom_minimum_size = Vector2(520, 230)
-	panel.add_theme_stylebox_override("panel", _soft_style_fn.call(_theme_color_fn.call("surface"), _theme_color_fn.call("accent")))
+	panel.add_theme_stylebox_override("panel", _theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent")))
 	center.add_child(panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 24)
 	panel.add_child(box)
-	var message := _label_factory.call("真的要抛弃我吗？", 25, _theme_color_fn.call("ink")) as Label
+	var message := _theme().label("真的要抛弃我吗？", 25, _theme().theme_color("ink")) as Label
 	message.name = "ExitConfirmationMessage"
 	message.set_meta("skip_localization", true)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -266,7 +256,7 @@ func _paint_history(entries: Variant) -> void:
 		_history_content.remove_child(child)
 		child.queue_free()
 	if entries.is_empty():
-		var empty := _label_factory.call("还没有能被记住的话。", 17, _theme_color_fn.call("ink")) as Label
+		var empty := _theme().label("还没有能被记住的话。", 17, _theme().theme_color("ink")) as Label
 		empty.name = "HistoryEmptyState"
 		_history_content.add_child(empty)
 		return
@@ -278,8 +268,8 @@ func _paint_history(entries: Variant) -> void:
 		line.fit_content = true
 		line.scroll_active = false
 		line.custom_minimum_size = Vector2(500, 70)
-		line.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(17))
-		line.add_theme_color_override("default_color", _theme_color_fn.call("ink"))
+		line.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(17))
+		line.add_theme_color_override("default_color", _theme().theme_color("ink"))
 		var speaker := str(entry.get("currentSpeaker", entry.get("originalSpeaker", "")))
 		var display_text := str(entry.get("displayText", entry.get("originalText", "")))
 		line.text = "[b]%s[/b]\n%s" % [_escape_history_bbcode(speaker), _history_markup_to_bbcode(display_text)]
@@ -289,7 +279,7 @@ func _paint_history(entries: Variant) -> void:
 func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	if _settings_window != null:
 		return
-	_settings_window = _panel_factory.call() as PanelContainer
+	_settings_window = _theme().panel() as PanelContainer
 	_settings_window.name = "SettingsWindow"
 	_settings_window.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_settings_window.offset_left = 180
@@ -314,7 +304,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	settings_shell.add_child(title_bar)
 	_register_draggable.call(_settings_window, "settings", title_bar)
 
-	_settings_title_label = _label_factory.call("设置", 24, _theme_color_fn.call("accent")) as Label
+	_settings_title_label = _theme().label("设置", 24, _theme().theme_color("accent")) as Label
 	_settings_title_label.name = "SettingsWindowHandle"
 	_settings_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_bar.add_child(_settings_title_label)
@@ -340,7 +330,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_content.add_theme_constant_override("separation", 8)
 	settings_scroll.add_child(_settings_content)
 
-	_settings_volume_label = _label_factory.call("音量", 17, _theme_color_fn.call("ink")) as Label
+	_settings_volume_label = _theme().label("音量", 17, _theme().theme_color("ink")) as Label
 	_settings_volume_label.name = "SettingsVolumeLabel"
 	_settings_volume_label.set_meta("functional_label_only", true)
 	_settings_content.add_child(_settings_volume_label)
@@ -370,7 +360,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_camera_slot.add_theme_constant_override("separation", 8)
 	_settings_content.add_child(_settings_camera_slot)
 
-	var language_label := _label_factory.call("语言", 17, _theme_color_fn.call("ink")) as Label
+	var language_label := _theme().label("语言", 17, _theme().theme_color("ink")) as Label
 	_settings_content.add_child(language_label)
 	_settings_language_option = OptionButton.new()
 	_settings_language_option.name = "SettingsLanguageOption"
@@ -392,7 +382,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_save_button.custom_minimum_size.y = 50
 	_settings_save_button.pressed.connect(_on_save_button_pressed)
 	_settings_content.add_child(_settings_save_button)
-	_settings_save_status = _label_factory.call("", 14, _theme_color_fn.call("accent")) as Label
+	_settings_save_status = _theme().label("", 14, _theme().theme_color("accent")) as Label
 	_settings_save_status.name = "SettingsSaveStatus"
 	_settings_content.add_child(_settings_save_status)
 
@@ -428,7 +418,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	var system_rule := HSeparator.new()
 	system_rule.name = "SettingsSystemDivider"
 	system_footer.add_child(system_rule)
-	var system_label := _label_factory.call("系统", 14, _theme_color_fn.call("accent")) as Label
+	var system_label := _theme().label("系统", 14, _theme().theme_color("accent")) as Label
 	system_label.name = "SettingsSystemLabel"
 	system_footer.add_child(system_label)
 	_settings_exit_button = Button.new()
@@ -444,7 +434,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 func _build_history_window(parent: Control) -> void:
 	if _history_window != null:
 		return
-	_history_window = _panel_factory.call() as PanelContainer
+	_history_window = _theme().panel() as PanelContainer
 	_history_window.name = "HistoryWindow"
 	_history_window.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_history_window.offset_left = 570
@@ -463,7 +453,7 @@ func _build_history_window(parent: Control) -> void:
 	title_bar.custom_minimum_size.y = 54
 	outer.add_child(title_bar)
 	_register_draggable.call(_history_window, "history", title_bar)
-	var title := _label_factory.call("历史记录", 23, _theme_color_fn.call("accent")) as Label
+	var title := _theme().label("历史记录", 23, _theme().theme_color("accent")) as Label
 	title.name = "HistoryWindowHandle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.set_meta("skip_localization", true)
@@ -557,3 +547,8 @@ func _escape_history_bbcode(value: String) -> String:
 func _history_markup_to_bbcode(value: String) -> String:
 	var escaped := _escape_history_bbcode(value)
 	return escaped.replace("{del}", "[s]").replace("{/del}", "[/s]").replace("{ins}", "[u]").replace("{/ins}", "[/u]")
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

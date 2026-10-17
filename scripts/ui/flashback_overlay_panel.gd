@@ -3,10 +3,11 @@ extends Node
 ## Pollution flashback overlay shell: owns Control tree; director drives the timeline.
 
 const PollutionFlashbackDirectorScript = preload("res://scripts/ui/pollution_flashback_director.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _overlay: Control
 var _director: PollutionFlashbackDirector
-var _theme_color_fn: Callable
 var _on_sequence_finished: Callable
 var _colors := {
 	"ink": Color(0.063, 0.078, 0.059),
@@ -21,7 +22,7 @@ var _empty_frames_blackout: ColorRect
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
@@ -97,7 +98,6 @@ func is_playing() -> bool:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_on_sequence_finished = deps.get("on_sequence_finished", Callable())
 
 
@@ -117,12 +117,7 @@ func _build_overlay(parent: Control) -> void:
 	_director.visible = false
 	_overlay.add_child(_director)
 
-	if _theme_color_fn.is_valid():
-		configure_colors({
-			"ink": _theme_color_fn.call("ink"),
-			"surface": _theme_color_fn.call("surface"),
-			"flash_text": _theme_color_fn.call("flash_text"),
-		})
+	refresh_colors()
 
 
 func _register_phase(phase_id: String, node_name: String) -> Control:
@@ -414,3 +409,19 @@ func _make_plate_label(node_name: String, text_value: String, is_doctor: bool) -
 	style.content_margin_bottom = 4.0
 	plate.add_theme_stylebox_override("normal", style)
 	return plate
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+
+
+## Recolors the flashback from the bound UI theme, so a later pollution stage shows on the next play.
+func refresh_colors() -> void:
+	if _theme() == null:
+		return
+	configure_colors({
+		"ink": _theme().theme_color("ink"),
+		"surface": _theme().theme_color("surface"),
+		"flash_text": _theme().theme_color("flash_text"),
+	})

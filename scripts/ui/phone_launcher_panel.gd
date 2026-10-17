@@ -4,6 +4,8 @@ extends Node
 ## While shown, it watches whether the phone is open and which app is in front, and updates itself.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
@@ -37,9 +39,6 @@ var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
 
-var _panel_factory: Callable
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _load_texture_fn: Callable
 var _register_draggable: Callable
 var _viewport_size_fn: Callable
@@ -159,9 +158,6 @@ func layout_app_window(app_id: String) -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_load_texture_fn = deps.get("load_texture", Callable())
 	_register_draggable = deps.get("register_draggable", Callable())
 	_viewport_size_fn = deps.get("viewport_size", Callable())
@@ -175,10 +171,10 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 func _build_phone_popup(parent: Control) -> void:
 	if _phone_panel != null and is_instance_valid(_phone_panel):
 		return
-	if parent == null or not _panel_factory.is_valid() or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 
-	_phone_panel = _panel_factory.call() as PanelContainer
+	_phone_panel = _theme().panel() as PanelContainer
 	_phone_panel.name = "PhonePopup"
 	_phone_panel.set_meta("phone_shell", true)
 	_phone_panel.clip_contents = true
@@ -204,7 +200,7 @@ func _build_phone_popup(parent: Control) -> void:
 	phone_header.add_theme_constant_override("separation", 8)
 	_phone_content.add_child(phone_header)
 
-	_phone_title = _label_factory.call("BABEL / PHONE", 18, _theme_color_fn.call("accent")) as Label
+	_phone_title = _theme().label("BABEL / PHONE", 18, _theme().theme_color("accent")) as Label
 	_phone_title.name = "PhoneWindowHandle"
 	_phone_title.set_meta("on_dark", true)
 	_phone_title.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -219,7 +215,7 @@ func _build_phone_popup(parent: Control) -> void:
 	phone_signal_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	phone_signal_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	phone_header.add_child(phone_signal_icon)
-	var phone_signal := _label_factory.call("无信号", 13, _theme_color_fn.call("accent")) as Label
+	var phone_signal := _theme().label("无信号", 13, _theme().theme_color("accent")) as Label
 	phone_signal.set_meta("on_dark", true)
 	phone_signal.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	phone_header.add_child(phone_signal)
@@ -234,7 +230,7 @@ func _build_phone_popup(parent: Control) -> void:
 		_register_draggable.call(_phone_panel, "phone", phone_header)
 		_register_draggable.call(_phone_panel, "phone", _phone_title)
 
-	var phone_screen := _panel_factory.call() as PanelContainer
+	var phone_screen := _theme().panel() as PanelContainer
 	phone_screen.name = "PhoneScreenPanel"
 	phone_screen.set_meta("phone_surface", true)
 	phone_screen.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -251,24 +247,24 @@ func _build_phone_popup(parent: Control) -> void:
 	phone_screen.add_child(launcher_wallpaper)
 	var launcher_tint := ColorRect.new()
 	launcher_tint.name = "PhoneLauncherTint"
-	launcher_tint.color = Color(_theme_color_fn.call("ink"), 0.42)
+	launcher_tint.color = Color(_theme().theme_color("ink"), 0.42)
 	launcher_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	phone_screen.add_child(launcher_tint)
 	var screen_box := VBoxContainer.new()
 	screen_box.name = "PhoneLauncherScreen"
 	screen_box.add_theme_constant_override("separation", 14)
 	phone_screen.add_child(screen_box)
-	var launcher_eyebrow := _label_factory.call("NO SIGNAL  /  APP LAUNCHER", 12, _theme_color_fn.call("muted")) as Label
+	var launcher_eyebrow := _theme().label("NO SIGNAL  /  APP LAUNCHER", 12, _theme().theme_color("muted")) as Label
 	launcher_eyebrow.name = "PhoneLauncherEyebrow"
 	launcher_eyebrow.set_meta("on_dark", true)
 	screen_box.add_child(launcher_eyebrow)
-	var launcher_title := _label_factory.call("选择一个窗口", 25, _theme_color_fn.call("surface")) as Label
+	var launcher_title := _theme().label("选择一个窗口", 25, _theme().theme_color("surface")) as Label
 	launcher_title.name = "PhoneLauncherTitle"
 	launcher_title.set_meta("on_dark", true)
 	screen_box.add_child(launcher_title)
 	var launcher_rule := ColorRect.new()
 	launcher_rule.name = "PhoneLauncherRule"
-	launcher_rule.color = _theme_color_fn.call("muted")
+	launcher_rule.color = _theme().theme_color("muted")
 	launcher_rule.custom_minimum_size.y = 4
 	screen_box.add_child(launcher_rule)
 	var app_grid := GridContainer.new()
@@ -286,7 +282,7 @@ func _build_phone_popup(parent: Control) -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_app_icon_pressed.bind(str(app["id"])))
 		app_grid.add_child(button)
-	var launcher_note := _label_factory.call("每个 App 会在手机旁打开独立窗口。", 13, _theme_color_fn.call("surface")) as Label
+	var launcher_note := _theme().label("每个 App 会在手机旁打开独立窗口。", 13, _theme().theme_color("surface")) as Label
 	launcher_note.name = "PhoneLauncherNote"
 	launcher_note.set_meta("on_dark", true)
 	launcher_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -300,7 +296,7 @@ func _build_phone_popup(parent: Control) -> void:
 	screen_box.add_child(launcher_indicator_wrap)
 	var launcher_indicator := ColorRect.new()
 	launcher_indicator.name = "PhoneLauncherIndicator"
-	launcher_indicator.color = _theme_color_fn.call("ink")
+	launcher_indicator.color = _theme().theme_color("ink")
 	launcher_indicator.custom_minimum_size = Vector2(88, 4)
 	launcher_indicator_wrap.add_child(launcher_indicator)
 
@@ -308,7 +304,7 @@ func _build_phone_popup(parent: Control) -> void:
 func _build_app_window(app_id: String, layout: Dictionary) -> void:
 	if _app_windows.has(app_id) and is_instance_valid(_app_windows[app_id]):
 		return
-	if not _panel_factory.is_valid() or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if _theme() == null:
 		return
 
 	var node_name := str(layout.get("node_name", "%sAppWindow" % app_id.capitalize()))
@@ -318,7 +314,7 @@ func _build_app_window(app_id: String, layout: Dictionary) -> void:
 	var right := float(layout.get("right", 0.0))
 	var bottom := float(layout.get("bottom", 0.0))
 
-	var window := _panel_factory.call() as PanelContainer
+	var window := _theme().panel() as PanelContainer
 	window.name = node_name
 	window.clip_contents = true
 	window.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -332,7 +328,7 @@ func _build_app_window(app_id: String, layout: Dictionary) -> void:
 	app_box.add_theme_constant_override("separation", 8)
 	window.add_child(app_box)
 
-	var title_label := _label_factory.call(title, 21, _theme_color_fn.call("accent")) as Label
+	var title_label := _theme().label(title, 21, _theme().theme_color("accent")) as Label
 	title_label.name = "%sHandle" % node_name
 	title_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -440,3 +436,8 @@ func _on_phone_close_pressed() -> void:
 
 func _on_app_window_close_pressed(app_id: String) -> void:
 	GameEventBus.raise(UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {UiIntentsScript.KEY_APP_ID: app_id})
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

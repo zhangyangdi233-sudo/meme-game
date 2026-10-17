@@ -3,6 +3,8 @@ extends Node
 ## Game-side phone camera connection overlay: status copy, retry/continue/disable chrome.
 
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _overlay: Control
@@ -12,16 +14,12 @@ var _detail_label: Label
 var _retry_button: Button
 var _continue_button: Button
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
-var _soft_style_fn: Callable
-var _panel_factory: Callable
 var _set_localized_property_fn: Callable
 
 
 func build(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
@@ -78,15 +76,15 @@ func refresh(view: Dictionary) -> void:
 	if _set_localized_property_fn.is_valid():
 		_set_localized_property_fn.call(_status_label, "text")
 		_set_localized_property_fn.call(_detail_label, "text")
-	if _panel != null and _soft_style_fn.is_valid() and _theme_color_fn.is_valid():
-		var border_color: Color = _theme_color_fn.call("muted")
+	if _panel != null and _theme() != null:
+		var border_color: Color = _theme().theme_color("muted")
 		if state == "ready":
-			border_color = _theme_color_fn.call("accent")
+			border_color = _theme().theme_color("accent")
 		elif state == "error":
 			border_color = Color("9f493f")
 		_panel.add_theme_stylebox_override(
 			"panel",
-			_soft_style_fn.call(_theme_color_fn.call("surface"), border_color)
+			_theme().soft_style(_theme().theme_color("surface"), border_color)
 		)
 	if _retry_button != null:
 		_retry_button.disabled = not camera_enabled or camera_source != "phone"
@@ -110,10 +108,6 @@ func close() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_soft_style_fn = deps.get("soft_style", Callable())
-	_panel_factory = deps.get("panel_factory", Callable())
 	_set_localized_property_fn = deps.get("set_localized_property", Callable())
 
 
@@ -141,8 +135,8 @@ func _build_overlay(parent: Control) -> void:
 	center.offset_bottom = -24.0
 	_overlay.add_child(center)
 
-	if _panel_factory.is_valid():
-		_panel = _panel_factory.call() as PanelContainer
+	if _theme() != null:
+		_panel = _theme().panel() as PanelContainer
 	else:
 		_panel = PanelContainer.new()
 	_panel.name = "PhoneCameraConnectionPanel"
@@ -154,23 +148,23 @@ func _build_overlay(parent: Control) -> void:
 	box.add_theme_constant_override("separation", 14)
 	_panel.add_child(box)
 
-	var eyebrow := _label_factory.call("REMOTE LENS  /  LOCAL PROCESSING", 14, _theme_color_fn.call("accent")) as Label
+	var eyebrow := _theme().label("REMOTE LENS  /  LOCAL PROCESSING", 14, _theme().theme_color("accent")) as Label
 	eyebrow.name = "PhoneCameraConnectionEyebrow"
 	box.add_child(eyebrow)
-	var title := _label_factory.call("手机镜头连接", 30, _theme_color_fn.call("ink")) as Label
+	var title := _theme().label("手机镜头连接", 30, _theme().theme_color("ink")) as Label
 	title.name = "PhoneCameraConnectionTitle"
 	box.add_child(title)
 
-	_status_label = _label_factory.call("正在寻找手机镜头…", 21, _theme_color_fn.call("accent")) as Label
+	_status_label = _theme().label("正在寻找手机镜头…", 21, _theme().theme_color("accent")) as Label
 	_status_label.name = "PhoneCameraConnectionStatus"
 	box.add_child(_status_label)
-	_detail_label = _label_factory.call("", 16, _theme_color_fn.call("ink")) as Label
+	_detail_label = _theme().label("", 16, _theme().theme_color("ink")) as Label
 	_detail_label.name = "PhoneCameraConnectionDetail"
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_label.custom_minimum_size.y = 128.0
 	box.add_child(_detail_label)
 
-	var privacy_note := _label_factory.call("画面只交给本机 MediaPipe 计算关键点；游戏不保存视频。", 14, _theme_color_fn.call("accent")) as Label
+	var privacy_note := _theme().label("画面只交给本机 MediaPipe 计算关键点；游戏不保存视频。", 14, _theme().theme_color("accent")) as Label
 	privacy_note.name = "PhoneCameraConnectionPrivacyNote"
 	privacy_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(privacy_note)
@@ -213,3 +207,8 @@ func _on_continue_pressed() -> void:
 
 func _on_disable_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.PHONE_CAMERA_DISABLE)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

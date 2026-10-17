@@ -3,6 +3,7 @@ extends SceneTree
 ## hiding writes canvas positions once and unregisters.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -22,10 +23,12 @@ func _run_deferred() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("notebook app panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -392,18 +395,13 @@ func _mount() -> Dictionary:
 
 ## Each paint asks once whether an action can be spent, so that call counts paints.
 func _deps(frame_paints: Array) -> Dictionary:
+	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
+		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	return {
-		"panel_factory": func(): return PanelContainer.new(),
-		"label_factory": func(text: String, _size: int, _color: Color) -> Label:
-			var label := Label.new()
-			label.text = text
-			return label,
-		"theme_color": func(_key: String) -> Color: return Color.WHITE,
 		"clear_children": func(node: Node) -> void:
 			for child in node.get_children():
 				node.remove_child(child)
 				child.queue_free(),
-		"composer_tile_style": func(_kind: String): return StyleBoxFlat.new(),
 		"current_locale": func() -> String: return "zh",
 		"char_canvas_position": func(_unit: String, _locale_code: String) -> Vector2: return Vector2(10.0, 10.0),
 		"can_spend_action": func() -> bool:

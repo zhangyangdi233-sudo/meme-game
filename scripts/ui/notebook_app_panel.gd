@@ -8,6 +8,8 @@ extends Node
 ## The open tab is this screen's own view and lives only here; selecting one repaints at once.
 
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
@@ -18,11 +20,7 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TABS := ["frame", "fusion"]
 const DEFAULT_TAB := "frame"
 
-var _panel_factory: Callable
-var _label_factory: Callable
-var _theme_color_fn: Callable
 var _clear_fn: Callable
-var _composer_tile_style_fn: Callable
 var _current_locale_fn: Callable
 var _char_canvas_position_fn: Callable
 var _can_spend_action_fn: Callable
@@ -48,11 +46,7 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 func configure(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_panel_factory = deps.get("panel_factory", Callable())
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
 	_clear_fn = deps.get("clear_children", Callable())
-	_composer_tile_style_fn = deps.get("composer_tile_style", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
 	_char_canvas_position_fn = deps.get("char_canvas_position", Callable())
 	_can_spend_action_fn = deps.get("can_spend_action", Callable())
@@ -98,7 +92,7 @@ func reset_view() -> void:
 
 func _paint() -> void:
 	var app_body := _app_body
-	if app_body == null or not is_instance_valid(app_body) or not _label_factory.is_valid() or not _theme_color_fn.is_valid():
+	if app_body == null or not is_instance_valid(app_body) or _theme() == null:
 		return
 	var active_tab := _active_tab
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
@@ -143,24 +137,24 @@ func _render_sentence_header(notebook_page: VBoxContainer) -> void:
 	notebook_header.name = "NotebookSentenceHeader"
 	notebook_header.add_theme_constant_override("separation", 3)
 	notebook_page.add_child(notebook_header)
-	notebook_header.add_child(_label_factory.call("完整句子", 24, _theme_color_fn.call("ink")))
-	var header_hint := _label_factory.call("从帖子拾取原词，再按语法位置组成手机世界会使用的句子。", 14, _theme_color_fn.call("accent")) as Label
+	notebook_header.add_child(_theme().label("完整句子", 24, _theme().theme_color("ink")))
+	var header_hint := _theme().label("从帖子拾取原词，再按语法位置组成手机世界会使用的句子。", 14, _theme().theme_color("accent")) as Label
 	header_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_header.add_child(header_hint)
 	var tab_rule := ColorRect.new()
 	tab_rule.name = "NotebookSentenceRule"
-	tab_rule.color = _theme_color_fn.call("accent")
+	tab_rule.color = _theme().theme_color("accent")
 	tab_rule.custom_minimum_size.y = 3.0
 	notebook_page.add_child(tab_rule)
 
 
 func _render_frame_tab(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label_factory.call("拾到的字", 18, _theme_color_fn.call("accent")))
-	var canvas_hint := _label_factory.call("字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。", 13, _theme_color_fn.call("muted")) as Label
+	notebook_content.add_child(_theme().label("拾到的字", 18, _theme().theme_color("accent")))
+	var canvas_hint := _theme().label("字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。", 13, _theme().theme_color("muted")) as Label
 	canvas_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(canvas_hint)
 
-	var canvas_frame := _panel_factory.call() as PanelContainer
+	var canvas_frame := _theme().panel() as PanelContainer
 	canvas_frame.name = "NotebookCanvasFrame"
 	notebook_content.add_child(canvas_frame)
 	var canvas := WordPhysicsCanvasScript.new()
@@ -177,39 +171,39 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 	var collected_units: Array[String] = MemeGameStateScript.char_units_for_locale(_painted_chars, locale_code)
 	var placed_units := _painted_units
 	if collected_units.is_empty():
-		var empty_hint := _label_factory.call("还没有拾到字。帖子里发亮的字可以点。", 13, _theme_color_fn.call("muted")) as Label
+		var empty_hint := _theme().label("还没有拾到字。帖子里发亮的字可以点。", 13, _theme().theme_color("muted")) as Label
 		empty_hint.name = "NotebookCharEmptyHint"
 		empty_hint.position = Vector2(10.0, 10.0)
 		canvas.add_child(empty_hint)
 	for unit in collected_units:
 		var is_ghost := str(unit) in placed_units
-		var tile_style: StyleBox = _composer_tile_style_fn.call("ghost" if is_ghost else "normal") if _composer_tile_style_fn.is_valid() else null
+		var tile_style: StyleBox = _theme().composer_tile_style("ghost" if is_ghost else "normal") if _theme() != null else null
 		var tile_position: Vector2 = _char_canvas_position_fn.call(str(unit), locale_code) if _char_canvas_position_fn.is_valid() else Vector2.ZERO
 		canvas.add_tile(
 			str(unit),
 			tile_position,
-			_theme_color_fn.call("ink"),
+			_theme().theme_color("ink"),
 			tile_style,
 			is_ghost
 		)
 
 	var active_rules: Array = MemeGameStateScript.world_rule_list(_painted_rules)
 	if not active_rules.is_empty():
-		notebook_content.add_child(_label_factory.call("现行规则", 18, _theme_color_fn.call("accent")))
+		notebook_content.add_child(_theme().label("现行规则", 18, _theme().theme_color("accent")))
 		var rules_box := VBoxContainer.new()
 		rules_box.name = "ComposerRulesList"
 		rules_box.add_theme_constant_override("separation", 3)
 		notebook_content.add_child(rules_box)
 		for rule in active_rules:
 			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), locale_code)
-			var rule_label := _label_factory.call("· %s" % rule_text, 14, _theme_color_fn.call("accent")) as Label
+			var rule_label := _theme().label("· %s" % rule_text, 14, _theme().theme_color("accent")) as Label
 			rule_label.set_meta("skip_localization", true)
 			rules_box.add_child(rule_label)
 
 
 func _render_fusion_tab(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_label_factory.call("旧梗融合", 18, _theme_color_fn.call("accent")))
-	var fusion_hint := _label_factory.call("将两则不同的完整梗放入左右槽位。", 14, _theme_color_fn.call("accent")) as Label
+	notebook_content.add_child(_theme().label("旧梗融合", 18, _theme().theme_color("accent")))
+	var fusion_hint := _theme().label("将两则不同的完整梗放入左右槽位。", 14, _theme().theme_color("accent")) as Label
 	fusion_hint.name = "NotebookFusionHint"
 	fusion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(fusion_hint)
@@ -227,13 +221,13 @@ func _render_fusion_tab(notebook_content: VBoxContainer) -> void:
 		fusion_slot.dropped.connect(_on_fusion_meme_dropped)
 		fusion_slot.pressed.connect(_on_fusion_slot_pressed.bind(fusion_slot_id))
 		fusion_row.add_child(fusion_slot)
-	var warning := _label_factory.call("融合会保留两侧文字，并立即增加污染。发布前会显示资金与污染变化。", 14, _theme_color_fn.call("accent")) as Label
+	var warning := _theme().label("融合会保留两侧文字，并立即增加污染。发布前会显示资金与污染变化。", 14, _theme().theme_color("accent")) as Label
 	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_content.add_child(warning)
 
 
 func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> void:
-	var action_bar := _panel_factory.call() as PanelContainer
+	var action_bar := _theme().panel() as PanelContainer
 	action_bar.name = "NotebookCraftActionBar"
 	action_bar.set_meta("fixed_action_bar", true)
 	notebook_page.add_child(action_bar)
@@ -341,3 +335,8 @@ func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: slot_id})
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

@@ -2,6 +2,7 @@ extends SceneTree
 ## Shown conversation panel watches the conversation progress models and repaints itself.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -21,10 +22,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("reality conversation panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -220,10 +223,8 @@ func _mount() -> Dictionary:
 	panel.name = "RealityConversationPanelHost"
 	root.add_child(panel)
 	var state := {"day_line": "day line"}
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.mount(host, {
-		"label_factory": _label,
-		"theme_color": _theme_color,
-		"ui_font_size": func(size: int) -> int: return size,
 		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
 		"install_rich_text_effect": func(_label_node: RichTextLabel, _effect: String) -> void: pass,
 		"set_dialogue_text": func(label_node: RichTextLabel, value: String) -> void: label_node.text = value,

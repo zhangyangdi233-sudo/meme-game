@@ -2,6 +2,7 @@ extends SceneTree
 ## 筆記本畫布只在要記住時寫入字的位置：靜止不寫、關閉寫一次、重開留在原位。
 
 const PanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -23,10 +24,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("notebook canvas position tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -120,18 +123,13 @@ func _run() -> void:
 
 
 func _deps(game: MemeGameState) -> Dictionary:
+	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
+		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	return {
-		"panel_factory": func(): return PanelContainer.new(),
-		"label_factory": func(text: String, _size: int, _color: Color) -> Label:
-			var label := Label.new()
-			label.text = text
-			return label,
-		"theme_color": func(_key: String) -> Color: return Color.WHITE,
 		"clear_children": func(node: Node) -> void:
 			for child in node.get_children():
 				node.remove_child(child)
 				child.queue_free(),
-		"composer_tile_style": func(_kind: String): return StyleBoxFlat.new(),
 		"current_locale": func() -> String: return "zh",
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code),

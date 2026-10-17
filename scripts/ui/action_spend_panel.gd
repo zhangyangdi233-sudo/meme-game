@@ -2,6 +2,9 @@ class_name ActionSpendPanel
 extends Node
 ## Inline HUD pulse and center action text for spending a daily action.
 
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+
 var _overlay: Control
 var _spend_label: Label
 var _tween: Tween
@@ -9,14 +12,12 @@ var _after_actions := -1
 
 var _hud_actions_label: Label
 var _action_text_fn: Callable
-var _theme_color_fn: Callable
-var _ui_font_size_fn: Callable
 var _on_animation_finished: Callable
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
 	_apply_mount_deps(deps)
-	if parent == null or not _theme_color_fn.is_valid() or not _ui_font_size_fn.is_valid():
+	if parent == null or _theme() == null:
 		return
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
@@ -80,8 +81,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 		return
 	_hud_actions_label = deps.get("hud_actions_label", null) as Label
 	_action_text_fn = deps.get("action_text", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_on_animation_finished = deps.get("on_animation_finished", Callable())
 
 
@@ -99,8 +98,8 @@ func _build_overlay(parent: Control) -> void:
 	_spend_label.set_meta("action_overlay_text", false)
 	_spend_label.set_meta("action_animation_mode", "inline_pulse")
 	_spend_label.visible = false
-	_spend_label.add_theme_font_size_override("font_size", _ui_font_size_fn.call(20))
-	_spend_label.add_theme_color_override("font_color", _theme_color_fn.call("muted"))
+	_spend_label.add_theme_font_size_override("font_size", _theme().ui_font_size(20))
+	_spend_label.add_theme_color_override("font_color", _theme().theme_color("muted"))
 	_spend_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_spend_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_overlay.add_child(_spend_label)
@@ -116,3 +115,8 @@ func _apply_center_text(after_actions: int) -> void:
 func _emit_animation_finished() -> void:
 	if _on_animation_finished.is_valid():
 		_on_animation_finished.call()
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

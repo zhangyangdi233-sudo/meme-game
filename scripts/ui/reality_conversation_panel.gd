@@ -4,6 +4,8 @@ extends Node
 ## While shown, it watches the conversation progress models and repaints itself.
 
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -28,9 +30,6 @@ var _typing_line: RichTextLabel
 var _typing_progress: Label
 var _continue_button: Button
 
-var _label_factory: Callable
-var _theme_color_fn: Callable
-var _ui_font_size_fn: Callable
 var _viewport_size_fn: Callable
 var _install_rich_text_effect_fn: Callable
 var _set_dialogue_text_fn: Callable
@@ -159,7 +158,7 @@ func _paint() -> void:
 			button.clip_text = true
 			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			if compact:
-				button.add_theme_font_size_override("font_size", _ui_font_size_fn.call(13))
+				button.add_theme_font_size_override("font_size", _theme().ui_font_size(13))
 			button.set_meta("reality_response_choice", true)
 			button.disabled = bool(choice.get("locked", false))
 			if button.disabled:
@@ -245,9 +244,6 @@ func _clear_intent_preview() -> void:
 func _apply_mount_deps(deps: Dictionary) -> void:
 	if deps.is_empty():
 		return
-	_label_factory = deps.get("label_factory", Callable())
-	_theme_color_fn = deps.get("theme_color", Callable())
-	_ui_font_size_fn = deps.get("ui_font_size", Callable())
 	_viewport_size_fn = deps.get("viewport_size", Callable())
 	_install_rich_text_effect_fn = deps.get("install_rich_text_effect", Callable())
 	_set_dialogue_text_fn = deps.get("set_dialogue_text", Callable())
@@ -266,7 +262,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 func _build_chrome(parent: Control) -> void:
 	if _subtitle_panel != null and is_instance_valid(_subtitle_panel):
 		return
-	if parent == null or not _label_factory.is_valid():
+	if parent == null or _theme() == null:
 		return
 
 	_intent_preview = RicherTextLabelScript.new()
@@ -283,8 +279,8 @@ func _build_chrome(parent: Control) -> void:
 	_intent_preview.offset_bottom = -286
 	_intent_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_intent_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_intent_preview.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(28))
-	_intent_preview.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
+	_intent_preview.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(28))
+	_intent_preview.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	_intent_preview.add_theme_color_override("font_outline_color", Color("050705"))
 	_intent_preview.add_theme_constant_override("outline_size", 8)
 	_intent_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -315,13 +311,13 @@ func _build_chrome(parent: Control) -> void:
 	_typing_line.offset_top = -300
 	_typing_line.offset_right = -220
 	_typing_line.offset_bottom = -206
-	_typing_line.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(30))
-	_typing_line.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
+	_typing_line.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(30))
+	_typing_line.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	_typing_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_typing_line.z_index = 15
 	parent.add_child(_typing_line)
 
-	_typing_progress = _label_factory.call("", 14, _theme_color_fn.call("muted")) as Label
+	_typing_progress = _theme().label("", 14, _theme().theme_color("muted")) as Label
 	_typing_progress.name = "RealityTypingProgress"
 	_typing_progress.set_meta("on_dark", true)
 	_typing_progress.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -356,8 +352,8 @@ func _build_chrome(parent: Control) -> void:
 	_subtitle_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_subtitle_label.add_theme_font_size_override("normal_font_size", _ui_font_size_fn.call(20))
-	_subtitle_label.add_theme_color_override("default_color", _theme_color_fn.call("surface"))
+	_subtitle_label.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(20))
+	_subtitle_label.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	_subtitle_label.add_theme_color_override("font_outline_color", Color("050705"))
 	_subtitle_label.add_theme_constant_override("outline_size", 6)
 	subtitle_box.add_child(_subtitle_label)
@@ -395,3 +391,8 @@ func _on_choice_pressed(choice_id: String) -> void:
 func _on_continue_pressed() -> void:
 	_reset_hover()
 	GameEventBus.raise(UiIntentsScript.CONVERSATION_CONTINUE_PRESSED)
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

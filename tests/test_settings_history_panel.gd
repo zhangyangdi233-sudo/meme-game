@@ -2,6 +2,7 @@ extends SceneTree
 ## SettingsHistoryPanel: chrome plus intent signals and settings open/close state.
 
 const PanelScript = preload("res://scripts/ui/settings_history_panel.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -29,10 +30,12 @@ func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
 		print("settings history panel tests passed")
+		RegistryScript.clear()
 		quit(0)
 	else:
 		for failure in _failures:
 			push_error(failure)
+		RegistryScript.clear()
 		quit(1)
 
 
@@ -67,12 +70,8 @@ func _run() -> void:
 	var panel = PanelScript.new()
 	panel.name = "SettingsHistoryPanel"
 	root.add_child(panel)
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	panel.mount(host, {
-		"panel_factory": _panel,
-		"label_factory": _label,
-		"soft_style": _soft_style,
-		"theme_color": _theme_color,
-		"ui_font_size": _ui_font_size,
 		"register_draggable": _register_draggable,
 		"vhs_enabled": true,
 		"locales": [

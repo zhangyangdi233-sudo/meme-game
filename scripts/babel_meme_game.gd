@@ -225,9 +225,6 @@ func _narrative_overlay_deps() -> Dictionary:
 		"settle_day": _settle_day_and_present_rewards,
 		"hud_actions_label": _hud_actions_label_ref,
 		"action_text": _action_text,
-		"theme_color": _ui_theme_helper.theme_color,
-		"ui_font_size": _ui_theme_helper.ui_font_size,
-		"label_factory": _ui_theme_helper.label,
 		"level_display_name": _locale.level_display_name,
 		"tower_floor": func() -> int: return game.tower_floor if game != null else 1,
 		"capture_frozen_frame": _capture_frozen_frame_texture,
@@ -1373,9 +1370,6 @@ func _ensure_playtest_assist_panel() -> void:
 
 func _playtest_assist_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 	}
 
 
@@ -1422,10 +1416,6 @@ func _ensure_apple_hud_panel() -> void:
 
 func _apple_hud_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
-		"style_factory": _ui_theme_helper.style,
 		"load_texture": _load_runtime_texture,
 		"rail_width": HUD_RAIL_WIDTH,
 		"rail_max_height": HUD_RAIL_MAX_HEIGHT,
@@ -1786,9 +1776,6 @@ func _language_selection_mount_deps() -> Dictionary:
 			"name": _locale.native_language_name(str(locale_code)),
 		})
 	return {
-		"soft_style": _ui_theme_helper.soft_style,
-		"theme_color": _ui_theme_helper.theme_color,
-		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"locales": locales,
 		"language_selected": func() -> bool: return _locale.language_selected,
 		"refresh_localized_ui": func() -> void:
@@ -1806,8 +1793,6 @@ func _ensure_prologue_panel() -> void:
 
 func _prologue_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
 	}
@@ -1823,9 +1808,6 @@ func _ensure_camera_consent_panel() -> void:
 
 func _camera_consent_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
-		"soft_style": _ui_theme_helper.soft_style,
 		"populate_camera_source_option": _populate_camera_source_option,
 		"camera_enabled": _camera_session.enabled if _camera_session != null else false,
 		"apply_ui_theme": _apply_ui_theme,
@@ -1844,10 +1826,6 @@ func _ensure_phone_camera_connection_panel() -> void:
 
 func _phone_camera_connection_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
-		"soft_style": _ui_theme_helper.soft_style,
-		"panel_factory": _ui_theme_helper.panel,
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 	}
 
@@ -1885,11 +1863,6 @@ func _settings_history_mount_deps() -> Dictionary:
 			"name": _locale.native_language_name(str(locale_code)),
 		})
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"soft_style": _ui_theme_helper.soft_style,
-		"theme_color": _ui_theme_helper.theme_color,
-		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"register_draggable": _window_manager.register,
 		"vhs_enabled": _vhs_enabled,
 		"locales": locales,
@@ -1932,12 +1905,6 @@ func _social_feed_mount_deps() -> Dictionary:
 	_ensure_window_manager()
 	_ensure_language_material()
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"style_fn": _ui_theme_helper.style,
-		"soft_style": _ui_theme_helper.soft_style,
-		"theme_color": _ui_theme_helper.theme_color,
-		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"register_draggable": _window_manager.register,
 		"load_texture": _load_runtime_texture,
 		"poster_texture": func(post_index: int) -> Texture2D:
@@ -1964,7 +1931,6 @@ func _social_feed_mount_deps() -> Dictionary:
 		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
 		"game_day": func() -> int: return game.day if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
-		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
 		"theme_window": _theme_phone_window,
 		"pollution": func() -> int: return game.pollution if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
@@ -1983,9 +1949,6 @@ func _ensure_phone_launcher_panel() -> void:
 func _phone_launcher_mount_deps() -> Dictionary:
 	_ensure_window_manager()
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"load_texture": _load_runtime_texture,
 		"register_draggable": _make_draggable_window,
 		"viewport_size": _viewport_size,
@@ -2017,9 +1980,6 @@ func _ensure_reality_conversation_panel() -> void:
 
 func _reality_conversation_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
-		"ui_font_size": _ui_theme_helper.ui_font_size,
 		"viewport_size": _viewport_size,
 		"install_rich_text_effect": _install_rich_text_effect,
 		"set_dialogue_text": _set_dialogue_text,
@@ -2046,9 +2006,6 @@ func _ensure_reality_language_composer_panel() -> void:
 
 func _reality_language_composer_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
 	}
 
@@ -2081,11 +2038,7 @@ func _ensure_notebook_app_panel() -> void:
 
 func _notebook_mount_deps() -> Dictionary:
 	return {
-		"panel_factory": _ui_theme_helper.panel,
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"clear_children": _clear,
-		"composer_tile_style": _ui_theme_helper.composer_tile_style,
 		"current_locale": func() -> String: return _locale.current_locale,
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
@@ -3043,8 +2996,6 @@ func _ensure_ending_screen_panel() -> void:
 
 func _ending_screen_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"translate": func(text: String) -> String: return _locale.translate(text),
 		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"refresh_localized": _ui_theme_helper.refresh_localized_ui,
@@ -3094,8 +3045,6 @@ func _ensure_doll_guide_panel() -> void:
 
 func _doll_guide_mount_deps() -> Dictionary:
 	return {
-		"label_factory": _ui_theme_helper.label,
-		"theme_color": _ui_theme_helper.theme_color,
 		"load_texture": _load_runtime_texture,
 		"register_draggable": _make_draggable_window,
 		"portrait_path": GUIDE_DOLL_CHARACTER_PATH,
