@@ -154,7 +154,7 @@ var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel: SocialFeedPanel
 var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
-var _cover_watcher_sightings: CoverWatcherSightingsScript = CoverWatcherSightingsScript.new()
+var _cover_watcher_sightings: CoverWatcherSightings =CoverWatcherSightingsScript.new()
 var _language_presenter: LanguagePresenter
 var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
 var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScript.new()

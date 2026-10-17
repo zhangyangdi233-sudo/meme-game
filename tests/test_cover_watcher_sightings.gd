@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_detached_sightings_ignore_events()
 	_test_configure_points_at_the_current_run()
 	_test_appearance_reaches_every_subscriber()
+	_test_appearance_without_a_floor_marks_nothing()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("cover watcher sightings tests passed")
@@ -103,6 +104,13 @@ func _test_appearance_reaches_every_subscriber() -> void:
 	_appeared(3)
 	_assert_eq(heard, [3], "another subscriber should hear the same appearance")
 	_assert_true(game.has_seen_cover_watcher(3), "the sightings should still mark the floor beside another subscriber")
+
+
+func _test_appearance_without_a_floor_marks_nothing() -> void:
+	var mounted := _mount()
+	var game: MemeGameState = mounted["game"]
+	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {})
+	_assert_eq(game.cover_watcher_seen_floors, [], "an appearance without a floor should not guess one")
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -33,8 +33,8 @@ func detach() -> void:
 
 
 func _on_appeared(payload: Dictionary) -> void:
-	if _game != null:
-		_game.mark_cover_watcher_seen(int(payload.get(GameEventsScript.KEY_FLOOR, 1)))
+	if _game != null and payload.has(GameEventsScript.KEY_FLOOR):
+		_game.mark_cover_watcher_seen(int(payload[GameEventsScript.KEY_FLOOR]))
 
 
 func _on_vanished(_payload: Dictionary) -> void:
