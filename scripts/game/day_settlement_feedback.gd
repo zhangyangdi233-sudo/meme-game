@@ -2,8 +2,9 @@ class_name DaySettlementFeedback
 extends RefCounted
 ## Writes the desk line for a new day and drops the previous day's meme selection. It subscribes to the day's game
 ## events itself from the moment the host attaches it (ADR 0007): a settled day shows the latest event log line;
-## a finished pollution flashback says it is already the next day. A day the flashback settles leaves its line to
-## the flashback's finish. The host points it at each new run.
+## a finished pollution flashback, and a day it settles, say it is already the next day. The flashback's finish may
+## reach it before the day it settles, so both write the line and the later one reads the new day. The host points it
+## at each new run.
 
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const GameModelsScript = preload("res://scripts/game/game_models.gd")
@@ -38,6 +39,7 @@ func detach() -> void:
 func _on_day_settled(payload: Dictionary) -> void:
 	_clear_selected_meme()
 	if bool(payload.get(GameEventsScript.KEY_FROM_FLASHBACK, false)):
+		_write_next_day_line()
 		return
 	var latest := _latest_log_line()
 	if not latest.is_empty():
@@ -46,6 +48,10 @@ func _on_day_settled(payload: Dictionary) -> void:
 
 func _on_flashback_finished(_payload: Dictionary) -> void:
 	_clear_selected_meme()
+	_write_next_day_line()
+
+
+func _write_next_day_line() -> void:
 	var latest := _latest_log_line()
 	GameModelsScript.write_feedback(NEXT_DAY_LINE if latest.is_empty() else "%s\n%s" % [NEXT_DAY_LINE, latest])
 

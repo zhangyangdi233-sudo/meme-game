@@ -20,7 +20,8 @@ const COVER_WATCHER_VANISHED := "cover_watcher_vanished"
 ## The state settled the day. Raised once per settlement. Payload: {KEY_DAY: int, the new day;
 ## KEY_FROM_FLASHBACK: bool, true when the pollution flashback's finish settled it}.
 const DAY_SETTLED := "day_settled"
-## The pollution flashback finished playing, whether it settled the day or a day transition already had. Payload: {}.
+## The pollution flashback director's timeline ended, whether its finish settles the day or a day transition already had.
+## Payload: {}.
 const FLASHBACK_FINISHED := "flashback_finished"
 
 ## Sound cues carried by SFX_REQUESTED.

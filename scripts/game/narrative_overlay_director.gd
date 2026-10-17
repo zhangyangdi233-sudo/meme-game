@@ -2,6 +2,8 @@ extends Node
 class_name NarrativeOverlayDirector
 ## Plays one narrative beat: action spend, day transition, then flashback.
 ## The host supplies the settlement result and whether the ending is unlocked.
+## While in the tree it subscribes to FLASHBACK_FINISHED: the pollution flashback director raises it when the
+## timeline ends, and this director closes the flashback, asks the host to settle and moves the beat on.
 
 const NarrativeBeatScript = preload("res://scripts/game/narrative_beat.gd")
 const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
@@ -28,12 +30,26 @@ var _deps: Dictionary = {}
 var _beat = null
 var _beat_settlement: Dictionary = {}
 var _installed_presentation := false
+var _event_bus: GameEventBus
 
 
 func attach_to(host: Node) -> void:
 	_host = host
 	name = "NarrativeOverlayDirector"
 	host.add_child(self)
+
+
+## The host binds the bus in its own _enter_tree, which runs before this one.
+func _enter_tree() -> void:
+	_event_bus = GameEventBusScript.bound()
+	if _event_bus != null:
+		_event_bus.subscribe(GameEventsScript.FLASHBACK_FINISHED, _on_flashback_finished)
+
+
+func _exit_tree() -> void:
+	if _event_bus != null:
+		_event_bus.unsubscribe(GameEventsScript.FLASHBACK_FINISHED, _on_flashback_finished)
+	_event_bus = null
 
 
 func apply_deps(deps: Dictionary) -> void:
@@ -107,9 +123,7 @@ func build_flashback_overlay() -> void:
 	var ui_root := _deps.get("ui_root") as Control
 	if flashback_panel == null or ui_root == null:
 		return
-	flashback_panel.mount(ui_root, {
-		"on_sequence_finished": finish_pollution_flashback,
-	})
+	flashback_panel.mount(ui_root)
 	_sync_flashback_refs()
 	flashback_panel.build_phases()
 
@@ -192,14 +206,13 @@ func play_pollution_flashback() -> void:
 		_play_flashback_visual()
 
 
-## A beat that also has a day transition already settled the day there; the flashback's finish still raises its event.
-func finish_pollution_flashback() -> void:
+## A beat that also has a day transition already settled the day there; asking again settles nothing.
+func _on_flashback_finished(_payload: Dictionary) -> void:
 	var on_segment: bool = _beat != null and str(_beat.current_segment()) == "flashback"
 	_stop_flashback_presentation()
 	if not on_segment:
 		return
 	_settle_day(true)
-	GameEventBusScript.raise_event(GameEventsScript.FLASHBACK_FINISHED)
 	_advance_beat()
 
 

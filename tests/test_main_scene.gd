@@ -78,7 +78,6 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(game_root.has_method("set_view_state"), "camera should support phone-down and NPC-up views")
 	_assert_true(game_root._narrative_director != null, "narrative overlays should be wired through the director")
 	_assert_true(game_root._narrative_director.has_method("play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
-	_assert_true(game_root._narrative_director.has_method("finish_pollution_flashback"), "the flashback should expose a deterministic completion path")
 	_assert_true(_find_node_by_name(game_root, "PollutionFlashbackOverlay") is Control, "the flashback overlay should be present")
 	_assert_true(game_root.get_node_or_null("Road") == null, "retired road tiles must not be built each run")
 	_assert_true(game_root.get_node_or_null("PhoneRig") == null, "retired PhoneRig must not be built each run")

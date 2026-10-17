@@ -113,7 +113,7 @@ func _run() -> void:
 	await _assert_world_hotkeys_inert(game_root, "flashback")
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
 	await _assert_overlay_eats_phone_clicks(game_root, flashback_overlay, "flashback overlay")
-	game_root._narrative_director.finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after flashback")
@@ -262,7 +262,7 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_true(flashback_overlay != null and flashback_overlay.visible, "the beat should show the flashback after the day transition")
 	await _assert_world_hotkeys_inert(game_root, "narrative beat flashback")
 	_assert_eq(game_root.game.day, 2, "the flashback should not settle a second day")
-	game_root._narrative_director.finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the beat should return to gameplay")
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after narrative beat")
@@ -288,7 +288,7 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_eq(game_root.session_mode(), "narrative", "the ending should wait until the flashback finishes")
 	await _assert_world_hotkeys_inert(game_root, "narrative beat before ending")
 	game_root.game.ending_unlocked = true
-	game_root._narrative_director.finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "ending", "finishing the beat with the ending unlocked should enter the ending")
 	_assert_host_applied_screens(game_root, ["ending"], "narrative beat ending")

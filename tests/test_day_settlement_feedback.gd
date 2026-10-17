@@ -26,7 +26,8 @@ func _run() -> void:
 	_test_settled_day_writes_the_latest_log_line()
 	_test_settled_day_clears_the_selected_meme()
 	_test_settled_day_with_an_empty_log_keeps_the_line()
-	_test_flashback_settled_day_leaves_the_line_to_the_flashback()
+	_test_flashback_settled_day_writes_the_next_day_line()
+	_test_finish_heard_before_the_flashback_settles_ends_on_the_new_day()
 	_test_finished_flashback_writes_the_next_day_line()
 	_test_finished_flashback_with_an_empty_log_writes_only_the_day_line()
 	_test_detached_feedback_hears_nothing()
@@ -96,12 +97,25 @@ func _test_settled_day_with_an_empty_log_keeps_the_line() -> void:
 	_assert_eq(_feedback(), "昨天的回馈", "a settled day with nothing logged should leave the desk line alone")
 
 
-func _test_flashback_settled_day_leaves_the_line_to_the_flashback() -> void:
+func _test_flashback_settled_day_writes_the_next_day_line() -> void:
 	var mounted := _mount()
 	(mounted["game"] as MemeGameState).record_event(LOG_LINE)
 	_settled(true)
-	_assert_eq(_feedback(), "昨天的回馈", "a day the flashback settles should leave its line to the flashback's finish")
+	_assert_eq(_feedback(), "%s
+%s" % [DAY_LINE, LOG_LINE], "a day the flashback settles should say it is already the next day")
 	_assert_eq(_selected_meme(), "", "a day the flashback settles should still drop the meme selection")
+
+
+## The feedback may hear the flashback finish before whoever settles the day in answer to it.
+func _test_finish_heard_before_the_flashback_settles_ends_on_the_new_day() -> void:
+	var mounted := _mount()
+	var game := mounted["game"] as MemeGameState
+	game.record_event("昨天的最后一行。")
+	_flashback_finished()
+	game.record_event(LOG_LINE)
+	_settled(true)
+	_assert_eq(_feedback(), "%s
+%s" % [DAY_LINE, LOG_LINE], "the desk line should end on the new day's latest log line")
 
 
 func _test_finished_flashback_writes_the_next_day_line() -> void:

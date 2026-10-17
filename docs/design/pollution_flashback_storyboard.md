@@ -36,7 +36,7 @@
 - 冻结帧:`viewport.get_texture().get_image()` 截帧,headless/取帧失败时退化为墨色底(测试环境安全);
 - 关键句在两场中是两个同配置 Label,文本、字号、锚点完全一致;场景道具容器整体错位,句子不动;
 - 名牌是唯一允许的差异:文字、边框形状(圆角/直角)、引号体系;
-- 结束信号 `sequence_finished` → `_finish_pollution_flashback()`;直接调用 finish 可随时安全打断(测试覆盖)。
+- 时间线走完时发出 game event `FLASHBACK_FINISHED`(ADR 0007),narrative director 订阅后收场并换日;测试直接发出该事件即可随时安全打断(测试覆盖)。
 
 ## 声音实现
 

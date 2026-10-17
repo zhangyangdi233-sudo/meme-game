@@ -120,7 +120,7 @@ func _run() -> void:
 		_assert_true(bool(reality.get_meta("flashback_ducked", false)), "flashback should duck the reality layer")
 	if pollution_music != null:
 		_assert_true(bool(pollution_music.get_meta("flashback_ducked", false)), "flashback should duck the pollution music layer")
-	game_root._narrative_director.finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	_assert_true(flashback != null and not flashback.playing, "finishing flashback should stop the signal burst")
 
 	game_root._narrative_director.play_action_spend_animation(5, 4)

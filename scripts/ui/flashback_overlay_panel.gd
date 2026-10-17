@@ -8,7 +8,6 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _overlay: Control
 var _director: PollutionFlashbackDirector
-var _on_sequence_finished: Callable
 var _colors := {
 	"ink": Color(0.063, 0.078, 0.059),
 	"surface": Color(1.0, 0.945, 0.788),
@@ -20,15 +19,12 @@ var _unregistered_card: Label
 var _empty_frames_blackout: ColorRect
 
 
-func mount(parent: Control, deps: Dictionary = {}) -> void:
-	_apply_mount_deps(deps)
+func mount(parent: Control) -> void:
 	if parent == null or _theme() == null:
 		return
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
 	_build_overlay(parent)
-	if _on_sequence_finished.is_valid():
-		_director.sequence_finished.connect(_on_sequence_finished)
 
 
 func get_overlay() -> Control:
@@ -93,12 +89,6 @@ func stop() -> void:
 
 func is_playing() -> bool:
 	return _director != null and _director.is_playing()
-
-
-func _apply_mount_deps(deps: Dictionary) -> void:
-	if deps.is_empty():
-		return
-	_on_sequence_finished = deps.get("on_sequence_finished", Callable())
 
 
 func _build_overlay(parent: Control) -> void:

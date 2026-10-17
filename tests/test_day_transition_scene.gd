@@ -98,7 +98,7 @@ func _run() -> void:
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
 	game_root._narrative_director.play_pollution_flashback()
-	game_root._narrative_director.finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	day_overlay = Harness.find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	_assert_eq(game_root.game.day, 2, "pollution flashback should still settle directly into the next day")
 	_assert_true(day_overlay != null and not day_overlay.visible, "pollution flashback should not stack the normal three-second day overlay")
