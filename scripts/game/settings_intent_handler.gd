@@ -1,8 +1,9 @@
 class_name SettingsIntentHandler
 extends IntentHandler
-## Handles the settings window's intents: writes the volume, autoplay and settings-open models and the exit prompt,
-## and returns what the host presents. Saving, the VHS overlay, the history window, the main menu and quitting stay
-## the host's to present: they touch files, host nodes and the session flow.
+## Handles the settings window's intents: writes the volume and autoplay models and the exit prompt, and returns
+## what the host presents. Saving, the VHS overlay, the settings and history windows, the main menu and quitting stay
+## the host's to present: they touch files, host nodes and the session flow. The settings panel owns the
+## settings-open model and toggles it only once it is built.
 ## The settings language option reuses LANGUAGE_SELECTED, which the host still routes by session.
 
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -19,6 +20,8 @@ const QUIT_PROMPTED := "settings_quit_prompted"
 const QUIT_CONFIRMED := "settings_quit_confirmed"
 ## The host toggles the history window.
 const HISTORY_TOGGLED := "settings_history_toggled"
+## The host asks the settings panel to toggle the settings window.
+const SETTINGS_TOGGLED := "settings_window_toggled"
 
 const INTENTS: Array[String] = [
 	UiIntentsScript.VOLUME_CHANGED,
@@ -50,9 +53,6 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			GameModelsScript.value(PropertyKeysScript.MASTER_VOLUME).write(float(payload.get(UiIntentsScript.KEY_VALUE, 0.0)))
 		UiIntentsScript.AUTOPLAY_TOGGLED:
 			_game.set_autoplay_enabled(bool(payload.get(UiIntentsScript.KEY_VALUE, false)))
-		UiIntentsScript.SETTINGS_PRESSED:
-			var settings_open := GameModelsScript.value(PropertyKeysScript.SETTINGS_OPEN)
-			settings_open.write(not bool(settings_open.read()))
 		UiIntentsScript.VHS_TOGGLED:
 			var vhs := IntentResultScript.present(VHS_TOGGLED)
 			vhs.value = bool(payload.get(UiIntentsScript.KEY_VALUE, false))
@@ -68,4 +68,6 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			return IntentResultScript.present(QUIT_CONFIRMED)
 		UiIntentsScript.HISTORY_TOGGLE_REQUESTED:
 			return IntentResultScript.present(HISTORY_TOGGLED)
+		UiIntentsScript.SETTINGS_PRESSED:
+			return IntentResultScript.present(SETTINGS_TOGGLED)
 	return IntentResultScript.present(IntentResultScript.NONE)

@@ -35,6 +35,16 @@ func _run_async() -> void:
 		_assert_eq(game_root._vhs_enabled, false, "the host should present a VHS toggle")
 		GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
 
+		var history: Control = game_root._settings_history_panel.get_history_window()
+		GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
+		_assert_true(history != null and history.visible, "the host should present a history toggle")
+		GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
+		var exit_overlay := game_root.find_child("ExitConfirmationOverlay", true, false) as Control
+		GameEventBus.raise(UiIntentsScript.EXIT_GAME_REQUESTED)
+		_assert_true(game_root.game.exit_prompt_seen, "the host should route an exit request to the settings handler")
+		_assert_true(exit_overlay != null and exit_overlay.visible, "the host should present the quit prompt")
+		game_root._cancel_quit_game()
+
 		var settings := game_root.find_child("SettingsWindow", true, false) as Control
 		GameEventBus.raise(UiIntentsScript.SETTINGS_PRESSED)
 		_assert_true(settings != null and settings.visible, "a settings intent should open the settings window")

@@ -1661,7 +1661,7 @@ func _ensure_ui_event_bus() -> void:
 func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 	for handler in _intent_handlers:
 		if handler.handles(intent_name):
-			_configure_intent_handlers()
+			_configure_intent_handler(handler)
 			_present_intent_result(handler.handle(intent_name, payload))
 			return
 	match intent_name:
@@ -2389,13 +2389,17 @@ func _on_notebook_tab_changed() -> void:
 	_apply_phone_shell_theme()
 
 
-## Points every handler at the current run, language material and locale before one handles an intent.
-func _configure_intent_handlers() -> void:
-	_ensure_language_material()
-	_social_intent_handler.configure(game, _language_material, _social_feed_source())
-	_notebook_intent_handler.configure(game, _language_material, _locale, _composer_answer_panel)
-	_doctor_sentence_intent_handler.configure(game)
-	_settings_intent_handler.configure(game)
+## Points the handler about to handle an intent at the current run; only the social feed and the notebook need
+## the language material, so only they build it.
+func _configure_intent_handler(handler: IntentHandler) -> void:
+	if handler == _doctor_sentence_intent_handler:
+		_doctor_sentence_intent_handler.configure(game)
+	elif handler == _settings_intent_handler:
+		_settings_intent_handler.configure(game)
+	else:
+		_ensure_language_material()
+		_social_intent_handler.configure(game, _language_material, _social_feed_source())
+		_notebook_intent_handler.configure(game, _language_material, _locale, _composer_answer_panel)
 
 
 ## The publish page's answer area a notebook tile can be dropped on, or null while it is not built.
@@ -2439,6 +2443,8 @@ func _present_intent_result(result: IntentResult) -> void:
 			_confirm_quit_game()
 		SettingsIntentHandlerScript.HISTORY_TOGGLED:
 			_toggle_history_window()
+		SettingsIntentHandlerScript.SETTINGS_TOGGLED:
+			_toggle_settings_window()
 
 
 func _render_notebook_app() -> void:

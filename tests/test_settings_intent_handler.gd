@@ -1,6 +1,6 @@
 extends SceneTree
-## The settings intent handler takes the settings window's intents off an empty bus, writes the volume, autoplay and
-## settings-open models and the exit prompt, and returns what the host should present. No main scene is opened.
+## The settings intent handler takes the settings window's intents off an empty bus, writes the volume and autoplay
+## models and the exit prompt, and returns what the host should present. No main scene is opened.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const BootScript = preload("res://scripts/game/property_boot.gd")
@@ -21,7 +21,7 @@ var _results: Array = []
 func _init() -> void:
 	_test_it_claims_every_settings_intent_and_nothing_else()
 	_test_volume_and_autoplay_are_written_to_their_models()
-	_test_the_settings_intent_toggles_the_open_model()
+	_test_the_settings_intent_leaves_the_open_model_to_the_panel()
 	_test_an_exit_request_marks_the_prompt_seen()
 	_test_window_and_flow_intents_name_their_presentation()
 	RegistryScript.clear()
@@ -96,13 +96,12 @@ func _test_volume_and_autoplay_are_written_to_their_models() -> void:
 	_assert_eq(bool(_model(PropertyKeysScript.AUTOPLAY_ENABLED).read()), false, "a second autoplay intent should write the model again")
 
 
-func _test_the_settings_intent_toggles_the_open_model() -> void:
+## The settings panel owns the open model and only toggles it once it is built, so the host presents the toggle.
+func _test_the_settings_intent_leaves_the_open_model_to_the_panel() -> void:
 	_boot()
-	var opened := _raise(UiIntentsScript.SETTINGS_PRESSED)
-	_assert_eq(bool(_model(PropertyKeysScript.SETTINGS_OPEN).read()), true, "a settings intent should open the settings")
-	_assert_presents(opened, IntentResultScript.NONE, "a settings press")
-	_raise(UiIntentsScript.SETTINGS_PRESSED)
-	_assert_eq(bool(_model(PropertyKeysScript.SETTINGS_OPEN).read()), false, "a second settings intent should close them")
+	var pressed := _raise(UiIntentsScript.SETTINGS_PRESSED)
+	_assert_eq(bool(_model(PropertyKeysScript.SETTINGS_OPEN).read()), false, "a settings intent should not open the settings before the panel does")
+	_assert_presents(pressed, SettingsIntentHandlerScript.SETTINGS_TOGGLED, "a settings press")
 
 
 func _test_an_exit_request_marks_the_prompt_seen() -> void:
