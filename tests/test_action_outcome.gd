@@ -24,6 +24,11 @@ func _run() -> void:
 	test_doctor_sentence_on_last_action_reports_day_transition()
 	test_incomplete_doctor_sentence_spends_nothing()
 	test_doctor_sentence_without_actions_left_spends_nothing()
+	test_reality_typing_mid_sentence_spends_nothing()
+	test_reality_typing_final_character_reports_spent_action()
+	test_reality_typing_on_last_action_reports_day_transition()
+	test_first_pick_of_the_day_reports_spent_action()
+	test_free_sentence_submit_reports_spent_action()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -188,6 +193,73 @@ func test_doctor_sentence_without_actions_left_spends_nothing() -> void:
 	_assert_eq(outcome.feedback_key, ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED, "it should name the rejected feedback")
 	_assert_eq(outcome.settlement(), {}, "a rejected sentence should need no settlement")
 	_assert_eq(game.sentence_records.size(), 0, "a rejected sentence should leave no record")
+
+
+func test_reality_typing_mid_sentence_spends_nothing() -> void:
+	var game := _ready_to_type()
+	var result: Dictionary = game.advance_typed_reality_character()
+	var outcome: ActionOutcomeScript = result.get("outcome")
+	_assert_true(outcome != null, "every typed character should carry an action outcome")
+	_assert_true(not outcome.spent_action, "a partial delivery should not spend an action")
+	_assert_eq(outcome.settlement(), {}, "a partial delivery should need no settlement")
+
+
+func test_reality_typing_final_character_reports_spent_action() -> void:
+	var game := _ready_to_type()
+	var actions_before: int = game.actions_remaining
+	var outcome := _type_to_end(game)
+	_assert_true(outcome.succeeded, "finishing the spoken turn should succeed")
+	_assert_true(outcome.spent_action, "finishing the spoken turn should spend an action")
+	_assert_eq(outcome.settlement(), {
+		"day_transition": false,
+		"flashback": false,
+		"actions_before": actions_before,
+		"actions_after": actions_before - 1,
+	}, "the settlement should carry the spent action")
+
+
+func test_reality_typing_on_last_action_reports_day_transition() -> void:
+	var game := _ready_to_type()
+	game.actions_remaining = 1
+	var outcome := _type_to_end(game)
+	_assert_true(outcome.day_transition, "speaking on the last action should end the day")
+	_assert_eq(outcome.settlement().get("actions_after", -1), 0, "the settlement should show no actions left")
+
+
+func test_first_pick_of_the_day_reports_spent_action() -> void:
+	var game := Harness.new_state()
+	var actions_before: int = game.actions_remaining
+	var first: ActionOutcomeScript = game.pick_social_char("floor_13", "门", "zh").get("outcome")
+	_assert_true(first != null and first.spent_action, "the first pick of the day should spend an action")
+	_assert_eq(first.settlement().get("actions_before", -1), actions_before, "the settlement should start from the old count")
+	var second: ActionOutcomeScript = game.pick_social_char("floor_13", "开", "zh").get("outcome")
+	_assert_true(second != null and not second.spent_action, "later picks the same day should be free")
+
+
+func test_free_sentence_submit_reports_spent_action() -> void:
+	var game := Harness.new_state()
+	game.pick_social_char("floor_13", "门", "zh")
+	game.free_sentence_place("门", "zh")
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.submit_free_sentence("zh").get("outcome")
+	_assert_true(outcome != null and outcome.spent_action, "submitting a sentence should spend an action")
+	_assert_eq(outcome.settlement().get("actions_after", -1), actions_before - 1, "the settlement should show the spent action")
+	var empty: ActionOutcomeScript = game.submit_free_sentence("zh").get("outcome")
+	_assert_true(empty != null and not empty.spent_action, "an empty submit should spend nothing")
+
+
+func _ready_to_type() -> RefCounted:
+	var game := Harness.new_state()
+	game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者")
+	game.select_typed_reality_choice(str(game.get_typed_reality_choices()[0].get("id", "")))
+	return game
+
+
+func _type_to_end(game: RefCounted) -> ActionOutcomeScript:
+	var outcome: ActionOutcomeScript = null
+	while game.conversation_phase == "typing":
+		outcome = game.advance_typed_reality_character().get("outcome")
+	return outcome
 
 
 func _ready_to_speak() -> RefCounted:

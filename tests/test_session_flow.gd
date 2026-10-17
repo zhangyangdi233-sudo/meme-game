@@ -2,6 +2,7 @@ extends SceneTree
 ## Adapter Session mode: boot injects five states; new run, continue, title, and narrative go through the manager.
 
 var _failures: Array[String] = []
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
 const SESSION_IDS := ["main_menu", "prologue", "gameplay", "narrative", "ending"]
 
@@ -210,6 +211,17 @@ func _run() -> void:
 	await process_frame
 
 
+func _spent_outcome(game, actions_before: int) -> ActionOutcomeScript:
+	var outcome := ActionOutcomeScript.new()
+	outcome.succeeded = true
+	outcome.spent_action = true
+	outcome.actions_before = actions_before
+	outcome.actions_after = int(game.actions_remaining)
+	outcome.flashback = bool(game.pollution_flashback_pending)
+	outcome.day_transition = bool(game.needs_day_settlement)
+	return outcome
+
+
 func _run_narrative_beat(game_root) -> void:
 	game_root.new_game()
 	await process_frame
@@ -222,10 +234,11 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_true(game_root.game.spend_action("narrative-beat"), "the beat should spend an action")
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
+	var outcome := _spent_outcome(game_root.game, 2)
 	var action_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
 	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
-	game_root._after_effective_action(2)
+	game_root._present_settlement(outcome.settlement())
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "the beat should enter narrative when the action is spent")
 	_assert_true(action_overlay != null and action_overlay.visible, "the beat should show the action pulse")
@@ -264,7 +277,8 @@ func _run_narrative_beat(game_root) -> void:
 	game_root.game.pollution = 60
 	game_root.game.pollution_flashback_seen = false
 	game_root.game.check_pollution_flashback(59)
-	game_root._after_effective_action(1)
+	var ending_outcome := _spent_outcome(game_root.game, 1)
+	game_root._present_settlement(ending_outcome.settlement())
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "the ending beat should open in narrative")
 	game_root._narrative_director.finish_action_spend_animation()

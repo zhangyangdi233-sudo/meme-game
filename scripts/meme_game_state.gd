@@ -1254,6 +1254,13 @@ func select_typed_reality_choice(choice_id: String) -> bool:
 
 
 func advance_typed_reality_character() -> Dictionary:
+	var actions_before := actions_remaining
+	var result := _advance_typed_reality_character()
+	result["outcome"] = _action_outcome_since(actions_before)
+	return result
+
+
+func _advance_typed_reality_character() -> Dictionary:
 	var result := {
 		"advanced": false,
 		"completed": false,
@@ -1607,6 +1614,13 @@ static func char_units_for_locale(entries: Array, locale_code: String) -> Array[
 ## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。
 ## 计费规则:每天第一次拾字消耗 1 行动,相当于刷一次手机;当天后续拾字免费。
 func pick_social_char(post_id: String, unit: String, locale_code: String = "zh") -> Dictionary:
+	var actions_before := actions_remaining
+	var result := _pick_social_char(post_id, unit, locale_code)
+	result["outcome"] = _action_outcome_since(actions_before)
+	return result
+
+
+func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Dictionary:
 	var result := {"picked": false, "reason": "", "action_spent": false}
 	var normalized_unit := unit.strip_edges()
 	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
@@ -1729,6 +1743,13 @@ static func world_rule_list(rules: Dictionary) -> Array:
 ## 投稿:随时可结束造句(≥1 个单位即可),消耗 1 行动。
 ## 三层响应:rule(规则生效,世界异变)/ misread(世界误读)/ noise(噪声回应)。
 func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
+	var actions_before := actions_remaining
+	var result := _submit_free_sentence(locale_code)
+	result["outcome"] = _action_outcome_since(actions_before)
+	return result
+
+
+func _submit_free_sentence(locale_code: String) -> Dictionary:
 	var result := {
 		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
 		"sentence": "", "money_gain": 0, "pollution_gain": 0,
@@ -2139,6 +2160,13 @@ func _spent_outcome(feedback_key: String, actions_before: int) -> ActionOutcomeS
 	outcome.flashback = pollution_flashback_pending
 	outcome.day_transition = needs_day_settlement
 	return outcome
+
+
+## The outcome of an action that reports spending in its own result.
+func _action_outcome_since(actions_before: int) -> ActionOutcomeScript:
+	if actions_remaining < actions_before:
+		return _spent_outcome("", actions_before)
+	return _failed_outcome("")
 
 
 func _failed_outcome(feedback_key: String) -> ActionOutcomeScript:

@@ -1904,8 +1904,8 @@ func _connect_language_material() -> void:
 		return
 	if not _language_material.sfx_requested.is_connected(_on_language_material_sfx):
 		_language_material.sfx_requested.connect(_on_language_material_sfx)
-	if not _language_material.effective_action.is_connected(_after_effective_action):
-		_language_material.effective_action.connect(_after_effective_action)
+	if not _language_material.effective_action.is_connected(_present_settlement):
+		_language_material.effective_action.connect(_present_settlement)
 	if not _language_material.ui_refresh_requested.is_connected(_on_language_ui_refresh_requested):
 		_language_material.ui_refresh_requested.connect(_on_language_ui_refresh_requested)
 	if not _language_material.log_requested.is_connected(_on_language_material_log):
@@ -2636,7 +2636,6 @@ func _on_reality_continue_pressed() -> void:
 func _advance_typed_reality_character() -> bool:
 	if not _reality_interaction_is_active():
 		return false
-	var actions_before := int(game.actions_remaining)
 	var result: Dictionary = game.advance_typed_reality_character()
 	if not bool(result.get("advanced", false)):
 		return false
@@ -2646,7 +2645,8 @@ func _advance_typed_reality_character() -> bool:
 			_reality_scene_adapter.clear_nearby_targets()
 		_set_reality_mouse_look(true)
 	if bool(result.get("action_spent", false)):
-		_after_effective_action(actions_before)
+		var outcome: ActionOutcomeScript = result["outcome"]
+		_present_settlement(outcome.settlement())
 	else:
 		_refresh_reality_hud_in_run()
 		_sync_audio_state(false)
@@ -3346,10 +3346,6 @@ func _show_action_feedback(outcome: ActionOutcomeScript) -> void:
 	log_text = feedback % outcome.feedback_detail if feedback.contains("%s") else feedback
 
 
-func _after_effective_action(actions_before: int = -1) -> void:
-	_present_settlement(_narrative_settlement(actions_before))
-
-
 func _present_settlement(settlement: Dictionary) -> void:
 	if not settlement.is_empty():
 		_refresh_play_surfaces()
@@ -3362,23 +3358,6 @@ func _present_settlement(settlement: Dictionary) -> void:
 	if _settle_day_and_present_rewards():
 		return
 	_refresh_play_surfaces()
-
-
-func _narrative_settlement(actions_before: int) -> Dictionary:
-	if game == null:
-		return {}
-	var spent := actions_before >= 0 and int(game.actions_remaining) < actions_before
-	var flashback := bool(game.pollution_flashback_pending)
-	if not spent and not flashback:
-		return {}
-	var settlement := {
-		"day_transition": bool(game.needs_day_settlement),
-		"flashback": flashback,
-	}
-	if spent:
-		settlement["actions_before"] = actions_before
-		settlement["actions_after"] = int(game.actions_remaining)
-	return settlement
 
 
 func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:

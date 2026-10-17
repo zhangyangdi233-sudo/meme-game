@@ -111,18 +111,19 @@ func _test_composer_drop() -> void:
 
 	var material = LanguageMaterialScript.new()
 	var logs: Array[String] = []
-	var actions: Array[int] = []
+	var actions: Array[Dictionary] = []
 	material.configure({
 		"game": func(): return game,
 		"locale": func() -> String: return "zh",
 	})
 	material.log_requested.connect(func(text: String) -> void: logs.append(text))
-	material.effective_action.connect(func(actions_before: int) -> void: actions.append(actions_before))
+	material.effective_action.connect(func(settlement: Dictionary) -> void: actions.append(settlement))
 	material.remove_at(2)
 	_assert_eq_text(game.get_free_sentence_text("zh"), "打开", "answer-tile remove should go through the module")
 	_assert_true(actions.is_empty(), "removing a tile must not count as an effective action")
 	material.submit()
 	_assert_true(not actions.is_empty(), "submit should notify the adapter through effective_action")
+	_assert_true(not actions.is_empty() and actions[0].has("actions_after"), "submit should hand the adapter the spent-action settlement")
 	_assert_true(game.get_free_sentence_units().is_empty(), "submit should clear the composer")
 	_assert_true(not logs.is_empty() and str(logs[logs.size() - 1]).begins_with("投稿已发出"), "submit should report a response tier")
 

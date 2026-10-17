@@ -4,6 +4,7 @@ extends RefCounted
 ## Language material stays in Game; it is not a Content catalog.
 
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 
 const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
@@ -13,7 +14,7 @@ const NOTEBOOK_FLIGHT_INSET := Vector2(56.0, 40.0)
 const COMPOSER_FLIGHT_INSET_Y := 20.0
 
 signal sfx_requested(kind: String)
-signal effective_action(actions_before: int)
+signal effective_action(settlement: Dictionary)
 signal ui_refresh_requested
 signal log_requested(text: String)
 signal notebook_home_requested
@@ -40,7 +41,6 @@ func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 		return {"picked": false, "reason": "no-game"}
 	var unit := str(meta)
 	var locale_code := _locale()
-	var actions_before: int = int(game.actions_remaining)
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, locale_code)
 	if bool(pick_result.get("picked", false)):
 		log_requested.emit("一个字进入了笔记本。")
@@ -48,7 +48,8 @@ func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 		notebook_home_requested.emit()
 		pickup_flight_requested.emit(unit, _mouse_origin())
 		if bool(pick_result.get("action_spent", false)):
-			effective_action.emit(actions_before)
+			var outcome: ActionOutcomeScript = pick_result["outcome"]
+			effective_action.emit(outcome.settlement())
 		else:
 			status_refresh_requested.emit()
 		return pick_result
@@ -122,7 +123,6 @@ func submit() -> Dictionary:
 	var game = _game()
 	if game == null:
 		return {"submitted": false, "reason": "no-game"}
-	var actions_before: int = int(game.actions_remaining)
 	var submit_result: Dictionary = game.submit_free_sentence(_locale())
 	if not bool(submit_result.get("submitted", false)):
 		match str(submit_result.get("reason", "")):
@@ -147,7 +147,8 @@ func submit() -> Dictionary:
 	if bool(submit_result.get("floor4_task_completed", false)):
 		log_line += "\n" + "出口开始存在。"
 	log_requested.emit(log_line)
-	effective_action.emit(actions_before)
+	var outcome: ActionOutcomeScript = submit_result["outcome"]
+	effective_action.emit(outcome.settlement())
 	return submit_result
 
 

@@ -169,7 +169,7 @@ Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new 
 | Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
 | Intent | `change_pollution(amount)`, `settle_day_if_needed()`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
 
-The adapter refreshes after its own intents (`_after_effective_action`, `_settle_day_and_present_rewards`). The left HUD and the babel app watch the models themselves while shown.
+The adapter refreshes after its own intents (`_present_settlement`, `_settle_day_and_present_rewards`). The left HUD and the babel app watch the models themselves while shown.
 
 ### Pollution / tower (legacy listing)
 
@@ -214,6 +214,8 @@ The open social app registers on both models and repaints itself, so there is no
 ### Social char pickup / free sentence
 
 `get_pickup_unit_pool()`, `is_social_char_collected()`, `get_collected_char_units()`, `pick_social_char()`, `get_free_sentence_units()`, `free_sentence_place()`, `free_sentence_remove()`, `free_sentence_place_at()`, `free_sentence_move()`, `free_sentence_clear()`, `get_free_sentence_text()`, `submit_free_sentence()`, `get_player_quote_stage()`, `get_player_echo_quote()`
+
+`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material hands its settlement to the adapter through `effective_action`.
 
 ### Char canvas
 
@@ -347,7 +349,7 @@ The action economy moved into run property models. `get_action_economy_snapshot(
 }
 ```
 
-**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps `_after_effective_action`, locked-out cleanup, and doll sync side effects. `confirm_doctor_sentence` returns an Action outcome instead, and the adapter presents its settlement.
+**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps locked-out cleanup and doll sync side effects. `advance_typed_reality_character` carries an Action outcome under `outcome`, and `confirm_doctor_sentence` returns one; the adapter presents its settlement.
 
 ---
 
@@ -366,7 +368,7 @@ The six day-progress facts moved into run property models. `day_progress_changed
 }
 ```
 
-**Adapter pattern:** the adapter no longer listens to the state. `_after_effective_action()` refreshes play surfaces before an action-spend or flashback beat, and `_settle_day_and_present_rewards()` refreshes them after a settlement. Read `day` / `tower_floor` / `pollution` straight from the state accessors; pass `get_day_progress_snapshot()` where a world dependency takes the grouped dictionary. Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish).
+**Adapter pattern:** the adapter no longer listens to the state. `_present_settlement()` refreshes play surfaces before an action-spend or flashback beat, and `_settle_day_and_present_rewards()` refreshes them after a settlement. Read `day` / `tower_floor` / `pollution` straight from the state accessors; pass `get_day_progress_snapshot()` where a world dependency takes the grouped dictionary. Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish).
 
 ---
 
