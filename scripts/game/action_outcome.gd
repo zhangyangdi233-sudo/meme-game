@@ -7,6 +7,8 @@ const PUBLISH_EMPTY := "publish_empty"
 const PUBLISH_NO_ACTION := "publish_no_action"
 const FUSION_DONE := "fusion_done"
 const FUSION_REJECTED := "fusion_rejected"
+const DOCTOR_SENTENCE_DONE := "doctor_sentence_done"
+const DOCTOR_SENTENCE_REJECTED := "doctor_sentence_rejected"
 
 var succeeded := false
 var spent_action := false

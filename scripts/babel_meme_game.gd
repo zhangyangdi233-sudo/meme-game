@@ -57,6 +57,8 @@ const ACTION_FEEDBACK_TEXT := {
 	ActionOutcomeScript.PUBLISH_NO_ACTION: "发布空格里还没有完整梗。",
 	ActionOutcomeScript.FUSION_DONE: "融合完成：%s",
 	ActionOutcomeScript.FUSION_REJECTED: "需要两个不同且尚未融合过的完整梗。",
+	ActionOutcomeScript.DOCTOR_SENTENCE_DONE: "同一句话到了医生那里，已经不是原来的样子。",
+	ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED: "句子还不完整，或者这些词还没有在手机里发布。",
 }
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
@@ -3293,14 +3295,13 @@ func _on_language_slot_pressed(slot_id: String) -> void:
 
 
 func _on_confirm_doctor_sentence_pressed() -> void:
-	var actions_before := int(game.actions_remaining)
-	if game.confirm_doctor_sentence():
-		_write_selected_language_token("")
-		log_text = "同一句话到了医生那里，已经不是原来的样子。"
-		_after_effective_action(actions_before)
-	else:
-		log_text = "句子还不完整，或者这些词还没有在手机里发布。"
+	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+	_show_action_feedback(outcome)
+	if not outcome.succeeded:
 		_refresh_reality_hud()
+		return
+	_write_selected_language_token("")
+	_present_settlement(outcome.settlement())
 
 
 func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
@@ -3332,13 +3333,17 @@ func _on_confirm_dialogue_pressed() -> void:
 
 
 func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
-	var feedback := str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
-	log_text = feedback % outcome.feedback_detail if feedback.contains("%s") else feedback
+	_show_action_feedback(outcome)
 	if not outcome.succeeded:
 		_refresh_phone_shell()
 		return
 	selected_meme_id = outcome.selected_meme_id
 	_present_settlement(outcome.settlement())
+
+
+func _show_action_feedback(outcome: ActionOutcomeScript) -> void:
+	var feedback := str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
+	log_text = feedback % outcome.feedback_detail if feedback.contains("%s") else feedback
 
 
 func _after_effective_action(actions_before: int = -1) -> void:

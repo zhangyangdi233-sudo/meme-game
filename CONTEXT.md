@@ -35,7 +35,7 @@ The Reality scene adapter's report of nearby approach, conversation, or pickup, 
 _Avoid_: publish outcome (funds/pollution), live actor/item, treating the whole nearby crowd as the API
 
 **Action outcome**:
-What one player action reports back from the state: whether it succeeded, whether it spent a daily action, a feedback key, and the settlement (flashback, day transition, actions before and after). Host presents it once instead of snapshotting the action count. Publishing and fusion return one today.
+What one player action reports back from the state: whether it succeeded, whether it spent a daily action, a feedback key, and the settlement (flashback, day transition, actions before and after). Host presents it once instead of snapshotting the action count. Publishing, fusion, and the doctor sentence return one today.
 _Avoid_: host comparing `actions_before` itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
 
 **Look pose**:

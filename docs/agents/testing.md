@@ -108,7 +108,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_doll_system` | state | doll encounters, save migration, notebook craft |
 | `test_playthrough_flow` | state | five-action phone → doctor day |
 | `test_simplified_language_core` | state | metrics, publish preview, hidden floor |
-| `test_action_outcome` | state | publish and fusion outcomes: success, spent action, feedback key, settlement (funds, pollution, flashback, day change) |
+| `test_action_outcome` | state | publish, fusion, and doctor sentence outcomes: success, spent action, feedback key, settlement (funds, pollution, flashback, day change) |
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |

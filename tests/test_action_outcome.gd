@@ -20,6 +20,9 @@ func _run() -> void:
 	test_fusion_on_last_action_reports_day_transition()
 	test_fusion_of_unready_slots_spends_nothing()
 	test_fusion_of_already_fused_pair_spends_nothing()
+	test_doctor_sentence_reports_spent_action()
+	test_doctor_sentence_on_last_action_reports_day_transition()
+	test_incomplete_doctor_sentence_spends_nothing()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -139,6 +142,58 @@ func test_fusion_of_already_fused_pair_spends_nothing() -> void:
 	_assert_true(not outcome.succeeded, "the same pair should not fuse twice")
 	_assert_eq(outcome.feedback_key, ActionOutcomeScript.FUSION_REJECTED, "a repeated pair should name the rejected feedback")
 	_assert_eq(game.actions_remaining, actions_before, "a repeated pair should not spend an action")
+
+
+func test_doctor_sentence_reports_spent_action() -> void:
+	var game := _ready_to_speak()
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+	_assert_true(outcome.succeeded, "a complete doctor sentence should resolve")
+	_assert_true(outcome.spent_action, "speaking to the doctor should spend an action")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.DOCTOR_SENTENCE_DONE, "it should name the doctor done feedback")
+	_assert_eq(outcome.settlement(), {
+		"day_transition": false,
+		"flashback": false,
+		"actions_before": actions_before,
+		"actions_after": actions_before - 1,
+	}, "the settlement should carry the spent action")
+
+
+func test_doctor_sentence_on_last_action_reports_day_transition() -> void:
+	var game := _ready_to_speak()
+	game.actions_remaining = 1
+	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+	_assert_true(outcome.day_transition, "speaking on the last action should end the day")
+	_assert_eq(outcome.settlement().get("actions_after", -1), 0, "the settlement should show no actions left")
+
+
+func test_incomplete_doctor_sentence_spends_nothing() -> void:
+	var game := _ready_to_speak()
+	game.clear_language_sentence()
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+	_assert_true(not outcome.succeeded, "an empty doctor sentence should not resolve")
+	_assert_true(not outcome.spent_action, "a rejected sentence should not spend an action")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED, "it should name the rejected feedback")
+	_assert_eq(outcome.settlement(), {}, "a rejected sentence should need no settlement")
+	_assert_eq(game.actions_remaining, actions_before, "the action count should stay the same")
+
+
+func _ready_to_speak() -> RefCounted:
+	var game := Harness.new_state()
+	var tokens := [
+		_note_token("subject-1", "我", "speaker.self", ["subject"], "本账号", "患者", "你"),
+		_note_token("action-1", "看见", "perceive.see", ["action"], "捕获", "报告", "记得"),
+		_note_token("object-1", "塔", "place.tower", ["object"], "信号塔", "病区", "出口"),
+	]
+	for token: Dictionary in tokens:
+		token["used_worlds"] = ["phone"]
+	game.notebook_tokens = tokens
+	game.start_typed_reality_conversation("doctor_floor1", "doctor", "医生")
+	game.place_language_token("subject", "subject-1", "doctor")
+	game.place_language_token("action", "action-1", "doctor")
+	game.place_language_token("object", "object-1", "doctor")
+	return game
 
 
 func _ready_to_fuse() -> RefCounted:

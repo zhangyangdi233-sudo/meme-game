@@ -613,7 +613,7 @@ func test_doctor_sentence_uses_authored_surfaces_and_adds_pollution() -> void:
 	_assert_eq(str(preview.get("world_sentence", "")), "患者报告病区。", "doctor bridge should use authored clinical surfaces")
 	var money_before: int = game.money
 	var pollution_before: int = game.pollution
-	_assert_true(game.confirm_doctor_sentence(), "a complete doctor sentence should resolve")
+	_assert_true(game.confirm_doctor_sentence().succeeded, "a complete doctor sentence should resolve")
 	_assert_eq(game.actions_remaining, 4, "speaking to the doctor should spend exactly one action")
 	_assert_eq(game.money, money_before, "doctor dialogue should never grant or remove money")
 	_assert_true(game.pollution > pollution_before, "using phone words with the doctor should increase pollution")

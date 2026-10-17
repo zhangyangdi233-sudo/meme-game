@@ -215,7 +215,7 @@ func _test_english_reality_dialogue_uses_words() -> void:
 	var preview: Dictionary = game.get_language_sentence_preview("doctor")
 	_assert_eq(str(preview.get("clean_sentence", "")), "I remember home.", "English clean language should join whole words with spaces")
 	_assert_eq(str(preview.get("world_sentence", "")), "the patient reports a recurring room.", "English doctor language should use authored whole-word surfaces")
-	_assert_true(game.confirm_doctor_sentence(), "complete English doctor sentence should resolve")
+	_assert_true(game.confirm_doctor_sentence().succeeded, "complete English doctor sentence should resolve")
 	_assert_true(not game.last_clean_sentence.contains("Hajimi"), "removed legacy text should never be injected into the sentence")
 
 

@@ -60,7 +60,7 @@ func test_five_action_phone_day_carries_published_words_into_doctor_dialogue() -
 	_assert_eq(str(doctor_preview.get("world_sentence", "")), "患者报告病区。", "the same lexemes should become an authored doctor sentence")
 	var money_before: int = game.money
 	var pollution_before: int = game.pollution
-	_assert_true(game.confirm_doctor_sentence(), "doctor sentence should resolve without any legacy tile")
+	_assert_true(game.confirm_doctor_sentence().succeeded, "doctor sentence should resolve without any legacy tile")
 	_assert_eq(game.actions_remaining, 4, "doctor confirmation should spend one action")
 	_assert_eq(game.money, money_before, "doctor dialogue should not change money")
 	_assert_true(game.pollution > pollution_before, "cross-world reuse should increase pollution")

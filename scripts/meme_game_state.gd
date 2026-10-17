@@ -2201,14 +2201,15 @@ func get_language_sentence_preview(world: String = "doctor") -> Dictionary:
 	return LanguageBridgeScript.compose_sentence(language_sentence_slots, notebook_tokens, world, conversation_locale)
 
 
-func confirm_doctor_sentence() -> bool:
+func confirm_doctor_sentence() -> ActionOutcomeScript:
 	if conversation_mode != "lexeme" or conversation_phase != "composing":
-		return false
+		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
 	var composition := get_language_sentence_preview("doctor")
 	if not bool(composition.get("valid", false)):
-		return false
+		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
+	var actions_before := actions_remaining
 	if not spend_action("doctor-dialogue"):
-		return false
+		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
 
 	var token_ids: Array = composition.get("token_ids", [])
 	var doctor_sentence := str(composition.get("world_sentence", ""))
@@ -2255,11 +2256,11 @@ func confirm_doctor_sentence() -> bool:
 	conversation_history.append(record.duplicate(true))
 	clear_language_sentence()
 	notify_tutorial("doctor_spoken", {"sentence_id": str(record.get("id", ""))})
-	return true
+	return _spent_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_DONE, actions_before)
 
 
 func confirm_reality_dialogue() -> bool:
-	return confirm_doctor_sentence()
+	return confirm_doctor_sentence().succeeded
 
 
 func get_relationship_state_label() -> String:
