@@ -3,6 +3,8 @@ extends SceneTree
 
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const FONT_GRID := 9
 const FONT_MIN := 9
@@ -23,6 +25,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_test_bound_returns_the_registered_theme_or_null()
 	_assert_true(FileAccess.file_exists(FONT_PATH), "the pixel font should ship with the project")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9-OFL.txt"), "the OFL license text must ship alongside the font")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/FONT_PROVENANCE.md"), "font provenance should be documented")
@@ -85,6 +88,15 @@ func _run() -> void:
 	ui_theme.apply_ui_font_theme(themed_root)
 	_assert_true(themed_root.theme == wired_theme, "apply_ui_font_theme should wire the built theme onto controls")
 	themed_root.free()
+
+
+func _test_bound_returns_the_registered_theme_or_null() -> void:
+	RegistryScript.clear()
+	_assert_true(GameUiThemeScript.bound() == null, "bound() should be null when no theme is registered")
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	_assert_true(GameUiThemeScript.bound() == theme, "bound() should return the theme registered under UI_THEME")
+	RegistryScript.clear()
 
 
 func _assert_true(condition: bool, message: String) -> void:

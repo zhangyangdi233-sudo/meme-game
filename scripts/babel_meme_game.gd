@@ -275,9 +275,7 @@ func _social_feed_source() -> GameSocialFeedSource:
 ## Binds this host's social source as a service so the social panel can resolve it.
 ## A source left by an earlier host is replaced, like the UI theme.
 func _bind_social_feed_source() -> void:
-	if ServiceRegistryScript.has(ServiceKeysScript.SOCIAL_FEED_SOURCE):
-		ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, ServiceRegistryScript.resolve(ServiceKeysScript.SOCIAL_FEED_SOURCE))
-	ServiceRegistryScript.bind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_feed_source())
+	_rebind_service(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_feed_source())
 
 
 func _on_camera_tracking_ui_changed() -> void:
@@ -832,6 +830,7 @@ func _build_world(build_playable_floor: bool = true) -> void:
 		_screen_manager.retain()
 	# The window manager is freed with the other children; the next one binds itself.
 	ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
+	_window_manager = null
 	for child in get_children():
 		if child == _reality_scene_adapter or child == _narrative_director or child == _screen_manager:
 			continue
@@ -1642,9 +1641,14 @@ func _ensure_screen_manager() -> void:
 ## Binds this host's UI theme as a service so panels can resolve it instead of taking theme callables.
 ## A theme left by an earlier host is replaced, so that host's exit cannot unbind the theme in use.
 func _bind_ui_theme() -> void:
-	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
-		ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME))
-	ServiceRegistryScript.bind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
+	_rebind_service(ServiceKeysScript.UI_THEME, _ui_theme_helper)
+
+
+## Binds this host's service under the key, replacing whatever an earlier host left there.
+func _rebind_service(key: String, service: Object) -> void:
+	if ServiceRegistryScript.has(key):
+		ServiceRegistryScript.unbind(key, ServiceRegistryScript.resolve(key))
+	ServiceRegistryScript.bind(key, service)
 
 
 ## Binds the UI event bus as a service so runtime-built controls can resolve it.
@@ -2767,9 +2771,7 @@ func _ensure_window_manager() -> void:
 ## Binds this host's window manager as a service so panels can register their own drag handles.
 ## A manager left by an earlier host is replaced, like the UI theme.
 func _bind_window_manager() -> void:
-	if ServiceRegistryScript.has(ServiceKeysScript.WINDOW_MANAGER):
-		ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, ServiceRegistryScript.resolve(ServiceKeysScript.WINDOW_MANAGER))
-	ServiceRegistryScript.bind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
+	_rebind_service(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
 
 
 func _sync_window_manager_enabled() -> void:

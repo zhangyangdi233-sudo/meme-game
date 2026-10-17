@@ -6,8 +6,7 @@ class_name CameraSession
 const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 
 signal tracking_ui_changed()
 
@@ -198,8 +197,9 @@ func refresh_status_ui() -> void:
 	if status_label == null:
 		return
 	status_label.text = HandTrackingStatusScript.display_text(tracking_status)
-	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
-		(ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme).set_localized_property(status_label, "text")
+	var theme := GameUiThemeScript.bound()
+	if theme != null:
+		theme.set_localized_property(status_label, "text")
 
 
 func capture_phone_layer_for_xray(deps: Dictionary) -> bool:

@@ -5,6 +5,8 @@ class_name GameUiTheme
 const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
 const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const PaletteSceneRootScript = preload("res://scripts/ui/palette_scene_root.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 var ui_font_path := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 var ui_font_grid := 9
@@ -14,6 +16,13 @@ var ui_font_max_size := 45
 var _ui_theme: Theme
 var _locale_translate: Callable = Callable()
 var _pollution_stage_fn: Callable = Callable()
+
+
+## The theme the host bound under ServiceKeys.UI_THEME, or null when none is bound.
+static func bound() -> GameUiTheme:
+	if not ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
+		return null
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
 
 
 func configure(deps: Dictionary) -> void:
