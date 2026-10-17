@@ -206,7 +206,8 @@ func play_pollution_flashback() -> void:
 		_play_flashback_visual()
 
 
-## A beat that also has a day transition already settled the day there; asking again settles nothing.
+## Only a finish heard while the beat is on its flashback settles; in a beat with a day transition the day is
+## already settled, so the host settles nothing more.
 func _on_flashback_finished(_payload: Dictionary) -> void:
 	var on_segment: bool = _beat != null and str(_beat.current_segment()) == "flashback"
 	_stop_flashback_presentation()
