@@ -23,6 +23,7 @@ func _run() -> void:
 	test_doctor_sentence_reports_spent_action()
 	test_doctor_sentence_on_last_action_reports_day_transition()
 	test_incomplete_doctor_sentence_spends_nothing()
+	test_doctor_sentence_without_actions_left_spends_nothing()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -177,6 +178,16 @@ func test_incomplete_doctor_sentence_spends_nothing() -> void:
 	_assert_eq(outcome.feedback_key, ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED, "it should name the rejected feedback")
 	_assert_eq(outcome.settlement(), {}, "a rejected sentence should need no settlement")
 	_assert_eq(game.actions_remaining, actions_before, "the action count should stay the same")
+
+
+func test_doctor_sentence_without_actions_left_spends_nothing() -> void:
+	var game := _ready_to_speak()
+	game.actions_remaining = 0
+	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+	_assert_true(not outcome.succeeded, "speaking with no actions left should fail")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED, "it should name the rejected feedback")
+	_assert_eq(outcome.settlement(), {}, "a rejected sentence should need no settlement")
+	_assert_eq(game.sentence_records.size(), 0, "a rejected sentence should leave no record")
 
 
 func _ready_to_speak() -> RefCounted:

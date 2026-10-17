@@ -347,7 +347,7 @@ The action economy moved into run property models. `get_action_economy_snapshot(
 }
 ```
 
-**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps `_after_effective_action`, locked-out cleanup, and doll sync side effects.
+**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps `_after_effective_action`, locked-out cleanup, and doll sync side effects. `confirm_doctor_sentence` returns an Action outcome instead, and the adapter presents its settlement.
 
 ---
 
