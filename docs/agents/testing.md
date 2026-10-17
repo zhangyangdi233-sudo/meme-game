@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (103 tests)
+## What runs (104 tests)
 
-### GDScript (101)
+### GDScript (102)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -119,7 +119,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab; every notebook action raises its intent with the right name and payload |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
-| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
 | `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the tutorial post count, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
 | `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, fills the fusion slots from the `selected_meme` model, fuses, words the feedback line, and returns the presentation |
 | `test_doctor_sentence_intent_handler` | module | on an empty bus, the doctor sentence handler keeps the `selected_language_token` model, places tokens in the doctor's slots, words the refusals, clears the selection once a sentence is spoken, and returns the presentation |
@@ -129,7 +129,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
 | `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` while in the tree and restarts the cue's player |
-| `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree |
+| `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree and translates it through the bound UI theme |
+| `test_camera_session_status` | module | the camera session words its status label and translates it through the bound UI theme, again after a language switch |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
@@ -139,7 +140,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement |
 | `test_main_scene` | **adapter** | integration smoke |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
-| `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
+| `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
 | `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS, history, exit request and the settings button to the settings handler and presents them; closing by model restores the chrome |
 | `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps, craft, fusion drops and fuse to the notebook handler and presents the submit and the action |

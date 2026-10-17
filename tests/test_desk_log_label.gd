@@ -6,6 +6,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const DeskLogScript = preload("res://scripts/ui/desk_log_label.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 
 var _failures: Array[String] = []
 
@@ -22,7 +23,8 @@ func _run_deferred() -> void:
 	_test_later_writes_repaint_the_log()
 	_test_a_removed_log_ignores_later_writes()
 	_test_a_re_added_log_shows_the_latest_text()
-	_test_each_repaint_runs_the_localizer()
+	_test_each_repaint_runs_the_bound_theme_localizer()
+	_test_a_log_without_a_theme_shows_the_raw_text()
 	if _failures.is_empty():
 		print("desk log label tests passed")
 		quit(0)
@@ -73,12 +75,23 @@ func _test_a_re_added_log_shows_the_latest_text() -> void:
 	log.free()
 
 
-func _test_each_repaint_runs_the_localizer() -> void:
+func _test_each_repaint_runs_the_bound_theme_localizer() -> void:
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	theme.configure({"locale_translate": func(source: String) -> String: return "[%s]" % source})
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
 	var log: Label = DeskLogScript.new()
-	log.localize = func(label: Label) -> void: label.text = "[%s]" % label.text
 	root.add_child(log)
 	_feedback().write("四")
-	_assert_eq(log.text, "[四]", "a repaint should localize the new text")
+	_assert_eq(log.text, "[四]", "a repaint should localize the new text through the bound theme")
+	log.free()
+	RegistryScript.unbind(ServiceKeysScript.UI_THEME, theme)
+
+
+func _test_a_log_without_a_theme_shows_the_raw_text() -> void:
+	var log: Label = DeskLogScript.new()
+	root.add_child(log)
+	_feedback().write("五")
+	_assert_eq(log.text, "五", "with no theme bound the log should show the text as written")
 	log.free()
 
 

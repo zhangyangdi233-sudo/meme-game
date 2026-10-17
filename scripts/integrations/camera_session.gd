@@ -6,6 +6,8 @@ class_name CameraSession
 const HandTrackingReceiverScript = preload("res://framework/integrations/hand_tracking_receiver.gd")
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const HandXRayOverlayScript = preload("res://framework/ui/hand_xray_overlay.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 signal tracking_ui_changed()
 
@@ -78,7 +80,7 @@ func set_enabled(value: bool, deps: Dictionary, persist: bool = true) -> void:
 	if hand_xray_overlay != null:
 		hand_xray_overlay.set_tracking_enabled(value)
 	refresh_source_buttons()
-	refresh_status_ui(deps)
+	refresh_status_ui()
 	if value and source == "phone":
 		var on_phone: Callable = deps.get("on_phone_source_enabled", Callable())
 		if on_phone.is_valid():
@@ -111,7 +113,7 @@ func set_source(value: String, deps: Dictionary, persist: bool = true) -> void:
 		tracking_status = hand_tracking_receiver.get_status()
 	sync_source_options()
 	refresh_source_buttons()
-	refresh_status_ui(deps)
+	refresh_status_ui()
 	if source == "computer":
 		var hide_phone: Callable = deps.get("hide_phone_connection_overlay", Callable())
 		if hide_phone.is_valid():
@@ -191,12 +193,13 @@ func refresh_source_buttons() -> void:
 		phone_button.set_meta("camera_source_ready", ready_source == "phone")
 
 
-func refresh_status_ui(deps: Dictionary) -> void:
-	if status_label != null:
-		status_label.text = HandTrackingStatusScript.display_text(tracking_status)
-		var localize: Callable = deps.get("set_localized_property", Callable())
-		if localize.is_valid():
-			localize.call(status_label, "text")
+## Words the status label from the tracking status, translated through the bound UI theme.
+func refresh_status_ui() -> void:
+	if status_label == null:
+		return
+	status_label.text = HandTrackingStatusScript.display_text(tracking_status)
+	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
+		(ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme).set_localized_property(status_label, "text")
 
 
 func capture_phone_layer_for_xray(deps: Dictionary) -> bool:

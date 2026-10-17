@@ -11,6 +11,7 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const SocialFeedSourceScript = preload("res://scripts/game/social_feed_source.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const DraggableWindowManagerScript = preload("res://framework/ui/draggable_window_manager.gd")
 
 const POSTS := [
 	{"id": "post-a", "caption": "甲"},
@@ -20,7 +21,6 @@ const POSTS := [
 
 var _failures: Array[String] = []
 var _heard: Array = []
-var _draggables: Array = []
 
 
 func _init() -> void:
@@ -37,7 +37,8 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_test_painting_reads_the_bound_source_and_announces_drag_handles()
+	_test_painting_reads_the_bound_source_and_registers_drag_handles()
+	_test_the_panel_keeps_no_signal_for_the_host()
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_following_and_liking_repaint_the_open_feed()
 	_test_the_following_channel_lists_followed_authors_only()
@@ -68,14 +69,22 @@ func _run() -> void:
 	_test_the_publish_page_belongs_to_its_own_panel()
 
 
-func _test_painting_reads_the_bound_source_and_announces_drag_handles() -> void:
+func _test_painting_reads_the_bound_source_and_registers_drag_handles() -> void:
 	var mounted := _mount()
 	(mounted["panel"] as SocialFeedPanel).render_app()
 	_assert_true(_find(mounted, "SocialChannelTabtower_base") != null, "painting should build the source's channels")
-	var ids: Array = _draggables.map(func(entry: Array) -> String: return str(entry[1]))
-	_assert_true("app:social" in ids, "painting should announce the app window's drag handle")
-	_assert_true("social-detail" in ids, "mounting should announce the detail window's drag handles")
+	var windows: DraggableWindowManager = mounted["windows"]
+	_assert_true(windows.get_registered_window("app:social") != null, "painting should register the app window with the bound window manager")
+	_assert_true(windows.get_registered_window("social-detail") != null, "mounting should register the detail window with the bound window manager")
+	for handle_name in ["SocialPhoneStatusBar", "SocialDetailWindowHandle"]:
+		var handle := _find(mounted, handle_name)
+		_assert_true(handle != null and bool(handle.get_meta("drag_handle", false)), "%s should be a registered drag handle" % handle_name)
 	_dispose(mounted)
+
+
+func _test_the_panel_keeps_no_signal_for_the_host() -> void:
+	var signals: Array = (SocialFeedPanel as Script).get_script_signal_list()
+	_assert_eq(signals.map(func(entry: Dictionary) -> String: return str(entry["name"])), [], "the social panel should declare no signal for the host to connect")
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -192,7 +201,6 @@ func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
 	_heard.clear()
-	_draggables.clear()
 	var bus: GameEventBus = GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
@@ -204,13 +212,15 @@ func _mount() -> Dictionary:
 	var panel := SocialFeedPanel.new()
 	panel.name = "SocialFeedPanel"
 	root.add_child(panel)
-	panel.draggable_handle_built.connect(func(window: Control, window_id: String, handle: Control) -> void:
-		_draggables.append([window, window_id, handle]))
+	var windows: DraggableWindowManager = DraggableWindowManagerScript.new()
+	parent.add_child(windows)
+	RegistryScript.bind(ServiceKeysScript.WINDOW_MANAGER, windows)
 	_bind_source()
 	panel.mount(parent)
 	return {
 		"parent": parent,
 		"panel": panel,
+		"windows": windows,
 		"followed": manager.model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES),
 		"liked": manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS),
 		"held": manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS),

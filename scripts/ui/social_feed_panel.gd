@@ -7,9 +7,7 @@ extends Node
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
-
-## A window's drag handle is built; the host registers it so the player can drag the window.
-signal draggable_handle_built(window: Control, window_id: String, handle: Control)
+## Its windows' drag handles go to the window manager bound in the service registry.
 
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -242,7 +240,7 @@ func render_app() -> void:
 	status_bar.mouse_filter = Control.MOUSE_FILTER_STOP
 	status_bar.add_theme_constant_override("separation", 6)
 	phone_box.add_child(status_bar)
-	draggable_handle_built.emit(_app_window, "app:social", status_bar)
+	_register_drag_handle(_app_window, "app:social", status_bar)
 	var time_label := _theme().label("9:41", 14, _theme().theme_color("ink")) as Label
 	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	time_label.custom_minimum_size.x = 40
@@ -393,8 +391,8 @@ func _build_social_detail_window(parent: Control) -> void:
 	_detail_title.mouse_filter = Control.MOUSE_FILTER_STOP
 	_detail_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_detail_title)
-	draggable_handle_built.emit(_detail_window, "social-detail", header)
-	draggable_handle_built.emit(_detail_window, "social-detail", _detail_title)
+	_register_drag_handle(_detail_window, "social-detail", header)
+	_register_drag_handle(_detail_window, "social-detail", _detail_title)
 
 	var close_button := Button.new()
 	close_button.name = "SocialDetailWindowCloseButton"
@@ -1065,3 +1063,10 @@ func _clear(node: Node) -> void:
 ## The UI theme bound by the host; panels resolve it instead of taking theme callables.
 func _theme() -> GameUiTheme:
 	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+
+
+## Hands a window's title handle to the bound window manager, so the player can drag that window.
+func _register_drag_handle(window: Control, window_id: String, handle: Control) -> void:
+	if not ServiceRegistryScript.has(ServiceKeysScript.WINDOW_MANAGER):
+		return
+	(ServiceRegistryScript.resolve(ServiceKeysScript.WINDOW_MANAGER) as DraggableWindowManager).register(window, window_id, handle)

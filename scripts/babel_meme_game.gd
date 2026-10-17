@@ -246,7 +246,6 @@ func _camera_session_deps() -> Dictionary:
 		"on_camera_disabled": _hide_phone_camera_connection_overlay,
 		"hide_phone_connection_overlay": _hide_phone_camera_connection_overlay,
 		"refresh_phone_connection_ui": _refresh_phone_camera_connection_ui,
-		"set_localized_property": _ui_theme_helper.set_localized_property,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 		"ui_root": _ui_root,
 		"phone_down_backdrop_image": _phone_down_backdrop_image,
@@ -285,7 +284,7 @@ func _on_camera_tracking_ui_changed() -> void:
 	if _camera_session == null:
 		return
 	_camera_session.refresh_source_buttons()
-	_camera_session.refresh_status_ui(_camera_session_deps())
+	_camera_session.refresh_status_ui()
 	_refresh_phone_camera_connection_ui()
 
 
@@ -367,6 +366,7 @@ func _exit_tree() -> void:
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
+	ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		var volume := _master_volume_model()
 		if volume != null:
@@ -830,6 +830,8 @@ func _build_world(build_playable_floor: bool = true) -> void:
 	_phone_camera_connection_panel = null
 	if _screen_manager != null and is_instance_valid(_screen_manager):
 		_screen_manager.retain()
+	# The window manager is freed with the other children; the next one binds itself.
+	ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
 	for child in get_children():
 		if child == _reality_scene_adapter or child == _narrative_director or child == _screen_manager:
 			continue
@@ -1244,7 +1246,7 @@ func _refresh_camera_source_buttons() -> void:
 func _refresh_camera_status_ui() -> void:
 	if _camera_session != null:
 		_camera_session.status_label = _camera_status_label
-		_camera_session.refresh_status_ui(_camera_session_deps())
+		_camera_session.refresh_status_ui()
 
 
 func _build_hand_xray_overlay() -> void:
@@ -1340,7 +1342,6 @@ func _build_ui() -> void:
 	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
 	_desk_log = DeskLogLabelScript.new()
-	_desk_log.localize = _ui_theme_helper.set_localized_property.bind("text")
 	_desk_log.add_theme_font_size_override("font_size", _ui_theme_helper.ui_font_size(16))
 	_desk_log.add_theme_color_override("font_color", _ui_theme_helper.theme_color("accent"))
 	_desk_log.name = "DeskLog"
@@ -1825,7 +1826,6 @@ func _ensure_social_feed_panel() -> void:
 	_ensure_window_manager()
 	_social_feed_panel = SocialFeedPanelScript.new()
 	_social_feed_panel.name = "SocialFeedPanel"
-	_social_feed_panel.draggable_handle_built.connect(_window_manager.register)
 	add_child(_social_feed_panel)
 
 
@@ -2760,7 +2760,16 @@ func _ensure_window_manager() -> void:
 		DraggableWindowManager.DEFAULT_VISIBLE_EDGE,
 		DraggableWindowManager.DEFAULT_BOTTOM_INSET
 	)
+	_bind_window_manager()
 	_sync_window_manager_enabled()
+
+
+## Binds this host's window manager as a service so panels can register their own drag handles.
+## A manager left by an earlier host is replaced, like the UI theme.
+func _bind_window_manager() -> void:
+	if ServiceRegistryScript.has(ServiceKeysScript.WINDOW_MANAGER):
+		ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, ServiceRegistryScript.resolve(ServiceKeysScript.WINDOW_MANAGER))
+	ServiceRegistryScript.bind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
 
 
 func _sync_window_manager_enabled() -> void:
