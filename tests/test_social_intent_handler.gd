@@ -100,16 +100,16 @@ func _test_it_claims_every_social_intent_and_nothing_else() -> void:
 func _test_page_changes_ask_the_host_to_re_theme() -> void:
 	_boot()
 	var channel := _raise(UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: "following"})
-	_assert_presents(channel, IntentResultScript.SOCIAL_PAGE_CHANGED, "a channel tab")
+	_assert_presents(channel, SocialIntentHandlerScript.PAGE_CHANGED, "a channel tab")
 	var screen := _raise(UiIntentsScript.SOCIAL_SCREEN_REQUESTED, {UiIntentsScript.KEY_SCREEN: "profile"})
-	_assert_presents(screen, IntentResultScript.SOCIAL_PAGE_CHANGED, "a nav button")
+	_assert_presents(screen, SocialIntentHandlerScript.PAGE_CHANGED, "a nav button")
 
 
 func _test_a_card_counts_the_opened_post_for_the_tutorial() -> void:
 	_boot()
 	_game.tutorial_progress = {"current_step_id": "open_post", "completed_step_ids": ["find_guide", "open_social"]}
 	var result := _raise(UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: 2})
-	_assert_presents(result, IntentResultScript.SOCIAL_PAGE_CHANGED, "a card")
+	_assert_presents(result, SocialIntentHandlerScript.PAGE_CHANGED, "a card")
 	_assert_eq(str(_game.tutorial_progress.get("current_step_id", "")), "collect_words", "opening a post should finish the tutorial step")
 
 
@@ -136,10 +136,10 @@ func _test_closing_the_window_and_the_detail() -> void:
 	var close := _raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
 	_assert_true(not _game.is_app_window_open("social"), "a close intent should close the social window")
 	_assert_eq(_feedback(), "关闭 social 窗口。", "closing should word its feedback")
-	_assert_presents(close, IntentResultScript.SOCIAL_WINDOW_CLOSED, "a close")
+	_assert_presents(close, SocialIntentHandlerScript.WINDOW_CLOSED, "a close")
 	var detail := _raise(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED)
 	_assert_eq(_feedback(), "关闭社交详情。", "closing the detail should word its feedback")
-	_assert_presents(detail, IntentResultScript.SOCIAL_PAGE_CHANGED, "a detail close")
+	_assert_presents(detail, SocialIntentHandlerScript.PAGE_CHANGED, "a detail close")
 
 
 func _test_the_publish_confirm_returns_the_publish_outcome() -> void:
@@ -156,9 +156,9 @@ func _test_pickup_and_composer_intents_build_and_post_a_sentence() -> void:
 	_boot()
 	var pickup := _raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	_assert_true(_game.is_social_char_collected("门", "zh"), "a pickup intent should collect the word")
-	_assert_presents(pickup, IntentResultScript.PICKUP, "a pickup")
+	_assert_presents(pickup, SocialIntentHandlerScript.PICKUP, "a pickup")
 	if pickup != null:
-		_assert_eq(pickup.picked_unit, "门", "a pickup should name the picked word for its flight")
+		_assert_eq(pickup.unit, "门", "a pickup should name the picked word for its flight")
 		_assert_true(pickup.outcome != null and pickup.outcome.succeeded, "a pickup should carry its outcome")
 	_raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "开", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	var area := _raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})

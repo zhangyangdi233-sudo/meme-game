@@ -1,5 +1,6 @@
 extends SceneTree
-## In the main scene, the host's handler writes volume and autoplay into their models and routes the rest.
+## Routing smoke: in the main scene, the host hands settings intents to the settings handler and presents the
+## result. What each intent writes is covered by test_settings_intent_handler.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -27,14 +28,12 @@ func _run_async() -> void:
 
 		var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 		var volume := manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
-		var autoplay := manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
 
 		GameEventBus.raise(UiIntentsScript.VOLUME_CHANGED, {UiIntentsScript.KEY_VALUE: 37.0})
-		_assert_eq(float(volume.read()), 37.0, "a volume intent should write the volume model")
-		GameEventBus.raise(UiIntentsScript.AUTOPLAY_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
-		_assert_eq(bool(autoplay.read()), true, "an autoplay intent should write the autoplay model")
-		GameEventBus.raise(UiIntentsScript.AUTOPLAY_TOGGLED, {UiIntentsScript.KEY_VALUE: false})
-		_assert_eq(bool(autoplay.read()), false, "a second autoplay intent should write the model again")
+		_assert_eq(float(volume.read()), 37.0, "the host should route a volume intent to the settings handler")
+		GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: false})
+		_assert_eq(game_root._vhs_enabled, false, "the host should present a VHS toggle")
+		GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
 
 		var settings := game_root.find_child("SettingsWindow", true, false) as Control
 		GameEventBus.raise(UiIntentsScript.SETTINGS_PRESSED)

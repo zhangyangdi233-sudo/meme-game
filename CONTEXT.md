@@ -71,7 +71,7 @@ How any UI tells the host what the player did. The control emits on the game eve
 _Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
 **Intent handler**:
-A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. The social feed's `SocialIntentHandler` is the first. See ADR 0007.
+A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. Each extends the `@abstract` `IntentHandler`; the social feed, the notebook, the doctor sentence composer and the settings window have one. A domain's own presentation kinds live on its handler; `IntentResult` keeps the shared ones. See ADR 0007.
 _Avoid_: a handler subscribing to the bus itself, a handler reaching into host nodes, the host writing state for an intent a handler claims
 
 **Service registry**:

@@ -6,10 +6,7 @@ extends RefCounted
 
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
-const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
-const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const GameModelsScript = preload("res://scripts/game/game_models.gd")
 
 const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
@@ -225,11 +222,7 @@ static func _word_boundary_ok(text: String, start_index: int, unit_length: int) 
 
 
 func _write_feedback(text: String) -> void:
-	PropertyBootScript.install()
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return
-	(manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).write(text)
+	GameModelsScript.write_feedback(text)
 
 
 func _locale_code() -> String:

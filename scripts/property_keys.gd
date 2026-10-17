@@ -57,6 +57,8 @@ const WORLD_RULES := "world_rules"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"
 const SELECTED_LANGUAGE_TOKEN := "selected_language_token"
+## The meme the fusion slots take on a press: the last one dropped, fused or published. Not saved; a new run or a settled day clears it.
+const SELECTED_MEME := "selected_meme"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
 const FEEDBACK_TEXT := "feedback_text"
 
@@ -136,6 +138,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": SETTINGS_OPEN, "initial": false, "save": NOT_SAVED},
 	{"name": SAVE_STATUS, "initial": "", "save": NOT_SAVED},
 	{"name": SELECTED_LANGUAGE_TOKEN, "initial": "", "save": NOT_SAVED},
+	{"name": SELECTED_MEME, "initial": "", "save": NOT_SAVED},
 	{"name": FEEDBACK_TEXT, "initial": "", "save": NOT_SAVED},
 ]
 

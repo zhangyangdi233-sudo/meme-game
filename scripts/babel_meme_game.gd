@@ -40,6 +40,10 @@ const LanguageMaterialScript = preload("res://scripts/game/language_material.gd"
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const IntentResultScript = preload("res://scripts/game/intent_result.gd")
 const SocialIntentHandlerScript = preload("res://scripts/game/social_intent_handler.gd")
+const NotebookIntentHandlerScript = preload("res://scripts/game/notebook_intent_handler.gd")
+const DoctorSentenceIntentHandlerScript = preload("res://scripts/game/doctor_sentence_intent_handler.gd")
+const SettingsIntentHandlerScript = preload("res://scripts/game/settings_intent_handler.gd")
+const GameModelsScript = preload("res://scripts/game/game_models.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
@@ -109,7 +113,6 @@ const WORLD_HOTKEY_ACTIONS := [
 
 var game: MemeGameState = MemeGameStateScript.new()
 var _locale = GameLocaleScript.new()
-var selected_meme_id := ""
 var _phone_sway_time := 0.0
 
 var _camera: Camera3D
@@ -151,6 +154,11 @@ var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
 var _language_presenter: LanguagePresenter
 var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
+var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScript.new()
+var _doctor_sentence_intent_handler: DoctorSentenceIntentHandler = DoctorSentenceIntentHandlerScript.new()
+var _settings_intent_handler: SettingsIntentHandler = SettingsIntentHandlerScript.new()
+## Asked in turn for every intent; the first that claims it handles it and the host presents the result (ADR 0007).
+var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _doctor_sentence_intent_handler, _settings_intent_handler]
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
 var _babel_app_panel: BabelAppPanel
@@ -501,7 +509,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 		_language_material.configure(game, _locale)
 	_social_feed_source().configure(game, _locale, _language_material)
 	_migrate_social_author_ids()
-	selected_meme_id = ""
+	_write_selected_meme("")
 	if _social_feed_panel != null:
 		_social_feed_panel.reset_view()
 	if _notebook_app_panel != null:
@@ -1651,9 +1659,11 @@ func _ensure_ui_event_bus() -> void:
 
 
 func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
-	if _social_intent_handler.handles(intent_name):
-		_present_intent_result(_configured_social_intent_handler().handle(intent_name, payload))
-		return
+	for handler in _intent_handlers:
+		if handler.handles(intent_name):
+			_configure_intent_handlers()
+			_present_intent_result(handler.handle(intent_name, payload))
+			return
 	match intent_name:
 		UiIntentsScript.START_GAME:
 			new_game.call_deferred()
@@ -1670,24 +1680,6 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 				_on_settings_language_selected(locale_code)
 			else:
 				_on_language_selected(locale_code)
-		UiIntentsScript.VOLUME_CHANGED:
-			_on_volume_changed(float(payload.get(UiIntentsScript.KEY_VALUE, 0.0)))
-		UiIntentsScript.AUTOPLAY_TOGGLED:
-			_on_autoplay_toggled(bool(payload.get(UiIntentsScript.KEY_VALUE, false)))
-		UiIntentsScript.VHS_TOGGLED:
-			_on_vhs_toggled(bool(payload.get(UiIntentsScript.KEY_VALUE, false)))
-		UiIntentsScript.MANUAL_SAVE_PRESSED:
-			_on_manual_save_pressed()
-		UiIntentsScript.RETURN_MAIN_MENU_PRESSED:
-			_on_return_main_menu_pressed()
-		UiIntentsScript.EXIT_GAME_REQUESTED:
-			_request_quit_game()
-		UiIntentsScript.EXIT_CONFIRMED:
-			_confirm_quit_game()
-		UiIntentsScript.HISTORY_TOGGLE_REQUESTED:
-			_toggle_history_window()
-		UiIntentsScript.SETTINGS_PRESSED:
-			_toggle_settings_window()
 		UiIntentsScript.PROLOGUE_FINISHED:
 			_on_prologue_finished()
 		UiIntentsScript.ENDING_LANGUAGE_SELECTED:
@@ -1710,34 +1702,10 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_hide_phone_camera_connection_overlay()
 		UiIntentsScript.PHONE_CAMERA_DISABLE:
 			_disable_phone_camera_from_connection()
-		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED:
-			_on_composer_submit_pressed()
-		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED:
-			_on_confirm_fusion_pressed()
-		UiIntentsScript.NOTEBOOK_TAB_CHANGED:
-			_on_notebook_tab_changed()
-		UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
-			_on_canvas_positions_committed(payload.get(UiIntentsScript.KEY_TILE_POSITIONS, {}))
-		UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE:
-			_on_canvas_tile_dropped_outside(str(payload.get(UiIntentsScript.KEY_UNIT, "")), payload.get(UiIntentsScript.KEY_RELEASE_GLOBAL, Vector2.ZERO))
-		UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED:
-			_on_composer_bank_tapped(str(payload.get(UiIntentsScript.KEY_UNIT, "")))
-		UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED:
-			_on_fusion_meme_dropped(payload.get(UiIntentsScript.KEY_DATA, {}), str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
-		UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED:
-			_on_fusion_slot_pressed(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
 		UiIntentsScript.CONVERSATION_CHOICE_PRESSED:
 			_on_reality_choice_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
 		UiIntentsScript.CONVERSATION_CONTINUE_PRESSED:
 			_on_reality_continue_pressed()
-		UiIntentsScript.COMPOSER_TOKEN_PRESSED:
-			_on_language_token_pressed(str(payload.get(UiIntentsScript.KEY_TOKEN_ID, "")))
-		UiIntentsScript.COMPOSER_TOKEN_DROPPED:
-			_on_language_token_dropped(payload.get(UiIntentsScript.KEY_DATA, {}), str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
-		UiIntentsScript.COMPOSER_SLOT_PRESSED:
-			_on_language_slot_pressed(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")))
-		UiIntentsScript.COMPOSER_CONFIRM_PRESSED:
-			_on_confirm_doctor_sentence_pressed()
 
 
 func _ensure_language_selection_panel() -> void:
@@ -2071,10 +2039,6 @@ func _close_history_window() -> void:
 		_settings_history_panel.close()
 
 
-func _on_autoplay_toggled(value: bool) -> void:
-	game.set_autoplay_enabled(value)
-
-
 func _model_is_on(property_name: String) -> bool:
 	var model := _value_model(property_name)
 	return model != null and bool(model.read())
@@ -2100,12 +2064,6 @@ func _on_settings_open_changed(_open: Variant) -> void:
 	_update_visibility()
 
 
-func _on_volume_changed(value: float) -> void:
-	var volume := _master_volume_model()
-	if volume != null:
-		volume.write(value)
-
-
 func _apply_master_volume(value: Variant) -> void:
 	var bus := AudioServer.get_bus_index("Master")
 	if bus >= 0:
@@ -2117,11 +2075,7 @@ func _master_volume_model() -> ValuePropertyModel:
 
 
 func _value_model(property_name: String) -> ValuePropertyModel:
-	PropertyBootScript.install()
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return null
-	return manager.model(property_name) as ValuePropertyModel
+	return GameModelsScript.value(property_name)
 
 
 func _on_settings_language_selected(locale_code: String) -> void:
@@ -2153,7 +2107,7 @@ func _on_return_main_menu_pressed() -> void:
 	call_deferred("show_main_menu")
 
 
-func _on_vhs_toggled(value: bool) -> void:
+func _present_vhs(value: bool) -> void:
 	_vhs_enabled = value
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = value
@@ -2166,6 +2120,10 @@ func _on_camera_access_toggled(value: bool) -> void:
 
 func _request_quit_game() -> void:
 	game.mark_exit_prompt_seen()
+	_show_quit_prompt()
+
+
+func _show_quit_prompt() -> void:
 	if _settings_history_panel != null:
 		_settings_history_panel.request_quit()
 
@@ -2431,27 +2389,56 @@ func _on_notebook_tab_changed() -> void:
 	_apply_phone_shell_theme()
 
 
-## The social handler on the current run, language material and social source.
-func _configured_social_intent_handler() -> SocialIntentHandler:
+## Points every handler at the current run, language material and locale before one handles an intent.
+func _configure_intent_handlers() -> void:
 	_ensure_language_material()
 	_social_intent_handler.configure(game, _language_material, _social_feed_source())
-	return _social_intent_handler
+	_notebook_intent_handler.configure(game, _language_material, _locale, _composer_answer_panel)
+	_doctor_sentence_intent_handler.configure(game)
+	_settings_intent_handler.configure(game)
+
+
+## The publish page's answer area a notebook tile can be dropped on, or null while it is not built.
+func _composer_answer_panel() -> Control:
+	return _find_control_by_name(_ui_root, "ComposerAnswerPanel")
 
 
 ## A handler already changed the state and wrote its feedback; the host only presents what it asks for.
 func _present_intent_result(result: IntentResult) -> void:
 	match result.presentation:
-		IntentResultScript.SOCIAL_PAGE_CHANGED:
-			_on_social_page_changed()
-		IntentResultScript.SOCIAL_WINDOW_CLOSED:
-			_present_app_window_closed("social")
 		IntentResultScript.ACTION:
 			_present_action_outcome(result.outcome)
-		IntentResultScript.PICKUP:
-			_presenter().present_pickup(result.outcome, result.picked_unit, get_viewport().get_mouse_position())
-			_present_pickup_outcome(result.outcome)
 		IntentResultScript.SUBMIT:
 			_present_submit_outcome(result.outcome)
+		SocialIntentHandlerScript.PAGE_CHANGED:
+			_on_social_page_changed()
+		SocialIntentHandlerScript.WINDOW_CLOSED:
+			_present_app_window_closed("social")
+		SocialIntentHandlerScript.PICKUP:
+			_presenter().present_pickup(result.outcome, result.unit, get_viewport().get_mouse_position())
+			_present_pickup_outcome(result.outcome)
+		NotebookIntentHandlerScript.TAB_CHANGED:
+			_on_notebook_tab_changed()
+		NotebookIntentHandlerScript.PLACE:
+			_presenter().present_place(bool(result.value), result.unit, get_viewport().get_mouse_position())
+		NotebookIntentHandlerScript.FUSION_SLOTS_CHANGED:
+			_refresh_phone_shell()
+		DoctorSentenceIntentHandlerScript.COMPOSER_CHANGED:
+			_refresh_reality_hud()
+		DoctorSentenceIntentHandlerScript.CONFIRMED:
+			_present_doctor_sentence_outcome(result.outcome)
+		SettingsIntentHandlerScript.VHS_TOGGLED:
+			_present_vhs(bool(result.value))
+		SettingsIntentHandlerScript.SAVE_REQUESTED:
+			_on_manual_save_pressed()
+		SettingsIntentHandlerScript.MAIN_MENU_REQUESTED:
+			_on_return_main_menu_pressed()
+		SettingsIntentHandlerScript.QUIT_PROMPTED:
+			_show_quit_prompt()
+		SettingsIntentHandlerScript.QUIT_CONFIRMED:
+			_confirm_quit_game()
+		SettingsIntentHandlerScript.HISTORY_TOGGLED:
+			_toggle_history_window()
 
 
 func _render_notebook_app() -> void:
@@ -3003,27 +2990,10 @@ func _update_doll_guide() -> void:
 ## 多邻国 U1 质感:圆角约为高度 1/4、浅底细描边、底部厚边模拟浮起阴影;
 ## 按下时下沉 2px(上边距+2/下边距-2,底厚边收薄);ghost 为凹陷灰。
 
-func _on_canvas_positions_committed(tile_positions: Dictionary) -> void:
-	if game != null:
-		game.set_char_canvas_positions(tile_positions, _locale.current_locale)
-
-
 func _commit_notebook_canvas_positions() -> void:
 	if _notebook_app_panel == null or not is_instance_valid(_notebook_app_panel):
 		return
 	_notebook_app_panel.commit_canvas_positions()
-
-
-## 把字从笔记本画布拖到发布页的句子区:命中即入句,未命中则飞回画布原位。
-func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
-	_ensure_language_material()
-	var answer_panel := _find_control_by_name(_ui_root, "ComposerAnswerPanel")
-	_language_material.place_if_over_answer(unit, release_global, answer_panel)
-
-
-func _on_composer_bank_tapped(unit: String) -> void:
-	_ensure_language_material()
-	_presenter().present_place(_language_material.place_from_bank(unit), unit, get_viewport().get_mouse_position())
 
 
 func _composer_answer_target() -> Vector2:
@@ -3031,11 +3001,6 @@ func _composer_answer_target() -> Vector2:
 	if answer_flow != null and is_instance_valid(answer_flow):
 		return LanguageMaterialScript.composer_answer_target(answer_flow)
 	return _notebook_flight_target()
-
-
-func _on_composer_submit_pressed() -> void:
-	_ensure_language_material()
-	_present_submit_outcome(_language_material.submit())
 
 
 func _build_pickup_flight_layer() -> void:
@@ -3100,78 +3065,25 @@ func _squash_notebook_window() -> void:
 	_notebook_squash_tween.tween_property(window, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func _selected_language_token() -> String:
-	return str(_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).read())
-
-
 func _write_selected_language_token(token_id: String) -> void:
 	_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).write(token_id)
 
 
+func _write_selected_meme(meme_id: String) -> void:
+	_value_model(PropertyKeysScript.SELECTED_MEME).write(meme_id)
+
+
 func _write_feedback_text(text: String) -> void:
-	_value_model(PropertyKeysScript.FEEDBACK_TEXT).write(text)
+	GameModelsScript.write_feedback(text)
 
 
-func _on_language_token_pressed(token_id: String) -> void:
-	_write_selected_language_token(token_id)
-	_write_feedback_text("选中了一个带到医生面前的词。")
-	_refresh_reality_hud()
-
-
-func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
-	var token_id := str(data.get("id", ""))
-	if token_id.is_empty():
-		return
-	_write_selected_language_token(token_id)
-	if game.place_language_token(slot_id, token_id, "doctor"):
-		_write_feedback_text("词已经进入医生句槽。")
-	else:
-		_write_feedback_text("这个词不能放在句子的这个位置。")
-	_refresh_reality_hud()
-
-
-func _on_language_slot_pressed(slot_id: String) -> void:
-	if _selected_language_token().is_empty():
-		_write_feedback_text("先选择一个词。")
-	elif game.place_language_token(slot_id, _selected_language_token(), "doctor"):
-		_write_feedback_text("词已经进入医生句槽。")
-	else:
-		_write_feedback_text("这个词不能放在句子的这个位置。")
-	_refresh_reality_hud()
-
-
-func _on_confirm_doctor_sentence_pressed() -> void:
-	var outcome: ActionOutcomeScript = game.confirm_doctor_sentence()
+## The doctor handler already cleared the selected token when the sentence was spoken.
+func _present_doctor_sentence_outcome(outcome: ActionOutcomeScript) -> void:
 	_show_action_feedback(outcome)
 	if not outcome.succeeded:
 		_refresh_reality_hud()
 		return
-	_write_selected_language_token("")
 	_present_settlement(outcome.settlement())
-
-
-func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
-	var meme_id := str(data.get("id", ""))
-	if game.place_meme_in_fusion_slot(slot_id, meme_id):
-		selected_meme_id = meme_id
-		_write_feedback_text("旧梗已放入融合槽。")
-	else:
-		_write_feedback_text("两个融合槽必须放入不同的完整梗。")
-	_refresh_phone_shell()
-
-
-func _on_fusion_slot_pressed(slot_id: String) -> void:
-	if selected_meme_id.is_empty():
-		_write_feedback_text("先从融合列表选择一个完整梗。")
-	elif game.place_meme_in_fusion_slot(slot_id, selected_meme_id):
-		_write_feedback_text("旧梗已放入融合槽。")
-	else:
-		_write_feedback_text("两个融合槽不能使用同一个梗。")
-	_refresh_phone_shell()
-
-
-func _on_confirm_fusion_pressed() -> void:
-	_present_action_outcome(game.fuse_memes())
 
 
 func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
@@ -3179,7 +3091,6 @@ func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
 	if not outcome.succeeded:
 		_refresh_phone_shell()
 		return
-	selected_meme_id = outcome.selected_meme_id
 	_present_settlement(outcome.settlement())
 
 
@@ -3213,7 +3124,7 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 		_sync_audio_state(false)
 		if not _present_ending_if_unlocked():
 			_refresh_play_surfaces()
-	selected_meme_id = ""
+	_write_selected_meme("")
 	if from_flashback:
 		var day_line := "黑屏之后，已经是第二天。"
 		if game != null and not game.event_log.is_empty():

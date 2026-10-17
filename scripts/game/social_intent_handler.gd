@@ -1,15 +1,17 @@
 class_name SocialIntentHandler
-extends RefCounted
+extends IntentHandler
 ## Handles the social feed's intents: changes the state and the language material, writes the feedback line,
 ## and returns what the host presents. The host stays the only listener and routes these intents here (ADR 0007).
 
-const IntentResultScript = preload("res://scripts/game/intent_result.gd")
-const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
-const PropertyKeysScript = preload("res://scripts/property_keys.gd")
-const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+
+## The social panel already repainted its page; the host re-themes the phone shell.
+const PAGE_CHANGED := "social_page_changed"
+## The social window closed; the host shuts the open post and refreshes the phone shell.
+const WINDOW_CLOSED := "social_window_closed"
+## A word pickup; the host flies the word and settles when it spent the day's first action.
+const PICKUP := "social_pickup"
 
 const INTENTS: Array[String] = [
 	UiIntentsScript.SOCIAL_CHANNEL_PRESSED,
@@ -46,10 +48,10 @@ func handles(intent_name: String) -> bool:
 func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 	match intent_name:
 		UiIntentsScript.SOCIAL_CHANNEL_PRESSED, UiIntentsScript.SOCIAL_SCREEN_REQUESTED:
-			return IntentResultScript.present(IntentResultScript.SOCIAL_PAGE_CHANGED)
+			return IntentResultScript.present(PAGE_CHANGED)
 		UiIntentsScript.SOCIAL_CARD_CLICKED:
 			_game.notify_tutorial("post_opened", {"post_index": int(payload.get(UiIntentsScript.KEY_POST_INDEX, -1))})
-			return IntentResultScript.present(IntentResultScript.SOCIAL_PAGE_CHANGED)
+			return IntentResultScript.present(PAGE_CHANGED)
 		UiIntentsScript.SOCIAL_LIKE_PRESSED:
 			var liked := _game.toggle_social_like(str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
 			_write_feedback("已保存这条信号。" if liked else "已取消保存。")
@@ -61,16 +63,16 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 		UiIntentsScript.SOCIAL_CLOSE_REQUESTED:
 			_game.close_app_window("social")
 			_write_feedback("关闭 social 窗口。")
-			return IntentResultScript.present(IntentResultScript.SOCIAL_WINDOW_CLOSED)
+			return IntentResultScript.present(WINDOW_CLOSED)
 		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED:
 			_write_feedback("关闭社交详情。")
-			return IntentResultScript.present(IntentResultScript.SOCIAL_PAGE_CHANGED)
+			return IntentResultScript.present(PAGE_CHANGED)
 		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
-			return IntentResultScript.present(IntentResultScript.ACTION, _game.publish_dialogue())
+			return _action(_game.publish_dialogue())
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
 			var meta: Variant = payload.get(UiIntentsScript.KEY_META)
-			var pickup := IntentResultScript.present(IntentResultScript.PICKUP, _material.pick_from_post(meta, str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))
-			pickup.picked_unit = str(meta)
+			var pickup := IntentResultScript.present(PICKUP, _material.pick_from_post(meta, str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))
+			pickup.unit = str(meta)
 			return pickup
 		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
 			_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
@@ -82,10 +84,3 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			return IntentResultScript.present(IntentResultScript.SUBMIT, _material.submit())
 	return IntentResultScript.present(IntentResultScript.NONE)
 
-
-func _write_feedback(text: String) -> void:
-	PropertyBootScript.install()
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return
-	(manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).write(text)

@@ -1,5 +1,6 @@
 extends SceneTree
-## In the main scene, the host's handler routes the reality conversation and language composer intents.
+## In the main scene, the host routes the reality conversation intents itself and hands the doctor sentence
+## composer to its handler (routing smoke; test_doctor_sentence_intent_handler covers what each intent does).
 
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -25,8 +26,7 @@ func _run_async() -> void:
 		game_root._skip_prologue()
 		await process_frame
 		_test_the_host_no_longer_keeps_the_transient_selections(game_root)
-		_test_composer_intents_select_a_token_and_report_a_refused_slot(game_root)
-		_test_confirm_without_a_full_sentence_keeps_the_selection(game_root)
+		_test_the_host_routes_the_composer_and_presents_a_refused_confirm(game_root)
 		await _test_conversation_intents_choose_and_leave(game_root)
 		game_root.queue_free()
 		await process_frame
@@ -57,25 +57,14 @@ func _test_the_host_no_longer_keeps_the_transient_selections(game_root: Node) ->
 	_assert_true(not fields.has("_reality_hover_choice_id"), "the host should not keep the hovered choice")
 	_assert_true(not fields.has("_selected_language_token_id"), "the host should not keep the selected token")
 	_assert_true(not fields.has("log_text"), "the host should not keep the feedback text")
+	_assert_true(not fields.has("selected_meme_id"), "the host should not keep the selected meme")
 
 
-func _test_composer_intents_select_a_token_and_report_a_refused_slot(game_root: Node) -> void:
-	GameEventBus.raise(UiIntentsScript.COMPOSER_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "subject"})
-	_assert_eq(_feedback(), "先选择一个词。", "a slot press with no selected token should ask for one")
-	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_PRESSED, {UiIntentsScript.KEY_TOKEN_ID: "ghost"})
-	_assert_eq(_selected_token(), "ghost", "a token press should remember the token")
-	GameEventBus.raise(UiIntentsScript.COMPOSER_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "subject"})
-	_assert_eq(_feedback(), "这个词不能放在句子的这个位置。", "a slot press should try the selected token and report a refusal")
-	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "language_token", "id": "ghost-2"}, UiIntentsScript.KEY_SLOT_ID: "subject"})
-	_assert_eq(_selected_token(), "ghost-2", "a drop should remember the dropped token")
-	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_DROPPED, {UiIntentsScript.KEY_DATA: {}, UiIntentsScript.KEY_SLOT_ID: "subject"})
-	_assert_eq(_selected_token(), "ghost-2", "a drop with no token id should change nothing")
-
-
-func _test_confirm_without_a_full_sentence_keeps_the_selection(game_root: Node) -> void:
+func _test_the_host_routes_the_composer_and_presents_a_refused_confirm(game_root: Node) -> void:
+	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_PRESSED, {UiIntentsScript.KEY_TOKEN_ID: "ghost-2"})
+	_assert_eq(_selected_token(), "ghost-2", "the host should route a token press to the doctor sentence handler")
 	GameEventBus.raise(UiIntentsScript.COMPOSER_CONFIRM_PRESSED)
-	_assert_eq(_feedback(), "句子还不完整，或者这些词还没有在手机里发布。", "confirm with no full sentence should say so")
-	_assert_eq(_selected_token(), "ghost-2", "a refused confirm should keep the selection")
+	_assert_eq(_feedback(), "句子还不完整，或者这些词还没有在手机里发布。", "the host should present a refused confirm's feedback")
 
 
 func _test_conversation_intents_choose_and_leave(game_root: Node) -> void:

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (94 tests)
+## What runs (102 tests)
 
-### GDScript (92)
+### GDScript (100)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -121,6 +121,9 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
 | `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload |
 | `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the tutorial post count, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
+| `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, fills the fusion slots from the `selected_meme` model, fuses, words the feedback line, and returns the presentation |
+| `test_doctor_sentence_intent_handler` | module | on an empty bus, the doctor sentence handler keeps the `selected_language_token` model, places tokens in the doctor's slots, words the refusals, clears the selection once a sentence is spoken, and returns the presentation |
+| `test_settings_intent_handler` | module | on an empty bus, the settings handler writes volume, autoplay and `settings_open`, marks the exit prompt seen, and names the save, VHS, history, main menu and quit presentations |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
@@ -137,9 +140,9 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
-| `test_settings_intents_scene` | **adapter** | volume and autoplay intents are written to their models by the host; the settings intent toggles the window |
-| `test_notebook_intents_scene` | **adapter** | the host routes notebook bank taps, craft, commits, fusion drops, slot presses and fuse to the state |
-| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue, and the composer's token, drop, slot and confirm, to the state; the host keeps no transient selection |
+| `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS and the settings button to the settings handler and presents them; closing by model restores the chrome |
+| `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps, craft, fusion drops and fuse to the notebook handler and presents the submit and the action |
+| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; routing smoke for the doctor sentence handler (token press, refused confirm); the host keeps no transient selection |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility; composer intents repaint the publish page from the sentence model without a host redraw |
