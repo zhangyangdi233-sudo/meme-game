@@ -34,11 +34,12 @@ const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_ada
 const CameraSessionScript = preload("res://scripts/integrations/camera_session.gd")
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
-const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_source.gd")
 const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
+const IntentResultScript = preload("res://scripts/game/intent_result.gd")
+const SocialIntentHandlerScript = preload("res://scripts/game/social_intent_handler.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
@@ -149,6 +150,7 @@ var _social_feed_panel: SocialFeedPanel
 var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
 var _language_presenter: LanguagePresenter
+var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
 var _babel_app_panel: BabelAppPanel
@@ -252,10 +254,6 @@ func _audio_controller_deps() -> Dictionary:
 		"reality_conversation": _reality_conversation_snapshot(),
 		"pollution_stage": _pollution_stage_snapshot(),
 	}
-
-
-func _social_content_deps() -> Dictionary:
-	return _social_feed_source().content_deps()
 
 
 ## The social panel's content, kept on the current run, locale and language material.
@@ -1653,6 +1651,9 @@ func _ensure_ui_event_bus() -> void:
 
 
 func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
+	if _social_intent_handler.handles(intent_name):
+		_present_intent_result(_social_intents().handle(intent_name, payload))
+		return
 	match intent_name:
 		UiIntentsScript.START_GAME:
 			new_game.call_deferred()
@@ -1709,30 +1710,6 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_hide_phone_camera_connection_overlay()
 		UiIntentsScript.PHONE_CAMERA_DISABLE:
 			_disable_phone_camera_from_connection()
-		UiIntentsScript.SOCIAL_CHANNEL_PRESSED, UiIntentsScript.SOCIAL_SCREEN_REQUESTED:
-			_on_social_page_changed()
-		UiIntentsScript.SOCIAL_CARD_CLICKED:
-			_on_social_post_opened(int(payload.get(UiIntentsScript.KEY_POST_INDEX, -1)))
-		UiIntentsScript.SOCIAL_LIKE_PRESSED:
-			_on_social_like_pressed(str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
-		UiIntentsScript.SOCIAL_FOLLOW_PRESSED:
-			_on_social_follow_pressed(str(payload.get(UiIntentsScript.KEY_AUTHOR_ID, "")))
-		UiIntentsScript.SOCIAL_CLOSE_REQUESTED:
-			_close_app_window("social")
-		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED:
-			_on_social_detail_closed()
-		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
-			_on_confirm_dialogue_pressed()
-		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
-			_on_pickup_unit_meta(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
-		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
-			_language_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
-		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED:
-			_language_material.drop_before(payload.get(UiIntentsScript.KEY_DATA, {}), int(payload.get(UiIntentsScript.KEY_BEFORE_INDEX, 0)))
-		UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED:
-			_language_material.remove_at(int(payload.get(UiIntentsScript.KEY_UNIT_INDEX, -1)))
-		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED:
-			_present_submit_outcome(_language_material.submit())
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED:
 			_on_composer_submit_pressed()
 		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED:
@@ -2454,20 +2431,29 @@ func _on_notebook_tab_changed() -> void:
 	_apply_phone_shell_theme()
 
 
-func _on_social_follow_pressed(author_id: String) -> void:
-	var followed := game.toggle_social_follow(author_id)
-	var display_handle := SocialFeedContentScript.author_display(author_id, _social_content_deps())
-	_write_feedback_text("已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle)
+## The social handler on the current run, language material and social source.
+func _social_intents() -> SocialIntentHandler:
+	_ensure_language_material()
+	_social_intent_handler.configure(game, _language_material, _social_feed_source())
+	return _social_intent_handler
 
 
-func _on_social_like_pressed(post_id: String) -> void:
-	var liked := game.toggle_social_like(post_id)
-	_write_feedback_text("已保存这条信号。" if liked else "已取消保存。")
-
-
-func _on_social_post_opened(post_index: int) -> void:
-	game.notify_tutorial("post_opened", {"post_index": post_index})
-	_on_social_page_changed()
+## A handler already changed the state and wrote its feedback; the host only presents what it asks for.
+func _present_intent_result(result: IntentResult) -> void:
+	match result.presentation:
+		IntentResultScript.SOCIAL_PAGE_CHANGED:
+			_on_social_page_changed()
+		IntentResultScript.SOCIAL_WINDOW_CLOSED:
+			if _social_feed_panel != null:
+				_social_feed_panel.close_detail()
+			_refresh_phone_shell()
+		IntentResultScript.ACTION:
+			_present_action_outcome(result.outcome)
+		IntentResultScript.PICKUP:
+			_presenter().present_pickup(result.outcome, result.picked_unit, get_viewport().get_mouse_position())
+			_present_pickup_outcome(result.outcome)
+		IntentResultScript.SUBMIT:
+			_present_submit_outcome(result.outcome)
 
 
 func _render_notebook_app() -> void:
@@ -2765,11 +2751,6 @@ func _open_phone_launcher() -> void:
 	_write_feedback_text("展开手机主页。")
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
-
-
-func _on_social_detail_closed() -> void:
-	_write_feedback_text("关闭社交详情。")
-	_on_social_page_changed()
 
 
 func _ensure_window_manager() -> void:
@@ -3075,13 +3056,6 @@ func _ensure_notebook_window_home() -> void:
 	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
 
 
-func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
-	_ensure_language_material()
-	var outcome := _language_material.pick_from_post(meta, post_id)
-	_presenter().present_pickup(outcome, str(meta), get_viewport().get_mouse_position())
-	_present_pickup_outcome(outcome)
-
-
 ## A pickup settles only when it spent the day's first action; later pickups are free.
 func _present_pickup_outcome(outcome: ActionOutcomeScript) -> void:
 	if outcome.spent_action:
@@ -3195,10 +3169,6 @@ func _on_fusion_slot_pressed(slot_id: String) -> void:
 
 func _on_confirm_fusion_pressed() -> void:
 	_present_action_outcome(game.fuse_memes())
-
-
-func _on_confirm_dialogue_pressed() -> void:
-	_present_action_outcome(game.publish_dialogue())
 
 
 func _present_action_outcome(outcome: ActionOutcomeScript) -> void:

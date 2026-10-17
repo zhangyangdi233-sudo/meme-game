@@ -2,6 +2,7 @@ extends SceneTree
 ## 瀑布流拾字系统回归测试:字池完整性(三语言)、主谓宾覆盖、
 ## 每日首拾计费、存档往返、帖内高亮/灰化、评论区、笔记本字库、飞行动画层。
 
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 
@@ -181,7 +182,7 @@ func _test_ui_flow() -> void:
 	# 自然飞行完成:flight_landed 信号必须发出,并触发笔记本受击。
 	var landed_units: Array = []
 	flight_layer.flight_landed.connect(func(unit: String) -> void: landed_units.append(unit))
-	game_root._on_pickup_unit_meta("开", "floor_13")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "开", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	var flight_budget := 180
 	while flight_budget > 0 and landed_units.is_empty():
 		flight_budget -= 1

@@ -70,6 +70,10 @@ _Avoid_: autoload, a manager that also closes other screens
 How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime; no panel keeps a private signal to the host. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
 _Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
+**Intent handler**:
+A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. The social feed's `SocialIntentHandler` is the first. See ADR 0007.
+_Avoid_: a handler subscribing to the bus itself, a handler reaching into host nodes, the host writing state for an intent a handler claims
+
 **Service registry**:
 Global table from a string to one shared object. The host binds services at boot. Callers resolve by that string. Service names live in `ServiceKeys`.
 _Avoid_: autoload, passing the same object down through every panel, binding one string twice

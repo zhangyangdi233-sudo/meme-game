@@ -120,6 +120,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab; every notebook action raises its intent with the right name and payload |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
 | `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload |
+| `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the tutorial post count, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
@@ -137,7 +138,6 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
 | `test_settings_intents_scene` | **adapter** | volume and autoplay intents are written to their models by the host; the settings intent toggles the window |
-| `test_social_intents_scene` | **adapter** | the host routes social likes, follows, pickups, composer drops, taps, submit and close to the state |
 | `test_notebook_intents_scene` | **adapter** | the host routes notebook bank taps, craft, commits, fusion drops, slot presses and fuse to the state |
 | `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue, and the composer's token, drop, slot and confirm, to the state; the host keeps no transient selection |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |

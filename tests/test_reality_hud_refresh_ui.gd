@@ -1,8 +1,8 @@
 extends SceneTree
 ## Reality HUD snapshot refresh: approach / conversation / world hints paint Reality HUD, not the social feed.
 
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
-const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 
 const FEED_SENTINEL := "FEED_SENTINEL_REALITY_HUD"
 const WORLD_PROMPT_SENTINEL := "WORLD_PROMPT_SENTINEL_REALITY_HUD"
@@ -88,8 +88,8 @@ func _test_like_does_not_rerun_reality_hud() -> void:
 	if prompt != null:
 		prompt.text = WORLD_PROMPT_SENTINEL
 
-	var post: Dictionary = SocialFeedContentScript.post_for_index(0, game_root._social_content_deps())
-	game_root._on_social_like_pressed(str(post.get("id", "")))
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: str(post.get("id", ""))})
 	await process_frame
 
 	prompt = Harness.find_node_by_name(game_root, "WorldPrompt") as Label

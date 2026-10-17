@@ -2,7 +2,6 @@ extends SceneTree
 ## Phone-shell snapshot refresh: social / phone / action-economy updates paint the phone, not ending or Reality HUD.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
-const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -51,10 +50,10 @@ func _test_like_refreshes_phone_shell_not_hud() -> void:
 		_assert_true(like_button.text.begins_with("♡"), "an unliked post should show an empty heart")
 
 	var hud := _stamp_hud(game_root)
-	var post: Dictionary = SocialFeedContentScript.post_for_index(0, game_root._social_content_deps())
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
 	var post_id := str(post.get("id", ""))
 	_assert_true(not post_id.is_empty(), "first feed card should have a post id")
-	game_root._on_social_like_pressed(post_id)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: post_id})
 	await process_frame
 
 	like_button = Harness.find_node_by_name(game_root, "SocialPostLikeButton0") as Button
@@ -275,8 +274,8 @@ func _test_like_does_not_rerun_ending() -> void:
 	_assert_true(body != null, "unlocking the ending should paint the ending screen")
 	if body != null:
 		body.text = ENDING_SENTINEL
-	var post: Dictionary = SocialFeedContentScript.post_for_index(0, game_root._social_content_deps())
-	game_root._on_social_like_pressed(str(post.get("id", "")))
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: str(post.get("id", ""))})
 	await process_frame
 
 	body = Harness.find_node_by_name(game_root, "EndingBody") as Label

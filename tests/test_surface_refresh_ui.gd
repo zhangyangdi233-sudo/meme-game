@@ -1,8 +1,8 @@
 extends SceneTree
 ## Surface refresh isolation: Session mode owns visibility; ending chrome has its own path; feed likes do not re-run ending or Reality HUD.
 
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
-const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 
 const HUD_SENTINEL := "HUD_SENTINEL_SURFACE_REFRESH"
 const ENDING_SENTINEL := "ENDING_SENTINEL_SURFACE_REFRESH"
@@ -70,8 +70,8 @@ func _test_like_does_not_rerun_ending_or_hud() -> void:
 	_assert_hud_untouched(hud, "entering the ending")
 	_assert_prompt_untouched(prompt, "entering the ending")
 
-	var post: Dictionary = SocialFeedContentScript.post_for_index(0, game_root._social_content_deps())
-	game_root._on_social_like_pressed(str(post.get("id", "")))
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: str(post.get("id", ""))})
 	await process_frame
 
 	body = Harness.find_node_by_name(game_root, "EndingBody") as Label
