@@ -1,7 +1,8 @@
 extends Node
 class_name GameAudioController
 ## Adaptive score mix, floor phone music, and cover-watcher stinger for the main scene adapter.
-## Short UI sounds are game events: it subscribes to SFX_REQUESTED while it is in the tree and plays the cue.
+## Short UI sounds and the watcher's appearance are game events: while it is in the tree it subscribes to
+## SFX_REQUESTED and COVER_WATCHER_APPEARED and plays the cue or the stinger.
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -48,11 +49,13 @@ func _enter_tree() -> void:
 	_event_bus = GameEventBusScript.bound()
 	if _event_bus != null:
 		_event_bus.subscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
+		_event_bus.subscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
 
 
 func _exit_tree() -> void:
 	if _event_bus != null:
 		_event_bus.unsubscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
+		_event_bus.unsubscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
 	_event_bus = null
 
 
@@ -103,7 +106,8 @@ func build_players(deps: Dictionary) -> void:
 	sync_state(deps, true)
 
 
-func on_cover_watcher_appeared(_floor_number: int) -> void:
+## The stinger is not stopped when the watcher vanishes; it is allowed to finish after the figure has withdrawn.
+func _on_cover_watcher_appeared(_payload: Dictionary) -> void:
 	if cover_watcher_stinger != null and cover_watcher_stinger.stream != null and _host != null and _host.is_inside_tree():
 		cover_watcher_stinger.stop()
 		cover_watcher_stinger.play()

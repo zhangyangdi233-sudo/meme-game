@@ -20,6 +20,8 @@ func _run() -> void:
 	_test_repeated_cue_restarts_instead_of_stacking()
 	_test_unknown_cue_plays_nothing()
 	_test_controller_out_of_the_tree_stops_listening()
+	_test_cover_watcher_appearance_plays_the_stinger()
+	_test_cover_watcher_vanishing_lets_the_stinger_finish()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("game audio controller tests passed")
@@ -95,6 +97,29 @@ func _test_controller_out_of_the_tree_stops_listening() -> void:
 	controller.free()
 	_cue(GameEventsScript.CUE_PICKUP_PRESS)
 	host.free()
+
+
+func _test_cover_watcher_appearance_plays_the_stinger() -> void:
+	var mounted := _mount()
+	var controller = mounted["controller"]
+	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 2})
+	_assert_true(controller.cover_watcher_stinger.playing, "a watcher appearance should play the stinger")
+	(mounted["host"] as Node).remove_child(controller)
+	controller.cover_watcher_stinger.stop()
+	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 2})
+	_assert_true(not controller.cover_watcher_stinger.playing, "a controller out of the tree should not hear the appearance")
+	controller.free()
+	(mounted["host"] as Node).free()
+
+
+## The stinger is allowed to finish after the figure has withdrawn.
+func _test_cover_watcher_vanishing_lets_the_stinger_finish() -> void:
+	var mounted := _mount()
+	var controller = mounted["controller"]
+	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 2})
+	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_VANISHED, {GameEventsScript.KEY_FLOOR: 2})
+	_assert_true(controller.cover_watcher_stinger.playing, "a vanished watcher should let the stinger finish")
+	(mounted["host"] as Node).free()
 
 
 func _assert_true(condition: bool, message: String) -> void:

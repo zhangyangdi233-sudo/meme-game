@@ -2,9 +2,8 @@ extends Node3D
 
 class_name RealityFloorGenerator
 
-signal cover_watcher_appeared(floor_number: int)
-signal cover_watcher_vanished(floor_number: int)
-
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
 const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
@@ -533,7 +532,7 @@ func _update_cover_watcher_event(delta: float, player_position: Vector3, camera_
 		_cover_watcher_state["observed_in_view"] = true
 		_cover_watcher_sprite.visible = true
 		_cover_watcher_root.set_meta("event_phase", "watching_from_cover")
-		cover_watcher_appeared.emit(built_floor)
+		GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: built_floor})
 	var distance := player_position.distance_to(_cover_watcher_root.global_position)
 	if not bool(_cover_watcher_state.get("retreating", false)) and distance <= COVER_WATCHER_APPROACH_DISTANCE:
 		_cover_watcher_state["retreating"] = true
@@ -554,7 +553,7 @@ func _update_cover_watcher_event(delta: float, player_position: Vector3, camera_
 		_cover_watcher_sprite.visible = false
 		_cover_watcher_state["vanished"] = true
 		_cover_watcher_root.set_meta("event_phase", "gone_behind_cover")
-		cover_watcher_vanished.emit(built_floor)
+		GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_VANISHED, {GameEventsScript.KEY_FLOOR: built_floor})
 
 
 func _authored_event_position(event_kind: String) -> Vector3:

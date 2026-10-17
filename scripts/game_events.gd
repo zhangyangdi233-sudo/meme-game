@@ -5,9 +5,15 @@ extends RefCounted
 
 ## Payload keys.
 const KEY_CUE := "cue"
+const KEY_FLOOR := "floor"
 
 ## A short sound was asked for. Payload: {KEY_CUE: String}, one of the CUE_* names below.
 const SFX_REQUESTED := "sfx_requested"
+
+## The cover watcher stepped out into the player's view. Payload: {KEY_FLOOR: int}, the tower floor it watched from.
+const COVER_WATCHER_APPEARED := "cover_watcher_appeared"
+## The cover watcher finished withdrawing behind its cover. Payload: {KEY_FLOOR: int}.
+const COVER_WATCHER_VANISHED := "cover_watcher_vanished"
 
 ## Sound cues carried by SFX_REQUESTED.
 const CUE_PICKUP_PRESS := "pickup_press"

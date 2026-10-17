@@ -37,6 +37,7 @@ const GameAudioControllerScript = preload("res://scripts/integrations/game_audio
 const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_source.gd")
 const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
+const CoverWatcherSightingsScript = preload("res://scripts/game/cover_watcher_sightings.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const IntentResultScript = preload("res://scripts/game/intent_result.gd")
@@ -153,6 +154,7 @@ var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel: SocialFeedPanel
 var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
+var _cover_watcher_sightings: CoverWatcherSightingsScript = CoverWatcherSightingsScript.new()
 var _language_presenter: LanguagePresenter
 var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
 var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScript.new()
@@ -348,6 +350,8 @@ func _process(delta: float) -> void:
 
 func _enter_tree() -> void:
 	_ensure_ui_event_bus()
+	_cover_watcher_sightings.configure(game)
+	_cover_watcher_sightings.attach(_ui_event_bus)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -361,6 +365,7 @@ func _exit_tree() -> void:
 		_camera_session.stop_receiver()
 	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
+	_cover_watcher_sightings.detach()
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -504,6 +509,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	if _camera_session != null:
 		_camera_session.second_layer_texture = null
 	game = session_state
+	_cover_watcher_sightings.configure(game)
 	if _language_material != null:
 		_language_material.configure(game, _locale)
 	_social_feed_source().configure(game, _locale, _language_material)
@@ -767,10 +773,6 @@ func _ensure_reality_scene_adapter() -> void:
 	_reality_scene_adapter.attach_to(self)
 	if not _reality_scene_adapter.nearby_targets_changed.is_connected(_on_reality_nearby_targets_changed):
 		_reality_scene_adapter.nearby_targets_changed.connect(_on_reality_nearby_targets_changed)
-	if not _reality_scene_adapter.cover_watcher_appeared.is_connected(_on_cover_watcher_appeared):
-		_reality_scene_adapter.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
-	if not _reality_scene_adapter.cover_watcher_vanished.is_connected(_on_cover_watcher_vanished):
-		_reality_scene_adapter.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
 
 
 func _reality_scene_deps() -> Dictionary:
@@ -1098,19 +1100,6 @@ func _reality_hud_actor_label(hud: Dictionary) -> String:
 	if label.is_empty():
 		return _locale.translate("对方")
 	return _locale.translate(label)
-
-
-func _on_cover_watcher_appeared(floor_number: int) -> void:
-	if game != null:
-		game.mark_cover_watcher_seen(floor_number)
-	if _audio_controller != null:
-		_audio_controller.on_cover_watcher_appeared(floor_number)
-
-
-func _on_cover_watcher_vanished(_floor_number: int) -> void:
-	# The stinger is intentionally allowed to finish after the figure has withdrawn.
-	if game != null:
-		game.record_event("掩体后的人影缩了回去。它没有留下脸。")
 
 
 func _sync_audio_state(immediate: bool = false) -> void:

@@ -15,8 +15,6 @@ const FALL_RECOVERY_Y := -3.0
 const SAFE_INSET := 1.2
 
 signal nearby_targets_changed()
-signal cover_watcher_appeared(floor_number: int)
-signal cover_watcher_vanished(floor_number: int)
 
 var player: CharacterBody3D
 var floor: RealityFloorGenerator
@@ -60,8 +58,6 @@ func build_world_nodes() -> void:
 
 	floor = RealityFloorGeneratorScript.new()
 	floor.name = "RealityFloor"
-	floor.cover_watcher_appeared.connect(_on_cover_watcher_appeared)
-	floor.cover_watcher_vanished.connect(_on_cover_watcher_vanished)
 	_host.add_child(floor)
 
 
@@ -579,11 +575,3 @@ func _find_item(item_id: String) -> Area3D:
 		if str(item.get_meta("item_id", "")) == item_id:
 			return item
 	return null
-
-
-func _on_cover_watcher_appeared(floor_number: int) -> void:
-	cover_watcher_appeared.emit(floor_number)
-
-
-func _on_cover_watcher_vanished(floor_number: int) -> void:
-	cover_watcher_vanished.emit(floor_number)

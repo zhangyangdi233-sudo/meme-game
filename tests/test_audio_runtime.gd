@@ -127,9 +127,12 @@ func _run() -> void:
 	await process_frame
 	_assert_true(action_tick != null and action_tick.playing, "spending an action should play the short tick")
 	game_root._narrative_director.finish_action_spend_animation()
-	game_root._on_cover_watcher_appeared(1)
+	GameEventBus.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 1})
 	await process_frame
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")
+	_assert_true(game_root.game.has_seen_cover_watcher(1), "the host's sightings should mark the floor the watcher appeared on")
+	_assert_true(not game_root._reality_scene_adapter.has_signal("cover_watcher_appeared") and not game_root._reality_scene_adapter.has_signal("cover_watcher_vanished"), "the adapter should not forward watcher signals to the host")
+	_assert_true(not game_root.has_method("_on_cover_watcher_appeared") and not game_root.has_method("_on_cover_watcher_vanished"), "the host should keep no watcher handler")
 	if cover_watcher_stinger != null:
 		cover_watcher_stinger.stop()
 	await _test_pickup_sounds_ride_the_bus(game_root)
