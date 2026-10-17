@@ -1,4 +1,4 @@
-extends Node3D
+﻿extends Node3D
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
@@ -55,6 +55,8 @@ const ACTION_FEEDBACK_TEXT := {
 	ActionOutcomeScript.PUBLISH_DONE: "句子发出去了。资金到账，污染留下。",
 	ActionOutcomeScript.PUBLISH_EMPTY: "发布空格里还没有完整梗。",
 	ActionOutcomeScript.PUBLISH_NO_ACTION: "发布空格里还没有完整梗。",
+	ActionOutcomeScript.FUSION_DONE: "融合完成：%s",
+	ActionOutcomeScript.FUSION_REJECTED: "需要两个不同且尚未融合过的完整梗。",
 }
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
@@ -3322,17 +3324,7 @@ func _on_fusion_slot_pressed(slot_id: String) -> void:
 
 
 func _on_confirm_fusion_pressed() -> void:
-	var actions_before := int(game.actions_remaining)
-	if game.confirm_meme_fusion():
-		var fused_memes: Array = _inventory_snapshot().get("completed_memes", [])
-		if not fused_memes.is_empty():
-			var fused: Dictionary = fused_memes[0] as Dictionary
-			selected_meme_id = str(fused.get("id", ""))
-			log_text = "融合完成：%s" % str(fused.get("title", "复合梗"))
-		_after_effective_action(actions_before)
-	else:
-		log_text = "需要两个不同且尚未融合过的完整梗。"
-		_refresh_phone_shell()
+	_present_action_outcome(game.fuse_memes())
 
 
 func _on_confirm_dialogue_pressed() -> void:
@@ -3340,11 +3332,12 @@ func _on_confirm_dialogue_pressed() -> void:
 
 
 func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
-	log_text = str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
+	var feedback := str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
+	log_text = feedback % outcome.feedback_detail if feedback.contains("%s") else feedback
 	if not outcome.succeeded:
 		_refresh_phone_shell()
 		return
-	selected_meme_id = ""
+	selected_meme_id = outcome.selected_meme_id
 	_present_settlement(outcome.settlement())
 
 

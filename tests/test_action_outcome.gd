@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
@@ -16,6 +16,9 @@ func _run() -> void:
 	test_publish_on_last_action_reports_day_transition()
 	test_publish_crossing_flashback_threshold_reports_flashback()
 	test_publish_without_actions_left_spends_nothing()
+	test_fusion_reports_fused_meme_and_spent_action()
+	test_fusion_of_unready_slots_spends_nothing()
+	test_fusion_of_already_fused_pair_spends_nothing()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -85,6 +88,60 @@ func test_publish_without_actions_left_spends_nothing() -> void:
 	_assert_eq(outcome.feedback_key, ActionOutcomeScript.PUBLISH_NO_ACTION, "it should name the no-action feedback")
 	_assert_eq(outcome.settlement(), {}, "a failed publish should need no settlement")
 	_assert_eq(game.money, money_before, "a failed publish should add no money")
+
+
+func test_fusion_reports_fused_meme_and_spent_action() -> void:
+	var game := _ready_to_fuse()
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.fuse_memes()
+	var fused: Dictionary = game.completed_memes[0]
+	_assert_true(outcome.succeeded, "two different memes should fuse")
+	_assert_true(outcome.spent_action, "fusing should spend an action")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.FUSION_DONE, "a fusion should name the done feedback")
+	_assert_eq(outcome.selected_meme_id, str(fused.get("id", "")), "the fused meme should become the selection")
+	_assert_eq(outcome.feedback_detail, str(fused.get("title", "")), "the feedback should carry the fused title")
+	_assert_eq(outcome.settlement(), {
+		"day_transition": false,
+		"flashback": false,
+		"actions_before": actions_before,
+		"actions_after": actions_before - 1,
+	}, "the settlement should carry the spent action")
+
+
+func test_fusion_of_unready_slots_spends_nothing() -> void:
+	var game := _ready_to_fuse()
+	game.fusion_slots = {"left": "meme-left"}
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.fuse_memes()
+	_assert_true(not outcome.succeeded, "one slot should not fuse")
+	_assert_true(not outcome.spent_action, "a failed fusion should not spend an action")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.FUSION_REJECTED, "a failed fusion should name the rejected feedback")
+	_assert_eq(outcome.settlement(), {}, "a failed fusion should need no settlement")
+	_assert_eq(game.actions_remaining, actions_before, "the action count should stay the same")
+
+
+func test_fusion_of_already_fused_pair_spends_nothing() -> void:
+	var game := _ready_to_fuse()
+	_assert_true(game.fuse_memes().succeeded, "the first fusion should work")
+	game.place_meme_in_fusion_slot("left", "meme-left")
+	game.place_meme_in_fusion_slot("right", "meme-right")
+	var actions_before: int = game.actions_remaining
+	var outcome: ActionOutcomeScript = game.fuse_memes()
+	_assert_true(not outcome.succeeded, "the same pair should not fuse twice")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.FUSION_REJECTED, "a repeated pair should name the rejected feedback")
+	_assert_eq(game.actions_remaining, actions_before, "a repeated pair should not spend an action")
+
+
+func _ready_to_fuse() -> RefCounted:
+	var game := Harness.new_state()
+	game.completed_memes = [
+		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+	]
+	game.fusion_slots = {}
+	game.place_meme_in_fusion_slot("left", "meme-left")
+	game.place_meme_in_fusion_slot("right", "meme-right")
+	return game
 
 
 func _ready_to_publish() -> RefCounted:

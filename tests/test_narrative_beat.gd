@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 ## Narrative beat: action spend, day transition, and flashback are one sequence.
 ## The host passes a settlement result and whether the ending is unlocked.
 
@@ -102,6 +102,10 @@ func _test_host_does_not_split_refresh_audio_and_transitions() -> void:
 		not after_action.contains("play_pollution_flashback") and not after_action.contains("play_action_spend_animation"),
 		"the host should not pick the flashback or the action pulse itself"
 	)
+	for handler in ["_on_confirm_dialogue_pressed", "_on_confirm_fusion_pressed"]:
+		var body := _function_body(source, handler)
+		_assert_true(body.contains("_present_action_outcome"), "%s should present the action outcome" % handler)
+		_assert_true(not body.contains("actions_before"), "%s should not snapshot the action count" % handler)
 
 
 func _full_settlement() -> Dictionary:

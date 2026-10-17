@@ -1,4 +1,4 @@
-class_name MemeGameState
+﻿class_name MemeGameState
 extends RefCounted
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
@@ -2029,22 +2029,27 @@ func place_meme_in_fusion_slot(slot_id: String, meme_id: String) -> bool:
 
 
 func confirm_meme_fusion() -> bool:
+	return fuse_memes().succeeded
+
+
+func fuse_memes() -> ActionOutcomeScript:
 	var slots := fusion_slots
 	var left_id := str(slots.get("left", ""))
 	var right_id := str(slots.get("right", ""))
 	if left_id.is_empty() or right_id.is_empty() or left_id == right_id:
-		return false
+		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
 	var left_index := _find_completed_meme_index(left_id)
 	var right_index := _find_completed_meme_index(right_id)
 	if left_index < 0 or right_index < 0:
-		return false
+		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
 	var pair_ids: Array[String] = [left_id, right_id]
 	pair_ids.sort()
 	var pair_key := "%s+%s" % [pair_ids[0], pair_ids[1]]
 	if pair_key in fused_meme_pairs:
-		return false
+		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
+	var actions_before := actions_remaining
 	if not spend_action("fuse-memes"):
-		return false
+		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
 	var memes := completed_memes
 	var left: Dictionary = memes[left_index]
 	var right: Dictionary = memes[right_index]
@@ -2070,7 +2075,10 @@ func confirm_meme_fusion() -> bool:
 	fusion_slots = {}
 	change_pollution(3 + fusion_level * 2)
 	record_event("两个旧梗粘在一起。新梗更响，也更脏。")
-	return true
+	var outcome := _spent_outcome(ActionOutcomeScript.FUSION_DONE, actions_before)
+	outcome.selected_meme_id = str(meme.get("id", ""))
+	outcome.feedback_detail = str(meme.get("title", ""))
+	return outcome
 
 
 func get_progression_snapshot() -> Dictionary:
@@ -2118,10 +2126,14 @@ func publish_dialogue() -> ActionOutcomeScript:
 		int(publish_result.get("pollution_gain", 0)),
 	])
 	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
+	return _spent_outcome(ActionOutcomeScript.PUBLISH_DONE, actions_before)
+
+
+func _spent_outcome(feedback_key: String, actions_before: int) -> ActionOutcomeScript:
 	var outcome := ActionOutcomeScript.new()
 	outcome.succeeded = true
 	outcome.spent_action = true
-	outcome.feedback_key = ActionOutcomeScript.PUBLISH_DONE
+	outcome.feedback_key = feedback_key
 	outcome.actions_before = actions_before
 	outcome.actions_after = actions_remaining
 	outcome.flashback = pollution_flashback_pending
