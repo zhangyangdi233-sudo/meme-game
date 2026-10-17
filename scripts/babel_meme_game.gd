@@ -1956,6 +1956,7 @@ func _social_feed_mount_deps() -> Dictionary:
 		"game_day": func() -> int: return game.day if game != null else 0,
 		"current_locale": func() -> String: return _locale.current_locale,
 		"apply_composer_tile_theme": _ui_theme_helper.apply_composer_tile_theme,
+		"theme_window": _theme_phone_window,
 		"pollution": func() -> int: return game.pollution if game != null else 0,
 		"player_character_path": PLAYER_CHARACTER_PATH,
 		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
@@ -2391,10 +2392,14 @@ func _apply_phone_shell_theme() -> void:
 		targets.append(_social_feed_panel.get_app_window())
 		targets.append(_social_feed_panel.get_detail_window())
 	for target in targets:
-		if target == null or not is_instance_valid(target):
-			continue
-		_apply_ui_theme(target)
-		_ui_theme_helper.localize_control_tree(target)
+		_theme_phone_window(target)
+
+
+func _theme_phone_window(target: Node) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	_apply_ui_theme(target)
+	_ui_theme_helper.localize_control_tree(target)
 
 
 func _render() -> void:

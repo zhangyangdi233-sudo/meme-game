@@ -157,6 +157,10 @@ func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> vo
 	var tile := Harness.find_node_by_name(game_root, "ComposerAnswerTile0")
 	_assert_true(tile != null, "the publish page should show the dropped word from the sentence model")
 	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "editing the sentence should not make the host redraw the whole phone shell")
+	var social_window := game_root._social_feed_panel.get_app_window() as Control
+	var painted := _label_colors(social_window)
+	game_root._apply_phone_shell_theme()
+	_assert_eq(painted, _label_colors(social_window), "the self-repainted publish page should already carry the phone shell theme")
 
 	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
 	await process_frame
@@ -316,6 +320,15 @@ func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
 
 	game_root.queue_free()
 	await process_frame
+
+
+func _label_colors(node: Node) -> Dictionary:
+	var colors := {}
+	if node == null:
+		return colors
+	for label in node.find_children("*", "Label", true, false):
+		colors[str(node.get_path_to(label))] = (label as Label).get_theme_color("font_color")
+	return colors
 
 
 func _boot_gameplay() -> Node:

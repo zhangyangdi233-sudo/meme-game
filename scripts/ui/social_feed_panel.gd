@@ -65,6 +65,8 @@ var _game_day_fn: Callable
 var _current_locale_fn: Callable
 var _soft_style_fn: Callable
 var _apply_composer_tile_theme_fn: Callable
+## Themes and localizes a window this panel repainted on its own. The host passes the phone-shell theme pass.
+var _theme_window_fn: Callable
 var _pollution_fn: Callable
 var _player_character_path := ""
 var _composer_soft_unit_limit := 12
@@ -387,6 +389,7 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_current_locale_fn = deps.get("current_locale", Callable())
 	_soft_style_fn = deps.get("soft_style", Callable())
 	_apply_composer_tile_theme_fn = deps.get("apply_composer_tile_theme", Callable())
+	_theme_window_fn = deps.get("theme_window", Callable())
 	_pollution_fn = deps.get("pollution", Callable())
 	_player_character_path = str(deps.get("player_character_path", ""))
 	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
@@ -1351,8 +1354,15 @@ func _repaint_if_stale() -> void:
 	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale or publish_stale
 	if feed_stale:
 		render_app()
+		_theme_window(_app_window)
 	if feed_stale or _held_chars != _painted_held_chars or _published != _painted_published:
 		render_companion()
+		_theme_window(_detail_window)
+
+
+func _theme_window(window: Control) -> void:
+	if _theme_window_fn.is_valid() and window != null and is_instance_valid(window):
+		_theme_window_fn.call(window)
 
 
 func _clear(node: Node) -> void:
