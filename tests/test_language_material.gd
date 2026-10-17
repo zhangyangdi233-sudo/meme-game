@@ -5,6 +5,11 @@ extends SceneTree
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 
@@ -26,6 +31,8 @@ func _run() -> void:
 	_test_flight_targets()
 	_test_social_panel_does_not_take_adapter_callables()
 	_test_material_raises_no_redraw_requests()
+	_test_pickup_returns_outcome()
+	_test_signals_retired()
 
 
 func _test_bbcode_marking() -> void:
@@ -111,22 +118,23 @@ func _test_composer_drop() -> void:
 	_assert_true(not bool(blocked.get("applied", false)), "already placed units cannot drop in twice")
 
 	var material = LanguageMaterialScript.new()
-	var logs: Array[String] = []
-	var actions: Array[Dictionary] = []
 	material.configure({
 		"game": func(): return game,
 		"locale": func() -> String: return "zh",
 	})
-	material.log_requested.connect(func(text: String) -> void: logs.append(text))
-	material.effective_action.connect(func(settlement: Dictionary) -> void: actions.append(settlement))
-	material.remove_at(2)
+	var actions_left: int = game.actions_remaining
+	_assert_true(material.remove_at(2), "answer-tile remove should go through the module")
 	_assert_eq_text(game.get_free_sentence_text("zh"), "打开", "answer-tile remove should go through the module")
-	_assert_true(actions.is_empty(), "removing a tile must not count as an effective action")
-	material.submit()
-	_assert_true(not actions.is_empty(), "submit should notify the adapter through effective_action")
-	_assert_true(actions.size() == 1 and actions[0].has("actions_after"), "submit should hand the adapter the spent-action settlement")
+	_assert_true(game.actions_remaining == actions_left, "removing a tile must not spend an action")
+	var submitted = material.submit()
+	_assert_true(submitted is ActionOutcomeScript, "submit should return an action outcome")
+	_assert_true(submitted.succeeded and submitted.spent_action, "a posted sentence should be a spent, successful action")
+	_assert_true(submitted.settlement().has("actions_after"), "submit should hand the host the spent-action settlement")
 	_assert_true(game.get_free_sentence_units().is_empty(), "submit should clear the composer")
-	_assert_true(not logs.is_empty() and str(logs[logs.size() - 1]).begins_with("投稿已发出"), "submit should report a response tier")
+	_assert_true(_feedback_text().begins_with("投稿已发出"), "submit should write a response tier into the feedback model")
+	var empty = material.submit()
+	_assert_true(empty is ActionOutcomeScript and not empty.succeeded and not empty.spent_action, "an empty submit should fail without spending")
+	_assert_eq_text(_feedback_text(), "句子还空着。", "an empty submit should say the sentence is empty")
 
 	# Fresh states share the same models, so these run after the sentence above is done.
 	var unknown: Dictionary = LanguageMaterialScript.apply_drop(
@@ -211,6 +219,45 @@ func _test_material_raises_no_redraw_requests() -> void:
 	var material = LanguageMaterialScript.new()
 	_assert_true(not material.has_signal("ui_refresh_requested"), "language material should not ask the host to redraw the phone shell")
 	_assert_true(not material.has_signal("status_refresh_requested"), "language material should not ask the host to redraw the status line")
+
+
+func _test_pickup_returns_outcome() -> void:
+	var game := Harness.new_state()
+	var material = LanguageMaterialScript.new()
+	material.configure({
+		"game": func(): return game,
+		"locale": func() -> String: return "zh",
+	})
+	var first = material.pick_from_post("门", "floor_13")
+	_assert_true(first is ActionOutcomeScript, "pickup should return an action outcome")
+	_assert_true(first.succeeded and first.spent_action, "the day's first pickup should succeed and spend an action")
+	_assert_true(first.settlement().has("actions_after"), "the first pickup should carry the spent-action settlement")
+	_assert_eq_text(_feedback_text(), "一个字进入了笔记本。", "a pickup should write into the feedback model")
+	var second = material.pick_from_post("开", "floor_13")
+	_assert_true(second.succeeded and not second.spent_action, "later pickups that day should succeed for free")
+	var duplicate = material.pick_from_post("门", "floor_13")
+	_assert_true(not duplicate.succeeded and not duplicate.spent_action, "a duplicate pickup should fail without spending")
+	_assert_eq_text(_feedback_text(), "这个字已经在笔记本里了。", "a duplicate pickup should say so in the feedback model")
+	var no_game = LanguageMaterialScript.new().pick_from_post("门", "floor_13")
+	_assert_true(no_game is ActionOutcomeScript and not no_game.succeeded, "pickup without a game should return a failed outcome")
+
+
+## The host reads the returned outcome and the feedback model, not material signals.
+func _test_signals_retired() -> void:
+	var material = LanguageMaterialScript.new()
+	_assert_true(not material.has_signal("effective_action"), "language material should not raise effective_action")
+	_assert_true(not material.has_signal("log_requested"), "language material should not raise log_requested")
+	var source := FileAccess.get_file_as_string("res://scripts/game/language_material.gd")
+	_assert_true(not source.contains("actions_before"), "language material should not snapshot actions_before itself")
+	var adapter := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(not adapter.contains("effective_action"), "adapter should not wire effective_action")
+	_assert_true(not adapter.contains("log_requested"), "adapter should not wire log_requested")
+
+
+func _feedback_text() -> String:
+	PropertyBootScript.install()
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	return str(manager.model(PropertyKeysScript.FEEDBACK_TEXT).read())
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -5,6 +5,10 @@ extends RefCounted
 
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 const PICKABLE_PULSE_FREQ := 0.5
 const PICKABLE_FONT_SIZE := 19
@@ -14,8 +18,6 @@ const NOTEBOOK_FLIGHT_INSET := Vector2(56.0, 40.0)
 const COMPOSER_FLIGHT_INSET_Y := 20.0
 
 signal sfx_requested(kind: String)
-signal effective_action(settlement: Dictionary)
-signal log_requested(text: String)
 signal notebook_home_requested
 signal pickup_flight_requested(unit: String, origin: Vector2)
 signal place_flight_requested(unit: String)
@@ -33,30 +35,30 @@ func configure(deps: Dictionary) -> void:
 	_mouse_origin_getter = deps.get("mouse_origin", _mouse_origin_getter)
 
 
-func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
+## Picks one unit into the notebook. The host settles the returned outcome when it spent an action.
+func pick_from_post(meta: Variant, post_id: String) -> ActionOutcomeScript:
 	var game = _game()
 	if game == null:
-		return {"picked": false, "reason": "no-game"}
+		return ActionOutcomeScript.new()
 	var unit := str(meta)
 	var locale_code := _locale()
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, locale_code)
-	if bool(pick_result.get("picked", false)):
-		log_requested.emit("一个字进入了笔记本。")
+	var outcome: ActionOutcomeScript = pick_result["outcome"]
+	outcome.succeeded = bool(pick_result.get("picked", false))
+	if outcome.succeeded:
+		_write_feedback("一个字进入了笔记本。")
 		sfx_requested.emit("pickup_press")
 		notebook_home_requested.emit()
 		pickup_flight_requested.emit(unit, _mouse_origin())
-		if bool(pick_result.get("action_spent", false)):
-			var outcome: ActionOutcomeScript = pick_result["outcome"]
-			effective_action.emit(outcome.settlement())
-		return pick_result
+		return outcome
 	match str(pick_result.get("reason", "")):
 		"duplicate":
-			log_requested.emit("这个字已经在笔记本里了。")
+			_write_feedback("这个字已经在笔记本里了。")
 		"no-actions":
-			log_requested.emit("今天没有行动了。明天第一次拾字会重新消耗行动。")
+			_write_feedback("今天没有行动了。明天第一次拾字会重新消耗行动。")
 		_:
-			log_requested.emit("这个字没有进入笔记本。")
-	return pick_result
+			_write_feedback("这个字没有进入笔记本。")
+	return outcome
 
 
 func place_from_bank(unit: String) -> bool:
@@ -65,7 +67,7 @@ func place_from_bank(unit: String) -> bool:
 		return false
 	if not game.free_sentence_place(unit, _locale()):
 		return false
-	log_requested.emit("字进入了句子。")
+	_write_feedback("字进入了句子。")
 	place_flight_requested.emit(unit)
 	return true
 
@@ -79,7 +81,7 @@ func place_if_over_answer(unit: String, release_global: Vector2, answer_panel: C
 		if answer_panel.get_global_rect().has_point(release_global):
 			dropped_into_sentence = game.free_sentence_place(unit, _locale())
 	if dropped_into_sentence:
-		log_requested.emit("字进入了句子。")
+		_write_feedback("字进入了句子。")
 	return dropped_into_sentence
 
 
@@ -98,7 +100,7 @@ func drop_before(data: Dictionary, before_index: int) -> Dictionary:
 func apply_drop_at(data: Dictionary, target_index: int) -> Dictionary:
 	var result: Dictionary = apply_drop(_game(), data, target_index, _locale())
 	if bool(result.get("applied", false)) and str(result.get("kind", "")) == "composer_unit":
-		log_requested.emit("字进入了句子。")
+		_write_feedback("字进入了句子。")
 	return result
 
 
@@ -109,20 +111,23 @@ func remove_at(unit_index: int) -> bool:
 	return true
 
 
-func submit() -> Dictionary:
+## Posts the free sentence. The host settles the returned outcome when it succeeded.
+func submit() -> ActionOutcomeScript:
 	var game = _game()
 	if game == null:
-		return {"submitted": false, "reason": "no-game"}
+		return ActionOutcomeScript.new()
 	var submit_result: Dictionary = game.submit_free_sentence(_locale())
-	if not bool(submit_result.get("submitted", false)):
+	var outcome: ActionOutcomeScript = submit_result["outcome"]
+	outcome.succeeded = bool(submit_result.get("submitted", false))
+	if not outcome.succeeded:
 		match str(submit_result.get("reason", "")):
 			"empty":
-				log_requested.emit("句子还空着。")
+				_write_feedback("句子还空着。")
 			"no-actions":
-				log_requested.emit("今天没有行动了。明天第一次拾字会重新消耗行动。")
+				_write_feedback("今天没有行动了。明天第一次拾字会重新消耗行动。")
 			_:
-				log_requested.emit("投稿没有发出去。")
-		return submit_result
+				_write_feedback("投稿没有发出去。")
+		return outcome
 	var log_line := ""
 	match str(submit_result.get("tier", "")):
 		"rule":
@@ -135,10 +140,8 @@ func submit() -> Dictionary:
 		log_line += "\n" + "第三层的门开了。"
 	if bool(submit_result.get("floor4_task_completed", false)):
 		log_line += "\n" + "出口开始存在。"
-	log_requested.emit(log_line)
-	var outcome: ActionOutcomeScript = submit_result["outcome"]
-	effective_action.emit(outcome.settlement())
-	return submit_result
+	_write_feedback(log_line)
+	return outcome
 
 
 static func pickup_line(post_id: String, locale_code: String) -> String:
@@ -237,6 +240,14 @@ static func _word_boundary_ok(text: String, start_index: int, unit_length: int) 
 
 func _game():
 	return _game_getter.call() if _game_getter.is_valid() else null
+
+
+func _write_feedback(text: String) -> void:
+	PropertyBootScript.install()
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return
+	(manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).write(text)
 
 
 func _locale() -> String:

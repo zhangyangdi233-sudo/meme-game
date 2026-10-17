@@ -1716,7 +1716,7 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
 			_on_confirm_dialogue_pressed()
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
-			_language_material.pick_from_post(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, "")))
+			_present_pickup_outcome(_language_material.pick_from_post(payload.get(UiIntentsScript.KEY_META), str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))
 		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
 			_language_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
 		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED:
@@ -1724,7 +1724,7 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED:
 			_language_material.remove_at(int(payload.get(UiIntentsScript.KEY_UNIT_INDEX, -1)))
 		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED:
-			_language_material.submit()
+			_present_submit_outcome(_language_material.submit())
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED:
 			_on_composer_submit_pressed()
 		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED:
@@ -1907,10 +1907,6 @@ func _connect_language_material() -> void:
 		return
 	if not _language_material.sfx_requested.is_connected(_on_language_material_sfx):
 		_language_material.sfx_requested.connect(_on_language_material_sfx)
-	if not _language_material.effective_action.is_connected(_present_settlement):
-		_language_material.effective_action.connect(_present_settlement)
-	if not _language_material.log_requested.is_connected(_on_language_material_log):
-		_language_material.log_requested.connect(_on_language_material_log)
 	if not _language_material.notebook_home_requested.is_connected(_ensure_notebook_window_home):
 		_language_material.notebook_home_requested.connect(_ensure_notebook_window_home)
 	if not _language_material.pickup_flight_requested.is_connected(_on_language_pickup_flight):
@@ -3166,7 +3162,7 @@ func _composer_answer_target() -> Vector2:
 
 func _on_composer_submit_pressed() -> void:
 	_ensure_language_material()
-	_language_material.submit()
+	_present_submit_outcome(_language_material.submit())
 
 
 func _build_pickup_flight_layer() -> void:
@@ -3192,7 +3188,18 @@ func _ensure_notebook_window_home() -> void:
 
 func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	_ensure_language_material()
-	_language_material.pick_from_post(meta, post_id)
+	_present_pickup_outcome(_language_material.pick_from_post(meta, post_id))
+
+
+## A pickup settles only when it spent the day's first action; later pickups are free.
+func _present_pickup_outcome(outcome: ActionOutcomeScript) -> void:
+	if outcome.spent_action:
+		_present_settlement(outcome.settlement())
+
+
+func _present_submit_outcome(outcome: ActionOutcomeScript) -> void:
+	if outcome.succeeded:
+		_present_settlement(outcome.settlement())
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
@@ -3207,10 +3214,6 @@ func _on_language_material_sfx(kind: String) -> void:
 	match kind:
 		"pickup_press":
 			_play_ui_sound(_audio_controller.pickup_press_audio)
-
-
-func _on_language_material_log(text: String) -> void:
-	_write_feedback_text(text)
 
 
 func _on_language_pickup_flight(unit: String, origin: Vector2) -> void:

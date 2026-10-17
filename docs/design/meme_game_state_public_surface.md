@@ -215,7 +215,7 @@ The open social app registers on both models and repaints itself, so there is no
 
 `get_pickup_unit_pool()`, `is_social_char_collected()`, `get_collected_char_units()`, `pick_social_char()`, `get_free_sentence_units()`, `free_sentence_place()`, `free_sentence_remove()`, `free_sentence_place_at()`, `free_sentence_move()`, `free_sentence_clear()`, `get_free_sentence_text()`, `submit_free_sentence()`, `get_player_quote_stage()`, `get_player_echo_quote()`
 
-`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material hands its settlement to the adapter through `effective_action`.
+`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material returns that outcome from `pick_from_post()` and `submit()`, and the adapter settles it.
 
 ### Char canvas
 
