@@ -34,7 +34,7 @@ Every single-copy fact moves, not only a short first list. The first implementat
 
 **Done:** the facts above are all models (`PropertyKeys`), and no panel keeps a private signal to the host any more (ADR 0007). Whether settings is open is one of them; the host registers on it instead of connecting to a panel.
 
-The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host, intent handlers and Language material only write that model; the host words the line from an action outcome, Language material writes its own pickup and submit lines, and the social intent handler writes its like, follow and close lines (ADR 0007). Trackers: #73, #75.
+The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host, intent handlers, Language material and `DaySettlementFeedback` only write that model; the host words the line from an action outcome, Language material writes its own pickup and submit lines, the social intent handler writes its like, follow and close lines, and `DaySettlementFeedback` writes the new day's line when the day settles or the flashback finishes (ADR 0007). Trackers: #73, #75, #89.
 
 The desk log and the camera session's status label translate their own text through the `UiTheme` they resolve; the host no longer hands either a localize callable. The draggable window manager is a service too (`ServiceKeys.WINDOW_MANAGER`): the social panel registers its own window handles. The host unbinds the manager before a scene rebuild frees it, and the next manager binds itself when it is created. Tracker: #87.
 

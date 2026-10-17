@@ -67,10 +67,14 @@ func set_state_source(source: Callable) -> void:
 	_state_source = source
 
 
-## The Reality scene adapter subscribed first (the host builds it before this controller), so its conversation has
-## already ended when the mix is read here.
+## Deferred, so every other listener (the Reality scene adapter ending its conversation) has reacted before the mix
+## is read, whatever order they subscribed in.
 func _on_day_settled(_payload: Dictionary) -> void:
-	if _state_source.is_valid():
+	_sync_from_state_source.call_deferred()
+
+
+func _sync_from_state_source() -> void:
+	if _state_source.is_valid() and is_inside_tree():
 		sync_state(_state_source.call(), false)
 
 
