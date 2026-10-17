@@ -151,10 +151,8 @@ static func names_saved_as(save: String) -> Array[String]:
 
 ## The names a new run resets: saved with the run or rebuilt by loading.
 static func run_names() -> Array[String]:
-	var names: Array[String] = []
-	for fact in FACTS:
-		if fact["save"] == SAVED_WITH_RUN or fact["save"] == RESET_WITH_RUN:
-			names.append(str(fact["name"]))
+	var names := names_saved_as(SAVED_WITH_RUN)
+	names.append_array(names_saved_as(RESET_WITH_RUN))
 	return names
 
 
