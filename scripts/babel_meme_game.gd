@@ -3135,26 +3135,6 @@ func _on_composer_bank_tapped(unit: String) -> void:
 	_presenter().present_place(_language_material.place_from_bank(unit), unit, get_viewport().get_mouse_position())
 
 
-func _on_composer_answer_tapped(unit_index: int) -> void:
-	_ensure_language_material()
-	_language_material.remove_at(unit_index)
-
-
-func _on_composer_area_drop(data: Dictionary) -> void:
-	_ensure_language_material()
-	_language_material.drop_on_area(data)
-
-
-func _on_composer_tile_drop(data: Dictionary, before_index: int) -> void:
-	_ensure_language_material()
-	_language_material.drop_before(data, before_index)
-
-
-func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
-	_ensure_language_material()
-	_language_material.apply_drop_at(data, target_index)
-
-
 func _composer_answer_target() -> Vector2:
 	var answer_flow := _find_control_by_name(_ui_root, "ComposerAnswerFlow")
 	if answer_flow != null and is_instance_valid(answer_flow):

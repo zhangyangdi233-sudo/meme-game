@@ -1,6 +1,7 @@
 extends SceneTree
 ## 自由造句台 + 世界规则 + 终极任务 + 玩偶引导的回归测试。
 
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -272,8 +273,8 @@ func _test_ui_flow() -> void:
 	game_root.game.pick_social_char("floor_13", "开", "zh")
 	game_root._render()
 	await process_frame
-	game_root._on_composer_bank_tapped("门")
-	game_root._on_composer_bank_tapped("开")
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "门"})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"})
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门开", "bank taps should build the sentence in order")
 	var canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
@@ -288,11 +289,11 @@ func _test_ui_flow() -> void:
 	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
 	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
 
-	game_root._on_composer_answer_tapped(1)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1})
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门", "tapping an answer tile should remove it")
 
-	game_root._on_composer_submit_pressed()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
 	await process_frame
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(str(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.FEEDBACK_TEXT).read()).begins_with("投稿已发出"), "posting should report one of the three response tiers")
