@@ -1638,13 +1638,12 @@ func _ensure_screen_manager() -> void:
 	add_child(_screen_manager)
 
 
-## Binds the UI theme as a service so panels can resolve it instead of taking theme callables.
-## A theme already bound (an earlier host in the same process) is reused and reconfigured by this host.
+## Binds this host's UI theme as a service so panels can resolve it instead of taking theme callables.
+## A theme left by an earlier host is replaced, so that host's exit cannot unbind the theme in use.
 func _bind_ui_theme() -> void:
 	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
-		_ui_theme_helper = ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
-	else:
-		ServiceRegistryScript.bind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
+		ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME))
+	ServiceRegistryScript.bind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 
 
 ## Binds the UI event bus as a service so runtime-built controls can resolve it.
