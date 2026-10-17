@@ -2,6 +2,7 @@ extends SceneTree
 ## Day-transition overlay, meme-bank retirement, and adapter signal wiring (main scene).
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 
 var _failures: Array[String] = []
 
@@ -101,9 +102,38 @@ func _run() -> void:
 	day_overlay = Harness.find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	_assert_eq(game_root.game.day, 2, "pollution flashback should still settle directly into the next day")
 	_assert_true(day_overlay != null and not day_overlay.visible, "pollution flashback should not stack the normal three-second day overlay")
+	_assert_true(_feedback_text().begins_with("黑屏之后，已经是第二天。"), "a finished flashback should say it is already the next day")
+
+	await _run_settlement_raises_day_settled(game_root)
 
 	game_root.queue_free()
 	await process_frame
+
+
+## The host settles and raises DAY_SETTLED; the adapter, audio and desk line react on their own.
+func _run_settlement_raises_day_settled(game_root) -> void:
+	game_root.new_game()
+	await process_frame
+	var heard: Array = []
+	var listener := func(payload: Dictionary) -> void: heard.append(payload)
+	var bus := GameEventBus.bound()
+	bus.subscribe(GameEventsScript.DAY_SETTLED, listener)
+	game_root._write_selected_meme("meme-yesterday")
+	game_root.game.record_event("昨日的最后一行。")
+	game_root.game.needs_day_settlement = true
+	_assert_true(game_root._settle_day_and_present_rewards(), "a pending day should settle")
+	_assert_eq(heard, [{GameEventsScript.KEY_DAY: 2, GameEventsScript.KEY_FROM_FLASHBACK: false}], "the host should raise one DAY_SETTLED with the new day")
+	_assert_eq(_feedback_text(), "昨日的最后一行。", "the desk line should show the latest log line")
+	_assert_eq(str(GameModels.value(PropertyKeys.SELECTED_MEME).read()), "", "a settled day should clear the meme selection")
+	_assert_true(not bool(game_root._reality_scene_adapter.interaction_outcome().get("interaction_active", true)), "a settled day should leave the street idle")
+	heard.clear()
+	_assert_true(not game_root._settle_day_and_present_rewards(), "a settled day should not settle twice")
+	_assert_eq(heard, [], "nothing should be raised when no day settles")
+	bus.unsubscribe(GameEventsScript.DAY_SETTLED, listener)
+
+
+func _feedback_text() -> String:
+	return str(GameModels.value(PropertyKeys.FEEDBACK_TEXT).read())
 
 
 func _assert_true(value: bool, message: String) -> void:

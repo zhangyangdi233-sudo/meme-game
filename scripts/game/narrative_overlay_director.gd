@@ -7,6 +7,8 @@ const NarrativeBeatScript = preload("res://scripts/game/narrative_beat.gd")
 const ActionSpendPanelScript = preload("res://scripts/ui/action_spend_panel.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 
 var action_spend_panel: ActionSpendPanel
 var action_spend_overlay: Control
@@ -190,12 +192,14 @@ func play_pollution_flashback() -> void:
 		_play_flashback_visual()
 
 
+## A beat that also has a day transition already settled the day there; the flashback's finish still raises its event.
 func finish_pollution_flashback() -> void:
 	var on_segment: bool = _beat != null and str(_beat.current_segment()) == "flashback"
 	_stop_flashback_presentation()
 	if not on_segment:
 		return
 	_settle_day(true)
+	GameEventBusScript.raise_event(GameEventsScript.FLASHBACK_FINISHED)
 	_advance_beat()
 
 

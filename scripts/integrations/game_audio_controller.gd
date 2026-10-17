@@ -2,7 +2,7 @@ extends Node
 class_name GameAudioController
 ## Adaptive score mix, floor phone music, and cover-watcher stinger for the main scene adapter.
 ## Short UI sounds and the watcher's appearance are game events: while it is in the tree it subscribes to
-## SFX_REQUESTED and COVER_WATCHER_APPEARED and plays the cue or the stinger.
+## SFX_REQUESTED and COVER_WATCHER_APPEARED and plays the cue or the stinger, and to DAY_SETTLED to re-sync the mix.
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -36,6 +36,7 @@ var cover_watcher_stinger: AudioStreamPlayer
 var _host: Node
 var _audio_tween: Tween
 var _event_bus: GameEventBus
+var _state_source: Callable
 
 
 func attach_to(host: Node) -> void:
@@ -50,13 +51,27 @@ func _enter_tree() -> void:
 	if _event_bus != null:
 		_event_bus.subscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
 		_event_bus.subscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
+		_event_bus.subscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
 
 
 func _exit_tree() -> void:
 	if _event_bus != null:
 		_event_bus.unsubscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
 		_event_bus.unsubscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
+		_event_bus.unsubscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
 	_event_bus = null
+
+
+## The host hands over how to read the mix inputs (the same dictionary sync_state takes), so a settled day can re-sync.
+func set_state_source(source: Callable) -> void:
+	_state_source = source
+
+
+## The Reality scene adapter subscribed first (the host builds it before this controller), so its conversation has
+## already ended when the mix is read here.
+func _on_day_settled(_payload: Dictionary) -> void:
+	if _state_source.is_valid():
+		sync_state(_state_source.call(), false)
 
 
 func _on_sfx_requested(payload: Dictionary) -> void:

@@ -2,10 +2,13 @@ extends Node
 class_name RealitySceneAdapter
 ## 3D reality floor, player locomotion, and proximity interaction for the main scene adapter.
 ## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
+## While in the tree it subscribes to DAY_SETTLED: a new day ends any conversation and forgets the nearby targets.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 
 const MOVE_SPEED := 3.3
 const SPRINT_MULTIPLIER := 1.85
@@ -30,12 +33,31 @@ var _last_safe_position := Vector3.ZERO
 var _host: Node3D
 var _interaction_active := false
 var _gaze_before_interaction: Dictionary = {}
+var _event_bus: GameEventBus
 
 
 func attach_to(host: Node3D) -> void:
 	_host = host
 	name = "RealitySceneAdapterHost"
 	host.add_child(self)
+
+
+## The host binds the bus in its own _enter_tree, which runs before this one.
+func _enter_tree() -> void:
+	_event_bus = GameEventBusScript.bound()
+	if _event_bus != null:
+		_event_bus.subscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
+
+
+func _exit_tree() -> void:
+	if _event_bus != null:
+		_event_bus.unsubscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
+	_event_bus = null
+
+
+func _on_day_settled(_payload: Dictionary) -> void:
+	apply_interaction({"action": "end"})
+	clear_nearby_targets()
 
 
 func build_world_nodes() -> void:

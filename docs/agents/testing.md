@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (105 tests)
+## What runs (107 tests)
 
-### GDScript (103)
+### GDScript (105)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -128,17 +128,19 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
-| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` and `COVER_WATCHER_APPEARED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes |
+| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED`, `COVER_WATCHER_APPEARED` and `DAY_SETTLED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes, and re-syncs the mix from the host's inputs when the day settles |
+| `test_day_settlement_feedback` | module | the desk-line subscriber, once attached: a settled day clears the meme selection and shows the latest log line; a finished flashback shows the "already the next day" line; a day the flashback settles leaves its line to the flashback; a detached one hears nothing |
+| `test_narrative_overlay_director` | module | finishing the pollution flashback asks the host to settle, then raises `FLASHBACK_FINISHED`; finishing with no flashback on screen does neither |
 | `test_cover_watcher_sightings` | module | the sightings subscribe to the watcher events once attached: an appearance marks its floor seen in the run they were last pointed at, a withdrawal records its line, and a detached one hears nothing |
 | `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree and translates it through the bound UI theme |
 | `test_camera_session_status` | module | the camera session words its status label and translates it through the bound UI theme, again after a language switch |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
-| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
+| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; while in the tree a `DAY_SETTLED` ends the conversation and forgets the nearby targets |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
-| `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement |
+| `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement; the host raises one `DAY_SETTLED` per settlement and the desk line, selection and street react; a finished flashback shows the next-day line |
 | `test_main_scene` | **adapter** | integration smoke |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |

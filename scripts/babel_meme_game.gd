@@ -38,6 +38,7 @@ const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_
 const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const CoverWatcherSightingsScript = preload("res://scripts/game/cover_watcher_sightings.gd")
+const DaySettlementFeedbackScript = preload("res://scripts/game/day_settlement_feedback.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const IntentResultScript = preload("res://scripts/game/intent_result.gd")
@@ -155,6 +156,7 @@ var _social_feed_panel: SocialFeedPanel
 var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
 var _cover_watcher_sightings: CoverWatcherSightings =CoverWatcherSightingsScript.new()
+var _day_settlement_feedback: DaySettlementFeedback = DaySettlementFeedbackScript.new()
 var _language_presenter: LanguagePresenter
 var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
 var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScript.new()
@@ -212,6 +214,7 @@ func _ensure_audio_controller() -> void:
 		return
 	_audio_controller = GameAudioControllerScript.new()
 	_audio_controller.attach_to(self)
+	_audio_controller.set_state_source(_audio_controller_deps)
 
 
 func _ensure_narrative_director() -> void:
@@ -352,6 +355,8 @@ func _enter_tree() -> void:
 	_ensure_ui_event_bus()
 	_cover_watcher_sightings.configure(game)
 	_cover_watcher_sightings.attach(_ui_event_bus)
+	_day_settlement_feedback.configure(game)
+	_day_settlement_feedback.attach(_ui_event_bus)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -366,6 +371,7 @@ func _exit_tree() -> void:
 	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
 	_cover_watcher_sightings.detach()
+	_day_settlement_feedback.detach()
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -510,6 +516,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 		_camera_session.second_layer_texture = null
 	game = session_state
 	_cover_watcher_sightings.configure(game)
+	_day_settlement_feedback.configure(game)
 	if _language_material != null:
 		_language_material.configure(game, _locale)
 	_social_feed_source().configure(game, _locale, _language_material)
@@ -3119,26 +3126,18 @@ func _present_settlement(settlement: Dictionary) -> void:
 	_refresh_play_surfaces()
 
 
+## Settles a pending day and raises DAY_SETTLED; the Reality scene adapter, audio and the desk line react on their own
+## (ADR 0007). The host still presents what comes next: the ending, or the redrawn play surfaces.
 func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
-	var settled := game != null and game.settle_day_if_needed()
-	if not settled and not from_flashback:
+	if game == null or not game.settle_day_if_needed():
 		return false
-	if settled:
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.apply_interaction({"action": "end"})
-			_reality_scene_adapter.clear_nearby_targets()
-		_sync_audio_state(false)
-		if not _present_ending_if_unlocked():
-			_refresh_play_surfaces()
-	_write_selected_meme("")
-	if from_flashback:
-		var day_line := "黑屏之后，已经是第二天。"
-		if game != null and not game.event_log.is_empty():
-			day_line = "%s\n%s" % [day_line, game.event_log[0]]
-		_write_feedback_text(day_line)
-	elif game != null and not game.event_log.is_empty():
-		_write_feedback_text(game.event_log[0])
-	return settled
+	GameEventBusScript.raise_event(GameEventsScript.DAY_SETTLED, {
+		GameEventsScript.KEY_DAY: game.day,
+		GameEventsScript.KEY_FROM_FLASHBACK: from_flashback,
+	})
+	if not _present_ending_if_unlocked():
+		_refresh_play_surfaces()
+	return true
 
 
 func _day_plan() -> Dictionary:

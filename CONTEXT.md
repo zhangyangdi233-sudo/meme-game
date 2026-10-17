@@ -71,7 +71,7 @@ How any UI tells the host what the player did. The control emits on the game eve
 _Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
 **Game event**:
-Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the day settled). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first; the cover watcher appearing and vanishing (`COVER_WATCHER_APPEARED` / `COVER_WATCHER_VANISHED`, with the floor) followed. See ADR 0007.
+Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the day settled). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first; the cover watcher appearing and vanishing (`COVER_WATCHER_APPEARED` / `COVER_WATCHER_VANISHED`, with the floor) followed, then the day settling (`DAY_SETTLED`, with the new day and whether the flashback settled it) and the pollution flashback finishing (`FLASHBACK_FINISHED`). See ADR 0007.
 _Avoid_: a game event for a fact that is true now (that is a model), listening for an intent name outside the host, handing an `AudioStreamPlayer` down so a caller can play it
 
 **Intent handler**:
