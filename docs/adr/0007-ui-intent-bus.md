@@ -26,6 +26,6 @@ Signals and callbacks that remain are not a player action reaching the host:
 
 - The flashback overlay hands the host's `finish_pollution_flashback` to its director as `on_sequence_finished`. The flashback has no player control (see above), so it stays a callback until one is added.
 - Low-level control signals inside one component (drag and drop, tile moves, radial selection, edge drawer expansion).
-- Game-side collaborators that are not panels: the Reality scene adapter (`nearby_targets_changed`, cover watcher), the camera session (`tracking_ui_changed`), and `LanguageMaterial` (`sfx_requested`, `log_requested`, `ui_refresh_requested`, `status_refresh_requested`, and the flight and notebook-home requests). Its two refresh requests still make the host redraw the phone shell and the status line, because those screens do not watch the free sentence and notebook models yet. They retire when the screens do (ADR 0008).
+- Game-side collaborators that are not panels: the Reality scene adapter (`nearby_targets_changed`, cover watcher), the camera session (`tracking_ui_changed`), and `LanguageMaterial` (`sfx_requested`, `log_requested`, and the flight and notebook-home requests). It raises no redraw request: the phone screens watch the free sentence and notebook models, and the status line watches the models it shows (ADR 0008). Tracker: #74.
 
 Opening and closing via the screen manager (create once, hide, reuse) stays on the main menu until a later ticket. This decision is only the interface UI uses to notify the host. Tracker: #43.

@@ -6,6 +6,7 @@ const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const HUD_SENTINEL := "HUD_SENTINEL_PHONE_SHELL"
 const ENDING_SENTINEL := "ENDING_SENTINEL_PHONE_SHELL"
@@ -23,6 +24,7 @@ func _run_async() -> void:
 	await _test_channel_refreshes_phone_shell_not_hud()
 	await _test_spend_action_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
+	await _test_composer_intents_paint_the_publish_page_without_a_host_redraw()
 	await _test_phone_popup_follows_the_phone_model()
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
@@ -126,6 +128,40 @@ func _test_spend_action_refreshes_phone_shell_not_hud() -> void:
 	_assert_true(actions_label != null and is_instance_valid(actions_label), "the status column should keep its actions label")
 	if actions_label != null and is_instance_valid(actions_label):
 		_assert_eq(actions_label.text, "今日行动\n○ ○ ○ ○ ○", "the status column should update its own action dots")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	game_root.game.pick_social_char("floor_13", "门", "zh")
+	game_root._social_feed_panel.show_screen("publish")
+	await process_frame
+	var babel_body := game_root._app_bodies.get("babel") as VBoxContainer
+	_assert_true(babel_body != null, "the phone shell should keep a babel app body")
+	if babel_body == null:
+		game_root.queue_free()
+		await process_frame
+		return
+	var sentinel := Label.new()
+	sentinel.name = "BabelRedrawSentinel"
+	babel_body.add_child(sentinel)
+
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
+	await process_frame
+
+	var tile := Harness.find_node_by_name(game_root, "ComposerAnswerTile0")
+	_assert_true(tile != null, "the publish page should show the dropped word from the sentence model")
+	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "editing the sentence should not make the host redraw the whole phone shell")
+
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
+	await process_frame
+	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the publish page should drop the removed word from the sentence model")
+	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "removing a word should not make the host redraw the whole phone shell")
 
 	game_root.queue_free()
 	await process_frame

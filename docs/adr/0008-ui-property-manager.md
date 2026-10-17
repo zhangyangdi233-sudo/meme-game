@@ -36,4 +36,4 @@ Every single-copy fact moves, not only a short first list. The first implementat
 
 The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host only writes that model, including the line it words from an action outcome. Tracker: #73.
 
-**Not finished:** the phone shell and the rest of the status line are still redrawn by the host when `LanguageMaterial` raises `ui_refresh_requested` and `status_refresh_requested`, even though the free sentence and the notebook are models now. The screens do not watch those models yet. When they do, the two signals go away.
+Editing the free sentence or picking up a word no longer makes the host redraw the phone shell or the status line. The social publish page and the notebook watch the free sentence and held-word models and repaint themselves; the guide and playtest windows watch the tutorial progress. `LanguageMaterial` only changes the state, and its two redraw signals are gone. A pickup or a post that spends an action still goes through the settlement, which redraws what an action changes. Tracker: #74.

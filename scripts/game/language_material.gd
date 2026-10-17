@@ -15,12 +15,10 @@ const COMPOSER_FLIGHT_INSET_Y := 20.0
 
 signal sfx_requested(kind: String)
 signal effective_action(settlement: Dictionary)
-signal ui_refresh_requested
 signal log_requested(text: String)
 signal notebook_home_requested
 signal pickup_flight_requested(unit: String, origin: Vector2)
 signal place_flight_requested(unit: String)
-signal status_refresh_requested
 
 var _game_getter: Callable = Callable()
 var _locale_getter: Callable = Callable()
@@ -50,8 +48,6 @@ func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 		if bool(pick_result.get("action_spent", false)):
 			var outcome: ActionOutcomeScript = pick_result["outcome"]
 			effective_action.emit(outcome.settlement())
-		else:
-			status_refresh_requested.emit()
 		return pick_result
 	match str(pick_result.get("reason", "")):
 		"duplicate":
@@ -60,7 +56,6 @@ func pick_from_post(meta: Variant, post_id: String) -> Dictionary:
 			log_requested.emit("今天没有行动了。明天第一次拾字会重新消耗行动。")
 		_:
 			log_requested.emit("这个字没有进入笔记本。")
-	status_refresh_requested.emit()
 	return pick_result
 
 
@@ -72,7 +67,6 @@ func place_from_bank(unit: String) -> bool:
 		return false
 	log_requested.emit("字进入了句子。")
 	place_flight_requested.emit(unit)
-	ui_refresh_requested.emit()
 	return true
 
 
@@ -86,7 +80,6 @@ func place_if_over_answer(unit: String, release_global: Vector2, answer_panel: C
 			dropped_into_sentence = game.free_sentence_place(unit, _locale())
 	if dropped_into_sentence:
 		log_requested.emit("字进入了句子。")
-	ui_refresh_requested.emit()
 	return dropped_into_sentence
 
 
@@ -104,10 +97,8 @@ func drop_before(data: Dictionary, before_index: int) -> Dictionary:
 
 func apply_drop_at(data: Dictionary, target_index: int) -> Dictionary:
 	var result: Dictionary = apply_drop(_game(), data, target_index, _locale())
-	if bool(result.get("applied", false)):
-		if str(result.get("kind", "")) == "composer_unit":
-			log_requested.emit("字进入了句子。")
-		ui_refresh_requested.emit()
+	if bool(result.get("applied", false)) and str(result.get("kind", "")) == "composer_unit":
+		log_requested.emit("字进入了句子。")
 	return result
 
 
@@ -115,7 +106,6 @@ func remove_at(unit_index: int) -> bool:
 	var game = _game()
 	if game == null or not game.free_sentence_remove(unit_index):
 		return false
-	ui_refresh_requested.emit()
 	return true
 
 
@@ -132,7 +122,6 @@ func submit() -> Dictionary:
 				log_requested.emit("今天没有行动了。明天第一次拾字会重新消耗行动。")
 			_:
 				log_requested.emit("投稿没有发出去。")
-		status_refresh_requested.emit()
 		return submit_result
 	var log_line := ""
 	match str(submit_result.get("tier", "")):

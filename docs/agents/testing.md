@@ -142,7 +142,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue, and the composer's token, drop, slot and confirm, to the state; the host keeps no transient selection |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
-| `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility |
+| `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility; composer intents repaint the publish page from the sentence model without a host redraw |
 | `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |
 | `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing, polluted menu |
 | `test_doll_ui_flow` | **adapter** | 3D doll interaction (craft → `test_doll_system`) |

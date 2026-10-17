@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_composer_drop()
 	_test_flight_targets()
 	_test_social_panel_does_not_take_adapter_callables()
+	_test_material_raises_no_redraw_requests()
 
 
 func _test_bbcode_marking() -> void:
@@ -203,6 +204,13 @@ func _test_social_panel_does_not_take_adapter_callables() -> void:
 		adapter.contains("language_material") or adapter.contains("LanguageMaterial"),
 		"adapter should host the Language material module"
 	)
+
+
+## Screens watch the free sentence and the notebook models; the material only changes the state.
+func _test_material_raises_no_redraw_requests() -> void:
+	var material = LanguageMaterialScript.new()
+	_assert_true(not material.has_signal("ui_refresh_requested"), "language material should not ask the host to redraw the phone shell")
+	_assert_true(not material.has_signal("status_refresh_requested"), "language material should not ask the host to redraw the status line")
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -1909,8 +1909,6 @@ func _connect_language_material() -> void:
 		_language_material.sfx_requested.connect(_on_language_material_sfx)
 	if not _language_material.effective_action.is_connected(_present_settlement):
 		_language_material.effective_action.connect(_present_settlement)
-	if not _language_material.ui_refresh_requested.is_connected(_on_language_ui_refresh_requested):
-		_language_material.ui_refresh_requested.connect(_on_language_ui_refresh_requested)
 	if not _language_material.log_requested.is_connected(_on_language_material_log):
 		_language_material.log_requested.connect(_on_language_material_log)
 	if not _language_material.notebook_home_requested.is_connected(_ensure_notebook_window_home):
@@ -1919,13 +1917,6 @@ func _connect_language_material() -> void:
 		_language_material.pickup_flight_requested.connect(_on_language_pickup_flight)
 	if not _language_material.place_flight_requested.is_connected(_on_language_place_flight):
 		_language_material.place_flight_requested.connect(_on_language_place_flight)
-	if not _language_material.status_refresh_requested.is_connected(_render_status):
-		_language_material.status_refresh_requested.connect(_render_status)
-
-
-func _on_language_ui_refresh_requested() -> void:
-	_refresh_phone_shell()
-	_render_status()
 
 
 func _social_feed_mount_deps() -> Dictionary:
