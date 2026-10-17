@@ -1,9 +1,9 @@
 class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and UI intents on the event bus.
-## While the app is shown, it watches the followed authors, the liked posts, the held words, the finished memes,
-## the remaining actions, the sentence being composed, the last publish result and the published records,
-## and repaints itself.
+## While the app is shown, it watches the followed authors, the liked posts, the held words, the finished memes
+## and the published records, and repaints itself.
+## The publish page is its own SocialPublishPanel; this shell only hands it the page host.
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
@@ -11,14 +11,13 @@ extends Node
 ## A window's drag handle is built; the host registers it so the player can drag the window.
 signal draggable_handle_built(window: Control, window_id: String, handle: Control)
 
-const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const SocialPublishPanelScript = preload("res://scripts/ui/social_publish_panel.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const SOCIAL_FEED_WHEEL_STEP := 2
@@ -49,7 +48,7 @@ var _detail_body: VBoxContainer
 var _detail_title: Label
 var _detail_post_index := NO_POST
 var _source: SocialFeedSource
-var _confirm_publish_button: Button
+var _publish: SocialPublishPanel
 var _screen := DEFAULT_SCREEN
 var _channel := DEFAULT_CHANNEL
 var _rendered := false
@@ -58,27 +57,25 @@ var _followed: Array = []
 var _liked: Array = []
 var _held_chars: Array = []
 var _completed_memes: Array = []
-var _sentence_units: Array = []
-var _last_result: Dictionary = {}
 var _published: Array = []
 var _painted_followed: Array = []
 var _painted_liked: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
-var _painted_can_spend := false
-var _painted_sentence_units: Array = []
-var _painted_last_result: Dictionary = {}
 var _painted_published: Array = []
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
 	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_held_chars,
 	PropertyKeysScript.COMPLETED_MEMES: _on_completed_memes,
-	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
-	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_sentence_units,
-	PropertyKeysScript.LAST_PUBLISH_RESULT: _on_last_result,
 	PropertyKeysScript.PUBLISHED_MEMES: _on_published,
 })
+
+
+func _init() -> void:
+	_publish = SocialPublishPanelScript.new()
+	_publish.name = "SocialPublishPanel"
+	add_child(_publish)
 
 
 func mount(parent: Control) -> void:
@@ -105,10 +102,6 @@ func get_app_title() -> Control:
 
 func is_detail_open() -> bool:
 	return _detail_post_index != NO_POST
-
-
-func get_confirm_publish_button() -> Button:
-	return _confirm_publish_button
 
 
 ## Opens one post beside the feed and tells the host which one.
@@ -176,6 +169,7 @@ func layout_detail(viewport_size: Vector2, hud_safe_left: float = 12.0) -> void:
 func update_visibility(in_phone: bool, social_app_open: bool) -> void:
 	_app_shown = in_phone and social_app_open
 	_show_detail_window()
+	_publish.set_shown(_app_shown)
 	if _app_shown:
 		# Registering delivers each list once; one repaint after all of them covers a list that changed while hidden.
 		if not _watch.is_active() and _watch.start():
@@ -227,12 +221,10 @@ func render_app() -> void:
 	var screen := _screen
 	var channel := _channel
 	_rendered = true
+	_publish.release()
 	_painted_followed = _followed
 	_painted_liked = _liked
 	_painted_memes = _completed_memes
-	_painted_can_spend = _can_spend()
-	_painted_sentence_units = _sentence_units
-	_painted_last_result = _last_result
 	_clear(_app_body)
 	var phone_view := _theme().panel() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -329,7 +321,7 @@ func render_app() -> void:
 
 	match screen:
 		"publish":
-			_render_publish_page(page_host)
+			_publish.render(page_host)
 		"profile":
 			_render_profile_page(page_host)
 		_:
@@ -922,107 +914,6 @@ func _repaint_page() -> bool:
 	return true
 
 
-func _render_publish_page(parent: VBoxContainer) -> void:
-	_confirm_publish_button = null
-	var publish_page := VBoxContainer.new()
-	publish_page.name = "SocialPublishPage"
-	publish_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	publish_page.add_theme_constant_override("separation", 6)
-	parent.add_child(publish_page)
-
-	var page_header := HBoxContainer.new()
-	page_header.name = "SocialPublishHeader"
-	page_header.custom_minimum_size.y = 44
-	page_header.add_theme_constant_override("separation", 8)
-	publish_page.add_child(page_header)
-	var page_title := _theme().label("发布新信号", 22, _theme().theme_color("ink")) as Label
-	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page_header.add_child(page_title)
-	var game_day := _source.game_day()
-	page_header.add_child(_theme().label("DAY %02d" % game_day, 12, _theme().theme_color("accent")) as Label)
-
-	var publish_scroll := ScrollContainer.new()
-	publish_scroll.name = "SocialPublishScroll"
-	publish_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	publish_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	publish_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	publish_page.add_child(publish_scroll)
-
-	var publish_content := VBoxContainer.new()
-	publish_content.name = "SocialPublishContent"
-	publish_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	publish_content.add_theme_constant_override("separation", 8)
-	publish_scroll.add_child(publish_content)
-
-	var publish_result := _last_result
-
-	var composer := _theme().panel() as PanelContainer
-	composer.name = "SocialPublishComposer"
-	composer.set_meta("soft_panel", true)
-	publish_content.add_child(composer)
-	var composer_box := VBoxContainer.new()
-	composer_box.add_theme_constant_override("separation", 6)
-	composer.add_child(composer_box)
-	var placed_sentence_units := _sentence_units
-	var composer_header := HBoxContainer.new()
-	composer_header.add_theme_constant_override("separation", 8)
-	composer_box.add_child(composer_header)
-	var composer_step := _theme().label("01  /  内容", 13, _theme().theme_color("accent")) as Label
-	composer_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	composer_header.add_child(composer_step)
-	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
-	var unit_counter := _theme().label(
-		"%d / %d 字" % [placed_sentence_units.size(), _source.composer_soft_unit_limit()],
-		12,
-		_theme().theme_color("accent")
-	) as Label
-	unit_counter.name = "SocialPublishUnitCounter"
-	composer_header.add_child(unit_counter)
-	composer_box.add_child(_theme().label("把笔记本里的字拖进来", 17, _theme().theme_color("ink")) as Label)
-	_render_publish_sentence_area(composer_box, placed_sentence_units)
-
-	var result_panel := _theme().panel() as PanelContainer
-	result_panel.name = "SocialPublishOutcomePanel"
-	result_panel.set_meta("soft_panel", true)
-	publish_content.add_child(result_panel)
-	var result_box := VBoxContainer.new()
-	result_box.add_theme_constant_override("separation", 8)
-	result_panel.add_child(result_box)
-	result_box.add_child(_theme().label("02  /  本次变化", 13, _theme().theme_color("accent")) as Label)
-	var outcome_row := HBoxContainer.new()
-	outcome_row.add_theme_constant_override("separation", 12)
-	result_box.add_child(outcome_row)
-	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
-	var money_outcome := _theme().label("资金  %s" % money_text, 22, _theme().theme_color("ink")) as Label
-	money_outcome.name = "SocialPublishMoneyOutcome"
-	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(money_outcome)
-	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
-	var pollution_outcome := _theme().label("污染  %s" % pollution_text, 22, _theme().theme_color("ink")) as Label
-	pollution_outcome.name = "SocialPublishPollutionOutcome"
-	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(pollution_outcome)
-
-	var hint := _theme().label("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme().theme_color("accent")) as Label
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	publish_content.add_child(hint)
-
-	var action_bar := _theme().panel() as PanelContainer
-	action_bar.name = "SocialPublishActionBar"
-	action_bar.set_meta("fixed_action_bar", true)
-	action_bar.set_meta("soft_panel", true)
-	publish_page.add_child(action_bar)
-	var action_box := VBoxContainer.new()
-	action_box.add_theme_constant_override("separation", 6)
-	action_bar.add_child(action_box)
-	_confirm_publish_button = Button.new()
-	_confirm_publish_button.name = "SocialPublishButton"
-	_confirm_publish_button.text = "确认发布"
-	_confirm_publish_button.custom_minimum_size.y = 56
-	_confirm_publish_button.pressed.connect(_on_publish_confirm_pressed)
-	action_box.add_child(_confirm_publish_button)
-
-
 func _render_profile_page(parent: VBoxContainer) -> void:
 	var profile_page := VBoxContainer.new()
 	profile_page.name = "SocialProfilePage"
@@ -1050,10 +941,6 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 	var note := _theme().label("你的语言档案会随着塔层上升变窄。", 16, _theme().theme_color("accent")) as Label
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_page.add_child(note)
-
-
-func _on_publish_confirm_pressed() -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
 
 
 func _social_feed_dark_style() -> StyleBoxFlat:
@@ -1111,93 +998,8 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	return rich
 
 
-func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Array) -> void:
-	var answer_panel := ComposerDropAreaScript.new()
-	answer_panel.name = "ComposerAnswerPanel"
-	answer_panel.custom_minimum_size.y = 92
-	if _theme() != null:
-		answer_panel.add_theme_stylebox_override(
-			"panel",
-			_theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent"))
-		)
-	answer_panel.unit_dropped.connect(_on_composer_area_dropped)
-	composer_box.add_child(answer_panel)
-	var answer_box := VBoxContainer.new()
-	answer_box.add_theme_constant_override("separation", 4)
-	answer_panel.add_child(answer_box)
-	var answer_flow := HFlowContainer.new()
-	answer_flow.name = "ComposerAnswerFlow"
-	answer_flow.add_theme_constant_override("h_separation", 6)
-	answer_flow.add_theme_constant_override("v_separation", 6)
-	answer_flow.custom_minimum_size.y = 46
-	answer_box.add_child(answer_flow)
-	if placed_units.is_empty():
-		var placeholder := _theme().label("……(句子还空着)", 14, _theme().theme_color("muted")) as Label
-		placeholder.name = "ComposerAnswerPlaceholder"
-		answer_flow.add_child(placeholder)
-	for unit_index in placed_units.size():
-		var placed_tile := ComposerAnswerTileScript.new()
-		placed_tile.name = "ComposerAnswerTile%d" % unit_index
-		placed_tile.text = str(placed_units[unit_index])
-		placed_tile.focus_mode = Control.FOCUS_NONE
-		placed_tile.custom_minimum_size = Vector2(44, 42)
-		placed_tile.set_meta("skip_localization", true)
-		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
-		placed_tile.pressed.connect(_on_composer_answer_pressed.bind(unit_index))
-		placed_tile.unit_dropped_before.connect(_on_composer_tile_dropped)
-		if _theme() != null:
-			_theme().apply_composer_tile_theme(placed_tile, false)
-		answer_flow.add_child(placed_tile)
-	var answer_rule := ColorRect.new()
-	answer_rule.name = "ComposerAnswerUnderline"
-	answer_rule.color = Color(_theme().theme_color("accent"), 0.8)
-	answer_rule.custom_minimum_size.y = 2.0
-	answer_box.add_child(answer_rule)
-
-	var locale := _source.current_locale()
-	var preview_text := MemeGameStateScript.sentence_text(placed_units, locale)
-	var preview_label := _theme().label(preview_text, 15, _theme().theme_color("ink")) as Label
-	preview_label.name = "ComposerPreviewLabel"
-	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	preview_label.set_meta("skip_localization", true)
-	composer_box.add_child(preview_label)
-
-	var post_button := Button.new()
-	post_button.name = "SocialPublishPostButton"
-	post_button.custom_minimum_size.y = 52
-	if placed_units.is_empty():
-		post_button.text = "先放入一个字"
-		post_button.disabled = true
-	elif not _can_spend():
-		post_button.text = "今天不能再投稿"
-		post_button.disabled = true
-	else:
-		post_button.text = "投稿"
-		post_button.disabled = false
-		post_button.add_theme_stylebox_override("normal", _theme().style(_theme().theme_color("accent"), _theme().theme_color("ink")))
-		post_button.add_theme_color_override("font_color", _theme().theme_color("surface"))
-	post_button.pressed.connect(_on_composer_submit_pressed)
-	composer_box.add_child(post_button)
-
-
 func _on_pickup_meta_clicked(meta: Variant, post_id: String) -> void:
 	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: meta, UiIntentsScript.KEY_POST_ID: post_id})
-
-
-func _on_composer_area_dropped(data: Dictionary) -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: data})
-
-
-func _on_composer_tile_dropped(data: Dictionary, before_index: int) -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: data, UiIntentsScript.KEY_BEFORE_INDEX: before_index})
-
-
-func _on_composer_answer_pressed(unit_index: int) -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: unit_index})
-
-
-func _on_composer_submit_pressed() -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
 
 
 func _on_followed(value: Variant) -> void:
@@ -1220,29 +1022,9 @@ func _on_completed_memes(value: Variant) -> void:
 	_repaint_unless_syncing()
 
 
-func _on_actions(_value: Variant) -> void:
-	_repaint_unless_syncing()
-
-
-func _on_sentence_units(value: Variant) -> void:
-	_sentence_units = value as Array
-	_repaint_unless_syncing()
-
-
-func _on_last_result(value: Variant) -> void:
-	_last_result = value as Dictionary
-	_repaint_unless_syncing()
-
-
 func _on_published(value: Variant) -> void:
 	_published = value as Array
 	_repaint_unless_syncing()
-
-
-## Posting costs an action, so the publish page can post while any are left today.
-func _can_spend() -> bool:
-	var value: Variant = _watch.read(PropertyKeysScript.ACTIONS_REMAINING)
-	return value != null and int(value) > 0
 
 
 func _repaint_unless_syncing() -> void:
@@ -1252,15 +1034,12 @@ func _repaint_unless_syncing() -> void:
 
 ## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
 ## Held words and published records (the echo under a post) mark the post detail only,
-## finished memes show on the profile page only, and the remaining actions, the sentence
-## and the last result show on the publish page only.
+## and finished memes show on the profile page only. The publish panel repaints its own page.
 func _repaint_if_stale() -> void:
 	if not _rendered:
 		return
 	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
-	var publish_stale := _screen == "publish" and (_can_spend() != _painted_can_spend
-		or _sentence_units != _painted_sentence_units or _last_result != _painted_last_result)
-	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale or publish_stale
+	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale
 	if feed_stale:
 		render_app()
 		_theme_window(_app_window)

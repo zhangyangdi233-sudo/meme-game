@@ -65,6 +65,7 @@ func _run() -> void:
 	_test_navigation_raises_channel_screen_and_post_intents()
 	_test_like_follow_close_and_confirm_raise_their_intents()
 	_test_pickup_and_composer_actions_carry_their_answers()
+	_test_the_publish_page_belongs_to_its_own_panel()
 
 
 func _test_painting_reads_the_bound_source_and_announces_drag_handles() -> void:
@@ -654,10 +655,7 @@ func _test_like_follow_close_and_confirm_raise_their_intents() -> void:
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CLOSE_REQUESTED, {}]], "the app close button should raise its intent")
 	panel.show_screen("publish")
 	_heard.clear()
-	var confirm := panel.get_confirm_publish_button()
-	_assert_true(confirm != null, "the panel should own the publish confirm button")
-	if confirm != null:
-		confirm.pressed.emit()
+	_press(mounted, "SocialPublishButton")
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, {}]], "the publish confirm button should raise its intent")
 	_dispose(mounted)
 
@@ -687,6 +685,23 @@ func _test_pickup_and_composer_actions_carry_their_answers() -> void:
 	_heard.clear()
 	_press(mounted, "SocialPublishPostButton")
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, {}]], "the post button should raise its intent")
+	_dispose(mounted)
+
+
+func _test_the_publish_page_belongs_to_its_own_panel() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var publish: SocialPublishPanel = null
+	for child in panel.get_children():
+		if child is SocialPublishPanel:
+			publish = child
+	_assert_true(publish != null, "mounting should give the social panel one publish panel")
+	_assert_true(not panel.has_method("get_confirm_publish_button"), "the social panel should no longer own the publish confirm button")
+	panel.render_app()
+	panel.show_screen("publish")
+	_assert_true(publish != null and publish.get_confirm_button() != null, "the publish screen should be painted by the publish panel")
+	panel.show_screen("home")
+	_assert_true(publish != null and publish.get_confirm_button() == null, "leaving the publish screen should release the publish page")
 	_dispose(mounted)
 
 
