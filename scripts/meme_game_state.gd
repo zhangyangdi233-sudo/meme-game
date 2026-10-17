@@ -2095,12 +2095,11 @@ func confirm_dialogue() -> bool:
 func publish_dialogue() -> ActionOutcomeScript:
 	var meme := _get_first_placed_meme()
 	if meme.is_empty():
-		return _failed_outcome("publish_empty")
+		return _failed_outcome(ActionOutcomeScript.PUBLISH_EMPTY)
 	var publish_result := get_publish_result(meme)
-	var outcome := ActionOutcomeScript.new()
-	outcome.actions_before = actions_remaining
+	var actions_before := actions_remaining
 	if not spend_action("confirm-dialogue"):
-		return _failed_outcome("publish_no_action")
+		return _failed_outcome(ActionOutcomeScript.PUBLISH_NO_ACTION)
 	last_publish_result = publish_result.duplicate(true)
 	money += int(publish_result.get("money_gain", 0))
 	change_pollution(int(publish_result.get("pollution_gain", 0)))
@@ -2119,9 +2118,11 @@ func publish_dialogue() -> ActionOutcomeScript:
 		int(publish_result.get("pollution_gain", 0)),
 	])
 	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
+	var outcome := ActionOutcomeScript.new()
 	outcome.succeeded = true
 	outcome.spent_action = true
-	outcome.feedback_key = "publish_done"
+	outcome.feedback_key = ActionOutcomeScript.PUBLISH_DONE
+	outcome.actions_before = actions_before
 	outcome.actions_after = actions_remaining
 	outcome.flashback = pollution_flashback_pending
 	outcome.day_transition = needs_day_settlement

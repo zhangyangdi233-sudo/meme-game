@@ -52,9 +52,9 @@ const NarrativeFlowStateScript = preload("res://scripts/game/flow/narrative_flow
 const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const ACTION_FEEDBACK_TEXT := {
-	"publish_done": "句子发出去了。资金到账，污染留下。",
-	"publish_empty": "发布空格里还没有完整梗。",
-	"publish_no_action": "发布空格里还没有完整梗。",
+	ActionOutcomeScript.PUBLISH_DONE: "句子发出去了。资金到账，污染留下。",
+	ActionOutcomeScript.PUBLISH_EMPTY: "发布空格里还没有完整梗。",
+	ActionOutcomeScript.PUBLISH_NO_ACTION: "发布空格里还没有完整梗。",
 }
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"

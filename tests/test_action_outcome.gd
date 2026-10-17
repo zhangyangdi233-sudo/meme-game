@@ -15,6 +15,7 @@ func _run() -> void:
 	test_publish_reports_spent_action_and_funds()
 	test_publish_on_last_action_reports_day_transition()
 	test_publish_crossing_flashback_threshold_reports_flashback()
+	test_publish_without_actions_left_spends_nothing()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -73,6 +74,17 @@ func test_publish_crossing_flashback_threshold_reports_flashback() -> void:
 	_assert_true(outcome.flashback, "crossing the threshold should report a flashback")
 	_assert_true(outcome.day_transition, "a flashback should end the day")
 	_assert_eq(outcome.settlement().get("flashback", false), true, "the settlement should carry the flashback")
+
+
+func test_publish_without_actions_left_spends_nothing() -> void:
+	var game := _ready_to_publish()
+	var money_before: int = game.money
+	game.actions_remaining = 0
+	var outcome: ActionOutcomeScript = game.publish_dialogue()
+	_assert_true(not outcome.succeeded, "publishing with no actions left should fail")
+	_assert_eq(outcome.feedback_key, ActionOutcomeScript.PUBLISH_NO_ACTION, "it should name the no-action feedback")
+	_assert_eq(outcome.settlement(), {}, "a failed publish should need no settlement")
+	_assert_eq(game.money, money_before, "a failed publish should add no money")
 
 
 func _ready_to_publish() -> RefCounted:
