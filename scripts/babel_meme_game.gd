@@ -1652,7 +1652,7 @@ func _ensure_ui_event_bus() -> void:
 
 func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 	if _social_intent_handler.handles(intent_name):
-		_present_intent_result(_social_intents().handle(intent_name, payload))
+		_present_intent_result(_configured_social_intent_handler().handle(intent_name, payload))
 		return
 	match intent_name:
 		UiIntentsScript.START_GAME:
@@ -2432,7 +2432,7 @@ func _on_notebook_tab_changed() -> void:
 
 
 ## The social handler on the current run, language material and social source.
-func _social_intents() -> SocialIntentHandler:
+func _configured_social_intent_handler() -> SocialIntentHandler:
 	_ensure_language_material()
 	_social_intent_handler.configure(game, _language_material, _social_feed_source())
 	return _social_intent_handler
@@ -2444,9 +2444,7 @@ func _present_intent_result(result: IntentResult) -> void:
 		IntentResultScript.SOCIAL_PAGE_CHANGED:
 			_on_social_page_changed()
 		IntentResultScript.SOCIAL_WINDOW_CLOSED:
-			if _social_feed_panel != null:
-				_social_feed_panel.close_detail()
-			_refresh_phone_shell()
+			_present_app_window_closed("social")
 		IntentResultScript.ACTION:
 			_present_action_outcome(result.outcome)
 		IntentResultScript.PICKUP:
@@ -2736,10 +2734,15 @@ func _is_pickable_social_character(character: String) -> bool:
 
 
 func _close_app_window(app_id: String) -> void:
-	if app_id == "social" and _social_feed_panel != null:
-		_social_feed_panel.close_detail()
 	game.close_app_window(app_id)
 	_write_feedback_text("关闭 %s 窗口。" % app_id)
+	_present_app_window_closed(app_id)
+
+
+## The window model is already closed; shut the social post with it and repaint the shell.
+func _present_app_window_closed(app_id: String) -> void:
+	if app_id == "social" and _social_feed_panel != null:
+		_social_feed_panel.close_detail()
 	_refresh_phone_shell()
 
 

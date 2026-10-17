@@ -28,6 +28,7 @@ func _run_async() -> void:
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
 	await _test_a_new_run_resets_the_social_and_notebook_view()
+	await _test_the_host_presents_the_social_close_and_publish_results()
 	if _failures.is_empty():
 		print("phone shell refresh UI tests passed")
 		quit(0)
@@ -62,6 +63,30 @@ func _test_like_refreshes_phone_shell_not_hud() -> void:
 		_assert_true(like_button.text.begins_with("♥"), "phone shell should show the liked heart")
 	_assert_hud_untouched(hud, "liking a post")
 
+	game_root.queue_free()
+	await process_frame
+
+
+## The social handler only changes the state; the host shuts the open post, hides the window and words a publish.
+func _test_the_host_presents_the_social_close_and_publish_results() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
+	await process_frame
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var feedback := str((manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).read())
+	_assert_eq(feedback, str(game_root.ACTION_FEEDBACK_TEXT.get("publish_empty", "")), "the host should word the publish outcome")
+	game_root._social_feed_panel.open_post(0)
+	_assert_true(game_root._social_feed_panel.is_detail_open(), "the post should be open before the close intent")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
+	await process_frame
+	_assert_true(not game_root.game.is_app_window_open("social"), "a close intent should close the social window")
+	_assert_true(not game_root._social_feed_panel.is_detail_open(), "the host should shut the open post on close")
+	var window := game_root._app_windows.get("social") as Control
+	_assert_true(window == null or not window.visible, "the host should hide the social window on close")
 	game_root.queue_free()
 	await process_frame
 
