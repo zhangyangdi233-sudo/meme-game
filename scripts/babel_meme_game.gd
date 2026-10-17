@@ -41,6 +41,7 @@ const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_ove
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const DeskLogLabelScript = preload("res://scripts/ui/desk_log_label.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -113,7 +114,6 @@ var _social_post_cards: Array = SocialFeedCatalogScript.get_post_cards()
 var game: MemeGameState = MemeGameStateScript.new()
 var _locale = GameLocaleScript.new()
 var selected_meme_id := ""
-var log_text := ""
 var _phone_sway_time := 0.0
 
 var _camera: Camera3D
@@ -142,7 +142,7 @@ var _cinematic_bars: CinematicBars
 var _apple_hud_panel: AppleHudPanel
 var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
-var _desk_log: Label
+var _desk_log: DeskLogLabelScript
 var _screen_manager: ScreenManager
 var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
@@ -512,7 +512,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.reset_session_state()
 	_set_reality_mouse_look(false)
-	log_text = "你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。"
+	_write_feedback_text("你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。")
 	_session_world_data = world_data
 	# Leave the title mounted until main-menu exit. Prologue and ending enter mount the in-run scene.
 	if show_prologue:
@@ -719,10 +719,10 @@ func set_view_state(value: String) -> void:
 		game.reset_typed_reality_conversation()
 		if value == "npc_up":
 			_set_reality_mouse_look(true)
-			log_text = "你放下手机，大街重新获得纵深。"
+			_write_feedback_text("你放下手机，大街重新获得纵深。")
 		else:
 			_set_reality_mouse_look(false)
-			log_text = "你又低头看向手机。"
+			_write_feedback_text("你又低头看向手机。")
 			if _phone_launcher_panel != null:
 				_phone_launcher_panel.move_phone_to_front()
 		_refresh_phone_shell()
@@ -1029,7 +1029,7 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
 	_set_reality_mouse_look(false)
-	log_text = "你停在%s面前。" % _active_actor_display_name()
+	_write_feedback_text("你停在%s面前。" % _active_actor_display_name())
 	_update_world_for_phone_view()
 	_refresh_reality_hud()
 	_sync_audio_state(false)
@@ -1053,7 +1053,7 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 		"item_id": str(item_data.get("id", "")),
 	})
 	if not game.event_log.is_empty():
-		log_text = game.event_log[0]
+		_write_feedback_text(game.event_log[0])
 	_refresh_reality_hud()
 	return true
 
@@ -1325,7 +1325,9 @@ func _build_ui() -> void:
 	_ensure_reality_language_composer_panel()
 	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
-	_desk_log = _ui_theme_helper.label("", 16, _ui_theme_helper.theme_color("accent"))
+	_desk_log = DeskLogLabelScript.new()
+	_desk_log.add_theme_font_size_override("font_size", _ui_theme_helper.ui_font_size(16))
+	_desk_log.add_theme_color_override("font_color", _ui_theme_helper.theme_color("accent"))
 	_desk_log.name = "DeskLog"
 	_desk_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_desk_log.offset_left = 282
@@ -2413,8 +2415,6 @@ func _render() -> void:
 
 
 func _render_status() -> void:
-	if _desk_log != null:
-		_desk_log.text = log_text
 	_render_playtest_assist()
 	_update_doll_guide()
 	if _reality_scene_adapter != null:
@@ -2531,12 +2531,12 @@ func _on_notebook_tab_changed() -> void:
 func _on_social_follow_pressed(author_id: String) -> void:
 	var followed := game.toggle_social_follow(author_id)
 	var display_handle := SocialFeedContentScript.author_display(author_id, _social_content_deps())
-	log_text = "已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle
+	_write_feedback_text("已关注 @%s。" % display_handle if followed else "已取消关注 @%s。" % display_handle)
 
 
 func _on_social_like_pressed(post_id: String) -> void:
 	var liked := game.toggle_social_like(post_id)
-	log_text = "已保存这条信号。" if liked else "已取消保存。"
+	_write_feedback_text("已保存这条信号。" if liked else "已取消保存。")
 
 
 func _on_social_post_opened(post_index: int) -> void:
@@ -2847,7 +2847,7 @@ func _close_app_window(app_id: String) -> void:
 	if app_id == "social" and _social_feed_panel != null:
 		_social_feed_panel.close_detail()
 	game.close_app_window(app_id)
-	log_text = "关闭 %s 窗口。" % app_id
+	_write_feedback_text("关闭 %s 窗口。" % app_id)
 	_refresh_phone_shell()
 
 
@@ -2856,13 +2856,13 @@ func _open_phone_launcher() -> void:
 	_set_reality_mouse_look(false)
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.move_phone_to_front()
-	log_text = "展开手机主页。"
+	_write_feedback_text("展开手机主页。")
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
 
 
 func _on_social_detail_closed() -> void:
-	log_text = "关闭社交详情。"
+	_write_feedback_text("关闭社交详情。")
 	_on_social_page_changed()
 
 
@@ -3068,7 +3068,7 @@ func _on_app_pressed(app_id: String) -> void:
 		var social_window := _app_windows.get("social") as Control
 		if social_window != null:
 			social_window.move_to_front()
-	log_text = "打开 %s。" % app_id
+	_write_feedback_text("打开 %s。" % app_id)
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
 
@@ -3213,7 +3213,7 @@ func _on_language_material_sfx(kind: String) -> void:
 
 
 func _on_language_material_log(text: String) -> void:
-	log_text = text
+	_write_feedback_text(text)
 
 
 func _on_language_pickup_flight(unit: String, origin: Vector2) -> void:
@@ -3266,9 +3266,13 @@ func _write_selected_language_token(token_id: String) -> void:
 	_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).write(token_id)
 
 
+func _write_feedback_text(text: String) -> void:
+	_value_model(PropertyKeysScript.FEEDBACK_TEXT).write(text)
+
+
 func _on_language_token_pressed(token_id: String) -> void:
 	_write_selected_language_token(token_id)
-	log_text = "选中了一个带到医生面前的词。"
+	_write_feedback_text("选中了一个带到医生面前的词。")
 	_refresh_reality_hud()
 
 
@@ -3278,19 +3282,19 @@ func _on_language_token_dropped(data: Dictionary, slot_id: String) -> void:
 		return
 	_write_selected_language_token(token_id)
 	if game.place_language_token(slot_id, token_id, "doctor"):
-		log_text = "词已经进入医生句槽。"
+		_write_feedback_text("词已经进入医生句槽。")
 	else:
-		log_text = "这个词不能放在句子的这个位置。"
+		_write_feedback_text("这个词不能放在句子的这个位置。")
 	_refresh_reality_hud()
 
 
 func _on_language_slot_pressed(slot_id: String) -> void:
 	if _selected_language_token().is_empty():
-		log_text = "先选择一个词。"
+		_write_feedback_text("先选择一个词。")
 	elif game.place_language_token(slot_id, _selected_language_token(), "doctor"):
-		log_text = "词已经进入医生句槽。"
+		_write_feedback_text("词已经进入医生句槽。")
 	else:
-		log_text = "这个词不能放在句子的这个位置。"
+		_write_feedback_text("这个词不能放在句子的这个位置。")
 	_refresh_reality_hud()
 
 
@@ -3308,19 +3312,19 @@ func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
 	var meme_id := str(data.get("id", ""))
 	if game.place_meme_in_fusion_slot(slot_id, meme_id):
 		selected_meme_id = meme_id
-		log_text = "旧梗已放入融合槽。"
+		_write_feedback_text("旧梗已放入融合槽。")
 	else:
-		log_text = "两个融合槽必须放入不同的完整梗。"
+		_write_feedback_text("两个融合槽必须放入不同的完整梗。")
 	_refresh_phone_shell()
 
 
 func _on_fusion_slot_pressed(slot_id: String) -> void:
 	if selected_meme_id.is_empty():
-		log_text = "先从融合列表选择一个完整梗。"
+		_write_feedback_text("先从融合列表选择一个完整梗。")
 	elif game.place_meme_in_fusion_slot(slot_id, selected_meme_id):
-		log_text = "旧梗已放入融合槽。"
+		_write_feedback_text("旧梗已放入融合槽。")
 	else:
-		log_text = "两个融合槽不能使用同一个梗。"
+		_write_feedback_text("两个融合槽不能使用同一个梗。")
 	_refresh_phone_shell()
 
 
@@ -3343,7 +3347,7 @@ func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
 
 func _show_action_feedback(outcome: ActionOutcomeScript) -> void:
 	var feedback := str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
-	log_text = feedback % outcome.feedback_detail if feedback.contains("%s") else feedback
+	_write_feedback_text(feedback % outcome.feedback_detail if feedback.contains("%s") else feedback)
 
 
 func _present_settlement(settlement: Dictionary) -> void:
@@ -3373,11 +3377,12 @@ func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
 			_refresh_play_surfaces()
 	selected_meme_id = ""
 	if from_flashback:
-		log_text = "黑屏之后，已经是第二天。"
+		var day_line := "黑屏之后，已经是第二天。"
 		if game != null and not game.event_log.is_empty():
-			log_text = "%s\n%s" % [log_text, game.event_log[0]]
+			day_line = "%s\n%s" % [day_line, game.event_log[0]]
+		_write_feedback_text(day_line)
 	elif game != null and not game.event_log.is_empty():
-		log_text = game.event_log[0]
+		_write_feedback_text(game.event_log[0])
 	return settled
 
 

@@ -2,6 +2,9 @@ extends SceneTree
 ## 自由造句台 + 世界规则 + 终极任务 + 玩偶引导的回归测试。
 
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 
@@ -292,7 +295,7 @@ func _test_ui_flow() -> void:
 	game_root._on_composer_submit_pressed()
 	await process_frame
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
-	_assert_true(game_root.log_text.begins_with("投稿已发出"), "posting should report one of the three response tiers")
+	_assert_true(str(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.FEEDBACK_TEXT).read()).begins_with("投稿已发出"), "posting should report one of the three response tiers")
 
 	# 无行动时投稿按钮必须置灰。
 	var saved_actions: int = game_root.game.actions_remaining

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (93 tests)
+## What runs (94 tests)
 
-### GDScript (91)
+### GDScript (92)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -124,6 +124,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS` |
+| `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |

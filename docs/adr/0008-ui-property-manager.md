@@ -34,4 +34,6 @@ Every single-copy fact moves, not only a short first list. The first implementat
 
 **Done:** the facts above are all models (`PropertyKeys`), and no panel keeps a private signal to the host any more (ADR 0007). Whether settings is open is one of them; the host registers on it instead of connecting to a panel.
 
-**Not finished:** the phone shell and the status line are still redrawn by the host when `LanguageMaterial` raises `ui_refresh_requested` and `status_refresh_requested`, even though the free sentence and the notebook are models now. The screens do not watch those models yet. When they do, the two signals go away.
+The desk log watches the feedback text model (FEEDBACK_TEXT, not saved); the host and action outcomes only write that model. Tracker: #73.
+
+**Not finished:** the phone shell and the rest of the status line are still redrawn by the host when `LanguageMaterial` raises `ui_refresh_requested` and `status_refresh_requested`, even though the free sentence and the notebook are models now. The screens do not watch those models yet. When they do, the two signals go away.
