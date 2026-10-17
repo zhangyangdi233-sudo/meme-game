@@ -1326,6 +1326,7 @@ func _build_ui() -> void:
 	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
 	_desk_log = DeskLogLabelScript.new()
+	_desk_log.localize = _ui_theme_helper.set_localized_property.bind("text")
 	_desk_log.add_theme_font_size_override("font_size", _ui_theme_helper.ui_font_size(16))
 	_desk_log.add_theme_color_override("font_color", _ui_theme_helper.theme_color("accent"))
 	_desk_log.name = "DeskLog"

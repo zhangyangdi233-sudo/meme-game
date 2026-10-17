@@ -21,6 +21,8 @@ func _run_deferred() -> void:
 	_test_entering_the_tree_shows_the_current_text()
 	_test_later_writes_repaint_the_log()
 	_test_a_removed_log_ignores_later_writes()
+	_test_a_re_added_log_shows_the_latest_text()
+	_test_each_repaint_runs_the_localizer()
 	if _failures.is_empty():
 		print("desk log label tests passed")
 		quit(0)
@@ -58,6 +60,25 @@ func _test_a_removed_log_ignores_later_writes() -> void:
 	root.remove_child(log)
 	_feedback().write("二")
 	_assert_eq(log.text, "一", "a log outside the tree should not repaint")
+	log.free()
+
+
+func _test_a_re_added_log_shows_the_latest_text() -> void:
+	var log: Label = DeskLogScript.new()
+	root.add_child(log)
+	root.remove_child(log)
+	_feedback().write("三")
+	root.add_child(log)
+	_assert_eq(log.text, "三", "a re-added log should show the latest text")
+	log.free()
+
+
+func _test_each_repaint_runs_the_localizer() -> void:
+	var log: Label = DeskLogScript.new()
+	log.localize = func(label: Label) -> void: label.text = "[%s]" % label.text
+	root.add_child(log)
+	_feedback().write("四")
+	_assert_eq(log.text, "[四]", "a repaint should localize the new text")
 	log.free()
 
 
