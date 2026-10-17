@@ -9,6 +9,7 @@ const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const SocialFeedSourceScript = preload("res://scripts/game/social_feed_source.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const POSTS := [
@@ -19,6 +20,7 @@ const POSTS := [
 
 var _failures: Array[String] = []
 var _heard: Array = []
+var _draggables: Array = []
 
 
 func _init() -> void:
@@ -35,6 +37,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_test_painting_reads_the_bound_source_and_announces_drag_handles()
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_following_and_liking_repaint_the_open_feed()
 	_test_the_following_channel_lists_followed_authors_only()
@@ -62,6 +65,16 @@ func _run() -> void:
 	_test_navigation_raises_channel_screen_and_post_intents()
 	_test_like_follow_close_and_confirm_raise_their_intents()
 	_test_pickup_and_composer_actions_carry_their_answers()
+
+
+func _test_painting_reads_the_bound_source_and_announces_drag_handles() -> void:
+	var mounted := _mount()
+	(mounted["panel"] as SocialFeedPanel).render_app()
+	_assert_true(_find(mounted, "SocialChannelTabtower_base") != null, "painting should build the source's channels")
+	var ids: Array = _draggables.map(func(entry: Array) -> String: return str(entry[1]))
+	_assert_true("app:social" in ids, "painting should announce the app window's drag handle")
+	_assert_true("social-detail" in ids, "mounting should announce the detail window's drag handles")
+	_dispose(mounted)
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -178,6 +191,7 @@ func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
 	_heard.clear()
+	_draggables.clear()
 	var bus: GameEventBus = GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void: _heard.append([intent_name, payload]))
@@ -189,7 +203,10 @@ func _mount() -> Dictionary:
 	var panel := SocialFeedPanel.new()
 	panel.name = "SocialFeedPanel"
 	root.add_child(panel)
-	panel.mount(parent, _deps())
+	panel.draggable_handle_built.connect(func(window: Control, window_id: String, handle: Control) -> void:
+		_draggables.append([window, window_id, handle]))
+	_bind_source()
+	panel.mount(parent)
 	return {
 		"parent": parent,
 		"panel": panel,
@@ -204,37 +221,90 @@ func _mount() -> Dictionary:
 	}
 
 
-func _deps() -> Dictionary:
-	var author_id := func(post: Dictionary) -> String: return str(post.get("id", ""))
+func _bind_source() -> void:
 	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
 		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
-	return {
-		"register_draggable": func(_window: Control, _id: String, _handle: Control) -> void: pass,
-		"load_texture": func(_path: String): return null,
-		"poster_texture": func(_post_index: int): return null,
-		"channels": [
+	RegistryScript.bind(ServiceKeysScript.SOCIAL_FEED_SOURCE, FakeSource.new())
+
+
+## A typed stand-in for the game's social content: three fixed posts on day 0 in Chinese.
+class FakeSource extends SocialFeedSourceScript:
+	var _material := LanguageMaterial.new()
+
+	func channels() -> Array:
+		return [
 			{"id": "discover", "label": "发现"},
 			{"id": "following", "label": "关注"},
 			{"id": "tower_base", "label": "塔下"},
-		],
-		"visible_post_indices": func(followed_handles: Array, channel: String) -> Array[int]:
-			return SocialFeedContent.visible_post_indices({
-				"post_cards": POSTS,
-				"author_id": author_id,
-			}, followed_handles, channel),
-		"post_for_index": func(post_index: int) -> Dictionary: return POSTS[post_index],
-		"like_text": func(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
-			return SocialFeedContent.like_text(post, post_index, liked_post_ids),
-		"caption_text": func(post: Dictionary, _post_index: int) -> String: return str(post.get("caption", "")),
-		"author_id": author_id,
-		"floor_label": func() -> String: return "1",
-		"language_material": LanguageMaterial.new(),
-		"current_locale": func() -> String: return "zh",
-		"player_echo_quote": func() -> String:
-			var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-			var published: Array = manager.model(PropertyKeysScript.PUBLISHED_MEMES).read()
-			return "" if published.is_empty() else str((published[0] as Dictionary).get("text", "")),
-	}
+		]
+
+	func load_texture(_path: String) -> Texture2D:
+		return null
+
+	func poster_texture(_poster_cell: int) -> Texture2D:
+		return null
+
+	func poster_sheet_path() -> String:
+		return ""
+
+	func poster_sheet_count() -> int:
+		return 0
+
+	func no_signal_icon_path() -> String:
+		return ""
+
+	func player_character_path() -> String:
+		return ""
+
+	func composer_soft_unit_limit() -> int:
+		return 12
+
+	func visible_post_indices(followed_handles: Array, channel: String) -> Array[int]:
+		return SocialFeedContent.visible_post_indices({
+			"post_cards": POSTS,
+			"author_id": author_id,
+		}, followed_handles, channel)
+
+	func post_for_index(post_index: int) -> Dictionary:
+		return POSTS[post_index]
+
+	func like_text(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
+		return SocialFeedContent.like_text(post, post_index, liked_post_ids)
+
+	func caption_text(post: Dictionary, _post_index: int) -> String:
+		return str(post.get("caption", ""))
+
+	func author_id(post: Dictionary) -> String:
+		return str(post.get("id", ""))
+
+	func corrupt_text(text: String) -> String:
+		return text
+
+	func translate(text: String) -> String:
+		return text
+
+	func floor_label() -> String:
+		return "1"
+
+	func player_echo_quote() -> String:
+		var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+		var published: Array = manager.model(PropertyKeysScript.PUBLISHED_MEMES).read()
+		return "" if published.is_empty() else str((published[0] as Dictionary).get("text", ""))
+
+	func echo_comment_handle() -> String:
+		return ""
+
+	func game_day() -> int:
+		return 0
+
+	func pollution() -> int:
+		return 0
+
+	func current_locale() -> String:
+		return "zh"
+
+	func language_material() -> LanguageMaterial:
+		return _material
 
 
 func _test_showing_registers_the_holdings_and_syncs_the_profile_count() -> void:

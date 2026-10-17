@@ -5,7 +5,7 @@ const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
-const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
+const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const CinematicBarsScript = preload("res://framework/ui/cinematic_bars.gd")
 const VhsOverlayScript = preload("res://framework/ui/vhs_overlay.gd")
@@ -35,7 +35,8 @@ const CameraSessionScript = preload("res://scripts/integrations/camera_session.g
 const HandTrackingStatusScript = preload("res://framework/integrations/hand_tracking_status.gd")
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
-const SocialFeedCatalogScript = preload("res://scripts/game/social_feed_catalog.gd")
+const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_source.gd")
+const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
@@ -64,24 +65,19 @@ const ACTION_FEEDBACK_TEXT := {
 }
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
-const PLAYER_CHARACTER_PATH := "res://assets/generated/characters/protagonist_operator.png"
 const GUIDE_DOLL_CHARACTER_PATH := "res://assets/generated/characters/guide_doll.png"
 const NPC_CHARACTER_PATHS := [
 	"res://assets/generated/characters/npc_late_arrival.png",
 	"res://assets/generated/characters/npc_echo_tenant.png",
 	"res://assets/generated/characters/npc_archive_witness.png",
 ]
-const NO_SIGNAL_ICON_PATH := "res://assets/generated/ui/no_signal_icon.png"
 const HUD_POLLUTION_ICON_PATH := "res://assets/generated/ui/hud_pollution_icon.png"
 const HUD_MONEY_ICON_PATH := "res://assets/generated/ui/hud_money_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
 const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"
-const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.png"
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
-# 句子单位软上限(参考 Bluesky 的 grapheme 计数语义;超过只提示不拦截)。
-const COMPOSER_SOFT_UNIT_LIMIT := 12
 # 点阵字体(Boutique Bitmap 9x9,OFL):三语共用一套字形,字号必须吸附到 9 的整数倍。
 const UI_FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const UI_FONT_GRID := 9
@@ -109,8 +105,6 @@ const WORLD_HOTKEY_ACTIONS := [
 	"reality_phone",
 ]
 
-var _social_channels: Array = SocialFeedCatalogScript.get_channels()
-var _social_post_cards: Array = SocialFeedCatalogScript.get_post_cards()
 
 var game: MemeGameState = MemeGameStateScript.new()
 var _locale = GameLocaleScript.new()
@@ -123,7 +117,7 @@ var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
 var _canvas: CanvasLayer
 var _ui_root: Control
-var _texture_cache: Dictionary = {}
+var _textures: RuntimeTextureCache = RuntimeTextureCacheScript.new()
 var _phone_down_backdrop_image: TextureRect
 var _hand_phone_image: TextureRect
 var _camera_session
@@ -152,6 +146,7 @@ var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
 var _social_feed_panel: SocialFeedPanel
+var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
 var _language_presenter: LanguagePresenter
 var _phone_launcher_panel
@@ -260,18 +255,23 @@ func _audio_controller_deps() -> Dictionary:
 
 
 func _social_content_deps() -> Dictionary:
-	return {
-		"post_cards": _social_post_cards,
-		"game": game,
-		"day_progress": game.get_day_progress_snapshot() if game != null else {},
-		"current_locale": _locale.current_locale,
-		"translate": func(text: String) -> String: return _locale.translate(text),
-		"level_display_name": func(floor_number: int) -> String: return _locale.level_display_name(floor_number),
-		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
-		"texture_cache": _texture_cache,
-		"load_texture": _load_runtime_texture,
-		"pickable_units": func(text: String) -> Array[String]: return _locale.pickable_units(text),
-	}
+	return _social_feed_source().content_deps()
+
+
+## The social panel's content, kept on the current run, locale and language material.
+func _social_feed_source() -> GameSocialFeedSource:
+	if _social_source == null:
+		_social_source = GameSocialFeedSourceScript.new(_textures)
+		_social_source.configure(game, _locale, _language_material)
+	return _social_source
+
+
+## Binds this host's social source as a service so the social panel can resolve it.
+## A source left by an earlier host is replaced, like the UI theme.
+func _bind_social_feed_source() -> void:
+	if ServiceRegistryScript.has(ServiceKeysScript.SOCIAL_FEED_SOURCE):
+		ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, ServiceRegistryScript.resolve(ServiceKeysScript.SOCIAL_FEED_SOURCE))
+	ServiceRegistryScript.bind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_feed_source())
 
 
 func _on_camera_tracking_ui_changed() -> void:
@@ -303,6 +303,7 @@ func _on_camera_source_ready(source: String, selected_index: int) -> void:
 func _ready() -> void:
 	PropertyBootScript.install()
 	_bind_ui_theme()
+	_bind_social_feed_source()
 	_ui_theme_helper.configure({
 		"ui_font_path": UI_FONT_PATH,
 		"ui_font_grid": UI_FONT_GRID,
@@ -358,6 +359,7 @@ func _exit_tree() -> void:
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
+	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		var volume := _master_volume_model()
 		if volume != null:
@@ -499,6 +501,7 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	game = session_state
 	if _language_material != null:
 		_language_material.configure(game, _locale)
+	_social_feed_source().configure(game, _locale, _language_material)
 	_migrate_social_author_ids()
 	selected_meme_id = ""
 	if _social_feed_panel != null:
@@ -631,7 +634,7 @@ func _migrate_social_author_ids() -> void:
 	var migrated: Array[String] = []
 	for stored_author in game.get_social_followed_handles():
 		var stable_id := str(stored_author)
-		for post in _social_post_cards:
+		for post in _social_feed_source().post_cards:
 			if str(post.get("handle", "")) == stable_id:
 				stable_id = str(post.get("id", stable_id))
 				break
@@ -1299,7 +1302,7 @@ func _build_ui() -> void:
 	_phone_tab = null
 
 	_ensure_social_feed_panel()
-	_social_feed_panel.mount(_ui_root, _social_feed_mount_deps())
+	_social_feed_panel.mount(_ui_root)
 	_ensure_phone_launcher_panel()
 	_phone_launcher_panel.mount(_ui_root, _phone_launcher_mount_deps())
 	_app_windows["social"] = _social_feed_panel.get_app_window()
@@ -1873,8 +1876,10 @@ func _ensure_social_feed_panel() -> void:
 	_ensure_language_material()
 	if _social_feed_panel != null and is_instance_valid(_social_feed_panel):
 		return
+	_ensure_window_manager()
 	_social_feed_panel = SocialFeedPanelScript.new()
 	_social_feed_panel.name = "SocialFeedPanel"
+	_social_feed_panel.draggable_handle_built.connect(_window_manager.register)
 	add_child(_social_feed_panel)
 
 
@@ -1883,6 +1888,7 @@ func _ensure_language_material() -> void:
 		return
 	_language_material = LanguageMaterialScript.new()
 	_language_material.configure(game, _locale)
+	_social_feed_source().configure(game, _locale, _language_material)
 
 
 ## Rebinds the presenter each use: the flight layer and audio players are built after the material.
@@ -1899,43 +1905,6 @@ func _presenter() -> LanguagePresenter:
 		_ui_theme_helper.theme_color("accent"),
 	)
 	return _language_presenter
-
-
-func _social_feed_mount_deps() -> Dictionary:
-	_ensure_window_manager()
-	_ensure_language_material()
-	return {
-		"register_draggable": _window_manager.register,
-		"load_texture": _load_runtime_texture,
-		"poster_texture": func(post_index: int) -> Texture2D:
-			return SocialFeedContentScript.poster_texture(post_index, _social_content_deps()),
-		"channels": _social_channels,
-		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
-		"poster_sheet_path": SOCIAL_POSTER_SHEET_PATH,
-		"poster_sheet_count": SocialFeedContentScript.SOCIAL_POSTER_COUNT,
-		"visible_post_indices": func(followed_handles: Array, channel: String) -> Array[int]:
-			return SocialFeedContentScript.visible_post_indices(_social_content_deps(), followed_handles, channel),
-		"post_for_index": func(post_index: int) -> Dictionary:
-			return SocialFeedContentScript.post_for_index(post_index, _social_content_deps()),
-		"like_text": func(post: Dictionary, post_index: int, liked_post_ids: Array) -> String:
-			return SocialFeedContentScript.like_text(post, post_index, liked_post_ids),
-		"caption_text": func(post: Dictionary, post_index: int) -> String:
-			return SocialFeedContentScript.caption(post, post_index, _social_content_deps()),
-		"corrupt_text": _corrupt,
-		"floor_label": func() -> String:
-			return SocialFeedContentScript.floor_label(_social_content_deps()),
-		"translate": func(text: String) -> String: return _locale.translate(text),
-		"language_material": _language_material,
-		"author_id": SocialFeedContentScript.author_id,
-		"player_echo_quote": func() -> String: return game.get_player_echo_quote(_locale.current_locale) if game != null else "",
-		"echo_comment_handle": func() -> String: return EchoQuoteContentScript.anon_handle(_locale.current_locale),
-		"game_day": func() -> int: return game.day if game != null else 0,
-		"current_locale": func() -> String: return _locale.current_locale,
-		"theme_window": _theme_phone_window,
-		"pollution": func() -> int: return game.pollution if game != null else 0,
-		"player_character_path": PLAYER_CHARACTER_PATH,
-		"composer_soft_unit_limit": COMPOSER_SOFT_UNIT_LIMIT,
-	}
 
 
 func _ensure_phone_launcher_panel() -> void:
@@ -1966,7 +1935,7 @@ func _phone_launcher_mount_deps() -> Dictionary:
 			return safe_left,
 		"notebook_window_left": func() -> float: return 188.0 if _hud_rail() != null else 44.0,
 		"launcher_wallpaper_path": PHONE_LAUNCHER_WALLPAPER_PATH,
-		"no_signal_icon_path": NO_SIGNAL_ICON_PATH,
+		"no_signal_icon_path": GameSocialFeedSourceScript.NO_SIGNAL_ICON_PATH,
 	}
 
 
@@ -2771,27 +2740,7 @@ func _viewport_size() -> Vector2:
 
 
 func _load_runtime_texture(path: String) -> Texture2D:
-	if _texture_cache.has(path):
-		return _texture_cache[path]
-	var image := Image.new()
-	if FileAccess.file_exists(path):
-		var bytes := FileAccess.get_file_as_bytes(path)
-		var err := image.load_png_from_buffer(bytes)
-		if err != OK:
-			err = image.load_jpg_from_buffer(bytes)
-		if err != OK:
-			err = image.load_webp_from_buffer(bytes)
-		if err != OK:
-			return null
-		var texture := ImageTexture.create_from_image(image)
-		_texture_cache[path] = texture
-		return texture
-	if FileAccess.file_exists("%s.import" % path):
-		var resource := load(path)
-		if resource is Texture2D:
-			_texture_cache[path] = resource
-			return resource
-	return null
+	return _textures.load_texture(path)
 
 
 
@@ -3319,16 +3268,7 @@ func _language_slot_text(slot_id: String, placeholder: String, world: String) ->
 
 
 func _corrupt(text: String) -> String:
-	text = _locale.translate(text)
-	var snapshot := _pollution_stage_snapshot()
-	var replacements := [_locale.translate("哈吉米"), "□", _locale.translate("沉默"), "……"]
-	return PollutionStageScript.corrupt_sentence_ui(
-		text,
-		int(snapshot.get("pollution", 0)),
-		int(snapshot.get("day", 0)),
-		_locale.current_locale,
-		replacements,
-	)
+	return _social_feed_source().corrupt_text(text)
 
 
 func _clear(node: Node) -> void:

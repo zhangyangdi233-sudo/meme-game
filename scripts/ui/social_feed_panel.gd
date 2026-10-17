@@ -5,7 +5,11 @@ extends Node
 ## the remaining actions, the sentence being composed, the last publish result and the published records,
 ## and repaints itself.
 ## The page, the channel and the open post are this screen's own view and live only here.
+## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
+
+## A window's drag handle is built; the host registers it so the player can drag the window.
+signal draggable_handle_built(window: Control, window_id: String, handle: Control)
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -44,32 +48,8 @@ var _detail_window: PanelContainer
 var _detail_body: VBoxContainer
 var _detail_title: Label
 var _detail_post_index := NO_POST
-var _register_draggable: Callable
-var _load_texture_fn: Callable
-var _poster_texture_fn: Callable
-var _visible_post_indices_fn: Callable
-var _post_for_index_fn: Callable
-var _like_text_fn: Callable
-var _caption_text_fn: Callable
-var _corrupt_text_fn: Callable
-var _floor_label_fn: Callable
-var _translate_fn: Callable
-var _language_material
-var _author_id_fn: Callable
-var _player_echo_quote_fn: Callable
-var _echo_comment_handle_fn: Callable
-var _game_day_fn: Callable
-var _current_locale_fn: Callable
-## Themes and localizes a window this panel repainted on its own. The host passes the phone-shell theme pass.
-var _theme_window_fn: Callable
-var _pollution_fn: Callable
-var _player_character_path := ""
-var _composer_soft_unit_limit := 12
+var _source: SocialFeedSource
 var _confirm_publish_button: Button
-var _channels: Array = []
-var _no_signal_icon_path := ""
-var _poster_sheet_path := ""
-var _poster_sheet_count := 0
 var _screen := DEFAULT_SCREEN
 var _channel := DEFAULT_CHANNEL
 var _rendered := false
@@ -101,8 +81,8 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 })
 
 
-func mount(parent: Control, deps: Dictionary) -> void:
-	_apply_mount_deps(deps)
+func mount(parent: Control) -> void:
+	_resolve_source()
 	_build_social_app_window(parent)
 	_build_social_detail_window(parent)
 
@@ -212,8 +192,8 @@ func render_companion() -> void:
 	_clear(_detail_body)
 	if not is_detail_open():
 		return
-	if _detail_title != null and _floor_label_fn.is_valid():
-		_detail_title.text = str(_floor_label_fn.call())
+	if _detail_title != null:
+		_detail_title.text = _source.floor_label()
 	_render_detail_page(_detail_body)
 
 
@@ -270,7 +250,7 @@ func render_app() -> void:
 	status_bar.mouse_filter = Control.MOUSE_FILTER_STOP
 	status_bar.add_theme_constant_override("separation", 6)
 	phone_box.add_child(status_bar)
-	_register_draggable.call(_app_window, "app:social", status_bar)
+	draggable_handle_built.emit(_app_window, "app:social", status_bar)
 	var time_label := _theme().label("9:41", 14, _theme().theme_color("ink")) as Label
 	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	time_label.custom_minimum_size.x = 40
@@ -281,7 +261,7 @@ func render_app() -> void:
 	status_bar.add_child(no_signal_group)
 	var no_signal_icon := TextureRect.new()
 	no_signal_icon.name = "SocialNoSignalIcon"
-	no_signal_icon.texture = _load_texture_fn.call(_no_signal_icon_path) as Texture2D
+	no_signal_icon.texture = _source.load_texture(_source.no_signal_icon_path())
 	no_signal_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	no_signal_icon.visible = true
 	no_signal_icon.custom_minimum_size = Vector2(22, 22)
@@ -317,7 +297,7 @@ func render_app() -> void:
 	channel_tabs.custom_minimum_size.y = 48
 	channel_tabs.add_theme_constant_override("separation", 2)
 	phone_box.add_child(channel_tabs)
-	for channel_data in _channels:
+	for channel_data in _source.channels():
 		var channel_id := str(channel_data.get("id", "discover"))
 		var tab_text := str(channel_data.get("label", ""))
 		var tab_item := VBoxContainer.new()
@@ -358,33 +338,8 @@ func render_app() -> void:
 	_render_bottom_nav(phone_box)
 
 
-func _apply_mount_deps(deps: Dictionary) -> void:
-	if deps.is_empty():
-		return
-	_register_draggable = deps.get("register_draggable", Callable())
-	_load_texture_fn = deps.get("load_texture", Callable())
-	_poster_texture_fn = deps.get("poster_texture", Callable())
-	_visible_post_indices_fn = deps.get("visible_post_indices", Callable())
-	_post_for_index_fn = deps.get("post_for_index", Callable())
-	_like_text_fn = deps.get("like_text", Callable())
-	_caption_text_fn = deps.get("caption_text", Callable())
-	_corrupt_text_fn = deps.get("corrupt_text", Callable())
-	_floor_label_fn = deps.get("floor_label", Callable())
-	_translate_fn = deps.get("translate", Callable())
-	_language_material = deps.get("language_material")
-	_author_id_fn = deps.get("author_id", Callable())
-	_player_echo_quote_fn = deps.get("player_echo_quote", Callable())
-	_echo_comment_handle_fn = deps.get("echo_comment_handle", Callable())
-	_game_day_fn = deps.get("game_day", Callable())
-	_current_locale_fn = deps.get("current_locale", Callable())
-	_theme_window_fn = deps.get("theme_window", Callable())
-	_pollution_fn = deps.get("pollution", Callable())
-	_player_character_path = str(deps.get("player_character_path", ""))
-	_composer_soft_unit_limit = int(deps.get("composer_soft_unit_limit", 12))
-	_channels = deps.get("channels", [])
-	_no_signal_icon_path = str(deps.get("no_signal_icon_path", ""))
-	_poster_sheet_path = str(deps.get("poster_sheet_path", ""))
-	_poster_sheet_count = int(deps.get("poster_sheet_count", 0))
+func _resolve_source() -> void:
+	_source = ServiceRegistryScript.resolve(ServiceKeysScript.SOCIAL_FEED_SOURCE) as SocialFeedSource
 
 
 func _build_social_app_window(parent: Control) -> void:
@@ -446,8 +401,8 @@ func _build_social_detail_window(parent: Control) -> void:
 	_detail_title.mouse_filter = Control.MOUSE_FILTER_STOP
 	_detail_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_detail_title)
-	_register_draggable.call(_detail_window, "social-detail", header)
-	_register_draggable.call(_detail_window, "social-detail", _detail_title)
+	draggable_handle_built.emit(_detail_window, "social-detail", header)
+	draggable_handle_built.emit(_detail_window, "social-detail", _detail_title)
 
 	var close_button := Button.new()
 	close_button.name = "SocialDetailWindowCloseButton"
@@ -487,9 +442,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		)
 		return
 
-	var visible_post_indices: Array = []
-	if _visible_post_indices_fn.is_valid():
-		visible_post_indices = _visible_post_indices_fn.call(_followed, channel)
+	var visible_post_indices: Array = _source.visible_post_indices(_followed, channel)
 	if channel == "following" and visible_post_indices.is_empty():
 		_render_channel_empty_state(
 			home_page,
@@ -539,9 +492,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		masonry_columns.append(column)
 	for visible_index in visible_post_indices.size():
 		var post_index: int = int(visible_post_indices[visible_index])
-		var post: Dictionary = {}
-		if _post_for_index_fn.is_valid():
-			post = _post_for_index_fn.call(post_index)
+		var post: Dictionary = _source.post_for_index(post_index)
 		var card_height := _feed_card_height(post_index)
 		var column_index := 0 if float(masonry_heights[0]) <= float(masonry_heights[1]) else 1
 		var card_panel := _theme().panel() as PanelContainer
@@ -580,9 +531,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		caption_slot.clip_contents = true
 		caption_slot.mouse_filter = Control.MOUSE_FILTER_PASS
 		card.add_child(caption_slot)
-		var caption_text := ""
-		if _caption_text_fn.is_valid():
-			caption_text = str(_caption_text_fn.call(post, post_index))
+		var caption_text := _source.caption_text(post, post_index)
 		var caption := _theme().label(caption_text, 14, _theme().theme_color("ink")) as Label
 		caption.name = "SocialPostCaption%d" % post_index
 		caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -601,9 +550,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		card.add_child(meta_row)
 		var likes := Button.new()
 		likes.name = "SocialPostLikeButton%d" % post_index
-		var like_text := ""
-		if _like_text_fn.is_valid():
-			like_text = str(_like_text_fn.call(post, post_index, _liked))
+		var like_text := _source.like_text(post, post_index, _liked)
 		likes.text = like_text
 		likes.set_meta("flat_phone_button", true)
 		likes.custom_minimum_size = Vector2(64, 44)
@@ -612,9 +559,7 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		meta_row.add_child(likes)
 		var follow := Button.new()
 		follow.name = "SocialPostFollowButton%d" % post_index
-		var author_id := str(post.get("id", post.get("handle", "unknown-author")))
-		if _author_id_fn.is_valid():
-			author_id = str(_author_id_fn.call(post))
+		var author_id := _source.author_id(post)
 		var following := _followed.has(author_id)
 		follow.text = "已关注" if following else "关注"
 		follow.set_meta("flat_phone_button", true)
@@ -681,10 +626,9 @@ func _render_card_poster(parent: VBoxContainer, post_index: int, post: Dictionar
 	var poster_texture := TextureRect.new()
 	poster_texture.name = "SocialPostTexture%d" % post_index
 	var poster_cell := int(post.get("poster_cell", post_index))
-	if _poster_texture_fn.is_valid():
-		poster_texture.texture = _poster_texture_fn.call(poster_cell) as Texture2D
-	poster_texture.set_meta("poster_sheet_path", _poster_sheet_path)
-	poster_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _poster_sheet_count))
+	poster_texture.texture = _source.poster_texture(poster_cell)
+	poster_texture.set_meta("poster_sheet_path", _source.poster_sheet_path())
+	poster_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _source.poster_sheet_count()))
 	poster_texture.custom_minimum_size = Vector2(0, poster.custom_minimum_size.y)
 	poster_texture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	poster_texture.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -812,16 +756,12 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	detail_page.add_theme_constant_override("separation", 8)
 	parent.add_child(detail_page)
 
-	var post: Dictionary = {}
-	if _post_for_index_fn.is_valid():
-		post = _post_for_index_fn.call(_detail_post_index)
+	var post: Dictionary = _source.post_for_index(_detail_post_index)
 
 	var companion_meta := HBoxContainer.new()
 	companion_meta.add_theme_constant_override("separation", 8)
 	detail_page.add_child(companion_meta)
-	var handle_text := str(post.get("handle", ""))
-	if _translate_fn.is_valid():
-		handle_text = str(_translate_fn.call(handle_text))
+	var handle_text := _source.translate(str(post.get("handle", "")))
 	var companion_handle := _theme().label("@%s" % handle_text, 15, _theme().theme_color("surface")) as Label
 	companion_handle.set_meta("on_dark", true)
 	companion_handle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -847,30 +787,25 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	var media_texture := TextureRect.new()
 	media_texture.name = "SocialDetailPostTexture"
 	var poster_cell := int(post.get("poster_cell", _detail_post_index))
-	if _poster_texture_fn.is_valid():
-		media_texture.texture = _poster_texture_fn.call(poster_cell) as Texture2D
-	media_texture.set_meta("poster_sheet_path", _poster_sheet_path)
-	media_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _poster_sheet_count))
+	media_texture.texture = _source.poster_texture(poster_cell)
+	media_texture.set_meta("poster_sheet_path", _source.poster_sheet_path())
+	media_texture.set_meta("poster_sheet_cell", poster_cell % maxi(1, _source.poster_sheet_count()))
 	media_texture.custom_minimum_size = Vector2(300, 320)
 	media_texture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	media_texture.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	media_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	media_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	media.add_child(media_texture)
-	var post_body := str(post.get("text", ""))
-	if _corrupt_text_fn.is_valid():
-		post_body = str(_corrupt_text_fn.call(post_body))
+	var post_body := _source.corrupt_text(str(post.get("text", "")))
 	var post_text := _theme().label(post_body, 17, _theme().theme_color("surface")) as Label
 	post_text.set_meta("on_dark", true)
 	post_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(post_text)
 	var post_card_id := str(post.get("id", ""))
-	var locale := ""
-	if _current_locale_fn.is_valid():
-		locale = str(_current_locale_fn.call())
+	var locale := _source.current_locale()
 	var pickup_line := ""
-	if _language_material != null:
-		pickup_line = str(_language_material.pickup_line(post_card_id, locale))
+	if _source.language_material() != null:
+		pickup_line = str(_source.language_material().pickup_line(post_card_id, locale))
 	if not pickup_line.is_empty():
 		detail_box.add_child(_make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id))
 		var pickup_hint := _theme().label("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme().theme_color("muted")) as Label
@@ -884,18 +819,14 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	detail_box.add_child(engagement)
 	var detail_like := Button.new()
 	detail_like.name = "SocialDetailLikeButton"
-	var like_text := ""
-	if _like_text_fn.is_valid():
-		like_text = str(_like_text_fn.call(post, int(post.get("card_index", _detail_post_index)), _liked))
+	var like_text := _source.like_text(post, int(post.get("card_index", _detail_post_index)), _liked)
 	detail_like.text = like_text
 	detail_like.custom_minimum_size = Vector2(120, 44)
 	detail_like.pressed.connect(_on_like_pressed.bind(post_card_id))
 	engagement.add_child(detail_like)
 	var detail_follow := Button.new()
 	detail_follow.name = "SocialDetailFollowButton"
-	var author_id := str(post.get("id", post.get("handle", "unknown-author")))
-	if _author_id_fn.is_valid():
-		author_id = str(_author_id_fn.call(post))
+	var author_id := _source.author_id(post)
 	var following := _followed.has(author_id)
 	detail_follow.text = "已关注" if following else "关注"
 	detail_follow.custom_minimum_size = Vector2(120, 44)
@@ -908,8 +839,8 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	signal_profile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_box.add_child(signal_profile)
 	var post_comments: Array = []
-	if _language_material != null:
-		post_comments = _language_material.pickup_comments(post_card_id, locale)
+	if _source.language_material() != null:
+		post_comments = _source.language_material().pickup_comments(post_card_id, locale)
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
 		comments_rule.name = "SocialCommentsRule"
@@ -937,21 +868,15 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 
 ## 玩家投稿回流:楼里最后一条永远是陌生人在引用你写过的话,系统不作任何提示。
 func _render_player_echo_comment(detail_box: VBoxContainer, comment_index: int) -> void:
-	var quote := ""
-	if _player_echo_quote_fn.is_valid():
-		quote = str(_player_echo_quote_fn.call())
+	var quote := _source.player_echo_quote()
 	if quote.is_empty():
 		return
 	var echo_box := VBoxContainer.new()
 	echo_box.name = "SocialEchoComment"
 	echo_box.add_theme_constant_override("separation", 2)
 	detail_box.add_child(echo_box)
-	var handle := ""
-	if _echo_comment_handle_fn.is_valid():
-		handle = str(_echo_comment_handle_fn.call())
-	var game_day := 0
-	if _game_day_fn.is_valid():
-		game_day = int(_game_day_fn.call())
+	var handle := _source.echo_comment_handle()
+	var game_day := _source.game_day()
 	var echo_meta := _theme().label("%s  ·  %02d:%02d" % [handle, 3 + comment_index, 7 + game_day], 12, _theme().theme_color("muted")) as Label
 	echo_meta.name = "SocialEchoCommentMeta"
 	echo_meta.set_meta("on_dark", true)
@@ -1013,9 +938,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	var page_title := _theme().label("发布新信号", 22, _theme().theme_color("ink")) as Label
 	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page_header.add_child(page_title)
-	var game_day := 0
-	if _game_day_fn.is_valid():
-		game_day = int(_game_day_fn.call())
+	var game_day := _source.game_day()
 	page_header.add_child(_theme().label("DAY %02d" % game_day, 12, _theme().theme_color("accent")) as Label)
 
 	var publish_scroll := ScrollContainer.new()
@@ -1049,7 +972,7 @@ func _render_publish_page(parent: VBoxContainer) -> void:
 	composer_header.add_child(composer_step)
 	# 计数器语义参考 Bluesky:一枚字 = 1 个单位,软上限提示而非硬拦截。
 	var unit_counter := _theme().label(
-		"%d / %d 字" % [placed_sentence_units.size(), _composer_soft_unit_limit],
+		"%d / %d 字" % [placed_sentence_units.size(), _source.composer_soft_unit_limit()],
 		12,
 		_theme().theme_color("accent")
 	) as Label
@@ -1115,15 +1038,13 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 	profile_page.add_child(identity_frame)
 	var identity_portrait := TextureRect.new()
 	identity_portrait.name = "SocialPlayerIdentityPortrait"
-	identity_portrait.texture = _load_texture_fn.call(_player_character_path) as Texture2D
-	identity_portrait.set_meta("asset_path", _player_character_path)
+	identity_portrait.texture = _source.load_texture(_source.player_character_path())
+	identity_portrait.set_meta("asset_path", _source.player_character_path())
 	identity_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	identity_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	identity_frame.add_child(identity_portrait)
 	var completed_count := _completed_memes.size()
-	var pollution := 0
-	if _pollution_fn.is_valid():
-		pollution = int(_pollution_fn.call())
+	var pollution := _source.pollution()
 	profile_page.add_child(_theme().label("已合成梗：%d" % completed_count, 17, _theme().theme_color("ink")) as Label)
 	profile_page.add_child(_theme().label("污染：%d%%" % pollution, 17, _theme().theme_color("ink")) as Label)
 	var note := _theme().label("你的语言档案会随着塔层上升变窄。", 16, _theme().theme_color("accent")) as Label
@@ -1176,9 +1097,9 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	rich.set_meta("on_dark", true)
 	var bbcode := source_text
-	if _language_material != null:
+	if _source.language_material() != null:
 		var pickable_color = _theme().theme_color("flash_text") if _theme() != null else Color("9cff24")
-		var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
+		var locale := _source.current_locale()
 		bbcode = LanguageMaterialScript.pickup_bbcode(
 			source_text,
 			locale,
@@ -1233,7 +1154,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	answer_rule.custom_minimum_size.y = 2.0
 	answer_box.add_child(answer_rule)
 
-	var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else ""
+	var locale := _source.current_locale()
 	var preview_text := MemeGameStateScript.sentence_text(placed_units, locale)
 	var preview_label := _theme().label(preview_text, 15, _theme().theme_color("ink")) as Label
 	preview_label.name = "ComposerPreviewLabel"
@@ -1349,8 +1270,10 @@ func _repaint_if_stale() -> void:
 
 
 func _theme_window(window: Control) -> void:
-	if _theme_window_fn.is_valid() and window != null and is_instance_valid(window):
-		_theme_window_fn.call(window)
+	if window == null or not is_instance_valid(window):
+		return
+	_theme().apply_ui_theme(window)
+	_theme().localize_control_tree(window)
 
 
 func _clear(node: Node) -> void:
