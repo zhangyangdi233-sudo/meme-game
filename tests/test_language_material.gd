@@ -123,7 +123,7 @@ func _test_composer_drop() -> void:
 	_assert_true(actions.is_empty(), "removing a tile must not count as an effective action")
 	material.submit()
 	_assert_true(not actions.is_empty(), "submit should notify the adapter through effective_action")
-	_assert_true(not actions.is_empty() and actions[0].has("actions_after"), "submit should hand the adapter the spent-action settlement")
+	_assert_true(actions.size() == 1 and actions[0].has("actions_after"), "submit should hand the adapter the spent-action settlement")
 	_assert_true(game.get_free_sentence_units().is_empty(), "submit should clear the composer")
 	_assert_true(not logs.is_empty() and str(logs[logs.size() - 1]).begins_with("投稿已发出"), "submit should report a response tier")
 

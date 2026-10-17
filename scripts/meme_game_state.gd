@@ -2163,10 +2163,14 @@ func _spent_outcome(feedback_key: String, actions_before: int) -> ActionOutcomeS
 
 
 ## The outcome of an action that reports spending in its own result.
+## An unspent step still carries a pending flashback, as the old host settlement did.
 func _action_outcome_since(actions_before: int) -> ActionOutcomeScript:
 	if actions_remaining < actions_before:
 		return _spent_outcome("", actions_before)
-	return _failed_outcome("")
+	var outcome := _failed_outcome("")
+	outcome.flashback = pollution_flashback_pending
+	outcome.day_transition = needs_day_settlement
+	return outcome
 
 
 func _failed_outcome(feedback_key: String) -> ActionOutcomeScript:

@@ -29,6 +29,7 @@ func _run() -> void:
 	test_reality_typing_on_last_action_reports_day_transition()
 	test_first_pick_of_the_day_reports_spent_action()
 	test_free_sentence_submit_reports_spent_action()
+	test_unspent_typing_keeps_a_pending_flashback()
 	if _failures.is_empty():
 		print("action outcome tests passed")
 		quit(0)
@@ -246,6 +247,13 @@ func test_free_sentence_submit_reports_spent_action() -> void:
 	_assert_eq(outcome.settlement().get("actions_after", -1), actions_before - 1, "the settlement should show the spent action")
 	var empty: ActionOutcomeScript = game.submit_free_sentence("zh").get("outcome")
 	_assert_true(empty != null and not empty.spent_action, "an empty submit should spend nothing")
+
+
+func test_unspent_typing_keeps_a_pending_flashback() -> void:
+	var game := _ready_to_type()
+	game.pollution_flashback_pending = true
+	var outcome: ActionOutcomeScript = game.advance_typed_reality_character().get("outcome")
+	_assert_eq(outcome.settlement(), {"day_transition": false, "flashback": true}, "a pending flashback should still play without a spent action")
 
 
 func _ready_to_type() -> RefCounted:
