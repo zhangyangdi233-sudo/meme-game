@@ -50,6 +50,12 @@ const PrologueFlowStateScript = preload("res://scripts/game/flow/prologue_flow_s
 const GameplayFlowStateScript = preload("res://scripts/game/flow/gameplay_flow_state.gd")
 const NarrativeFlowStateScript = preload("res://scripts/game/flow/narrative_flow_state.gd")
 const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state.gd")
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const ACTION_FEEDBACK_TEXT := {
+	"publish_done": "句子发出去了。资金到账，污染留下。",
+	"publish_empty": "发布空格里还没有完整梗。",
+	"publish_no_action": "发布空格里还没有完整梗。",
+}
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
 const PLAYER_CHARACTER_PATH := "res://assets/generated/characters/protagonist_operator.png"
@@ -3330,18 +3336,23 @@ func _on_confirm_fusion_pressed() -> void:
 
 
 func _on_confirm_dialogue_pressed() -> void:
-	var actions_before: int = int(game.actions_remaining)
-	if game.confirm_dialogue():
-		selected_meme_id = ""
-		log_text = "句子发出去了。资金到账，污染留下。"
-		_after_effective_action(actions_before)
-	else:
-		log_text = "发布空格里还没有完整梗。"
+	_present_action_outcome(game.publish_dialogue())
+
+
+func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
+	log_text = str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
+	if not outcome.succeeded:
 		_refresh_phone_shell()
+		return
+	selected_meme_id = ""
+	_present_settlement(outcome.settlement())
 
 
 func _after_effective_action(actions_before: int = -1) -> void:
-	var settlement := _narrative_settlement(actions_before)
+	_present_settlement(_narrative_settlement(actions_before))
+
+
+func _present_settlement(settlement: Dictionary) -> void:
 	if not settlement.is_empty():
 		_refresh_play_surfaces()
 		var hud_actions_label := _hud_actions_label_ref()

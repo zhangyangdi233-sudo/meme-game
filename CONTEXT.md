@@ -34,6 +34,10 @@ _Avoid_: treating the composer as Framework, host talking to the composer instea
 The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind. Host and Reality HUD read this instead of live world objects.
 _Avoid_: publish outcome (funds/pollution), live actor/item, treating the whole nearby crowd as the API
 
+**Action outcome**:
+What one player action reports back from the state: whether it succeeded, whether it spent a daily action, a feedback key, and the settlement (flashback, day transition, actions before and after). Host presents it once instead of snapshotting the action count. Publishing returns one today.
+_Avoid_: host comparing `actions_before` itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
+
 **Look pose**:
 The Reality scene adapter's player position and first-person yaw/pitch.
 _Avoid_: reading adapter fields as the host API, camera node as the look contract

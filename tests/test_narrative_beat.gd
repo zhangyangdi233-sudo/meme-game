@@ -96,7 +96,7 @@ func _test_host_does_not_split_refresh_audio_and_transitions() -> void:
 			not deps.contains(forbidden),
 			"narrative overlay deps should not chain %s" % forbidden
 		)
-	var after_action := _function_body(source, "_after_effective_action")
+	var after_action := _function_body(source, "_present_settlement")
 	_assert_true(after_action.contains("play_beat"), "spending an action should start one narrative beat")
 	_assert_true(
 		not after_action.contains("play_pollution_flashback") and not after_action.contains("play_action_spend_animation"),

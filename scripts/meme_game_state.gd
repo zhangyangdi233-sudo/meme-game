@@ -16,6 +16,7 @@ const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const MAX_TOWER_FLOOR := PropertyBootScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
@@ -2088,12 +2089,18 @@ func place_meme_in_blank(blank_id: String, meme_id: String) -> bool:
 
 
 func confirm_dialogue() -> bool:
+	return publish_dialogue().succeeded
+
+
+func publish_dialogue() -> ActionOutcomeScript:
 	var meme := _get_first_placed_meme()
 	if meme.is_empty():
-		return false
+		return _failed_outcome("publish_empty")
 	var publish_result := get_publish_result(meme)
+	var outcome := ActionOutcomeScript.new()
+	outcome.actions_before = actions_remaining
 	if not spend_action("confirm-dialogue"):
-		return false
+		return _failed_outcome("publish_no_action")
 	last_publish_result = publish_result.duplicate(true)
 	money += int(publish_result.get("money_gain", 0))
 	change_pollution(int(publish_result.get("pollution_gain", 0)))
@@ -2112,7 +2119,19 @@ func confirm_dialogue() -> bool:
 		int(publish_result.get("pollution_gain", 0)),
 	])
 	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
-	return true
+	outcome.succeeded = true
+	outcome.spent_action = true
+	outcome.feedback_key = "publish_done"
+	outcome.actions_after = actions_remaining
+	outcome.flashback = pollution_flashback_pending
+	outcome.day_transition = needs_day_settlement
+	return outcome
+
+
+func _failed_outcome(feedback_key: String) -> ActionOutcomeScript:
+	var outcome := ActionOutcomeScript.new()
+	outcome.feedback_key = feedback_key
+	return outcome
 
 
 func get_language_token_options(world: String = "doctor") -> Array:
