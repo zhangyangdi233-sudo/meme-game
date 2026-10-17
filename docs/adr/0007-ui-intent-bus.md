@@ -30,7 +30,7 @@ Signals and callbacks that remain are not a player action reaching the host:
 
 - The flashback overlay hands the host's `finish_pollution_flashback` to its director as `on_sequence_finished`. The flashback has no player control (see above), so it stays a callback until one is added.
 - Low-level control signals inside one component (drag and drop, tile moves, radial selection, edge drawer expansion).
-- Game-side collaborators that are not panels: the Reality scene adapter (`nearby_targets_changed`, cover watcher), the camera session (`tracking_ui_changed`), and `LanguageMaterial` (`sfx_requested` and the flight and notebook-home requests; pickup and submit return an Action outcome and write the feedback text model). It raises no redraw request: the phone screens watch the free sentence and notebook models, and the guide and playtest windows watch the tutorial progress (ADR 0008). Tracker: #74.
+- Game-side collaborators that are not panels: the Reality scene adapter (`nearby_targets_changed`, cover watcher), the camera session (`tracking_ui_changed`), and `LanguagePresenter` (the notebook-home request; pickup and submit return an Action outcome and write the feedback text model). Its press sound is a game event now (see below). It raises no redraw request: the phone screens watch the free sentence and notebook models, and the guide and playtest windows watch the tutorial progress (ADR 0008). Tracker: #74.
 
 ## Game events on the same bus
 
@@ -41,6 +41,8 @@ Amended: the bus also carries game events, not only player actions. A game event
 - **State stays in models.** An event says that something happened. A fact that something is true now (tracking status, nearby targets, pollution) is a model (ADR 0008). One fact never gets both an event and a model.
 - **Names.** Game event names and their payload keys live in `GameEvents` under `scripts/`, beside `UiIntents`, in the same shape: one constant per event with its payload in the comment.
 - **Subscribing.** A listener subscribes by event name instead of matching every intent. It subscribes while it is in the tree, or from the moment the host attaches it, and unsubscribes when it leaves, the same lifecycle as the host's listener.
+- **API.** `subscribe(event_name, listener)` / `unsubscribe(event_name, listener)`; the listener takes the payload. A sender with no bus in hand calls `GameEventBus.raise_event(event_name, payload)`, which resolves the bound bus. Events never go through `intent_emitted`, so subscribing adds no intent listener.
+- **First user: sound cues (#86).** `SFX_REQUESTED {KEY_CUE}` asks for a short UI sound (`CUE_PICKUP_PRESS`, `CUE_PICKUP_LAND`, `CUE_NOTEBOOK_HINGE`). `GameAudioController` subscribes while it is in the tree and restarts the cue's player, so a repeat never stacks. `LanguagePresenter` raises the press cue on a successful pickup and the host raises land and hinge when the glyph lands; neither holds an `AudioStreamPlayer`.
 - **Still not events:** signals inside one component (drag and drop, tile moves) and getters polled every frame (flight targets).
 
 Opening and closing via the screen manager (create once, hide, reuse) stays on the main menu until a later ticket. This decision is only the interface UI uses to notify the host. Tracker: #43.

@@ -1,9 +1,13 @@
 extends SceneTree
-## Language presenter: pickup/place outcomes drive flights and the notebook home.
+## Language presenter: pickup/place outcomes drive flights, the notebook home and the press sound cue.
 ## Does not load the main scene.
 
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
 var _failures: Array[String] = []
 
@@ -23,11 +27,13 @@ func _run() -> void:
 	_test_pickup_success_flies_home()
 	_test_pickup_failure_stays_quiet()
 	_test_place_flight()
+	_test_pickup_asks_for_the_press_sound()
+	RegistryScript.clear()
 
 
 func _new_presenter(layer: FlyToTargetLayer) -> LanguagePresenter:
 	var presenter := LanguagePresenterScript.new() as LanguagePresenter
-	presenter.configure(layer, null, func() -> Vector2: return Vector2(80, 60), func() -> Vector2: return Vector2(200, 300), Color.WHITE, Color.GREEN)
+	presenter.configure(layer, func() -> Vector2: return Vector2(80, 60), func() -> Vector2: return Vector2(200, 300), Color.WHITE, Color.GREEN)
 	return presenter
 
 
@@ -76,6 +82,23 @@ func _test_place_flight() -> void:
 	outcome.succeeded = true
 	bare.present_pickup(outcome, "门", Vector2.ZERO)
 	bare.present_place(true, "门", Vector2.ZERO)
+
+
+func _test_pickup_asks_for_the_press_sound() -> void:
+	RegistryScript.clear()
+	var bus: GameEventBus = GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	var cues: Array = []
+	bus.subscribe(GameEventsScript.SFX_REQUESTED, func(payload: Dictionary) -> void: cues.append(payload.get(GameEventsScript.KEY_CUE)))
+	var presenter := _new_presenter(null)
+	presenter.present_pickup(ActionOutcomeScript.new(), "门", Vector2.ZERO)
+	_assert_true(cues.is_empty(), "a failed pickup should ask for no sound")
+	var outcome := ActionOutcomeScript.new()
+	outcome.succeeded = true
+	presenter.present_pickup(outcome, "门", Vector2.ZERO)
+	_assert_true(cues == [GameEventsScript.CUE_PICKUP_PRESS], "a successful pickup should ask for the press sound once (got %s)" % str(cues))
+	presenter.present_place(true, "门", Vector2.ZERO)
+	_assert_true(cues.size() == 1, "placing a unit should ask for no sound")
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (102 tests)
+## What runs (103 tests)
 
-### GDScript (100)
+### GDScript (101)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -127,7 +127,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, quit confirm, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
-| `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS` |
+| `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
+| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` while in the tree and restarts the cue's player |
 | `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
 | `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables |
@@ -147,7 +148,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility; composer intents repaint the publish page from the sentence model without a host redraw |
 | `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |
-| `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing, polluted menu |
+| `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing (the host raises the land and hinge cues), polluted menu |
 | `test_doll_ui_flow` | **adapter** | 3D doll interaction (craft → `test_doll_system`) |
 
 Re-count skipped files: `grep -l 'load("res://scenes/babel_meme_game.tscn")' tests/test_*.gd`

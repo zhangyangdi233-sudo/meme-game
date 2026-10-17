@@ -1,8 +1,13 @@
 extends Node
 class_name GameAudioController
 ## Adaptive score mix, floor phone music, and cover-watcher stinger for the main scene adapter.
+## Short UI sounds are game events: it subscribes to SFX_REQUESTED while it is in the tree and plays the cue.
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 
 const PHONE_AMBIENCE_PATHS := {
 	1: "res://assets/generated/audio/babel_phone_signal_floor_1.wav",
@@ -31,12 +36,50 @@ var cover_watcher_stinger: AudioStreamPlayer
 
 var _host: Node
 var _audio_tween: Tween
+var _event_bus: GameEventBus
 
 
 func attach_to(host: Node) -> void:
 	_host = host
 	name = "GameAudioController"
 	host.add_child(self)
+
+
+func _enter_tree() -> void:
+	if not ServiceRegistryScript.has(ServiceKeysScript.UI_EVENT_BUS):
+		return
+	_event_bus = ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	if _event_bus != null:
+		_event_bus.subscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
+
+
+func _exit_tree() -> void:
+	if _event_bus != null:
+		_event_bus.unsubscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
+	_event_bus = null
+
+
+func _on_sfx_requested(payload: Dictionary) -> void:
+	_play_ui_sound(_cue_player(str(payload.get(GameEventsScript.KEY_CUE, ""))))
+
+
+func _cue_player(cue: String) -> AudioStreamPlayer:
+	match cue:
+		GameEventsScript.CUE_PICKUP_PRESS:
+			return pickup_press_audio
+		GameEventsScript.CUE_PICKUP_LAND:
+			return pickup_land_audio
+		GameEventsScript.CUE_NOTEBOOK_HINGE:
+			return notebook_hinge_audio
+	return null
+
+
+## 短促 UI 音效:重复触发时从头播放,不叠加成噪音。
+static func _play_ui_sound(player: AudioStreamPlayer) -> void:
+	if player == null or not is_instance_valid(player) or player.stream == null or not player.is_inside_tree():
+		return
+	player.stop()
+	player.play()
 
 
 func reset_session() -> void:

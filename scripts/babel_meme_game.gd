@@ -38,6 +38,7 @@ const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_
 const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 const IntentResultScript = preload("res://scripts/game/intent_result.gd")
 const SocialIntentHandlerScript = preload("res://scripts/game/social_intent_handler.gd")
 const NotebookIntentHandlerScript = preload("res://scripts/game/notebook_intent_handler.gd")
@@ -1836,14 +1837,13 @@ func _ensure_language_material() -> void:
 	_social_feed_source().configure(game, _locale, _language_material)
 
 
-## Rebinds the presenter each use: the flight layer and audio players are built after the material.
+## Rebinds the presenter each use: the flight layer is built after the material.
 func _presenter() -> LanguagePresenter:
 	if _language_presenter == null:
 		_language_presenter = LanguagePresenterScript.new()
 		_language_presenter.notebook_home_requested.connect(_ensure_notebook_window_home)
 	_language_presenter.configure(
 		_pickup_flight_layer,
-		_audio_controller.pickup_press_audio if _audio_controller != null else null,
 		_notebook_flight_target,
 		_composer_answer_target,
 		_ui_theme_helper.theme_color("flash_text"),
@@ -3042,8 +3042,8 @@ func _present_submit_outcome(outcome: ActionOutcomeScript) -> void:
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
-	LanguagePresenterScript.play_ui_sound(_audio_controller.pickup_land_audio if _audio_controller != null else null)
-	LanguagePresenterScript.play_ui_sound(_audio_controller.notebook_hinge_audio if _audio_controller != null else null)
+	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_LAND})
+	GameEventBusScript.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_NOTEBOOK_HINGE})
 	_squash_notebook_window()
 
 

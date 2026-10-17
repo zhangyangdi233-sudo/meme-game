@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 const SCORE_METADATA_PATH := "res://assets/generated/audio/babel_liminal_score.json"
 
 var _failures: Array[String] = []
@@ -131,7 +132,28 @@ func _run() -> void:
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")
 	if cover_watcher_stinger != null:
 		cover_watcher_stinger.stop()
+	await _test_pickup_sounds_ride_the_bus(game_root)
 	game_root.queue_free()
+	await process_frame
+
+
+## The host asks for the land and hinge cues by game event; the audio controller it attached hears them itself.
+func _test_pickup_sounds_ride_the_bus(game_root: Node) -> void:
+	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
+	var cues: Array = []
+	var listener := func(payload: Dictionary) -> void: cues.append(payload.get(GameEventsScript.KEY_CUE))
+	bus.subscribe(GameEventsScript.SFX_REQUESTED, listener)
+	game_root._on_pickup_flight_landed("门")
+	bus.unsubscribe(GameEventsScript.SFX_REQUESTED, listener)
+	_assert_eq(cues, [GameEventsScript.CUE_PICKUP_LAND, GameEventsScript.CUE_NOTEBOOK_HINGE], "a landed pickup should ask for the land and hinge sounds")
+	var land := game_root.get_node_or_null("PickupLandAudio") as AudioStreamPlayer
+	var hinge := game_root.get_node_or_null("NotebookHingeAudio") as AudioStreamPlayer
+	_assert_true(land != null and land.playing, "the host's audio controller should play the land sound it heard")
+	_assert_true(hinge != null and hinge.playing, "the host's audio controller should play the hinge sound it heard")
+	var press := game_root.get_node_or_null("PickupPressAudio") as AudioStreamPlayer
+	GameEventBus.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
+	_assert_true(press != null and press.playing, "the host's audio controller should play the press sound the presenter asks for")
+	_assert_eq(bus.intent_emitted.get_connections().size(), 1, "the host should stay the only intent listener while audio subscribes to game events")
 	await process_frame
 
 

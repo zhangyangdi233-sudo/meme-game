@@ -70,6 +70,10 @@ _Avoid_: autoload, a manager that also closes other screens
 How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime; no panel keeps a private signal to the host. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
 _Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
+**Game event**:
+Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the day settled). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first. See ADR 0007.
+_Avoid_: a game event for a fact that is true now (that is a model), listening for an intent name outside the host, handing an `AudioStreamPlayer` down so a caller can play it
+
 **Intent handler**:
 A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. Each extends the `@abstract` `IntentHandler`; the social feed, the notebook, the doctor sentence composer and the settings window have one. A domain's own presentation kinds live on its handler; `IntentResult` keeps the shared ones. See ADR 0007.
 _Avoid_: a handler subscribing to the bus itself, a handler reaching into host nodes, the host writing state for an intent a handler claims
