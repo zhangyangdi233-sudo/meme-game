@@ -1,4 +1,4 @@
-﻿extends RefCounted
+extends RefCounted
 ## What one player action did: whether it worked, whether it spent a daily
 ## action, which feedback line to show, and what the host must settle next.
 

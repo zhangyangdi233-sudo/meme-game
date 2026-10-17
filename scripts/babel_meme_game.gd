@@ -1,4 +1,4 @@
-﻿extends Node3D
+extends Node3D
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")

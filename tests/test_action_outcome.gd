@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
@@ -17,6 +17,7 @@ func _run() -> void:
 	test_publish_crossing_flashback_threshold_reports_flashback()
 	test_publish_without_actions_left_spends_nothing()
 	test_fusion_reports_fused_meme_and_spent_action()
+	test_fusion_on_last_action_reports_day_transition()
 	test_fusion_of_unready_slots_spends_nothing()
 	test_fusion_of_already_fused_pair_spends_nothing()
 	if _failures.is_empty():
@@ -106,6 +107,14 @@ func test_fusion_reports_fused_meme_and_spent_action() -> void:
 		"actions_before": actions_before,
 		"actions_after": actions_before - 1,
 	}, "the settlement should carry the spent action")
+
+
+func test_fusion_on_last_action_reports_day_transition() -> void:
+	var game := _ready_to_fuse()
+	game.actions_remaining = 1
+	var outcome: ActionOutcomeScript = game.fuse_memes()
+	_assert_true(outcome.day_transition, "fusing on the last action should end the day")
+	_assert_eq(outcome.settlement().get("actions_after", -1), 0, "the settlement should show no actions left")
 
 
 func test_fusion_of_unready_slots_spends_nothing() -> void:

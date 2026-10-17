@@ -1,4 +1,4 @@
-﻿# Testing
+# Testing
 
 How to run the headless test suite on the **primary development platform (Windows)** and on macOS/Linux.
 

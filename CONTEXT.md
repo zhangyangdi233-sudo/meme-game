@@ -1,4 +1,4 @@
-﻿# Babel Meme Game
+# Babel Meme Game
 
 Psychological-horror Godot game about language pollution, social publishing, and tower-floor exploration.
 

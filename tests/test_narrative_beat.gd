@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 ## Narrative beat: action spend, day transition, and flashback are one sequence.
 ## The host passes a settlement result and whether the ending is unlocked.
 

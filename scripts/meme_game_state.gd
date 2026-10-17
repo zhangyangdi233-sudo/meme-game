@@ -1,4 +1,4 @@
-﻿class_name MemeGameState
+class_name MemeGameState
 extends RefCounted
 
 const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
@@ -2077,7 +2077,7 @@ func fuse_memes() -> ActionOutcomeScript:
 	record_event("两个旧梗粘在一起。新梗更响，也更脏。")
 	var outcome := _spent_outcome(ActionOutcomeScript.FUSION_DONE, actions_before)
 	outcome.selected_meme_id = str(meme.get("id", ""))
-	outcome.feedback_detail = str(meme.get("title", ""))
+	outcome.feedback_detail = str(meme.get("title", "复合梗"))
 	return outcome
 
 
