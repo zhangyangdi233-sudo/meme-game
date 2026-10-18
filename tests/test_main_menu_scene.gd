@@ -103,6 +103,9 @@ func _test_keys_and_the_pad_hold_start_too() -> void:
 		_confirm(source, true)
 		_tick(mounted, 0.81)
 		_assert_true(_dialog_open(mounted), "holding %s on a focused START opens the restart dialog" % source)
+		# The key release goes to the dialog, so START may never hear it; the open dialog ends the hold.
+		_tick(mounted, 0.5)
+		_assert_eq(_held_seconds(), 0.0, "once %s opens the dialog the hold stops counting" % source)
 		_confirm(source, false)
 		_assert_true(_dialog_open(mounted), "releasing %s does not press the dialog's focused button" % source)
 		_assert_eq(heard, [] as Array[String], "releasing %s after the dialog opened raises nothing" % source)
@@ -405,6 +408,11 @@ func _listen(mounted: Dictionary) -> Array[String]:
 	var heard: Array[String] = []
 	mounted["bus"].intent_emitted.connect(func(intent_name: String, _payload: Dictionary) -> void: heard.append(intent_name))
 	return heard
+
+
+func _held_seconds() -> float:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	return float(manager.model(PropertyKeysScript.START_HOLD_SECONDS).read())
 
 
 func _start(mounted: Dictionary) -> BaseButton:

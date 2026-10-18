@@ -26,10 +26,9 @@ const RESTART_QUESTION := "确定要重新开始游戏吗？"
 const RESTART_YES := "是"
 const RESTART_NO := "否"
 ## The hint's look, sampled from the art mock (Restart_prompt_uc / _c) until art sends final values.
-## Fixed colors, not palette roles; the font is the menu's current pixel font.
+## Fixed colors, not palette roles. The font is the layout scene theme's default pixel font, set in the scene.
 const HINT_COLOR_IDLE := Color("8d303880")
 const HINT_COLOR_ACTIVE := Color("8f2f37")
-const HINT_FONT := preload("res://assets/fonts/BoutiqueBitmap9x9.ttf")
 
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameModelsScript = preload("res://scripts/game/game_models.gd")
@@ -66,9 +65,6 @@ func _ready() -> void:
 	start.mouse_exited.connect(_on_start_hover.bind(false))
 	start.focus_entered.connect(_on_start_focus.bind(true))
 	start.focus_exited.connect(_on_start_focus.bind(false))
-	var hint := _hint()
-	if hint != null:
-		hint.add_theme_font_override("font", HINT_FONT)
 	_paint_hint()
 
 
