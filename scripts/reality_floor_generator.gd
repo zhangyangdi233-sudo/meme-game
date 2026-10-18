@@ -4,6 +4,7 @@ class_name RealityFloorGenerator
 
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
+const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
 const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
@@ -2651,53 +2652,53 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 func _role_color(role: String, palette: Dictionary) -> Color:
 	match role:
 		"brick":
-			return Color("D7B77F").lerp(_color(palette, "surface"), 0.12)
+			return Color("D7B77F").lerp(UiPaletteScript.color(palette, "surface"), 0.12)
 		"brick_light":
-			return Color("E8CEA0").lerp(_color(palette, "surface"), 0.10)
+			return Color("E8CEA0").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
 		"brick_dark":
-			return Color("8F7655").lerp(_color(palette, "accent"), 0.08)
+			return Color("8F7655").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
 		"white_wall":
 			return Color("F0F2E9") if district_style == "night_white_blocks" else (Color("DCE4D2") if built_floor == 3 else Color("9DA99C"))
 		"window":
-			return Color("0B0D0B").lerp(_color(palette, "ink"), 0.35)
+			return Color("0B0D0B").lerp(UiPaletteScript.color(palette, "ink"), 0.35)
 		"grass":
-			return (Color("17321D") if district_style == "night_white_blocks" else (Color("5F8D3E") if built_floor == 3 else Color("4F7134"))).lerp(_color(palette, "accent"), 0.12)
+			return (Color("17321D") if district_style == "night_white_blocks" else (Color("5F8D3E") if built_floor == 3 else Color("4F7134"))).lerp(UiPaletteScript.color(palette, "accent"), 0.12)
 		"grass_ground":
-			return Color("527D42").lerp(_color(palette, "accent"), 0.10)
+			return Color("527D42").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
 		"gallery_floor":
-			return (Color("819978") if built_floor == 3 else Color("68756B")).lerp(_color(palette, "accent"), 0.08)
+			return (Color("819978") if built_floor == 3 else Color("68756B")).lerp(UiPaletteScript.color(palette, "accent"), 0.08)
 		"sunlit_paving":
-			return Color("D7C8A8").lerp(_color(palette, "surface"), 0.16)
+			return Color("D7C8A8").lerp(UiPaletteScript.color(palette, "surface"), 0.16)
 		"night_path":
-			return Color("151613").lerp(_color(palette, "ink"), 0.42)
+			return Color("151613").lerp(UiPaletteScript.color(palette, "ink"), 0.42)
 		"crosswalk":
-			return Color("F3E8CD").lerp(_color(palette, "surface"), 0.24)
+			return Color("F3E8CD").lerp(UiPaletteScript.color(palette, "surface"), 0.24)
 		"lamp":
-			return Color("22241F").lerp(_color(palette, "ink"), 0.35)
+			return Color("22241F").lerp(UiPaletteScript.color(palette, "ink"), 0.35)
 		"lamp_light":
 			return Color("FFBE58") if district_style == "night_white_blocks" else Color("E4D6A0")
 		"ground":
-			return _color(palette, "ink").lightened(0.055)
+			return UiPaletteScript.color(palette, "ink").lightened(0.055)
 		"road":
-			return _color(palette, "accent").darkened(0.54)
+			return UiPaletteScript.color(palette, "accent").darkened(0.54)
 		"sidewalk":
-			return _color(palette, "bg").darkened(0.36)
+			return UiPaletteScript.color(palette, "bg").darkened(0.36)
 		"lot_floor":
-			return _color(palette, "accent").darkened(0.30)
+			return UiPaletteScript.color(palette, "accent").darkened(0.30)
 		"floor":
-			return _color(palette, "accent").darkened(0.38)
+			return UiPaletteScript.color(palette, "accent").darkened(0.38)
 		"floor_alt":
-			return _color(palette, "accent").darkened(0.24)
+			return UiPaletteScript.color(palette, "accent").darkened(0.24)
 		"wall":
-			return _color(palette, "bg").darkened(0.38)
+			return UiPaletteScript.color(palette, "bg").darkened(0.38)
 		"wall_dark":
-			return _color(palette, "ink").lightened(0.035)
+			return UiPaletteScript.color(palette, "ink").lightened(0.035)
 		"ceiling":
-			return _color(palette, "surface").darkened(0.58)
+			return UiPaletteScript.color(palette, "surface").darkened(0.58)
 		"accent":
-			return _color(palette, "accent").darkened(0.10)
+			return UiPaletteScript.color(palette, "accent").darkened(0.10)
 		"item":
-			return _color(palette, "flash_text")
+			return UiPaletteScript.color(palette, "flash_text")
 		"backrooms_beige":
 			return Color("CBBE8E") if built_floor == 2 else Color("E0D6A7")
 		"fixture_metal":
@@ -2733,76 +2734,73 @@ func _role_color(role: String, palette: Dictionary) -> Color:
 		"dream_ivory":
 			return Color("FFF0BF") if built_floor == 3 else Color("A99775")
 		_:
-			return _color(palette, "muted")
+			return UiPaletteScript.color(palette, "muted")
 
 
 func _style_background_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("030607").lerp(_color(palette, "ink"), 0.08)
+		return Color("030607").lerp(UiPaletteScript.color(palette, "ink"), 0.08)
 	if built_floor == 3:
-		return Color("82B9B0").lerp(_color(palette, "surface"), 0.10)
+		return Color("82B9B0").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
 	if built_floor >= 2:
 		match district_style:
 			"night_white_blocks":
-				return Color("0B1112").lerp(_color(palette, "ink"), 0.14)
+				return Color("0B1112").lerp(UiPaletteScript.color(palette, "ink"), 0.14)
 			"overgrown_gallery":
-				return Color("202923").lerp(_color(palette, "ink"), 0.14)
+				return Color("202923").lerp(UiPaletteScript.color(palette, "ink"), 0.14)
 			_:
-				return Color("263A42").lerp(_color(palette, "ink"), 0.12)
+				return Color("263A42").lerp(UiPaletteScript.color(palette, "ink"), 0.12)
 	match district_style:
 		"sunlit_brick_street":
-			return Color("1479B8").lerp(_color(palette, "accent"), 0.10)
+			return Color("1479B8").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
 		"night_white_blocks":
-			return Color("10090B").lerp(_color(palette, "ink"), 0.22)
+			return Color("10090B").lerp(UiPaletteScript.color(palette, "ink"), 0.22)
 		"overgrown_gallery":
-			return Color("D4DDD0").lerp(_color(palette, "muted"), 0.18)
+			return Color("D4DDD0").lerp(UiPaletteScript.color(palette, "muted"), 0.18)
 		_:
-			return _color(palette, "ink")
+			return UiPaletteScript.color(palette, "ink")
 
 
 func _style_ambient_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("55716B").lerp(_color(palette, "muted"), 0.08)
+		return Color("55716B").lerp(UiPaletteScript.color(palette, "muted"), 0.08)
 	if built_floor == 3:
-		return Color("E1EBCF").lerp(_color(palette, "surface"), 0.12)
+		return Color("E1EBCF").lerp(UiPaletteScript.color(palette, "surface"), 0.12)
 	if built_floor >= 2:
 		match district_style:
 			"night_white_blocks":
-				return Color("89A096").lerp(_color(palette, "muted"), 0.12)
+				return Color("89A096").lerp(UiPaletteScript.color(palette, "muted"), 0.12)
 			"overgrown_gallery":
-				return Color("7A8A7D").lerp(_color(palette, "muted"), 0.10)
+				return Color("7A8A7D").lerp(UiPaletteScript.color(palette, "muted"), 0.10)
 			_:
-				return Color("9FB4BC").lerp(_color(palette, "muted"), 0.12)
+				return Color("9FB4BC").lerp(UiPaletteScript.color(palette, "muted"), 0.12)
 	match district_style:
 		"night_white_blocks":
-			return Color("AEB8A2").lerp(_color(palette, "muted"), 0.18)
+			return Color("AEB8A2").lerp(UiPaletteScript.color(palette, "muted"), 0.18)
 		"overgrown_gallery":
-			return Color("F3F2DD").lerp(_color(palette, "surface"), 0.24)
+			return Color("F3F2DD").lerp(UiPaletteScript.color(palette, "surface"), 0.24)
 		_:
-			return Color("FFE4B8").lerp(_color(palette, "surface"), 0.18)
+			return Color("FFE4B8").lerp(UiPaletteScript.color(palette, "surface"), 0.18)
 
 
 func _style_fog_color(palette: Dictionary) -> Color:
 	if built_floor == 2:
-		return Color("111A19").lerp(_color(palette, "ink"), 0.10)
+		return Color("111A19").lerp(UiPaletteScript.color(palette, "ink"), 0.10)
 	if built_floor == 3:
-		return Color("B5D4B4").lerp(_color(palette, "surface"), 0.10)
+		return Color("B5D4B4").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
 	if built_floor >= 2:
 		match district_style:
 			"night_white_blocks":
-				return Color("202B2A").lerp(_color(palette, "accent"), 0.06)
+				return Color("202B2A").lerp(UiPaletteScript.color(palette, "accent"), 0.06)
 			"overgrown_gallery":
-				return Color("39463D").lerp(_color(palette, "accent"), 0.08)
+				return Color("39463D").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
 			_:
-				return Color("607780").lerp(_color(palette, "accent"), 0.08)
+				return Color("607780").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
 	match district_style:
 		"night_white_blocks":
-			return Color("23181A").lerp(_color(palette, "accent"), 0.10)
+			return Color("23181A").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
 		"overgrown_gallery":
-			return Color("C9D6C0").lerp(_color(palette, "muted"), 0.20)
+			return Color("C9D6C0").lerp(UiPaletteScript.color(palette, "muted"), 0.20)
 		_:
-			return Color("7DB5C2").lerp(_color(palette, "accent"), 0.12)
+			return Color("7DB5C2").lerp(UiPaletteScript.color(palette, "accent"), 0.12)
 
-
-func _color(palette: Dictionary, key: String) -> Color:
-	return Color(str(palette.get(key, "FFF1C9")))

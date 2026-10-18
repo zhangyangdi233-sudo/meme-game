@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (109 tests)
+## What runs (111 tests)
 
-### GDScript (107)
+### GDScript (109)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -87,6 +87,8 @@ Shared helpers live in `tests/harness/minimal_game_harness.gd`:
 - `new_state()` — `MemeGameState.new()` + `new_run()`
 - `find_node_by_name`, `collect_control_text` — Control-tree probes when a tiny scene is still needed
 - `craft_token(...)` — notebook / pickup test token dictionaries
+
+`tests/harness/palette_error_log.gd` is a `Logger` that collects `UiPalette` reports. 3D tests pass `UiPalette.PALETTE_1` or `UiPalette.POLLUTION_PALETTE_5` as the palette instead of copying a table.
 
 ```gdscript
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -112,6 +114,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
+| `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported |
+| `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report; a palette gap is reported and painted from `PALETTE_1` |
 | `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty, null or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks (also from UI added after it opened), focus and hotkeys below and follows the pollution palette |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles; no separate continue button; an open menu's START continues once `has_save` is true; with a save, holding START 0.8 s by mouse, Enter, Space or pad A opens the restart dialog before release and that release raises nothing, a shorter hold continues, and without a save a hold only starts a new game; the dialog words its question and YES / NO from the catalog with NO focused and taking Escape, YES raises `RESTART_REQUESTED`, closing the menu closes it; the hold hint shows only with a save, is worded on open and darkens while START is hovered or focused; the debug panel shows the held seconds |
 | `test_game_locale_preferences` | module | language / volume preference models, preferences file |
@@ -136,7 +140,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree and translates it through the bound UI theme |
 | `test_camera_session_status` | module | the camera session words its status label and translates it through the bound UI theme, again after a language switch |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
-| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; while in the tree a `DAY_SETTLED` ends the conversation and forgets the nearby targets |
+| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; task props take their colors from `UiPalette` and report a palette gap; while in the tree a `DAY_SETTLED` ends the conversation and forgets the nearby targets |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |

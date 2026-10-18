@@ -3,17 +3,6 @@ extends SceneTree
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 
-const TEST_PALETTE := {
-	"bg": "B7D957",
-	"surface": "FFF1C9",
-	"text": "10140F",
-	"ink": "10140F",
-	"accent": "365B2D",
-	"muted": "DDEB8A",
-	"danger_stripe": "365B2D",
-	"flash_text": "9CFF24",
-}
-
 var _failures: Array[String] = []
 
 
@@ -38,7 +27,7 @@ func _run() -> void:
 	var floor_two_day_one := _composed(2, 1)
 	floor_root.rebuild(
 		2,
-		TEST_PALETTE,
+		UiPalette.PALETTE_1,
 		{},
 		1,
 		false,
@@ -104,7 +93,7 @@ func _run() -> void:
 	var street := floor_root.get_node_or_null("RealityWorldEnvironment")
 	var watcher := _find_node_by_name(floor_root, "CoverWatcherEvent")
 	var prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor2")
-	floor_root.configure_authored_events(2, TEST_PALETTE, _composed(2, 2).get("events", []))
+	floor_root.configure_authored_events(2, UiPalette.PALETTE_1, _composed(2, 2).get("events", []))
 	_assert_true(resident == floor_root.get_interactable_actors()[0], "a day change should leave the resident in place")
 	_assert_true(prerequisite != null and prerequisite == _find_node_by_name(floor_root, "PrerequisiteItemFloor2"), "a day change should leave the prerequisite item in place")
 	_assert_true(street != null and street == floor_root.get_node_or_null("RealityWorldEnvironment"), "a day change should leave the street in place")
@@ -116,7 +105,7 @@ func _run() -> void:
 	var floor_three_day_one := _composed(3, 1)
 	floor_root.rebuild(
 		3,
-		TEST_PALETTE,
+		UiPalette.PALETTE_1,
 		{},
 		1,
 		false,
@@ -130,7 +119,7 @@ func _run() -> void:
 	_assert_eq(int(floor_root.get_meta("authored_event_count", -1)), 1, "floor three day one should remain deliberately sparse")
 	_assert_true(_find_node_by_name(floor_root, "LightMemoryEvent") == null, "rebuilding the floor should remove events that are no longer scheduled")
 
-	floor_root.configure_authored_events(4, TEST_PALETTE, _composed(3, 4).get("events", []))
+	floor_root.configure_authored_events(4, UiPalette.PALETTE_1, _composed(3, 4).get("events", []))
 	var mirage_event := _find_node_by_name(floor_root, "DistantMirageEvent") as Node3D
 	var mirage_sprite := _find_node_by_name(floor_root, "MiragePrimary") as Sprite3D
 	_assert_true(mirage_event != null and mirage_sprite != null, "the rare sighting should use an image billboard instead of block-model geometry")

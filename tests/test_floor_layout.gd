@@ -6,17 +6,6 @@ extends SceneTree
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
-const TEST_PALETTE := {
-	"bg": "B7D957",
-	"surface": "FFF1C9",
-	"text": "10140F",
-	"ink": "10140F",
-	"accent": "365B2D",
-	"muted": "DDEB8A",
-	"danger_stripe": "365B2D",
-	"flash_text": "9CFF24",
-}
-
 const CURRENT_STREETS := {
 	1: {"room_count": 4, "shape": "shared_street", "width": 34.0, "length": 230.0},
 	2: {"room_count": 6, "shape": "irregular_disc", "width": 252.0, "length": 264.0},
@@ -43,11 +32,11 @@ func _run() -> void:
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	for floor_number in [1, 2, 3, 4]:
-		floor_root.rebuild(floor_number, TEST_PALETTE, {})
+		floor_root.rebuild(floor_number, UiPalette.PALETTE_1, {})
 		_assert_street(floor_root, UNPLANNED_STREET, "floor %d without a plan should use the fixed street" % floor_number)
-	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], {"room_count": 99})
+	floor_root.rebuild(2, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], {"room_count": 99})
 	_assert_street(floor_root, UNPLANNED_STREET, "an incomplete layout should stay on the fixed street")
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, [], {"shape": "irregular_disc", "room_count": 8})
+	floor_root.rebuild(3, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], {"shape": "irregular_disc", "room_count": 8})
 	_assert_street(floor_root, UNPLANNED_STREET, "an incomplete disc layout should stay on the fixed street")
 	var layout_street := {
 		"room_count": 7,
@@ -56,7 +45,7 @@ func _run() -> void:
 		"length": 200.0,
 	}
 	for street_floor in [1, 2, 4]:
-		floor_root.rebuild(street_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(layout_street))
+		floor_root.rebuild(street_floor, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(layout_street))
 		_assert_street(floor_root, layout_street, "floor %d should take its street from a shared-street layout" % street_floor)
 		_assert_eq(_logical_room_count(floor_root), 7, "floor %d rooms should follow the shared-street layout" % street_floor)
 		_assert_walkable(floor_root, "floor %d shared-street layout" % street_floor)
@@ -68,7 +57,7 @@ func _run() -> void:
 		"length": 140.0,
 	}
 	for disc_floor in [1, 2, 4]:
-		floor_root.rebuild(disc_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
+		floor_root.rebuild(disc_floor, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
 		_assert_street(floor_root, disc_layout, "floor %d should take its disc from an irregular-disc layout" % disc_floor)
 		_assert_eq(_logical_room_count(floor_root), 8, "floor %d rooms should follow the irregular-disc layout" % disc_floor)
 		_assert_true(floor_root.contains_playable_position(Vector3(20.0, 0.08, 0.0)), "a point inside the layout disc should stay walkable")
@@ -81,7 +70,7 @@ func _run() -> void:
 		"length": 180.0,
 	}
 	for gallery_floor in [1, 3, 4]:
-		floor_root.rebuild(gallery_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(gallery_layout))
+		floor_root.rebuild(gallery_floor, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(gallery_layout))
 		_assert_street(floor_root, gallery_layout, "floor %d should take its gallery from a skylit layout" % gallery_floor)
 		_assert_eq(_logical_room_count(floor_root), 5, "floor %d rooms should follow the gallery layout" % gallery_floor)
 		_assert_true(floor_root.contains_playable_position(Vector3(20.0, 0.08, 0.0)), "a point inside the layout gallery should stay walkable")
@@ -92,14 +81,14 @@ func _run() -> void:
 		{"id": "npc_a", "kind": "npc"},
 		{"id": "npc_b", "kind": "npc"},
 	]
-	floor_root.rebuild(1, TEST_PALETTE, {}, 1, false, [], two_pedestrians, {}, [], _layout_dict(layout_street))
+	floor_root.rebuild(1, UiPalette.PALETTE_1, {}, 1, false, [], two_pedestrians, {}, [], _layout_dict(layout_street))
 	var placed_on_floor_one := int(floor_root.get_meta("ordinary_npc_count", -1))
-	floor_root.rebuild(4, TEST_PALETTE, {}, 1, false, [], two_pedestrians, {}, [], _layout_dict(layout_street))
+	floor_root.rebuild(4, UiPalette.PALETTE_1, {}, 1, false, [], two_pedestrians, {}, [], _layout_dict(layout_street))
 	_assert_eq(placed_on_floor_one, 2, "two listed pedestrians should be placed on floor 1")
 	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", -1)), placed_on_floor_one, "the same pedestrian list should not change count on floor 4")
-	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
+	floor_root.rebuild(2, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(disc_layout))
 	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", -1)), 0, "an empty pedestrian list should place nobody on the disc")
-	floor_root.rebuild(2, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[2]))
+	floor_root.rebuild(2, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[2]))
 	_assert_street(floor_root, CURRENT_STREETS[2], "floor 2 plan layout should keep today's disc")
 	_assert_eq(_logical_room_count(floor_root), 6, "floor 2 plan layout should keep today's six rooms")
 	_assert_disc_walkable(floor_root, "floor 2 plan layout")
@@ -108,7 +97,7 @@ func _run() -> void:
 	_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "near_black_disc", "floor 2 should keep its near-black disc light")
 	_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "slow_burn_suspense", "floor 2 atmosphere should stay slow-burn suspense")
 	for street_floor in [1, 4]:
-		floor_root.rebuild(street_floor, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[street_floor]))
+		floor_root.rebuild(street_floor, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[street_floor]))
 		_assert_street(floor_root, CURRENT_STREETS[street_floor], "floor %d plan layout should keep today's street" % street_floor)
 		_assert_eq(_logical_room_count(floor_root), int(CURRENT_STREETS[street_floor]["room_count"]), "floor %d plan layout should keep today's room count" % street_floor)
 		_assert_walkable(floor_root, "floor %d plan layout" % street_floor)
@@ -117,7 +106,7 @@ func _run() -> void:
 			_assert_eq(str(floor_root.get_meta("atmosphere_mode", "")), "open_daylight", "floor 1 atmosphere should stay open daylight")
 		else:
 			_assert_eq(str(floor_root.get_meta("lighting_profile", "")), "slow_burn_suspense", "floor 4 should keep its existing street light")
-	floor_root.rebuild(3, TEST_PALETTE, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[3]))
+	floor_root.rebuild(3, UiPalette.PALETTE_1, {}, 1, false, [], [], {}, [], _layout_dict(CURRENT_STREETS[3]))
 	_assert_street(floor_root, CURRENT_STREETS[3], "floor 3 plan layout should keep today's gallery")
 	_assert_eq(_logical_room_count(floor_root), 9, "floor 3 plan layout should keep today's nine rooms")
 	_assert_walkable(floor_root, "floor 3 plan layout")

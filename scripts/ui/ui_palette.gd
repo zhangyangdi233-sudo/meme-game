@@ -37,8 +37,15 @@ static func has_role(role: String) -> bool:
 	return role != "name" and PALETTE_1.has(role)
 
 
+## A gap in `active` is reported and answered from PALETTE_1; an unknown role is reported and answered black.
 static func color(active: Dictionary, role: String) -> Color:
-	return Color(str(active.get(role, PALETTE_1.get(role, "FFF1C9"))))
+	if not has_role(role):
+		push_error("UiPalette: unknown role '%s'" % role)
+		return Color.BLACK
+	if not active.has(role):
+		push_error("UiPalette: palette '%s' has no role '%s'; using palette_1" % [str(active.get("name", "unnamed")), role])
+		return Color(str(PALETTE_1[role]))
+	return Color(str(active[role]))
 
 
 static func flat_style(bg: Color, border: Color) -> StyleBoxFlat:

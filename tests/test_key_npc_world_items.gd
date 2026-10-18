@@ -13,10 +13,6 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var palette := {
-		"bg": "B7D957", "surface": "FFF1C9", "ink": "10140F",
-		"accent": "365B2D", "muted": "DDEB8A", "flash_text": "9CFF24",
-	}
 	var texture := load("res://assets/generated/characters/npc_late_arrival.png") as Texture2D
 	var doll_texture := load("res://assets/generated/characters/guide_doll.png") as Texture2D
 	_assert_true(doll_texture != null, "the user's guide doll artwork should import as a Godot texture")
@@ -29,7 +25,7 @@ func _run() -> void:
 		root.add_child(floor_root)
 		await process_frame
 		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number}})
-		floor_root.rebuild(floor_number, palette, {
+		floor_root.rebuild(floor_number, UiPalette.PALETTE_1, {
 			"key_npc": texture,
 			"npcs": [texture],
 			"doll": doll_texture,

@@ -9,6 +9,7 @@ const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
+const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 
 const MOVE_SPEED := 3.3
 const SPRINT_MULTIPLIER := 1.85
@@ -416,7 +417,7 @@ func _ensure_task_prop_body(node_name: String, body_size: Vector3, body_position
 	var box := BoxMesh.new()
 	box.size = body_size
 	var material := StandardMaterial3D.new()
-	material.albedo_color = _task_prop_color(deps, "ink")
+	material.albedo_color = UiPaletteScript.color(deps.get("palette", {}), "ink")
 	box.material = material
 	mesh_instance.mesh = box
 	body.add_child(mesh_instance)
@@ -440,24 +441,19 @@ func _ensure_task_prop_mesh(node_name: String, mesh_size: Vector3, mesh_position
 	box.size = mesh_size
 	var material := StandardMaterial3D.new()
 	if emissive:
-		var flash := _task_prop_color(deps, "flash_text")
+		var flash := UiPaletteScript.color(deps.get("palette", {}), "flash_text")
 		material.albedo_color = flash
 		material.emission_enabled = true
 		material.emission = flash
 		material.emission_energy_multiplier = 1.4
 	else:
-		material.albedo_color = _task_prop_color(deps, "ink")
+		material.albedo_color = UiPaletteScript.color(deps.get("palette", {}), "ink")
 	box.material = material
 	prop.mesh = box
 	prop.position = mesh_position
 	floor.add_child(prop)
 	return prop
 
-
-func _task_prop_color(deps: Dictionary, key: String) -> Color:
-	var palette: Dictionary = deps.get("palette", {})
-	var fallbacks := {"ink": "10140F", "flash_text": "9CFF24"}
-	return Color(str(palette.get(key, fallbacks.get(key, "FFF1C9"))))
 
 
 func active_actor_outcome() -> Dictionary:

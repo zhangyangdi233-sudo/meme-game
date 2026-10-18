@@ -6,6 +6,7 @@ const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const PaletteErrorLog = preload("res://tests/harness/palette_error_log.gd")
 
 var _failures: Array[String] = []
 
@@ -65,6 +66,7 @@ func _run() -> void:
 	_test_floor_three_door_follows_task_progress()
 	_test_floor_four_exit_follows_task_progress()
 	_test_other_floors_omit_ultimate_task_props()
+	_test_task_props_take_their_colors_from_ui_palette()
 	_test_host_asks_adapter_to_sync_ultimate_task_props()
 	_test_adapter_does_not_ask_the_generator_for_counts()
 	_test_settled_day_ends_the_conversation_and_forgets_nearby_targets()
@@ -151,7 +153,7 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 	var fake: FakeFloor = setup["floor"]
 	adapter.rebuild_floor({
 		"day_progress": {"tower_floor": 2, "day": 3},
-		"palette": {"ink": Color.BLACK},
+		"palette": UiPalette.PALETTE_1,
 		"load_texture": func(_path: String) -> Texture2D: return null,
 		"npc_character_paths": [],
 		"guide_doll_path": "",
@@ -199,7 +201,7 @@ func _test_day_change_replaces_scenes_without_rebuilding_the_floor() -> void:
 	var fake: FakeFloor = setup["floor"]
 	var day_one := {
 		"day_progress": {"tower_floor": 2, "day": 1},
-		"palette": {"ink": Color.BLACK},
+		"palette": UiPalette.PALETTE_1,
 	}
 	adapter.rebuild_floor(day_one)
 	adapter.player.position = Vector3(3.0, 0.08, 4.0)
@@ -316,6 +318,30 @@ func _test_adapter_does_not_ask_the_generator_for_counts() -> void:
 	)
 
 
+func _test_task_props_take_their_colors_from_ui_palette() -> void:
+	var errors := PaletteErrorLog.new()
+	OS.add_logger(errors)
+	var setup := _make_adapter_with_fake_floor()
+	var adapter = setup["adapter"]
+	var fake: FakeFloor = setup["floor"]
+	var without_ink := UiPalette.POLLUTION_PALETTE_5.duplicate()
+	without_ink.erase("ink")
+	var deps := _task_prop_deps(3, false, false)
+	deps["palette"] = without_ink
+	adapter.sync_ultimate_task_props(deps)
+	var door_mesh := fake.get_node_or_null("FloorThreeSealedDoor/DoorMesh") as MeshInstance3D
+	var open_frame := fake.get_node_or_null("FloorThreeDoorOpenFrame") as MeshInstance3D
+	_assert_true(door_mesh != null and open_frame != null, "floor three should raise its door props")
+	if door_mesh != null and open_frame != null:
+		_assert_eq(((door_mesh.mesh as BoxMesh).material as StandardMaterial3D).albedo_color, Color("10140F"), "a palette without ink should paint the door from palette 1")
+		_assert_eq(((open_frame.mesh as BoxMesh).material as StandardMaterial3D).albedo_color, Color("39FF14"), "the open frame should glow in the given palette's flash_text")
+	var reported := errors.take()
+	_assert_eq(reported.size(), 1, "the missing ink should be reported once")
+	if reported.size() == 1:
+		_assert_true(reported[0].contains("ink"), "the report should name the missing ink: %s" % reported[0])
+	setup["host"].free()
+	OS.remove_logger(errors)
+
 func _test_host_asks_adapter_to_sync_ultimate_task_props() -> void:
 	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
 	_assert_true(
@@ -337,7 +363,7 @@ func _task_prop_deps(tower_floor: int, floor3_complete: bool, floor4_complete: b
 		"day_progress": {"tower_floor": tower_floor},
 		"floor3_task_complete": floor3_complete,
 		"floor4_task_complete": floor4_complete,
-		"palette": {"ink": "10140F", "flash_text": "9CFF24"},
+		"palette": UiPalette.PALETTE_1,
 	}
 
 

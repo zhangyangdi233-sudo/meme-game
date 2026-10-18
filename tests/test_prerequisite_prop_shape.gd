@@ -5,17 +5,6 @@ extends SceneTree
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
-const TEST_PALETTE := {
-	"bg": "B7D957",
-	"surface": "FFF1C9",
-	"text": "10140F",
-	"ink": "10140F",
-	"accent": "365B2D",
-	"muted": "DDEB8A",
-	"danger_stripe": "365B2D",
-	"flash_text": "9CFF24",
-}
-
 const DEFAULT_PROPS := {
 	1: {"id": "artifact_named_lamp_tag", "marker": "OldNameplate"},
 	2: {"id": "artifact_reversed_tape", "marker": "CassetteBody"},
@@ -37,7 +26,7 @@ func _run() -> void:
 		var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 1}})
 		floor_root.rebuild(
 			floor_number,
-			TEST_PALETTE,
+			UiPalette.PALETTE_1,
 			{},
 			1,
 			false,
@@ -62,7 +51,7 @@ func _run() -> void:
 	var tape_plan := FloorComposerScript.compose({"day_progress": {"tower_floor": 2, "day": 1}})
 	floor_root.rebuild(
 		1,
-		TEST_PALETTE,
+		UiPalette.PALETTE_1,
 		{},
 		1,
 		false,
