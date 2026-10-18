@@ -62,7 +62,7 @@ func _build_overlay(parent: Control) -> void:
 
 	var blackout := ColorRect.new()
 	blackout.name = "CameraConsentBackdrop"
-	blackout.color = Color(_theme().theme_color("ink"), 0.94)
+	blackout.color = _theme().scrim()
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
 	_overlay.add_child(blackout)

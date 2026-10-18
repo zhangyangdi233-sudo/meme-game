@@ -37,7 +37,7 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 
 	var blackout := ColorRect.new()
 	blackout.name = "LanguageSelectionBackdrop"
-	blackout.color = Color(_theme().theme_color("ink"), 0.92)
+	blackout.color = _theme().scrim()
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
 	_language_overlay.add_child(blackout)

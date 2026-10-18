@@ -106,6 +106,10 @@ _Avoid_: a screen re-writing its own find / register / unregister code, keeping 
 A named color slot of the UI palette (`surface`, `ink`, `accent`, `error`, `pending`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor. `UiPalette.VOID` (true-black horror backdrop) and `UiPalette.OUTLINE` (near-black text and 3D outline) are fixed colors, not roles: pollution never changes them.
 _Avoid_: literal colors on palette-driven nodes, one node group per color, a near-black literal where `VOID` or `OUTLINE` is meant
 
+**Scrim**:
+The full-screen cover behind a window that hides the game so only that window is read (camera consent, language selection, phone camera connection). `GameUiTheme.scrim()` answers it: the active palette's `ink` at one shared strength, so it follows pollution. The phone wallpaper tint and the shared Dialog's dimmer are not scrims.
+_Avoid_: a panel choosing its own cover alpha or a literal near-black cover
+
 ## Development
 
 **Primary platform**: Windows (Godot 4.6+ editor and headless tests).

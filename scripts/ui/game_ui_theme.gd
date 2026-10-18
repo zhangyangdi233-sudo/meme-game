@@ -7,6 +7,7 @@ const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const PaletteSceneRootScript = preload("res://scripts/ui/palette_scene_root.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const SCRIM_ALPHA := 0.92
 
 var ui_font_path := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 var ui_font_grid := 9
@@ -50,6 +51,11 @@ func active_palette(pollution_stage = null) -> Dictionary:
 
 func theme_color(key: String, pollution_stage = null) -> Color:
 	return UiPaletteScript.color(active_palette(_stage(pollution_stage)), key)
+
+
+## The full-screen cover behind a window that hides the game: ink at one shared strength.
+func scrim(pollution_stage = null) -> Color:
+	return Color(theme_color("ink", _stage(pollution_stage)), SCRIM_ALPHA)
 
 
 func ensure_ui_font_theme() -> Theme:

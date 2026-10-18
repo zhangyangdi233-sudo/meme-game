@@ -26,6 +26,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_test_bound_returns_the_registered_theme_or_null()
+	_test_scrim_is_ink_at_the_shared_strength_and_follows_pollution()
 	_assert_true(FileAccess.file_exists(FONT_PATH), "the pixel font should ship with the project")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9-OFL.txt"), "the OFL license text must ship alongside the font")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/FONT_PROVENANCE.md"), "font provenance should be documented")
@@ -97,6 +98,16 @@ func _test_bound_returns_the_registered_theme_or_null() -> void:
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
 	_assert_true(GameUiThemeScript.bound() == theme, "bound() should return the theme registered under UI_THEME")
 	RegistryScript.clear()
+
+
+func _test_scrim_is_ink_at_the_shared_strength_and_follows_pollution() -> void:
+	var stage := {"palette_key": "palette_1"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), 0.92), "the scrim should be palette 1 ink at 0.92")
+	stage["palette_key"] = "pollution_palette_5"
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), 0.92), "the scrim should follow the bound pollution palette")
+	_assert_eq(theme.scrim({"palette_key": "palette_1"}), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), 0.92), "an explicit stage should override the bound provider")
 
 
 func _assert_true(condition: bool, message: String) -> void:

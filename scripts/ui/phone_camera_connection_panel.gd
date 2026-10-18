@@ -122,7 +122,7 @@ func _build_overlay(parent: Control) -> void:
 
 	var blackout := ColorRect.new()
 	blackout.name = "PhoneCameraConnectionBackdrop"
-	blackout.color = Color(0.01, 0.025, 0.015, 0.82)
+	blackout.color = _theme().scrim()
 	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
 	_overlay.add_child(blackout)

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (114 tests)
+## What runs (115 tests)
 
-### GDScript (112)
+### GDScript (113)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -115,7 +115,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build; the black covers stay true black |
 | `test_void_and_outline` | module | under pollution palette 5 the day-transition and prologue backdrops stay true black, and the conversation text outlines stay near black |
-| `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
+| `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme`; the scrim is the active palette's `ink` at 0.92 |
+| `test_full_screen_scrim` | module | under pollution palette 5 the camera consent, language selection and phone camera connection backdrops are the bound theme's scrim |
 | `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported; both palettes define the same role set (including `error` and `pending`); the Layout scenes name only known roles; `VOID` and `OUTLINE` are fixed colors that `has_role` does not accept |
 | `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report, and the playtest marker and EXIT sign outlines stay near black after the repaint; a palette gap is reported and painted from `PALETTE_1`; every floor built or repainted shows the materials, environment, lights and tints recorded in `floor_look_before.json`; the generator source decides no color of its own |
 | `test_floor_look` | module | without a scene, `FloorLook` answers every material role, background / ambient / fog, light and tint recorded in `floor_look_before.json` for every floor, its district style and both palettes |
