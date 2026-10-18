@@ -33,6 +33,15 @@ class WarningLog extends Logger:
 		return taken
 
 
+## Records the keys that reach the unhandled stage, like the host's hotkeys.
+class HotkeyListener extends Node:
+	var keys: Array[int] = []
+
+	func _unhandled_input(event: InputEvent) -> void:
+		if event is InputEventKey and event.pressed:
+			keys.append((event as InputEventKey).keycode)
+
+
 class Target extends Node:
 	var calls := 0
 
@@ -60,6 +69,8 @@ func _run_deferred() -> void:
 	await _test_ui_below_cannot_be_clicked_or_focused_while_open()
 	_test_the_dialog_follows_the_pollution_palette()
 	_test_a_spec_without_one_to_three_buttons_is_refused()
+	await _test_ui_added_after_opening_stays_below_for_clicks()
+	_test_hotkeys_below_are_held_while_open()
 	OS.remove_logger(_warnings)
 	if _failures.is_empty():
 		print("dialog screen tests passed")
@@ -118,6 +129,10 @@ func _test_a_press_closes_before_its_callback_runs() -> void:
 func _test_a_button_without_a_callback_only_closes() -> void:
 	var mounted := _mount()
 	var screen := _dialog().open({"message": "提示", "buttons": [{"text": "知道了"}, {"text": "关闭", "callback": Callable()}]}) as Control
+	_buttons(screen)[0].pressed.emit()
+	_assert_true(not screen.visible, "a button without a callback should close the dialog")
+	screen = _dialog().open({"message": "提示", "buttons": [{"text": "知道了", "callback": null}]}) as Control
+	_assert_true(screen.visible and _buttons(screen).size() == 1, "a null callback should still open the dialog")
 	_buttons(screen)[0].pressed.emit()
 	_assert_true(not screen.visible, "a button without a callback should close the dialog")
 	screen = _dialog().open({"message": "提示", "buttons": [{"text": "知道了"}, {"text": "关闭", "callback": Callable()}]}) as Control
@@ -309,6 +324,40 @@ func _assert_rgb(screen: Node, node_name: String, rgb: Color, message: String) -
 		_failures.append("missing %s" % node_name)
 		return
 	_assert_eq(Color(rect.color, 1.0), Color(rgb, 1.0), message)
+
+
+func _test_ui_added_after_opening_stays_below_for_clicks() -> void:
+	var mounted := _mount()
+	var screen := _dialog().open({"message": "挡住", "buttons": [{"text": "好"}]}) as Control
+	var late := Button.new()
+	late.name = "LateOverlayButton"
+	late.position = Vector2(100, 100)
+	late.size = Vector2(200, 100)
+	(mounted["layer"] as Control).add_child(late)
+	var presses: Array[int] = []
+	late.pressed.connect(func() -> void: presses.append(1))
+	await process_frame
+	_click(late.get_global_rect().get_center())
+	_assert_eq(presses.size(), 0, "UI added to the layer after the dialog opened should still not take clicks")
+	_buttons(screen)[0].pressed.emit()
+	_dispose(mounted)
+
+
+func _test_hotkeys_below_are_held_while_open() -> void:
+	var mounted := _mount()
+	var listener := HotkeyListener.new()
+	(mounted["host"] as Node).add_child(listener)
+	(mounted["host"] as Node).move_child(listener, 0)
+	_press_key(KEY_F)
+	_assert_eq(listener.keys, [KEY_F] as Array[int], "with no dialog a hotkey should reach the unhandled stage")
+	var screen := _dialog().open({"message": "挡住", "buttons": [{"text": "好"}]}) as Control
+	_press_key(KEY_F)
+	_press_key(KEY_TAB)
+	_assert_eq(listener.keys, [KEY_F] as Array[int], "an open dialog should keep hotkeys from the game below")
+	_buttons(screen)[0].pressed.emit()
+	_press_key(KEY_F)
+	_assert_eq(listener.keys, [KEY_F, KEY_F] as Array[int], "after the dialog closes hotkeys should reach the game again")
+	_dispose(mounted)
 
 
 func _click(at: Vector2) -> void:

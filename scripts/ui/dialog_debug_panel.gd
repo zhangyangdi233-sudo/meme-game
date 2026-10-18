@@ -7,6 +7,7 @@ extends PaletteSceneRoot
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const SAMPLE_BUTTON_TEXTS := ["确定", "取消", "稍后"]
 
 
@@ -29,15 +30,18 @@ func _open_sample(count: int) -> void:
 	var dialog := ServiceRegistryScript.resolve(ServiceKeysScript.DIALOG) as ScreenManager
 	var buttons: Array = []
 	for index in count:
-		buttons.append({"text": SAMPLE_BUTTON_TEXTS[index], "callback": _report.bind(count, index + 1)})
+		buttons.append({
+			DialogScreenScript.KEY_TEXT: SAMPLE_BUTTON_TEXTS[index],
+			DialogScreenScript.KEY_CALLBACK: _report.bind(count, index + 1),
+		})
 	var spec := {
-		"message": "这是 %d 个按钮的范例对话框。" % count,
-		"buttons": buttons,
-		"owner": self,
+		DialogScreenScript.KEY_MESSAGE: "这是 %d 个按钮的范例对话框。" % count,
+		DialogScreenScript.KEY_BUTTONS: buttons,
+		DialogScreenScript.KEY_OWNER: self,
 	}
 	# The one-button sample has no cancel button, so Escape does nothing there.
 	if count > 1:
-		spec["cancel_index"] = count - 1
+		spec[DialogScreenScript.KEY_CANCEL_INDEX] = count - 1
 	dialog.open(spec)
 
 
