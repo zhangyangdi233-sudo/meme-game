@@ -291,8 +291,10 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 		if button.has_meta("hud_icon"):
 			var empty := StyleBoxEmpty.new()
 			button.add_theme_stylebox_override("normal", empty)
-			button.add_theme_stylebox_override("hover", style(hover_tint(pollution_stage), hover_tint(pollution_stage)))
-			button.add_theme_stylebox_override("pressed", style(pressed_tint(pollution_stage), pressed_tint(pollution_stage)))
+			var hover := hover_tint(pollution_stage)
+			var pressed := pressed_tint(pollution_stage)
+			button.add_theme_stylebox_override("hover", style(hover, hover))
+			button.add_theme_stylebox_override("pressed", style(pressed, pressed))
 		elif button.has_meta("phone_app_icon"):
 			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage))
 			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))

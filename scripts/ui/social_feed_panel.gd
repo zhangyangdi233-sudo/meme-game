@@ -944,7 +944,6 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 func _social_feed_dark_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = _theme().theme_color("ink")
-	style.border_color = _theme().hairline()
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(6)

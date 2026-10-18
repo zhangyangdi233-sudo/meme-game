@@ -51,7 +51,7 @@ func _run() -> void:
 	_test_a_new_meme_leaves_the_other_pages_alone()
 	_test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them()
 	_test_pickup_marks_take_the_flash_text_of_the_bound_palette()
-	_test_dividers_are_hairlines_and_cards_keep_their_strong_edge()
+	_test_the_comments_rule_is_a_hairline_and_cards_keep_their_strong_edge()
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
 	_test_the_open_publish_page_follows_remaining_actions()
@@ -398,16 +398,12 @@ func _test_pickup_marks_take_the_flash_text_of_the_bound_palette() -> void:
 	_dispose(mounted)
 
 
-func _test_dividers_are_hairlines_and_cards_keep_their_strong_edge() -> void:
+func _test_the_comments_rule_is_a_hairline_and_cards_keep_their_strong_edge() -> void:
 	var mounted := _mount()
 	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
 	theme.configure({"pollution_stage": func() -> Dictionary: return {"palette_key": "pollution_palette_5"}})
 	var panel := mounted["panel"] as SocialFeedPanel
 	panel.render_app()
-	var frame := _find(mounted, "SocialFeedDarkFrame") as PanelContainer
-	_assert_true(frame != null, "the discover feed should sit in its dark frame")
-	if frame != null:
-		_assert_eq((frame.get_theme_stylebox("panel") as StyleBoxFlat).border_color, theme.hairline(), "the dark feed frame should be edged by the hairline")
 	var card := _find(mounted, "SocialPostCard0") as PanelContainer
 	_assert_true(card != null, "the discover feed should show the first post card")
 	if card != null:

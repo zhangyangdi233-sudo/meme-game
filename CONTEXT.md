@@ -111,11 +111,11 @@ The full-screen cover behind a window that hides the game so only that window is
 _Avoid_: a panel choosing its own cover alpha or a literal near-black cover
 
 **Hairline**:
-A thin divider or faint edge on a dark or light surface (the HUD rail, the social feed's dark frame, the rule above a post's comments). `GameUiTheme.hairline()` answers it: the active palette's `muted` at one shared strength. Not this recipe: the social post card's edge, a stronger `muted` that marks the card rather than divides.
+A thin divider or faint edge on a dark surface (the HUD rail, the rule above a post's comments). `GameUiTheme.hairline()` answers it: the active palette's `muted` at one shared strength. Not this recipe: the social post card's edge, a stronger `muted` that marks the card rather than divides.
 _Avoid_: a panel choosing its own divider alpha
 
 **Button tint**:
-The wash behind a hovered or pressed button that has no face of its own (HUD icons, flat phone buttons). `GameUiTheme.hover_tint()` and `pressed_tint()` answer it: the active palette's `muted` at two shared strengths.
+The wash behind a hovered or pressed button that has no face of its own (HUD icons, flat phone buttons). `GameUiTheme.hover_tint()` and `pressed_tint()` answer it: the active palette's `muted` at two shared strengths. Not this recipe: the sentence composer's ghost tile, a resting `muted` wash that marks an empty slot rather than a button state.
 _Avoid_: a button state choosing its own wash alpha
 
 ## Development
