@@ -2,6 +2,7 @@ extends SceneTree
 ## RealityLanguageComposerPanel: named chrome, compose render, and token/slot intents.
 
 const PanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -130,12 +131,13 @@ func _run() -> void:
 		confirm.pressed.emit()
 	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_CONFIRM_PRESSED, {}]], "confirm should raise its intent with an empty payload")
 
-	_test_token_drag_preview_follows_the_pollution_palette(panel, host)
-
 	panel.update_visibility(false, "composing", "lexeme")
 	_assert_true(frame != null and not frame.visible, "update_visibility should hide the frame off the reality layer")
 	panel.update_visibility(true, "composing", "lexeme")
 	_assert_true(frame != null and frame.visible, "update_visibility should show composing lexeme on the reality layer")
+
+	# Rebinds the theme at pollution stage 5, so it runs last.
+	_test_token_drag_preview_follows_the_pollution_palette(panel, host)
 
 	host.queue_free()
 	panel.queue_free()
@@ -144,11 +146,7 @@ func _run() -> void:
 
 
 func _test_token_drag_preview_follows_the_pollution_palette(panel: Node, host: Control) -> void:
-	var stage := {"palette_key": "pollution_palette_5"}
-	var theme := GameUiThemeScript.new() as GameUiTheme
-	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
-	RegistryScript.unbind(ServiceKeysScript.UI_THEME, RegistryScript.resolve(ServiceKeysScript.UI_THEME))
-	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	Harness.bind_ui_theme("pollution_palette_5")
 	panel.render({
 		"composing": true,
 		"token_options": [{"id": "subject-1", "display_text": "患者", "text": "我", "phone_surface": "我"}],

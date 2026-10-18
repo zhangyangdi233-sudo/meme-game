@@ -4,6 +4,7 @@ extends SceneTree
 ## repaints its own page, and raises the composer and confirm intents on the event bus.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -164,11 +165,7 @@ func _test_composer_and_confirm_raise_their_intents() -> void:
 
 func _test_tile_drag_preview_follows_the_pollution_palette() -> void:
 	var mounted := _mount()
-	var stage := {"palette_key": "pollution_palette_5"}
-	var theme := GameUiThemeScript.new() as GameUiTheme
-	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
-	RegistryScript.unbind(ServiceKeysScript.UI_THEME, RegistryScript.resolve(ServiceKeysScript.UI_THEME))
-	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	Harness.bind_ui_theme("pollution_palette_5")
 	(mounted["units"] as ListPropertyModel).replace_all(["门"])
 	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
 	var tile := _find(mounted, "ComposerAnswerTile0") as DraggableButton

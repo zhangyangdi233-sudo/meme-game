@@ -49,19 +49,13 @@ func _run() -> void:
 
 
 func _test_drag_preview_takes_the_set_color(drag_script: Script) -> void:
-	var drag: Button = drag_script.new()
+	var drag := drag_script.new() as DraggableButton
 	drag.set_drag_payload("token", "n1", "哈吉米")
-	_assert_true("drag_preview_color" in drag and drag.has_method("build_drag_preview"), "the draggable button should take a preview color and build its preview")
-	if not drag.has_method("build_drag_preview"):
-		drag.free()
-		return
 	drag.drag_preview_color = Color("2F6B1F")
-	var preview := drag.build_drag_preview() as Label
-	_assert_true(preview != null, "the drag preview should be a label")
-	if preview != null:
-		_assert_eq(preview.text, "哈吉米", "the drag preview should show the drag label")
-		_assert_eq(preview.get_theme_color("font_color"), Color("2F6B1F"), "the drag preview should use the color the caller set")
-		preview.free()
+	var preview := drag.build_drag_preview()
+	_assert_eq(preview.text, "哈吉米", "the drag preview should show the drag label")
+	_assert_eq(preview.get_theme_color("font_color"), Color("2F6B1F"), "the drag preview should use the color the caller set")
+	preview.free()
 	drag.free()
 
 

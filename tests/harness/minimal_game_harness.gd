@@ -6,6 +6,7 @@ const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 
 
 static func new_state() -> RefCounted:
@@ -89,3 +90,14 @@ static func publish_title_facts(pollution_value: int, has_save: bool) -> void:
 		pollution.write(pollution_value)
 	if saved != null:
 		saved.write(has_save)
+
+
+## Binds a fresh UI theme painted from `palette_key`, replacing any bound theme.
+static func bind_ui_theme(palette_key: String) -> GameUiTheme:
+	var stage := {"palette_key": palette_key}
+	var theme := GameUiThemeScript.new() as GameUiTheme
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	if ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
+		ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME))
+	ServiceRegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	return theme
