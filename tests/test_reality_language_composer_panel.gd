@@ -130,6 +130,8 @@ func _run() -> void:
 		confirm.pressed.emit()
 	_assert_eq(_heard, [[UiIntentsScript.COMPOSER_CONFIRM_PRESSED, {}]], "confirm should raise its intent with an empty payload")
 
+	_test_token_drag_preview_follows_the_pollution_palette(panel, host)
+
 	panel.update_visibility(false, "composing", "lexeme")
 	_assert_true(frame != null and not frame.visible, "update_visibility should hide the frame off the reality layer")
 	panel.update_visibility(true, "composing", "lexeme")
@@ -139,6 +141,28 @@ func _run() -> void:
 	panel.queue_free()
 	RegistryScript.clear()
 	await process_frame
+
+
+func _test_token_drag_preview_follows_the_pollution_palette(panel: Node, host: Control) -> void:
+	var stage := {"palette_key": "pollution_palette_5"}
+	var theme := GameUiThemeScript.new() as GameUiTheme
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	RegistryScript.unbind(ServiceKeysScript.UI_THEME, RegistryScript.resolve(ServiceKeysScript.UI_THEME))
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	panel.render({
+		"composing": true,
+		"token_options": [{"id": "subject-1", "display_text": "患者", "text": "我", "phone_surface": "我"}],
+		"slots": [],
+		"preview": {"valid": false},
+		"can_spend_action": true,
+	})
+	var token_button := _find_node_by_name(host, "RealityLanguageToken_subject-1") as DraggableButton
+	_assert_true(token_button != null, "a polluted render should still create the token button")
+	if token_button == null:
+		return
+	var preview := token_button.build_drag_preview()
+	_assert_eq(preview.get_theme_color("font_color"), UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "accent"), "dragging a token at pollution stage 5 should preview it in that palette's accent")
+	preview.free()
 
 
 func _panel() -> PanelContainer:

@@ -15,10 +15,12 @@ const SCAN_SUFFIXES := [".gd", ".py", ".sh", ".txt", ".md"]
 
 var _failures: Array[String] = []
 var _session_id_regex := RegEx.new()
+var _palette_hexes: Array[String] = []
 
 
 func _init() -> void:
 	_session_id_regex.compile(FORBIDDEN_SESSION_IDS)
+	_palette_hexes = _babel_palette_hexes()
 	_scan_directory("res://framework")
 	if _failures.is_empty():
 		print("framework seam tests passed")
@@ -73,9 +75,28 @@ func _scan_file(path: String) -> void:
 				_failures.append(
 					"%s:%d contains forbidden token %s" % [path, line_number, pattern]
 				)
+		var upper_line := line.to_upper()
+		for hex in _palette_hexes:
+			if upper_line.find(hex) != -1:
+				_failures.append(
+					"%s:%d contains Babel palette color %s" % [path, line_number, hex]
+				)
 		var session_hit := _session_id_regex.search(line)
 		if session_hit != null:
 			_failures.append(
 				"%s:%d contains forbidden token %s" % [path, line_number, session_hit.get_string()]
 			)
 	file.close()
+
+
+## Framework must not know Babel's palette (ADR 0001); callers inject colors instead.
+func _babel_palette_hexes() -> Array[String]:
+	var hexes: Array[String] = []
+	for palette in [UiPalette.PALETTE_1, UiPalette.POLLUTION_PALETTE_5]:
+		for role in palette:
+			if role == "name":
+				continue
+			var hex := str(palette[role]).to_upper()
+			if not hexes.has(hex):
+				hexes.append(hex)
+	return hexes

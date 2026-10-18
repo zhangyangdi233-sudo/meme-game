@@ -57,6 +57,7 @@ func render(state: Dictionary) -> void:
 		button.custom_minimum_size = Vector2(128.0, 48.0)
 		button.clip_text = true
 		button.set_drag_payload("language_token", token_id, button.text)
+		button.drag_preview_color = _theme().theme_color("accent")
 		button.pressed.connect(_on_token_pressed.bind(token_id))
 		_token_flow.add_child(button)
 

@@ -209,6 +209,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		placed_tile.unit_dropped_before.connect(_on_composer_tile_dropped)
 		if _theme() != null:
 			_theme().apply_composer_tile_theme(placed_tile, false)
+			placed_tile.drag_preview_color = _theme().theme_color("accent")
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()
 	answer_rule.name = "ComposerAnswerUnderline"

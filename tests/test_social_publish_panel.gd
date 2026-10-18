@@ -39,6 +39,7 @@ func _run() -> void:
 	_test_a_released_page_is_not_repainted()
 	_test_painting_before_showing_reads_the_models_now()
 	_test_composer_and_confirm_raise_their_intents()
+	_test_tile_drag_preview_follows_the_pollution_palette()
 
 
 func _test_rendering_paints_the_page_into_the_host() -> void:
@@ -158,6 +159,24 @@ func _test_composer_and_confirm_raise_their_intents() -> void:
 	if confirm != null:
 		confirm.pressed.emit()
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, {}]], "the confirm button should raise its intent")
+	_dispose(mounted)
+
+
+func _test_tile_drag_preview_follows_the_pollution_palette() -> void:
+	var mounted := _mount()
+	var stage := {"palette_key": "pollution_palette_5"}
+	var theme := GameUiThemeScript.new() as GameUiTheme
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	RegistryScript.unbind(ServiceKeysScript.UI_THEME, RegistryScript.resolve(ServiceKeysScript.UI_THEME))
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	(mounted["units"] as ListPropertyModel).replace_all(["门"])
+	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
+	var tile := _find(mounted, "ComposerAnswerTile0") as DraggableButton
+	_assert_true(tile != null, "a placed word should get a tile")
+	if tile != null:
+		var preview := tile.build_drag_preview()
+		_assert_eq(preview.get_theme_color("font_color"), UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "accent"), "dragging a tile at pollution stage 5 should preview it in that palette's accent")
+		preview.free()
 	_dispose(mounted)
 
 

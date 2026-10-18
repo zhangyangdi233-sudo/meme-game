@@ -43,8 +43,26 @@ func _run() -> void:
 	_assert_true(not rejected, "drop target should reject mismatched drag kind")
 	drag.free()
 	drop.free()
+	_test_drag_preview_takes_the_set_color(drag_script)
 	_test_radial_selector_ring(ring_script)
 	_test_draggable_window_manager(manager_script)
+
+
+func _test_drag_preview_takes_the_set_color(drag_script: Script) -> void:
+	var drag: Button = drag_script.new()
+	drag.set_drag_payload("token", "n1", "哈吉米")
+	_assert_true("drag_preview_color" in drag and drag.has_method("build_drag_preview"), "the draggable button should take a preview color and build its preview")
+	if not drag.has_method("build_drag_preview"):
+		drag.free()
+		return
+	drag.drag_preview_color = Color("2F6B1F")
+	var preview := drag.build_drag_preview() as Label
+	_assert_true(preview != null, "the drag preview should be a label")
+	if preview != null:
+		_assert_eq(preview.text, "哈吉米", "the drag preview should show the drag label")
+		_assert_eq(preview.get_theme_color("font_color"), Color("2F6B1F"), "the drag preview should use the color the caller set")
+		preview.free()
+	drag.free()
 
 
 func _test_radial_selector_ring(ring_script: Script) -> void:
