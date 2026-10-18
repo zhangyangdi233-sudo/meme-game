@@ -63,8 +63,12 @@ An editor-authored `.tscn` that owns a fixed screen's layout and look; its panel
 _Avoid_: fixed layouts built from `Control.new()` and pixel offsets, @tool scripts that generate the layout, the global UI theme walk repainting a layout scene
 
 **Screen manager**:
-Host-created opener for one fixed screen. The host builds it at boot (not an autoload). The screen script declares the scene path, layer name, and button intents. The first open instantiates; close hides; the next open reuses that instance. Only the main menu is opened this way today.
+Host-created opener for one fixed screen. The host builds it at boot (not an autoload). The screen script declares the scene path, layer name, and button intents. The first open instantiates; close hides; the next open reuses that instance. The main menu and the Dialog are opened this way; the Dialog's manager is bound in the service registry so any panel can open it.
 _Avoid_: autoload, a manager that also closes other screens
+
+**Dialog**:
+The generic modal window any panel opens by resolving its screen manager (`ServiceKeys.DIALOG`) and calling `open(spec)`: a message and one to three buttons, each a UI catalog source key with an optional callback, plus an optional cancel button (Escape and first focus) and owner. A press closes the Dialog, then runs that button's callback. One at a time: a second open is refused with a warning. The owner leaving the tree closes it without a callback. It sits above every other game UI, takes every click and keeps the focus while open, and tints itself for the pollution stage. Refusal, owner and callbacks live on the `DialogScreen`; there is no dialog service. See ADR 0007 for why its callbacks are allowed.
+_Avoid_: a dialog service beside the screen manager, a queue of dialogs, the host forwarding opens, a callback that writes host state instead of raising on the bus
 
 **UI intent**:
 How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime; no panel keeps a private signal to the host. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.

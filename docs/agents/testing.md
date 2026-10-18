@@ -34,7 +34,7 @@ $env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
 
 ## Modes
 
-**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (23 files after the harness split). Use after small module-only changes.
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (27 files after the harness split). Use after small module-only changes.
 
 ```powershell
 .\tools\run_tests.ps1 -Fast
@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (107 tests)
+## What runs (109 tests)
 
-### GDScript (105)
+### GDScript (107)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -112,6 +112,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
+| `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks and focus below and follows the pollution palette |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles |
 | `test_game_locale_preferences` | module | language / volume preference models, preferences file |
 | `test_settings_history_panel`, `test_language_selection_panel` | module | the settings panel owns the settings-open model, always watches pollution for its labels, and while open watches preference, autoplay and save-status models; the open history window watches the recorded lines |
@@ -142,6 +143,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
 | `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement; the host raises one `DAY_SETTLED` per settlement and the desk line, selection and street react; a finished flashback shows the next-day line |
 | `test_main_scene` | **adapter** | integration smoke |
+| `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
 | `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |

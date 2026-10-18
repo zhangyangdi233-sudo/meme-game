@@ -1,0 +1,97 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/dialog_screen.gd" id="1_root"]
+[ext_resource type="FontFile" uid="uid://cqyei842slvok" path="res://assets/fonts/BoutiqueBitmap9x9.ttf" id="2_font"]
+
+[sub_resource type="Theme" id="Theme_dialog"]
+default_font = ExtResource("2_font")
+default_font_size = 18
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_box"]
+
+[node name="DialogLayer" type="Control"]
+z_index = 300
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_dialog")
+script = ExtResource("1_root")
+
+[node name="DialogScrim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.078431375, 0.05882353, 0.55)
+metadata/palette_role = "ink"
+
+[node name="DialogCenter" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="DialogBox" type="PanelContainer" parent="DialogCenter"]
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_box")
+
+[node name="DialogFrame" type="ColorRect" parent="DialogCenter/DialogBox"]
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+metadata/palette_role = "ink"
+
+[node name="DialogInset" type="MarginContainer" parent="DialogCenter/DialogBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="DialogSurface" type="ColorRect" parent="DialogCenter/DialogBox/DialogInset"]
+layout_mode = 2
+mouse_filter = 2
+color = Color(1, 0.94509804, 0.7882353, 1)
+metadata/palette_role = "surface"
+
+[node name="DialogContent" type="MarginContainer" parent="DialogCenter/DialogBox/DialogInset"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 27
+theme_override_constants/margin_top = 27
+theme_override_constants/margin_right = 27
+theme_override_constants/margin_bottom = 27
+
+[node name="DialogStack" type="VBoxContainer" parent="DialogCenter/DialogBox/DialogInset/DialogContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 27
+
+[node name="DialogMessage" type="Label" parent="DialogCenter/DialogBox/DialogInset/DialogContent/DialogStack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "确定吗？"
+horizontal_alignment = 1
+autowrap_mode = 3
+metadata/palette_role = "ink"
+
+[node name="DialogButtonRow" type="HBoxContainer" parent="DialogCenter/DialogBox/DialogInset/DialogContent/DialogStack"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 18
+alignment = 1

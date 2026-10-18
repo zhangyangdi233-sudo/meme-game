@@ -29,6 +29,7 @@ Buttons that only hide or fold their own window (language "back", quit "return",
 Signals and callbacks that remain are not a player action reaching the host:
 
 - Low-level control signals inside one component (drag and drop, tile moves, radial selection, edge drawer expansion).
+- A Dialog button's callback (#91). The caller hands the Dialog its own private callback in the spec; the press runs it after the Dialog closes. It is the caller talking to itself, not a player action reaching the host. When the answer needs the host, the callback raises the intent or game event on the bus itself (for example `GameEventBus.raise_event(...)`), so the host still hears it in one place.
 - Game-side collaborators that are not panels: the Reality scene adapter (`nearby_targets_changed`; the cover watcher is a game event now, see below), the camera session (`tracking_ui_changed`), and `LanguagePresenter` (the notebook-home request; pickup and submit return an Action outcome and write the feedback text model). Its press sound is a game event now (see below). It raises no redraw request: the phone screens watch the free sentence and notebook models, and the guide and playtest windows watch the tutorial progress (ADR 0008). Tracker: #74.
 
 ## Game events on the same bus
@@ -47,4 +48,4 @@ Amended: the bus also carries game events, not only player actions. A game event
 - **Flashback finished (#90).** The pollution flashback director raises `FLASHBACK_FINISHED` when its timeline ends; the flashback overlay takes no callback. The narrative director subscribes while it is in the tree: when the beat is on its flashback it closes the overlay and its audio, asks the host to settle (which raises `DAY_SETTLED` with `KEY_FROM_FLASHBACK`), and moves the beat on. A finish with no flashback on screen settles nothing. Tests skip the timeline by raising the event themselves.
 - **Still not events:** signals inside one component (drag and drop, tile moves) and getters polled every frame (flight targets).
 
-Opening and closing via the screen manager (create once, hide, reuse) stays on the main menu until a later ticket. This decision is only the interface UI uses to notify the host. Tracker: #43.
+Opening and closing via the screen manager (create once, hide, reuse) serves the main menu and the Dialog (#91). This decision is only the interface UI uses to notify the host. Tracker: #43.

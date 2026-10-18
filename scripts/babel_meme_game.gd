@@ -16,6 +16,8 @@ const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const MainMenuScreenScript = preload("res://scripts/ui/main_menu_screen.gd")
+const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
+const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
@@ -146,6 +148,8 @@ var _edge_drawer: EdgeDrawer
 var _world_prompt: Label
 var _desk_log: DeskLogLabelScript
 var _screen_manager: ScreenManager
+var _dialog_manager: ScreenManager
+var _dialog_debug_panel: Control
 var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
 var _prologue_panel: ProloguePanel
@@ -330,6 +334,7 @@ func _ready() -> void:
 	_camera_session.ensure_receiver()
 	_ensure_window_manager()
 	_ensure_edge_drawer()
+	_ensure_dialog_manager()
 	_ensure_flow_manager()
 	show_main_menu()
 	if not _locale.language_selected:
@@ -376,6 +381,7 @@ func _exit_tree() -> void:
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
 	ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
+	ServiceRegistryScript.unbind(ServiceKeysScript.DIALOG, _dialog_manager)
 	if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER):
 		var volume := _master_volume_model()
 		if volume != null:
@@ -837,11 +843,14 @@ func _build_world(build_playable_floor: bool = true) -> void:
 	_phone_camera_connection_panel = null
 	if _screen_manager != null and is_instance_valid(_screen_manager):
 		_screen_manager.retain()
+	# A dialog never outlives the world it was opened over; it closes without running a callback.
+	if _dialog_manager != null and is_instance_valid(_dialog_manager):
+		_dialog_manager.close()
 	# The window manager is freed with the other children; the next one binds itself.
 	ServiceRegistryScript.unbind(ServiceKeysScript.WINDOW_MANAGER, _window_manager)
 	_window_manager = null
 	for child in get_children():
-		if child == _reality_scene_adapter or child == _narrative_director or child == _screen_manager:
+		if child == _reality_scene_adapter or child == _narrative_director or child == _screen_manager or child == _dialog_manager:
 			continue
 		remove_child(child)
 		child.free()
@@ -947,6 +956,7 @@ func install_title_screen() -> void:
 	_ensure_screen_manager()
 	_publish_has_save()
 	_screen_manager.open({})
+	_mount_dialog_debug_panel()
 	_apply_ui_theme()
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
 	_ensure_settings_history_panel()
@@ -957,6 +967,22 @@ func install_title_screen() -> void:
 func uninstall_title_screen() -> void:
 	if _screen_manager != null and is_instance_valid(_screen_manager):
 		_screen_manager.close()
+	_unmount_dialog_debug_panel()
+
+
+## Debug builds only (same switch as the playtest assist): a title-corner panel that opens sample dialogs.
+func _mount_dialog_debug_panel() -> void:
+	_unmount_dialog_debug_panel()
+	if not _playtest_assist_enabled or _ui_root == null:
+		return
+	_dialog_debug_panel = DialogDebugPanelScene.instantiate() as Control
+	_ui_root.add_child(_dialog_debug_panel)
+
+
+func _unmount_dialog_debug_panel() -> void:
+	if _dialog_debug_panel != null and is_instance_valid(_dialog_debug_panel):
+		_dialog_debug_panel.queue_free()
+	_dialog_debug_panel = null
 
 
 func install_prologue_screen() -> void:
@@ -1632,6 +1658,17 @@ func _ensure_screen_manager() -> void:
 	_screen_manager = ScreenManagerScript.new(_ui_event_bus, MainMenuScreenScript, self)
 	_screen_manager.name = "ScreenManager"
 	add_child(_screen_manager)
+
+
+## The dialog opener every panel resolves under ServiceKeys.DIALOG. Built once at boot and kept across world rebuilds.
+func _ensure_dialog_manager() -> void:
+	if _dialog_manager != null and is_instance_valid(_dialog_manager):
+		return
+	_ensure_ui_event_bus()
+	_dialog_manager = ScreenManagerScript.new(_ui_event_bus, DialogScreenScript, self)
+	_dialog_manager.name = "DialogManager"
+	add_child(_dialog_manager)
+	_rebind_service(ServiceKeysScript.DIALOG, _dialog_manager)
 
 
 ## Binds this host's UI theme as a service so panels can resolve it instead of taking theme callables.
