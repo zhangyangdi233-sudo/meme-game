@@ -9,12 +9,12 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const VOID_COVERS := [
 	"FlashbackBackdrop",
-	"FlashbackPhaseBlackGapA/0",
-	"FlashbackPhaseBlackGapB/0",
+	"FlashbackPhaseBlackGapA/FlashbackBlackGapCover",
+	"FlashbackPhaseBlackGapB/FlashbackBlackGapCover",
 	"FlashbackPhaseDollScene/MissingFrameStrip",
 	"FlashbackPhaseDoctorScene/MissingFrameStrip",
-	"FlashbackPhaseAttribution/0",
-	"FlashbackPhaseEmptyFrames/0",
+	"FlashbackPhaseAttribution/FlashbackAttributionCover",
+	"FlashbackPhaseEmptyFrames/FlashbackEmptyFramesBackdrop",
 	"FlashbackPhaseEmptyFrames/FlashbackFinalBlackout",
 ]
 
@@ -59,11 +59,7 @@ func _test_phases_follow_the_pollution_palette_on_the_next_build() -> void:
 
 func _assert_covers_are_void(panel: FlashbackOverlayPanel, label: String) -> void:
 	for cover_path in VOID_COVERS:
-		var parts: PackedStringArray = cover_path.split("/")
-		var node: Node = panel.get_director().get_node_or_null(parts[0])
-		if node != null and parts.size() > 1:
-			node = node.get_child(int(parts[1])) if parts[1].is_valid_int() else node.get_node_or_null(parts[1])
-		var cover := node as ColorRect
+		var cover := panel.get_director().get_node_or_null(cover_path) as ColorRect
 		if cover == null:
 			_failures.append("%s should be built (%s)" % [cover_path, label])
 			continue

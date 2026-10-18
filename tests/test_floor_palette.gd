@@ -1,10 +1,12 @@
 extends SceneTree
 ## The Floor generator asks UiPalette for every palette color: a complete palette builds and repaints
 ## every floor without a report, and a palette with a gap is reported and painted from palette 1.
+## The playtest marker and EXIT sign outlines stay UiPalette.OUTLINE after the repaint to pollution palette 5.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const PaletteErrorLog = preload("res://tests/harness/palette_error_log.gd")
+const NEAR_BLACK_OUTLINE := Color("050705")
 
 var _failures: Array[String] = []
 var _errors := PaletteErrorLog.new()
@@ -32,6 +34,8 @@ func _test_complete_palettes_build_and_repaint_every_floor_without_reports() -> 
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	await process_frame
+	floor_root.set_playtest_assist_enabled(true)
+	var outlined := {}
 	for floor_number in [1, 2, 3, 4]:
 		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 2}})
 		floor_root.rebuild(
@@ -48,6 +52,12 @@ func _test_complete_palettes_build_and_repaint_every_floor_without_reports() -> 
 		)
 		floor_root.apply_palette(UiPalette.POLLUTION_PALETTE_5)
 		_assert_eq(_errors.take(), [], "floor %d should build and repaint from complete palettes without a report" % floor_number)
+		for label in floor_root.find_children("*", "Label3D", true, false):
+			if label.name == "PlaytestMarker" or label.name == "DeadSignLabel":
+				outlined[str(label.name)] = true
+				_assert_eq((label as Label3D).outline_modulate, NEAR_BLACK_OUTLINE, "floor %d %s outline should stay near black under pollution palette 5" % [floor_number, label.name])
+	_assert_true(outlined.has("PlaytestMarker"), "some floor should build a playtest marker")
+	_assert_true(outlined.has("DeadSignLabel"), "some floor should build the EXIT sign")
 	floor_root.free()
 
 

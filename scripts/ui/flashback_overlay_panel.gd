@@ -180,6 +180,7 @@ func _build_freeze_phase(phase_id: String, node_name: String, with_residue: bool
 func _build_black_gap_phase(phase_id: String, node_name: String, with_empty_speaker_plate: bool) -> void:
 	var phase_root := _register_phase(phase_id, node_name)
 	var cover := ColorRect.new()
+	cover.name = "FlashbackBlackGapCover"
 	cover.color = UiPalette.VOID
 	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(cover)
@@ -281,6 +282,7 @@ func _build_scene_phase(phase_id: String, node_name: String, is_doctor: bool) ->
 func _build_attribution_phase() -> void:
 	var phase_root := _register_phase("attribution", "FlashbackPhaseAttribution")
 	var cover := ColorRect.new()
+	cover.name = "FlashbackAttributionCover"
 	cover.color = UiPalette.VOID
 	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(cover)
@@ -331,6 +333,7 @@ func _build_triple_echo_phase() -> void:
 func _build_empty_frames_phase() -> void:
 	var phase_root := _register_phase("empty_frames", "FlashbackPhaseEmptyFrames")
 	var bg := ColorRect.new()
+	bg.name = "FlashbackEmptyFramesBackdrop"
 	bg.color = UiPalette.VOID
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(bg)

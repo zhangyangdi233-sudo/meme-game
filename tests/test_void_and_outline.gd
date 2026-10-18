@@ -1,14 +1,12 @@
 extends SceneTree
-## The day-transition and prologue backdrops stay UiPalette.VOID, and the conversation text and 3D marker and
-## label outlines stay UiPalette.OUTLINE, while the bound theme is on pollution_palette_5. Does not load the main scene.
+## The day-transition and prologue backdrops stay UiPalette.VOID, and the conversation text outlines stay
+## UiPalette.OUTLINE, while the bound theme is on pollution_palette_5. Does not load the main scene.
 
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const DayTransitionPanelScript = preload("res://scripts/ui/day_transition_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
-const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
-const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 const TRUE_BLACK := Color("000000")
@@ -18,11 +16,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
-	call_deferred("_run_async")
-
-
-func _run_async() -> void:
-	await _run()
+	_run()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("void and outline tests passed")
@@ -37,7 +31,6 @@ func _run() -> void:
 	_test_day_transition_backdrop_stays_void()
 	_test_prologue_backdrop_stays_void()
 	_test_conversation_text_outlines_stay_outline()
-	await _test_floor_marker_and_sign_outlines_stay_outline()
 
 
 func _test_day_transition_backdrop_stays_void() -> void:
@@ -78,45 +71,6 @@ func _test_conversation_text_outlines_stay_outline() -> void:
 		if label != null:
 			_assert_eq(label.get_theme_color("font_outline_color"), NEAR_BLACK_OUTLINE, "%s outline should stay near black under pollution palette 5" % label_name)
 	ui_root.free()
-
-
-func _test_floor_marker_and_sign_outlines_stay_outline() -> void:
-	var floor_root := RealityFloorGeneratorScript.new()
-	root.add_child(floor_root)
-	await process_frame
-	var seen := {}
-	for floor_number in [1, 2, 3, 4]:
-		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 1}})
-		floor_root.rebuild(
-			floor_number,
-			UiPalette.POLLUTION_PALETTE_5,
-			{},
-			1,
-			false,
-			composed.get("items", []),
-			composed.get("people", []),
-			composed.get("display_names", {}),
-			composed.get("events", []),
-			composed.get("layout", {})
-		)
-		floor_root.set_playtest_assist_enabled(true)
-		floor_root.apply_palette(UiPalette.POLLUTION_PALETTE_5)
-		var labels: Array[Label3D] = []
-		_collect_labels(floor_root, labels)
-		for label in labels:
-			if label.name == "PlaytestMarker" or label.name == "DeadSignLabel":
-				seen[str(label.name)] = true
-				_assert_eq(label.outline_modulate, NEAR_BLACK_OUTLINE, "floor %d %s outline should stay near black under pollution palette 5" % [floor_number, label.name])
-	_assert_true(seen.has("PlaytestMarker"), "some floor should build a playtest marker")
-	_assert_true(seen.has("DeadSignLabel"), "some floor should build the EXIT sign")
-	floor_root.free()
-
-
-func _collect_labels(node: Node, into: Array[Label3D]) -> void:
-	if node is Label3D:
-		into.append(node as Label3D)
-	for child in node.get_children():
-		_collect_labels(child, into)
 
 
 func _ui_root_on_pollution_palette_5() -> Control:
