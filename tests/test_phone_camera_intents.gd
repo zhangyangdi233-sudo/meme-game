@@ -137,23 +137,34 @@ func _test_phone_camera_connection_error_border_uses_error_role() -> void:
 	root.add_child(host)
 	var panel := PhoneCameraConnectionPanelScript.new()
 	root.add_child(panel)
+	var stage := {"palette_key": "palette_1"}
 	var theme := GameUiThemeScript.new()
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
 	panel.build(host)
-	panel.refresh({
+	var failed_view := {
 		"camera_enabled": true,
 		"camera_source": "phone",
 		"camera_tracking_status": HandTrackingStatus.Status.PERMISSION_DENIED,
-	})
-	var frame := host.find_child("PhoneCameraConnectionPanel", true, false) as PanelContainer
-	var style := frame.get_theme_stylebox("panel") as StyleBoxFlat if frame != null else null
-	_assert_true(style != null, "the connection panel should have a flat panel style")
-	if style != null:
-		_assert_eq(style.border_color, Color(theme.theme_color("error"), 0.24), "a camera failure should draw the border in the palette error role")
+	}
+	panel.refresh(failed_view)
+	_assert_error_border(host, UiPalette.PALETTE_1, "palette 1")
+	stage["palette_key"] = "pollution_palette_5"
+	panel.refresh(failed_view)
+	_assert_error_border(host, UiPalette.POLLUTION_PALETTE_5, "pollution palette 5")
 
 	panel.free()
 	host.free()
 	RegistryScript.clear()
+
+
+## Compares RGB only: the border alpha belongs to the panel style, not the role.
+func _assert_error_border(host: Node, palette: Dictionary, label: String) -> void:
+	var frame := host.find_child("PhoneCameraConnectionPanel", true, false) as PanelContainer
+	var style := frame.get_theme_stylebox("panel") as StyleBoxFlat if frame != null else null
+	_assert_true(style != null, "%s: the connection panel should have a flat panel style" % label)
+	if style != null:
+		_assert_eq(Color(style.border_color, 1.0), UiPalette.color(palette, "error"), "%s: a camera failure should draw the border in the palette error role" % label)
 
 
 func _bind_bus() -> void:
