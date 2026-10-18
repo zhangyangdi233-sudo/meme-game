@@ -107,7 +107,7 @@ A named color slot of the UI palette (`surface`, `ink`, `accent`, `error`, `pend
 _Avoid_: literal colors on palette-driven nodes, one node group per color, a near-black literal where `VOID` or `OUTLINE` is meant
 
 **Scrim**:
-The full-screen cover behind a window that hides the game so only that window is read (camera consent, language selection, phone camera connection). `GameUiTheme.scrim()` answers it: the active palette's `ink` at one shared strength, so it follows pollution. The phone wallpaper tint and the shared Dialog's dimmer are not scrims.
+The full-screen cover behind a window that hides the game so only that window is read (camera consent, language selection, phone camera connection). `GameUiTheme.scrim()` answers it: the active palette's `ink` at one shared strength, so it follows pollution. Not this recipe: the phone wallpaper tint, and the shared Dialog's `DialogScrim`, a lighter dimmer whose strength is authored in `dialog.tscn` because the window behind a dialog stays readable.
 _Avoid_: a panel choosing its own cover alpha or a literal near-black cover
 
 ## Development

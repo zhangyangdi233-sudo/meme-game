@@ -9,6 +9,8 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
+## The scrim strength issue #103 settled on, pinned here rather than read back from the theme.
+const SCRIM_ALPHA := 0.92
 
 var _failures: Array[String] = []
 
@@ -46,7 +48,7 @@ func _test_backdrop(backdrop_name: String, build: Callable, panel_script: GDScri
 	var backdrop := host.find_child(backdrop_name, true, false) as ColorRect
 	_assert_true(backdrop != null, "%s should exist" % backdrop_name)
 	if backdrop != null:
-		_assert_eq(backdrop.color, Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), 0.92), "%s should be the theme scrim under pollution palette 5" % backdrop_name)
+		_assert_eq(backdrop.color, Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), SCRIM_ALPHA), "%s should be the theme scrim under pollution palette 5" % backdrop_name)
 
 	panel.free()
 	host.free()

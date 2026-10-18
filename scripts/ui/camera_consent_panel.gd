@@ -60,12 +60,12 @@ func _build_overlay(parent: Control) -> void:
 	_overlay.z_index = 210
 	parent.add_child(_overlay)
 
-	var blackout := ColorRect.new()
-	blackout.name = "CameraConsentBackdrop"
-	blackout.color = _theme().scrim()
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
-	_overlay.add_child(blackout)
+	var scrim := ColorRect.new()
+	scrim.name = "CameraConsentBackdrop"
+	scrim.color = _theme().scrim()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay.add_child(scrim)
 
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)

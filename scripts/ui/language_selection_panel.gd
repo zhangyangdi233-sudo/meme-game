@@ -35,12 +35,12 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	_language_overlay.z_index = 190
 	parent.add_child(_language_overlay)
 
-	var blackout := ColorRect.new()
-	blackout.name = "LanguageSelectionBackdrop"
-	blackout.color = _theme().scrim()
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	blackout.mouse_filter = Control.MOUSE_FILTER_STOP
-	_language_overlay.add_child(blackout)
+	var scrim := ColorRect.new()
+	scrim.name = "LanguageSelectionBackdrop"
+	scrim.color = _theme().scrim()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_language_overlay.add_child(scrim)
 
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)

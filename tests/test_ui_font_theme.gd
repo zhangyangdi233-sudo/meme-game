@@ -9,6 +9,8 @@ const FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const FONT_GRID := 9
 const FONT_MIN := 9
 const FONT_MAX := 45
+## The scrim strength issue #103 settled on, pinned here rather than read back from the theme.
+const SCRIM_ALPHA := 0.92
 
 var _failures: Array[String] = []
 
@@ -104,10 +106,10 @@ func _test_scrim_is_ink_at_the_shared_strength_and_follows_pollution() -> void:
 	var stage := {"palette_key": "palette_1"}
 	var theme: GameUiTheme = GameUiThemeScript.new()
 	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
-	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), 0.92), "the scrim should be palette 1 ink at 0.92")
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), SCRIM_ALPHA), "the scrim should be palette 1 ink at 0.92")
 	stage["palette_key"] = "pollution_palette_5"
-	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), 0.92), "the scrim should follow the bound pollution palette")
-	_assert_eq(theme.scrim({"palette_key": "palette_1"}), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), 0.92), "an explicit stage should override the bound provider")
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), SCRIM_ALPHA), "the scrim should follow the bound pollution palette")
+	_assert_eq(theme.scrim({"palette_key": "palette_1"}), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), SCRIM_ALPHA), "an explicit stage should override the bound provider")
 
 
 func _assert_true(condition: bool, message: String) -> void:
