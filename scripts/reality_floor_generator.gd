@@ -2803,4 +2803,3 @@ func _style_fog_color(palette: Dictionary) -> Color:
 			return Color("C9D6C0").lerp(UiPaletteScript.color(palette, "muted"), 0.20)
 		_:
 			return Color("7DB5C2").lerp(UiPaletteScript.color(palette, "accent"), 0.12)
-

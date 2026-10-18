@@ -63,7 +63,7 @@ func _test_a_palette_gap_is_reported_and_painted_from_palette_1() -> void:
 	for error in errors:
 		_assert_true(error.contains("accent"), "only the missing accent should be reported: %s" % error)
 	var road := floor_root.find_child("MainRoad", true, false)
-	var road_mesh := road.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D if road != null and not road is MeshInstance3D else road as MeshInstance3D
+	var road_mesh := road.get_node_or_null("Mesh") as MeshInstance3D if road != null else null
 	_assert_true(road_mesh != null, "floor 1 should build a main road")
 	if road_mesh != null:
 		var material := road_mesh.material_override as StandardMaterial3D

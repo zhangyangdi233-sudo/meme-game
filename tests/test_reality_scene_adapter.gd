@@ -245,9 +245,9 @@ func _test_theme_palette_recolors_the_street() -> void:
 	var adapter = setup["adapter"]
 	var fake: FakeFloor = setup["floor"]
 	var road := _add_street_road(fake)
-	adapter.apply_palette({"name": "palette_1", "accent": "365B2D"})
+	adapter.apply_palette(UiPalette.PALETTE_1)
 	_assert_eq(_road_hex(road), "192a15", "the calm theme should paint the street road")
-	adapter.apply_palette({"name": "pollution_palette_5", "accent": "2F6B1F"})
+	adapter.apply_palette(UiPalette.POLLUTION_PALETTE_5)
 	_assert_eq(_road_hex(road), "16310e", "switching theme should repaint the street road")
 	setup["host"].free()
 
@@ -341,6 +341,7 @@ func _test_task_props_take_their_colors_from_ui_palette() -> void:
 		_assert_true(reported[0].contains("ink"), "the report should name the missing ink: %s" % reported[0])
 	setup["host"].free()
 	OS.remove_logger(errors)
+
 
 func _test_host_asks_adapter_to_sync_ultimate_task_props() -> void:
 	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")

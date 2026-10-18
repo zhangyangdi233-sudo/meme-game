@@ -439,21 +439,21 @@ func _ensure_task_prop_mesh(node_name: String, mesh_size: Vector3, mesh_position
 	prop.name = node_name
 	var box := BoxMesh.new()
 	box.size = mesh_size
+	var palette: Dictionary = deps.get("palette", {})
 	var material := StandardMaterial3D.new()
 	if emissive:
-		var flash := UiPaletteScript.color(deps.get("palette", {}), "flash_text")
+		var flash := UiPaletteScript.color(palette, "flash_text")
 		material.albedo_color = flash
 		material.emission_enabled = true
 		material.emission = flash
 		material.emission_energy_multiplier = 1.4
 	else:
-		material.albedo_color = UiPaletteScript.color(deps.get("palette", {}), "ink")
+		material.albedo_color = UiPaletteScript.color(palette, "ink")
 	box.material = material
 	prop.mesh = box
 	prop.position = mesh_position
 	floor.add_child(prop)
 	return prop
-
 
 
 func active_actor_outcome() -> Dictionary:
