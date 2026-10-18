@@ -50,6 +50,7 @@ func _run() -> void:
 	_test_a_new_meme_repaints_the_open_profile_by_itself()
 	_test_a_new_meme_leaves_the_other_pages_alone()
 	_test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them()
+	_test_pickup_marks_take_the_flash_text_of_the_bound_palette()
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
 	_test_the_open_publish_page_follows_remaining_actions()
@@ -380,6 +381,19 @@ func _test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them() -> void
 	_assert_true(line.contains("[color=#8b8f84]门[/color]"), "a word picked up should stay as a gray residue in the open post")
 	held.replace_all([])
 	_assert_true(_pickup_line(mounted).contains("[url=门]"), "a word given back should be pickable again")
+	_dispose(mounted)
+
+
+func _test_pickup_marks_take_the_flash_text_of_the_bound_palette() -> void:
+	var mounted := _mount()
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	theme.configure({"pollution_stage": func() -> Dictionary: return {"palette_key": "pollution_palette_5"}})
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.open_post(2)
+	panel.update_visibility(true, true)
+	var flash_text := UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "flash_text").to_html(false)
+	_assert_true(_pickup_line(mounted).contains("[color=#%s][url=门]" % flash_text), "a pickable word should take the bound palette's flash_text: %s" % _pickup_line(mounted))
 	_dispose(mounted)
 
 

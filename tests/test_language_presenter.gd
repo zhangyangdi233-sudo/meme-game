@@ -28,6 +28,7 @@ func _run() -> void:
 	_test_pickup_failure_stays_quiet()
 	_test_place_flight()
 	_test_pickup_asks_for_the_press_sound()
+	_test_flights_carry_the_colors_the_host_injects()
 	RegistryScript.clear()
 
 
@@ -99,6 +100,22 @@ func _test_pickup_asks_for_the_press_sound() -> void:
 	_assert_true(cues == [GameEventsScript.CUE_PICKUP_PRESS], "a successful pickup should ask for the press sound once (got %s)" % str(cues))
 	presenter.present_place(true, "门", Vector2.ZERO)
 	_assert_true(cues.size() == 1, "placing a unit should ask for no sound")
+
+
+## The host injects the theme's flash_text and accent; the presenter keeps no color of its own.
+func _test_flights_carry_the_colors_the_host_injects() -> void:
+	var layer := _new_layer()
+	var presenter := _new_presenter(layer)
+	var outcome := ActionOutcomeScript.new()
+	outcome.succeeded = true
+	presenter.present_pickup(outcome, "门", Vector2.ZERO)
+	presenter.present_place(true, "门", Vector2.ZERO)
+	var hold := layer.get_node_or_null("HoldFlightGlyph") as Label
+	var place := layer.get_node_or_null("PlaceFlightGlyph") as Label
+	_assert_true(hold != null and hold.get_theme_color("font_color") == Color.WHITE, "the hold flight should take the injected hold color")
+	_assert_true(place != null and place.get_theme_color("font_color") == Color.GREEN, "the place flight should take the injected place color")
+	layer.finish_all_immediately()
+	layer.queue_free()
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (111 tests)
+## What runs (112 tests)
 
-### GDScript (109)
+### GDScript (110)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -113,6 +113,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_action_outcome` | state | publish, fusion, and doctor sentence outcomes: success, spent action, feedback key, settlement (funds, pollution, flashback, day change) |
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
+| `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
 | `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported |
 | `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report; a palette gap is reported and painted from `PALETTE_1` |
@@ -124,7 +125,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
 | `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab; every notebook action raises its intent with the right name and payload |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
-| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; pickable words take the bound palette's `flash_text`; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
 | `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the tutorial post count, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
 | `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, fills the fusion slots from the `selected_meme` model, fuses, words the feedback line, and returns the presentation |
 | `test_doctor_sentence_intent_handler` | module | on an empty bus, the doctor sentence handler keeps the `selected_language_token` model, places tokens in the doctor's slots, words the refusals, clears the selection once a sentence is spoken, and returns the presentation |

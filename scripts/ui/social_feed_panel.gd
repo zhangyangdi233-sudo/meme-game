@@ -983,13 +983,12 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.set_meta("on_dark", true)
 	var bbcode := source_text
 	if _source.language_material() != null:
-		var pickable_color = _theme().theme_color("flash_text") if _theme() != null else Color("9cff24")
 		var locale := _source.current_locale()
 		bbcode = LanguageMaterialScript.pickup_bbcode(
 			source_text,
 			locale,
 			MemeGameStateScript.char_units_for_locale(_held_chars, locale),
-			(pickable_color as Color).to_html(false)
+			_theme().theme_color("flash_text").to_html(false)
 		)
 	rich.text = bbcode
 	rich.meta_clicked.connect(_on_pickup_meta_clicked.bind(post_id))

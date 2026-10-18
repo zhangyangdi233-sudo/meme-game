@@ -5,13 +5,15 @@ extends Node
 const PollutionFlashbackDirectorScript = preload("res://scripts/ui/pollution_flashback_director.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 
 var _overlay: Control
 var _director: PollutionFlashbackDirector
+## Palette 1 until the bound theme recolors it on mount.
 var _colors := {
-	"ink": Color(0.063, 0.078, 0.059),
-	"surface": Color(1.0, 0.945, 0.788),
-	"flash_text": Color(0.612, 1.0, 0.141),
+	"ink": UiPaletteScript.color(UiPaletteScript.PALETTE_1, "ink"),
+	"surface": UiPaletteScript.color(UiPaletteScript.PALETTE_1, "surface"),
+	"flash_text": UiPaletteScript.color(UiPaletteScript.PALETTE_1, "flash_text"),
 }
 var _phase_roots: Dictionary = {}
 var _freeze_rects: Array[TextureRect] = []

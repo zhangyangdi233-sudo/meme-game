@@ -14,8 +14,8 @@ signal notebook_home_requested
 var _flight_layer: FlyToTargetLayer
 var _notebook_target: Callable = Callable()
 var _composer_target: Callable = Callable()
-var _hold_color := Color(0.96, 0.98, 0.9)
-var _place_color := Color(0.96, 0.98, 0.9)
+var _hold_color: Color
+var _place_color: Color
 
 
 ## Target getters are polled every frame by the flight layer, so the glyph follows a moving window.
