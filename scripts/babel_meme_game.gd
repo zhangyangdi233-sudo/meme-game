@@ -18,6 +18,7 @@ const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const MainMenuScreenScript = preload("res://scripts/ui/main_menu_screen.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
+const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
@@ -149,7 +150,7 @@ var _world_prompt: Label
 var _desk_log: DeskLogLabelScript
 var _screen_manager: ScreenManager
 var _dialog_manager: ScreenManager
-var _dialog_debug_panel: Control
+var _dialog_debug_panel: DialogDebugPanel
 var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
 var _prologue_panel: ProloguePanel
@@ -515,6 +516,14 @@ func continue_game() -> bool:
 	return true
 
 
+## START sends continue whenever the title believes a save exists; a save that cannot be read starts a new game.
+func _continue_or_new_game() -> void:
+	if continue_game():
+		return
+	push_warning("无法读取存档，改为开新游戏：%s" % _save_path)
+	new_game()
+
+
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
 	_game_started = true
 	_phone_art_alpha = 1.0
@@ -619,21 +628,15 @@ func _save_progress() -> bool:
 
 
 func _load_save_payload() -> Dictionary:
-	if not FileAccess.file_exists(_save_path):
-		return {}
-	var file := FileAccess.open(_save_path, FileAccess.READ)
-	if file == null:
-		return {}
-	var payload: Variant = file.get_var()
-	if not payload is Dictionary or int(payload.get("version", -1)) != SAVE_FILE_VERSION:
-		return {}
-	if not payload.get("game", {}) is Dictionary or not payload.get("world", {}) is Dictionary:
-		return {}
-	return payload
+	return _save_slot().load_payload()
 
 
 func _has_save_progress() -> bool:
-	return not _load_save_payload().is_empty()
+	return _save_slot().has_progress()
+
+
+func _save_slot() -> SaveSlotScript:
+	return SaveSlotScript.new(_save_path, SAVE_FILE_VERSION)
 
 
 func _publish_has_save() -> void:
@@ -970,17 +973,23 @@ func uninstall_title_screen() -> void:
 	_unmount_dialog_debug_panel()
 
 
-## Debug builds only (same switch as the playtest assist): a title-corner panel that opens sample dialogs.
+## Debug builds only (same switch as the playtest assist): a title-corner panel that opens sample dialogs
+## and simulates the save for START.
 func _mount_dialog_debug_panel() -> void:
 	_unmount_dialog_debug_panel()
 	if not _playtest_assist_enabled or _ui_root == null:
 		return
-	_dialog_debug_panel = DialogDebugPanelScene.instantiate() as Control
-	_ui_root.add_child(_dialog_debug_panel)
+	var panel := DialogDebugPanelScene.instantiate() as DialogDebugPanel
+	panel.configure(_save_slot())
+	_dialog_debug_panel = panel
+	_ui_root.add_child(panel)
 
 
 func _unmount_dialog_debug_panel() -> void:
 	if _dialog_debug_panel != null and is_instance_valid(_dialog_debug_panel):
+		# Leave the tree now, so the next mount keeps the panel's name.
+		if _dialog_debug_panel.get_parent() != null:
+			_dialog_debug_panel.get_parent().remove_child(_dialog_debug_panel)
 		_dialog_debug_panel.queue_free()
 	_dialog_debug_panel = null
 
@@ -1707,7 +1716,7 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.START_GAME:
 			new_game.call_deferred()
 		UiIntentsScript.CONTINUE_GAME:
-			continue_game.call_deferred()
+			_continue_or_new_game.call_deferred()
 		UiIntentsScript.EXIT_GAME:
 			_request_quit_game()
 		UiIntentsScript.LANGUAGE_PICKER:

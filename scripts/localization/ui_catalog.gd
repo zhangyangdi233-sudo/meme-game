@@ -9,8 +9,6 @@ const EN: Dictionary = {
 	"%d / %d 字": "%d / %d units",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "Continue",
-	"回到上次离开的位置": "Return to where you left off",
-	"暂无自动存档": "No autosave available",
 	"新游戏": "New Game",
 	"退出游戏": "Quit Game",
 	"语言": "Language",
@@ -529,8 +527,6 @@ const JA: Dictionary = {
 	"%d / %d 字": "%d / %d 文字",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "つづきから",
-	"回到上次离开的位置": "前回の続きから再開",
-	"暂无自动存档": "オートセーブがありません",
 	"新游戏": "ニューゲーム",
 	"退出游戏": "ゲームを終了",
 	"语言": "言語",

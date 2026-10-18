@@ -16,7 +16,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -324.0
-offset_top = -276.0
+offset_top = -420.0
 offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 0
@@ -53,7 +53,7 @@ theme_override_constants/separation = 9
 [node name="DialogDebugTitle" type="Label" parent="DialogDebugStack"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
-text = "Dialog 验收（debug）"
+text = "标题画面验收（debug）"
 metadata/palette_role = "ink"
 
 [node name="DialogDebugOpen1Button" type="Button" parent="DialogDebugStack"]
@@ -77,4 +77,44 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
 text = "尚未按下"
 autowrap_mode = 3
+metadata/palette_role = "ink"
+
+[node name="DialogDebugSaveTitle" type="Label" parent="DialogDebugStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "存档模拟"
+metadata/palette_role = "ink"
+
+[node name="DialogDebugSaveRow" type="HBoxContainer" parent="DialogDebugStack"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="DialogDebugSaveFollowButton" type="Button" parent="DialogDebugStack/DialogDebugSaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+text = "跟随实际"
+
+[node name="DialogDebugSaveYesButton" type="Button" parent="DialogDebugStack/DialogDebugSaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "有存档"
+
+[node name="DialogDebugSaveNoButton" type="Button" parent="DialogDebugStack/DialogDebugSaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "无存档"
+
+[node name="DialogDebugSaveActual" type="Label" parent="DialogDebugStack"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "实际存档：无"
 metadata/palette_role = "ink"

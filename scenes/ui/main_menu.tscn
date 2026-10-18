@@ -19,70 +19,6 @@
 default_font = ExtResource("2_font")
 default_font_size = 18
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_n4uci"]
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
-bg_color = Color(1, 0.94509804, 0.7882353, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.21176471, 0.35686275, 0.1764706, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_877pj"]
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
-bg_color = Color(0.21176471, 0.35686275, 0.1764706, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ayp64"]
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
-bg_color = Color(0.8666667, 0.92156863, 0.5411765, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y2j7i"]
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
-bg_color = Color(0.9, 0.8505882, 0.70941174, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.36941177, 0.4854902, 0.34117648, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
 [node name="MainMenuLayer" type="Control" unique_id=787154510]
 layout_mode = 3
 anchors_preset = 15
@@ -187,25 +123,3 @@ texture_hover = ExtResource("15_quit_hover")
 texture_focused = ExtResource("15_quit_hover")
 ignore_texture_size = true
 stretch_mode = 0
-
-[node name="MainMenuContinueButton" type="Button" parent="." unique_id=1120701050]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(168, 54)
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 437.0
-offset_top = -81.0
-offset_right = 605.0
-offset_bottom = -27.0
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
-theme_override_colors/font_pressed_color = Color(1, 0.94509804, 0.7882353, 1)
-theme_override_colors/font_hover_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
-theme_override_colors/font_disabled_color = Color(0.38517648, 0.49835294, 0.35764706, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_n4uci")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_877pj")
-theme_override_styles/hover = SubResource("StyleBoxFlat_ayp64")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_y2j7i")
-text = "继续游戏"

@@ -24,7 +24,8 @@ func _init() -> void:
 
 func _run() -> void:
 	_test_first_open_attaches_without_clearing_the_layer()
-	_test_buttons_raise_the_four_intents()
+	_test_buttons_raise_their_intents()
+	_test_start_follows_the_save()
 	_test_hide_then_open_reuses_the_screen_and_refreshes_it()
 	_test_same_screen_survives_a_new_ui_layer()
 
@@ -45,8 +46,8 @@ func _test_first_open_attaches_without_clearing_the_layer() -> void:
 	_dispose(mounted)
 
 
-func _test_buttons_raise_the_four_intents() -> void:
-	var mounted := _mount(0, true)
+func _test_buttons_raise_their_intents() -> void:
+	var mounted := _mount(0, false)
 	var heard: Array[String] = []
 	var payloads: Array[Dictionary] = []
 	mounted["bus"].intent_emitted.connect(func(intent_name: String, payload: Dictionary) -> void:
@@ -55,7 +56,6 @@ func _test_buttons_raise_the_four_intents() -> void:
 	)
 	for pair in [
 		["MainMenuStartButton", UiIntentsScript.START_GAME],
-		["MainMenuContinueButton", UiIntentsScript.CONTINUE_GAME],
 		["MainMenuExitButton", UiIntentsScript.EXIT_GAME],
 		["MainMenuLanguageButton", UiIntentsScript.LANGUAGE_PICKER],
 	]:
@@ -64,8 +64,27 @@ func _test_buttons_raise_the_four_intents() -> void:
 		if button != null:
 			button.pressed.emit()
 			_assert_eq(heard.back() if not heard.is_empty() else "", pair[1], "%s should raise %s" % [pair[0], pair[1]])
-	_assert_eq(heard.size(), 4, "the four buttons should raise one intent each")
+	_assert_eq(heard.size(), 3, "the three buttons should raise one intent each")
 	_assert_true(payloads.all(func(payload: Dictionary) -> bool: return payload.is_empty()), "main menu intents carry no answer")
+	_dispose(mounted)
+
+
+func _test_start_follows_the_save() -> void:
+	var mounted := _mount(0, true)
+	var heard: Array[String] = []
+	mounted["bus"].intent_emitted.connect(func(intent_name: String, _payload: Dictionary) -> void:
+		heard.append(intent_name)
+	)
+	var start := Harness.find_node_by_name(mounted["screen"], "MainMenuStartButton") as BaseButton
+	start.pressed.emit()
+	_assert_eq(heard, [UiIntentsScript.CONTINUE_GAME] as Array[String], "START with a save should continue")
+	Harness.publish_title_facts(0, false)
+	start.pressed.emit()
+	_assert_eq(heard.back(), UiIntentsScript.START_GAME, "START should start a new game once the save is gone")
+	Harness.publish_title_facts(0, true)
+	start.pressed.emit()
+	_assert_eq(heard.back(), UiIntentsScript.CONTINUE_GAME, "START should continue again once a save appears while open")
+	_assert_true(Harness.find_node_by_name(mounted["screen"], "MainMenuContinueButton") == null, "the old continue button should be gone")
 	_dispose(mounted)
 
 
@@ -73,9 +92,7 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 	var mounted := _mount(0, false)
 	var screen: Control = mounted["screen"]
 	var screen_id := screen.get_instance_id()
-	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
-	_assert_true(continue_button != null and continue_button.disabled, "continue should start disabled without a save")
-	_assert_eq(continue_button.tooltip_text, "暂无自动存档", "continue should explain the missing save")
+	_assert_eq(_start_intent(mounted), UiIntentsScript.START_GAME, "START should start a new game without a save")
 
 	mounted["manager"].close()
 	_assert_true(is_instance_valid(screen) and not screen.visible, "closing the title should hide the same screen")
@@ -84,8 +101,7 @@ func _test_hide_then_open_reuses_the_screen_and_refreshes_it() -> void:
 	var reopened: Control = mounted["manager"].open({})
 	_assert_true(reopened == screen and screen.get_instance_id() == screen_id, "reopening should reuse the hidden screen")
 	_assert_true(screen.visible and screen.get_parent() == mounted["layer"], "reopening should show the menu on the same UI layer")
-	_assert_true(not continue_button.disabled, "reopening should enable continue when a save exists")
-	_assert_eq(continue_button.tooltip_text, "回到上次离开的位置", "reopening should describe the saved return")
+	_assert_eq(_start_intent(mounted), UiIntentsScript.CONTINUE_GAME, "reopening should let START continue when a save exists")
 	_assert_true(mounted["sibling"].visible, "reopening should not hide other screens")
 	_dispose(mounted)
 
@@ -112,9 +128,20 @@ func _test_same_screen_survives_a_new_ui_layer() -> void:
 	var kept: Control = mounted["manager"].open({})
 	_assert_true(kept == screen and screen.get_instance_id() == screen_id, "rebuilding the UI layer should keep the open menu")
 	_assert_true(screen.visible and screen.get_parent() == rebuilt, "the kept menu should attach to the rebuilt UI layer")
-	var continue_button := Harness.find_node_by_name(screen, "MainMenuContinueButton") as Button
-	_assert_true(continue_button != null and not continue_button.disabled, "the kept menu should refresh continue from the new open")
+	_assert_eq(_start_intent(mounted), UiIntentsScript.CONTINUE_GAME, "the kept menu should refresh START from the new open")
 	_dispose(mounted)
+
+
+func _start_intent(mounted: Dictionary) -> String:
+	var heard: Array[String] = []
+	var listener := func(intent_name: String, _payload: Dictionary) -> void:
+		heard.append(intent_name)
+	mounted["bus"].intent_emitted.connect(listener)
+	var start := Harness.find_node_by_name(mounted["screen"], "MainMenuStartButton") as BaseButton
+	if start != null:
+		start.pressed.emit()
+	mounted["bus"].intent_emitted.disconnect(listener)
+	return heard.back() if not heard.is_empty() else ""
 
 
 func _mount(pollution_value: int, has_save: bool) -> Dictionary:

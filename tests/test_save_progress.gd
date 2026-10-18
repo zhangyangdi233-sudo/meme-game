@@ -1,7 +1,27 @@
 extends SceneTree
+## Returning to the title writes the save; START continues from it, and starts a new game when the save is missing or unreadable.
+
+const RegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 
 var _failures: Array[String] = []
+var _warnings := WarningLog.new()
 const TEST_SAVE_PATH := "user://test_babel_meme_save.dat"
+
+
+## Collects the warnings pushed while a test runs.
+class WarningLog extends Logger:
+	var lines: Array[String] = []
+
+	func _log_error(_function: String, _file: String, _line: int, code: String, rationale: String, _editor_notify: bool, error_type: int, _script_backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == ERROR_TYPE_WARNING:
+			lines.append(rationale if not rationale.is_empty() else code)
+
+	func take() -> Array[String]:
+		var taken := lines.duplicate()
+		lines.clear()
+		return taken
 
 
 func _init() -> void:
@@ -67,10 +87,9 @@ func _run() -> void:
 	await process_frame
 
 	_assert_true(FileAccess.file_exists(TEST_SAVE_PATH), "returning to the main menu should create an automatic save")
-	var continue_button := _find_node_by_name(game_root, "MainMenuContinueButton") as Button
-	_assert_true(continue_button != null and not continue_button.disabled, "main menu should enable Continue when a save exists")
-	_assert_true(game_root.continue_game(), "Continue should load a valid automatic save")
-	await process_frame
+	_assert_true(_find_node_by_name(game_root, "MainMenuContinueButton") == null, "the main menu should have no separate continue button")
+	_assert_eq(_has_save_model(), true, "returning to the main menu should publish the save")
+	await _press_start(game_root)
 	_assert_eq(game_root.game.day, 4, "Continue should restore the saved day")
 	_assert_eq(game_root.game.pollution, 47, "Continue should restore pollution")
 	_assert_eq(game_root.game.money, 31, "Continue should restore money")
@@ -87,8 +106,65 @@ func _run() -> void:
 	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
 	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
 	_assert_true(prologue == null, "Continue should not replay the prologue")
+	await _test_start_without_a_save_starts_a_new_game(game_root)
+	await _test_start_with_a_broken_save_starts_a_new_game(game_root)
 	game_root.queue_free()
 	await process_frame
+
+
+func _test_start_without_a_save_starts_a_new_game(game_root: Node) -> void:
+	game_root.show_main_menu()
+	await process_frame
+	_remove_test_save()
+	game_root._publish_has_save()
+	_assert_eq(_has_save_model(), false, "the title should publish that the save is gone")
+	await _press_start(game_root)
+	_assert_eq(game_root.game.day, 1, "START without a save should start a new run")
+	_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "START without a save should play the prologue")
+
+
+func _test_start_with_a_broken_save_starts_a_new_game(game_root: Node) -> void:
+	for broken in ["corrupt", "missing"]:
+		game_root._skip_prologue()
+		game_root.game.day = 6
+		game_root.show_main_menu()
+		await process_frame
+		if broken == "corrupt":
+			var file := FileAccess.open(TEST_SAVE_PATH, FileAccess.WRITE)
+			file.store_string("not a save")
+			file.close()
+		else:
+			_remove_test_save()
+		# The title still believes a save exists, as when the file breaks after the title read it.
+		_write_has_save(true)
+		_warnings.take()
+		OS.add_logger(_warnings)
+		await _press_start(game_root)
+		OS.remove_logger(_warnings)
+		var logged := _warnings.take()
+		_assert_eq(game_root.game.day, 1, "START with a %s save should start a new run" % broken)
+		_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "START with a %s save should play the prologue" % broken)
+		_assert_eq(logged.size(), 1, "a %s save should be reported with one warning (got %s)" % [broken, str(logged)])
+
+
+func _press_start(game_root: Node) -> void:
+	var start := _find_node_by_name(game_root, "MainMenuStartButton") as BaseButton
+	_assert_true(start != null and start.is_visible_in_tree(), "the title should show START")
+	if start != null:
+		start.pressed.emit()
+	await process_frame
+	await process_frame
+
+
+func _has_save_model() -> Variant:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	return manager.model(PropertyKeysScript.HAS_SAVE).read() if manager != null else null
+
+
+func _write_has_save(value: bool) -> void:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager != null:
+		(manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel).write(value)
 
 
 func _remove_test_save() -> void:

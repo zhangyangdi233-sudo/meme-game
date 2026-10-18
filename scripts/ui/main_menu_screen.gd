@@ -2,7 +2,8 @@
 class_name MainMenuScreen
 extends UIBase
 ## Title layout. Opening watches pollution and has_save; closing stops.
-## Palette and the continue button are computed here. They are not models.
+## Palette and what START raises are computed here. They are not models.
+## START continues when a save exists and starts a new game otherwise.
 
 
 const SCENE_PATH := "res://scenes/ui/main_menu.tscn"
@@ -10,7 +11,6 @@ const LAYER_NAME := "UIRoot"
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const BUTTON_INTENTS := {
 	"MainMenuStartButton": UiIntentsScript.START_GAME,
-	"MainMenuContinueButton": UiIntentsScript.CONTINUE_GAME,
 	"MainMenuExitButton": UiIntentsScript.EXIT_GAME,
 	"MainMenuLanguageButton": UiIntentsScript.LANGUAGE_PICKER,
 }
@@ -23,6 +23,7 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.POLLUTION: _on_pollution,
 	PropertyKeysScript.HAS_SAVE: _on_has_save,
 })
+var _saved := false
 
 
 func present(_context: Dictionary) -> void:
@@ -40,9 +41,10 @@ func _on_pollution(value: Variant) -> void:
 
 
 func _on_has_save(value: Variant) -> void:
-	var continue_button := get_node_or_null("%MainMenuContinueButton") as Button
-	if continue_button == null:
-		return
-	var saved := bool(value)
-	continue_button.disabled = not saved
-	continue_button.tooltip_text = "回到上次离开的位置" if saved else "暂无自动存档"
+	_saved = bool(value)
+
+
+func _intent_for(button_name: String, intent_name: String) -> String:
+	if button_name == "MainMenuStartButton" and _saved:
+		return UiIntentsScript.CONTINUE_GAME
+	return intent_name

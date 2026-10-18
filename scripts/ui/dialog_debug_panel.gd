@@ -1,14 +1,28 @@
 @tool
 class_name DialogDebugPanel
 extends PaletteSceneRoot
-## Debug-build title corner panel for checking the Dialog by hand: each button opens a sample dialog
+## Debug-build title corner panel for checking the title by hand: each button opens a sample dialog
 ## with one, two or three buttons, and the log names the button that was pressed.
+## The save simulation overrides only the has_save model, so START can be checked with and without a save;
+## it never writes the save file. It shows the actual save beside it.
 
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const SAMPLE_BUTTON_TEXTS := ["确定", "取消", "稍后"]
+const SAVE_FOLLOW := "Follow"
+const SAVE_YES := "Yes"
+const SAVE_NO := "No"
+
+var _save_slot: SaveSlotScript
+
+
+## The save file the panel reads to show and follow the actual save.
+func configure(save_slot: SaveSlotScript) -> void:
+	_save_slot = save_slot
 
 
 func _ready() -> void:
@@ -19,6 +33,11 @@ func _ready() -> void:
 		var opener := get_node_or_null("%%DialogDebugOpen%dButton" % count) as BaseButton
 		if opener != null:
 			opener.pressed.connect(_open_sample.bind(count))
+	for mode in [SAVE_FOLLOW, SAVE_YES, SAVE_NO]:
+		var choice := _save_button(mode)
+		if choice != null:
+			choice.pressed.connect(_simulate_save.bind(mode))
+	_show_save_choice(SAVE_FOLLOW)
 	var theme := GameUiThemeScript.bound()
 	if theme != null:
 		apply_palette(theme.active_palette())
@@ -51,3 +70,36 @@ func _report(count: int, pressed: int) -> void:
 	var log := get_node_or_null("%DialogDebugLog") as Label
 	if log != null:
 		log.text = line
+
+
+func _simulate_save(mode: String) -> void:
+	_show_save_choice(mode)
+	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER) else null
+	var has_save := manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel if manager != null else null
+	if has_save == null:
+		return
+	match mode:
+		SAVE_YES:
+			has_save.write(true)
+		SAVE_NO:
+			has_save.write(false)
+		_:
+			has_save.write(_actual_save())
+
+
+func _show_save_choice(mode: String) -> void:
+	for each in [SAVE_FOLLOW, SAVE_YES, SAVE_NO]:
+		var choice := _save_button(each)
+		if choice != null:
+			choice.set_pressed_no_signal(each == mode)
+	var actual := get_node_or_null("%DialogDebugSaveActual") as Label
+	if actual != null:
+		actual.text = "实际存档：有" if _actual_save() else "实际存档：无"
+
+
+func _actual_save() -> bool:
+	return _save_slot != null and _save_slot.has_progress()
+
+
+func _save_button(mode: String) -> BaseButton:
+	return get_node_or_null("%%DialogDebugSave%sButton" % mode) as BaseButton

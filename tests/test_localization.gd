@@ -270,10 +270,7 @@ func _test_language_selection_and_settings_ui() -> void:
 	await process_frame
 	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	_assert_eq(str(manager.model(PropertyKeysScript.LOCALE).read()), "en", "pressing English should reach the host through the bus and write the language model")
-	var continue_button := _find_ui_node(game_root, "MainMenuContinueButton") as Button
-	_assert_true(continue_button != null, "choosing English should keep the main menu continue button")
-	if continue_button != null:
-		_assert_eq(continue_button.text, "Continue", "choosing English should rebuild the main menu in English")
+	_assert_true(_find_ui_node(game_root, "MainMenuStartButton") != null, "choosing English should return to the main menu")
 	game_root.new_game()
 	await process_frame
 	var prologue_header := _find_ui_node(game_root, "PrologueSignalHeader") as Label

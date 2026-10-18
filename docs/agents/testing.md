@@ -113,7 +113,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
 | `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty, null or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks (also from UI added after it opened), focus and hotkeys below and follows the pollution palette |
-| `test_main_menu_scene` | module | main menu Layout scene, palette roles |
+| `test_main_menu_scene` | module | main menu Layout scene, palette roles; no separate continue button; an open menu's START continues once `has_save` is true |
 | `test_game_locale_preferences` | module | language / volume preference models, preferences file |
 | `test_settings_history_panel`, `test_language_selection_panel` | module | the settings panel owns the settings-open model, always watches pollution for its labels, and while open watches preference, autoplay and save-status models; the open history window watches the recorded lines |
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
@@ -143,10 +143,10 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
 | `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement; the host raises one `DAY_SETTLED` per settlement and the desk line, selection and street react; a finished flashback shows the next-day line |
 | `test_main_scene` | **adapter** | integration smoke |
-| `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
+| `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; its save simulation (follow / saved / empty) writes only the `has_save` model, shows the actual save and leaves the file untouched, and a simulated save without a file falls back to a new game; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
-| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file |
+| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; START continues from the save, starts a new game with the prologue without one, and falls back to a new game with one warning when the save is corrupt or missing |
 | `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS, history, exit request and the settings button to the settings handler and presents them; closing by model restores the chrome |
 | `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps, craft, fusion drops and fuse to the notebook handler and presents the submit and the action |
 | `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; routing smoke for the doctor sentence handler (token press, refused confirm); the host keeps no transient selection |
