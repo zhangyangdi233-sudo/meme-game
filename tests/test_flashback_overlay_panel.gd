@@ -4,6 +4,7 @@ extends SceneTree
 
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 
@@ -52,22 +53,12 @@ func _assert_scene_colors(panel: FlashbackOverlayPanel, palette: Dictionary, lab
 	var bg := doll_scene.get_child(0) as ColorRect
 	_assert_eq(bg.color, UiPalette.color(palette, "ink"), "the doll scene backdrop should be %s ink" % label)
 	for probe in [["FlashbackEchoRow0", "surface"], ["FlashbackUnregisteredCard", "flash_text"]]:
-		var text_label := _find_label(panel.get_director(), probe[0])
+		var text_label := Harness.find_node_by_name(panel.get_director(), probe[0]) as Label
 		if text_label == null:
 			_failures.append("%s should be built (%s)" % [probe[0], label])
 			continue
 		var painted := Color(text_label.get_theme_color("font_color"), 1.0)
 		_assert_eq(painted, UiPalette.color(palette, probe[1]), "%s should be %s %s" % [probe[0], label, probe[1]])
-
-
-func _find_label(node: Node, node_name: String) -> Label:
-	if node is Label and node.name == node_name:
-		return node as Label
-	for child in node.get_children():
-		var found := _find_label(child, node_name)
-		if found != null:
-			return found
-	return null
 
 
 func _assert_eq(actual, expected, message: String) -> void:
