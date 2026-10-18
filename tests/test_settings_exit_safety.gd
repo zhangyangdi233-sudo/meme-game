@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
 var _failures: Array[String] = []
 
 
@@ -53,7 +55,7 @@ func _run_async() -> void:
 		_assert_true(confirmation != null and confirmation.visible, "requesting exit should show one confirmation layer")
 		_assert_true(message != null and message.text == "真的要抛弃我吗？", "the exit confirmation should use the requested sentence")
 
-		_press_escape()
+		Harness.press_escape(root)
 		_assert_true(confirmation != null and not confirmation.visible, "Escape should close the exit confirmation")
 		game_root._request_quit_game()
 		_assert_true(confirmation != null and confirmation.visible, "a later exit request should still show the same single confirmation layer")
@@ -81,15 +83,6 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
-
-
-func _press_escape() -> void:
-	for pressed in [true, false]:
-		var escape := InputEventKey.new()
-		escape.keycode = KEY_ESCAPE
-		escape.physical_keycode = KEY_ESCAPE
-		escape.pressed = pressed
-		root.push_input(escape)
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:

@@ -26,6 +26,28 @@ static func find_node_by_name(node: Node, wanted_name: String) -> Node:
 	return null
 
 
+## The open Dialog's buttons from left to right, skipping ones already queued for deletion.
+static func dialog_buttons(screen: Node) -> Array[Button]:
+	var found: Array[Button] = []
+	var row := find_node_by_name(screen, "DialogButtonRow")
+	if row == null:
+		return found
+	for child in row.get_children():
+		if child is Button and not child.is_queued_for_deletion():
+			found.append(child as Button)
+	return found
+
+
+## Pushes an Escape press and release into the viewport.
+static func press_escape(viewport: Viewport) -> void:
+	for pressed in [true, false]:
+		var escape := InputEventKey.new()
+		escape.keycode = KEY_ESCAPE
+		escape.physical_keycode = KEY_ESCAPE
+		escape.pressed = pressed
+		viewport.push_input(escape)
+
+
 static func collect_control_text(root: Node) -> String:
 	var result := ""
 	if root is Label or root is Button or root is RichTextLabel or root is LineEdit:

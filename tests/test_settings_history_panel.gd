@@ -11,6 +11,7 @@ const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
 var _registered: Array = []
@@ -358,22 +359,22 @@ func _test_exit_request_opens_the_dialog(panel: SettingsHistoryPanel, host: Cont
 	_assert_true(screen != null and screen.visible, "an exit request should open the dialog")
 	var message := _find_node_by_name(screen, "DialogMessage") as Label
 	_assert_eq(message.text if message != null else "", "真的要抛弃我吗？", "the dialog should ask the exit plea")
-	var buttons := _dialog_buttons(screen)
+	var buttons := Harness.dialog_buttons(screen)
 	_assert_eq(buttons.map(func(button: Button) -> String: return button.text), ["返回", "仍然退出"], "the dialog should offer 返回 then 仍然退出")
 	_assert_true(buttons.size() == 2 and root.gui_get_focus_owner() == buttons[0], "返回 should take the first focus")
-	_press_escape()
+	Harness.press_escape(root)
 	_assert_true(screen != null and not screen.visible, "Escape should close the exit dialog")
 	_assert_eq(_exit_confirmed_events, [], "Escape should not confirm the exit")
 
 	panel.request_quit()
-	buttons = _dialog_buttons(screen)
+	buttons = Harness.dialog_buttons(screen)
 	if buttons.size() == 2:
 		buttons[0].pressed.emit()
 	_assert_true(screen != null and not screen.visible, "返回 should close the exit dialog")
 	_assert_eq(_exit_confirmed_events, [], "返回 should not confirm the exit")
 
 	panel.request_quit()
-	buttons = _dialog_buttons(screen)
+	buttons = Harness.dialog_buttons(screen)
 	if buttons.size() == 2:
 		buttons[1].pressed.emit()
 	_assert_true(screen != null and not screen.visible, "仍然退出 should close the exit dialog")
@@ -383,26 +384,6 @@ func _test_exit_request_opens_the_dialog(panel: SettingsHistoryPanel, host: Cont
 		_assert_true(_find_node_by_name(host, node_name) == null and _find_node_by_name(panel, node_name) == null, "the panel should not build %s" % node_name)
 	RegistryScript.unbind(ServiceKeysScript.DIALOG, dialog_manager)
 	holder.free()
-
-
-func _dialog_buttons(screen: Node) -> Array[Button]:
-	var found: Array[Button] = []
-	var row := _find_node_by_name(screen, "DialogButtonRow")
-	if row == null:
-		return found
-	for child in row.get_children():
-		if child is Button and not child.is_queued_for_deletion():
-			found.append(child as Button)
-	return found
-
-
-func _press_escape() -> void:
-	for pressed in [true, false]:
-		var escape := InputEventKey.new()
-		escape.keycode = KEY_ESCAPE
-		escape.physical_keycode = KEY_ESCAPE
-		escape.pressed = pressed
-		root.push_input(escape)
 
 
 func _register_draggable(window: Control, window_id: String, handle: Control) -> void:
