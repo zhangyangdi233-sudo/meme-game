@@ -160,6 +160,7 @@ func _quiet_button(button: Button) -> void:
 	var ink := button.get_theme_color("font_color")
 	button.add_theme_stylebox_override("hover", button.get_theme_stylebox("normal"))
 	button.add_theme_color_override("font_hover_color", ink)
+	button.add_theme_color_override("font_focus_color", ink)
 	var underline := StyleBoxFlat.new()
 	underline.draw_center = false
 	underline.border_color = ink

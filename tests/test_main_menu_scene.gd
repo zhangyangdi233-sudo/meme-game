@@ -358,26 +358,21 @@ func _start_intent(mounted: Dictionary) -> String:
 	return heard.back() if not heard.is_empty() else ""
 
 
-## A main menu and the dialog on one layer, with the bus, the dialog manager and a bracketing theme bound like the host does.
 func _test_the_hold_hint_uses_the_language_font() -> void:
 	var mounted := await _mount_with_dialog(true)
 	var hint := Harness.find_node_by_name(mounted["screen"], "MainMenuHoldHint") as Label
 	_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font("zh"), "the hint opens in the Simplified Chinese font")
 	for locale in ["en", "ja", "zh"]:
-		_write_locale(locale)
+		Harness.write_locale(locale)
 		_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font(locale), "switching to %s swaps the hint font at once" % locale)
 	mounted["manager"].close()
-	_write_locale("en")
+	Harness.write_locale("en")
 	mounted["manager"].open({})
 	_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font("en"), "re-opening after a switch made while closed shows the new font")
 	_dispose_all(mounted)
 
 
-func _write_locale(locale: String) -> void:
-	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	manager.model(PropertyKeysScript.LOCALE).write(locale)
-
-
+## A main menu and the dialog on one layer, with the bus, the dialog manager and a bracketing theme bound like the host does.
 func _mount_with_dialog(has_save: bool) -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()

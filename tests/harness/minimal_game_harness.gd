@@ -92,6 +92,14 @@ static func publish_title_facts(pollution_value: int, has_save: bool) -> void:
 		saved.write(has_save)
 
 
+## Switches the game language the way the language picker does: by writing the locale model.
+static func write_locale(locale_code: String) -> void:
+	PropertyBootScript.install()
+	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager != null:
+		manager.model(PropertyKeysScript.LOCALE).write(locale_code)
+
+
 ## Binds a fresh UI theme painted from `palette_key`, replacing any bound theme.
 static func bind_ui_theme(palette_key: String) -> GameUiTheme:
 	var stage := {"palette_key": palette_key}

@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_each_language_gets_its_own_face()
 	_test_english_is_the_bold_instance()
 	_test_an_unknown_locale_falls_back_to_simplified_chinese()
+	_test_english_borrows_chinese_glyphs_it_lacks()
 	_test_the_same_font_comes_back_for_the_same_locale()
 	_test_licenses_and_provenance_ship_with_the_fonts()
 
@@ -53,6 +54,12 @@ func _test_english_is_the_bold_instance() -> void:
 
 func _test_an_unknown_locale_falls_back_to_simplified_chinese() -> void:
 	_assert_true(LocaleFontScript.font("fr") == LocaleFontScript.font("zh"), "an unknown locale should use the default language's font")
+
+
+func _test_english_borrows_chinese_glyphs_it_lacks() -> void:
+	# An English line with no catalog entry keeps its Chinese source text, which Roboto Condensed cannot draw.
+	var english := LocaleFontScript.font("en")
+	_assert_true(english != null and english.fallbacks.has(LocaleFontScript.font("zh")), "English should fall back to the Simplified Chinese face for Han text")
 
 
 func _test_the_same_font_comes_back_for_the_same_locale() -> void:
