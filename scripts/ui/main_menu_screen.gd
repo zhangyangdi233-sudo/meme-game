@@ -18,7 +18,7 @@ const LAYER_NAME := "UIRoot"
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const START_BUTTON := "MainMenuStartButton"
 const HINT_LABEL := "MainMenuHoldHint"
-const RING := "MainMenuHoldRing"
+const HOLD_RING := "MainMenuHoldRing"
 const BUTTON_INTENTS := {
 	START_BUTTON: UiIntentsScript.START_GAME,
 	"MainMenuExitButton": UiIntentsScript.EXIT_GAME,
@@ -57,7 +57,7 @@ var _held_seconds := 0.0
 var _hold_fired := false
 var _start_hovered := false
 var _start_focused := false
-## The current press came from the mouse, so the ring follows `_cursor` instead of sitting on START.
+## The press that started the current hold was the left mouse button, so the ring follows `_cursor` instead of sitting on START.
 var _held_by_mouse := false
 var _cursor := Vector2.ZERO
 
@@ -136,14 +136,15 @@ func _intent_for(button_name: String, intent_name: String) -> String:
 
 
 ## The signal comes before the button's own handling, so the press's source is known by `button_down`.
+## Only a press before the hold starts picks the source; a wheel turn or a key during the hold leaves the ring where it is.
 ## While pressed by mouse the button keeps the mouse, so motion off START still arrives here.
 func _on_start_input(event: InputEvent) -> void:
 	if event is InputEventMouse:
 		_cursor = _start_button().get_global_transform() * (event as InputEventMouse).position
-		if event is InputEventMouseButton and event.is_pressed():
-			_held_by_mouse = true
-	elif event.is_pressed():
-		_held_by_mouse = false
+	if _holding or not event.is_pressed():
+		return
+	var mouse := event as InputEventMouseButton
+	_held_by_mouse = mouse != null and mouse.button_index == MOUSE_BUTTON_LEFT
 
 
 func _on_start_down() -> void:
@@ -214,10 +215,11 @@ func _paint_ring() -> void:
 	ring.progress = _held_seconds / HOLD_SECONDS if ring.visible else 0.0
 	if not ring.visible:
 		return
-	var start := _start_button()
 	if _held_by_mouse:
 		ring.center_at(_cursor)
-	elif start != null:
+		return
+	var start := _start_button()
+	if start != null:
 		ring.center_at(start.get_global_rect().get_center())
 
 
@@ -237,4 +239,4 @@ func _hint() -> Label:
 
 
 func _ring() -> HoldRingScript:
-	return get_node_or_null("%" + RING) as HoldRingScript
+	return get_node_or_null("%" + HOLD_RING) as HoldRingScript

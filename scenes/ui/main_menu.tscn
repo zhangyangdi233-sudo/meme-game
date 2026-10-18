@@ -14,7 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://cimeswj4do2ar" path="res://assets/image/main_menu/START_hover.png" id="13_start_hover"]
 [ext_resource type="Texture2D" uid="uid://y1301r6p8dh3" path="res://assets/image/main_menu/SETTING_hover.png" id="14_setting_hover"]
 [ext_resource type="Texture2D" uid="uid://ca4q5nyrgrnh5" path="res://assets/image/main_menu/QUIT_hover.png" id="15_quit_hover"]
-[ext_resource type="Script" path="res://scripts/ui/hold_ring.gd" id="16_ring"]
+[ext_resource type="Script" uid="uid://cuh3onuxx8sl5" path="res://scripts/ui/hold_ring.gd" id="16_ring"]
 
 [sub_resource type="Theme" id="Theme_pixel"]
 default_font = ExtResource("2_font")

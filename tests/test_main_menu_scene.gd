@@ -67,6 +67,7 @@ func _run_hold() -> void:
 	await _test_without_a_save_no_ring_shows()
 	await _test_the_ring_follows_the_mouse()
 	await _test_keys_and_the_pad_put_the_ring_on_start()
+	await _test_the_press_that_starts_the_hold_keeps_the_ring_where_it_is()
 	_test_the_ring_fills_clockwise_from_twelve()
 
 
@@ -252,9 +253,7 @@ func _test_the_debug_panel_shows_how_long_start_is_held() -> void:
 func _test_the_ring_fills_while_start_is_held() -> void:
 	var mounted := await _mount_with_dialog(true)
 	var ring := _ring(mounted)
-	_assert_true(ring != null, "the main menu should have the hold ring")
-	if ring == null:
-		_dispose_all(mounted)
+	if _missing_ring(mounted, ring):
 		return
 	_assert_true(not ring.visible, "the ring is hidden before START is held")
 	_mouse_start(mounted, true)
@@ -277,9 +276,7 @@ func _test_releasing_early_hides_and_resets_the_ring() -> void:
 	var mounted := await _mount_with_dialog(true)
 	var heard := _listen(mounted)
 	var ring := _ring(mounted)
-	if ring == null:
-		_failures.append("the main menu should have the hold ring")
-		_dispose_all(mounted)
+	if _missing_ring(mounted, ring):
 		return
 	_mouse_start(mounted, true)
 	_tick(mounted, 0.5)
@@ -296,9 +293,7 @@ func _test_releasing_early_hides_and_resets_the_ring() -> void:
 func _test_without_a_save_no_ring_shows() -> void:
 	var mounted := await _mount_with_dialog(false)
 	var ring := _ring(mounted)
-	if ring == null:
-		_failures.append("the main menu should have the hold ring")
-		_dispose_all(mounted)
+	if _missing_ring(mounted, ring):
 		return
 	_mouse_start(mounted, true)
 	_assert_true(not ring.visible, "without a save pressing START shows no ring")
@@ -312,9 +307,7 @@ func _test_without_a_save_no_ring_shows() -> void:
 func _test_the_ring_follows_the_mouse() -> void:
 	var mounted := await _mount_with_dialog(true)
 	var ring := _ring(mounted)
-	if ring == null:
-		_failures.append("the main menu should have the hold ring")
-		_dispose_all(mounted)
+	if _missing_ring(mounted, ring):
 		return
 	var rect := _start(mounted).get_global_rect()
 	var press_at := rect.position + Vector2(40.0, 30.0)
@@ -337,18 +330,12 @@ func _test_keys_and_the_pad_put_the_ring_on_start() -> void:
 	for source in ["enter", "space", "pad"]:
 		var mounted := await _mount_with_dialog(true)
 		var ring := _ring(mounted)
-		if ring == null:
-			_failures.append("the main menu should have the hold ring")
-			_dispose_all(mounted)
-			return
+		if _missing_ring(mounted, ring):
+			continue
 		var start := _start(mounted)
 		var center := start.get_global_rect().get_center()
 		# A cursor resting on START must not pull the ring away from its center.
-		var resting := start.get_global_rect().position + Vector2(10.0, 10.0)
-		var motion := InputEventMouseMotion.new()
-		motion.position = resting
-		motion.global_position = resting
-		root.push_input(motion)
+		_mouse_move(start.get_global_rect().position + Vector2(10.0, 10.0), false)
 		start.grab_focus()
 		_confirm(source, true)
 		_assert_true(ring.visible, "holding %s on a focused START shows the ring" % source)
@@ -356,6 +343,41 @@ func _test_keys_and_the_pad_put_the_ring_on_start() -> void:
 		_assert_true(_ring_center(ring).is_equal_approx(center), "holding %s puts the ring on START's center (got %s, want %s)" % [source, _ring_center(ring), center])
 		_confirm(source, false)
 		_dispose_all(mounted)
+
+
+func _test_the_press_that_starts_the_hold_keeps_the_ring_where_it_is() -> void:
+	# A wheel turn or right click on START during a key hold leaves the ring on START.
+	var mounted := await _mount_with_dialog(true)
+	var ring := _ring(mounted)
+	if _missing_ring(mounted, ring):
+		return
+	var start := _start(mounted)
+	var center := start.get_global_rect().get_center()
+	var resting := start.get_global_rect().position + Vector2(10.0, 10.0)
+	_mouse_move(resting, false)
+	start.grab_focus()
+	_confirm("enter", true)
+	for button in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_RIGHT]:
+		_mouse_click(resting, button)
+		_tick(mounted, 0.1)
+		_assert_true(_ring_center(ring).is_equal_approx(center), "mouse button %d during an Enter hold leaves the ring on START (got %s)" % [button, _ring_center(ring)])
+	_confirm("enter", false)
+	_dispose_all(mounted)
+	# A key pressed on the focused START during a mouse hold leaves the ring on the cursor.
+	mounted = await _mount_with_dialog(true)
+	ring = _ring(mounted)
+	if _missing_ring(mounted, ring):
+		return
+	start = _start(mounted)
+	start.grab_focus()
+	var press_at := start.get_global_rect().position + Vector2(40.0, 30.0)
+	_mouse_start(mounted, true, press_at)
+	_confirm("enter", true)
+	_tick(mounted, 0.1)
+	_assert_true(_ring_center(ring).is_equal_approx(press_at), "Enter during a mouse hold leaves the ring on the cursor (got %s)" % _ring_center(ring))
+	_confirm("enter", false)
+	_mouse_start(mounted, false, press_at)
+	_dispose_all(mounted)
 
 
 func _test_the_ring_fills_clockwise_from_twelve() -> void:
@@ -374,13 +396,32 @@ func _ring_center(ring: Control) -> Vector2:
 	return ring.get_global_rect().get_center()
 
 
-## A drag with the left button held, as while START is pressed by mouse.
-func _mouse_move(at: Vector2) -> void:
+## Moves the cursor; `dragging` keeps the left button held, as while START is pressed by mouse.
+func _mouse_move(at: Vector2, dragging := true) -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.position = at
 	motion.global_position = at
-	motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	if dragging:
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
 	root.push_input(motion)
+
+
+func _missing_ring(mounted: Dictionary, ring: Control) -> bool:
+	if ring != null:
+		return false
+	_failures.append("the main menu should have the hold ring")
+	_dispose_all(mounted)
+	return true
+
+
+func _mouse_click(at: Vector2, button: MouseButton) -> void:
+	for pressed in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = button
+		click.position = at
+		click.global_position = at
+		click.pressed = pressed
+		root.push_input(click)
 
 
 func _test_mount_keeps_node_contract() -> void:
