@@ -31,6 +31,7 @@ func _run_async() -> void:
 	_test_physical_doll_entry(game_root)
 	_test_phone_hides_street(game_root)
 	_test_language_and_playtest_contract(game_root)
+	_test_world_prompt_and_bars_ignore_pollution(game_root)
 
 	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
 	root.remove_child(game_root)
@@ -302,6 +303,24 @@ func _find_node_by_name(node: Node, target_name: String) -> Node:
 		if found != null:
 			return found
 	return null
+
+
+func _test_world_prompt_and_bars_ignore_pollution(game_root: Node) -> void:
+	var pollution_before: int = game_root.game.pollution
+	game_root.game.pollution = 100
+	game_root._apply_ui_theme()
+	_assert_eq(str(game_root._ui_theme_helper.active_palette().get("name", "")), "pollution_palette_5", "full pollution should switch the UI theme to pollution palette 5")
+	var prompt := _find_node_by_name(game_root, "WorldPrompt") as Label
+	_assert_true(prompt != null, "the world prompt should be built")
+	if prompt != null:
+		_assert_eq(prompt.get_theme_color("font_outline_color"), Color("050705"), "the world prompt outline should stay near black under pollution palette 5")
+	for bar_name in ["CinematicTopBar", "CinematicBottomBar"]:
+		var bar := _find_node_by_name(game_root, bar_name) as ColorRect
+		_assert_true(bar != null, "%s should be built" % bar_name)
+		if bar != null:
+			_assert_eq(bar.color, Color("000000"), "%s should stay true black under pollution palette 5" % bar_name)
+	game_root.game.pollution = pollution_before
+	game_root._apply_ui_theme()
 
 
 func _assert_true(condition: bool, message: String) -> void:

@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (112 tests)
+## What runs (113 tests)
 
-### GDScript (110)
+### GDScript (111)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -113,9 +113,10 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_action_outcome` | state | publish, fusion, and doctor sentence outcomes: success, spent action, feedback key, settlement (funds, pollution, flashback, day change) |
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
-| `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build |
+| `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build; the black covers stay true black |
+| `test_void_and_outline` | module | under pollution palette 5 the day-transition and prologue backdrops stay true black, and the conversation text, playtest marker and EXIT sign outlines stay near black |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
-| `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported; both palettes define the same role set; the Layout scenes name only known roles |
+| `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported; both palettes define the same role set; the Layout scenes name only known roles; `VOID` and `OUTLINE` are fixed colors that `has_role` does not accept |
 | `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report; a palette gap is reported and painted from `PALETTE_1` |
 | `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty, null or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks (also from UI added after it opened), focus and hotkeys below and follows the pollution palette |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles; no separate continue button; an open menu's START continues once `has_save` is true; with a save, holding START 0.8 s by mouse, Enter, Space or pad A opens the restart dialog before release and that release raises nothing, a shorter hold continues, and without a save a hold only starts a new game; the dialog words its question and YES / NO from the catalog with NO focused and taking Escape, YES raises `RESTART_REQUESTED`, closing the menu closes it; the hold hint shows only with a save, is worded on open and darkens while START is hovered or focused; the debug panel shows the held seconds |
@@ -147,7 +148,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
 | `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement; the host raises one `DAY_SETTLED` per settlement and the desk line, selection and street react; a finished flashback shows the next-day line |
-| `test_main_scene` | **adapter** | integration smoke |
+| `test_main_scene` | **adapter** | integration smoke; under pollution palette 5 the world prompt outline and cinematic bars keep their fixed colors |
 | `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; its save simulation (follow / saved / empty) writes only the `has_save` model, shows the actual save and leaves the file untouched, and a simulated save without a file falls back to a new game; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |

@@ -3,6 +3,11 @@ class_name UiPalette
 extends RefCounted
 ## Palette tables, role lookup, and the shared flat button recipe; @tool so editor previews read the same colors as the game.
 
+## Fixed colors outside the palette tables: pollution never changes them, so they are not roles.
+## VOID is the true-black horror backdrop (flashback, prologue, day transition, cinematic bars).
+const VOID := Color("000000")
+## OUTLINE is the near-black outline under text, 3D markers and labels.
+const OUTLINE := Color("050705")
 const PALETTE_1 := {
 	"name": "palette_1",
 	"bg": "B7D957",

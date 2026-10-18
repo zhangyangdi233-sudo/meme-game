@@ -357,7 +357,7 @@ func _make_playtest_marker(marker_text: String, height: float) -> Label3D:
 	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	marker.fixed_size = true
 	marker.modulate = Color("D8FF66")
-	marker.outline_modulate = Color("050705")
+	marker.outline_modulate = UiPalette.OUTLINE
 	marker.outline_size = 3
 	marker.no_depth_test = true
 	marker.render_priority = 20
@@ -636,7 +636,7 @@ func _build_dead_sign_event(palette: Dictionary) -> void:
 	label.font_size = 96
 	label.pixel_size = 0.0046
 	label.modulate = _role_color("fluorescent", palette)
-	label.outline_modulate = Color("071009")
+	label.outline_modulate = UiPalette.OUTLINE
 	label.outline_size = 12
 	label.no_depth_test = true
 	event_root.add_child(label)

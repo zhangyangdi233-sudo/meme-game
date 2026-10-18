@@ -90,7 +90,7 @@ func _build_overlay(parent: Control) -> void:
 
 	var background := ColorRect.new()
 	background.name = "DayTransitionBlack"
-	background.color = Color("050705")
+	background.color = UiPalette.VOID
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_overlay.add_child(background)
 

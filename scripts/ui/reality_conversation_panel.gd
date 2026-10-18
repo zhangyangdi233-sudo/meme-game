@@ -281,7 +281,7 @@ func _build_chrome(parent: Control) -> void:
 	_intent_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_intent_preview.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(28))
 	_intent_preview.add_theme_color_override("default_color", _theme().theme_color("surface"))
-	_intent_preview.add_theme_color_override("font_outline_color", Color("050705"))
+	_intent_preview.add_theme_color_override("font_outline_color", UiPalette.OUTLINE)
 	_intent_preview.add_theme_constant_override("outline_size", 8)
 	_intent_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_intent_preview.z_index = 14
@@ -354,7 +354,7 @@ func _build_chrome(parent: Control) -> void:
 	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_subtitle_label.add_theme_font_size_override("normal_font_size", _theme().ui_font_size(20))
 	_subtitle_label.add_theme_color_override("default_color", _theme().theme_color("surface"))
-	_subtitle_label.add_theme_color_override("font_outline_color", Color("050705"))
+	_subtitle_label.add_theme_color_override("font_outline_color", UiPalette.OUTLINE)
 	_subtitle_label.add_theme_constant_override("outline_size", 6)
 	subtitle_box.add_child(_subtitle_label)
 	_continue_button = Button.new()

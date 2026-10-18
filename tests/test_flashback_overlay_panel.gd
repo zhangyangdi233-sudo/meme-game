@@ -1,12 +1,22 @@
 extends SceneTree
 ## Flashback overlay panel: its phases are painted from the bound UI theme's palette, and a later pollution stage
-## repaints them on the next build. Does not load the main scene.
+## repaints them on the next build; the black covers stay UiPalette.VOID. Does not load the main scene.
 
 const FlashbackOverlayPanelScript = preload("res://scripts/ui/flashback_overlay_panel.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const VOID_COVERS := [
+	"FlashbackBackdrop",
+	"FlashbackPhaseBlackGapA/0",
+	"FlashbackPhaseBlackGapB/0",
+	"FlashbackPhaseDollScene/MissingFrameStrip",
+	"FlashbackPhaseDoctorScene/MissingFrameStrip",
+	"FlashbackPhaseAttribution/0",
+	"FlashbackPhaseEmptyFrames/0",
+	"FlashbackPhaseEmptyFrames/FlashbackFinalBlackout",
+]
 
 var _failures: Array[String] = []
 
@@ -37,12 +47,27 @@ func _test_phases_follow_the_pollution_palette_on_the_next_build() -> void:
 
 	panel.build_phases()
 	_assert_scene_colors(panel, UiPalette.PALETTE_1, "palette 1")
+	_assert_covers_are_void(panel, "palette 1")
 
 	stage["palette_key"] = "pollution_palette_5"
 	panel.refresh_colors()
 	panel.build_phases()
 	_assert_scene_colors(panel, UiPalette.POLLUTION_PALETTE_5, "pollution palette 5")
+	_assert_covers_are_void(panel, "pollution palette 5")
 	ui_root.free()
+
+
+func _assert_covers_are_void(panel: FlashbackOverlayPanel, label: String) -> void:
+	for cover_path in VOID_COVERS:
+		var parts: PackedStringArray = cover_path.split("/")
+		var node: Node = panel.get_director().get_node_or_null(parts[0])
+		if node != null and parts.size() > 1:
+			node = node.get_child(int(parts[1])) if parts[1].is_valid_int() else node.get_node_or_null(parts[1])
+		var cover := node as ColorRect
+		if cover == null:
+			_failures.append("%s should be built (%s)" % [cover_path, label])
+			continue
+		_assert_eq(cover.color, Color("000000"), "%s should stay true black under %s" % [cover_path, label])
 
 
 func _assert_scene_colors(panel: FlashbackOverlayPanel, palette: Dictionary, label: String) -> void:

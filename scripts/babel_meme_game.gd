@@ -1331,7 +1331,7 @@ func _build_ui() -> void:
 	_world_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_world_prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_world_prompt.set_meta("on_dark", true)
-	_world_prompt.add_theme_color_override("font_outline_color", Color("050705"))
+	_world_prompt.add_theme_color_override("font_outline_color", UiPalette.OUTLINE)
 	_world_prompt.add_theme_constant_override("outline_size", 6)
 	_world_prompt.z_index = 10
 	_ui_root.add_child(_world_prompt)
@@ -1552,7 +1552,7 @@ func _build_cinematic_bars() -> void:
 	_cinematic_bars = CinematicBarsScript.new()
 	_cinematic_bars.name = "CinematicBars"
 	_ui_root.add_child(_cinematic_bars)
-	_cinematic_bars.bar_color = Color("050705")
+	_cinematic_bars.bar_color = UiPalette.VOID
 	_cinematic_bars.configure(CINEMATIC_ASPECT_RATIO, CINEMATIC_MAX_BAR_RATIO)
 	_cinematic_bars.relayout(_viewport_size())
 

@@ -99,8 +99,8 @@ One screen's registrations on its models, kept in one place. Starting finds ever
 _Avoid_: a screen re-writing its own find / register / unregister code, keeping the models in fields, a listener that outlives its screen
 
 **Palette role**:
-A named color slot of the UI palette (`surface`, `ink`, `accent`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor.
-_Avoid_: literal colors on palette-driven nodes, one node group per color
+A named color slot of the UI palette (`surface`, `ink`, `accent`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor. `UiPalette.VOID` (true-black horror backdrop) and `UiPalette.OUTLINE` (near-black text and 3D outline) are fixed colors, not roles: pollution never changes them.
+_Avoid_: literal colors on palette-driven nodes, one node group per color, a near-black literal where `VOID` or `OUTLINE` is meant
 
 ## Development
 

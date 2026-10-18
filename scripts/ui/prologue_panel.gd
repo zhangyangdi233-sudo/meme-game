@@ -76,7 +76,7 @@ func _build_prologue_overlay(parent: Control) -> void:
 
 	var black := ColorRect.new()
 	black.name = "PrologueBlack"
-	black.color = Color("060806")
+	black.color = UiPalette.VOID
 	black.set_anchors_preset(Control.PRESET_FULL_RECT)
 	black.mouse_filter = Control.MOUSE_FILTER_STOP
 	_prologue_overlay.add_child(black)

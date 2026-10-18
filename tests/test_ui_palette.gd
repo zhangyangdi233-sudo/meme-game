@@ -20,6 +20,7 @@ func _init() -> void:
 	_test_an_unknown_role_is_reported()
 	_test_both_palettes_define_the_same_roles()
 	_test_layout_scenes_use_only_known_roles()
+	_test_void_and_outline_are_fixed_colors_not_roles()
 	OS.remove_logger(_errors)
 	if _failures.is_empty():
 		print("ui palette tests passed")
@@ -51,6 +52,13 @@ func _test_layout_scenes_use_only_known_roles() -> void:
 		if root is PaletteSceneRoot:
 			_assert_eq((root as PaletteSceneRoot).palette_role_errors(), PackedStringArray(), "%s should only name palette roles" % path)
 		root.free()
+
+
+func _test_void_and_outline_are_fixed_colors_not_roles() -> void:
+	_assert_eq(UiPalette.VOID, Color("000000"), "VOID should be true black")
+	_assert_eq(UiPalette.OUTLINE, Color("050705"), "OUTLINE should be the near-black outline")
+	for constant_name in ["VOID", "OUTLINE", "void", "outline"]:
+		_assert_true(not UiPalette.has_role(constant_name), "%s should not be a palette role" % constant_name)
 
 
 func _test_a_missing_role_is_reported_and_falls_back_to_palette_1() -> void:

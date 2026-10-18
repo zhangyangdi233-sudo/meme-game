@@ -57,7 +57,7 @@ func build_phases() -> void:
 
 	var backdrop := ColorRect.new()
 	backdrop.name = "FlashbackBackdrop"
-	backdrop.color = Color.BLACK
+	backdrop.color = UiPalette.VOID
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_director.add_child(backdrop)
 
@@ -180,7 +180,7 @@ func _build_freeze_phase(phase_id: String, node_name: String, with_residue: bool
 func _build_black_gap_phase(phase_id: String, node_name: String, with_empty_speaker_plate: bool) -> void:
 	var phase_root := _register_phase(phase_id, node_name)
 	var cover := ColorRect.new()
-	cover.color = Color.BLACK
+	cover.color = UiPalette.VOID
 	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(cover)
 	if not with_empty_speaker_plate:
@@ -207,7 +207,7 @@ func _build_scene_phase(phase_id: String, node_name: String, is_doctor: bool) ->
 
 	var missing_frame := ColorRect.new()
 	missing_frame.name = "MissingFrameStrip"
-	missing_frame.color = Color.BLACK
+	missing_frame.color = UiPalette.VOID
 	missing_frame.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	missing_frame.offset_right = PollutionFlashbackDirector.LEFT_MISSING_FRAME_WIDTH
 	phase_root.add_child(missing_frame)
@@ -281,7 +281,7 @@ func _build_scene_phase(phase_id: String, node_name: String, is_doctor: bool) ->
 func _build_attribution_phase() -> void:
 	var phase_root := _register_phase("attribution", "FlashbackPhaseAttribution")
 	var cover := ColorRect.new()
-	cover.color = Color.BLACK
+	cover.color = UiPalette.VOID
 	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(cover)
 	var card := RichTextLabel.new()
@@ -331,7 +331,7 @@ func _build_triple_echo_phase() -> void:
 func _build_empty_frames_phase() -> void:
 	var phase_root := _register_phase("empty_frames", "FlashbackPhaseEmptyFrames")
 	var bg := ColorRect.new()
-	bg.color = Color.BLACK
+	bg.color = UiPalette.VOID
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	phase_root.add_child(bg)
 	for square_index in 3:
@@ -366,7 +366,7 @@ func _build_empty_frames_phase() -> void:
 	phase_root.add_child(_unregistered_card)
 	_empty_frames_blackout = ColorRect.new()
 	_empty_frames_blackout.name = "FlashbackFinalBlackout"
-	_empty_frames_blackout.color = Color.BLACK
+	_empty_frames_blackout.color = UiPalette.VOID
 	_empty_frames_blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_empty_frames_blackout.visible = false
 	phase_root.add_child(_empty_frames_blackout)
