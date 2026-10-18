@@ -27,7 +27,7 @@ Framework module that builds walkable space, collision, and generic geometry fro
 _Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
 
 **Floor look**:
-Game module (`scripts/game/floor_look.gd`) that answers the 3D street's colors from tables: a material role, the background / ambient / fog, a light or a fixed tint, by floor, district style and UI palette. The Floor generator asks it for every color and decides none itself.
+Game module (`scripts/game/floor_look.gd`) that answers the 3D street's colors from tables: a material role, the background / ambient / fog, a light or a fixed tint, by floor, district style and UI palette. `RealityFloorGenerator` asks it for every color and decides none itself.
 _Avoid_: color literals or palette blends in the generator, one `if built_floor ==` branch per color, treating it as part of the Floor composer
 
 **Floor composer**:

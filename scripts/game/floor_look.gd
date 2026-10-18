@@ -1,8 +1,9 @@
 class_name FloorLook
 extends RefCounted
 ## The colors of the 3D street: material roles, the environment's background / ambient / fog,
-## light colors and fixed tints, by floor, district style and UI palette. The Floor generator
-## asks here for every color; the tables below are the only place those colors are decided.
+## light colors and fixed tints, by floor (1 to 4), district style and UI palette.
+## RealityFloorGenerator asks here for every color; this script is the only place they are decided
+## (Color.WHITE on character art means "untinted" and stays in the generator).
 ##
 ## A color entry picks a base and may blend it toward a palette role:
 ## - "base": a hex color; "styles" / "floors" replace it for a district style or a floor (style wins).
@@ -114,6 +115,7 @@ const ENVIRONMENT := {
 
 ## Light colors by use. "material" lights glow in that material role's color.
 const LIGHTS := {
+	# Floors run 1 to 4 (the generator clamps), so the key light's base is floor 4's.
 	"key": {"base": "A9BBC4", "floors": {1: "FFF3D3", 2: "78918C", 3: "FFF4CB"}},
 	"memory": {"base": "91B99A", "floors": {3: "D9FFB5", 4: "D9FFB5"}},
 	"threshold": {"base": "FFF1C9"},
