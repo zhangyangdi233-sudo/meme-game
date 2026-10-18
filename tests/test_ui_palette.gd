@@ -2,7 +2,7 @@ extends SceneTree
 ## UiPalette answers every role from the palette it is given; a gap or an unknown role is reported, never guessed.
 
 const PaletteErrorLog = preload("res://tests/harness/palette_error_log.gd")
-const EXPECTED_ROLES := ["accent", "bg", "flash_text", "ink", "muted", "surface", "text"]
+const EXPECTED_ROLES := ["accent", "bg", "error", "flash_text", "ink", "muted", "pending", "surface", "text"]
 const LAYOUT_SCENES := [
 	"res://scenes/ui/main_menu.tscn",
 	"res://scenes/ui/dialog.tscn",

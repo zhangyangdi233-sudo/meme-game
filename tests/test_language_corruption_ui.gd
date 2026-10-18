@@ -65,8 +65,10 @@ func _run_async() -> void:
 			var history_entry := _find_node_by_name(root, "HistoryEntry0") as RichTextLabel
 			_assert_true(history_window != null and history_window.visible, "opening history should show the read-only window")
 			_assert_true(history_entry != null and history_entry.text.contains("恢复"), "history should render the authored replacement text")
+		_assert_typed_reality_colors(root, UiPalette.PALETTE_1, "palette 1")
 		root.game.pollution = 60
 		root._render_status()
+		_assert_typed_reality_colors(root, UiPalette.POLLUTION_PALETTE_5, "pollution palette 5")
 		_assert_true(save_button != null and save_button.text != "保存", "menu label display may become polluted at 60%")
 		_assert_true(save_button == null or not save_button.disabled, "menu pollution must not disable saving")
 		_assert_true(history_button == null or not history_button.disabled, "menu pollution must not disable history")
@@ -80,6 +82,23 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+## Corrupted typed characters use the error role and the unrevealed suffix uses the pending role of the active palette.
+func _assert_typed_reality_colors(root: Node, palette: Dictionary, label: String) -> void:
+	var clean_units: Array[String] = ["甲", "乙", "丙"]
+	root.game.conversation_clean_units = clean_units
+	root.game.conversation_revealed_units = [
+		{"display": "甲", "corrupted": true},
+		{"display": "乙", "corrupted": false},
+	]
+	root.game.conversation_reveal_index = 2
+	var bbcode: String = root._typed_reality_bbcode()
+	var error_hex := UiPalette.color(palette, "error").to_html(false)
+	var pending_hex := UiPalette.color(palette, "pending").to_html(false)
+	_assert_true(bbcode.contains("[color=#%s][cuss]甲" % error_hex), "%s: a corrupted character should use the error role: %s" % [label, bbcode])
+	_assert_true(bbcode.contains("[color=#%s]丙" % pending_hex), "%s: the unrevealed suffix should use the pending role: %s" % [label, bbcode])
+	root.game.reset_typed_reality_conversation()
 
 
 func _find_node_by_name(root: Node, wanted_name: String) -> Node:

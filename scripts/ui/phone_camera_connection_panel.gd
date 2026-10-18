@@ -81,7 +81,7 @@ func refresh(view: Dictionary) -> void:
 		if state == "ready":
 			border_color = _theme().theme_color("accent")
 		elif state == "error":
-			border_color = Color("9f493f")
+			border_color = _theme().theme_color("error")
 		_panel.add_theme_stylebox_override(
 			"panel",
 			_theme().soft_style(_theme().theme_color("surface"), border_color)

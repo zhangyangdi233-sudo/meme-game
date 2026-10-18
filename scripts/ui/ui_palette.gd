@@ -17,6 +17,8 @@ const PALETTE_1 := {
 	"accent": "365B2D",
 	"muted": "DDEB8A",
 	"flash_text": "9CFF24",
+	"error": "C4432F",
+	"pending": "777B72",
 }
 const POLLUTION_PALETTE_5 := {
 	"name": "pollution_palette_5",
@@ -27,6 +29,8 @@ const POLLUTION_PALETTE_5 := {
 	"accent": "2F6B1F",
 	"muted": "D8FF66",
 	"flash_text": "39FF14",
+	"error": "FF2D2D",
+	"pending": "8A946C",
 }
 
 

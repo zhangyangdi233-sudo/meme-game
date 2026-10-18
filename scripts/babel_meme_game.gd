@@ -2521,8 +2521,8 @@ func _render_reality_language_composer() -> void:
 
 func _typed_reality_bbcode() -> String:
 	var normal_color := _ui_theme_helper.theme_color("surface").to_html(false)
-	var pending_color := Color("777B72").to_html(false)
-	var corrupted_color := Color("FF3B30").to_html(false)
+	var pending_color := _ui_theme_helper.theme_color("pending").to_html(false)
+	var corrupted_color := _ui_theme_helper.theme_color("error").to_html(false)
 	var parts: Array[String] = []
 	var conversation: Dictionary = _reality_conversation_snapshot()
 	for unit in conversation.get("revealed_units", []):

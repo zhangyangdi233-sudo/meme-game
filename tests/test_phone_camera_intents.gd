@@ -32,6 +32,7 @@ func _run() -> void:
 	_test_launcher_raises_icon_close_and_window_close()
 	_test_camera_consent_raises_allow_skip_and_source()
 	_test_phone_camera_connection_raises_retry_continue_disable()
+	_test_phone_camera_connection_error_border_uses_error_role()
 
 
 func _test_intent_names_and_payload_keys() -> void:
@@ -124,6 +125,31 @@ func _test_phone_camera_connection_raises_retry_continue_disable() -> void:
 		[UiIntentsScript.PHONE_CAMERA_CONTINUE, {}],
 		[UiIntentsScript.PHONE_CAMERA_DISABLE, {}],
 	], "the connection buttons should raise empty intents")
+
+	panel.free()
+	host.free()
+	RegistryScript.clear()
+
+
+func _test_phone_camera_connection_error_border_uses_error_role() -> void:
+	_bind_bus()
+	var host := Control.new()
+	root.add_child(host)
+	var panel := PhoneCameraConnectionPanelScript.new()
+	root.add_child(panel)
+	var theme := GameUiThemeScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	panel.build(host)
+	panel.refresh({
+		"camera_enabled": true,
+		"camera_source": "phone",
+		"camera_tracking_status": HandTrackingStatus.Status.PERMISSION_DENIED,
+	})
+	var frame := host.find_child("PhoneCameraConnectionPanel", true, false) as PanelContainer
+	var style := frame.get_theme_stylebox("panel") as StyleBoxFlat if frame != null else null
+	_assert_true(style != null, "the connection panel should have a flat panel style")
+	if style != null:
+		_assert_eq(style.border_color, Color(theme.theme_color("error"), 0.24), "a camera failure should draw the border in the palette error role")
 
 	panel.free()
 	host.free()
