@@ -51,9 +51,10 @@ func _test_main_menu(game_root: Node) -> void:
 	_assert_true(exit_button != null, "main menu should retain a direct system exit")
 	_assert_true(ServiceRegistry.has(ServiceKeys.UI_EVENT_BUS) and ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) == game_root._ui_event_bus, "the host should bind its UI event bus as a service")
 	exit_button.pressed.emit()
-	var confirmation := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
-	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation")
-	game_root._cancel_quit_game()
+	var confirmation := _find_node_by_name(game_root, "DialogLayer") as Control
+	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation in the dialog")
+	_press_dialog_return(game_root)
+	_assert_true(confirmation != null and not confirmation.visible, "返回 should close the title exit dialog")
 	var language_button := _find_node_by_name(game_root, "MainMenuLanguageButton") as BaseButton
 	language_button.pressed.emit()
 	_assert_true(_find_node_by_name(game_root, "LanguageSelectionOverlay") != null, "language should still open the picker")
@@ -160,13 +161,13 @@ func _test_compact_hud_and_settings(game_root: Node) -> void:
 	_assert_true(volume_slider != null and volume_slider.editable, "volume must always remain adjustable")
 
 	game_root._request_quit_game()
-	var exit_overlay := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
-	var exit_message := _find_node_by_name(game_root, "ExitConfirmationMessage") as Label
-	var exit_confirm := _find_node_by_name(game_root, "ExitConfirmationConfirmButton") as Button
+	var exit_overlay := _find_node_by_name(game_root, "DialogLayer") as Control
+	var exit_message := _find_node_by_name(exit_overlay, "DialogMessage") as Label
+	var exit_confirm := _find_node_by_name(exit_overlay, "DialogButton1") as Button
 	_assert_true(exit_overlay != null and exit_overlay.visible, "first exit request should show one confirmation")
 	_assert_true(exit_message != null and exit_message.text == "真的要抛弃我吗？", "exit confirmation should use the requested sentence")
 	_assert_true(exit_confirm != null and exit_confirm.text == "仍然退出", "final exit command should remain uncorrupted")
-	game_root._cancel_quit_game()
+	_press_dialog_return(game_root)
 
 
 func _test_phone_apps(game_root: Node) -> void:
@@ -281,6 +282,14 @@ func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null
+
+
+## Presses 返回 on the open exit dialog.
+func _press_dialog_return(game_root: Node) -> void:
+	var return_button := _find_node_by_name(_find_node_by_name(game_root, "DialogLayer"), "DialogButton0") as Button
+	_assert_true(return_button != null and return_button.text == "返回", "the exit dialog should offer 返回 first")
+	if return_button != null:
+		return_button.pressed.emit()
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:

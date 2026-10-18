@@ -7,6 +7,9 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
+const TEST_SAVE_PATH := "user://test_settings_quit_save.dat"
+const TEST_PREFERENCES_PATH := "user://test_settings_quit_preferences.cfg"
+
 var _failures: Array[String] = []
 
 
@@ -39,11 +42,11 @@ func _run_async() -> void:
 		GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
 		_assert_true(history != null and history.visible, "the host should present a history toggle")
 		GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
-		var exit_overlay := game_root.find_child("ExitConfirmationOverlay", true, false) as Control
 		GameEventBus.raise(UiIntentsScript.EXIT_GAME_REQUESTED)
+		var exit_dialog := game_root.find_child("DialogLayer", true, false) as Control
 		_assert_true(game_root.game.exit_prompt_seen, "the host should route an exit request to the settings handler")
-		_assert_true(exit_overlay != null and exit_overlay.visible, "the host should present the quit prompt")
-		game_root._cancel_quit_game()
+		_assert_true(exit_dialog != null and exit_dialog.visible, "the host should present the quit prompt in the dialog")
+		_press_dialog_button(exit_dialog, "DialogButton0")
 
 		var settings := game_root.find_child("SettingsWindow", true, false) as Control
 		GameEventBus.raise(UiIntentsScript.SETTINGS_PRESSED)
@@ -61,9 +64,29 @@ func _run_async() -> void:
 		_assert_true(settings != null and not settings.visible, "writing the open model closed should hide the window")
 		_assert_eq(view_toggle != null and view_toggle.visible, toggle_shown_before, "closing by model should restore the chrome")
 
-		game_root.queue_free()
-		await process_frame
+		# Last: 仍然退出 asks the tree to quit, so no frame runs after it and the test finishes right away.
+		_test_quit_anyway_saves_and_quits(game_root)
+		game_root.free()
+	_finish()
 
+
+## 仍然退出 in the exit dialog raises the exit confirm; the host saves the run and the preferences, then quits.
+func _test_quit_anyway_saves_and_quits(game_root: Node) -> void:
+	game_root._save_path = TEST_SAVE_PATH
+	game_root._locale.preferences_path = TEST_PREFERENCES_PATH
+	for path in [TEST_SAVE_PATH, TEST_PREFERENCES_PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	GameEventBus.raise(UiIntentsScript.EXIT_GAME_REQUESTED)
+	_press_dialog_button(game_root.find_child("DialogLayer", true, false), "DialogButton1")
+	_assert_true(FileAccess.file_exists(TEST_SAVE_PATH), "仍然退出 should save the run before quitting")
+	_assert_true(FileAccess.file_exists(TEST_PREFERENCES_PATH), "仍然退出 should save the preferences before quitting")
+	for path in [TEST_SAVE_PATH, TEST_PREFERENCES_PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _finish() -> void:
 	if _failures.is_empty():
 		print("settings intents scene tests passed")
 		quit(0)
@@ -71,6 +94,13 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _press_dialog_button(dialog: Node, button_name: String) -> void:
+	var button := dialog.find_child(button_name, true, false) as BaseButton if dialog != null else null
+	_assert_true(button != null, "the dialog should show %s" % button_name)
+	if button != null:
+		button.pressed.emit()
 
 
 func _assert_true(condition: bool, message: String) -> void:

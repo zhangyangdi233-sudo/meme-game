@@ -48,15 +48,20 @@ func _run_async() -> void:
 			)
 		if settings_exit != null:
 			settings_exit.pressed.emit()
-		var confirmation := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
-		var message := _find_node_by_name(game_root, "ExitConfirmationMessage") as Label
+		var confirmation := _find_node_by_name(game_root, "DialogLayer") as Control
+		var message := _find_node_by_name(confirmation, "DialogMessage") as Label
 		_assert_true(confirmation != null and confirmation.visible, "requesting exit should show one confirmation layer")
 		_assert_true(message != null and message.text == "真的要抛弃我吗？", "the exit confirmation should use the requested sentence")
 
-		game_root._cancel_quit_game()
+		_press_escape()
+		_assert_true(confirmation != null and not confirmation.visible, "Escape should close the exit confirmation")
 		game_root._request_quit_game()
 		_assert_true(confirmation != null and confirmation.visible, "a later exit request should still show the same single confirmation layer")
-		game_root._cancel_quit_game()
+		var return_button := _find_node_by_name(confirmation, "DialogButton0") as Button
+		_assert_true(return_button != null and return_button.text == "返回", "the dialog should keep the safe 返回 command")
+		if return_button != null:
+			return_button.pressed.emit()
+		_assert_true(confirmation != null and not confirmation.visible, "返回 should close the exit confirmation")
 
 		game_root.game.pollution = 100
 		game_root._render_status()
@@ -76,6 +81,15 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _press_escape() -> void:
+	for pressed in [true, false]:
+		var escape := InputEventKey.new()
+		escape.keycode = KEY_ESCAPE
+		escape.physical_keycode = KEY_ESCAPE
+		escape.pressed = pressed
+		root.push_input(escape)
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:

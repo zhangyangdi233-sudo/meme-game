@@ -29,14 +29,16 @@ func _run_async() -> void:
 		_assert_true(root.has_method("_request_quit_game"), "exit should use the one-time in-game confirmation flow")
 		if root.has_method("_request_quit_game"):
 			root._request_quit_game()
-			var confirmation := _find_node_by_name(root, "ExitConfirmationOverlay") as Control
-			_assert_true(confirmation != null and confirmation.visible, "the first exit request should show the authored plea")
-			var message := _find_node_by_name(root, "ExitConfirmationMessage") as Label
-			var return_button := _find_node_by_name(root, "ExitConfirmationReturnButton") as Button
-			var confirm_button := _find_node_by_name(root, "ExitConfirmationConfirmButton") as Button
+			var confirmation := _find_node_by_name(root, "DialogLayer") as Control
+			_assert_true(confirmation != null and confirmation.visible, "the first exit request should show the authored plea in the dialog")
+			var message := _find_node_by_name(confirmation, "DialogMessage") as Label
+			var return_button := _find_node_by_name(confirmation, "DialogButton0") as Button
+			var confirm_button := _find_node_by_name(confirmation, "DialogButton1") as Button
 			_assert_true(message != null and message.text == "真的要抛弃我吗？", "the exit plea should use the exact required sentence")
 			_assert_true(return_button != null and return_button.text == "返回", "the safe return command should remain exact")
 			_assert_true(confirm_button != null and confirm_button.text == "仍然退出", "the final exit command should remain exact")
+			if return_button != null:
+				return_button.pressed.emit()
 		var settings_title := _find_node_by_name(root, "SettingsWindowHandle") as Label
 		var save_button := _find_node_by_name(root, "SettingsManualSaveButton") as Button
 		var autoplay_button := _find_node_by_name(root, "SettingsAutoplayButton") as CheckButton
@@ -81,6 +83,8 @@ func _run_async() -> void:
 
 
 func _find_node_by_name(root: Node, wanted_name: String) -> Node:
+	if root == null:
+		return null
 	if root.name == wanted_name:
 		return root
 	for child in root.get_children():

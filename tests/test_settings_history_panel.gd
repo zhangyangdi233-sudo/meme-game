@@ -9,6 +9,8 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
+const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 
 var _failures: Array[String] = []
 var _registered: Array = []
@@ -20,6 +22,7 @@ var _save_events: Array = []
 var _return_events: Array = []
 var _exit_events: Array = []
 var _history_toggle_events: Array = []
+var _exit_confirmed_events: Array = []
 
 
 func _init() -> void:
@@ -57,6 +60,8 @@ func _on_intent(intent_name: String, payload: Dictionary) -> void:
 			_exit_events.append(true)
 		UiIntentsScript.HISTORY_TOGGLE_REQUESTED:
 			_history_toggle_events.append(true)
+		UiIntentsScript.EXIT_CONFIRMED:
+			_exit_confirmed_events.append(payload)
 
 
 func _run() -> void:
@@ -194,16 +199,7 @@ func _run() -> void:
 	_test_labels_follow_pollution(panel, volume_label, autoplay_button, volume_slider)
 	_test_save_status_follows_the_model(panel, settings)
 
-	panel.build_exit_confirmation_overlay(host)
-	await process_frame
-	var confirmation := _find_node_by_name(host, "ExitConfirmationOverlay") as Control
-	var message := _find_node_by_name(host, "ExitConfirmationMessage") as Label
-	_assert_true(confirmation != null and not confirmation.visible, "exit overlay should start hidden")
-	_assert_eq(message.text if message != null else "", "真的要抛弃我吗？", "exit overlay should keep the confirmation copy")
-	panel.request_quit()
-	_assert_true(confirmation != null and confirmation.visible, "request_quit should show the exit overlay")
-	panel.cancel_quit()
-	_assert_true(confirmation != null and not confirmation.visible, "cancel_quit should hide the exit overlay")
+	_test_exit_request_opens_the_dialog(panel, host, bus)
 
 	host.queue_free()
 	panel.queue_free()
@@ -338,6 +334,75 @@ func _theme_color(_key: String) -> Color:
 
 func _ui_font_size(requested: int) -> int:
 	return requested
+
+
+## The exit request opens the shared Dialog: the plea, then 返回 (focused, Escape) and 仍然退出 from left to right.
+## Only 仍然退出 raises the exit confirm; the panel builds no confirmation nodes of its own.
+func _test_exit_request_opens_the_dialog(panel: SettingsHistoryPanel, host: Control, bus: GameEventBus) -> void:
+	var holder := Node.new()
+	holder.name = "DialogHolder"
+	root.add_child(holder)
+	var canvas := CanvasLayer.new()
+	holder.add_child(canvas)
+	var layer := Control.new()
+	layer.name = "UIRoot"
+	layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(layer)
+	var dialog_manager: ScreenManager = ScreenManagerScript.new(bus, DialogScreenScript, holder)
+	holder.add_child(dialog_manager)
+	RegistryScript.bind(ServiceKeysScript.DIALOG, dialog_manager)
+	_exit_confirmed_events.clear()
+
+	panel.request_quit()
+	var screen := _find_node_by_name(layer, "DialogLayer") as Control
+	_assert_true(screen != null and screen.visible, "an exit request should open the dialog")
+	var message := _find_node_by_name(screen, "DialogMessage") as Label
+	_assert_eq(message.text if message != null else "", "真的要抛弃我吗？", "the dialog should ask the exit plea")
+	var buttons := _dialog_buttons(screen)
+	_assert_eq(buttons.map(func(button: Button) -> String: return button.text), ["返回", "仍然退出"], "the dialog should offer 返回 then 仍然退出")
+	_assert_true(buttons.size() == 2 and root.gui_get_focus_owner() == buttons[0], "返回 should take the first focus")
+	_press_escape()
+	_assert_true(screen != null and not screen.visible, "Escape should close the exit dialog")
+	_assert_eq(_exit_confirmed_events, [], "Escape should not confirm the exit")
+
+	panel.request_quit()
+	buttons = _dialog_buttons(screen)
+	if buttons.size() == 2:
+		buttons[0].pressed.emit()
+	_assert_true(screen != null and not screen.visible, "返回 should close the exit dialog")
+	_assert_eq(_exit_confirmed_events, [], "返回 should not confirm the exit")
+
+	panel.request_quit()
+	buttons = _dialog_buttons(screen)
+	if buttons.size() == 2:
+		buttons[1].pressed.emit()
+	_assert_true(screen != null and not screen.visible, "仍然退出 should close the exit dialog")
+	_assert_eq(_exit_confirmed_events, [{}], "仍然退出 should raise one empty exit confirm")
+
+	for node_name in ["ExitConfirmationOverlay", "ExitConfirmationMessage", "ExitConfirmationReturnButton", "ExitConfirmationConfirmButton"]:
+		_assert_true(_find_node_by_name(host, node_name) == null and _find_node_by_name(panel, node_name) == null, "the panel should not build %s" % node_name)
+	RegistryScript.unbind(ServiceKeysScript.DIALOG, dialog_manager)
+	holder.free()
+
+
+func _dialog_buttons(screen: Node) -> Array[Button]:
+	var found: Array[Button] = []
+	var row := _find_node_by_name(screen, "DialogButtonRow")
+	if row == null:
+		return found
+	for child in row.get_children():
+		if child is Button and not child.is_queued_for_deletion():
+			found.append(child as Button)
+	return found
+
+
+func _press_escape() -> void:
+	for pressed in [true, false]:
+		var escape := InputEventKey.new()
+		escape.keycode = KEY_ESCAPE
+		escape.physical_keycode = KEY_ESCAPE
+		escape.pressed = pressed
+		root.push_input(escape)
 
 
 func _register_draggable(window: Control, window_id: String, handle: Control) -> void:

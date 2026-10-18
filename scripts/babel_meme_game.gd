@@ -959,7 +959,6 @@ func install_title_screen() -> void:
 	_apply_ui_theme()
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
 	_ensure_settings_history_panel()
-	_settings_history_panel.build_exit_confirmation_overlay(_ui_root, _settings_history_mount_deps())
 	_update_visibility()
 
 
@@ -1602,7 +1601,6 @@ func _build_settings_window() -> void:
 	_settings_window = _settings_history_panel.get_settings_window() as PanelContainer
 	_inject_settings_camera_block()
 	_layout_settings_window()
-	_settings_history_panel.build_exit_confirmation_overlay(_ui_root)
 	if _edge_drawer != null and _settings_window != null:
 		_edge_drawer.add_exclusion(_settings_window)
 
@@ -2168,11 +2166,6 @@ func _request_quit_game() -> void:
 func _show_quit_prompt() -> void:
 	if _settings_history_panel != null:
 		_settings_history_panel.request_quit()
-
-
-func _cancel_quit_game() -> void:
-	if _settings_history_panel != null:
-		_settings_history_panel.cancel_quit()
 
 
 func _confirm_quit_game() -> void:

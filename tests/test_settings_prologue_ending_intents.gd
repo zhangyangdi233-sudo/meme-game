@@ -32,7 +32,6 @@ func _init() -> void:
 func _run() -> void:
 	_test_intent_names_and_payload_keys()
 	_test_settings_window_raises_its_actions()
-	_test_exit_confirmation_raises_confirmed()
 	_test_hud_settings_button_raises_settings_pressed()
 	_test_prologue_raises_finished()
 	_test_ending_raises_language_choice_and_restart()
@@ -94,22 +93,6 @@ func _test_settings_window_raises_its_actions() -> void:
 	_press(settings, "SettingsHistoryButton")
 	_assert_eq(_heard, [[UiIntentsScript.HISTORY_TOGGLE_REQUESTED, {}]], "the history button should raise an empty intent")
 
-	panel.free()
-	host.free()
-	RegistryScript.clear()
-
-
-func _test_exit_confirmation_raises_confirmed() -> void:
-	_bind_bus()
-	var host := Control.new()
-	root.add_child(host)
-	var panel := SettingsHistoryPanelScript.new()
-	root.add_child(panel)
-	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
-	panel.build_exit_confirmation_overlay(host, {
-	})
-	_press(host, "ExitConfirmationConfirmButton")
-	_assert_eq(_heard, [[UiIntentsScript.EXIT_CONFIRMED, {}]], "the confirm button should raise an empty intent")
 	panel.free()
 	host.free()
 	RegistryScript.clear()

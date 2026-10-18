@@ -5,6 +5,7 @@ extends Node
 ## The panel always watches the open flag and pollution (for its labels).
 ## The open settings window also watches volume, autoplay, language and the save status; closing it stops.
 ## The open history window watches the recorded lines the same way.
+## The exit confirmation is the shared Dialog (ServiceKeys.DIALOG); the panel builds no confirmation nodes.
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -12,6 +13,12 @@ const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
+
+## UI catalog source keys of the exit dialog.
+const EXIT_PLEA := "真的要抛弃我吗？"
+const EXIT_RETURN := "返回"
+const EXIT_CONFIRM := "仍然退出"
 
 var _history_window: PanelContainer
 var _history_content: VBoxContainer
@@ -42,7 +49,6 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 var _history_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.HISTORY_ENTRIES: _paint_history,
 })
-var _exit_confirmation_overlay: Control
 var _register_draggable: Callable
 
 
@@ -183,70 +189,20 @@ func _on_save_status(value: Variant) -> void:
 		_settings_save_status.text = str(value)
 
 
-func build_exit_confirmation_overlay(parent: Control, deps: Dictionary = {}) -> void:
-	_apply_mount_deps(deps)
-	if parent == null or _theme() == null:
-		return
-	if _exit_confirmation_overlay != null and is_instance_valid(_exit_confirmation_overlay):
-		_exit_confirmation_overlay.queue_free()
-	_exit_confirmation_overlay = Control.new()
-	_exit_confirmation_overlay.name = "ExitConfirmationOverlay"
-	_exit_confirmation_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.visible = false
-	_exit_confirmation_overlay.z_index = 220
-	parent.add_child(_exit_confirmation_overlay)
-
-	var blackout := ColorRect.new()
-	blackout.name = "ExitConfirmationBackdrop"
-	blackout.color = Color(_theme().theme_color("ink"), 0.88)
-	blackout.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.add_child(blackout)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_exit_confirmation_overlay.add_child(center)
-	var panel := _theme().panel() as PanelContainer
-	panel.name = "ExitConfirmationPanel"
-	panel.custom_minimum_size = Vector2(520, 230)
-	panel.add_theme_stylebox_override("panel", _theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent")))
-	center.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 24)
-	panel.add_child(box)
-	var message := _theme().label("真的要抛弃我吗？", 25, _theme().theme_color("ink")) as Label
-	message.name = "ExitConfirmationMessage"
-	message.set_meta("skip_localization", true)
-	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(message)
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 12)
-	box.add_child(actions)
-	var return_button := Button.new()
-	return_button.name = "ExitConfirmationReturnButton"
-	return_button.text = "返回"
-	return_button.set_meta("skip_localization", true)
-	return_button.custom_minimum_size = Vector2(180, 54)
-	return_button.pressed.connect(cancel_quit)
-	actions.add_child(return_button)
-	var confirm_button := Button.new()
-	confirm_button.name = "ExitConfirmationConfirmButton"
-	confirm_button.text = "仍然退出"
-	confirm_button.set_meta("skip_localization", true)
-	confirm_button.custom_minimum_size = Vector2(180, 54)
-	confirm_button.pressed.connect(_on_exit_confirm_pressed)
-	actions.add_child(confirm_button)
-
-
+## Opens the shared Dialog with the exit plea. 返回 (left, focused, Escape) only closes; 仍然退出 raises the exit confirm.
 func request_quit() -> void:
-	if _exit_confirmation_overlay != null:
-		_exit_confirmation_overlay.visible = true
-		_exit_confirmation_overlay.move_to_front()
-
-
-func cancel_quit() -> void:
-	if _exit_confirmation_overlay != null:
-		_exit_confirmation_overlay.visible = false
+	if not ServiceRegistryScript.has(ServiceKeysScript.DIALOG):
+		return
+	var dialog := ServiceRegistryScript.resolve(ServiceKeysScript.DIALOG) as ScreenManager
+	dialog.open({
+		DialogScreenScript.KEY_MESSAGE: EXIT_PLEA,
+		DialogScreenScript.KEY_BUTTONS: [
+			{DialogScreenScript.KEY_TEXT: EXIT_RETURN},
+			{DialogScreenScript.KEY_TEXT: EXIT_CONFIRM, DialogScreenScript.KEY_CALLBACK: _on_exit_confirm_pressed},
+		],
+		DialogScreenScript.KEY_CANCEL_INDEX: 0,
+		DialogScreenScript.KEY_OWNER: self,
+	})
 
 
 func _paint_history(entries: Variant) -> void:
