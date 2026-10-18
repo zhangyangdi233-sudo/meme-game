@@ -1,5 +1,6 @@
 extends SceneTree
 ## Returning to the title writes the save; START continues from it, and starts a new game when the save is missing or unreadable.
+## Holding START with a save and answering YES starts a new game through the host.
 
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -106,10 +107,41 @@ func _run() -> void:
 	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
 	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
 	_assert_true(prologue == null, "Continue should not replay the prologue")
+	await _test_holding_start_and_yes_starts_a_new_game(game_root)
 	await _test_start_without_a_save_starts_a_new_game(game_root)
 	await _test_start_with_a_broken_save_starts_a_new_game(game_root)
 	game_root.queue_free()
 	await process_frame
+
+
+func _test_holding_start_and_yes_starts_a_new_game(game_root: Node) -> void:
+	game_root._skip_prologue()
+	game_root.game.day = 5
+	game_root.show_main_menu()
+	await process_frame
+	_assert_eq(_has_save_model(), true, "the title should see the save before the hold")
+	var hint := _find_node_by_name(game_root, "MainMenuHoldHint") as Label
+	_assert_true(hint != null and hint.is_visible_in_tree(), "with a save the title shows the hold hint")
+	var start := _find_node_by_name(game_root, "MainMenuStartButton") as BaseButton
+	var screen := _find_node_by_name(game_root, "MainMenuLayer")
+	if start == null or screen == null:
+		_assert_true(false, "the title should show START")
+		return
+	start.button_down.emit()
+	screen._process(0.81)
+	var dialog := _find_node_by_name(game_root, "DialogLayer") as Control
+	_assert_true(dialog != null and dialog.is_visible_in_tree(), "holding START with a save opens the restart dialog")
+	var row := _find_node_by_name(dialog, "DialogButtonRow") if dialog != null else null
+	if row == null or row.get_child_count() != 2:
+		_assert_true(false, "the restart dialog should offer YES and NO")
+		return
+	start.button_up.emit()
+	(row.get_child(0) as Button).pressed.emit()
+	await process_frame
+	await process_frame
+	_assert_eq(game_root.game.day, 1, "YES should start a new run")
+	_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "YES should play the prologue")
+	_assert_true(FileAccess.file_exists(TEST_SAVE_PATH), "YES should leave the old save for the next save to overwrite")
 
 
 func _test_start_without_a_save_starts_a_new_game(game_root: Node) -> void:

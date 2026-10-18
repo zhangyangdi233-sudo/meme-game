@@ -61,6 +61,8 @@ const SELECTED_LANGUAGE_TOKEN := "selected_language_token"
 const SELECTED_MEME := "selected_meme"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
 const FEEDBACK_TEXT := "feedback_text"
+## Seconds START has been held on the title, zero when it is not held. Not saved; the debug panel shows it.
+const START_HOLD_SECONDS := "start_hold_seconds"
 
 const DEFAULT_MONEY := 18
 const DEFAULT_MAX_ACTIONS := 5
@@ -140,6 +142,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": SELECTED_LANGUAGE_TOKEN, "initial": "", "save": NOT_SAVED},
 	{"name": SELECTED_MEME, "initial": "", "save": NOT_SAVED},
 	{"name": FEEDBACK_TEXT, "initial": "", "save": NOT_SAVED},
+	{"name": START_HOLD_SECONDS, "initial": 0.0, "save": NOT_SAVED},
 ]
 
 

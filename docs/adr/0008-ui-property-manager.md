@@ -20,7 +20,7 @@ Passing a prepared dictionary into each screen copies the same fact until the co
 
 ## What stays outside
 
-A screen computes what it shows. Palette comes from pollution. Action pips come from `actions_remaining`. Whether START continues or starts a new game comes from `has_save`. Those results are not models.
+A screen computes what it shows. Palette comes from pollution. Action pips come from `actions_remaining`. Whether START continues or starts a new game, and whether holding it can open the restart dialog, comes from `has_save`. Those results are not models. How long START has been held is a model (`start_hold_seconds`, not saved): the main menu writes it and the debug title panel watches it, so neither holds the other.
 
 Which screen is installed stays a Session mode enter and exit (ADR 0004). Opening registers and syncs. Closing unregisters. A closed screen receives nothing, so a change cannot open it. The screen manager stays host-created and only opens or hides a screen (ADR 0007). Player actions still arrive as UI intents. The handler writes the model.
 

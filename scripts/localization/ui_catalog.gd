@@ -9,6 +9,10 @@ const EN: Dictionary = {
 	"%d / %d 字": "%d / %d units",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "Continue",
+	"长按重新开始": "hold to restart",
+	"确定要重新开始游戏吗？": "Are you sure you want to restart?",
+	"是": "YES",
+	"否": "NO",
 	"新游戏": "New Game",
 	"退出游戏": "Quit Game",
 	"语言": "Language",
@@ -527,6 +531,10 @@ const JA: Dictionary = {
 	"%d / %d 字": "%d / %d 文字",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "つづきから",
+	"长按重新开始": "長押しでリスタート",
+	"确定要重新开始游戏吗？": "ゲームを再起動してもよろしいですか？",
+	"是": "はい",
+	"否": "いいえ",
 	"新游戏": "ニューゲーム",
 	"退出游戏": "ゲームを終了",
 	"语言": "言語",

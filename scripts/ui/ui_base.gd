@@ -5,7 +5,7 @@ extends PaletteSceneRoot
 ## Root of a fixed layout scene.
 ## Subclasses declare SCENE_PATH, LAYER_NAME, and BUTTON_INTENTS.
 ## Button wiring lives here; subclasses do not connect buttons themselves.
-## A subclass whose button raises a different intent by state overrides `_intent_for`.
+## A subclass whose button raises a different intent by state overrides `_intent_for`; an empty name raises nothing.
 
 
 var _intents_bound := false
@@ -25,10 +25,12 @@ func bind_intents(bus: GameEventBus) -> void:
 
 
 func _raise_intent(bus: GameEventBus, button_name: String, intent_name: String) -> void:
-	bus.emit_intent(_intent_for(button_name, intent_name))
+	var raised := _intent_for(button_name, intent_name)
+	if not raised.is_empty():
+		bus.emit_intent(raised)
 
 
-## The intent a press raises now; the declared one unless the subclass decides by state.
+## The intent a press raises now; the declared one unless the subclass decides by state. Empty raises nothing.
 func _intent_for(_button_name: String, intent_name: String) -> String:
 	return intent_name
 

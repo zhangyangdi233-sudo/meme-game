@@ -5,6 +5,7 @@ extends PaletteSceneRoot
 ## with one, two or three buttons, and the log names the button that was pressed.
 ## The save simulation overrides only the has_save model, so START can be checked with and without a save;
 ## it never writes the save file. It shows the actual save beside it.
+## It also shows, live, how many seconds START has been held (the start_hold_seconds model).
 
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -13,6 +14,7 @@ const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const GameModelsScript = preload("res://scripts/game/game_models.gd")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const SAMPLE_BUTTON_TEXTS := ["确定", "取消", "稍后"]
 const SAVE_FOLLOW := "follow"
 const SAVE_SIMULATED := "simulated"
@@ -24,6 +26,9 @@ const SAVE_BUTTONS := {
 }
 
 var _save_slot: SaveSlotScript
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.START_HOLD_SECONDS: _on_start_held,
+})
 
 
 ## The save file the panel reads to show and follow the actual save.
@@ -44,6 +49,7 @@ func _ready() -> void:
 		if choice != null:
 			choice.pressed.connect(_simulate_save.bind(mode))
 	_show_save_choice(SAVE_FOLLOW)
+	_watch.start()
 	var theme := GameUiThemeScript.bound()
 	if theme != null:
 		apply_palette(theme.active_palette())
@@ -101,6 +107,12 @@ func _show_save_choice(mode: String) -> void:
 	var actual := get_node_or_null("%DialogDebugSaveActual") as Label
 	if actual != null:
 		actual.text = "实际存档：有" if _actual_save() else "实际存档：无"
+
+
+func _on_start_held(value: Variant) -> void:
+	var held := get_node_or_null("%DialogDebugHoldTime") as Label
+	if held != null:
+		held.text = "START 按住：%.2f 秒" % float(value)
 
 
 func _actual_save() -> bool:
