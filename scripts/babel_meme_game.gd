@@ -1288,6 +1288,8 @@ func _build_ui() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "UIRoot"
 	_ui_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Full-screen layers must let mouse events through, or street look and click-to-capture never reach _unhandled_input.
+	_ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_theme_helper.apply_ui_font_theme(_ui_root)
 	_canvas.add_child(_ui_root)
 
@@ -1295,6 +1297,7 @@ func _build_ui() -> void:
 	vignette.color = _ui_theme_helper.theme_color("ink").darkened(0.15)
 	vignette.modulate.a = 0.16
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vignette.z_index = 2
 	_ui_root.add_child(vignette)
 

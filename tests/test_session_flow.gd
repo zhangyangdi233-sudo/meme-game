@@ -545,6 +545,26 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 	)
 
 
+## Real input passes the GUI first; a full-screen Control that stops the mouse would starve _unhandled_input.
+func _assert_viewport_routed_look(game_root) -> void:
+	var center := Vector2(game_root.get_viewport().get_visible_rect().size) * 0.5
+	game_root._unhandled_input(_key_event(KEY_ESCAPE))
+	_assert_true(not game_root._reality_mouse_look_enabled, "Escape should release gameplay mouse look")
+	await _click_at(game_root, center)
+	_assert_true(game_root._reality_mouse_look_enabled, "a click on the street should recapture gameplay mouse look")
+	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
+	var look := InputEventMouseMotion.new()
+	look.position = center
+	look.global_position = center
+	look.relative = Vector2(96.0, 0.0)
+	game_root.get_viewport().push_input(look, true)
+	await process_frame
+	_assert_true(
+		not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
+		"mouse motion routed through the viewport should rotate the first-person view"
+	)
+
+
 func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 	_assert_true(
 		InputMap.has_action("reality_forward") and InputMap.has_action("reality_phone"),
@@ -560,6 +580,7 @@ func _assert_gameplay_world_hotkeys_live(game_root) -> void:
 		not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before),
 		"gameplay look should rotate the first-person view"
 	)
+	await _assert_viewport_routed_look(game_root)
 	_assert_window_drag(game_root, true, "gameplay")
 	var view_before := str(game_root.game.view_state)
 	game_root._unhandled_input(_key_event(KEY_TAB))
