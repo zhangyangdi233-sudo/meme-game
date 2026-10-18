@@ -11,9 +11,7 @@ const PALETTE_1 := {
 	"ink": "10140F",
 	"accent": "365B2D",
 	"muted": "DDEB8A",
-	"danger_stripe": "10140F",
 	"flash_text": "9CFF24",
-	"menu_bg": "5DAE6B",
 }
 const POLLUTION_PALETTE_5 := {
 	"name": "pollution_palette_5",
@@ -23,9 +21,7 @@ const POLLUTION_PALETTE_5 := {
 	"ink": "0D1009",
 	"accent": "2F6B1F",
 	"muted": "D8FF66",
-	"danger_stripe": "0D1009",
 	"flash_text": "39FF14",
-	"menu_bg": "9CFF24",
 }
 
 

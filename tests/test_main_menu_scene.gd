@@ -16,8 +16,6 @@ const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const UICatalogScript = preload("res://scripts/localization/ui_catalog.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 
-const POLLUTED_STAGE := {"palette_key": "pollution_palette_5"}
-
 var _failures: Array[String] = []
 
 
@@ -40,7 +38,6 @@ func _run_deferred() -> void:
 
 
 func _run() -> void:
-	_test_palettes_define_menu_bg()
 	_test_mount_keeps_node_contract()
 	_test_art_buttons_keep_their_art()
 	_test_open_menu_follows_the_save()
@@ -240,12 +237,6 @@ func _test_the_debug_panel_shows_how_long_start_is_held() -> void:
 	_mouse_start(mounted, false)
 	_assert_eq(label.text, "START 按住：0.00 秒", "releasing START resets the panel")
 	_dispose_all(mounted)
-
-
-func _test_palettes_define_menu_bg() -> void:
-	var ui_theme := GameUiThemeScript.new()
-	_assert_eq(ui_theme.theme_color("menu_bg", {}), Color("5DAE6B"), "palette_1 should define menu_bg")
-	_assert_eq(ui_theme.theme_color("menu_bg", POLLUTED_STAGE), Color("9CFF24"), "pollution_palette_5 should define menu_bg")
 
 
 func _test_mount_keeps_node_contract() -> void:

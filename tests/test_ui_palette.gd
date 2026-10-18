@@ -2,6 +2,12 @@ extends SceneTree
 ## UiPalette answers every role from the palette it is given; a gap or an unknown role is reported, never guessed.
 
 const PaletteErrorLog = preload("res://tests/harness/palette_error_log.gd")
+const ROLES_IN_USE := ["accent", "bg", "flash_text", "ink", "muted", "surface", "text"]
+const LAYOUT_SCENES := [
+	"res://scenes/ui/main_menu.tscn",
+	"res://scenes/ui/dialog.tscn",
+	"res://scenes/ui/dialog_debug_panel.tscn",
+]
 
 var _failures: Array[String] = []
 var _errors := PaletteErrorLog.new()
@@ -12,6 +18,8 @@ func _init() -> void:
 	_test_a_complete_palette_answers_without_errors()
 	_test_a_missing_role_is_reported_and_falls_back_to_palette_1()
 	_test_an_unknown_role_is_reported()
+	_test_both_palettes_define_only_the_roles_in_use()
+	_test_layout_scenes_use_only_known_roles()
 	OS.remove_logger(_errors)
 	if _failures.is_empty():
 		print("ui palette tests passed")
@@ -23,9 +31,26 @@ func _init() -> void:
 
 
 func _test_a_complete_palette_answers_without_errors() -> void:
-	_assert_eq(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "danger_stripe"), Color("0D1009"), "a complete palette should answer its own role")
-	_assert_eq(UiPalette.color(UiPalette.PALETTE_1, "menu_bg"), Color("5DAE6B"), "palette 1 should answer its own role")
+	_assert_eq(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "accent"), Color("2F6B1F"), "a complete palette should answer its own role")
+	_assert_eq(UiPalette.color(UiPalette.PALETTE_1, "flash_text"), Color("9CFF24"), "palette 1 should answer its own role")
 	_assert_eq(_errors.take(), [], "a complete palette should report nothing")
+
+
+func _test_both_palettes_define_only_the_roles_in_use() -> void:
+	for palette in [UiPalette.PALETTE_1, UiPalette.POLLUTION_PALETTE_5]:
+		var roles: Array = palette.keys()
+		roles.erase("name")
+		roles.sort()
+		_assert_eq(roles, ROLES_IN_USE, "%s should define exactly the roles something reads" % palette["name"])
+
+
+func _test_layout_scenes_use_only_known_roles() -> void:
+	for path in LAYOUT_SCENES:
+		var layout := (load(path) as PackedScene).instantiate() as PaletteSceneRoot
+		_assert_true(layout != null, "%s should have a PaletteSceneRoot root" % path)
+		if layout != null:
+			_assert_eq(layout.palette_role_errors(), PackedStringArray(), "%s should only name palette roles" % path)
+			layout.free()
 
 
 func _test_a_missing_role_is_reported_and_falls_back_to_palette_1() -> void:
