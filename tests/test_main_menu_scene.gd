@@ -1,6 +1,7 @@
 extends SceneTree
 ## Main menu layout scene: node contract, palette roles under both palettes, and isolation from the global UI theme walk.
 ## With a save, holding START opens the restart dialog; the hint above START shows only with a save.
+## While START is held with a save, a ring fills clockwise around the cursor (mouse) or on START (keys, pad).
 
 const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -16,6 +17,7 @@ const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const UICatalogScript = preload("res://scripts/localization/ui_catalog.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const LocaleFontScript = preload("res://scripts/ui/locale_font.gd")
+const HoldRingScript = preload("res://scripts/ui/hold_ring.gd")
 
 var _failures: Array[String] = []
 
@@ -60,17 +62,23 @@ func _run_hold() -> void:
 	await _test_the_hold_hint_follows_the_save_language_and_hover()
 	await _test_the_hold_hint_uses_the_language_font()
 	await _test_the_debug_panel_shows_how_long_start_is_held()
+	await _test_the_ring_fills_while_start_is_held()
+	await _test_releasing_early_hides_and_resets_the_ring()
+	await _test_without_a_save_no_ring_shows()
+	await _test_the_ring_follows_the_mouse()
+	await _test_keys_and_the_pad_put_the_ring_on_start()
+	_test_the_ring_fills_clockwise_from_twelve()
 
 
 func _test_holding_start_with_a_save_opens_the_restart_dialog() -> void:
 	var mounted := await _mount_with_dialog(true)
 	var heard := _listen(mounted)
 	_mouse_start(mounted, true)
-	_tick(mounted, 0.5)
+	_tick(mounted, 0.9)
 	_tick(mounted, 0.29)
-	_assert_true(not _dialog_open(mounted), "held under 0.8 seconds the restart dialog stays closed")
+	_assert_true(not _dialog_open(mounted), "held under 1.2 seconds the restart dialog stays closed")
 	_tick(mounted, 0.02)
-	_assert_true(_dialog_open(mounted), "held 0.8 seconds the restart dialog opens before release")
+	_assert_true(_dialog_open(mounted), "held 1.2 seconds the restart dialog opens before release")
 	_mouse_start(mounted, false)
 	_assert_eq(heard, [] as Array[String], "releasing after the dialog opened raises nothing")
 	_assert_true(_dialog_open(mounted), "releasing after the dialog opened leaves it open")
@@ -83,7 +91,7 @@ func _test_a_short_press_with_a_save_still_continues() -> void:
 	_mouse_start(mounted, true)
 	_tick(mounted, 0.7)
 	_mouse_start(mounted, false)
-	_assert_eq(heard, [UiIntentsScript.CONTINUE_GAME] as Array[String], "released under 0.8 seconds START continues")
+	_assert_eq(heard, [UiIntentsScript.CONTINUE_GAME] as Array[String], "released under 1.2 seconds START continues")
 	_assert_true(not _dialog_open(mounted), "a short press opens no dialog")
 	# A later hold starts its count again instead of adding to the short press.
 	_mouse_start(mounted, true)
@@ -100,7 +108,7 @@ func _test_keys_and_the_pad_hold_start_too() -> void:
 		var start := _start(mounted)
 		start.grab_focus()
 		_confirm(source, true)
-		_tick(mounted, 0.81)
+		_tick(mounted, 1.21)
 		_assert_true(_dialog_open(mounted), "holding %s on a focused START opens the restart dialog" % source)
 		# The key release goes to the dialog, so START may never hear it; the open dialog ends the hold.
 		_tick(mounted, 0.5)
@@ -239,6 +247,140 @@ func _test_the_debug_panel_shows_how_long_start_is_held() -> void:
 	_mouse_start(mounted, false)
 	_assert_eq(label.text, "START 按住：0.00 秒", "releasing START resets the panel")
 	_dispose_all(mounted)
+
+
+func _test_the_ring_fills_while_start_is_held() -> void:
+	var mounted := await _mount_with_dialog(true)
+	var ring := _ring(mounted)
+	_assert_true(ring != null, "the main menu should have the hold ring")
+	if ring == null:
+		_dispose_all(mounted)
+		return
+	_assert_true(not ring.visible, "the ring is hidden before START is held")
+	_mouse_start(mounted, true)
+	_assert_true(ring.visible, "pressing START with a save shows the ring")
+	_assert_eq(ring.progress, 0.0, "the ring starts empty")
+	_tick(mounted, 0.6)
+	_assert_true(is_equal_approx(ring.progress, 0.5), "held 0.6 of 1.2 seconds the ring is half full (got %s)" % ring.progress)
+	_assert_true(is_equal_approx(ring.progress * MainMenuScreenScript.HOLD_SECONDS, _held_seconds()), "the ring and the debug panel's held seconds agree")
+	_tick(mounted, 0.59)
+	_assert_true(ring.visible and ring.progress < 1.0, "just under 1.2 seconds the ring is not yet full")
+	_tick(mounted, 0.02)
+	_assert_true(_dialog_open(mounted), "a full ring opens the restart dialog")
+	_assert_true(not ring.visible, "the ring disappears once the dialog opens")
+	_tick(mounted, 0.5)
+	_assert_true(not ring.visible, "the ring stays hidden while the dialog is open")
+	_dispose_all(mounted)
+
+
+func _test_releasing_early_hides_and_resets_the_ring() -> void:
+	var mounted := await _mount_with_dialog(true)
+	var heard := _listen(mounted)
+	var ring := _ring(mounted)
+	if ring == null:
+		_failures.append("the main menu should have the hold ring")
+		_dispose_all(mounted)
+		return
+	_mouse_start(mounted, true)
+	_tick(mounted, 0.5)
+	_mouse_start(mounted, false)
+	_assert_true(not ring.visible, "releasing before the ring fills hides it at once")
+	_assert_eq(ring.progress, 0.0, "releasing before the ring fills empties it")
+	_assert_eq(heard, [UiIntentsScript.CONTINUE_GAME] as Array[String], "an early release is still a short press")
+	_mouse_start(mounted, true)
+	_assert_eq(ring.progress, 0.0, "the next hold starts the ring from empty")
+	_mouse_start(mounted, false)
+	_dispose_all(mounted)
+
+
+func _test_without_a_save_no_ring_shows() -> void:
+	var mounted := await _mount_with_dialog(false)
+	var ring := _ring(mounted)
+	if ring == null:
+		_failures.append("the main menu should have the hold ring")
+		_dispose_all(mounted)
+		return
+	_mouse_start(mounted, true)
+	_assert_true(not ring.visible, "without a save pressing START shows no ring")
+	_tick(mounted, 1.0)
+	_tick(mounted, 1.0)
+	_assert_true(not ring.visible, "without a save holding START shows no ring")
+	_mouse_start(mounted, false)
+	_dispose_all(mounted)
+
+
+func _test_the_ring_follows_the_mouse() -> void:
+	var mounted := await _mount_with_dialog(true)
+	var ring := _ring(mounted)
+	if ring == null:
+		_failures.append("the main menu should have the hold ring")
+		_dispose_all(mounted)
+		return
+	var rect := _start(mounted).get_global_rect()
+	var press_at := rect.position + Vector2(40.0, 30.0)
+	_mouse_start(mounted, true, press_at)
+	_assert_true(_ring_center(ring).is_equal_approx(press_at), "a mouse hold centers the ring on the cursor (got %s, want %s)" % [_ring_center(ring), press_at])
+	var moved_to := rect.position + Vector2(200.0, 120.0)
+	_mouse_move(moved_to)
+	_tick(mounted, 0.1)
+	_assert_true(_ring_center(ring).is_equal_approx(moved_to), "the ring follows the cursor while held (got %s, want %s)" % [_ring_center(ring), moved_to])
+	# The button keeps the mouse while pressed, so the ring follows a cursor dragged off START too.
+	var outside := rect.end + Vector2(150.0, 60.0)
+	_mouse_move(outside)
+	_tick(mounted, 0.1)
+	_assert_true(_ring_center(ring).is_equal_approx(outside), "the ring follows the cursor off START (got %s, want %s)" % [_ring_center(ring), outside])
+	_mouse_start(mounted, false, outside)
+	_dispose_all(mounted)
+
+
+func _test_keys_and_the_pad_put_the_ring_on_start() -> void:
+	for source in ["enter", "space", "pad"]:
+		var mounted := await _mount_with_dialog(true)
+		var ring := _ring(mounted)
+		if ring == null:
+			_failures.append("the main menu should have the hold ring")
+			_dispose_all(mounted)
+			return
+		var start := _start(mounted)
+		var center := start.get_global_rect().get_center()
+		# A cursor resting on START must not pull the ring away from its center.
+		var resting := start.get_global_rect().position + Vector2(10.0, 10.0)
+		var motion := InputEventMouseMotion.new()
+		motion.position = resting
+		motion.global_position = resting
+		root.push_input(motion)
+		start.grab_focus()
+		_confirm(source, true)
+		_assert_true(ring.visible, "holding %s on a focused START shows the ring" % source)
+		_tick(mounted, 0.3)
+		_assert_true(_ring_center(ring).is_equal_approx(center), "holding %s puts the ring on START's center (got %s, want %s)" % [source, _ring_center(ring), center])
+		_confirm(source, false)
+		_dispose_all(mounted)
+
+
+func _test_the_ring_fills_clockwise_from_twelve() -> void:
+	for fraction in [0.25, 0.5, 1.0]:
+		var arc: Vector2 = HoldRingScript.fill_arc(fraction)
+		_assert_true(is_equal_approx(arc.x, -PI / 2.0), "the fill starts at twelve o'clock")
+		# Screen y points down, so a growing angle turns clockwise.
+		_assert_true(is_equal_approx(arc.y - arc.x, TAU * fraction), "a %s fill sweeps %s of the circle clockwise" % [fraction, fraction])
+
+
+func _ring(mounted: Dictionary) -> HoldRingScript:
+	return Harness.find_node_by_name(mounted["screen"], "MainMenuHoldRing") as HoldRingScript
+
+
+func _ring_center(ring: Control) -> Vector2:
+	return ring.get_global_rect().get_center()
+
+
+## A drag with the left button held, as while START is pressed by mouse.
+func _mouse_move(at: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = at
+	motion.global_position = at
+	motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	root.push_input(motion)
 
 
 func _test_mount_keeps_node_contract() -> void:
@@ -431,8 +573,9 @@ func _tick(mounted: Dictionary, delta: float) -> void:
 	(mounted["screen"] as Node)._process(delta)
 
 
-func _mouse_start(mounted: Dictionary, pressed: bool) -> void:
-	var at := _start(mounted).get_global_rect().get_center()
+func _mouse_start(mounted: Dictionary, pressed: bool, at: Variant = null) -> void:
+	if at == null:
+		at = _start(mounted).get_global_rect().get_center()
 	var motion := InputEventMouseMotion.new()
 	motion.position = at
 	motion.global_position = at

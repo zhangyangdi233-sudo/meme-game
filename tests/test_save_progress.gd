@@ -128,7 +128,7 @@ func _test_holding_start_and_yes_starts_a_new_game(game_root: Node) -> void:
 		_assert_true(false, "the title should show START")
 		return
 	start.button_down.emit()
-	screen._process(0.81)
+	screen._process(1.21)
 	var dialog := _find_node_by_name(game_root, "DialogLayer") as Control
 	_assert_true(dialog != null and dialog.is_visible_in_tree(), "holding START with a save opens the restart dialog")
 	var row := _find_node_by_name(dialog, "DialogButtonRow") if dialog != null else null

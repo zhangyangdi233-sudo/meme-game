@@ -7,6 +7,8 @@ extends UIBase
 ## With a save, holding START (mouse, or a confirm key or pad button on a focused START) for HOLD_SECONDS opens
 ## the restart dialog right away; that hold's release raises nothing. A shorter hold is a plain press.
 ## Without a save the hold never opens the dialog and its release starts a new game.
+## With a save, a ring fills clockwise while START is held: around the cursor for a mouse hold (following it),
+## on START's center for a key or pad hold. It hides, empty, on release or once the dialog opens.
 ## The hint above START shows only with a save, pale until START is hovered or focused.
 ## While open the hint follows the language in that language's formal font (LocaleFont), not the pixel font.
 
@@ -16,12 +18,13 @@ const LAYER_NAME := "UIRoot"
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const START_BUTTON := "MainMenuStartButton"
 const HINT_LABEL := "MainMenuHoldHint"
+const RING := "MainMenuHoldRing"
 const BUTTON_INTENTS := {
 	START_BUTTON: UiIntentsScript.START_GAME,
 	"MainMenuExitButton": UiIntentsScript.EXIT_GAME,
 	"MainMenuLanguageButton": UiIntentsScript.LANGUAGE_PICKER,
 }
-const HOLD_SECONDS := 0.8
+const HOLD_SECONDS := 1.2
 ## UI catalog source keys of the restart dialog.
 const RESTART_QUESTION := "确定要重新开始游戏吗？"
 const RESTART_YES := "是"
@@ -34,6 +37,7 @@ const HINT_COLOR_ACTIVE := Color("8f2f37")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameModelsScript = preload("res://scripts/game/game_models.gd")
 const LocaleFontScript = preload("res://scripts/ui/locale_font.gd")
+const HoldRingScript = preload("res://scripts/ui/hold_ring.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -53,6 +57,9 @@ var _held_seconds := 0.0
 var _hold_fired := false
 var _start_hovered := false
 var _start_focused := false
+## The current press came from the mouse, so the ring follows `_cursor` instead of sitting on START.
+var _held_by_mouse := false
+var _cursor := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -62,6 +69,7 @@ func _ready() -> void:
 	var start := _start_button()
 	if start == null:
 		return
+	start.gui_input.connect(_on_start_input)
 	start.button_down.connect(_on_start_down)
 	start.button_up.connect(_on_start_up)
 	start.mouse_entered.connect(_on_start_hover.bind(true))
@@ -96,6 +104,7 @@ func _process(delta: float) -> void:
 	if _saved and not _hold_fired and _held_seconds >= HOLD_SECONDS:
 		_hold_fired = true
 		_open_restart_dialog()
+	_paint_ring()
 
 
 func _on_pollution(value: Variant) -> void:
@@ -126,11 +135,23 @@ func _intent_for(button_name: String, intent_name: String) -> String:
 	return intent_name
 
 
+## The signal comes before the button's own handling, so the press's source is known by `button_down`.
+## While pressed by mouse the button keeps the mouse, so motion off START still arrives here.
+func _on_start_input(event: InputEvent) -> void:
+	if event is InputEventMouse:
+		_cursor = _start_button().get_global_transform() * (event as InputEventMouse).position
+		if event is InputEventMouseButton and event.is_pressed():
+			_held_by_mouse = true
+	elif event.is_pressed():
+		_held_by_mouse = false
+
+
 func _on_start_down() -> void:
 	_hold_fired = false
 	_holding = true
 	_held_seconds = 0.0
 	set_process(true)
+	_paint_ring()
 
 
 func _on_start_up() -> void:
@@ -144,6 +165,7 @@ func _end_hold() -> void:
 	_held_seconds = 0.0
 	set_process(false)
 	_write_held(0.0)
+	_paint_ring()
 
 
 func _open_restart_dialog() -> void:
@@ -183,6 +205,22 @@ func _on_start_focus(focused: bool) -> void:
 	_paint_hint()
 
 
+## Shown only while a hold with a save can still open the dialog. Progress is the debug panel's held seconds over HOLD_SECONDS.
+func _paint_ring() -> void:
+	var ring := _ring()
+	if ring == null:
+		return
+	ring.visible = _holding and _saved and not _hold_fired
+	ring.progress = _held_seconds / HOLD_SECONDS if ring.visible else 0.0
+	if not ring.visible:
+		return
+	var start := _start_button()
+	if _held_by_mouse:
+		ring.center_at(_cursor)
+	elif start != null:
+		ring.center_at(start.get_global_rect().get_center())
+
+
 ## Dark while START shows its hover art (hovered or focused), pale otherwise.
 func _paint_hint() -> void:
 	var hint := _hint()
@@ -196,3 +234,7 @@ func _start_button() -> BaseButton:
 
 func _hint() -> Label:
 	return get_node_or_null("%" + HINT_LABEL) as Label
+
+
+func _ring() -> HoldRingScript:
+	return get_node_or_null("%" + RING) as HoldRingScript
