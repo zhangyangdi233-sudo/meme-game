@@ -51,6 +51,7 @@ func _run() -> void:
 	_test_a_new_meme_leaves_the_other_pages_alone()
 	_test_showing_syncs_the_pickup_marks_and_a_new_word_repaints_them()
 	_test_pickup_marks_take_the_flash_text_of_the_bound_palette()
+	_test_dividers_are_hairlines_and_cards_keep_their_strong_edge()
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
 	_test_the_open_publish_page_follows_remaining_actions()
@@ -394,6 +395,31 @@ func _test_pickup_marks_take_the_flash_text_of_the_bound_palette() -> void:
 	panel.update_visibility(true, true)
 	var flash_text := UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "flash_text").to_html(false)
 	_assert_true(_pickup_line(mounted).contains("[color=#%s][url=门]" % flash_text), "a pickable word should take the bound palette's flash_text: %s" % _pickup_line(mounted))
+	_dispose(mounted)
+
+
+func _test_dividers_are_hairlines_and_cards_keep_their_strong_edge() -> void:
+	var mounted := _mount()
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	theme.configure({"pollution_stage": func() -> Dictionary: return {"palette_key": "pollution_palette_5"}})
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	var frame := _find(mounted, "SocialFeedDarkFrame") as PanelContainer
+	_assert_true(frame != null, "the discover feed should sit in its dark frame")
+	if frame != null:
+		_assert_eq((frame.get_theme_stylebox("panel") as StyleBoxFlat).border_color, theme.hairline(), "the dark feed frame should be edged by the hairline")
+	var card := _find(mounted, "SocialPostCard0") as PanelContainer
+	_assert_true(card != null, "the discover feed should show the first post card")
+	if card != null:
+		## The card edge is an emphasis, not a divider, so it keeps its own strength.
+		var strong_edge := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), 0.62)
+		_assert_eq((card.get_theme_stylebox("panel") as StyleBoxFlat).border_color, strong_edge, "a post card should keep its strong muted edge")
+	panel.open_post(2)
+	panel.update_visibility(true, true)
+	var rule := _find(mounted, "SocialCommentsRule") as ColorRect
+	_assert_true(rule != null, "an open post with comments should draw a rule above them")
+	if rule != null:
+		_assert_eq(rule.color, theme.hairline(), "the comments rule should be the hairline")
 	_dispose(mounted)
 
 

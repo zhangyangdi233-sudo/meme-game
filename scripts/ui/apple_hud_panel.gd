@@ -135,7 +135,7 @@ func _build_rail(parent: Control) -> void:
 	_rail.mouse_filter = Control.MOUSE_FILTER_STOP
 	_rail.add_theme_stylebox_override(
 		"panel",
-		_theme().style(_theme().theme_color("ink"), Color(_theme().theme_color("muted"), 0.22))
+		_theme().style(_theme().theme_color("ink"), _theme().hairline())
 	)
 	parent.add_child(_rail)
 	_rail.tree_exiting.connect(_stop_if_current_rail_exits.bind(_rail))

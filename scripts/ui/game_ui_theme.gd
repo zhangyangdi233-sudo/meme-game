@@ -8,6 +8,9 @@ const PaletteSceneRootScript = preload("res://scripts/ui/palette_scene_root.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const SCRIM_ALPHA := 0.92
+const HAIRLINE_ALPHA := 0.22
+const HOVER_TINT_ALPHA := 0.24
+const PRESSED_TINT_ALPHA := 0.40
 
 var ui_font_path := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 var ui_font_grid := 9
@@ -56,6 +59,21 @@ func theme_color(key: String, pollution_stage = null) -> Color:
 ## The full-screen cover behind a window that hides the game: ink at one shared strength.
 func scrim(pollution_stage = null) -> Color:
 	return Color(theme_color("ink", _stage(pollution_stage)), SCRIM_ALPHA)
+
+
+## A thin divider or faint edge: muted at one shared strength.
+func hairline(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), HAIRLINE_ALPHA)
+
+
+## The wash behind a hovered button: muted at one shared strength.
+func hover_tint(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), HOVER_TINT_ALPHA)
+
+
+## The wash behind a pressed button: muted at one shared strength.
+func pressed_tint(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), PRESSED_TINT_ALPHA)
 
 
 func ensure_ui_font_theme() -> Theme:
@@ -273,8 +291,8 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 		if button.has_meta("hud_icon"):
 			var empty := StyleBoxEmpty.new()
 			button.add_theme_stylebox_override("normal", empty)
-			button.add_theme_stylebox_override("hover", style(Color(theme_color("muted", pollution_stage), 0.18), Color(theme_color("muted", pollution_stage), 0.20)))
-			button.add_theme_stylebox_override("pressed", style(Color(theme_color("muted", pollution_stage), 0.32), Color(theme_color("muted", pollution_stage), 0.32)))
+			button.add_theme_stylebox_override("hover", style(hover_tint(pollution_stage), hover_tint(pollution_stage)))
+			button.add_theme_stylebox_override("pressed", style(pressed_tint(pollution_stage), pressed_tint(pollution_stage)))
 		elif button.has_meta("phone_app_icon"):
 			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage))
 			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
@@ -310,8 +328,8 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 			button.add_theme_color_override("font_hover_color", theme_color("accent", pollution_stage))
 			button.add_theme_color_override("font_pressed_color", theme_color("ink", pollution_stage))
 			button.add_theme_stylebox_override("normal", flat)
-			button.add_theme_stylebox_override("hover", flat_button_state_style(Color(theme_color("muted", pollution_stage), 0.24)))
-			button.add_theme_stylebox_override("pressed", flat_button_state_style(Color(theme_color("muted", pollution_stage), 0.40)))
+			button.add_theme_stylebox_override("hover", flat_button_state_style(hover_tint(pollution_stage)))
+			button.add_theme_stylebox_override("pressed", flat_button_state_style(pressed_tint(pollution_stage)))
 		else:
 			UiPaletteScript.apply_button_style(button, active_palette(pollution_stage))
 	elif node is PanelContainer:
@@ -326,7 +344,7 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 		elif node.has_meta("poster_frame"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", poster_frame_style(pollution_stage))
 		elif node.has_meta("dark_rail"):
-			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("ink", pollution_stage), Color(theme_color("muted", pollution_stage), 0.22)))
+			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("ink", pollution_stage), hairline(pollution_stage)))
 		elif node.has_meta("tooltip_panel"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("muted", pollution_stage), theme_color("accent", pollution_stage)))
 		elif node.has_meta("soft_panel"):

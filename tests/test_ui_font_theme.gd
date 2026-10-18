@@ -11,6 +11,10 @@ const FONT_MIN := 9
 const FONT_MAX := 45
 ## The scrim strength issue #103 settled on, pinned here rather than read back from the theme.
 const SCRIM_ALPHA := 0.92
+## The divider and button tint strengths issue #104 settled on, pinned the same way.
+const HAIRLINE_ALPHA := 0.22
+const HOVER_TINT_ALPHA := 0.24
+const PRESSED_TINT_ALPHA := 0.40
 
 var _failures: Array[String] = []
 
@@ -29,6 +33,8 @@ func _init() -> void:
 func _run() -> void:
 	_test_bound_returns_the_registered_theme_or_null()
 	_test_scrim_is_ink_at_the_shared_strength_and_follows_pollution()
+	_test_hairline_and_button_tints_are_muted_at_shared_strengths_and_follow_pollution()
+	_test_apply_ui_theme_paints_rails_and_button_tints_from_the_recipes()
 	_assert_true(FileAccess.file_exists(FONT_PATH), "the pixel font should ship with the project")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9-OFL.txt"), "the OFL license text must ship alongside the font")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/FONT_PROVENANCE.md"), "font provenance should be documented")
@@ -110,6 +116,53 @@ func _test_scrim_is_ink_at_the_shared_strength_and_follows_pollution() -> void:
 	stage["palette_key"] = "pollution_palette_5"
 	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), SCRIM_ALPHA), "the scrim should follow the bound pollution palette")
 	_assert_eq(theme.scrim({"palette_key": "palette_1"}), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), SCRIM_ALPHA), "an explicit stage should override the bound provider")
+
+
+func _test_hairline_and_button_tints_are_muted_at_shared_strengths_and_follow_pollution() -> void:
+	var stage := {"palette_key": "palette_1"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	var muted_1 := UiPalette.color(UiPalette.PALETTE_1, "muted")
+	var muted_5 := UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted")
+	_assert_eq(theme.hairline(), Color(muted_1, HAIRLINE_ALPHA), "the hairline should be palette 1 muted at 0.22")
+	_assert_eq(theme.hover_tint(), Color(muted_1, HOVER_TINT_ALPHA), "the hover tint should be palette 1 muted at 0.24")
+	_assert_eq(theme.pressed_tint(), Color(muted_1, PRESSED_TINT_ALPHA), "the pressed tint should be palette 1 muted at 0.40")
+	stage["palette_key"] = "pollution_palette_5"
+	_assert_eq(theme.hairline(), Color(muted_5, HAIRLINE_ALPHA), "the hairline should follow the bound pollution palette")
+	_assert_eq(theme.hover_tint(), Color(muted_5, HOVER_TINT_ALPHA), "the hover tint should follow the bound pollution palette")
+	_assert_eq(theme.pressed_tint(), Color(muted_5, PRESSED_TINT_ALPHA), "the pressed tint should follow the bound pollution palette")
+	_assert_eq(theme.hairline({"palette_key": "palette_1"}), Color(muted_1, HAIRLINE_ALPHA), "an explicit stage should override the bound provider for the hairline")
+	_assert_eq(theme.hover_tint({"palette_key": "palette_1"}), Color(muted_1, HOVER_TINT_ALPHA), "an explicit stage should override the bound provider for the hover tint")
+	_assert_eq(theme.pressed_tint({"palette_key": "palette_1"}), Color(muted_1, PRESSED_TINT_ALPHA), "an explicit stage should override the bound provider for the pressed tint")
+
+
+func _test_apply_ui_theme_paints_rails_and_button_tints_from_the_recipes() -> void:
+	var stage := {"palette_key": "pollution_palette_5"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	var hairline := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), HAIRLINE_ALPHA)
+	var hover := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), HOVER_TINT_ALPHA)
+	var pressed := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), PRESSED_TINT_ALPHA)
+	var rail := PanelContainer.new()
+	rail.set_meta("dark_rail", true)
+	var hud_icon := Button.new()
+	hud_icon.set_meta("hud_icon", true)
+	var flat_button := Button.new()
+	flat_button.set_meta("flat_phone_button", true)
+	var host := Control.new()
+	host.add_child(rail)
+	host.add_child(hud_icon)
+	host.add_child(flat_button)
+	theme.apply_ui_theme(host, stage)
+	_assert_eq((rail.get_theme_stylebox("panel") as StyleBoxFlat).border_color, hairline, "a dark rail should be bordered by the hairline")
+	for button in [hud_icon, flat_button]:
+		var kind := "a HUD icon" if button == hud_icon else "a flat phone button"
+		var hover_box := (button as Button).get_theme_stylebox("hover") as StyleBoxFlat
+		var pressed_box := (button as Button).get_theme_stylebox("pressed") as StyleBoxFlat
+		_assert_eq(hover_box.bg_color, hover, "%s should hover with the hover tint" % kind)
+		_assert_eq(pressed_box.bg_color, pressed, "%s should press with the pressed tint" % kind)
+	_assert_eq((hud_icon.get_theme_stylebox("hover") as StyleBoxFlat).border_color, hover, "a hovered HUD icon should be edged in the hover tint")
+	_assert_eq((hud_icon.get_theme_stylebox("pressed") as StyleBoxFlat).border_color, pressed, "a pressed HUD icon should be edged in the pressed tint")
+	host.free()
 
 
 func _assert_true(condition: bool, message: String) -> void:

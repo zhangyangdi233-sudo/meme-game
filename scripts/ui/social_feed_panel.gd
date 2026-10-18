@@ -834,7 +834,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	if not post_comments.is_empty():
 		var comments_rule := ColorRect.new()
 		comments_rule.name = "SocialCommentsRule"
-		comments_rule.color = Color(_theme().theme_color("muted"), 0.35)
+		comments_rule.color = _theme().hairline()
 		comments_rule.custom_minimum_size.y = 1.0
 		detail_box.add_child(comments_rule)
 		var comments_header := _theme().label("评论 · %d" % post_comments.size(), 14, _theme().theme_color("muted")) as Label
@@ -944,7 +944,7 @@ func _render_profile_page(parent: VBoxContainer) -> void:
 func _social_feed_dark_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = _theme().theme_color("ink")
-	style.border_color = Color(_theme().theme_color("muted"), 0.18)
+	style.border_color = _theme().hairline()
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(6)

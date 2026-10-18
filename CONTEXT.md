@@ -110,6 +110,14 @@ _Avoid_: literal colors on palette-driven nodes, one node group per color, a nea
 The full-screen cover behind a window that hides the game so only that window is read (camera consent, language selection, phone camera connection). `GameUiTheme.scrim()` answers it: the active palette's `ink` at one shared strength, so it follows pollution. Not this recipe: the phone wallpaper tint, and the shared Dialog's `DialogScrim`, a lighter dimmer whose strength is authored in `dialog.tscn` because the window behind a dialog stays readable.
 _Avoid_: a panel choosing its own cover alpha or a literal near-black cover
 
+**Hairline**:
+A thin divider or faint edge on a dark or light surface (the HUD rail, the social feed's dark frame, the rule above a post's comments). `GameUiTheme.hairline()` answers it: the active palette's `muted` at one shared strength. Not this recipe: the social post card's edge, a stronger `muted` that marks the card rather than divides.
+_Avoid_: a panel choosing its own divider alpha
+
+**Button tint**:
+The wash behind a hovered or pressed button that has no face of its own (HUD icons, flat phone buttons). `GameUiTheme.hover_tint()` and `pressed_tint()` answer it: the active palette's `muted` at two shared strengths.
+_Avoid_: a button state choosing its own wash alpha
+
 ## Development
 
 **Primary platform**: Windows (Godot 4.6+ editor and headless tests).

@@ -35,6 +35,7 @@ func _run_async() -> void:
 
 func _run() -> void:
 	_test_shown_column_syncs_then_follows_writes()
+	_test_the_rail_is_edged_by_the_hairline()
 	await _test_hidden_and_freed_column_stops_listening()
 
 
@@ -89,6 +90,15 @@ func _test_shown_column_syncs_then_follows_writes() -> void:
 	_assert_eq(tooltip.text, "污染 40%", "an open pollution tooltip should follow the model")
 	max_actions.write(7)
 	_assert_eq(actions_label.text, THREE_OF_SEVEN, "the action dots should follow the daily cap")
+	_dispose(mounted)
+
+
+func _test_the_rail_is_edged_by_the_hairline() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as AppleHudPanel
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	var border := (panel.get_rail().get_theme_stylebox("panel") as StyleBoxFlat).border_color
+	_assert_eq(border, theme.hairline(), "the HUD rail should be edged by the hairline")
 	_dispose(mounted)
 
 
