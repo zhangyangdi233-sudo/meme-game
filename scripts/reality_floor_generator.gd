@@ -4,7 +4,7 @@ class_name RealityFloorGenerator
 
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
-const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
+const FloorLookScript = preload("res://scripts/game/floor_look.gd")
 const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
 const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
@@ -356,7 +356,7 @@ func _make_playtest_marker(marker_text: String, height: float) -> Label3D:
 	marker.pixel_size = 0.0024
 	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	marker.fixed_size = true
-	marker.modulate = Color("D8FF66")
+	marker.modulate = FloorLookScript.tint("playtest_marker")
 	marker.outline_modulate = UiPalette.OUTLINE
 	marker.outline_size = 3
 	marker.no_depth_test = true
@@ -373,7 +373,7 @@ func sync_claimed_dolls(claimed_ids: Array[String]) -> void:
 		actor.set_meta("claimed", claimed)
 		var sprite := actor.get_node_or_null("Billboard") as Sprite3D
 		if sprite != null:
-			sprite.modulate = Color(0.82, 0.90, 0.82, 1.0) if claimed else Color.WHITE
+			sprite.modulate = FloorLookScript.tint("claimed_doll") if claimed else Color.WHITE
 
 
 func configure_authored_events(day_number: int, palette: Dictionary, events: Array = []) -> void:
@@ -498,7 +498,7 @@ func _build_cover_watcher_event(palette: Dictionary, already_seen: bool) -> void
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	sprite.modulate = Color(0.76, 0.86, 0.58, 0.92)
+	sprite.modulate = FloorLookScript.tint("cover_watcher")
 	sprite.render_priority = 3
 	sprite.visible = false
 	sprite.set_meta("faceless_watcher", true)
@@ -607,7 +607,7 @@ func _build_light_memory_event(palette: Dictionary) -> void:
 	var light := OmniLight3D.new()
 	light.name = "MemoryLightSource"
 	light.position = Vector3(0.0, 2.72, 0.0)
-	light.light_color = Color("D9FFB5") if built_floor >= 3 else Color("91B99A")
+	light.light_color = _light_color("memory", palette)
 	light.light_energy = 1.35 if built_floor == 3 else 0.72
 	light.omni_range = 12.0
 	light.shadow_enabled = false
@@ -643,7 +643,7 @@ func _build_dead_sign_event(palette: Dictionary) -> void:
 	var light := OmniLight3D.new()
 	light.name = "DeadSignGlow"
 	light.position = Vector3(0.0, 2.18, 0.28)
-	light.light_color = _role_color("fluorescent", palette)
+	light.light_color = _light_color("dead_sign", palette)
 	light.light_energy = 0.42
 	light.omni_range = 4.0
 	light.shadow_enabled = false
@@ -676,7 +676,9 @@ func _build_distant_mirage_event() -> void:
 		sprite.shaded = false
 		sprite.transparent = true
 		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		sprite.modulate = Color(0.82, 0.92, 0.64, float(layer_alphas[layer_index]))
+		var mirage_tint := FloorLookScript.tint("distant_mirage")
+		mirage_tint.a = float(layer_alphas[layer_index])
+		sprite.modulate = mirage_tint
 		sprite.render_priority = layer_index
 		sprite.set_meta("mirage_base_position", sprite.position)
 		sprite.set_meta("mirage_base_alpha", float(layer_alphas[layer_index]))
@@ -914,9 +916,9 @@ func _clamp_to_floor_two_disc(position: Vector3, inset: float) -> Vector3:
 func apply_palette(palette: Dictionary) -> void:
 	if _environment != null and _environment.environment != null:
 		var environment := _environment.environment
-		environment.background_color = _style_background_color(palette)
-		environment.ambient_light_color = _style_ambient_color(palette)
-		environment.fog_light_color = _style_fog_color(palette)
+		environment.background_color = _environment_color("background", palette)
+		environment.ambient_light_color = _environment_color("ambient", palette)
+		environment.fog_light_color = _environment_color("fog", palette)
 	for mesh_node in find_children("*", "MeshInstance3D", true, false):
 		var mesh_instance := mesh_node as MeshInstance3D
 		if mesh_instance == null or not mesh_instance.has_meta("theme_role"):
@@ -954,9 +956,9 @@ func _build_environment(palette: Dictionary) -> void:
 	_environment.name = "RealityWorldEnvironment"
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = _style_background_color(palette)
+	environment.background_color = _environment_color("background", palette)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = _style_ambient_color(palette)
+	environment.ambient_light_color = _environment_color("ambient", palette)
 	if built_floor == 1:
 		environment.ambient_light_energy = 0.78
 	elif built_floor == 2:
@@ -971,7 +973,7 @@ func _build_environment(palette: Dictionary) -> void:
 		environment.ambient_light_energy = 0.29
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	environment.fog_enabled = true
-	environment.fog_light_color = _style_fog_color(palette)
+	environment.fog_light_color = _environment_color("fog", palette)
 	if built_floor == 1:
 		environment.fog_light_energy = 0.52
 		environment.fog_density = 0.0062
@@ -1003,19 +1005,15 @@ func _build_environment(palette: Dictionary) -> void:
 	var key_light := DirectionalLight3D.new()
 	key_light.name = "RealityKeyLight"
 	key_light.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
+	key_light.light_color = _light_color("key", palette)
 	if built_floor == 1:
-		key_light.light_color = Color("FFF3D3")
 		key_light.light_energy = 1.32
 	elif built_floor == 2:
-		key_light.light_color = Color("78918C")
 		key_light.light_energy = 0.30
 	elif built_floor == 3:
-		key_light.light_color = Color("FFF4CB")
 		key_light.light_energy = 1.18
 	else:
-		var cold_key_colors := [Color("AFC7BE"), Color("C2CEC0"), Color("A9BBC4"), Color("96ACB6")]
 		var cold_key_energy := [0.34, 0.28, 0.36, 0.24]
-		key_light.light_color = cold_key_colors[built_floor - 2]
 		key_light.light_energy = cold_key_energy[built_floor - 2]
 	key_light.shadow_enabled = true
 	add_child(key_light)
@@ -1378,7 +1376,7 @@ func _build_sunlit_dreamcore_rhythm(parent: Node3D, palette: Dictionary) -> void
 				var light := OmniLight3D.new()
 				light.name = "ThresholdLight%s%02d" % [direction_name, bay_index]
 				light.position = Vector3(x + anomaly_offset, 4.22, 0.0)
-				light.light_color = Color("FFF1C9")
+				light.light_color = _light_color("threshold", palette)
 				light.light_energy = 0.36
 				light.omni_range = 7.4
 				light.shadow_enabled = false
@@ -1542,8 +1540,7 @@ func _build_full_map_grass(parent: Node3D, palette: Dictionary) -> void:
 			var basis := Basis(Vector3.UP, yaw).scaled(Vector3(width_scale, height_scale, width_scale))
 			var transform := Transform3D(basis, Vector3(x, FULL_MAP_GRASS_BLADE_HEIGHT * 0.5 * height_scale, z))
 			multimesh.set_instance_transform(instance_index, transform)
-			var brightness := 0.80 + float(posmod(row_index + column_index * 2, 6)) * 0.035
-			multimesh.set_instance_color(instance_index, Color(brightness, 0.92 + (brightness - 0.8) * 0.25, 0.72, 1.0))
+			multimesh.set_instance_color(instance_index, FloorLookScript.grass_blade_tint(row_index + column_index * 2))
 			instance_index += 1
 	grass_field.multimesh = multimesh
 	var grass_material := _material("grass", palette, false)
@@ -1896,7 +1893,7 @@ func _build_suspense_layer(parent: Node3D, palette: Dictionary) -> void:
 		var pool := OmniLight3D.new()
 		pool.name = "SuspenseLight%02d" % light_index
 		pool.position = Vector3(light_x, 2.78, light_z)
-		pool.light_color = Color("D0A572") if warm_exception else Color("9DB9B4")
+		pool.light_color = _light_color("suspense_warm" if warm_exception else "suspense", palette)
 		pool.light_energy = 0.42 if warm_exception else 0.58
 		pool.omni_range = 12.5
 		pool.shadow_enabled = light_index % 2 == 0
@@ -1962,7 +1959,7 @@ func _build_floor_two_disc_suspense(parent: Node3D, palette: Dictionary) -> void
 		var pool := OmniLight3D.new()
 		pool.name = "SuspenseLight%02d" % light_index
 		pool.position = light_position
-		pool.light_color = Color("B07B55") if light_index == 1 else Color("668783")
+		pool.light_color = _light_color("disc_pool_warm" if light_index == 1 else "disc_pool", palette)
 		pool.light_energy = 1.25 if light_index == 1 else 1.65
 		pool.omni_range = 22.0
 		pool.shadow_enabled = light_index == 0
@@ -2003,7 +2000,7 @@ func _build_street_lamp(parent: Node3D, position: Vector3, palette: Dictionary, 
 		var light := OmniLight3D.new()
 		light.name = "WarmPool"
 		light.position = Vector3(0.0, 4.2, 0.0)
-		light.light_color = Color("FFB54A")
+		light.light_color = _light_color("street_lamp", palette)
 		light.light_energy = 2.4
 		light.omni_range = 7.5
 		light.shadow_enabled = false
@@ -2334,7 +2331,7 @@ func _build_prerequisite_item(item_id: String, display_name: String, palette: Di
 	var glow := OmniLight3D.new()
 	glow.name = "SearchGlow"
 	glow.position.y = 0.72
-	glow.light_color = _role_color("item", palette)
+	glow.light_color = _light_color("item_glow", palette)
 	glow.light_energy = 0.52
 	glow.omni_range = 2.4
 	glow.shadow_enabled = false
@@ -2588,7 +2585,7 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	scribble_material.render_priority = 8
 	scribble_material.set_shader_parameter("character_texture", npc_texture)
 	scribble_material.set_shader_parameter("scribble_atlas", NPC_FACE_SCRIBBLE_ATLAS)
-	scribble_material.set_shader_parameter("ink_color", Color("020202"))
+	scribble_material.set_shader_parameter("ink_color", FloorLookScript.tint("face_scribble_ink"))
 	scribble_material.set_shader_parameter("ink_opacity", 1.0)
 	scribble_material.set_shader_parameter("brush_width_px", 56.0)
 	scribble_material.set_shader_parameter("face_center", face_center)
@@ -2640,7 +2637,7 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 	if role == "night_path" and _is_disc_layout():
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.emission_enabled = true
-		material.emission = Color("28453A")
+		material.emission = FloorLookScript.tint("disc_path_glow")
 		material.emission_energy_multiplier = 0.78
 	if emission or role in ["lamp_light", "screen_glow", "fluorescent"]:
 		material.emission_enabled = true
@@ -2650,156 +2647,12 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 
 
 func _role_color(role: String, palette: Dictionary) -> Color:
-	match role:
-		"brick":
-			return Color("D7B77F").lerp(UiPaletteScript.color(palette, "surface"), 0.12)
-		"brick_light":
-			return Color("E8CEA0").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
-		"brick_dark":
-			return Color("8F7655").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
-		"white_wall":
-			return Color("F0F2E9") if district_style == "night_white_blocks" else (Color("DCE4D2") if built_floor == 3 else Color("9DA99C"))
-		"window":
-			return Color("0B0D0B").lerp(UiPaletteScript.color(palette, "ink"), 0.35)
-		"grass":
-			return (Color("17321D") if district_style == "night_white_blocks" else (Color("5F8D3E") if built_floor == 3 else Color("4F7134"))).lerp(UiPaletteScript.color(palette, "accent"), 0.12)
-		"grass_ground":
-			return Color("527D42").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
-		"gallery_floor":
-			return (Color("819978") if built_floor == 3 else Color("68756B")).lerp(UiPaletteScript.color(palette, "accent"), 0.08)
-		"sunlit_paving":
-			return Color("D7C8A8").lerp(UiPaletteScript.color(palette, "surface"), 0.16)
-		"night_path":
-			return Color("151613").lerp(UiPaletteScript.color(palette, "ink"), 0.42)
-		"crosswalk":
-			return Color("F3E8CD").lerp(UiPaletteScript.color(palette, "surface"), 0.24)
-		"lamp":
-			return Color("22241F").lerp(UiPaletteScript.color(palette, "ink"), 0.35)
-		"lamp_light":
-			return Color("FFBE58") if district_style == "night_white_blocks" else Color("E4D6A0")
-		"ground":
-			return UiPaletteScript.color(palette, "ink").lightened(0.055)
-		"road":
-			return UiPaletteScript.color(palette, "accent").darkened(0.54)
-		"sidewalk":
-			return UiPaletteScript.color(palette, "bg").darkened(0.36)
-		"lot_floor":
-			return UiPaletteScript.color(palette, "accent").darkened(0.30)
-		"floor":
-			return UiPaletteScript.color(palette, "accent").darkened(0.38)
-		"floor_alt":
-			return UiPaletteScript.color(palette, "accent").darkened(0.24)
-		"wall":
-			return UiPaletteScript.color(palette, "bg").darkened(0.38)
-		"wall_dark":
-			return UiPaletteScript.color(palette, "ink").lightened(0.035)
-		"ceiling":
-			return UiPaletteScript.color(palette, "surface").darkened(0.58)
-		"accent":
-			return UiPaletteScript.color(palette, "accent").darkened(0.10)
-		"item":
-			return UiPaletteScript.color(palette, "flash_text")
-		"backrooms_beige":
-			return Color("CBBE8E") if built_floor == 2 else Color("E0D6A7")
-		"fixture_metal":
-			return Color("69746D") if built_floor == 2 else Color("9AA79A")
-		"cart_metal":
-			return Color("4F5A54") if built_floor == 2 else Color("7D8D80")
-		"chair_metal":
-			return Color("758079") if built_floor == 2 else Color("A8B6A9")
-		"chair_vinyl":
-			return Color("485C50") if built_floor == 2 else Color("6E8B72")
-		"pipe_metal":
-			return Color("60736B") if built_floor == 2 else Color("8CA392")
-		"machine_green":
-			return Color("3B5A48") if built_floor == 2 else Color("688E69")
-		"cooler_blue":
-			return Color("538A8C") if built_floor == 2 else Color("8FC9C1")
-		"indicator_red":
-			return Color("8F4050") if built_floor == 2 else Color("C86A76")
-		"screen_glow":
-			return Color("6E9A7D") if built_floor == 2 else Color("B5DBAA")
-		"fluorescent":
-			return Color("D7E7AF") if built_floor == 2 else Color("F0F3CB")
-		"crate_wood":
-			return Color("725B3F") if built_floor == 2 else Color("A68B5C")
-		"crate_dark":
-			return Color("3E3529") if built_floor == 2 else Color("65563B")
-		"rubber_black":
-			return Color("111614")
-		"dream_pink":
-			return Color("F3A7BD") if built_floor == 3 else Color("B75A82")
-		"dream_cyan":
-			return Color("A8E1D3") if built_floor == 3 else Color("4C918D")
-		"dream_ivory":
-			return Color("FFF0BF") if built_floor == 3 else Color("A99775")
-		_:
-			return UiPaletteScript.color(palette, "muted")
+	return FloorLookScript.material_color(role, built_floor, district_style, palette)
 
 
-func _style_background_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("030607").lerp(UiPaletteScript.color(palette, "ink"), 0.08)
-	if built_floor == 3:
-		return Color("82B9B0").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("0B1112").lerp(UiPaletteScript.color(palette, "ink"), 0.14)
-			"overgrown_gallery":
-				return Color("202923").lerp(UiPaletteScript.color(palette, "ink"), 0.14)
-			_:
-				return Color("263A42").lerp(UiPaletteScript.color(palette, "ink"), 0.12)
-	match district_style:
-		"sunlit_brick_street":
-			return Color("1479B8").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
-		"night_white_blocks":
-			return Color("10090B").lerp(UiPaletteScript.color(palette, "ink"), 0.22)
-		"overgrown_gallery":
-			return Color("D4DDD0").lerp(UiPaletteScript.color(palette, "muted"), 0.18)
-		_:
-			return UiPaletteScript.color(palette, "ink")
+func _environment_color(use: String, palette: Dictionary) -> Color:
+	return FloorLookScript.environment_color(use, built_floor, district_style, palette)
 
 
-func _style_ambient_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("55716B").lerp(UiPaletteScript.color(palette, "muted"), 0.08)
-	if built_floor == 3:
-		return Color("E1EBCF").lerp(UiPaletteScript.color(palette, "surface"), 0.12)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("89A096").lerp(UiPaletteScript.color(palette, "muted"), 0.12)
-			"overgrown_gallery":
-				return Color("7A8A7D").lerp(UiPaletteScript.color(palette, "muted"), 0.10)
-			_:
-				return Color("9FB4BC").lerp(UiPaletteScript.color(palette, "muted"), 0.12)
-	match district_style:
-		"night_white_blocks":
-			return Color("AEB8A2").lerp(UiPaletteScript.color(palette, "muted"), 0.18)
-		"overgrown_gallery":
-			return Color("F3F2DD").lerp(UiPaletteScript.color(palette, "surface"), 0.24)
-		_:
-			return Color("FFE4B8").lerp(UiPaletteScript.color(palette, "surface"), 0.18)
-
-
-func _style_fog_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("111A19").lerp(UiPaletteScript.color(palette, "ink"), 0.10)
-	if built_floor == 3:
-		return Color("B5D4B4").lerp(UiPaletteScript.color(palette, "surface"), 0.10)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("202B2A").lerp(UiPaletteScript.color(palette, "accent"), 0.06)
-			"overgrown_gallery":
-				return Color("39463D").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
-			_:
-				return Color("607780").lerp(UiPaletteScript.color(palette, "accent"), 0.08)
-	match district_style:
-		"night_white_blocks":
-			return Color("23181A").lerp(UiPaletteScript.color(palette, "accent"), 0.10)
-		"overgrown_gallery":
-			return Color("C9D6C0").lerp(UiPaletteScript.color(palette, "muted"), 0.20)
-		_:
-			return Color("7DB5C2").lerp(UiPaletteScript.color(palette, "accent"), 0.12)
+func _light_color(use: String, palette: Dictionary) -> Color:
+	return FloorLookScript.light_color(use, built_floor, district_style, palette)

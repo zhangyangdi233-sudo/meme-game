@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (113 tests)
+## What runs (114 tests)
 
-### GDScript (111)
+### GDScript (112)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -88,7 +88,7 @@ Shared helpers live in `tests/harness/minimal_game_harness.gd`:
 - `find_node_by_name`, `collect_control_text` — Control-tree probes when a tiny scene is still needed
 - `craft_token(...)` — notebook / pickup test token dictionaries
 
-`tests/harness/palette_error_log.gd` is a `Logger` that collects `UiPalette` reports. 3D tests pass `UiPalette.PALETTE_1` or `UiPalette.POLLUTION_PALETTE_5` as the palette instead of copying a table.
+`tests/harness/palette_error_log.gd` is a `Logger` that collects `UiPalette` reports. `tests/harness/floor_look_snapshot.gd` builds a floor with every authored event and records every color it shows; `tests/fixtures/floor_look_before.json` holds what the Floor generator painted before its colors moved into `FloorLook`. 3D tests pass `UiPalette.PALETTE_1` or `UiPalette.POLLUTION_PALETTE_5` as the palette instead of copying a table.
 
 ```gdscript
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -117,7 +117,8 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_void_and_outline` | module | under pollution palette 5 the day-transition and prologue backdrops stay true black, and the conversation text outlines stay near black |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme` |
 | `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported; both palettes define the same role set (including `error` and `pending`); the Layout scenes name only known roles; `VOID` and `OUTLINE` are fixed colors that `has_role` does not accept |
-| `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report, and the playtest marker and EXIT sign outlines stay near black after the repaint; a palette gap is reported and painted from `PALETTE_1` |
+| `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report, and the playtest marker and EXIT sign outlines stay near black after the repaint; a palette gap is reported and painted from `PALETTE_1`; every floor built or repainted shows the materials, environment, lights and tints recorded in `floor_look_before.json`; the generator source decides no color of its own |
+| `test_floor_look` | module | without a scene, `FloorLook` answers every material role, background / ambient / fog, light and tint recorded in `floor_look_before.json` for every floor, its district style and both palettes |
 | `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty, null or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks (also from UI added after it opened), focus and hotkeys below and follows the pollution palette |
 | `test_main_menu_scene` | module | main menu Layout scene, palette roles; no separate continue button; an open menu's START continues once `has_save` is true; with a save, holding START 0.8 s by mouse, Enter, Space or pad A opens the restart dialog before release and that release raises nothing, a shorter hold continues, and without a save a hold only starts a new game; the dialog words its question and YES / NO from the catalog with NO focused and taking Escape, YES raises `RESTART_REQUESTED`, closing the menu closes it; the hold hint shows only with a save, is worded on open and darkens while START is hovered or focused; the debug panel shows the held seconds |
 | `test_game_locale_preferences` | module | language / volume preference models, preferences file |

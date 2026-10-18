@@ -26,6 +26,10 @@ _Avoid_: Framework, Reality HUD, host reading live world objects as the API, tre
 Framework module that builds walkable space, collision, and generic geometry from engine primitives (cubes and the like). It does not know Babel rules, dolls, catalogs, or which floor the player is on. Cubes are the stand-in for objects; imported 3D models are not required.
 _Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
 
+**Floor look**:
+Game module (`scripts/game/floor_look.gd`) that answers the 3D street's colors from tables: a material role, the background / ambient / fog, a light or a fixed tint, by floor, district style and UI palette. The Floor generator asks it for every color and decides none itself.
+_Avoid_: color literals or palette blends in the generator, one `if built_floor ==` branch per color, treating it as part of the Floor composer
+
 **Floor composer**:
 Game module that assembles one tower floor from catalogs and snapshots: who stands where, which items exist, which authored events run. It uses a Floor generator for geometry; that geometry is engine primitives unless a later ticket introduces templates. Interaction stays an interaction outcome, not node signals as the host API.
 _Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models

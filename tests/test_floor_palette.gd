@@ -2,10 +2,15 @@ extends SceneTree
 ## The Floor generator asks UiPalette for every palette color: a complete palette builds and repaints
 ## every floor without a report, and a palette with a gap is reported and painted from palette 1.
 ## The playtest marker and EXIT sign outlines stay UiPalette.OUTLINE after the repaint to pollution palette 5.
+## Every floor shows the colors it showed before they moved into Floor look (tests/fixtures/floor_look_before.json),
+## and the generator source decides no color of its own.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const PaletteErrorLog = preload("res://tests/harness/palette_error_log.gd")
+const Snapshot = preload("res://tests/harness/floor_look_snapshot.gd")
+const BEFORE_PATH := "res://tests/fixtures/floor_look_before.json"
+const GENERATOR_PATH := "res://scripts/reality_floor_generator.gd"
 const NEAR_BLACK_OUTLINE := Color("050705")
 
 var _failures: Array[String] = []
@@ -20,6 +25,8 @@ func _run() -> void:
 	OS.add_logger(_errors)
 	await _test_complete_palettes_build_and_repaint_every_floor_without_reports()
 	await _test_a_palette_gap_is_reported_and_painted_from_palette_1()
+	await _test_every_floor_shows_the_colors_it_showed_before_floor_look()
+	_test_the_generator_decides_no_color_of_its_own()
 	OS.remove_logger(_errors)
 	if _failures.is_empty():
 		print("floor palette tests passed")
@@ -79,6 +86,52 @@ func _test_a_palette_gap_is_reported_and_painted_from_palette_1() -> void:
 		var material := road_mesh.material_override as StandardMaterial3D
 		_assert_eq(material.albedo_color, Color("365B2D").darkened(0.54), "the road should take palette 1's accent when the palette has none")
 	floor_root.free()
+
+
+func _test_every_floor_shows_the_colors_it_showed_before_floor_look() -> void:
+	var before: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(BEFORE_PATH))
+	for floor_key in before["floors"]:
+		var floor_entry: Dictionary = before["floors"][floor_key]
+		var floor_root := RealityFloorGeneratorScript.new()
+		root.add_child(floor_root)
+		Snapshot.build(floor_root, int(floor_key), UiPalette.PALETTE_1)
+		_assert_same_look(Snapshot.capture(floor_root), floor_entry["built_palette_1"], "floor %s built with palette 1" % floor_key)
+		floor_root.apply_palette(UiPalette.POLLUTION_PALETTE_5)
+		_assert_same_look(Snapshot.capture(floor_root), floor_entry["repainted_pollution_palette_5"], "floor %s repainted to pollution palette 5" % floor_key)
+		Snapshot.build(floor_root, int(floor_key), UiPalette.POLLUTION_PALETTE_5)
+		_assert_same_look(Snapshot.capture(floor_root), floor_entry["built_pollution_palette_5"], "floor %s built with pollution palette 5" % floor_key)
+		floor_root.free()
+		await process_frame
+	_assert_eq(_errors.take(), [], "building every floor for the comparison should report no palette gap")
+
+
+func _test_the_generator_decides_no_color_of_its_own() -> void:
+	var source := FileAccess.get_file_as_string(GENERATOR_PATH)
+	var color_rule := RegEx.new()
+	color_rule.compile("Color\\(|\\.lerp\\(|\\.darkened\\(|\\.lightened\\(|UiPalette(Script)?\\.color\\(")
+	var lines := source.split("\n")
+	for line_index in lines.size():
+		if color_rule.search(lines[line_index]) != null:
+			_failures.append("the generator should ask Floor look for colors, line %d: %s" % [line_index + 1, lines[line_index].strip_edges()])
+
+
+func _assert_same_look(captured: Dictionary, recorded: Dictionary, label: String) -> void:
+	var actual: Dictionary = Snapshot.decode(captured)
+	var expected: Dictionary = Snapshot.decode(recorded)
+	for section in expected:
+		var expected_section = expected[section]
+		var actual_section = actual.get(section)
+		if actual_section == expected_section:
+			continue
+		if expected_section is Dictionary and actual_section is Dictionary:
+			for key in expected_section:
+				if actual_section.get(key) != expected_section[key]:
+					_failures.append("%s %s %s should stay %s, got %s" % [label, section, key, expected_section[key], actual_section.get(key)])
+			for key in actual_section:
+				if not expected_section.has(key):
+					_failures.append("%s %s gained %s" % [label, section, key])
+		else:
+			_failures.append("%s %s should stay %s, got %s" % [label, section, expected_section, actual_section])
 
 
 func _assert_eq(actual, expected, message: String) -> void:
