@@ -15,6 +15,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const UICatalogScript = preload("res://scripts/localization/ui_catalog.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
+const LocaleFontScript = preload("res://scripts/ui/locale_font.gd")
 
 var _failures: Array[String] = []
 
@@ -57,6 +58,7 @@ func _run_hold() -> void:
 	await _test_yes_restarts_and_no_or_escape_only_close()
 	await _test_closing_the_menu_closes_the_restart_dialog()
 	await _test_the_hold_hint_follows_the_save_language_and_hover()
+	await _test_the_hold_hint_uses_the_language_font()
 	await _test_the_debug_panel_shows_how_long_start_is_held()
 
 
@@ -357,6 +359,25 @@ func _start_intent(mounted: Dictionary) -> String:
 
 
 ## A main menu and the dialog on one layer, with the bus, the dialog manager and a bracketing theme bound like the host does.
+func _test_the_hold_hint_uses_the_language_font() -> void:
+	var mounted := await _mount_with_dialog(true)
+	var hint := Harness.find_node_by_name(mounted["screen"], "MainMenuHoldHint") as Label
+	_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font("zh"), "the hint opens in the Simplified Chinese font")
+	for locale in ["en", "ja", "zh"]:
+		_write_locale(locale)
+		_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font(locale), "switching to %s swaps the hint font at once" % locale)
+	mounted["manager"].close()
+	_write_locale("en")
+	mounted["manager"].open({})
+	_assert_true(hint != null and hint.get_theme_font("font") == LocaleFontScript.font("en"), "re-opening after a switch made while closed shows the new font")
+	_dispose_all(mounted)
+
+
+func _write_locale(locale: String) -> void:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	manager.model(PropertyKeysScript.LOCALE).write(locale)
+
+
 func _mount_with_dialog(has_save: bool) -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
