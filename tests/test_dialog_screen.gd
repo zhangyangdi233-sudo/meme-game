@@ -9,6 +9,9 @@ const ScreenManagerScript = preload("res://scripts/ui/screen_manager.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
+const LocaleFontScript = preload("res://scripts/ui/locale_font.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PIXEL_FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
@@ -71,6 +74,8 @@ func _run_deferred() -> void:
 	_test_a_spec_without_one_to_three_buttons_is_refused()
 	await _test_ui_added_after_opening_stays_below_for_clicks()
 	_test_hotkeys_below_are_held_while_open()
+	_test_the_dialog_uses_the_locale_font_and_follows_a_switch_while_open()
+	await _test_buttons_ignore_hover_and_underline_keyboard_focus()
 	OS.remove_logger(_warnings)
 	if _failures.is_empty():
 		print("dialog screen tests passed")
@@ -358,6 +363,65 @@ func _test_hotkeys_below_are_held_while_open() -> void:
 	_press_key(KEY_F)
 	_assert_eq(listener.keys, [KEY_F, KEY_F] as Array[int], "after the dialog closes hotkeys should reach the game again")
 	_dispose(mounted)
+
+
+func _test_the_dialog_uses_the_locale_font_and_follows_a_switch_while_open() -> void:
+	var mounted := _mount()
+	var pixel_label := Label.new()
+	pixel_label.text = "像素"
+	(mounted["layer"] as Control).add_child(pixel_label)
+	(mounted["theme"] as GameUiTheme).apply_ui_font_theme(pixel_label)
+	for locale in ["en", "zh", "ja"]:
+		_write_locale(locale)
+		var screen := _dialog().open({"message": "字体", "buttons": [{"text": "是"}, {"text": "否"}]}) as Control
+		_assert_font(screen, LocaleFontScript.font(locale), "a dialog opened in %s should use that language's font" % locale)
+		_buttons(screen)[0].pressed.emit()
+	var screen := _dialog().open({"message": "字体", "buttons": [{"text": "是"}, {"text": "否"}]}) as Control
+	_write_locale("en")
+	_assert_font(screen, LocaleFontScript.font("en"), "switching the language while the dialog is open should swap its font at once")
+	_write_locale("zh")
+	_assert_font(screen, LocaleFontScript.font("zh"), "switching back while open should swap the font back")
+	_assert_eq((pixel_label.get_theme_font("font") as FontFile).resource_path, PIXEL_FONT_PATH, "UI outside the dialog should keep the pixel font")
+	_buttons(screen)[0].pressed.emit()
+	_dispose(mounted)
+
+
+func _test_buttons_ignore_hover_and_underline_keyboard_focus() -> void:
+	var mounted := _mount()
+	var screen := _dialog().open({"message": "焦点", "buttons": [{"text": "是"}, {"text": "否"}]}) as Control
+	await process_frame
+	for stage in ["clean", "polluted"]:
+		for button in _buttons(screen):
+			var normal := button.get_theme_stylebox("normal") as StyleBoxFlat
+			var hover := button.get_theme_stylebox("hover") as StyleBoxFlat
+			_assert_true(hover != null and hover.bg_color == normal.bg_color and hover.border_color == normal.border_color,
+				"a %s dialog button should look the same hovered as idle" % stage)
+			_assert_eq(button.get_theme_color("font_hover_color"), button.get_theme_color("font_color"), "a %s dialog button's text should not change on hover" % stage)
+			var focus := button.get_theme_stylebox("focus") as StyleBoxFlat
+			_assert_true(focus != null and not focus.draw_center, "a %s dialog button's focus mark should draw no fill" % stage)
+			if focus != null:
+				_assert_true(focus.border_width_bottom > 0 and focus.border_width_top == 0 and focus.border_width_left == 0 and focus.border_width_right == 0,
+					"a %s dialog button's focus mark should be an underline only" % stage)
+				_assert_eq(Color(focus.border_color, 1.0), Color(button.get_theme_color("font_color"), 1.0), "a %s dialog button's underline should be the text color" % stage)
+		Harness.publish_title_facts(60, false)
+	var buttons := _buttons(screen)
+	_assert_true(buttons[0].has_focus() and not buttons[1].has_focus(), "the first button should hold the focus on open")
+	_press_key(KEY_TAB)
+	_assert_true(buttons[1].has_focus() and not buttons[0].has_focus(), "tab should move the underline to the next button and off the first")
+	buttons[0].pressed.emit()
+	_dispose(mounted)
+
+
+func _write_locale(locale: String) -> void:
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	manager.model(PropertyKeysScript.LOCALE).write(locale)
+
+
+func _assert_font(screen: Node, expected: Font, message: String) -> void:
+	var message_label := Harness.find_node_by_name(screen, "DialogMessage") as Label
+	_assert_true(message_label != null and message_label.get_theme_font("font") == expected, "%s (message)" % message)
+	for button in _buttons(screen):
+		_assert_true(button.get_theme_font("font") == expected, "%s (%s)" % [message, button.name])
 
 
 func _click(at: Vector2) -> void:

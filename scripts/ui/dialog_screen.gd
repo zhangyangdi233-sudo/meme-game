@@ -8,6 +8,8 @@ extends UIBase
 ## and the first button takes the focus.
 ## An optional `owner` node leaving the tree closes the dialog without running any callback.
 ## While open it watches pollution and tints itself (`surface` / `ink` roles, buttons included) for the stage.
+## While open it also watches the language and sets the language's formal font (LocaleFont), not the pixel font.
+## Buttons look the same hovered as idle; the focused one is underlined in its text color.
 ## While open the full-screen root takes every click (it stays the last child of its layer, since GUI picking follows
 ## tree order), the focus stays on the dialog's buttons, and keys the dialog leaves unhandled never reach the game.
 ## One dialog at a time: an open while one is showing is refused with a warning and changes nothing.
@@ -24,8 +26,10 @@ const KEY_CANCEL_INDEX := "cancel_index"
 const KEY_OWNER := "owner"
 const MIN_BUTTONS := 1
 const MAX_BUTTONS := 3
+const FOCUS_UNDERLINE_WIDTH := 2
 
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const LocaleFontScript = preload("res://scripts/ui/locale_font.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
@@ -35,8 +39,11 @@ var _open := false
 var _cancel_index := -1
 var _refocusing := false
 var _owner_node: Node
+## The theme authored in the scene; each language gets a copy of it, so the shared scene resource is never edited.
+var _scene_theme: Theme
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.POLLUTION: _on_pollution,
+	PropertyKeysScript.LOCALE: _on_locale,
 })
 
 
@@ -127,6 +134,37 @@ func _watch_owner(owner_node: Node) -> void:
 func _on_pollution(value: Variant) -> void:
 	var stage: Dictionary = PollutionStageScript.stage(int(value))
 	apply_palette(UiPaletteScript.palette(str(stage.get("palette_key", "palette_1"))))
+
+
+## Assigns a new theme rather than editing the current one: assigning repaints at once, an edit only on a later frame.
+func _on_locale(value: Variant) -> void:
+	if _scene_theme == null:
+		_scene_theme = theme if theme != null else Theme.new()
+	var localized := _scene_theme.duplicate() as Theme
+	localized.default_font = LocaleFontScript.font(str(value))
+	theme = localized
+
+
+## The shared button style, then hover made identical to idle and the focus mark made an underline.
+func apply_palette(palette: Dictionary) -> void:
+	super.apply_palette(palette)
+	var row := get_node_or_null("%DialogButtonRow") as HBoxContainer
+	if row == null:
+		return
+	for child in row.get_children():
+		if child is Button:
+			_quiet_button(child as Button)
+
+
+func _quiet_button(button: Button) -> void:
+	var ink := button.get_theme_color("font_color")
+	button.add_theme_stylebox_override("hover", button.get_theme_stylebox("normal"))
+	button.add_theme_color_override("font_hover_color", ink)
+	var underline := StyleBoxFlat.new()
+	underline.draw_center = false
+	underline.border_color = ink
+	underline.border_width_bottom = FOCUS_UNDERLINE_WIDTH
+	button.add_theme_stylebox_override("focus", underline)
 
 
 ## Tab, shift-tab and the arrow keys wrap around the dialog's buttons instead of leaving the dialog.
