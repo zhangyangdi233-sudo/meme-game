@@ -11,11 +11,17 @@ const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const GameModelsScript = preload("res://scripts/game/game_models.gd")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const SAMPLE_BUTTON_TEXTS := ["确定", "取消", "稍后"]
-const SAVE_FOLLOW := "Follow"
-const SAVE_YES := "Yes"
-const SAVE_NO := "No"
+const SAVE_FOLLOW := "follow"
+const SAVE_SIMULATED := "simulated"
+const SAVE_EMPTY := "empty"
+const SAVE_BUTTONS := {
+	SAVE_FOLLOW: "DialogDebugSaveFollowButton",
+	SAVE_SIMULATED: "DialogDebugSaveYesButton",
+	SAVE_EMPTY: "DialogDebugSaveNoButton",
+}
 
 var _save_slot: SaveSlotScript
 
@@ -33,7 +39,7 @@ func _ready() -> void:
 		var opener := get_node_or_null("%%DialogDebugOpen%dButton" % count) as BaseButton
 		if opener != null:
 			opener.pressed.connect(_open_sample.bind(count))
-	for mode in [SAVE_FOLLOW, SAVE_YES, SAVE_NO]:
+	for mode in SAVE_BUTTONS.keys():
 		var choice := _save_button(mode)
 		if choice != null:
 			choice.pressed.connect(_simulate_save.bind(mode))
@@ -72,23 +78,23 @@ func _report(count: int, pressed: int) -> void:
 		log.text = line
 
 
+## A debug tool, not a player action, so it writes the model itself instead of raising an intent.
 func _simulate_save(mode: String) -> void:
 	_show_save_choice(mode)
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager if ServiceRegistryScript.has(ServiceKeysScript.PROPERTY_MANAGER) else null
-	var has_save := manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel if manager != null else null
+	var has_save := GameModelsScript.value(PropertyKeysScript.HAS_SAVE)
 	if has_save == null:
 		return
 	match mode:
-		SAVE_YES:
+		SAVE_SIMULATED:
 			has_save.write(true)
-		SAVE_NO:
+		SAVE_EMPTY:
 			has_save.write(false)
 		_:
 			has_save.write(_actual_save())
 
 
 func _show_save_choice(mode: String) -> void:
-	for each in [SAVE_FOLLOW, SAVE_YES, SAVE_NO]:
+	for each in SAVE_BUTTONS.keys():
 		var choice := _save_button(each)
 		if choice != null:
 			choice.set_pressed_no_signal(each == mode)
@@ -102,4 +108,4 @@ func _actual_save() -> bool:
 
 
 func _save_button(mode: String) -> BaseButton:
-	return get_node_or_null("%%DialogDebugSave%sButton" % mode) as BaseButton
+	return get_node_or_null("%" + str(SAVE_BUTTONS[mode])) as BaseButton

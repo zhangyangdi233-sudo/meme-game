@@ -640,11 +640,7 @@ func _save_slot() -> SaveSlotScript:
 
 
 func _publish_has_save() -> void:
-	PropertyBootScript.install()
-	var manager := ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	if manager == null:
-		return
-	var has_save := manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
+	var has_save := _value_model(PropertyKeysScript.HAS_SAVE)
 	if has_save == null:
 		return
 	has_save.write(_has_save_progress())

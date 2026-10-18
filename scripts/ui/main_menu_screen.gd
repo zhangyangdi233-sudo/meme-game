@@ -9,8 +9,9 @@ extends UIBase
 const SCENE_PATH := "res://scenes/ui/main_menu.tscn"
 const LAYER_NAME := "UIRoot"
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const START_BUTTON := "MainMenuStartButton"
 const BUTTON_INTENTS := {
-	"MainMenuStartButton": UiIntentsScript.START_GAME,
+	START_BUTTON: UiIntentsScript.START_GAME,
 	"MainMenuExitButton": UiIntentsScript.EXIT_GAME,
 	"MainMenuLanguageButton": UiIntentsScript.LANGUAGE_PICKER,
 }
@@ -45,6 +46,6 @@ func _on_has_save(value: Variant) -> void:
 
 
 func _intent_for(button_name: String, intent_name: String) -> String:
-	if button_name == "MainMenuStartButton" and _saved:
+	if button_name == START_BUTTON and _saved:
 		return UiIntentsScript.CONTINUE_GAME
 	return intent_name

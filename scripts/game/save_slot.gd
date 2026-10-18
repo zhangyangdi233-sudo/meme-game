@@ -1,3 +1,4 @@
+class_name SaveSlot
 extends RefCounted
 ## One save file on disk, read back: the payload, and whether it holds a run to continue.
 ## The host writes the file; the title's debug panel only asks whether it holds a run.
