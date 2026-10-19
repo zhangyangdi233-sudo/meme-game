@@ -1091,8 +1091,13 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 	if not should_render:
 		return
 	_update_world_for_phone_view()
-	if outcome.succeeded and (outcome.floor_changed or _ending_is_unlocked()):
-		_present_progress()
+	_present_conversation_outcome(outcome)
+
+
+## A conversation already shows through the models; the host presents it only when it changed more than the street.
+func _present_conversation_outcome(outcome: ActionOutcomeScript) -> void:
+	if _interaction_changed_the_run(outcome):
+		_present_interaction_outcome(outcome)
 		return
 	_refresh_reality_hud()
 	_sync_audio_state(false)
@@ -2954,10 +2959,15 @@ func _ensure_notebook_window_home() -> void:
 	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
 
 
-## A pickup already shows through the models; the host presents it only when it moved the floor or opened the ending.
+## A pickup already shows through the models; the host presents it only when it changed more than the notebook.
 func _present_pickup_outcome(outcome: ActionOutcomeScript) -> void:
-	if outcome.succeeded and (outcome.floor_changed or _ending_is_unlocked()):
+	if _interaction_changed_the_run(outcome):
 		_present_interaction_outcome(outcome)
+
+
+## Whether a valid interaction left a flashback to play, a new floor or an open ending.
+func _interaction_changed_the_run(outcome: ActionOutcomeScript) -> bool:
+	return outcome.succeeded and (outcome.flashback or outcome.floor_changed or _ending_is_unlocked())
 
 
 func _present_submit_outcome(outcome: ActionOutcomeScript) -> void:

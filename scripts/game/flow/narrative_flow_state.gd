@@ -1,5 +1,5 @@
 extends "res://framework/flow/flow_state.gd"
-## Flashback, day transition, and action-spend. Enter installs that screen and the play chrome underneath it; exit removes both.
+## The pollution flashback. Enter installs that screen and the play chrome underneath it; exit removes both.
 
 var _host: Node
 

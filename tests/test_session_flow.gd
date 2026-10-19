@@ -2,6 +2,7 @@ extends SceneTree
 ## Adapter Session mode: boot injects five states; new run, continue, title, and narrative go through the manager.
 
 var _failures: Array[String] = []
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
 const SESSION_IDS := ["main_menu", "prologue", "gameplay", "narrative", "ending"]
@@ -183,6 +184,7 @@ func _run() -> void:
 	await _run_narrative_beat(game_root)
 	await _run_ending_screen_install(game_root)
 	await _run_interaction_opens_ending(game_root)
+	await _run_every_interaction_plays_its_flashback(game_root)
 
 	game_root.queue_free()
 	await process_frame
@@ -238,6 +240,27 @@ func _run_narrative_beat(game_root) -> void:
 
 
 ## The progress check after a pickup unlocks the hidden ending; the host enters it right away.
+## Whichever interaction crossed 60% — a post, a pickup or leaving a conversation — its flashback plays.
+func _run_every_interaction_plays_its_flashback(game_root) -> void:
+	for path in ["pickup", "conversation"]:
+		game_root.new_game()
+		await process_frame
+		game_root._skip_prologue()
+		await process_frame
+		var outcome := ActionOutcomeScript.new()
+		outcome.succeeded = true
+		outcome.flashback = true
+		if path == "pickup":
+			game_root._present_pickup_outcome(outcome)
+		else:
+			game_root._present_conversation_outcome(outcome)
+		await process_frame
+		_assert_eq(game_root.session_mode(), "narrative", "a %s that crossed 60%% should play the flashback" % path)
+		GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
+		await process_frame
+		_assert_eq(game_root.session_mode(), "gameplay", "the %s flashback should return to gameplay" % path)
+
+
 func _run_interaction_opens_ending(game_root) -> void:
 	game_root.new_game()
 	await process_frame

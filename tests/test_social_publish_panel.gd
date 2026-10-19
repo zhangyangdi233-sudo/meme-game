@@ -90,7 +90,7 @@ func _test_the_page_has_no_old_meme_route() -> void:
 		_assert_true(_find(mounted, node_name) == null, "the publish page should not build %s" % node_name)
 	_assert_true(not panel.has_method("get_confirm_button"), "the panel should offer no confirm button")
 	var text := Harness.collect_control_text(mounted["host"])
-	for word in ["确认发布", "资金", "行动"]:
+	for word in ["确认发布", "资金", "行动", "DAY"]:
 		_assert_true(not text.contains(word), "the publish page should not word %s" % word)
 	_dispose(mounted)
 

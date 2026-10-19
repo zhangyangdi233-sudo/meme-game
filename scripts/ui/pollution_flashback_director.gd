@@ -9,7 +9,7 @@ extends Control
 ## - 语言污染只污染元数据(名牌、引号、归属),正文字形零污染;
 ## - 黑帧是 150-250ms 的"阅读标点",不是频闪;
 ## - WCAG 2.2:任意 1 秒窗口内明暗切换 ≤3(见 luminance_flip_budget 与配套测试)。
-## 时间线走完时在绑定的 bus 上发出 FLASHBACK_FINISHED(ADR 0007),由订阅者收尾与换日。
+## 时间线走完时在绑定的 bus 上发出 FLASHBACK_FINISHED(ADR 0007),由订阅者收尾。
 
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")

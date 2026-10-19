@@ -71,8 +71,6 @@ func _render_publish_page(parent: Control) -> void:
 	var page_title := _theme().label("发布新信号", 22, _theme().theme_color("ink")) as Label
 	page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page_header.add_child(page_title)
-	var game_day := _source().game_day()
-	page_header.add_child(_theme().label("DAY %02d" % game_day, 12, _theme().theme_color("accent")) as Label)
 
 	var publish_scroll := ScrollContainer.new()
 	publish_scroll.name = "SocialPublishScroll"
