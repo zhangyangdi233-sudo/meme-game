@@ -2,7 +2,7 @@ extends Node
 class_name GameAudioController
 ## Adaptive score mix, floor phone music, and cover-watcher stinger for the main scene adapter.
 ## Short UI sounds and the watcher's appearance are game events: while it is in the tree it subscribes to
-## SFX_REQUESTED and COVER_WATCHER_APPEARED and plays the cue or the stinger, and to DAY_SETTLED to re-sync the mix.
+## SFX_REQUESTED and COVER_WATCHER_APPEARED and plays the cue or the stinger.
 
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -17,7 +17,6 @@ const PHONE_AMBIENCE_PATHS := {
 const REALITY_AMBIENCE_PATH := "res://assets/generated/audio/babel_reality_liminal.wav"
 const POLLUTION_AMBIENCE_PATH := "res://assets/generated/audio/babel_pollution_rot.wav"
 const FLASHBACK_AUDIO_PATH := "res://assets/generated/audio/pollution_flashback.wav"
-const ACTION_TICK_AUDIO_PATH := "res://assets/generated/audio/action_tick.wav"
 const PICKUP_PRESS_AUDIO_PATH := "res://assets/generated/audio/pickup_press.wav"
 const PICKUP_LAND_AUDIO_PATH := "res://assets/generated/audio/pickup_land.wav"
 const NOTEBOOK_HINGE_AUDIO_PATH := "res://assets/generated/audio/notebook_hinge.wav"
@@ -30,13 +29,11 @@ var flashback_audio: AudioStreamPlayer
 var pickup_press_audio: AudioStreamPlayer
 var pickup_land_audio: AudioStreamPlayer
 var notebook_hinge_audio: AudioStreamPlayer
-var action_tick_audio: AudioStreamPlayer
 var cover_watcher_stinger: AudioStreamPlayer
 
 var _host: Node
 var _audio_tween: Tween
 var _event_bus: GameEventBus
-var _state_source: Callable
 
 
 func attach_to(host: Node) -> void:
@@ -51,31 +48,13 @@ func _enter_tree() -> void:
 	if _event_bus != null:
 		_event_bus.subscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
 		_event_bus.subscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
-		_event_bus.subscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
 
 
 func _exit_tree() -> void:
 	if _event_bus != null:
 		_event_bus.unsubscribe(GameEventsScript.SFX_REQUESTED, _on_sfx_requested)
 		_event_bus.unsubscribe(GameEventsScript.COVER_WATCHER_APPEARED, _on_cover_watcher_appeared)
-		_event_bus.unsubscribe(GameEventsScript.DAY_SETTLED, _on_day_settled)
 	_event_bus = null
-
-
-## The host hands over how to read the mix inputs (the same dictionary sync_state takes), so a settled day can re-sync.
-func set_state_source(source: Callable) -> void:
-	_state_source = source
-
-
-## Deferred, so every other listener (the Reality scene adapter ending its conversation) has reacted before the mix
-## is read, whatever order they subscribed in.
-func _on_day_settled(_payload: Dictionary) -> void:
-	_sync_from_state_source.call_deferred()
-
-
-func _sync_from_state_source() -> void:
-	if _state_source.is_valid() and is_inside_tree():
-		sync_state(_state_source.call(), false)
 
 
 func _on_sfx_requested(payload: Dictionary) -> void:
@@ -120,7 +99,6 @@ func build_players(deps: Dictionary) -> void:
 	pickup_press_audio = _make_audio_player("PickupPressAudio", PICKUP_PRESS_AUDIO_PATH, false, -16.0)
 	pickup_land_audio = _make_audio_player("PickupLandAudio", PICKUP_LAND_AUDIO_PATH, false, -11.0)
 	notebook_hinge_audio = _make_audio_player("NotebookHingeAudio", NOTEBOOK_HINGE_AUDIO_PATH, false, -14.0)
-	action_tick_audio = _make_audio_player("ActionTickAudio", ACTION_TICK_AUDIO_PATH, false, -15.0)
 	cover_watcher_stinger = _make_audio_player("CoverWatcherStinger", COVER_WATCHER_STINGER_PATH, false, -9.0)
 	sync_state(deps, true)
 
@@ -209,11 +187,6 @@ func sync_state(deps: Dictionary, immediate: bool = false) -> void:
 	_audio_tween.tween_property(phone_ambience, "volume_db", phone_target, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
 	_audio_tween.tween_property(reality_ambience, "volume_db", reality_target, 0.55).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
 	_audio_tween.tween_property(pollution_ambience, "volume_db", pollution_target, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-
-func play_action_tick() -> void:
-	if action_tick_audio != null and action_tick_audio.stream != null and action_tick_audio.is_inside_tree():
-		action_tick_audio.play()
 
 
 func play_flashback() -> void:

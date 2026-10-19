@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (116 tests)
+## What runs (111 tests)
 
-### GDScript (114)
+### GDScript (109)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -108,13 +108,12 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_pollution_stage` | state | `PollutionStage` rules |
 | `test_language_corruption_state` | state | hidden route, history, floor transitions |
 | `test_doll_system` | state | doll encounters, save migration, notebook craft |
-| `test_playthrough_flow` | state | five-action phone → doctor day |
 | `test_simplified_language_core` | state | metrics, publish preview, hidden floor |
-| `test_action_outcome` | state | publish, fusion, and doctor sentence outcomes: success, spent action, feedback key, settlement (funds, pollution, flashback, day change) |
+| `test_interaction_progress` | state | no funds, daily actions or day settlement in the state or the save; posts, pickups and conversations are not limited; the floor step, the floor-three finish and the hidden floor run when a post, a pickup, a world item pickup or leaving a spoken conversation completes (leaving unspoken checks nothing; the post that makes the exit exist holds the hidden ending for the next interaction); crossing 60% reports the flashback alone and the run goes on; saves are version 6 and older ones are refused |
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build; the black covers stay true black |
-| `test_void_and_outline` | module | under pollution palette 5 the day-transition and prologue backdrops stay true black, and the conversation text outlines stay near black |
+| `test_void_and_outline` | module | under pollution palette 5 the prologue backdrop stays true black, and the conversation text outlines stay near black |
 | `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme`; the scrim is the active palette's `ink` at 0.92; the hairline, hover tint and pressed tint are its `muted` at 0.22, 0.24 and 0.40, and dark rails, HUD icons and flat phone buttons are painted from them |
 | `test_locale_font` | module | `LocaleFont` answers Roboto Condensed Bold, Noto Sans SC Medium and Noto Sans JP Medium per language, falls back to Simplified Chinese for an unknown locale and for Han text in English, reuses each font; the OFL texts and provenance ship with them |
 | `test_full_screen_scrim` | module | under pollution palette 5 the camera consent, language selection and phone camera connection backdrops are the bound theme's scrim |
@@ -127,38 +126,35 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_settings_history_panel`, `test_language_selection_panel` | module | the settings panel owns the settings-open model, always watches pollution for its labels, and while open watches preference, autoplay and save-status models; the open history window watches the recorded lines; an exit request opens the shared dialog with the plea, 返回 (focused, Escape) and 仍然退出, only 仍然退出 raises the exit confirm, and the panel builds no confirmation nodes |
 | `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
 | `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open and foreground-app models |
-| `test_notebook_app_panel` | module | shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models; hiding writes canvas positions once; it keeps and repaints its own tab; every notebook action raises its intent with the right name and payload |
+| `test_notebook_app_panel` | module | shown notebook watches the held-word, sentence and world-rule models; hiding writes canvas positions once; it has no fusion tab or tabs to select; every notebook action raises its intent with the right name and payload |
 | `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload |
-| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence, last-result and published models and repaints itself; it keeps its own page, channel and open post; pickable words take the bound palette's `flash_text`; the comments rule is the hairline while post cards keep their stronger `muted` edge; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence and published models and repaints itself; it keeps its own page, channel and open post; pickable words take the bound palette's `flash_text`; the comments rule is the hairline while post cards keep their stronger `muted` edge; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
 | `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the tutorial post count, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
-| `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, fills the fusion slots from the `selected_meme` model, fuses, words the feedback line, and returns the presentation |
-| `test_doctor_sentence_intent_handler` | module | on an empty bus, the doctor sentence handler keeps the `selected_language_token` model, places tokens in the doctor's slots, words the refusals, clears the selection once a sentence is spoken, and returns the presentation |
+| `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, words the feedback line, and returns the presentation |
 | `test_settings_intent_handler` | module | on an empty bus, the settings handler writes volume and autoplay, marks the exit prompt seen, and names the settings, save, VHS, history, main menu and quit presentations; it leaves `settings_open` to the panel |
 | `test_doll_guide_panel`, `test_playtest_assist_panel` | module | shown guide and playtest panel watch the tutorial progress and floor facts and word their own lines |
 | `test_guide_line` | module | guide and test-hint wording from tutorial progress and floor facts alone |
 | `test_settings_prologue_ending_intents` | module | settings window, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
-| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED`, `COVER_WATCHER_APPEARED` and `DAY_SETTLED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes, and re-syncs the mix from the host's inputs when the day settles |
-| `test_day_settlement_feedback` | module | the desk-line subscriber, once attached: a settled day clears the meme selection and shows the latest log line; a finished flashback shows the "already the next day" line; a day the flashback settles shows it too, so the line ends on the new day whichever event comes first; a detached one hears nothing |
-| `test_narrative_overlay_director` | module | while in the tree the director answers `FLASHBACK_FINISHED` by closing the flashback and asking the host to settle, once; with no flashback on screen, or out of the tree, it settles nothing; a flashback played to its end raises the event; the overlay mounts with no callback |
+| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` and `COVER_WATCHER_APPEARED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes |
+| `test_narrative_overlay_director` | module | while in the tree the director answers `FLASHBACK_FINISHED` by closing the flashback and ending the beat in gameplay, once, without settling a day; with no flashback on screen, or out of the tree, it does nothing; a flashback played to its end raises the event; the overlay mounts with no callback |
 | `test_cover_watcher_sightings` | module | the sightings subscribe to the watcher events once attached: an appearance marks its floor seen in the run they were last pointed at, a withdrawal records its line, and a detached one hears nothing |
 | `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree and translates it through the bound UI theme |
 | `test_camera_session_status` | module | the camera session words its status label and translates it through the bound UI theme, again after a language switch |
 | `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
-| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; task props take their colors from `UiPalette` and report a palette gap; while in the tree a `DAY_SETTLED` ends the conversation and forgets the nearby targets |
+| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; task props take their colors from `UiPalette` and report a palette gap |
 | `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
-| `test_day_transition_scene` | **adapter** | day overlay, meme-bank retirement; the host raises one `DAY_SETTLED` per settlement and the desk line, selection and street react; a finished flashback shows the next-day line |
-| `test_main_scene` | **adapter** | integration smoke; under pollution palette 5 the world prompt outline and cinematic bars keep their fixed colors |
+| `test_main_scene` | **adapter** | integration smoke; the HUD shows no funds or action dots and no action pulse or day transition overlay is built; under pollution palette 5 the world prompt outline and cinematic bars keep their fixed colors |
 | `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; its save simulation (follow / saved / empty) writes only the `has_save` model, shows the actual save and leaves the file untouched, and a simulated save without a file falls back to a new game; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
-| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; START continues from the save, holding it and answering YES starts a new game and leaves the save file, starts a new game with the prologue without one, and falls back to a new game with one warning when the save is corrupt or missing |
+| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; post detail words no action cost; START continues from the save, holding it and answering YES starts a new game and leaves the save file, starts a new game with the prologue without one, and falls back to a new game with one warning when the save is corrupt, missing or from an older state version |
 | `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS, history, exit request and the settings button to the settings handler and presents them, the exit request as the dialog; closing by model restores the chrome; 仍然退出 saves the run and preferences before quitting |
-| `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps, craft, fusion drops and fuse to the notebook handler and presents the submit and the action |
-| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; routing smoke for the doctor sentence handler (token press, refused confirm); the host keeps no transient selection |
+| `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps and craft to the notebook handler and presents the submit |
+| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; the reality HUD builds no doctor sentence composer; leaving a spoken conversation at 25% pollution moves the floor and the street is rebuilt for it; the host keeps no transient selection |
 | `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
 | `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
 | `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility; composer intents repaint the publish page from the sentence model without a host redraw |

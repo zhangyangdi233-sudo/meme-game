@@ -20,7 +20,7 @@ func _run_async() -> void:
 		root.new_game()
 		_assert_true(_find_node_by_name(root, "HUDPollutionIcon") is Button, "the in-game HUD should expose pollution")
 		_assert_true(_find_node_by_name(root, "HUDDayIcon") == null, "day must not remain a visible progress metric")
-		_assert_true(_find_node_by_name(root, "HUDMoneyIcon") is Button, "the compact HUD should expose usable funds")
+		_assert_true(_find_node_by_name(root, "HUDMoneyIcon") == null, "the compact HUD should expose no funds")
 		var hud_rail := _find_node_by_name(root, "InternationalHUDRail") as Control
 		var settings_window := _find_node_by_name(root, "SettingsWindow") as Control
 		var exit_button := _find_node_by_name(root, "SettingsExitGameButton") as Button

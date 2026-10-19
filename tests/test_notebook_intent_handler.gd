@@ -28,14 +28,11 @@ func _init() -> void:
 
 func _run_async() -> void:
 	_test_it_claims_every_notebook_intent_and_nothing_else()
-	_test_a_tab_change_asks_the_host_to_re_theme()
 	_test_bank_taps_place_the_word_and_ask_for_its_flight()
 	_test_a_tile_dropped_on_the_answer_joins_the_sentence()
 	await _test_a_tile_dropped_off_the_answer_stays_out()
 	_test_craft_returns_the_submit_outcome()
 	_test_committed_positions_are_written_to_the_state()
-	_test_fusion_slots_take_the_selected_meme_and_word_the_refusals()
-	_test_fusion_returns_the_action_and_selects_the_fused_meme()
 	if _answer_panel != null:
 		_answer_panel.queue_free()
 	RegistryScript.clear()
@@ -87,28 +84,17 @@ func _test_it_claims_every_notebook_intent_and_nothing_else() -> void:
 	_boot()
 	for intent_name in [
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
-		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED,
-		UiIntentsScript.NOTEBOOK_TAB_CHANGED,
 		UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED,
 		UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE,
 		UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED,
-		UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED,
-		UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED,
 	]:
 		_assert_true(_handler.handles(intent_name), "the handler should claim %s" % intent_name)
 	for intent_name in [
 		UiIntentsScript.START_GAME,
 		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED,
-		UiIntentsScript.COMPOSER_CONFIRM_PRESSED,
 		UiIntentsScript.SETTINGS_PRESSED,
 	]:
 		_assert_true(not _handler.handles(intent_name), "the handler should leave %s to the host" % intent_name)
-
-
-func _test_a_tab_change_asks_the_host_to_re_theme() -> void:
-	_boot()
-	var result := _raise(UiIntentsScript.NOTEBOOK_TAB_CHANGED, {UiIntentsScript.KEY_TAB_ID: "fusion"})
-	_assert_presents(result, NotebookIntentHandlerScript.TAB_CHANGED, "a tab change")
 
 
 func _test_bank_taps_place_the_word_and_ask_for_its_flight() -> void:
@@ -168,53 +154,6 @@ func _test_committed_positions_are_written_to_the_state() -> void:
 	var result := _raise(UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED, {UiIntentsScript.KEY_TILE_POSITIONS: {"门": Vector2(42.0, 24.0)}})
 	_assert_eq(_game.get_char_canvas_position("门", "zh"), Vector2(42.0, 24.0), "a commit intent should write the resting position")
 	_assert_presents(result, IntentResultScript.NONE, "a position commit")
-
-
-func _two_memes() -> void:
-	_game.completed_memes = [
-		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
-		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
-	]
-	_game.fusion_slots = {}
-
-
-func _test_fusion_slots_take_the_selected_meme_and_word_the_refusals() -> void:
-	_boot()
-	_two_memes()
-	var empty_press := _raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "left"})
-	_assert_eq(_feedback(), "先从融合列表选择一个完整梗。", "a slot press with no selected meme should ask for one")
-	_assert_presents(empty_press, NotebookIntentHandlerScript.FUSION_SLOTS_CHANGED, "a slot press")
-	var drop := _raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "meme", "id": "meme-left"}, UiIntentsScript.KEY_SLOT_ID: "left"})
-	_assert_eq(str(_game.fusion_slots.get("left", "")), "meme-left", "a drop intent should put the meme in the slot")
-	_assert_eq(str(_model(PropertyKeysScript.SELECTED_MEME).read()), "meme-left", "a drop should select the dropped meme")
-	_assert_eq(_feedback(), "旧梗已放入融合槽。", "a drop should word its feedback")
-	_assert_presents(drop, NotebookIntentHandlerScript.FUSION_SLOTS_CHANGED, "a meme drop")
-	_raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "right"})
-	_assert_true(not _game.fusion_slots.has("right"), "a slot press should refuse the meme already in the other slot")
-	_assert_eq(_feedback(), "两个融合槽不能使用同一个梗。", "a refused slot press should say why")
-	_raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "meme", "id": "meme-left"}, UiIntentsScript.KEY_SLOT_ID: "right"})
-	_assert_eq(_feedback(), "两个融合槽必须放入不同的完整梗。", "a refused drop should say why")
-	_model(PropertyKeysScript.SELECTED_MEME).write("meme-right")
-	_raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "right"})
-	_assert_eq(str(_game.fusion_slots.get("right", "")), "meme-right", "a slot press should place the selected meme")
-
-
-func _test_fusion_returns_the_action_and_selects_the_fused_meme() -> void:
-	_boot()
-	_two_memes()
-	_game.place_meme_in_fusion_slot("left", "meme-left")
-	_game.place_meme_in_fusion_slot("right", "meme-right")
-	var result := _raise(UiIntentsScript.NOTEBOOK_FUSION_REQUESTED)
-	_assert_eq(_game.completed_memes.size(), 3, "a fusion intent should fuse the two memes")
-	_assert_presents(result, IntentResultScript.ACTION, "a fusion")
-	if result != null and result.outcome != null:
-		_assert_true(result.outcome.succeeded, "a fusion should carry its outcome")
-		_assert_eq(str(_model(PropertyKeysScript.SELECTED_MEME).read()), result.outcome.selected_meme_id, "a fusion should select the fused meme")
-	_model(PropertyKeysScript.SELECTED_MEME).write("meme-left")
-	var refused := _raise(UiIntentsScript.NOTEBOOK_FUSION_REQUESTED)
-	if refused != null and refused.outcome != null:
-		_assert_true(not refused.outcome.succeeded, "fusing empty slots should fail")
-	_assert_eq(str(_model(PropertyKeysScript.SELECTED_MEME).read()), "meme-left", "a failed fusion should keep the selection")
 
 
 func _assert_presents(result: IntentResult, presentation: String, label: String) -> void:

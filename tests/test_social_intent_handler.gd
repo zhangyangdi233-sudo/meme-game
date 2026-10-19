@@ -27,7 +27,6 @@ func _init() -> void:
 	_test_a_card_counts_the_opened_post_for_the_tutorial()
 	_test_like_and_follow_write_the_state_and_the_feedback()
 	_test_closing_the_window_and_the_detail()
-	_test_the_publish_confirm_returns_the_publish_outcome()
 	_test_pickup_and_composer_intents_build_and_post_a_sentence()
 	RegistryScript.clear()
 	if _failures.is_empty():
@@ -80,7 +79,6 @@ func _test_it_claims_every_social_intent_and_nothing_else() -> void:
 		UiIntentsScript.SOCIAL_FOLLOW_PRESSED,
 		UiIntentsScript.SOCIAL_CLOSE_REQUESTED,
 		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED,
-		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED,
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED,
 		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED,
 		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED,
@@ -92,7 +90,6 @@ func _test_it_claims_every_social_intent_and_nothing_else() -> void:
 		UiIntentsScript.START_GAME,
 		UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED,
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
-		UiIntentsScript.COMPOSER_CONFIRM_PRESSED,
 	]:
 		_assert_true(not _handler.handles(intent_name), "the handler should leave %s to the host" % intent_name)
 
@@ -140,16 +137,6 @@ func _test_closing_the_window_and_the_detail() -> void:
 	var detail := _raise(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED)
 	_assert_eq(_feedback(), "关闭社交详情。", "closing the detail should word its feedback")
 	_assert_presents(detail, SocialIntentHandlerScript.PAGE_CHANGED, "a detail close")
-
-
-func _test_the_publish_confirm_returns_the_publish_outcome() -> void:
-	_boot()
-	var result := _raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
-	_assert_presents(result, IntentResultScript.ACTION, "a publish confirm")
-	if result != null:
-		_assert_true(result.outcome != null, "a publish confirm should carry the publish outcome")
-		if result.outcome != null:
-			_assert_eq(result.outcome.feedback_key, ActionOutcomeScript.PUBLISH_EMPTY, "publishing nothing should report the empty publish")
 
 
 func _test_pickup_and_composer_intents_build_and_post_a_sentence() -> void:

@@ -10,7 +10,7 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PAGE_CHANGED := "social_page_changed"
 ## The social window closed; the host shuts the open post and refreshes the phone shell.
 const WINDOW_CLOSED := "social_window_closed"
-## A word pickup; the host flies the word and settles when it spent the day's first action.
+## A word pickup; the host flies the word and presents the pickup's outcome.
 const PICKUP := "social_pickup"
 
 const INTENTS: Array[String] = [
@@ -21,7 +21,6 @@ const INTENTS: Array[String] = [
 	UiIntentsScript.SOCIAL_FOLLOW_PRESSED,
 	UiIntentsScript.SOCIAL_CLOSE_REQUESTED,
 	UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED,
-	UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED,
 	UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED,
 	UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED,
 	UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED,
@@ -67,8 +66,6 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED:
 			_write_feedback("关闭社交详情。")
 			return IntentResultScript.present(PAGE_CHANGED)
-		UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED:
-			return _action(_game.publish_dialogue())
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED:
 			var meta: Variant = payload.get(UiIntentsScript.KEY_META)
 			var pickup := IntentResultScript.present(PICKUP, _material.pick_from_post(meta, str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))

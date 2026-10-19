@@ -2,6 +2,8 @@
 
 Phase **4b** documents what callers depend on and rolls out the **snapshot out / intent in** seam domain by domain (slices 1–7 complete). Parallel **UI/world extractions** shrink `babel_meme_game.gd` without changing MemeGameState API.
 
+> **#108 (2026-10):** daily actions, funds, the day settlement, fusion, the old-meme publish and the doctor sentence composer are removed. The "Public fields / methods by domain" sections are current; the slice contracts further down describe the history and still name them.
+
 ## Summary (2026-08-30, post–slice 7 + adapter read cleanup)
 
 ### 4b signal seams (MemeGameState)
@@ -38,13 +40,13 @@ Phase **4b** documents what callers depend on and rolls out the **snapshot out /
 
 | Extraction | Module | Owns |
 |---|---|---|
-| Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Day/pollution/actions HUD chrome; reads adapter snapshots |
+| Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Pollution and settings HUD chrome; watches the pollution model |
 | Reality 3D scene | `scripts/world/reality_scene_adapter.gd` (slice 1) | Floor rebuild, player locomotion, proximity actors/items; MemeGameState intents stay in adapter |
 | Camera / hand X-ray | `scripts/integrations/camera_session.gd` | Hand tracking receiver, X-ray overlay, enable/source intents; settings UI wiring stays in adapter |
 | Adaptive audio mix | `scripts/integrations/game_audio_controller.gd` | Score players, floor phone music, flashback ducking, cover-watcher stinger |
 | Social feed content | `scripts/game/social_feed_content.gd` | Post/caption/poster pure helpers consumed by `social_feed_panel` mount deps |
 | UI theme factories | `scripts/ui/game_ui_theme.gd` | Palette, pixel-font theme, panel/style factories, control-tree localization |
-| Narrative overlays | `scripts/game/narrative_overlay_director.gd` | Day-transition tween, action-spend overlay glue, flashback start/finish and input-lock coordination; panels stay extracted |
+| Narrative overlays | `scripts/game/narrative_overlay_director.gd` | Flashback start/finish and input-lock coordination; the panel stays extracted |
 
 ---
 
@@ -66,9 +68,11 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ## Public fields by domain
 
-### Run / day economy
+### Run progress
 
-`day`, `pollution`, `tower_floor`, `money`, `actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, `day_ended_reason`, `pollution_flashback_seen`, `pollution_flashback_pending`
+`day`, `pollution`, `tower_floor`, `pollution_flashback_seen`, `pollution_flashback_pending`
+
+There are no daily actions, funds or day settlement (#108). `day` stays 1 and only seeds ids and rolls. A valid interaction (a post, a spoken conversation the player leaves, a pickup) runs the progress check when it completes; see "Valid interaction" in `CONTEXT.md`.
 
 `event_log` (newest first) is read from the `EVENT_LOG` run model as a copy; add a line with `record_event()`. The babel app watches it.
 
@@ -82,19 +86,17 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 ### Social / publishing
 
-`last_char_pick_day`
-
-`published_memes` (newest first) and `free_sentence_units` are list models; `last_publish_result` and `world_rules` are map models. All four are saved with the run and reset with it. A read is a copy, an assignment replaces the whole value through the model, and the sentence edits, posts and publications go through the model's methods. `sentence_text(units, locale)` and `world_rule_list(rules)` are static, so a screen can word the sentence and list the rules from the model values alone.
+`published_memes` (newest first) and `free_sentence_units` are list models; `world_rules` is a map model. All three are saved with the run and reset with it. A read is a copy, an assignment replaces the whole value through the model, and the sentence edits, posts and publications go through the model's methods. `sentence_text(units, locale)` and `world_rule_list(rules)` are static, so a screen can word the sentence and list the rules from the model values alone.
 
 ### Notebook / meme craft
 
-`owned_meme_frame_ids`, `fused_meme_pairs`, `dialogue_blanks`, `language_sentence_slots`, `sentence_records`
+`owned_meme_frame_ids`, `sentence_records`
 
-`draft_slots` and `fusion_slots` are map models and `owned_meme_frames` is a value model (int, at least 0); saved with the run and reset with it. A read is a copy; filling a slot writes one entry, and a craft, a fusion or the day boundary empties the map.
+`draft_slots` is a map model and `owned_meme_frames` is a value model (int, at least 0); saved with the run and reset with it. A read is a copy; filling a slot writes one entry, and a craft empties the map.
 
 ### Held words, memes, and canvas positions (run property models)
 
-The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks, crafts, and fusions go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`. The shown social app watches the held words and the memes itself: pickup marks in a post and the profile's finished-meme count come from the models, not from a host read.
+The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks and crafts go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`. The shown social app watches the held words and the memes itself: pickup marks in a post and the profile's finished-meme count come from the models, not from a host read.
 
 ### Doll / prerequisite world items
 
@@ -104,11 +106,11 @@ The held words (`collected_char_units`, `notebook_tokens`) and the finished meme
 
 The progress the conversation screen shows lives only in run property models (reset with the run, not part of the save): `conversation_phase`, `conversation_mode`, `conversation_actor_type`, `conversation_actor_label`, `conversation_prompt`, `conversation_result_line`, `conversation_choices`, `conversation_can_continue`, `conversation_feedback`, `conversation_reveal_index`, `conversation_revealed_units`. The state exposes them as accessors that read and write the models; it keeps no second copy.
 
-The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conversation_selected_choice_id`, `conversation_clean_sentence`, `conversation_attempts`, `conversation_understood`, `conversation_understanding_rolls`, `conversation_locale`, `conversation_clean_units`, `conversation_world`, `conversation_selected_token_ids`, `conversation_turns`, `conversation_turn_index`, `conversation_history`, `conversation_completed`, `conversation_interrupted`, `conversation_interrupt_line`, `conversation_action_spent`, `conversation_reward`
+The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conversation_selected_choice_id`, `conversation_clean_sentence`, `conversation_attempts`, `conversation_understood`, `conversation_understanding_rolls`, `conversation_locale`, `conversation_clean_units`, `conversation_world`, `conversation_turns`, `conversation_turn_index`, `conversation_history`, `conversation_completed`, `conversation_interrupted`, `conversation_interrupt_line`, `conversation_counted`, `conversation_reward`
 
-### Relationship / doctor dialogue
+### Relationship
 
-`npc_understanding`, `reality_phase`, `relationship_residue`, `last_relationship_residue_gain`, `last_relationship_money_loss`, `reality_dialogue_count`, `last_clean_sentence`, `last_polluted_sentence`
+`npc_understanding`, `reality_phase`, `relationship_residue`, `last_relationship_residue_gain`, `reality_dialogue_count`, `last_clean_sentence`, `last_polluted_sentence`
 
 ---
 
@@ -135,21 +137,6 @@ Whether the phone is open, the current app, and the foreground app window live o
 
 `set_phone_open()`, `set_view_state()`, `set_active_app()`
 
-### Action economy (run property models)
-
-`actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, and `day_ended_reason` live only in run property models (saved with the run, reset with it). The state exposes them as accessors that read and write the models; it keeps no second copy. There is no snapshot and no signal.
-
-| Kind | API |
-|---|---|
-| Intent | `spend_action(action_type)` — writes the models |
-| Query | `can_spend_action()`, `settle_day_if_needed()` |
-
-The left HUD watches remaining actions and the daily cap to paint its pips; the open social publish page watches remaining actions to lock its post button.
-
-### Action economy (legacy listing)
-
-`spend_action()`, `can_spend_action()`, `settle_day_if_needed()`
-
 ### Settings — **slice 2C seam**
 
 | Kind | API |
@@ -162,18 +149,18 @@ Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new 
 
 ### Pollution / tower — day progress (run property models)
 
-`day`, `pollution`, `tower_floor`, `pending_floor_transition`, `needs_day_settlement`, and `day_ended_reason` live only in run property models. `day` never goes below 1 and `tower_floor` stays within 1–4; the models clamp. There is no change signal.
+`day`, `pollution`, `tower_floor` and `pending_floor_transition` live only in run property models. `day` never goes below 1 and `tower_floor` stays within 1–4; the models clamp. There is no change signal.
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, needs_day_settlement, day_ended_reason, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
-| Intent | `change_pollution(amount)`, `settle_day_if_needed()`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
+| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
+| Intent | `change_pollution(amount)`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
 
-The adapter refreshes after its own intents (`_present_settlement`, `_settle_day_and_present_rewards`). The left HUD and the babel app watch the models themselves while shown.
+The progress check runs inside the state when a valid interaction completes; the adapter presents its outcome (`_present_interaction_outcome`, `_present_progress`). The left HUD and the babel app watch the models themselves while shown.
 
 ### Pollution / tower (legacy listing)
 
-`change_pollution()`, `check_pollution_flashback()`, `consume_pollution_flashback()`, `request_floor_transition_for_pollution()`, `resolve_floor_transition_at_boundary()`, `complete_floor_three()`, `get_gameplay_metrics()`
+`change_pollution()`, `check_pollution_flashback()`, `consume_pollution_flashback()`, `request_floor_transition_for_pollution()`, `resolve_floor_transition_at_boundary()`, `complete_floor_three()`
 
 ### World items / prerequisites
 
@@ -215,7 +202,7 @@ The open social app registers on both models and repaints itself, so there is no
 
 `get_pickup_unit_pool()`, `is_social_char_collected()`, `get_collected_char_units()`, `pick_social_char()`, `get_free_sentence_units()`, `free_sentence_place()`, `free_sentence_remove()`, `free_sentence_place_at()`, `free_sentence_move()`, `free_sentence_clear()`, `get_free_sentence_text()`, `submit_free_sentence()`, `get_player_quote_stage()`, `get_player_echo_quote()`
 
-`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material returns that outcome from `pick_from_post()` and `submit()`, and the adapter settles it.
+`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material returns that outcome from `pick_from_post()` and `submit()`, and the adapter presents it. `end_typed_reality_conversation()` returns one when the player leaves a conversation; `collect_world_item()` runs the same check after a world item is taken.
 
 ### Char canvas
 
@@ -229,18 +216,18 @@ The open social app registers on both models and repaints itself, so there is no
 
 | Kind | API |
 |---|---|
-| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills, fusion_slots }` |
-| Intent | `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()` |
+| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills }` |
+| Intent | `place_token_in_slot()`, `confirm_craft()` |
 
-The shown notebook watches the held-word, meme, sentence, world-rule and fusion-slot models and repaints itself, so there is no change signal. It words the fusion slot labels and decides whether fusing is ready from those models; the host no longer passes `fusion_slot_text`, `fusion_ready`, `free_sentence_units` or `world_rules`. The shown social app watches the sentence, the last publish result and the published records: the publish page words the sentence and shows the last result itself, and an open post repaints its echo comment after a new publication. The host no longer passes `free_sentence_units`, `free_sentence_text` or `publish_result`. The snapshot stays for the craft slot fills.
+The shown notebook watches the held-word, sentence and world-rule models and repaints itself, so there is no change signal; it has no fusion tab. The shown social app watches the sentence and the published records: the publish page words the sentence itself, and an open post repaints its echo comment after a new publication. Fusion, the old-meme publish and the doctor sentence composer were removed (#108). The snapshot stays for the craft slot fills.
 
 ### Notebook craft / publish (legacy listing)
 
-`pick_token()`, `get_craft_slots()`, `get_craft_sentence_preview()`, `place_token_in_slot()`, `confirm_craft()`, `place_meme_in_fusion_slot()`, `confirm_meme_fusion()`, `place_meme_in_blank()`, `confirm_dialogue()`, `get_publish_result()`
+`pick_token()`, `get_craft_slots()`, `get_craft_sentence_preview()`, `place_token_in_slot()`, `confirm_craft()`
 
-### Language bridge / doctor
+### Relationship
 
-`get_language_token_options()`, `place_language_token()`, `clear_language_sentence()`, `get_language_sentence_preview()`, `confirm_doctor_sentence()`, `confirm_reality_dialogue()`, `pollute_reality_sentence()`, `get_relationship_state_label()`
+`get_relationship_state_label()` (the doctor sentence composer and its language-bridge methods were removed in #108; the world has no doctor)
 
 ### Typed reality conversation — **slice 3a seam** (read-side display subset)
 

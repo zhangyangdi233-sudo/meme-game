@@ -21,14 +21,13 @@ func _run_async() -> void:
 	root.size = Vector2i(1600, 900)
 	await _test_like_refreshes_phone_shell_not_hud()
 	await _test_channel_refreshes_phone_shell_not_hud()
-	await _test_spend_action_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
 	await _test_composer_intents_paint_the_publish_page_without_a_host_redraw()
 	await _test_phone_popup_follows_the_phone_model()
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
 	await _test_a_new_run_resets_the_social_and_notebook_view()
-	await _test_the_host_presents_the_social_close_and_publish_results()
+	await _test_the_host_presents_the_social_close()
 	if _failures.is_empty():
 		print("phone shell refresh UI tests passed")
 		quit(0)
@@ -67,18 +66,13 @@ func _test_like_refreshes_phone_shell_not_hud() -> void:
 	await process_frame
 
 
-## The social handler only changes the state; the host shuts the open post, hides the window and words a publish.
-func _test_the_host_presents_the_social_close_and_publish_results() -> void:
+## The social handler only changes the state; the host shuts the open post and hides the window.
+func _test_the_host_presents_the_social_close() -> void:
 	var game_root := await _boot_gameplay()
 	if game_root == null:
 		return
 	game_root._on_app_pressed("social")
 	await process_frame
-	GameEventBus.raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
-	await process_frame
-	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var feedback := str((manager.model(PropertyKeysScript.FEEDBACK_TEXT) as ValuePropertyModel).read())
-	_assert_eq(feedback, str(game_root.ACTION_FEEDBACK_TEXT.get("publish_empty", "")), "the host should word the publish outcome")
 	game_root._social_feed_panel.open_post(0)
 	_assert_true(game_root._social_feed_panel.is_detail_open(), "the post should be open before the close intent")
 	GameEventBus.raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
@@ -113,45 +107,6 @@ func _test_channel_refreshes_phone_shell_not_hud() -> void:
 	_assert_true(following != null and following.visible, "phone shell should select the following channel")
 	_assert_true(discover != null and not discover.visible, "phone shell should deselect discover after a channel change")
 	_assert_hud_untouched(hud, "changing the social channel")
-
-	game_root.queue_free()
-	await process_frame
-
-
-func _test_spend_action_refreshes_phone_shell_not_hud() -> void:
-	var game_root := await _boot_gameplay()
-	if game_root == null:
-		return
-	game_root._on_app_pressed("social")
-	game_root.game.free_sentence_units = ["门"]
-	game_root._social_feed_panel.show_screen("publish")
-	await process_frame
-
-	var post_button := Harness.find_node_by_name(game_root, "SocialPublishPostButton") as Button
-	_assert_true(post_button != null, "publish page should expose a post button")
-	if post_button != null:
-		_assert_eq(post_button.text, "投稿", "publish should start spendable")
-
-	var prompt := Harness.find_node_by_name(game_root, "WorldPrompt") as Label
-	_assert_true(prompt != null, "Reality HUD should expose the world prompt")
-	if prompt != null:
-		prompt.text = HUD_SENTINEL
-	var actions_label := game_root._hud_actions_label_ref() as Label
-	while game_root.game.can_spend_action():
-		_assert_true(game_root.game.spend_action("phone-shell-refresh"), "daily actions should be spendable")
-	await process_frame
-
-	post_button = Harness.find_node_by_name(game_root, "SocialPublishPostButton") as Button
-	_assert_true(post_button != null, "spending actions should keep the phone-shell publish button")
-	if post_button != null:
-		_assert_eq(post_button.text, "今天不能再投稿", "phone shell should show spent-action copy")
-		_assert_true(post_button.disabled, "phone shell should disable posting after actions are spent")
-	_assert_true(prompt != null and is_instance_valid(prompt), "spending actions should leave the world prompt in place")
-	if prompt != null and is_instance_valid(prompt):
-		_assert_eq(prompt.text, HUD_SENTINEL, "spending actions should not re-run Reality HUD content")
-	_assert_true(actions_label != null and is_instance_valid(actions_label), "the status column should keep its actions label")
-	if actions_label != null and is_instance_valid(actions_label):
-		_assert_eq(actions_label.text, "今日行动\n○ ○ ○ ○ ○", "the status column should update its own action dots")
 
 	game_root.queue_free()
 	await process_frame
@@ -326,7 +281,6 @@ func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
 	social.open_post(0)
 	social.show_screen("profile")
 	social.open_post(1)
-	game_root._notebook_app_panel.select_tab("fusion")
 	await process_frame
 
 	game_root.new_game()
@@ -340,7 +294,7 @@ func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "SocialHomePage") != null, "a new run should open the social app on the home feed")
 	var discover := Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
 	_assert_true(discover != null and discover.visible, "a new run should open the social app on the discover channel")
-	_assert_true(Harness.find_node_by_name(game_root, "NotebookCraftButton") != null, "a new run should open the notebook on the frame tab")
+	_assert_true(Harness.find_node_by_name(game_root, "NotebookCraftButton") != null, "a new run should open the notebook on its post page")
 
 	game_root.queue_free()
 	await process_frame
@@ -369,9 +323,10 @@ func _boot_gameplay() -> Node:
 	return game_root
 
 
+## The world prompt stands in for the Reality HUD's content: a phone-shell refresh must leave it alone.
 func _stamp_hud(game_root: Node) -> Label:
-	var hud := game_root._hud_actions_label_ref() as Label
-	_assert_true(hud != null, "Reality HUD should expose an actions label")
+	var hud := Harness.find_node_by_name(game_root, "WorldPrompt") as Label
+	_assert_true(hud != null, "Reality HUD should expose the world prompt")
 	if hud != null:
 		hud.text = HUD_SENTINEL
 	return hud

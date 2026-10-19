@@ -36,7 +36,7 @@ func _check_scene_contract() -> void:
 		game_root.queue_free()
 		await process_frame
 		return
-	_assert_true(overlay.z_index == 100, "flashback overlay should keep its registered z-index (100, above the day transition overlay)")
+	_assert_true(overlay.z_index == 100, "flashback overlay should keep its registered z-index (100, above every other overlay)")
 	_assert_true(not overlay.visible, "flashback overlay should start hidden")
 
 	var doll_sentence := _find_node_by_name(overlay, "FlashbackKeySentenceDoll") as Label
@@ -122,12 +122,12 @@ func _check_scene_contract() -> void:
 	var freeze_phase := _find_node_by_name(overlay, "FlashbackPhaseFreeze") as Control
 	_assert_true(freeze_phase != null and freeze_phase.visible, "the sequence should open on the frozen current frame")
 	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
-	_assert_eq_int(game_root.game.day, 2, "finishing the flashback should settle straight into the next day")
+	_assert_eq_int(game_root.game.day, 1, "finishing the flashback should not move the day on")
 	_assert_true(not overlay.visible, "finishing should hide the overlay")
 	_assert_eq_text(game_root.session_mode(), "gameplay", "finishing a flashback should set Session mode to gameplay")
 
 	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
-	_assert_eq_int(game_root.game.day, 2, "a second finish call must not settle a second day")
+	_assert_eq_int(game_root.game.day, 1, "a second finish call must not move the day either")
 
 	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
@@ -155,11 +155,11 @@ func _check_scene_contract() -> void:
 			var phase_node := phase_nodes.get(phase_id) as Control
 			if phase_node != null and is_instance_valid(phase_node) and phase_node.visible and (seen_order.is_empty() or seen_order[seen_order.size() - 1] != phase_id):
 				seen_order.append(phase_id)
-		if game_root.game.day == day_before + 1 and not overlay.visible:
+		if seen_order.size() == expected_order.size() and not overlay.visible:
 			break
 		await process_frame
-	_assert_true(game_root.game.day == day_before + 1, "pollution flashback must finish within 15 seconds")
-	_assert_eq_int(game_root.game.day, day_before + 1, "the natural timeline completion must settle the day through FLASHBACK_FINISHED")
+	_assert_true(not overlay.visible, "pollution flashback must finish within 15 seconds")
+	_assert_eq_int(game_root.game.day, day_before, "the natural timeline completion must not move the day on")
 	_assert_true(not overlay.visible, "the natural completion must hide the overlay by itself")
 	_assert_eq_text(game_root.session_mode(), "gameplay", "the natural completion must leave Session mode as gameplay")
 	_assert_eq_text(",".join(seen_order), ",".join(expected_order), "phases must appear exactly in PHASES order during a natural run")

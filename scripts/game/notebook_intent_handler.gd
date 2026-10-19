@@ -1,26 +1,18 @@
 class_name NotebookIntentHandler
 extends IntentHandler
-## Handles the notebook's intents: places words, posts the sentence, keeps the resting canvas positions, fills the
-## fusion slots and fuses, writes the feedback line, and returns what the host presents.
+## Handles the notebook's intents: places words, posts the sentence, keeps the resting canvas positions, writes the
+## feedback line, and returns what the host presents.
 
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-## The notebook already shows the new tab; the host re-themes the new nodes.
-const TAB_CHANGED := "notebook_tab_changed"
 ## A bank tap; the host flies the word to the sentence when it was placed.
 const PLACE := "notebook_place"
-## The fusion slots changed; the host refreshes the phone shell.
-const FUSION_SLOTS_CHANGED := "notebook_fusion_slots_changed"
 
 const INTENTS: Array[String] = [
 	UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
-	UiIntentsScript.NOTEBOOK_FUSION_REQUESTED,
-	UiIntentsScript.NOTEBOOK_TAB_CHANGED,
 	UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED,
 	UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE,
 	UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED,
-	UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED,
-	UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED,
 ]
 
 var _game: MemeGameState
@@ -46,10 +38,6 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 	match intent_name:
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED:
 			return IntentResultScript.present(IntentResultScript.SUBMIT, _material.submit())
-		UiIntentsScript.NOTEBOOK_FUSION_REQUESTED:
-			return _action(_game.fuse_memes())
-		UiIntentsScript.NOTEBOOK_TAB_CHANGED:
-			return IntentResultScript.present(TAB_CHANGED)
 		UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED:
 			_game.set_char_canvas_positions(payload.get(UiIntentsScript.KEY_TILE_POSITIONS, {}), _locale.current_locale)
 		UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE:
@@ -61,26 +49,5 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			place.unit = unit
 			place.value = _material.place_from_bank(unit)
 			return place
-		UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED:
-			var data: Dictionary = payload.get(UiIntentsScript.KEY_DATA, {})
-			var meme_id := str(data.get("id", ""))
-			if _game.place_meme_in_fusion_slot(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")), meme_id):
-				_selected_meme().write(meme_id)
-				_write_feedback("旧梗已放入融合槽。")
-			else:
-				_write_feedback("两个融合槽必须放入不同的完整梗。")
-			return IntentResultScript.present(FUSION_SLOTS_CHANGED)
-		UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED:
-			var selected := str(_selected_meme().read())
-			if selected.is_empty():
-				_write_feedback("先从融合列表选择一个完整梗。")
-			elif _game.place_meme_in_fusion_slot(str(payload.get(UiIntentsScript.KEY_SLOT_ID, "")), selected):
-				_write_feedback("旧梗已放入融合槽。")
-			else:
-				_write_feedback("两个融合槽不能使用同一个梗。")
-			return IntentResultScript.present(FUSION_SLOTS_CHANGED)
 	return IntentResultScript.present(IntentResultScript.NONE)
 
-
-func _selected_meme() -> ValuePropertyModel:
-	return GameModelsScript.value(PropertyKeysScript.SELECTED_MEME)

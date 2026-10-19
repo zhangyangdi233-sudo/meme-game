@@ -69,8 +69,6 @@ func _run() -> void:
 	_test_task_props_take_their_colors_from_ui_palette()
 	_test_host_asks_adapter_to_sync_ultimate_task_props()
 	_test_adapter_does_not_ask_the_generator_for_counts()
-	_test_settled_day_ends_the_conversation_and_forgets_nearby_targets()
-	_test_adapter_out_of_the_tree_ignores_a_settled_day()
 	RegistryScript.clear()
 
 
@@ -604,47 +602,6 @@ func _ensure_reality_walk_actions() -> void:
 			var key_event := InputEventKey.new()
 			key_event.physical_keycode = int(keys[action_name])
 			InputMap.action_add_event(action_name, key_event)
-
-
-func _test_settled_day_ends_the_conversation_and_forgets_nearby_targets() -> void:
-	RegistryScript.clear()
-	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, GameEventBusScript.new())
-	var setup := _make_adapter_with_fake_floor()
-	var adapter = setup["adapter"]
-	var fake: FakeFloor = setup["floor"]
-	fake.add_actor("latecomer", "npc", "迟到者", Vector3(1.2, 0.0, 0.0))
-	adapter.player.position = Vector3.ZERO
-	adapter.yaw = 12.0
-	adapter.pitch = -6.0
-	adapter.refresh_nearby_actor(_walk_deps())
-	adapter.apply_interaction({"action": "converse", "actor_id": "latecomer", "accepted": true})
-	_assert_true(bool(adapter.interaction_outcome().get("interaction_active", false)), "sanity: the conversation should be open before the day settles")
-	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "actor", "sanity: the actor should be nearby before the day settles")
-	GameEventBusScript.raise_event(GameEventsScript.DAY_SETTLED, {GameEventsScript.KEY_DAY: 2, GameEventsScript.KEY_FROM_FLASHBACK: false})
-	_assert_true(not bool(adapter.interaction_outcome().get("interaction_active", true)), "a settled day should end the conversation")
-	_assert_eq(str(adapter.active_actor_outcome().get("kind", "")), "none", "a settled day should forget the conversation partner")
-	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "none", "a settled day should forget the nearby targets")
-	var look_pose: Dictionary = adapter.pose()
-	_assert_true(is_equal_approx(float(look_pose.get("yaw", 0.0)), 12.0), "a settled day should restore the gaze from before the conversation")
-	setup["host"].free()
-	RegistryScript.clear()
-
-
-func _test_adapter_out_of_the_tree_ignores_a_settled_day() -> void:
-	RegistryScript.clear()
-	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, GameEventBusScript.new())
-	var setup := _make_adapter_with_fake_floor()
-	var adapter = setup["adapter"]
-	var fake: FakeFloor = setup["floor"]
-	fake.add_actor("latecomer", "npc", "迟到者", Vector3(1.2, 0.0, 0.0))
-	adapter.player.position = Vector3.ZERO
-	adapter.refresh_nearby_actor(_walk_deps())
-	var host: Node = setup["host"]
-	root.remove_child(host)
-	GameEventBusScript.raise_event(GameEventsScript.DAY_SETTLED, {GameEventsScript.KEY_DAY: 2, GameEventsScript.KEY_FROM_FLASHBACK: false})
-	_assert_eq(str(adapter.nearby_outcome().get("kind", "")), "actor", "an adapter out of the tree should not hear a settled day")
-	host.free()
-	RegistryScript.clear()
 
 
 func _make_adapter_with_fake_floor() -> Dictionary:

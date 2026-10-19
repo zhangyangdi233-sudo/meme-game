@@ -144,7 +144,9 @@ func _test_compact_hud_and_settings(game_root: Node) -> void:
 	var reveal_zone := _find_node_by_name(game_root, "HUDRevealZone") as Control
 	_assert_true(rail != null and reveal_zone != null, "gameplay should expose the hidden left HUD drawer")
 	_assert_true(_find_node_by_name(game_root, "HUDPollutionIcon") is Button, "HUD should expose pollution")
-	_assert_true(_find_node_by_name(game_root, "HUDMoneyIcon") is Button, "HUD should expose funds")
+	_assert_true(_find_node_by_name(game_root, "HUDMoneyIcon") == null, "HUD should not expose funds")
+	_assert_true(_find_node_by_name(game_root, "HUDActionsLabel") == null, "HUD should not count daily actions")
+	_assert_true(_find_node_by_name(game_root, "ActionSpendOverlay") == null and _find_node_by_name(game_root, "DayTransitionOverlay") == null, "gameplay should build no action pulse or day transition overlay")
 	_assert_true(_find_node_by_name(game_root, "HUDSettingsIcon") is Button, "HUD should expose settings")
 	_assert_true(_find_node_by_name(game_root, "HUDDayIcon") == null, "day should not remain a global metric")
 	_assert_true(_find_node_by_name(game_root, "HUDHeatValue") == null, "heat should not return as a progression metric")

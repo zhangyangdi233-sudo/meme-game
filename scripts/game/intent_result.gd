@@ -8,9 +8,7 @@ const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 
 ## Nothing to present: the open screens watch the models the handler wrote.
 const NONE := ""
-## A spending action; the host shows its feedback and settles it, or refreshes the phone shell when it failed.
-const ACTION := "action"
-## A free sentence submit; the host settles it when it was posted.
+## A free sentence submit; the host presents its outcome when it was posted.
 const SUBMIT := "submit"
 
 var presentation := NONE

@@ -62,13 +62,12 @@ func test_two_correct_answers_reveal_one_reachable_prerequisite() -> void:
 		game.tower_floor = floor_number
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
 		var item_id := str(item.get("id", ""))
-		var actions_before: int = game.actions_remaining
 		_assert_true(game.start_typed_reality_conversation("key_npc_%d" % floor_number, "key_npc", "关键住户"), "floor %d key NPC conversation should start" % floor_number)
 		_finish_typed_turn(game, _choice_id_by_correctness(game.get_typed_reality_choices(), true))
 		_assert_true(game.continue_typed_reality_conversation(), "floor %d should continue to the second question" % floor_number)
 		_finish_typed_turn(game, _choice_id_by_correctness(game.get_typed_reality_choices(), true))
 		_assert_true(game.is_prerequisite_item_revealed(item_id), "two correct answers should reveal floor %d's physical item" % floor_number)
-		_assert_eq(game.actions_remaining, actions_before - 1, "the complete two-question exchange should spend one action")
+		_assert_eq(game.reality_dialogue_count, 1, "the complete two-question exchange should count one dialogue")
 		_assert_true(str(game.conversation_feedback).contains(str(item.get("location_hint", ""))), "success feedback should tell the player where to search")
 		var progress: Dictionary = game.get_key_clue_progress(floor_number)
 		_assert_true(bool(progress.get("solved", false)), "the solved key conversation should persist")

@@ -41,7 +41,6 @@ func _run_async() -> void:
 			var choices: Array = game_root.game.get_typed_reality_choices()
 			_assert_eq(choices.size(), 3, "the guide should offer three authored tutorial responses")
 			if not choices.is_empty():
-				var actions_before: int = game_root.game.actions_remaining
 				game_root._on_reality_choice_selected(str(choices[0].get("id", "")))
 				for _step in 256:
 					if game_root.game.conversation_phase != "typing":
@@ -49,11 +48,8 @@ func _run_async() -> void:
 					game_root._advance_typed_reality_character()
 				_assert_true(bool(game_root.game.conversation_reward.get("guided", false)), "finishing the doll reply should advance the tutorial")
 				_assert_eq(game_root.game.owned_meme_frames, 0, "the guide should no longer grant an obsolete meme frame")
-				_assert_eq(game_root.game.actions_remaining, actions_before, "speaking to the tutorial guide should not consume a daily action")
 				_assert_eq(str(game_root.game.get_tutorial_step().get("id", "")), "open_social", "guide discovery should advance the tutorial to the phone")
 				_assert_true(bool(doll.get_meta("claimed", false)), "the world doll should remember that its first guidance was heard")
-				if game_root.session_mode() == "narrative":
-					game_root._narrative_director.finish_action_spend_animation()
 
 		game_root.queue_free()
 		await process_frame

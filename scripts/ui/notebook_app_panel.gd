@@ -1,45 +1,33 @@
 class_name NotebookAppPanel
 extends Node
-## Game-side notebook app body: sentence header, word canvas, rules list, and fusion tab.
-## While shown, it watches the held words, the finished memes, the sentence, the world rules and the fusion slots,
-## and repaints itself.
+## Game-side notebook app body: sentence header, word canvas, rules list, and the post button.
+## While shown, it watches the held words, the sentence and the world rules, and repaints itself.
 ## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
 ## Every player action leaves as a UI intent on the event bus.
-## The open tab is this screen's own view and lives only here; selecting one repaints at once.
 
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const DropButtonScript = preload("res://framework/ui/drop_button.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-const TABS := ["frame", "fusion"]
-const DEFAULT_TAB := "frame"
-
 var _clear_fn: Callable
 var _current_locale_fn: Callable
 var _char_canvas_position_fn: Callable
-var _can_spend_action_fn: Callable
 var _word_canvas: WordPhysicsCanvas
 var _app_body: VBoxContainer
-var _active_tab := DEFAULT_TAB
 var _shown := false
 var _paint_queued := false
 var _painted_chars: Array = []
-var _painted_memes: Array = []
 var _painted_units: Array = []
 var _painted_rules: Dictionary = {}
-var _painted_slots: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_model_changed,
-	PropertyKeysScript.COMPLETED_MEMES: _on_model_changed,
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.WORLD_RULES: _on_model_changed,
-	PropertyKeysScript.FUSION_SLOTS: _on_model_changed,
 })
 
 
@@ -49,7 +37,6 @@ func configure(deps: Dictionary) -> void:
 	_clear_fn = deps.get("clear_children", Callable())
 	_current_locale_fn = deps.get("current_locale", Callable())
 	_char_canvas_position_fn = deps.get("char_canvas_position", Callable())
-	_can_spend_action_fn = deps.get("can_spend_action", Callable())
 
 
 ## The phone decides whether the notebook window shows. While it shows, the models decide what it holds.
@@ -77,29 +64,13 @@ func render(app_body: VBoxContainer) -> void:
 	_paint()
 
 
-func select_tab(tab_id: String) -> void:
-	if tab_id not in TABS:
-		return
-	_active_tab = tab_id
-	_paint()
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_TAB_CHANGED, {UiIntentsScript.KEY_TAB_ID: tab_id})
-
-
-## A new run opens the notebook on the frame tab.
-func reset_view() -> void:
-	_active_tab = DEFAULT_TAB
-
-
 func _paint() -> void:
 	var app_body := _app_body
 	if app_body == null or not is_instance_valid(app_body) or _theme() == null:
 		return
-	var active_tab := _active_tab
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
-	_painted_memes = _read_list(PropertyKeysScript.COMPLETED_MEMES)
 	_painted_units = _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	_painted_rules = _read_map(PropertyKeysScript.WORLD_RULES)
-	_painted_slots = _read_map(PropertyKeysScript.FUSION_SLOTS)
 	commit_canvas_positions()
 	_word_canvas = null
 	_clear_fn.call(app_body)
@@ -124,12 +95,8 @@ func _paint() -> void:
 	notebook_content.add_theme_constant_override("separation", 10)
 	notebook_scroll.add_child(notebook_content)
 
-	if active_tab == "fusion":
-		_render_fusion_tab(notebook_content)
-	else:
-		_render_frame_tab(notebook_content)
-
-	_render_action_bar(notebook_page, active_tab)
+	_render_frame_tab(notebook_content)
+	_render_action_bar(notebook_page)
 
 
 func _render_sentence_header(notebook_page: VBoxContainer) -> void:
@@ -201,32 +168,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 			rules_box.add_child(rule_label)
 
 
-func _render_fusion_tab(notebook_content: VBoxContainer) -> void:
-	notebook_content.add_child(_theme().label("旧梗融合", 18, _theme().theme_color("accent")))
-	var fusion_hint := _theme().label("将两则不同的完整梗放入左右槽位。", 14, _theme().theme_color("accent")) as Label
-	fusion_hint.name = "NotebookFusionHint"
-	fusion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(fusion_hint)
-	var fusion_row := HBoxContainer.new()
-	fusion_row.name = "NotebookFusionSlots"
-	fusion_row.add_theme_constant_override("separation", 8)
-	notebook_content.add_child(fusion_row)
-	for fusion_slot_id in ["left", "right"]:
-		var fusion_slot = DropButtonScript.new()
-		fusion_slot.name = "FusionSlot%s" % fusion_slot_id.capitalize()
-		fusion_slot.text = _fusion_slot_text(fusion_slot_id)
-		fusion_slot.custom_minimum_size = Vector2(150, 58)
-		fusion_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fusion_slot.configure_drop_target("meme", fusion_slot_id)
-		fusion_slot.dropped.connect(_on_fusion_meme_dropped)
-		fusion_slot.pressed.connect(_on_fusion_slot_pressed.bind(fusion_slot_id))
-		fusion_row.add_child(fusion_slot)
-	var warning := _theme().label("融合会保留两侧文字，并立即增加污染。发布前会显示资金与污染变化。", 14, _theme().theme_color("accent")) as Label
-	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notebook_content.add_child(warning)
-
-
-func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> void:
+func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	var action_bar := _theme().panel() as PanelContainer
 	action_bar.name = "NotebookCraftActionBar"
 	action_bar.set_meta("fixed_action_bar", true)
@@ -234,36 +176,13 @@ func _render_action_bar(notebook_page: VBoxContainer, active_tab: String) -> voi
 	var action_box := VBoxContainer.new()
 	action_box.add_theme_constant_override("separation", 6)
 	action_bar.add_child(action_box)
-	if active_tab == "fusion":
-		var fuse := Button.new()
-		fuse.name = "NotebookFusionButton"
-		fuse.text = "确认融合"
-		fuse.custom_minimum_size.y = 56
-		var fusion_ready := _painted_slots.size() >= 2
-		var can_spend: bool = bool(_can_spend_action_fn.call()) if _can_spend_action_fn.is_valid() else false
-		fuse.disabled = not can_spend or not fusion_ready
-		fuse.pressed.connect(_on_fusion_pressed)
-		action_box.add_child(fuse)
-	else:
-		var craft := Button.new()
-		craft.name = "NotebookCraftButton"
-		craft.text = "投稿这句话"
-		craft.custom_minimum_size.y = 56
-		var can_spend: bool = bool(_can_spend_action_fn.call()) if _can_spend_action_fn.is_valid() else false
-		craft.disabled = _painted_units.is_empty() or not can_spend
-		craft.pressed.connect(_on_craft_pressed)
-		action_box.add_child(craft)
-
-
-## The slot names the meme it holds, or says which side is still empty.
-func _fusion_slot_text(slot_id: String) -> String:
-	var meme_id := str(_painted_slots.get(slot_id, ""))
-	if meme_id.is_empty():
-		return "旧梗 A" if slot_id == "left" else "旧梗 B"
-	for meme in _painted_memes:
-		if meme is Dictionary and str((meme as Dictionary).get("id", "")) == meme_id:
-			return str((meme as Dictionary).get("title", (meme as Dictionary).get("text", "完整梗")))
-	return "等待完整梗"
+	var craft := Button.new()
+	craft.name = "NotebookCraftButton"
+	craft.text = "投稿这句话"
+	craft.custom_minimum_size.y = 56
+	craft.disabled = _painted_units.is_empty()
+	craft.pressed.connect(_on_craft_pressed)
+	action_box.add_child(craft)
 
 
 func _on_model_changed(_value: Variant) -> void:
@@ -271,14 +190,10 @@ func _on_model_changed(_value: Variant) -> void:
 		_request_paint()
 
 
-## A value the page already shows needs no repaint. The sentence and the rules show on the frame tab only;
-## the finished memes and the fusion slots on the fusion tab only, so the word canvas is not thrown away for them.
+## A value the page already shows needs no repaint.
 func _is_stale() -> bool:
 	if _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars:
 		return true
-	if _active_tab == "fusion":
-		return _read_list(PropertyKeysScript.COMPLETED_MEMES) != _painted_memes \
-			or _read_map(PropertyKeysScript.FUSION_SLOTS) != _painted_slots
 	return _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS) != _painted_units \
 		or _read_map(PropertyKeysScript.WORLD_RULES) != _painted_rules
 
@@ -317,24 +232,12 @@ func _on_craft_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 
 
-func _on_fusion_pressed() -> void:
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_REQUESTED)
-
-
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: unit, UiIntentsScript.KEY_RELEASE_GLOBAL: release_global})
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: unit})
-
-
-func _on_fusion_meme_dropped(data: Dictionary, slot_id: String) -> void:
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: data, UiIntentsScript.KEY_SLOT_ID: slot_id})
-
-
-func _on_fusion_slot_pressed(slot_id: String) -> void:
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: slot_id})
 
 
 ## The UI theme bound by the host; panels resolve it instead of taking theme callables.

@@ -49,3 +49,7 @@ Amended: the bus also carries game events, not only player actions. A game event
 - **Still not events:** signals inside one component (drag and drop, tile moves) and getters polled every frame (flight targets).
 
 Opening and closing via the screen manager (create once, hide, reuse) serves the main menu and the Dialog (#91). This decision is only the interface UI uses to notify the host. Tracker: #43.
+
+## Amended (#108): no action economy
+
+Daily actions, funds, the day settlement and its transition, meme fusion, the old-meme publish confirm and the doctor sentence composer are gone. `DAY_SETTLED` and `DaySettlementFeedback` are removed, so the Reality scene adapter and `GameAudioController` no longer subscribe to it (a new floor is rebuilt by the host's surface redraw, and the host re-syncs the audio after an interaction). `DoctorSentenceIntentHandler`, the fusion and tab intents of the notebook, `SOCIAL_PUBLISH_CONFIRM_REQUESTED`, the composer intents and the `selected_meme` / `selected_language_token` models are removed; `IntentResult` keeps `NONE` and `SUBMIT`. The narrative beat holds only the flashback; `FLASHBACK_FINISHED` closes it and moves the beat on without settling anything. The paragraphs above that mention them describe the history.

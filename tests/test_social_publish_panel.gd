@@ -1,7 +1,7 @@
 extends SceneTree
 ## Social publish panel paints the publish page into the page host it is given.
-## While shown it watches the remaining actions, the sentence being composed and the last publish result,
-## repaints its own page, and raises the composer and confirm intents on the event bus.
+## While shown it watches the sentence being composed, repaints its own page, and raises the composer intents on the
+## event bus. Posting is never limited, and the old-meme confirm button and its funds outcome are gone.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -33,13 +33,13 @@ func _init() -> void:
 
 func _run() -> void:
 	_test_rendering_paints_the_page_into_the_host()
-	_test_the_shown_page_follows_remaining_actions()
+	_test_a_placed_word_can_always_be_posted()
 	_test_the_shown_page_follows_the_sentence()
-	_test_the_shown_page_shows_the_last_result()
+	_test_the_page_has_no_old_meme_route()
 	_test_showing_registers_once_and_hiding_lets_go()
 	_test_a_released_page_is_not_repainted()
 	_test_painting_before_showing_reads_the_models_now()
-	_test_composer_and_confirm_raise_their_intents()
+	_test_composer_raises_its_intents()
 	_test_tile_drag_preview_follows_the_pollution_palette()
 
 
@@ -52,18 +52,14 @@ func _test_rendering_paints_the_page_into_the_host() -> void:
 	_dispose(mounted)
 
 
-func _test_the_shown_page_follows_remaining_actions() -> void:
+func _test_a_placed_word_can_always_be_posted() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialPublishPanel
-	var actions: ValuePropertyModel = mounted["actions"]
 	(mounted["units"] as ListPropertyModel).replace_all(["门"])
 	panel.render(mounted["host"])
 	panel.set_shown(true)
-	_assert_eq(_post_button_text(mounted), "投稿", "a day with actions left should allow posting")
-	actions.write(0)
-	_assert_eq(_post_button_text(mounted), "今天不能再投稿", "spending the last action should lock the page by itself")
-	actions.write(2)
-	_assert_eq(_post_button_text(mounted), "投稿", "refilled actions should unlock the page by itself")
+	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should be postable")
+	_assert_true(not (_find(mounted, "SocialPublishPostButton") as Button).disabled, "the post button should never lock for the day")
 	_dispose(mounted)
 
 
@@ -85,30 +81,31 @@ func _test_the_shown_page_follows_the_sentence() -> void:
 	_dispose(mounted)
 
 
-func _test_the_shown_page_shows_the_last_result() -> void:
+func _test_the_page_has_no_old_meme_route() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialPublishPanel
-	var result: MapPropertyModel = mounted["result"]
 	panel.render(mounted["host"])
 	panel.set_shown(true)
-	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  --", "no publication yet should show no money change")
-	result.replace_all({"money_gain": 3, "pollution_gain": 4})
-	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  +3", "a publication should show its money change by itself")
-	_assert_eq(_label_text(mounted, "SocialPublishPollutionOutcome"), "污染  +4%", "a publication should show its pollution change by itself")
+	for node_name in ["SocialPublishButton", "SocialPublishActionBar", "SocialPublishOutcomePanel", "SocialPublishMoneyOutcome"]:
+		_assert_true(_find(mounted, node_name) == null, "the publish page should not build %s" % node_name)
+	_assert_true(not panel.has_method("get_confirm_button"), "the panel should offer no confirm button")
+	var text := Harness.collect_control_text(mounted["host"])
+	for word in ["确认发布", "资金", "行动"]:
+		_assert_true(not text.contains(word), "the publish page should not word %s" % word)
 	_dispose(mounted)
 
 
 func _test_showing_registers_once_and_hiding_lets_go() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialPublishPanel
-	for key in ["actions", "units", "result"]:
+	for key in ["units"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "a new panel should not listen to %s" % key)
 	panel.set_shown(true)
 	panel.set_shown(true)
-	for key in ["actions", "units", "result"]:
+	for key in ["units"]:
 		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s once" % key)
 	panel.set_shown(false)
-	for key in ["actions", "units", "result"]:
+	for key in ["units"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)
 	_dispose(mounted)
 
@@ -122,21 +119,18 @@ func _test_a_released_page_is_not_repainted() -> void:
 	panel.release()
 	(mounted["units"] as ListPropertyModel).add("门")
 	_assert_true(page != null and _find(mounted, "SocialPublishPage") == page, "a released page should be left to whoever clears the host")
-	_assert_true(panel.get_confirm_button() == null, "a released page should hand back no confirm button")
 	_dispose(mounted)
 
 
 func _test_painting_before_showing_reads_the_models_now() -> void:
 	var mounted := _mount()
 	(mounted["units"] as ListPropertyModel).replace_all(["门"])
-	(mounted["result"] as MapPropertyModel).replace_all({"money_gain": 3, "pollution_gain": 4})
 	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
 	_assert_eq(_post_button_text(mounted), "投稿", "a page painted before showing should read the sentence now")
-	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  +3", "a page painted before showing should read the last result now")
 	_dispose(mounted)
 
 
-func _test_composer_and_confirm_raise_their_intents() -> void:
+func _test_composer_raises_its_intents() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialPublishPanel
 	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
@@ -154,12 +148,6 @@ func _test_composer_and_confirm_raise_their_intents() -> void:
 	_heard.clear()
 	_press(mounted, "SocialPublishPostButton")
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, {}]], "the post button should raise its intent")
-	_heard.clear()
-	var confirm := panel.get_confirm_button()
-	_assert_true(confirm != null, "the panel should own the publish confirm button")
-	if confirm != null:
-		confirm.pressed.emit()
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, {}]], "the confirm button should raise its intent")
 	_dispose(mounted)
 
 
@@ -187,7 +175,6 @@ func _mount() -> Dictionary:
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	RegistryScript.bind(ServiceKeysScript.SOCIAL_FEED_SOURCE, FakeSource.new())
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	(manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel).write(2)
 	var host := VBoxContainer.new()
 	host.name = "PublishTestHost"
 	root.add_child(host)
@@ -197,9 +184,7 @@ func _mount() -> Dictionary:
 	return {
 		"host": host,
 		"panel": panel,
-		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
 		"units": manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS),
-		"result": manager.model(PropertyKeysScript.LAST_PUBLISH_RESULT),
 	}
 
 

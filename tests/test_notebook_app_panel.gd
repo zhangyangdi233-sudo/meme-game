@@ -1,6 +1,6 @@
 extends SceneTree
-## Shown notebook watches the held-word, finished-meme, sentence, world-rule and fusion-slot models;
-## hiding writes canvas positions once and unregisters.
+## Shown notebook watches the held-word, sentence and world-rule models; it has no fusion tab.
+## Hiding writes canvas positions once and unregisters.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
@@ -36,38 +36,31 @@ func _run() -> void:
 	_test_showing_registers_once_and_syncs_at_once()
 	await _test_a_new_held_word_repaints_the_shown_canvas()
 	await _test_a_host_redraw_in_the_same_frame_paints_once()
-	await _test_a_new_meme_repaints_only_the_fusion_tab()
+	_test_the_notebook_has_no_fusion_tab()
 	await _test_hiding_writes_positions_once_and_unregisters()
 	_test_a_freed_panel_unregisters()
 	await _test_showing_before_any_render_paints_nothing()
-	_test_selecting_a_tab_repaints_the_notebook_by_itself()
-	_test_reset_view_returns_to_the_frame_tab()
-	_test_selecting_a_tab_raises_its_intent_once()
-	_test_craft_and_fusion_buttons_raise_their_intents()
+	_test_the_craft_button_raises_its_intent()
 	_test_canvas_tiles_carry_their_answers()
-	_test_fusion_slots_carry_their_answers()
 	await _test_a_placed_word_ghosts_its_tile_and_enables_posting()
 	await _test_a_new_world_rule_appears_by_itself()
-	await _test_filled_fusion_slots_name_their_memes_and_enable_fusing()
-	_test_hiding_unregisters_from_the_sentence_rules_and_slots()
+	_test_hiding_unregisters_from_the_sentence_and_rules()
 
 
 func _test_showing_registers_once_and_syncs_at_once() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
-	var memes: ListPropertyModel = mounted["memes"]
 	chars.add(_held("门"))
 	panel.render(mounted["body"])
 	_assert_eq(_listener_count(chars), 0, "a rendered notebook should not listen before it is shown")
-	_assert_eq(_listener_count(memes), 0, "a rendered notebook should not listen to memes before it is shown")
 	_assert_eq(_tile_units(mounted), ["门"], "rendering should paint the held words from the model")
 
 	chars.add(_held("开"))
 	_assert_eq(_tile_units(mounted), ["门"], "a hidden notebook should not repaint on a write")
 	panel.set_shown(true)
 	_assert_eq(_listener_count(chars), 1, "showing should register on the held words")
-	_assert_eq(_listener_count(memes), 1, "showing should register on the memes")
+	_assert_eq(_listener_count(mounted["memes"]), 0, "the notebook should not watch the finished memes")
 	_assert_eq(_tile_units(mounted), ["门", "开"], "showing should sync a word written while hidden at once")
 	var canvas := _canvas(mounted)
 	panel.set_shown(true)
@@ -110,24 +103,16 @@ func _test_a_host_redraw_in_the_same_frame_paints_once() -> void:
 	_dispose(mounted)
 
 
-func _test_a_new_meme_repaints_only_the_fusion_tab() -> void:
+## The fusion tab and its old-meme slots are gone; the notebook shows its one page.
+func _test_the_notebook_has_no_fusion_tab() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
-	var memes: ListPropertyModel = mounted["memes"]
 	panel.render(mounted["body"])
 	panel.set_shown(true)
-	var canvas := _canvas(mounted)
-	memes.add({"id": "meme-1", "title": "左梗"})
-	await process_frame
-	_assert_true(_canvas(mounted) == canvas, "a new meme should not redraw the word canvas")
-
-	panel.select_tab("fusion")
-	(mounted["slots"] as MapPropertyModel).replace_all({"left": "meme-3"})
-	await process_frame
-	_assert_eq(_button_text(mounted, "FusionSlotLeft"), "等待完整梗", "a slot holding an unknown meme should say it is waiting")
-	memes.add({"id": "meme-3", "title": "右梗"})
-	await process_frame
-	_assert_eq(_button_text(mounted, "FusionSlotLeft"), "右梗", "a new meme should repaint the fusion slots by itself")
+	_assert_true(not panel.has_method("select_tab"), "the notebook should have no tabs to select")
+	for node_name in ["NotebookFusionButton", "FusionSlotLeft", "FusionSlotRight", "NotebookFusionSlots"]:
+		_assert_true(not _has(mounted, node_name), "the notebook should not build %s" % node_name)
+	_assert_true(_has(mounted, "NotebookCraftButton"), "the notebook should keep its post button")
 	_dispose(mounted)
 
 
@@ -162,41 +147,15 @@ func _test_a_new_world_rule_appears_by_itself() -> void:
 	_dispose(mounted)
 
 
-func _test_filled_fusion_slots_name_their_memes_and_enable_fusing() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as NotebookAppPanel
-	var memes: ListPropertyModel = mounted["memes"]
-	var slots: MapPropertyModel = mounted["slots"]
-	memes.replace_all([{"id": "a", "title": "左梗"}, {"id": "b", "text": "右"}])
-	panel.render(mounted["body"])
-	panel.select_tab("fusion")
-	panel.set_shown(true)
-	_assert_eq(_button_text(mounted, "FusionSlotLeft"), "旧梗 A", "an empty left slot should show its placeholder")
-	_assert_eq(_button_text(mounted, "FusionSlotRight"), "旧梗 B", "an empty right slot should show its placeholder")
-	_assert_true(_button_disabled(mounted, "NotebookFusionButton"), "empty slots should not fuse")
-	slots.add("left", "a")
-	await process_frame
-	_assert_eq(_button_text(mounted, "FusionSlotLeft"), "左梗", "a filled slot should show the meme title by itself")
-	_assert_true(_button_disabled(mounted, "NotebookFusionButton"), "one filled slot should not fuse")
-	slots.add("right", "b")
-	await process_frame
-	_assert_eq(_button_text(mounted, "FusionSlotRight"), "右", "a meme without a title should show its text")
-	_assert_true(not _button_disabled(mounted, "NotebookFusionButton"), "two filled slots should fuse")
-	slots.replace_all({})
-	await process_frame
-	_assert_eq(_button_text(mounted, "FusionSlotLeft"), "旧梗 A", "emptied slots should show their placeholders again")
-	_dispose(mounted)
-
-
-func _test_hiding_unregisters_from_the_sentence_rules_and_slots() -> void:
+func _test_hiding_unregisters_from_the_sentence_and_rules() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	panel.render(mounted["body"])
 	panel.set_shown(true)
-	for key in ["units", "rules", "slots"]:
+	for key in ["units", "rules"]:
 		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s" % key)
 	panel.set_shown(false)
-	for key in ["units", "rules", "slots"]:
+	for key in ["units", "rules"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)
 	_dispose(mounted)
 
@@ -221,7 +180,6 @@ func _test_hiding_writes_positions_once_and_unregisters() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
-	var memes: ListPropertyModel = mounted["memes"]
 	chars.add(_held("门"))
 	chars.add(_held("开"))
 	panel.render(mounted["body"])
@@ -235,7 +193,6 @@ func _test_hiding_writes_positions_once_and_unregisters() -> void:
 		var written: Dictionary = commits[0]
 		_assert_eq(written.keys().size(), 2, "the batch should carry every resting tile")
 	_assert_eq(_listener_count(chars), 0, "hiding should unregister from the held words")
-	_assert_eq(_listener_count(memes), 0, "hiding should unregister from the memes")
 
 	panel.set_shown(false)
 	_assert_eq(commits.size(), 1, "hiding again should not write again")
@@ -249,13 +206,11 @@ func _test_a_freed_panel_unregisters() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
-	var memes: ListPropertyModel = mounted["memes"]
 	panel.render(mounted["body"])
 	panel.set_shown(true)
 	panel.free()
 	mounted["panel"] = null
 	_assert_eq(_listener_count(chars), 0, "a freed notebook should unregister from the held words")
-	_assert_eq(_listener_count(memes), 0, "a freed notebook should unregister from the memes")
 	_dispose(mounted)
 
 
@@ -271,46 +226,13 @@ func _test_showing_before_any_render_paints_nothing() -> void:
 	_dispose(mounted)
 
 
-func _test_selecting_a_tab_repaints_the_notebook_by_itself() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as NotebookAppPanel
-	panel.render(mounted["body"])
-	panel.set_shown(true)
-	_assert_true(_has(mounted, "NotebookCraftButton"), "a fresh notebook should open on the frame tab")
-	panel.select_tab("fusion")
-	_assert_true(_has(mounted, "NotebookFusionButton"), "selecting the fusion tab should repaint the notebook without the host")
-	_assert_true(not _has(mounted, "NotebookCraftButton"), "the fusion tab should replace the frame tab")
-	panel.select_tab("nowhere")
-	_assert_true(_has(mounted, "NotebookFusionButton"), "an unknown tab should leave the notebook alone")
-	panel.render(mounted["body"])
-	_assert_true(_has(mounted, "NotebookFusionButton"), "a host redraw should keep the selected tab")
-	_dispose(mounted)
-
-
-func _test_selecting_a_tab_raises_its_intent_once() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as NotebookAppPanel
-	panel.render(mounted["body"])
-	_heard.clear()
-	panel.select_tab("fusion")
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_TAB_CHANGED, {UiIntentsScript.KEY_TAB_ID: "fusion"}]], "selecting a tab should tell the host which tab")
-	_heard.clear()
-	panel.select_tab("nowhere")
-	_assert_eq(_heard, [], "an unknown tab should tell the host nothing")
-	_dispose(mounted)
-
-
-func _test_craft_and_fusion_buttons_raise_their_intents() -> void:
+func _test_the_craft_button_raises_its_intent() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	panel.render(mounted["body"])
 	_heard.clear()
 	(Harness.find_node_by_name(mounted["body"], "NotebookCraftButton") as Button).pressed.emit()
 	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED, {}]], "the craft button should raise its intent")
-	panel.select_tab("fusion")
-	_heard.clear()
-	(Harness.find_node_by_name(mounted["body"], "NotebookFusionButton") as Button).pressed.emit()
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_REQUESTED, {}]], "the fusion button should raise its intent")
 	_dispose(mounted)
 
 
@@ -325,32 +247,6 @@ func _test_canvas_tiles_carry_their_answers() -> void:
 	_heard.clear()
 	canvas.tile_tapped.emit("开")
 	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"}]], "a tapped tile should carry its unit")
-	_dispose(mounted)
-
-
-func _test_fusion_slots_carry_their_answers() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as NotebookAppPanel
-	panel.render(mounted["body"])
-	panel.select_tab("fusion")
-	var dropped := {"kind": "meme", "id": "meme-1"}
-	_heard.clear()
-	(Harness.find_node_by_name(mounted["body"], "FusionSlotRight") as DropButton).dropped.emit(dropped, "right")
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_SLOT_ID: "right"}]], "a meme dropped on a slot should carry the whole drag data and the slot")
-	_heard.clear()
-	(Harness.find_node_by_name(mounted["body"], "FusionSlotLeft") as Button).pressed.emit()
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_FUSION_SLOT_PRESSED, {UiIntentsScript.KEY_SLOT_ID: "left"}]], "a pressed slot should carry its id")
-	_dispose(mounted)
-
-
-func _test_reset_view_returns_to_the_frame_tab() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as NotebookAppPanel
-	panel.render(mounted["body"])
-	panel.select_tab("fusion")
-	panel.reset_view()
-	panel.render(mounted["body"])
-	_assert_true(_has(mounted, "NotebookCraftButton"), "a new run should open the notebook on the frame tab")
 	_dispose(mounted)
 
 
@@ -389,24 +285,21 @@ func _mount() -> Dictionary:
 		"memes": manager.model(PropertyKeysScript.COMPLETED_MEMES),
 		"units": manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS),
 		"rules": manager.model(PropertyKeysScript.WORLD_RULES),
-		"slots": manager.model(PropertyKeysScript.FUSION_SLOTS),
 	}
 
 
-## Each paint asks once whether an action can be spent, so that call counts paints.
+## Each paint clears the body once, so that call counts paints.
 func _deps(frame_paints: Array) -> Dictionary:
 	if not RegistryScript.has(ServiceKeysScript.UI_THEME):
 		RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	return {
 		"clear_children": func(node: Node) -> void:
+			frame_paints[0] += 1
 			for child in node.get_children():
 				node.remove_child(child)
 				child.queue_free(),
 		"current_locale": func() -> String: return "zh",
 		"char_canvas_position": func(_unit: String, _locale_code: String) -> Vector2: return Vector2(10.0, 10.0),
-		"can_spend_action": func() -> bool:
-			frame_paints[0] += 1
-			return true,
 	}
 
 

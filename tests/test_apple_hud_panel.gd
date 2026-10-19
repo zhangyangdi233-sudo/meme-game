@@ -1,5 +1,5 @@
 extends SceneTree
-## Left status column watches pollution, money, remaining actions, and the daily cap on the property models.
+## Left status column watches pollution on the property models; it shows no funds and no daily actions.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
@@ -7,11 +7,6 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
-
-const FULL_ACTIONS := "今日行动\n● ● ● ● ●"
-const THREE_ACTIONS := "今日行动\n● ● ● ○ ○"
-const ONE_ACTION := "今日行动\n● ○ ○ ○ ○"
-const THREE_OF_SEVEN := "今日行动\n● ● ● ○ ○ ○ ○"
 
 var _failures: Array[String] = []
 
@@ -35,6 +30,7 @@ func _run_async() -> void:
 
 func _run() -> void:
 	_test_shown_column_syncs_then_follows_writes()
+	_test_the_column_shows_no_funds_or_actions()
 	_test_the_rail_is_edged_by_the_hairline()
 	await _test_hidden_and_freed_column_stops_listening()
 
@@ -42,54 +38,36 @@ func _run() -> void:
 func _test_shown_column_syncs_then_follows_writes() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as AppleHudPanel
-	var money: ValuePropertyModel = mounted["money"]
-	var actions: ValuePropertyModel = mounted["actions"]
-	var actions_label: Label = panel.get_actions_label()
-	var money_icon := Harness.find_node_by_name(mounted["host"], "HUDMoneyIcon") as Button
+	var pollution: ValuePropertyModel = mounted["pollution"]
 	var pollution_icon := Harness.find_node_by_name(mounted["host"], "HUDPollutionIcon") as Button
 	var rail: PanelContainer = panel.get_rail()
-	_assert_eq(_listener_count(money), 0, "a mounted column should not listen before it is shown")
-	_assert_eq(actions_label.text, "", "a hidden column should not paint actions yet")
-
+	_assert_eq(_listener_count(pollution), 0, "a mounted column should not listen before it is shown")
 	panel.set_shown(true)
-	_assert_eq(_listener_count(money), 1, "showing the column should register money once")
-	_assert_eq(_listener_count(actions), 1, "showing the column should register remaining actions once")
 	panel.set_shown(true)
-	_assert_eq(_listener_count(money), 1, "showing the column again should not register twice")
-	_assert_eq(actions_label.text, FULL_ACTIONS, "showing the column should paint the current actions")
-	money_icon.mouse_entered.emit()
+	_assert_eq(_listener_count(pollution), 1, "showing the column should register pollution once")
 	var tooltip: Label = Harness.find_node_by_name(mounted["host"], "HUDTooltipLabel") as Label
-	_assert_eq(tooltip.text, "资金 18", "showing the column should sync the current money")
-
-	var icon_size := money_icon.custom_minimum_size
-	var icon_position := money_icon.position
 	var pollution_position := pollution_icon.position
 	var rail_left := rail.offset_left
 	var rail_right := rail.offset_right
-	money.write(31)
-	actions.write(3)
-	_assert_eq(tooltip.text, "资金 31", "an open money tooltip should follow the model")
-	_assert_eq(actions_label.text, THREE_ACTIONS, "the action dots should follow remaining actions")
-	_assert_eq(money_icon.custom_minimum_size, icon_size, "the money icon size should stay put")
-	_assert_eq(money_icon.position, icon_position, "the money icon position should stay put")
-	_assert_eq(pollution_icon.position, pollution_position, "the pollution icon position should stay put")
-	_assert_eq(rail.offset_left, rail_left, "the rail's left edge should stay put")
-	_assert_eq(rail.offset_right, rail_right, "the rail's right edge should stay put")
-	_assert_true(str(actions_label.text).contains("●") and str(actions_label.text).contains("○"), "action marks should stay filled and empty dots")
-
-	var pollution: ValuePropertyModel = mounted["pollution"]
-	var max_actions: ValuePropertyModel = mounted["max_actions"]
-	_assert_eq(_listener_count(pollution), 1, "showing the column should register pollution once")
-	_assert_eq(_listener_count(max_actions), 1, "showing the column should register the daily cap once")
 	pollution.write(12)
-	_assert_eq(actions_label.text, THREE_ACTIONS, "a pollution write should not rewrite actions")
-	_assert_eq(tooltip.text, "资金 31", "a pollution write should not rewrite an open money tooltip")
 	pollution_icon.mouse_entered.emit()
 	_assert_eq(tooltip.text, "污染 12%", "the pollution tooltip should show the model's pollution")
 	pollution.write(40)
 	_assert_eq(tooltip.text, "污染 40%", "an open pollution tooltip should follow the model")
-	max_actions.write(7)
-	_assert_eq(actions_label.text, THREE_OF_SEVEN, "the action dots should follow the daily cap")
+	_assert_eq(pollution_icon.position, pollution_position, "the pollution icon position should stay put")
+	_assert_eq(rail.offset_left, rail_left, "the rail's left edge should stay put")
+	_assert_eq(rail.offset_right, rail_right, "the rail's right edge should stay put")
+	_dispose(mounted)
+
+
+func _test_the_column_shows_no_funds_or_actions() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as AppleHudPanel
+	panel.set_shown(true)
+	for node_name in ["HUDMoneyIcon", "HUDActionsLabel"]:
+		_assert_true(Harness.find_node_by_name(mounted["host"], node_name) == null, "the column should not build %s" % node_name)
+	_assert_true(not panel.has_method("get_actions_label"), "the column should offer no actions label")
+	_assert_true(not Harness.collect_control_text(mounted["host"]).contains("今日行动"), "the column should not word daily actions")
 	_dispose(mounted)
 
 
@@ -105,40 +83,27 @@ func _test_the_rail_is_edged_by_the_hairline() -> void:
 func _test_hidden_and_freed_column_stops_listening() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as AppleHudPanel
-	var money: ValuePropertyModel = mounted["money"]
-	var actions: ValuePropertyModel = mounted["actions"]
+	var pollution: ValuePropertyModel = mounted["pollution"]
 	panel.set_shown(true)
-	var actions_label: Label = panel.get_actions_label()
-	var money_icon := Harness.find_node_by_name(mounted["host"], "HUDMoneyIcon") as Button
-	money_icon.mouse_entered.emit()
+	var pollution_icon := Harness.find_node_by_name(mounted["host"], "HUDPollutionIcon") as Button
+	pollution_icon.mouse_entered.emit()
 	var tooltip: Label = Harness.find_node_by_name(mounted["host"], "HUDTooltipLabel") as Label
-	money.write(31)
-	actions.write(3)
+	pollution.write(31)
 
 	panel.set_shown(false)
-	_assert_eq(_listener_count(money), 0, "hiding the column should drop the money listener")
-	_assert_eq(_listener_count(actions), 0, "hiding the column should drop the actions listener")
-	_assert_eq(_listener_count(mounted["pollution"]), 0, "hiding the column should drop the pollution listener")
-	_assert_eq(_listener_count(mounted["max_actions"]), 0, "hiding the column should drop the daily cap listener")
-	money.write(99)
-	actions.write(1)
-	_assert_eq(actions_label.text, THREE_ACTIONS, "a hidden column should keep the last action dots")
-	_assert_eq(tooltip.text, "资金 31", "a hidden column should keep the last money text")
+	_assert_eq(_listener_count(pollution), 0, "hiding the column should drop the pollution listener")
+	pollution.write(99)
+	_assert_eq(tooltip.text, "污染 31%", "a hidden column should keep the last pollution text")
 
 	panel.set_shown(true)
-	_assert_eq(actions_label.text, ONE_ACTION, "showing the column again should sync the latest actions")
-	_assert_eq(tooltip.text, "资金 99", "showing the column again should sync the latest money")
+	_assert_eq(tooltip.text, "污染 99%", "showing the column again should sync the latest pollution")
 
 	panel.queue_free()
 	await process_frame
-	_assert_eq(_listener_count(money), 0, "freeing the column should drop the money listener")
-	_assert_eq(_listener_count(actions), 0, "freeing the column should drop the actions listener")
-	var kept_actions := actions_label.text
-	var kept_money := tooltip.text
-	money.write(4)
-	actions.write(0)
-	_assert_eq(actions_label.text, kept_actions, "a freed column should ignore later action writes")
-	_assert_eq(tooltip.text, kept_money, "a freed column should ignore later money writes")
+	_assert_eq(_listener_count(pollution), 0, "freeing the column should drop the pollution listener")
+	var kept := tooltip.text
+	pollution.write(4)
+	_assert_eq(tooltip.text, kept, "a freed column should ignore later pollution writes")
 	mounted["host"].queue_free()
 
 
@@ -160,10 +125,7 @@ func _mount() -> Dictionary:
 	return {
 		"host": host,
 		"panel": panel,
-		"money": manager.model(PropertyKeysScript.MONEY),
-		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
 		"pollution": manager.model(PropertyKeysScript.POLLUTION),
-		"max_actions": manager.model(PropertyKeysScript.MAX_ACTIONS_PER_DAY),
 	}
 
 

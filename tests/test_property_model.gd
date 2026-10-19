@@ -34,9 +34,7 @@ func _run() -> void:
 	_test_unregister_stops_updates()
 	_test_duplicate_names_keep_the_first_object()
 	_test_boot_resets_the_same_pollution_model()
-	_test_boot_resets_the_same_money_and_actions_models()
 	_test_save_and_load_go_through_the_pollution_model()
-	_test_save_and_load_go_through_money_and_actions()
 	_test_language_and_volume_are_preferences_and_autoplay_is_the_run()
 	_test_run_save_carries_autoplay_but_not_preferences()
 	_test_ending_choice_lives_only_in_the_run_model()
@@ -49,7 +47,7 @@ func _run() -> void:
 	_test_social_engagement_lives_only_in_the_run_models()
 	_test_progression_lives_only_in_the_run_models()
 	_test_event_log_and_history_live_only_in_the_run_models()
-	_test_holdings_fusion_and_publishing_live_only_in_the_run_models()
+	_test_holdings_and_posting_live_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
 
 
@@ -199,12 +197,11 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	var pollution_id: int = pollution.get_instance_id()
 	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
 	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
-	for property_name in [PropertyKeysScript.SETTINGS_OPEN, PropertyKeysScript.SAVE_STATUS, PropertyKeysScript.SELECTED_LANGUAGE_TOKEN, PropertyKeysScript.FEEDBACK_TEXT]:
+	for property_name in [PropertyKeysScript.SETTINGS_OPEN, PropertyKeysScript.SAVE_STATUS, PropertyKeysScript.FEEDBACK_TEXT]:
 		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(property_name), "%s should not be saved" % property_name)
 		_assert_true(manager.model(property_name) != null, "boot should create %s" % property_name)
 	_assert_eq(manager.model(PropertyKeysScript.SETTINGS_OPEN).read(), false, "settings should start closed")
 	_assert_eq(manager.model(PropertyKeysScript.SAVE_STATUS).read(), "", "save status should start empty")
-	_assert_eq(manager.model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).read(), "", "no language token should start selected")
 	_assert_eq(manager.model(PropertyKeysScript.FEEDBACK_TEXT).read(), "", "feedback text should start empty")
 	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
 		_assert_true(not PropertyKeysScript.is_run(property_name), "preference %s should not be saved with the run" % property_name)
@@ -224,35 +221,6 @@ func _test_boot_resets_the_same_pollution_model() -> void:
 	_assert_eq(pollution.get_instance_id(), pollution_id, "a new run should keep the same pollution model")
 	_assert_eq(state.pollution, 0, "a new run should restore the initial pollution")
 	_assert_eq(has_save.read(), false, "a new run should leave the unsaved has_save model alone")
-
-
-func _test_boot_resets_the_same_money_and_actions_models() -> void:
-	RegistryScript.clear()
-	BootScript.install()
-	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var money: ValuePropertyModel = manager.model(PropertyKeysScript.MONEY) as ValuePropertyModel
-	var actions: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
-	var money_id: int = money.get_instance_id()
-	var actions_id: int = actions.get_instance_id()
-	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.MONEY), "money should be saved with the run")
-	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.ACTIONS_REMAINING), "remaining actions should be saved with the run")
-	_assert_eq(money.read(), 18, "money should start at 18")
-	_assert_eq(actions.read(), 5, "remaining actions should start at five")
-
-	var state = StateScript.new()
-	state.money = 31
-	state.actions_remaining = 3
-	_assert_eq(money.read(), 31, "writing money on the state should write the model")
-	_assert_eq(actions.read(), 3, "writing remaining actions on the state should write the model")
-	money.write(7)
-	actions.write(1)
-	_assert_eq(state.money, 7, "the state should read money from the model")
-	_assert_eq(state.actions_remaining, 1, "the state should read remaining actions from the model")
-	state.new_run()
-	_assert_eq(money.get_instance_id(), money_id, "a new run should keep the same money model")
-	_assert_eq(actions.get_instance_id(), actions_id, "a new run should keep the same actions model")
-	_assert_eq(state.money, 18, "a new run should restore the initial money")
-	_assert_eq(state.actions_remaining, 5, "a new run should restore five actions")
 
 
 func _test_save_and_load_go_through_the_pollution_model() -> void:
@@ -276,36 +244,6 @@ func _test_save_and_load_go_through_the_pollution_model() -> void:
 	_assert_eq(pollution.get_instance_id(), pollution_id, "loading should not replace the pollution model")
 	pollution.write("bad")
 	_assert_eq(pollution.read(), 47, "a wrong type on the booted model should keep the loaded value")
-
-
-func _test_save_and_load_go_through_money_and_actions() -> void:
-	RegistryScript.clear()
-	BootScript.install()
-	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var money: ValuePropertyModel = manager.model(PropertyKeysScript.MONEY) as ValuePropertyModel
-	var actions: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIONS_REMAINING) as ValuePropertyModel
-	var money_id: int = money.get_instance_id()
-	var source = StateScript.new()
-	source.new_run()
-	source.money = 31
-	source.actions_remaining = 3
-	var save_data: Dictionary = source.to_save_data()
-	var state_data: Dictionary = save_data.get("state", {})
-	_assert_eq(int(state_data.get("money", -1)), 31, "the save should store the money model")
-	_assert_eq(int(state_data.get("actions_remaining", -1)), 3, "the save should store remaining actions")
-	source.money = 2
-	source.actions_remaining = 5
-	var restored = StateScript.new()
-	_assert_true(restored.load_save_data(save_data), "a save written from the models should load")
-	_assert_eq(restored.money, 31, "loading should write money back through the model")
-	_assert_eq(restored.actions_remaining, 3, "loading should write remaining actions back through the model")
-	_assert_eq(source.money, 31, "source and restored state should share the one money model")
-	_assert_eq(source.actions_remaining, 3, "source and restored state should share the one actions model")
-	_assert_eq(money.get_instance_id(), money_id, "loading should not replace the money model")
-	money.write("bad")
-	actions.write("bad")
-	_assert_eq(money.read(), 31, "a wrong money type should keep the loaded value")
-	_assert_eq(actions.read(), 3, "a wrong actions type should keep the loaded value")
 
 
 func _test_language_and_volume_are_preferences_and_autoplay_is_the_run() -> void:
@@ -538,25 +476,20 @@ func _test_holdings_live_only_in_the_run_models() -> void:
 		meme_heard.append((value as Array).size())
 	)
 	source.completed_memes = [
-		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
-		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
+		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "unit_count": 1},
+		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "unit_count": 1},
 	]
 	_assert_eq(meme_heard, [0, 2], "setting the memes should replace the list model once")
-	_assert_true(source.place_meme_in_fusion_slot("left", "meme-left"), "the left meme should enter a fusion slot")
-	_assert_true(source.place_meme_in_fusion_slot("right", "meme-right"), "the right meme should enter a fusion slot")
-	_assert_true(source.confirm_meme_fusion(), "fusion should succeed")
-	_assert_eq(meme_heard, [0, 2, 3], "a fusion should add one meme through the list model")
-	_assert_eq(str(memes.read()[0].get("text", "")), "左右", "the fused meme should go to the front")
 
 	var state_data: Dictionary = source.to_save_data().get("state", {})
-	_assert_eq((state_data.get("completed_memes", []) as Array).size(), 3, "the run save should store the meme model")
+	_assert_eq((state_data.get("completed_memes", []) as Array).size(), 2, "the run save should store the meme model")
 	_assert_eq((state_data.get("collected_char_units", []) as Array).size(), 1, "the run save should store the held words model")
 	chars.replace_all([])
 	memes.replace_all([])
 	var restored = StateScript.new()
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
 	_assert_eq(chars.read().size(), 1, "loading should write the held words back through the model")
-	_assert_eq(memes.read().size(), 3, "loading should write the memes back through the model")
+	_assert_eq(memes.read().size(), 2, "loading should write the memes back through the model")
 	var broken: Dictionary = state_data.duplicate(true)
 	broken["completed_memes"] = "not a list"
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": broken}), "a save with a broken list should still load")
@@ -805,12 +738,11 @@ func _test_event_log_and_history_live_only_in_the_run_models() -> void:
 	RegistryScript.clear()
 
 
-func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
+func _test_holdings_and_posting_live_only_in_the_run_models() -> void:
 	RegistryScript.clear()
 	BootScript.install()
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var maps := [PropertyKeysScript.FUSION_SLOTS, PropertyKeysScript.DRAFT_SLOTS,
-		PropertyKeysScript.LAST_PUBLISH_RESULT, PropertyKeysScript.WORLD_RULES]
+	var maps := [PropertyKeysScript.DRAFT_SLOTS, PropertyKeysScript.WORLD_RULES]
 	var lists := [PropertyKeysScript.PUBLISHED_MEMES, PropertyKeysScript.FREE_SENTENCE_UNITS]
 	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
 		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
@@ -821,9 +753,7 @@ func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
 	for key in lists:
 		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
 	_assert_true(manager.model(PropertyKeysScript.OWNED_MEME_FRAMES) is ValuePropertyModel, "owned frames should be a value model")
-	var fusion: MapPropertyModel = manager.model(PropertyKeysScript.FUSION_SLOTS) as MapPropertyModel
 	var draft: MapPropertyModel = manager.model(PropertyKeysScript.DRAFT_SLOTS) as MapPropertyModel
-	var last_result: MapPropertyModel = manager.model(PropertyKeysScript.LAST_PUBLISH_RESULT) as MapPropertyModel
 	var rules: MapPropertyModel = manager.model(PropertyKeysScript.WORLD_RULES) as MapPropertyModel
 	var published: ListPropertyModel = manager.model(PropertyKeysScript.PUBLISHED_MEMES) as ListPropertyModel
 	var units: ListPropertyModel = manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel
@@ -831,21 +761,6 @@ func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
 
 	var source = StateScript.new()
 	source.new_run()
-	source.completed_memes = [
-		{"id": "a", "text": "甲", "tags": ["x"], "rarity": 1, "pollution_bias": 1, "fusion_level": 0},
-		{"id": "b", "text": "乙", "tags": ["y"], "rarity": 1, "pollution_bias": 1, "fusion_level": 0},
-	]
-	var heard_fusion: Array = []
-	fusion.register(func(value: Variant) -> void: heard_fusion.append((value as Dictionary).size()))
-	_assert_true(source.place_meme_in_fusion_slot("left", "a"), "a meme should go into the left slot")
-	_assert_true(source.place_meme_in_fusion_slot("right", "b"), "a meme should go into the right slot")
-	_assert_eq(fusion.read(), {"left": "a", "right": "b"}, "filling the fusion slots should write the model")
-	_assert_eq(heard_fusion, [0, 1, 2], "each filled slot should notify the fusion listeners once")
-	source.fusion_slots.erase("left")
-	_assert_eq(fusion.read().size(), 2, "changing the copy the state hands out should not change the model")
-	_assert_true(source.confirm_meme_fusion(), "two filled slots should fuse")
-	_assert_eq(fusion.read(), {}, "fusing should empty the fusion slots on the model")
-
 	source.draft_slots = {"subject": "t-1"}
 	_assert_eq(draft.read(), {"subject": "t-1"}, "draft slots should be written to the model")
 
@@ -865,12 +780,10 @@ func _test_holdings_fusion_and_publishing_live_only_in_the_run_models() -> void:
 	_assert_true(rules.read().has("door|can_open"), "a rule sentence should be written to the world rules model")
 	_assert_true(source.is_world_rule_active("door|can_open"), "the state should read the rule from the model")
 
-	source.completed_memes = [{"id": "m", "text": "丙", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0}]
-	source.place_meme_in_blank("blank_1", "m")
-	_assert_true(source.confirm_dialogue(), "a placed meme should publish")
-	_assert_true(not last_result.read().is_empty(), "publishing should write the last result model")
-	_assert_eq(published.read().size(), 2, "publishing should add a record at the front of the published model")
-	_assert_eq(str((published.read()[0] as Dictionary).get("id", "")), "m", "the newest record should be first")
+	source.free_sentence_units = ["灯"]
+	source.submit_free_sentence("zh")
+	_assert_eq(published.read().size(), 2, "posting again should add a record at the front of the published model")
+	_assert_eq(str((published.read()[0] as Dictionary).get("text", "")), "灯", "the newest record should be first")
 
 	source.owned_meme_frames = 2
 	_assert_eq(frames.read(), 2, "owned frames should be written to the model")

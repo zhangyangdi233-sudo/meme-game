@@ -2,7 +2,7 @@ extends SceneTree
 ## Adapter Session mode: boot injects five states; new run, continue, title, and narrative go through the manager.
 
 var _failures: Array[String] = []
-const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
 const SESSION_IDS := ["main_menu", "prologue", "gameplay", "narrative", "ending"]
 
@@ -119,27 +119,6 @@ func _run() -> void:
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after flashback")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
-	game_root.game.actions_remaining = 1
-	_assert_true(game_root.game.spend_action("session-flow-narrative"), "last daily action should be spendable")
-	game_root._narrative_director.play_action_spend_animation(1, 0)
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "spending an action should set Session mode to narrative")
-	_assert_host_applied_screens(game_root, ["narrative", "play"], "action spend")
-	await _assert_world_hotkeys_inert(game_root, "action spend")
-	var spend_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
-	await _assert_overlay_eats_phone_clicks(game_root, spend_overlay, "action spend overlay")
-	game_root._narrative_director.finish_action_spend_animation()
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative")
-	_assert_host_applied_screens(game_root, ["narrative", "play"], "day transition")
-	await _assert_world_hotkeys_inert(game_root, "day transition")
-	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
-	await _assert_overlay_eats_phone_clicks(game_root, day_overlay, "day transition overlay")
-	game_root._narrative_director.finish_day_transition()
-	await process_frame
-	_assert_eq(game_root.session_mode(), "gameplay", "finishing a day transition should set Session mode to gameplay")
-	await _assert_gameplay_world_hotkeys_live(game_root)
-
 	game_root.set_view_state("npc_up")
 	game_root.game.ending_unlocked = false
 	game_root.show_main_menu()
@@ -163,18 +142,16 @@ func _run() -> void:
 		not game_root.game.get_progression_snapshot().has("session_mode"),
 		"Session mode belongs to the flow manager, not MemeGameState"
 	)
-	game_root.game.actions_remaining = 1
-	_assert_true(game_root.game.spend_action("session-flow-ending"), "last action should spend before the ending unlock")
-	game_root._narrative_director.play_action_spend_animation(1, 0)
+	game_root.game.pollution = 60
+	game_root.game.pollution_flashback_seen = false
+	game_root.game.check_pollution_flashback(59)
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "spending the last action should stay in narrative")
+	_assert_eq(game_root.session_mode(), "narrative", "a flashback before the ending should stay in narrative")
 	game_root.game.ending_unlocked = true
-	game_root._narrative_director.finish_action_spend_animation()
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "a chained day transition should stay in narrative after ending unlock")
 	_assert_host_applied_screens(game_root, ["narrative", "play"], "ending-pending narrative")
 	await _assert_world_hotkeys_inert(game_root, "ending-pending narrative")
-	game_root._narrative_director.finish_day_transition()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "ending", "finishing narrative with ending unlocked should set Session mode to ending")
 	_assert_host_applied_screens(game_root, ["ending"], "ending unlock")
@@ -205,23 +182,13 @@ func _run() -> void:
 
 	await _run_narrative_beat(game_root)
 	await _run_ending_screen_install(game_root)
-	await _run_settlement_opens_ending(game_root)
+	await _run_interaction_opens_ending(game_root)
 
 	game_root.queue_free()
 	await process_frame
 
 
-func _spent_outcome(game, actions_before: int) -> ActionOutcomeScript:
-	var outcome := ActionOutcomeScript.new()
-	outcome.succeeded = true
-	outcome.spent_action = true
-	outcome.actions_before = actions_before
-	outcome.actions_after = int(game.actions_remaining)
-	outcome.flashback = bool(game.pollution_flashback_pending)
-	outcome.day_transition = bool(game.needs_day_settlement)
-	return outcome
-
-
+## A post that crosses 60% plays the flashback as the whole beat; the day never moves and the player keeps posting.
 func _run_narrative_beat(game_root) -> void:
 	game_root.new_game()
 	await process_frame
@@ -230,60 +197,35 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_eq(game_root.session_mode(), "gameplay", "narrative beat should start from gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 
-	game_root.game.actions_remaining = 2
-	_assert_true(game_root.game.spend_action("narrative-beat"), "the beat should spend an action")
-	game_root.game.pollution = 60
-	game_root.game.check_pollution_flashback(59)
-	var outcome := _spent_outcome(game_root.game, 2)
-	var action_overlay := _find_node_by_name(game_root, "ActionSpendOverlay") as Control
-	var day_overlay := _find_node_by_name(game_root, "DayTransitionOverlay") as Control
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
-	game_root._present_settlement(outcome.settlement())
+	_assert_true(_find_node_by_name(game_root, "ActionSpendOverlay") == null, "no action pulse overlay should be built")
+	_assert_true(_find_node_by_name(game_root, "DayTransitionOverlay") == null, "no day transition overlay should be built")
+	game_root.game.pollution = 59
+	game_root.game.free_sentence_units = ["灯"]
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
 	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "the beat should enter narrative when the action is spent")
-	_assert_true(action_overlay != null and action_overlay.visible, "the beat should show the action pulse")
-	_assert_true(day_overlay != null and not day_overlay.visible, "the day transition should wait until the action pulse finishes")
-	_assert_true(flashback_overlay != null and not flashback_overlay.visible, "the flashback should wait until the day transition finishes")
-	await _assert_world_hotkeys_inert(game_root, "narrative beat action")
-
-	game_root._narrative_director.finish_action_spend_animation()
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "the day transition should stay in narrative")
-	_assert_true(day_overlay != null and day_overlay.visible, "the beat should show the day transition after the action pulse")
-	_assert_true(flashback_overlay != null and not flashback_overlay.visible, "the flashback should still be waiting during the day transition")
-	await _assert_world_hotkeys_inert(game_root, "narrative beat day")
-	_assert_eq(game_root.game.day, 1, "day settlement should wait for the transition midpoint")
-	game_root._narrative_director.commit_day_transition_settlement()
-	_assert_eq(game_root.game.day, 2, "the transition midpoint should settle the day")
-	game_root._narrative_director.finish_day_transition()
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "the flashback should stay in narrative after the day transition")
-	_assert_true(day_overlay != null and not day_overlay.visible, "the day transition should hide before the flashback")
-	_assert_true(flashback_overlay != null and flashback_overlay.visible, "the beat should show the flashback after the day transition")
+	_assert_eq(game_root.session_mode(), "narrative", "a post crossing 60% should enter narrative")
+	_assert_true(flashback_overlay != null and flashback_overlay.visible, "the beat should show the flashback at once")
 	await _assert_world_hotkeys_inert(game_root, "narrative beat flashback")
-	_assert_eq(game_root.game.day, 2, "the flashback should not settle a second day")
 	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	await process_frame
-	_assert_eq(game_root.session_mode(), "gameplay", "finishing the beat should return to gameplay")
+	_assert_eq(game_root.session_mode(), "gameplay", "finishing the flashback should return to gameplay")
+	_assert_eq(game_root.game.day, 1, "the flashback should not move the day on")
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after narrative beat")
 	await _assert_gameplay_world_hotkeys_live(game_root)
+	game_root.game.free_sentence_units = ["灯"]
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
+	await process_frame
+	_assert_eq(game_root.game.published_memes.size(), 2, "the player should keep posting after the flashback")
+	_assert_eq(game_root.session_mode(), "gameplay", "a later post should stay in gameplay")
 
 	game_root.new_game()
 	await process_frame
 	game_root._skip_prologue()
 	await process_frame
-	game_root.game.actions_remaining = 1
-	_assert_true(game_root.game.spend_action("narrative-beat-ending"), "the ending beat should spend the last action")
 	game_root.game.pollution = 60
-	game_root.game.pollution_flashback_seen = false
 	game_root.game.check_pollution_flashback(59)
-	var ending_outcome := _spent_outcome(game_root.game, 1)
-	game_root._present_settlement(ending_outcome.settlement())
-	await process_frame
-	_assert_eq(game_root.session_mode(), "narrative", "the ending beat should open in narrative")
-	game_root._narrative_director.finish_action_spend_animation()
-	await process_frame
-	game_root._narrative_director.finish_day_transition()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "the ending should wait until the flashback finishes")
 	await _assert_world_hotkeys_inert(game_root, "narrative beat before ending")
@@ -295,20 +237,20 @@ func _run_narrative_beat(game_root) -> void:
 	await _assert_world_hotkeys_inert(game_root, "narrative beat ending")
 
 
-func _run_settlement_opens_ending(game_root) -> void:
+## The progress check after a pickup unlocks the hidden ending; the host enters it right away.
+func _run_interaction_opens_ending(game_root) -> void:
 	game_root.new_game()
 	await process_frame
 	game_root._skip_prologue()
 	await process_frame
-	_assert_eq(game_root.session_mode(), "gameplay", "settlement test should start from gameplay")
+	_assert_eq(game_root.session_mode(), "gameplay", "the ending test should start from gameplay")
 	game_root.game.tower_floor = 4
 	game_root.game.ending_route = "hidden"
 	game_root.game.floor4_task_complete = true
-	game_root.game.needs_day_settlement = true
-	_assert_true(game_root._settle_day_and_present_rewards(), "the day should settle")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	await process_frame
-	_assert_true(game_root.game.ending_unlocked, "the day boundary should unlock the hidden ending on the model")
-	_assert_eq(game_root.session_mode(), "ending", "the host should enter the ending right after the settlement unlocks it")
+	_assert_true(game_root.game.ending_unlocked, "the pickup's progress check should unlock the hidden ending on the model")
+	_assert_eq(game_root.session_mode(), "ending", "the host should enter the ending right after the interaction unlocks it")
 
 
 func _run_ending_screen_install(game_root) -> void:

@@ -23,7 +23,6 @@ func _run_async() -> void:
 		game_root._skip_prologue()
 		await process_frame
 		_test_bank_tap_and_craft_intents_build_and_post_a_sentence(game_root)
-		_test_fusion_intents_fill_the_slots_and_fuse(game_root)
 		game_root.queue_free()
 		await process_frame
 
@@ -44,19 +43,6 @@ func _test_bank_tap_and_craft_intents_build_and_post_a_sentence(game_root: Node)
 	_assert_eq(game_root.game.get_free_sentence_text("zh"), "门开", "the host should route bank taps to the notebook handler")
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "the host should route a craft and present its submit")
-
-
-func _test_fusion_intents_fill_the_slots_and_fuse(game_root: Node) -> void:
-	game_root.game.completed_memes = [
-		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
-		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "fusion_level": 0, "unit_count": 1},
-	]
-	game_root.game.fusion_slots = {}
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "meme", "id": "meme-left"}, UiIntentsScript.KEY_SLOT_ID: "left"})
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_MEME_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "meme", "id": "meme-right"}, UiIntentsScript.KEY_SLOT_ID: "right"})
-	_assert_eq(str(game_root.game.fusion_slots.get("right", "")), "meme-right", "the host should route fusion drops to the notebook handler")
-	GameEventBus.raise(UiIntentsScript.NOTEBOOK_FUSION_REQUESTED)
-	_assert_eq(game_root.game.completed_memes.size(), 3, "the host should route a fusion and present its action")
 
 
 func _assert_true(condition: bool, message: String) -> void:

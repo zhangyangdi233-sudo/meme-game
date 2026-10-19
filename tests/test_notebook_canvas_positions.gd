@@ -133,7 +133,6 @@ func _deps(game: MemeGameState) -> Dictionary:
 		"current_locale": func() -> String: return "zh",
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code),
-		"can_spend_action": func() -> bool: return true,
 	}
 
 

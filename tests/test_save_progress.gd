@@ -54,9 +54,7 @@ func _run() -> void:
 	game_root._skip_prologue()
 	game_root.game.day = 4
 	game_root.game.pollution = 47
-	game_root.game.money = 31
 	game_root.game.tower_floor = 2
-	game_root.game.actions_remaining = 3
 	game_root.game.completed_memes = [{
 		"id": "saved-meme", "title": "路口旧词", "text": "旧词在路口", "tags": ["日常"],
 		"rarity": 1, "pollution_bias": 0, "clarity_bias": 0, "source_passives": [],
@@ -93,9 +91,7 @@ func _run() -> void:
 	await _press_start(game_root)
 	_assert_eq(game_root.game.day, 4, "Continue should restore the saved day")
 	_assert_eq(game_root.game.pollution, 47, "Continue should restore pollution")
-	_assert_eq(game_root.game.money, 31, "Continue should restore money")
 	_assert_eq(game_root.game.tower_floor, 2, "Continue should restore tower progress")
-	_assert_eq(game_root.game.actions_remaining, 3, "Continue should restore today's remaining actions")
 	_assert_eq(game_root.game.completed_memes.size(), 1, "Continue should restore crafted memes")
 	_assert_true(game_root.game.has_seen_cover_watcher(2), "Continue should restore the watcher floor history from the actual save file")
 	_assert_true(_find_node_by_name(game_root._reality_scene_adapter.floor, "CoverWatcherEvent") == null, "reloading the same floor should not rebuild an already observed watcher")
@@ -156,7 +152,7 @@ func _test_start_without_a_save_starts_a_new_game(game_root: Node) -> void:
 
 
 func _test_start_with_a_broken_save_starts_a_new_game(game_root: Node) -> void:
-	for broken in ["corrupt", "missing"]:
+	for broken in ["corrupt", "missing", "older-version"]:
 		game_root._skip_prologue()
 		game_root.game.day = 6
 		game_root.show_main_menu()
@@ -165,6 +161,15 @@ func _test_start_with_a_broken_save_starts_a_new_game(game_root: Node) -> void:
 			var file := FileAccess.open(TEST_SAVE_PATH, FileAccess.WRITE)
 			file.store_string("not a save")
 			file.close()
+		elif broken == "older-version":
+			# A run saved before the action economy was removed: the file reads, but its state is version five.
+			var reader := FileAccess.open(TEST_SAVE_PATH, FileAccess.READ)
+			var payload: Dictionary = reader.get_var()
+			reader.close()
+			(payload["game"] as Dictionary)["version"] = 5
+			var writer := FileAccess.open(TEST_SAVE_PATH, FileAccess.WRITE)
+			writer.store_var(payload)
+			writer.close()
 		else:
 			_remove_test_save()
 		# The title still believes a save exists, as when the file breaks after the title read it.

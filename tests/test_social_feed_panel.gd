@@ -54,14 +54,13 @@ func _run() -> void:
 	_test_the_comments_rule_is_a_hairline_and_cards_keep_their_strong_edge()
 	_test_hiding_unregisters_the_holdings_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters_the_holdings()
-	_test_the_open_publish_page_follows_remaining_actions()
+	_test_the_open_publish_page_always_allows_posting()
 	_test_a_channel_tab_repaints_the_feed_by_itself()
 	_test_a_nav_button_switches_the_page_by_itself()
 	_test_a_card_opens_its_post_and_the_close_button_shuts_it()
 	_test_the_tower_base_channel_opens_the_first_post()
 	_test_reset_view_returns_to_the_first_page()
 	_test_the_open_publish_page_follows_the_sentence()
-	_test_the_open_publish_page_shows_the_last_result()
 	_test_a_new_publication_repaints_the_open_post_echo()
 	_test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go()
 	_test_intent_names_and_payload_keys()
@@ -227,9 +226,7 @@ func _mount() -> Dictionary:
 		"liked": manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS),
 		"held": manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS),
 		"memes": manager.model(PropertyKeysScript.COMPLETED_MEMES),
-		"actions": manager.model(PropertyKeysScript.ACTIONS_REMAINING),
 		"units": manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS),
-		"result": manager.model(PropertyKeysScript.LAST_PUBLISH_RESULT),
 		"published": manager.model(PropertyKeysScript.PUBLISHED_MEMES),
 	}
 
@@ -450,35 +447,15 @@ func _test_a_freed_panel_unregisters_the_holdings() -> void:
 	_dispose(mounted)
 
 
-## The count line on the profile page, or "<missing>" when that page is not drawn.
-func _test_the_open_publish_page_follows_remaining_actions() -> void:
+func _test_the_open_publish_page_always_allows_posting() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
-	var actions: ValuePropertyModel = mounted["actions"]
 	(mounted["units"] as ListPropertyModel).replace_all(["门"])
 	panel.render_app()
 	panel.show_screen("publish")
 	panel.update_visibility(true, true)
-	_assert_eq(_listener_count(actions), 1, "showing should register on remaining actions once")
-	_assert_eq(_post_button_text(mounted), "投稿", "a day with actions left should allow posting")
-
-	actions.write(0)
-	_assert_eq(_post_button_text(mounted), "今天不能再投稿", "spending the last action should lock the open publish page by itself")
-	actions.write(2)
-	_assert_eq(_post_button_text(mounted), "投稿", "refilled actions should unlock the open publish page by itself")
-
-	panel.update_visibility(true, false)
-	_assert_eq(_listener_count(actions), 0, "hiding should drop the actions listener")
-	_dispose(mounted)
-
-	mounted = _mount()
-	panel = mounted["panel"] as SocialFeedPanel
-	actions = mounted["actions"]
-	panel.render_app()
-	panel.update_visibility(true, true)
-	var feed := _find(mounted, "SocialPhoneView")
-	actions.write(0)
-	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "an action write should not redraw a page without the post button")
+	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should be postable on the open publish page")
+	_assert_true(_find(mounted, "SocialPublishButton") == null, "the open publish page should have no old-meme confirm button")
 	_dispose(mounted)
 
 
@@ -600,20 +577,6 @@ func _test_the_open_publish_page_follows_the_sentence() -> void:
 	_dispose(mounted)
 
 
-func _test_the_open_publish_page_shows_the_last_result() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as SocialFeedPanel
-	var result: MapPropertyModel = mounted["result"]
-	panel.render_app()
-	panel.show_screen("publish")
-	panel.update_visibility(true, true)
-	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  --", "no publication yet should show no money change")
-	result.replace_all({"money_gain": 3, "pollution_gain": 4})
-	_assert_eq(_label_text(mounted, "SocialPublishMoneyOutcome"), "资金  +3", "a publication should show its money change by itself")
-	_assert_eq(_label_text(mounted, "SocialPublishPollutionOutcome"), "污染  +4%", "a publication should show its pollution change by itself")
-	_dispose(mounted)
-
-
 func _test_a_new_publication_repaints_the_open_post_echo() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
@@ -631,13 +594,13 @@ func _test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go() ->
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	panel.render_app()
-	for key in ["units", "result", "published"]:
+	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "a mounted panel should not listen to %s before it is shown" % key)
 	panel.update_visibility(true, true)
-	for key in ["units", "result", "published"]:
+	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s once" % key)
 	panel.update_visibility(true, false)
-	for key in ["units", "result", "published"]:
+	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)
 	_dispose(mounted)
 
@@ -654,7 +617,6 @@ func _test_intent_names_and_payload_keys() -> void:
 	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, "social_composer_answer_tapped", "answer tap intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_CLOSE_REQUESTED, "social_close_requested", "close intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED, "social_detail_close_requested", "detail close intent name")
-	_assert_eq(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, "social_publish_confirm_requested", "publish confirm intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, "social_composer_submit_requested", "submit intent name")
 	_assert_eq(UiIntentsScript.KEY_CHANNEL, "channel", "channel payload key")
 	_assert_eq(UiIntentsScript.KEY_SCREEN, "screen", "screen payload key")
@@ -699,10 +661,6 @@ func _test_like_follow_close_and_confirm_raise_their_intents() -> void:
 	_heard.clear()
 	_press(mounted, "SocialAppInlineCloseButton")
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CLOSE_REQUESTED, {}]], "the app close button should raise its intent")
-	panel.show_screen("publish")
-	_heard.clear()
-	_press(mounted, "SocialPublishButton")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED, {}]], "the publish confirm button should raise its intent")
 	_dispose(mounted)
 
 
@@ -745,9 +703,9 @@ func _test_the_publish_page_belongs_to_its_own_panel() -> void:
 	_assert_true(not panel.has_method("get_confirm_publish_button"), "the social panel should no longer own the publish confirm button")
 	panel.render_app()
 	panel.show_screen("publish")
-	_assert_true(publish != null and publish.get_confirm_button() != null, "the publish screen should be painted by the publish panel")
+	_assert_true(_find(mounted, "SocialPublishPage") != null, "the publish screen should be painted by the publish panel")
 	panel.show_screen("home")
-	_assert_true(publish != null and publish.get_confirm_button() == null, "leaving the publish screen should release the publish page")
+	_assert_true(_find(mounted, "SocialPublishPage") == null, "leaving the publish screen should release the publish page")
 	_dispose(mounted)
 
 

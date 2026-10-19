@@ -5,14 +5,9 @@ extends RefCounted
 
 const POLLUTION := "pollution"
 const HAS_SAVE := "has_save"
-const MONEY := "money"
-const ACTIONS_REMAINING := "actions_remaining"
 const DAY := "day"
 const TOWER_FLOOR := "tower_floor"
 const PENDING_FLOOR_TRANSITION := "pending_floor_transition"
-const NEEDS_DAY_SETTLEMENT := "needs_day_settlement"
-const DAY_ENDED_REASON := "day_ended_reason"
-const MAX_ACTIONS_PER_DAY := "max_actions_per_day"
 const AUTOPLAY_ENABLED := "autoplay_enabled"
 const LOCALE := "locale"
 const MASTER_VOLUME := "master_volume"
@@ -47,25 +42,18 @@ const FLOOR3_TASK_COMPLETE := "floor3_task_complete"
 const FLOOR4_TASK_COMPLETE := "floor4_task_complete"
 const EVENT_LOG := "event_log"
 const HISTORY_ENTRIES := "history_entries"
-const FUSION_SLOTS := "fusion_slots"
 const DRAFT_SLOTS := "draft_slots"
 const OWNED_MEME_FRAMES := "owned_meme_frames"
 const PUBLISHED_MEMES := "published_memes"
-const LAST_PUBLISH_RESULT := "last_publish_result"
 const FREE_SENTENCE_UNITS := "free_sentence_units"
 const WORLD_RULES := "world_rules"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"
-const SELECTED_LANGUAGE_TOKEN := "selected_language_token"
-## The meme the fusion slots take on a press: the last one dropped, fused or published. Not saved; a new run or a settled day clears it.
-const SELECTED_MEME := "selected_meme"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
 const FEEDBACK_TEXT := "feedback_text"
 ## Seconds START has been held on the title, zero when it is not held. Not saved; the debug panel shows it.
 const START_HOLD_SECONDS := "start_hold_seconds"
 
-const DEFAULT_MONEY := 18
-const DEFAULT_MAX_ACTIONS := 5
 const MAX_TOWER_FLOOR := 4
 const DEFAULT_LOCALE := "zh"
 const DEFAULT_MASTER_VOLUME := 80.0
@@ -87,14 +75,9 @@ const NOT_SAVED := "not_saved"
 ## Run rows come first, in save order.
 const FACTS: Array[Dictionary] = [
 	{"name": POLLUTION, "initial": 0, "min": 0, "max": 100, "save": SAVED_WITH_RUN},
-	{"name": MONEY, "initial": DEFAULT_MONEY, "save": SAVED_WITH_RUN},
-	{"name": ACTIONS_REMAINING, "initial": DEFAULT_MAX_ACTIONS, "save": SAVED_WITH_RUN},
 	{"name": DAY, "initial": 1, "min": 1, "save": SAVED_WITH_RUN},
 	{"name": TOWER_FLOOR, "initial": 1, "min": 1, "max": MAX_TOWER_FLOOR, "save": SAVED_WITH_RUN},
 	{"name": PENDING_FLOOR_TRANSITION, "initial": 0, "save": SAVED_WITH_RUN},
-	{"name": NEEDS_DAY_SETTLEMENT, "initial": false, "save": SAVED_WITH_RUN},
-	{"name": DAY_ENDED_REASON, "initial": "", "save": SAVED_WITH_RUN},
-	{"name": MAX_ACTIONS_PER_DAY, "initial": DEFAULT_MAX_ACTIONS, "min": 1, "save": SAVED_WITH_RUN},
 	{"name": AUTOPLAY_ENABLED, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": ENDING_LANGUAGE_CHOICE, "initial": "", "save": SAVED_WITH_RUN},
 	{"name": PHONE_OPEN, "initial": true, "save": SAVED_WITH_RUN},
@@ -127,11 +110,9 @@ const FACTS: Array[Dictionary] = [
 	{"name": FLOOR4_TASK_COMPLETE, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": EVENT_LOG, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": HISTORY_ENTRIES, "initial": [], "save": SAVED_WITH_RUN},
-	{"name": FUSION_SLOTS, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": DRAFT_SLOTS, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": OWNED_MEME_FRAMES, "initial": 0, "min": 0, "save": SAVED_WITH_RUN},
 	{"name": PUBLISHED_MEMES, "initial": [], "save": SAVED_WITH_RUN},
-	{"name": LAST_PUBLISH_RESULT, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": FREE_SENTENCE_UNITS, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": WORLD_RULES, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": LOCALE, "initial": DEFAULT_LOCALE, "save": PREFERENCE},
@@ -139,8 +120,6 @@ const FACTS: Array[Dictionary] = [
 	{"name": HAS_SAVE, "initial": false, "save": NOT_SAVED},
 	{"name": SETTINGS_OPEN, "initial": false, "save": NOT_SAVED},
 	{"name": SAVE_STATUS, "initial": "", "save": NOT_SAVED},
-	{"name": SELECTED_LANGUAGE_TOKEN, "initial": "", "save": NOT_SAVED},
-	{"name": SELECTED_MEME, "initial": "", "save": NOT_SAVED},
 	{"name": FEEDBACK_TEXT, "initial": "", "save": NOT_SAVED},
 	{"name": START_HOLD_SECONDS, "initial": 0.0, "save": NOT_SAVED},
 ]

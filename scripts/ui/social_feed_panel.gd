@@ -798,11 +798,6 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 		pickup_line = str(_source.language_material().pickup_line(post_card_id, locale))
 	if not pickup_line.is_empty():
 		detail_box.add_child(_make_pickup_rich_text("SocialPickupLineText", pickup_line, post_card_id))
-		var pickup_hint := _theme().label("今天第一次拾字消耗一次行动；之后当天免费。", 12, _theme().theme_color("muted")) as Label
-		pickup_hint.name = "SocialPickupCostHint"
-		pickup_hint.set_meta("on_dark", true)
-		pickup_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		detail_box.add_child(pickup_hint)
 	var engagement := HBoxContainer.new()
 	engagement.name = "SocialDetailEngagementRow"
 	engagement.add_theme_constant_override("separation", 8)

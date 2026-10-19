@@ -1,7 +1,7 @@
 class_name BabelAppPanel
 extends Node
-## Game-side babel tower app body: floor heading, danger/hint cards, money/pollution, event log.
-## While shown, it watches the floor, money, pollution, and event log and repaints itself when one changes.
+## Game-side babel tower app body: floor heading, danger/hint cards, pollution, event log.
+## While shown, it watches the floor, pollution, and event log and repaints itself when one changes.
 
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -14,7 +14,6 @@ var _level_display_name_fn: Callable
 var _app_body: VBoxContainer
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.TOWER_FLOOR: _repaint_on_change,
-	PropertyKeysScript.MONEY: _repaint_on_change,
 	PropertyKeysScript.POLLUTION: _repaint_on_change,
 	PropertyKeysScript.EVENT_LOG: _repaint_on_change,
 })
@@ -70,13 +69,6 @@ func _paint() -> void:
 		card_line.name = "BabelFloor%sLabel" % floor_field_names[field_name]
 		card_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		app_body.add_child(card_line)
-
-	var money := _read_int(PropertyKeysScript.MONEY, 0)
-	app_body.add_child(theme.label(
-		"资金 %d  /  通过发布完整表达获得" % money,
-		16,
-		theme.theme_color("accent")
-	))
 
 	var pollution := _read_int(PropertyKeysScript.POLLUTION, 0)
 	app_body.add_child(theme.label(

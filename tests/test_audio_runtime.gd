@@ -37,7 +37,7 @@ func _run() -> void:
 	var reality := game_root.get_node_or_null("RealityRoomAmbience") as AudioStreamPlayer
 	var pollution_music := game_root.get_node_or_null("PollutionMusicLayer") as AudioStreamPlayer
 	var flashback := game_root.get_node_or_null("PollutionFlashbackAudio") as AudioStreamPlayer
-	var action_tick := game_root.get_node_or_null("ActionTickAudio") as AudioStreamPlayer
+	_assert_true(game_root.get_node_or_null("ActionTickAudio") == null, "no action tick should be built now that actions are gone")
 	var cover_watcher_stinger := game_root.get_node_or_null("CoverWatcherStinger") as AudioStreamPlayer
 	_assert_true(phone != null and phone.playing, "phone ambience should start when gameplay enters the tree")
 	_assert_true(reality != null and reality.playing, "reality ambience should stay running underneath the mix")
@@ -123,10 +123,6 @@ func _run() -> void:
 	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	_assert_true(flashback != null and not flashback.playing, "finishing flashback should stop the signal burst")
 
-	game_root._narrative_director.play_action_spend_animation(5, 4)
-	await process_frame
-	_assert_true(action_tick != null and action_tick.playing, "spending an action should play the short tick")
-	game_root._narrative_director.finish_action_spend_animation()
 	GameEventBus.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 1})
 	await process_frame
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")

@@ -1,5 +1,5 @@
 extends SceneTree
-## Game audio controller: it subscribes to SFX_REQUESTED itself and plays the cue's one-shot; a settled day re-syncs the mix.
+## Game audio controller: it subscribes to SFX_REQUESTED itself and plays the cue's one-shot; no day settles, so it hears no day event.
 ## Does not load the main scene.
 
 const GameAudioControllerScript = preload("res://scripts/integrations/game_audio_controller.gd")
@@ -22,9 +22,6 @@ func _run() -> void:
 	_test_controller_out_of_the_tree_stops_listening()
 	_test_cover_watcher_appearance_plays_the_stinger()
 	_test_cover_watcher_vanishing_lets_the_stinger_finish()
-	await _test_settled_day_resyncs_the_mix_from_the_host_state()
-	await _test_settled_day_reads_the_mix_after_every_listener()
-	await _test_controller_out_of_the_tree_ignores_a_settled_day()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("game audio controller tests passed")
@@ -122,64 +119,6 @@ func _test_cover_watcher_vanishing_lets_the_stinger_finish() -> void:
 	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 2})
 	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_VANISHED, {GameEventsScript.KEY_FLOOR: 2})
 	_assert_true(controller.cover_watcher_stinger.playing, "a vanished watcher should let the stinger finish")
-	(mounted["host"] as Node).free()
-
-
-func _settled_run_deps() -> Dictionary:
-	return {
-		"game": RefCounted.new(),
-		"game_started": true,
-		"day_progress": {"tower_floor": 1},
-		"phone_shell": {"view_state": "phone_down"},
-		"reality_interaction_active": false,
-		"reality_conversation": {},
-		"pollution_stage": {"music_db": -20.0},
-	}
-
-
-func _settle_day() -> void:
-	GameEventBusScript.raise_event(GameEventsScript.DAY_SETTLED, {GameEventsScript.KEY_DAY: 2, GameEventsScript.KEY_FROM_FLASHBACK: false})
-
-
-func _test_settled_day_resyncs_the_mix_from_the_host_state() -> void:
-	var mounted := _mount()
-	var controller = mounted["controller"]
-	controller.set_state_source(_settled_run_deps)
-	_assert_eq(float(controller.pollution_ambience.get_meta("target_volume_db", 0.0)), -60.0, "sanity: the mix should start silent before a run")
-	_settle_day()
-	await process_frame
-	_assert_eq(float(controller.pollution_ambience.get_meta("target_volume_db", 0.0)), -20.0, "a settled day should aim the pollution layer at the new day's stage")
-	_assert_eq(float(controller.phone_ambience.get_meta("target_volume_db", 0.0)), -8.0, "a settled day should aim the phone layer at the current view")
-	(mounted["host"] as Node).free()
-
-
-## A listener that subscribed after the controller still reacts before the mix is read.
-func _test_settled_day_reads_the_mix_after_every_listener() -> void:
-	var mounted := _mount()
-	var controller = mounted["controller"]
-	var street := {"interaction_active": true}
-	controller.set_state_source(func() -> Dictionary:
-		var deps := _settled_run_deps()
-		deps["phone_shell"] = {"view_state": "npc_up"}
-		deps["reality_interaction_active"] = street["interaction_active"]
-		deps["reality_conversation"] = {"phase": "typing"}
-		return deps)
-	(mounted["bus"] as GameEventBus).subscribe(GameEventsScript.DAY_SETTLED, func(_payload: Dictionary) -> void: street["interaction_active"] = false)
-	_settle_day()
-	await process_frame
-	_assert_eq(float(controller.reality_ambience.get_meta("target_volume_db", 0.0)), -10.0, "the mix should read the street idle once a later listener ended the conversation")
-	(mounted["host"] as Node).free()
-
-
-func _test_controller_out_of_the_tree_ignores_a_settled_day() -> void:
-	var mounted := _mount()
-	var controller = mounted["controller"]
-	controller.set_state_source(_settled_run_deps)
-	(mounted["host"] as Node).remove_child(controller)
-	_settle_day()
-	await process_frame
-	_assert_eq(float(controller.pollution_ambience.get_meta("target_volume_db", 0.0)), -60.0, "a controller out of the tree should not hear a settled day")
-	controller.free()
 	(mounted["host"] as Node).free()
 
 

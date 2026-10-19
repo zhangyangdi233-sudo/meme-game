@@ -31,22 +31,21 @@ const LANGUAGE_RECIPE_SLOTS := [
 ]
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
-const SAVE_DATA_VERSION := 5
+## Version 6 dropped daily actions, funds and the day settlement. An older save is refused and the host starts a new run.
+const SAVE_DATA_VERSION := 6
 ## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
 	"exit_prompt_seen",
-	"pollution_flashback_seen", "pollution_flashback_pending",
+	"pollution_flashback_seen",
 	"owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
-	"fused_meme_pairs", "dialogue_blanks",
 	"collected_world_item_ids",
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
-	"language_sentence_slots", "sentence_records",
-	"last_char_pick_day",
+	"sentence_records",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
-	"last_relationship_money_loss", "reality_dialogue_count",
+	"reality_dialogue_count",
 ]
 
 var day: int:
@@ -90,32 +89,8 @@ var pending_floor_transition: int:
 	set(value):
 		_write_run_field(PropertyKeysScript.PENDING_FLOOR_TRANSITION, value)
 var exit_prompt_seen: bool = false
-var money: int:
-	get:
-		return _read_run_int(PropertyKeysScript.MONEY)
-	set(value):
-		_write_run_field(PropertyKeysScript.MONEY, value)
-var actions_remaining: int:
-	get:
-		return _read_run_int(PropertyKeysScript.ACTIONS_REMAINING)
-	set(value):
-		_write_run_field(PropertyKeysScript.ACTIONS_REMAINING, value)
-var max_actions_per_day: int:
-	get:
-		return _read_run_int(PropertyKeysScript.MAX_ACTIONS_PER_DAY)
-	set(value):
-		_write_run_field(PropertyKeysScript.MAX_ACTIONS_PER_DAY, value)
-var needs_day_settlement: bool:
-	get:
-		return _read_run_bool(PropertyKeysScript.NEEDS_DAY_SETTLEMENT)
-	set(value):
-		_write_run_field(PropertyKeysScript.NEEDS_DAY_SETTLEMENT, value)
-var day_ended_reason: String:
-	get:
-		return _read_run_string(PropertyKeysScript.DAY_ENDED_REASON)
-	set(value):
-		_write_run_field(PropertyKeysScript.DAY_ENDED_REASON, value)
 var pollution_flashback_seen: bool = false
+## Set when pollution crosses the flashback threshold; the outcome of the interaction that crossed it takes it.
 var pollution_flashback_pending: bool = false
 
 var view_state: String:
@@ -166,25 +141,12 @@ var owned_meme_frames: int:
 var owned_meme_frame_ids: Array[String] = []
 var claimed_doll_ids: Array[String] = []
 var doll_choice_results: Dictionary = {}
-## "left" / "right" -> meme id. A read is a copy.
-var fusion_slots: Dictionary:
-	get:
-		return _read_run_map(PropertyKeysScript.FUSION_SLOTS)
-	set(value):
-		_write_run_map(PropertyKeysScript.FUSION_SLOTS, value)
-var fused_meme_pairs: Array[String] = []
-var dialogue_blanks: Dictionary = {}
 ## Newest first. A read is a copy.
 var published_memes: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.PUBLISHED_MEMES)
 	set(value):
 		_write_run_list(PropertyKeysScript.PUBLISHED_MEMES, value)
-var last_publish_result: Dictionary:
-	get:
-		return _read_run_map(PropertyKeysScript.LAST_PUBLISH_RESULT)
-	set(value):
-		_write_run_map(PropertyKeysScript.LAST_PUBLISH_RESULT, value)
 ## Newest first. A read is a copy; add through record_event().
 var event_log: Array:
 	get:
@@ -201,7 +163,6 @@ var history_entries: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.HISTORY_ENTRIES)
 
-var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
 var tutorial_progress: Dictionary:
 	get:
@@ -215,7 +176,6 @@ var collected_char_units: Array:
 		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
 	set(value):
 		_write_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS, value)
-var last_char_pick_day: int = 0
 var char_canvas_positions: Dictionary:
 	get:
 		return _read_run_map(PropertyKeysScript.CHAR_CANVAS_POSITIONS)
@@ -247,7 +207,6 @@ var npc_understanding: int = 100
 var reality_phase: String = "npc_speaking"
 var relationship_residue: int = 0
 var last_relationship_residue_gain: int = 0
-var last_relationship_money_loss: int = 0
 var reality_dialogue_count: int = 0
 var conversation_phase: String:
 	get:
@@ -308,7 +267,6 @@ var conversation_mode: String:
 	set(value):
 		_write_run_field(PropertyKeysScript.CONVERSATION_MODE, value)
 var conversation_world: String = "reality"
-var conversation_selected_token_ids: Array[String] = []
 var conversation_turns: Array = []
 var conversation_turn_index: int = 0
 var conversation_history: Array = []
@@ -320,7 +278,8 @@ var conversation_can_continue: bool:
 var conversation_completed: bool = false
 var conversation_interrupted: bool = false
 var conversation_interrupt_line: String = ""
-var conversation_action_spent: bool = false
+## Whether this conversation already counted toward the dialogue count.
+var conversation_counted: bool = false
 var conversation_reward: Dictionary = {}
 
 
@@ -333,16 +292,12 @@ func new_run() -> void:
 	owned_meme_frame_ids = []
 	claimed_doll_ids = []
 	doll_choice_results = {}
-	fused_meme_pairs = []
-	dialogue_blanks = {}
 	collected_world_item_ids = []
 	cover_watcher_seen_floors = []
 	revealed_prerequisite_item_ids = []
 	collected_prerequisite_item_ids = []
 	key_clue_progress = {}
-	language_sentence_slots = {}
 	sentence_records = []
-	last_char_pick_day = 0
 	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
@@ -350,7 +305,6 @@ func new_run() -> void:
 	reality_phase = "npc_speaking"
 	relationship_residue = 0
 	last_relationship_residue_gain = 0
-	last_relationship_money_loss = 0
 	reality_dialogue_count = 0
 	reset_typed_reality_conversation()
 
@@ -517,13 +471,11 @@ func _save_field_names() -> Array[String]:
 
 
 func load_save_data(save_data: Dictionary) -> bool:
-	var loaded_version := int(save_data.get("version", -1))
-	if loaded_version not in [1, 2, 3, 4, SAVE_DATA_VERSION]:
+	if int(save_data.get("version", -1)) != SAVE_DATA_VERSION:
 		return false
 	var state_data: Variant = save_data.get("state", {})
 	if not state_data is Dictionary:
 		return false
-	var saved_floor := int((state_data as Dictionary).get("tower_floor", 1))
 	new_run()
 	for field_name in _save_field_names():
 		if not state_data.has(field_name):
@@ -533,25 +485,15 @@ func load_save_data(save_data: Dictionary) -> bool:
 			_load_run_field(field_name, value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
-	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
-	if loaded_version < 4 and saved_floor >= 4:
-		tower_floor = 3
-		ending_unlocked = false
-		ending_route = ""
-		formal_floor_three_complete = false
-		pending_floor_transition = 0
-	if loaded_version < 4 and saved_floor < 4:
-		_migrate_legacy_hidden_route_data(state_data as Dictionary)
 	var normalized_watcher_floors: Array[int] = []
 	for floor_value in cover_watcher_seen_floors:
 		var floor_number := clampi(int(floor_value), 1, MAX_TOWER_FLOOR)
 		if floor_number not in normalized_watcher_floors:
 			normalized_watcher_floors.append(floor_number)
 	cover_watcher_seen_floors = normalized_watcher_floors
-	_normalize_removed_shop_state()
 	_normalize_doll_state()
-	_normalize_language_bridge_state(loaded_version)
+	_normalize_notebook_tokens()
 	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
@@ -565,7 +507,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 	return true
 
 
-func _normalize_language_bridge_state(loaded_version: int) -> void:
+func _normalize_notebook_tokens() -> void:
 	var normalized_tokens: Array = []
 	var saved_tokens := notebook_tokens
 	for token_index in saved_tokens.size():
@@ -578,51 +520,6 @@ func _normalize_language_bridge_state(loaded_version: int) -> void:
 				token["lexeme_id"] = str(token.get("id", "token-%d" % token_index))
 			normalized_tokens.append(LanguageBridgeScript.normalized_token(token))
 	notebook_tokens = normalized_tokens
-	if loaded_version <= 4:
-		language_sentence_slots.clear()
-		reality_phase = "npc_speaking"
-	var filtered_log: Array = []
-	for entry in event_log:
-		var text := str(entry)
-		if not text.contains("遗产规则"):
-			filtered_log.append(text)
-	event_log = filtered_log
-
-
-func _migrate_legacy_hidden_route_data(state_data: Dictionary) -> void:
-	var legacy_fragments: Array = state_data.get("collected_echo_fragment_ids", [])
-	var legacy_fragment_ids := ["echo_room_name", "echo_safe_place", "echo_blank_voice"]
-	var item_ids := get_prerequisite_item_ids()
-	for index in legacy_fragment_ids.size():
-		if legacy_fragment_ids[index] not in legacy_fragments:
-			continue
-		var item_id := str(item_ids[index])
-		if item_id not in revealed_prerequisite_item_ids:
-			revealed_prerequisite_item_ids.append(item_id)
-		if item_id not in collected_prerequisite_item_ids:
-			collected_prerequisite_item_ids.append(item_id)
-		if item_id not in collected_world_item_ids:
-			collected_world_item_ids.append(item_id)
-	var legacy_keys: Array = state_data.get("completed_dialogue_key_ids", [])
-	var legacy_key_to_floor := {
-		"dialogue_key_name": 1,
-		"dialogue_key_source": 2,
-		"dialogue_key_voice": 3,
-	}
-	for legacy_key in legacy_keys:
-		var floor_number := int(legacy_key_to_floor.get(str(legacy_key), 0))
-		if floor_number == 0:
-			continue
-		var item_id := str(item_ids[floor_number - 1])
-		if item_id not in revealed_prerequisite_item_ids:
-			revealed_prerequisite_item_ids.append(item_id)
-
-
-func _normalize_removed_shop_state() -> void:
-	if active_app == "shop":
-		active_app = "social"
-	if active_app_window == "shop":
-		active_app_window = "social" if phone_open else ""
 
 
 func _normalize_doll_state() -> void:
@@ -684,7 +581,7 @@ func set_view_state(value: String) -> bool:
 	else:
 		phone_open = false
 		active_app_window = ""
-		reset_reality_phase_for_day()
+		reset_reality_phase()
 	return true
 
 
@@ -855,9 +752,13 @@ func mark_cover_watcher_seen(floor_number: int) -> bool:
 	return true
 
 
+## A world item pickup is a valid interaction: once the item is taken the progress check runs.
 func collect_world_item(item_data: Dictionary) -> bool:
 	var item_id := str(item_data.get("id", "")).strip_edges()
-	return collect_prerequisite_item(item_id)
+	if not collect_prerequisite_item(item_id):
+		return false
+	_finish_interaction()
+	return true
 
 
 func get_ending_language_choices(locale_code: String = "zh") -> Array:
@@ -882,23 +783,6 @@ func set_active_app(app_id: String) -> void:
 	if view_state == "phone_down":
 		active_app_window = app_id
 		open_app_window(app_id)
-
-
-func spend_action(action_type: String) -> bool:
-	if actions_remaining <= 0:
-		actions_remaining = 0
-		needs_day_settlement = true
-		day_ended_reason = "actions-depleted"
-		return false
-	actions_remaining = maxi(0, actions_remaining - 1)
-	if actions_remaining == 0:
-		needs_day_settlement = true
-		day_ended_reason = action_type
-	return true
-
-
-func can_spend_action() -> bool:
-	return actions_remaining > 0
 
 
 func set_autoplay_enabled(value: bool) -> void:
@@ -960,9 +844,6 @@ func check_pollution_flashback(previous_pollution: int) -> bool:
 		return false
 	pollution_flashback_seen = true
 	pollution_flashback_pending = true
-	actions_remaining = 0
-	needs_day_settlement = true
-	day_ended_reason = "pollution-flashback"
 	return true
 
 
@@ -971,8 +852,6 @@ func get_day_progress_snapshot() -> Dictionary:
 		"day": day,
 		"pollution": pollution,
 		"tower_floor": tower_floor,
-		"needs_day_settlement": needs_day_settlement,
-		"day_ended_reason": day_ended_reason,
 		"pending_floor_transition": pending_floor_transition,
 	}
 
@@ -999,20 +878,16 @@ func begin_reality_player_turn() -> bool:
 	return true
 
 
-func reset_reality_phase_for_day() -> void:
+func reset_reality_phase() -> void:
 	reality_phase = "npc_speaking"
 
 
 func start_typed_reality_conversation(actor_id: String, actor_type: String, actor_label: String) -> bool:
-	if not can_spend_action():
-		return false
 	conversation_actor_id = actor_id
-	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", "doctor"] else "npc"
+	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll"] else "npc"
 	conversation_actor_label = actor_label
-	conversation_mode = "lexeme" if conversation_actor_type == "doctor" else "authored"
-	conversation_world = "doctor" if conversation_actor_type == "doctor" else "reality"
-	conversation_selected_token_ids = []
-	language_sentence_slots.clear()
+	conversation_mode = "authored"
+	conversation_world = "reality"
 	var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
 	conversation_turns = [{
 		"line": str(dialogue.get("line", "你打算说什么？")),
@@ -1027,15 +902,23 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 	conversation_completed = false
 	conversation_interrupted = false
 	conversation_interrupt_line = str(dialogue.get("interrupt", ""))
-	conversation_action_spent = false
+	conversation_counted = false
 	conversation_reward = {}
 	conversation_attempts = 0
 	conversation_locale = "zh"
 	_load_typed_reality_turn(0)
-	conversation_phase = "composing" if conversation_mode == "lexeme" else "choosing"
-	if conversation_mode == "lexeme":
-		reality_phase = "player_composing"
+	conversation_phase = "choosing"
 	return true
+
+
+## The player leaves the conversation. One in which they spoke at least once was a valid interaction, so the
+## progress check runs after it; leaving before speaking checks nothing.
+func end_typed_reality_conversation() -> ActionOutcomeScript:
+	var spoken := not conversation_history.is_empty()
+	reset_typed_reality_conversation()
+	if not spoken:
+		return _refused_outcome()
+	return _finish_interaction()
 
 
 func reset_typed_reality_conversation() -> void:
@@ -1058,7 +941,6 @@ func reset_typed_reality_conversation() -> void:
 	conversation_clean_units = []
 	conversation_mode = "authored"
 	conversation_world = "reality"
-	conversation_selected_token_ids = []
 	conversation_turns = []
 	conversation_turn_index = 0
 	conversation_history = []
@@ -1066,7 +948,7 @@ func reset_typed_reality_conversation() -> void:
 	conversation_completed = false
 	conversation_interrupted = false
 	conversation_interrupt_line = ""
-	conversation_action_spent = false
+	conversation_counted = false
 	conversation_reward = {}
 
 
@@ -1099,7 +981,6 @@ func get_typed_reality_progress() -> Dictionary:
 		"can_continue": conversation_can_continue,
 		"completed": conversation_completed,
 		"interrupted": conversation_interrupted,
-		"action_spent": conversation_action_spent,
 		"history_count": conversation_history.size(),
 		"reward": conversation_reward.duplicate(true),
 	}
@@ -1155,19 +1036,12 @@ func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Ar
 
 
 func _localize_conversation_display() -> void:
-	if conversation_actor_type == "doctor":
-		var doctor_dialogue: Dictionary = NarrativeSessionCatalogScript.doctor_dialogue(tower_floor, conversation_locale)
-		conversation_prompt = str(doctor_dialogue.get("line", ""))
-		conversation_result_line = str(doctor_dialogue.get("result", ""))
-		if conversation_locale == "zh":
-			return
 	if conversation_locale == "zh":
 		return
 	var locale: BabelGameLocale = GameLocaleScript.for_locale(conversation_locale)
 	conversation_actor_label = locale.translate(conversation_actor_label)
-	if conversation_actor_type != "doctor":
-		conversation_prompt = locale.translate(conversation_prompt)
-		conversation_result_line = locale.translate(conversation_result_line)
+	conversation_prompt = locale.translate(conversation_prompt)
+	conversation_result_line = locale.translate(conversation_result_line)
 	var localized_choices: Array = []
 	for choice in conversation_choices:
 		var localized_choice: Dictionary = (choice as Dictionary).duplicate(true)
@@ -1179,13 +1053,6 @@ func _localize_conversation_display() -> void:
 
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
 	var floor_number := clampi(tower_floor, 1, 3)
-	if actor_type == "doctor":
-		var doctor_dialogue: Dictionary = NarrativeSessionCatalogScript.doctor_dialogue(tower_floor, "zh")
-		return {
-			"line": str(doctor_dialogue.get("line", "")),
-			"result": str(doctor_dialogue.get("result", "")),
-			"choices": [],
-		}
 	if actor_type == "doll":
 		var encounter: Dictionary = LanguageCorruptionContentScript.get_doll_encounter_by_id(actor_id)
 		if encounter.is_empty():
@@ -1252,19 +1119,10 @@ func select_typed_reality_choice(choice_id: String) -> bool:
 
 
 func advance_typed_reality_character() -> Dictionary:
-	var actions_before := actions_remaining
-	var result := _advance_typed_reality_character()
-	result["outcome"] = _action_outcome_since(actions_before)
-	return result
-
-
-func _advance_typed_reality_character() -> Dictionary:
 	var result := {
 		"advanced": false,
 		"completed": false,
-		"action_spent": false,
 		"understood": false,
-		"locked_out": false,
 		"conversation_completed": false,
 		"can_continue": false,
 		"interrupted": false,
@@ -1297,17 +1155,9 @@ func _advance_typed_reality_character() -> Dictionary:
 	result["completed"] = true
 	var is_key_npc_final_turn := conversation_actor_type == "key_npc" and conversation_turn_index + 1 >= conversation_turns.size()
 	var is_claimed_doll_repeat := conversation_actor_type == "doll" and is_doll_claimed(conversation_actor_id)
-	var should_spend_now := conversation_actor_type != "doll" and (conversation_actor_type != "key_npc" or is_key_npc_final_turn) and not is_claimed_doll_repeat
-	if not conversation_action_spent and should_spend_now:
-		if not spend_action("typed-reality-dialogue"):
-			conversation_phase = "result"
-			conversation_interrupted = true
-			conversation_feedback = "今天已经没有能说出口的行动。"
-			result["locked_out"] = true
-			result["interrupted"] = true
-			return result
-		conversation_action_spent = true
-		result["action_spent"] = true
+	var should_count_now := conversation_actor_type != "doll" and (conversation_actor_type != "key_npc" or is_key_npc_final_turn) and not is_claimed_doll_repeat
+	if not conversation_counted and should_count_now:
+		conversation_counted = true
 		reality_dialogue_count += 1
 	conversation_attempts += 1
 	last_clean_sentence = conversation_clean_sentence
@@ -1531,24 +1381,6 @@ func _conversation_roll(channel: String, character_index: int, check_index: int)
 	return posmod(int(hash(key)), 100)
 
 
-func settle_day_if_needed() -> bool:
-	if not needs_day_settlement:
-		return false
-	_resolve_tower_step()
-	day += 1
-	actions_remaining = max_actions_per_day
-	needs_day_settlement = false
-	day_ended_reason = ""
-	pollution_flashback_pending = false
-	draft_slots = {}
-	fusion_slots = {}
-	dialogue_blanks.clear()
-	language_sentence_slots.clear()
-	reset_reality_phase_for_day()
-	reset_typed_reality_conversation()
-	return true
-
-
 func pick_token(post_id: String, token: Dictionary) -> bool:
 	var content_locale := str(token.get("content_locale", "zh"))
 	var picked_text := str(token.get("text", "")).strip_edges()
@@ -1576,8 +1408,6 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 	for existing in notebook_tokens:
 		if existing.get("id", "") == note["id"]:
 			return false
-	if not spend_action("pick-token"):
-		return false
 	_run_list(PropertyKeysScript.NOTEBOOK_TOKENS).add(note)
 	notify_tutorial("collect_word", {"token_id": str(note.get("id", ""))})
 	return true
@@ -1609,17 +1439,15 @@ static func char_units_for_locale(entries: Array, locale_code: String) -> Array[
 	return result
 
 
-## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。
-## 计费规则:每天第一次拾字消耗 1 行动,相当于刷一次手机;当天后续拾字免费。
+## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。拾取不限次数;成功的拾取是一次有效互动,之后检查进度。
 func pick_social_char(post_id: String, unit: String, locale_code: String = "zh") -> Dictionary:
-	var actions_before := actions_remaining
 	var result := _pick_social_char(post_id, unit, locale_code)
-	result["outcome"] = _action_outcome_since(actions_before)
+	result["outcome"] = _finish_interaction() if bool(result.get("picked", false)) else _refused_outcome()
 	return result
 
 
 func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Dictionary:
-	var result := {"picked": false, "reason": "", "action_spent": false}
+	var result := {"picked": false, "reason": ""}
 	var normalized_unit := unit.strip_edges()
 	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
 		result["reason"] = "not-in-pool"
@@ -1630,22 +1458,12 @@ func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Di
 	if is_social_char_collected(normalized_unit, locale_code):
 		result["reason"] = "duplicate"
 		return result
-	var needs_action := last_char_pick_day != day
-	if needs_action:
-		if not can_spend_action():
-			result["reason"] = "no-actions"
-			return result
-		if not spend_action("pick-char"):
-			result["reason"] = "no-actions"
-			return result
-		result["action_spent"] = true
 	_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS).add({
 		"unit": normalized_unit,
 		"locale": locale_code,
 		"source_post_id": post_id,
 		"day": day,
 	})
-	last_char_pick_day = day
 	result["picked"] = true
 	notify_tutorial("collect_word", {"token_id": "char-%s-%s" % [locale_code, normalized_unit]})
 	return result
@@ -1738,38 +1556,33 @@ static func world_rule_list(rules: Dictionary) -> Array:
 	return result
 
 
-## 投稿:随时可结束造句(≥1 个单位即可),消耗 1 行动。
+## 投稿:随时可结束造句(≥1 个单位即可),不限次数;成功的投稿是一次有效互动,之后检查进度。
 ## 三层响应:rule(规则生效,世界异变)/ misread(世界误读)/ noise(噪声回应)。
 func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
-	var actions_before := actions_remaining
 	var result := _submit_free_sentence(locale_code)
-	result["outcome"] = _action_outcome_since(actions_before)
+	if not bool(result.get("submitted", false)):
+		result["outcome"] = _refused_outcome()
+		return result
+	# 刚让出口存在的这一句不立即进入结局:玩家先看见出口,下一次有效互动完成时才结算。
+	result["outcome"] = _finish_interaction(bool(result.get("floor4_task_completed", false)))
 	return result
 
 
 func _submit_free_sentence(locale_code: String) -> Dictionary:
 	var result := {
 		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
-		"sentence": "", "money_gain": 0, "pollution_gain": 0,
+		"sentence": "", "pollution_gain": 0,
 		"floor3_task_completed": false, "floor4_task_completed": false,
 	}
 	var units := free_sentence_units
 	if units.is_empty():
 		result["reason"] = "empty"
 		return result
-	if not can_spend_action():
-		result["reason"] = "no-actions"
-		return result
 	var sentence := sentence_text(units, locale_code)
 	var parsed: Dictionary = RuleEngineScript.parse(units, locale_code)
-	if not spend_action("free-sentence-publish"):
-		result["reason"] = "no-actions"
-		return result
 	var unit_count := units.size()
 	var tier := str(parsed.get("tier", "noise"))
-	var money_gain := 1 + int(unit_count / 2.0) + (2 if tier == "rule" else 0)
 	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
-	money += money_gain
 	var record := {
 		"id": "free-%d-%d" % [day, published_memes.size() + 1],
 		"kind": "free_sentence",
@@ -1781,7 +1594,6 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		"negated": bool(parsed.get("negated", false)),
 		"floor": tower_floor,
 		"published_day": day,
-		"money_gain": money_gain,
 		"pollution_gain": pollution_gain,
 		"content_locale": locale_code,
 	}
@@ -1803,7 +1615,6 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 	result["rule_key"] = str(parsed.get("rule_key", ""))
 	result["negated"] = bool(parsed.get("negated", false))
 	result["sentence"] = sentence
-	result["money_gain"] = money_gain
 	result["pollution_gain"] = pollution_gain
 	return result
 
@@ -1833,8 +1644,8 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 
 ## 终极任务在规则生效、抵达楼层与读档三个时机都会重扫:
 ## 早于楼层写下的规则,到层后依然兑现;任务一旦达成即锁存,不被后续否定收回。
-## 第四层的隐藏结局不在此立即解锁——按规格只在日结边界结算(见 _resolve_tower_step),
-## 玩家先看见出口出现,下一次边界才进入结局。
+## 第四层的隐藏结局不在此立即解锁——只在有效互动完成后的进度检查结算(见 _resolve_tower_step),
+## 玩家先看见出口出现,下一次有效互动完成时才进入结局。
 func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
@@ -1967,7 +1778,6 @@ func get_inventory_snapshot() -> Dictionary:
 		"notebook_token_count": notebook_tokens.size(),
 		"draft_slots": drafts,
 		"craft_slot_fills": craft_slot_fills,
-		"fusion_slots": fusion_slots,
 	}
 
 
@@ -2004,8 +1814,6 @@ func confirm_craft() -> bool:
 	var composition: Dictionary = LanguageBridgeScript.compose_sentence(draft_slots, notebook_tokens, "phone", conversation_locale)
 	if not bool(composition.get("valid", false)):
 		return false
-	if not spend_action("craft-meme"):
-		return false
 	var token_ids: Array = composition.get("token_ids", [])
 	var tags: Array = []
 	var rarity_total := 0
@@ -2025,7 +1833,6 @@ func confirm_craft() -> bool:
 		"tags": tags,
 		"rarity": _meme_rarity_from_tags(tags),
 		"pollution_bias": maxi(1, rarity_total - token_ids.size()),
-		"fusion_level": 0,
 		"unit_count": token_ids.size(),
 		"created_day": day,
 	}
@@ -2033,71 +1840,6 @@ func confirm_craft() -> bool:
 	draft_slots = {}
 	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
 	return true
-
-
-func place_meme_in_fusion_slot(slot_id: String, meme_id: String) -> bool:
-	if slot_id != "left" and slot_id != "right":
-		return false
-	if _find_completed_meme_index(meme_id) < 0:
-		return false
-	var other_slot := "right" if slot_id == "left" else "left"
-	if str(fusion_slots.get(other_slot, "")) == meme_id:
-		return false
-	_put_run_map_entry(PropertyKeysScript.FUSION_SLOTS, slot_id, meme_id)
-	return true
-
-
-func confirm_meme_fusion() -> bool:
-	return fuse_memes().succeeded
-
-
-func fuse_memes() -> ActionOutcomeScript:
-	var slots := fusion_slots
-	var left_id := str(slots.get("left", ""))
-	var right_id := str(slots.get("right", ""))
-	if left_id.is_empty() or right_id.is_empty() or left_id == right_id:
-		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
-	var left_index := _find_completed_meme_index(left_id)
-	var right_index := _find_completed_meme_index(right_id)
-	if left_index < 0 or right_index < 0:
-		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
-	var pair_ids: Array[String] = [left_id, right_id]
-	pair_ids.sort()
-	var pair_key := "%s+%s" % [pair_ids[0], pair_ids[1]]
-	if pair_key in fused_meme_pairs:
-		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
-	var actions_before := actions_remaining
-	if not spend_action("fuse-memes"):
-		return _failed_outcome(ActionOutcomeScript.FUSION_REJECTED)
-	var memes := completed_memes
-	var left: Dictionary = memes[left_index]
-	var right: Dictionary = memes[right_index]
-	var fusion_level := mini(3, maxi(int(left.get("fusion_level", 0)), int(right.get("fusion_level", 0))) + 1)
-	var tags: Array = _unique((left.get("tags", []) as Array) + (right.get("tags", []) as Array))
-	var left_text := str(left.get("text", ""))
-	var right_text := str(right.get("text", ""))
-	var fused_text := "%s%s" % [left_text, right_text]
-	var meme := {
-		"id": "fusion-%d-%d" % [day, memes.size() + 1],
-		"title": "复合「%s」" % fused_text,
-		"text": fused_text,
-		"tags": tags,
-		"rarity": clampi(maxi(int(left.get("rarity", 1)), int(right.get("rarity", 1))) + 1, 1, 5),
-		"pollution_bias": int(left.get("pollution_bias", 0)) + int(right.get("pollution_bias", 0)) + 6 + fusion_level * 2,
-		"fusion_level": fusion_level,
-		"unit_count": maxi(2, int(left.get("unit_count", 1)) + int(right.get("unit_count", 1))),
-		"fused_from": pair_ids,
-		"created_day": day,
-	}
-	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
-	fused_meme_pairs.append(pair_key)
-	fusion_slots = {}
-	change_pollution(3 + fusion_level * 2)
-	record_event("两个旧梗粘在一起。新梗更响，也更脏。")
-	var outcome := _spent_outcome(ActionOutcomeScript.FUSION_DONE, actions_before)
-	outcome.selected_meme_id = str(meme.get("id", ""))
-	outcome.feedback_detail = str(meme.get("title", "复合梗"))
-	return outcome
 
 
 func get_progression_snapshot() -> Dictionary:
@@ -2110,187 +1852,22 @@ func get_progression_snapshot() -> Dictionary:
 	}
 
 
-func place_meme_in_blank(blank_id: String, meme_id: String) -> bool:
-	dialogue_blanks[blank_id] = meme_id
-	return true
-
-
-func confirm_dialogue() -> bool:
-	return publish_dialogue().succeeded
-
-
-func publish_dialogue() -> ActionOutcomeScript:
-	var meme := _get_first_placed_meme()
-	if meme.is_empty():
-		return _failed_outcome(ActionOutcomeScript.PUBLISH_EMPTY)
-	var publish_result := get_publish_result(meme)
-	var actions_before := actions_remaining
-	if not spend_action("confirm-dialogue"):
-		return _failed_outcome(ActionOutcomeScript.PUBLISH_NO_ACTION)
-	last_publish_result = publish_result.duplicate(true)
-	money += int(publish_result.get("money_gain", 0))
-	change_pollution(int(publish_result.get("pollution_gain", 0)))
-	var record: Dictionary = meme.duplicate(true)
-	record["floor"] = tower_floor
-	record["money_gain"] = int(publish_result.get("money_gain", 0))
-	record["pollution_gain"] = int(publish_result.get("pollution_gain", 0))
-	record["published_day"] = day
-	_run_list(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, record)
-	var published_token_ids: Array = record.get("token_ids", [])
-	if not published_token_ids.is_empty():
-		notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, published_token_ids, "phone")
-	dialogue_blanks.clear()
-	record_event("发布完成：资金 +%d，污染 +%d%%。" % [
-		int(publish_result.get("money_gain", 0)),
-		int(publish_result.get("pollution_gain", 0)),
-	])
-	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
-	return _spent_outcome(ActionOutcomeScript.PUBLISH_DONE, actions_before)
-
-
-func _spent_outcome(feedback_key: String, actions_before: int) -> ActionOutcomeScript:
+## A valid interaction (a post, a finished conversation, a pickup) completed: the progress check runs, and the
+## outcome takes the pending flashback and says whether the floor moved. A post that just made the exit exist
+## holds the hidden ending back for the next interaction.
+func _finish_interaction(exit_just_appeared: bool = false) -> ActionOutcomeScript:
+	var floor_before := tower_floor
+	_resolve_tower_step(not exit_just_appeared)
 	var outcome := ActionOutcomeScript.new()
 	outcome.succeeded = true
-	outcome.spent_action = true
-	outcome.feedback_key = feedback_key
-	outcome.actions_before = actions_before
-	outcome.actions_after = actions_remaining
-	outcome.flashback = pollution_flashback_pending
-	outcome.day_transition = needs_day_settlement
+	outcome.flashback = consume_pollution_flashback()
+	outcome.floor_changed = tower_floor != floor_before
 	return outcome
 
 
-## The outcome of an action that reports spending in its own result.
-## An unspent step still carries a pending flashback, as the old host settlement did.
-func _action_outcome_since(actions_before: int) -> ActionOutcomeScript:
-	if actions_remaining < actions_before:
-		return _spent_outcome("", actions_before)
-	var outcome := _failed_outcome("")
-	outcome.flashback = pollution_flashback_pending
-	outcome.day_transition = needs_day_settlement
-	return outcome
-
-
-func _failed_outcome(feedback_key: String) -> ActionOutcomeScript:
-	var outcome := ActionOutcomeScript.new()
-	outcome.feedback_key = feedback_key
-	return outcome
-
-
-func get_language_token_options(world: String = "doctor") -> Array:
-	var result: Array = []
-	for token_value in notebook_tokens:
-		if not token_value is Dictionary:
-			continue
-		var token: Dictionary = token_value
-		var used_worlds: Array = token.get("used_worlds", [])
-		if world == "doctor" and "phone" not in used_worlds:
-			continue
-		var option := token.duplicate(true)
-		option["display_text"] = LanguageBridgeScript.token_surface(token, world)
-		result.append(option)
-	return result
-
-
-func place_language_token(slot_id: String, token_id: String, world: String = "doctor") -> bool:
-	var token := _find_token(token_id)
-	if token.is_empty():
-		return false
-	var is_available := false
-	for option: Dictionary in get_language_token_options(world):
-		if str(option.get("id", "")) == token_id:
-			is_available = true
-			break
-	if not is_available:
-		return false
-	var accepted_role := ""
-	for slot: Dictionary in LANGUAGE_RECIPE_SLOTS:
-		if str(slot.get("id", "")) == slot_id:
-			accepted_role = str(slot.get("accepted_role", ""))
-			break
-	if accepted_role.is_empty():
-		return false
-	var token_roles: Array = token.get("grammar_roles", [])
-	if accepted_role not in token_roles:
-		return false
-	language_sentence_slots[slot_id] = token_id
-	conversation_selected_token_ids = []
-	for recipe_slot: Dictionary in LANGUAGE_RECIPE_SLOTS:
-		var selected_id := str(language_sentence_slots.get(str(recipe_slot.get("id", "")), ""))
-		if not selected_id.is_empty():
-			conversation_selected_token_ids.append(selected_id)
-	return true
-
-
-func clear_language_sentence() -> void:
-	language_sentence_slots.clear()
-	conversation_selected_token_ids.clear()
-
-
-func get_language_sentence_preview(world: String = "doctor") -> Dictionary:
-	return LanguageBridgeScript.compose_sentence(language_sentence_slots, notebook_tokens, world, conversation_locale)
-
-
-func confirm_doctor_sentence() -> ActionOutcomeScript:
-	if conversation_mode != "lexeme" or conversation_phase != "composing":
-		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
-	var composition := get_language_sentence_preview("doctor")
-	if not bool(composition.get("valid", false)):
-		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
-	var actions_before := actions_remaining
-	if not spend_action("doctor-dialogue"):
-		return _failed_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED)
-
-	var token_ids: Array = composition.get("token_ids", [])
-	var doctor_sentence := str(composition.get("world_sentence", ""))
-	last_clean_sentence = str(composition.get("clean_sentence", doctor_sentence))
-	last_polluted_sentence = pollute_reality_sentence(doctor_sentence, pollution)
-	notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, token_ids, "doctor")
-	var shifted_token_count := _token_count_with_world_shift(token_ids, "doctor")
-	var distortion_penalty := 10 if last_polluted_sentence != doctor_sentence else 0
-	npc_understanding = clampi(100 - int(round(float(pollution) * 0.45)) - shifted_token_count * 7 - distortion_penalty, 0, 100)
-	reality_dialogue_count += 1
-	last_relationship_residue_gain = maxi(0, int(ceil(float(maxi(0, 80 - npc_understanding)) / 12.0)))
-	relationship_residue = clampi(relationship_residue + last_relationship_residue_gain, 0, 100)
-	last_relationship_money_loss = 0
-	change_pollution(clampi(2 + shifted_token_count, 2, 8))
-	conversation_clean_sentence = last_clean_sentence
-	var doctor_units: Array = []
-	for index in last_polluted_sentence.length():
-		var clean_unit := last_clean_sentence.substr(index, 1) if index < last_clean_sentence.length() else ""
-		var display_unit := last_polluted_sentence.substr(index, 1)
-		doctor_units.append({"clean": clean_unit, "display": display_unit, "corrupted": clean_unit != display_unit, "roll": -1})
-	conversation_revealed_units = doctor_units
-	conversation_reveal_index = doctor_units.size()
-	conversation_clean_units = _conversation_units(last_clean_sentence)
-	conversation_understood = npc_understanding >= 45
-	conversation_action_spent = true
-	conversation_completed = true
-	conversation_feedback = conversation_result_line
-	conversation_phase = "result"
-	reality_phase = "reality_result"
-	var record := {
-		"id": "sentence-%d-%d" % [day, sentence_records.size() + 1],
-		"world": "doctor",
-		"floor": tower_floor,
-		"day": day,
-		"token_ids": token_ids.duplicate(),
-		"lexeme_ids": (composition.get("lexeme_ids", []) as Array).duplicate(),
-		"clean_sentence": last_clean_sentence,
-		"world_sentence": doctor_sentence,
-		"spoken_sentence": last_polluted_sentence,
-		"pollution": pollution,
-		"understanding": npc_understanding,
-	}
-	sentence_records.append(record)
-	conversation_history.append(record.duplicate(true))
-	clear_language_sentence()
-	notify_tutorial("doctor_spoken", {"sentence_id": str(record.get("id", ""))})
-	return _spent_outcome(ActionOutcomeScript.DOCTOR_SENTENCE_DONE, actions_before)
-
-
-func confirm_reality_dialogue() -> bool:
-	return confirm_doctor_sentence().succeeded
+## An attempt that did not count as an interaction checks nothing.
+func _refused_outcome() -> ActionOutcomeScript:
+	return ActionOutcomeScript.new()
 
 
 func get_relationship_state_label() -> String:
@@ -2301,18 +1878,6 @@ func get_relationship_state_label() -> String:
 	if relationship_residue < 70:
 		return "只剩熟悉的语气"
 	return "彼此已无法确认"
-
-
-func pollute_reality_sentence(sentence: String, pollution_value: int, _unused_rules: Array = []) -> String:
-	return PollutionStageScript.corrupt_sentence_reality(sentence, pollution_value, day)
-
-
-func _get_first_placed_meme() -> Dictionary:
-	for meme_id in dialogue_blanks.values():
-		for meme in completed_memes:
-			if str(meme.get("id", "")) == str(meme_id):
-				return meme
-	return {}
 
 
 func _find_token_text(token_id: String) -> String:
@@ -2334,37 +1899,13 @@ func _find_token_rarity(token_id: String) -> int:
 	return int(_find_token(token_id).get("rarity", 1))
 
 
-func _token_count_with_world_shift(token_ids: Array, world: String) -> int:
-	var shifted := 0
-	for token_id_value in token_ids:
-		var token := _find_token(str(token_id_value))
-		if not token.is_empty() and LanguageBridgeScript.token_surface(token, world) != str(token.get("text", "")):
-			shifted += 1
-	return shifted
-
-
-func get_gameplay_metrics() -> Dictionary:
-	return {"money": money, "pollution": pollution}
-
-
-func get_publish_result(meme: Dictionary) -> Dictionary:
-	if meme.is_empty():
-		return {}
-	var rarity := clampi(int(meme.get("rarity", 1)), 1, 5)
-	var fusion_level := clampi(int(meme.get("fusion_level", 0)), 0, 3)
-	var pollution_bias := maxi(0, int(meme.get("pollution_bias", 0)))
-	return {
-		"money_gain": 2 + rarity * 2 + fusion_level,
-		"pollution_gain": clampi(2 + rarity + fusion_level * 2 + pollution_bias, 1, 30),
-	}
-
-
-func _resolve_tower_step() -> void:
+## The progress check after a valid interaction: the pollution floor step, the floor-three finish and the hidden ending.
+func _resolve_tower_step(may_unlock_hidden_ending: bool = true) -> void:
 	resolve_floor_transition_at_boundary()
 	if tower_floor == 3 and pollution >= int(POLLUTION_FLOOR_THRESHOLDS[3]) and not formal_floor_three_complete:
 		complete_floor_three()
-	# 第四层终极任务完成后,隐藏结局只在日结边界解锁,不打断出口出现的当下。
-	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
+	# 第四层终极任务完成后,隐藏结局只在下一次有效互动完成时解锁,不打断出口出现的当下。
+	if may_unlock_hidden_ending and tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
 		ending_unlocked = true
 		record_event("出口承认了你。")
 

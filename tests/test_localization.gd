@@ -206,16 +206,13 @@ func _test_english_reality_dialogue_uses_words() -> void:
 		_english_bridge_token("action", "remember", "action", "reposts", "reports"),
 		_english_bridge_token("object", "home", "object", "the home signal", "a recurring room"),
 	]
-	_assert_true(game.start_typed_reality_conversation("doctor_floor1", "doctor", "Doctor"), "English doctor dialogue should start")
-	game.configure_conversation_locale("en")
-	_assert_eq(str(game.conversation_prompt), "Say that line again. Do not explain it for me.", "doctor prompt should come from the content catalog, not GameLocale.translate()")
-	_assert_true(game.place_language_token("subject", "subject", "doctor"), "English subject should enter its slot")
-	_assert_true(game.place_language_token("action", "action", "doctor"), "English action should enter its slot")
-	_assert_true(game.place_language_token("object", "object", "doctor"), "English object should enter its slot")
-	var preview: Dictionary = game.get_language_sentence_preview("doctor")
+	_assert_true(game.place_token_in_slot("subject", "subject"), "English subject should enter its slot")
+	_assert_true(game.place_token_in_slot("action", "action"), "English action should enter its slot")
+	_assert_true(game.place_token_in_slot("object", "object"), "English object should enter its slot")
+	var preview: Dictionary = game.get_craft_sentence_preview("phone")
 	_assert_eq(str(preview.get("clean_sentence", "")), "I remember home.", "English clean language should join whole words with spaces")
-	_assert_eq(str(preview.get("world_sentence", "")), "the patient reports a recurring room.", "English doctor language should use authored whole-word surfaces")
-	_assert_true(game.confirm_doctor_sentence().succeeded, "complete English doctor sentence should resolve")
+	_assert_true(str(preview.get("world_sentence", "")).contains("this account"), "English phone language should use authored whole-word surfaces")
+	_assert_true(game.confirm_craft(), "a complete English sentence should craft")
 	_assert_true(not game.last_clean_sentence.contains("Hajimi"), "removed legacy text should never be injected into the sentence")
 
 

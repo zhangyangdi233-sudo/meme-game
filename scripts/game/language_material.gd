@@ -15,7 +15,6 @@ const NOTEBOOK_FLIGHT_FALLBACK := Vector2(84.0, 64.0)
 const NOTEBOOK_FLIGHT_INSET := Vector2(56.0, 40.0)
 const COMPOSER_FLIGHT_INSET_Y := 20.0
 const PLACED_LINE := "字进入了句子。"
-const NO_ACTIONS_LINE := "今天没有行动了。明天第一次拾字会重新消耗行动。"
 
 var _game: MemeGameState
 var _locale: BabelGameLocale
@@ -26,15 +25,13 @@ func configure(game: MemeGameState, locale: BabelGameLocale) -> void:
 	_locale = locale
 
 
-## Picks one unit into the notebook. The host settles the returned outcome when it spent an action.
+## Picks one unit into the notebook. The host presents the returned outcome when the pickup went through.
 func pick_from_post(meta: Variant, post_id: String) -> ActionOutcomeScript:
 	if _game == null:
 		return ActionOutcomeScript.new()
 	var pick_result: Dictionary = _game.pick_social_char(post_id, str(meta), _locale_code())
-	var outcome: ActionOutcomeScript = pick_result["outcome"]
-	outcome.succeeded = bool(pick_result.get("picked", false))
 	_write_feedback(pickup_feedback(pick_result))
-	return outcome
+	return pick_result["outcome"]
 
 
 func place_from_bank(unit: String) -> bool:
@@ -78,15 +75,13 @@ func remove_at(unit_index: int) -> bool:
 	return _game != null and _game.free_sentence_remove(unit_index)
 
 
-## Posts the free sentence. The host settles the returned outcome when it succeeded.
+## Posts the free sentence. The host presents the returned outcome when it was posted.
 func submit() -> ActionOutcomeScript:
 	if _game == null:
 		return ActionOutcomeScript.new()
 	var submit_result: Dictionary = _game.submit_free_sentence(_locale_code())
-	var outcome: ActionOutcomeScript = submit_result["outcome"]
-	outcome.succeeded = bool(submit_result.get("submitted", false))
 	_write_feedback(submit_feedback(submit_result))
-	return outcome
+	return submit_result["outcome"]
 
 
 ## The feedback line for one pickup result.
@@ -96,8 +91,6 @@ static func pickup_feedback(pick_result: Dictionary) -> String:
 	match str(pick_result.get("reason", "")):
 		"duplicate":
 			return "这个字已经在笔记本里了。"
-		"no-actions":
-			return NO_ACTIONS_LINE
 		_:
 			return "这个字没有进入笔记本。"
 
@@ -108,8 +101,6 @@ static func submit_feedback(submit_result: Dictionary) -> String:
 		match str(submit_result.get("reason", "")):
 			"empty":
 				return "句子还空着。"
-			"no-actions":
-				return NO_ACTIONS_LINE
 			_:
 				return "投稿没有发出去。"
 	var line := ""

@@ -226,7 +226,6 @@ func _run() -> void:
 	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before_mouse), "horizontal mouse movement should rotate the first-person view")
 	var yaw_before_touch := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var pitch_before_touch := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
-	var actions_before_touch := int(game_root.game.actions_remaining)
 	var touch_start := InputEventScreenTouch.new()
 	touch_start.index = 3
 	touch_start.position = Vector2(760.0, 430.0)
@@ -239,7 +238,6 @@ func _run() -> void:
 	game_root._input(touch_turn)
 	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before_touch), "horizontal touchscreen drag should rotate the first-person view")
 	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_touch), "vertical touchscreen drag should tilt the first-person view")
-	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "touchscreen free look should not spend an action")
 	var yaw_after_primary_touch := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var second_touch_turn := InputEventScreenDrag.new()
 	second_touch_turn.index = 4
@@ -275,7 +273,6 @@ func _run() -> void:
 	trackpad_down.delta = Vector2(0.0, -2.0)
 	game_root._input(trackpad_down)
 	_assert_true(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)) < 0.0, "two-finger trackpad movement downward should tilt the camera downward")
-	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "trackpad free look should not spend an action")
 	game_root.set_view_state("phone_down")
 	var yaw_while_phone_is_up := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	game_root._input(touch_start)
@@ -330,13 +327,12 @@ func _run() -> void:
 		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), -30.0), "starting a doll conversation should face the doll")
 		_assert_eq(str(game_root._reality_scene_adapter.active_actor_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "world interaction should remember the discovered doll")
 		var leave_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
-		var actions_before_leave := int(game_root.game.actions_remaining)
 		_assert_true(leave_button != null and leave_button.visible and leave_button.text == "离开", "doll and NPC conversations should expose an immediate Leave button")
 		if leave_button != null:
 			leave_button.pressed.emit()
 		_assert_true(not game_root._reality_interaction_is_active(), "Leave should close a conversation before the player speaks")
 		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "leaving a conversation should restore the look pitch")
-		_assert_eq(game_root.game.actions_remaining, actions_before_leave, "leaving without speaking should not spend an action")
+		_assert_eq(game_root.game.reality_dialogue_count, 0, "leaving without speaking should count no dialogue")
 		game_root._refresh_nearby_reality_actor()
 		_assert_true(game_root._try_reality_interaction(), "the same actor should remain available after leaving")
 		var yaw_during_dialogue := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
@@ -349,7 +345,6 @@ func _run() -> void:
 		arbitrary_key.pressed = true
 		game_root._unhandled_input(arbitrary_key)
 		_assert_eq(game_root.game.conversation_reveal_index, 1, "an arbitrary physical key should reveal exactly one spoken character")
-		_assert_eq(game_root.game.actions_remaining, 5, "partial typed speech should remain action-free")
 		game_root._exit_reality_interaction()
 		_assert_true(not game_root._reality_interaction_is_active(), "leaving dialogue should return to free walking")
 		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "ending dialogue should restore the look pitch")

@@ -1,5 +1,5 @@
 extends SceneTree
-## Shown babel app watches the floor, money, and pollution models and repaints itself; hiding or freeing unregisters.
+## Shown babel app watches the floor and pollution models and repaints itself; it shows no funds. Hiding or freeing unregisters.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -39,7 +39,6 @@ func _test_showing_registers_once_and_follows_writes() -> void:
 	var mounted := _mount()
 	var panel: BabelAppPanel = mounted["panel"]
 	var floor_model: ValuePropertyModel = mounted["floor"]
-	var money: ValuePropertyModel = mounted["money"]
 	var pollution: ValuePropertyModel = mounted["pollution"]
 	panel.render(mounted["body"])
 	_assert_eq(_heading(mounted), "F1", "rendering should paint the floor from its model")
@@ -47,17 +46,15 @@ func _test_showing_registers_once_and_follows_writes() -> void:
 
 	panel.set_shown(true)
 	_assert_eq(_listener_count(floor_model), 1, "showing should register on the floor once")
-	_assert_eq(_listener_count(money), 1, "showing should register on money once")
 	_assert_eq(_listener_count(pollution), 1, "showing should register on pollution once")
 	panel.set_shown(true)
 	_assert_eq(_listener_count(floor_model), 1, "showing again should not register twice")
 
 	floor_model.write(3)
 	_assert_eq(_heading(mounted), "F3", "a floor write should repaint the heading by itself")
-	money.write(42)
-	_assert_true(_text(mounted).contains("资金 42"), "a money write should repaint the money line by itself")
 	pollution.write(37)
 	_assert_true(_text(mounted).contains("污染 37%"), "a pollution write should repaint the pollution line by itself")
+	_assert_true(not _text(mounted).contains("资金"), "the babel app should not show funds")
 	_dispose(mounted)
 
 
@@ -65,13 +62,11 @@ func _test_hiding_unregisters_and_showing_again_syncs() -> void:
 	var mounted := _mount()
 	var panel: BabelAppPanel = mounted["panel"]
 	var floor_model: ValuePropertyModel = mounted["floor"]
-	var money: ValuePropertyModel = mounted["money"]
 	var pollution: ValuePropertyModel = mounted["pollution"]
 	panel.render(mounted["body"])
 	panel.set_shown(true)
 	panel.set_shown(false)
 	_assert_eq(_listener_count(floor_model), 0, "hiding should drop the floor listener")
-	_assert_eq(_listener_count(money), 0, "hiding should drop the money listener")
 	_assert_eq(_listener_count(pollution), 0, "hiding should drop the pollution listener")
 
 	floor_model.write(2)
@@ -145,7 +140,6 @@ func _mount() -> Dictionary:
 		"panel": panel,
 		"body": body,
 		"floor": manager.model(PropertyKeysScript.TOWER_FLOOR),
-		"money": manager.model(PropertyKeysScript.MONEY),
 		"pollution": manager.model(PropertyKeysScript.POLLUTION),
 		"event_log": manager.model(PropertyKeysScript.EVENT_LOG),
 	}

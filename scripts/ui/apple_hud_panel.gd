@@ -1,6 +1,6 @@
 class_name AppleHudPanel
 extends Node
-## Left HUD rail. While shown, it watches pollution, money, and today's actions and paints those numbers itself.
+## Left HUD rail. While shown, it watches pollution and paints it into the pollution tooltip itself.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -10,7 +10,6 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _rail: PanelContainer
 var _reveal_zone: Control
-var _actions_label: Label
 var _tooltip: PanelContainer
 var _tooltip_label: Label
 
@@ -24,7 +23,6 @@ var _drawer_edge_cue_width := 5.0
 var _drawer_open_duration := 0.26
 var _drawer_close_duration := 0.18
 var _pollution_icon_path := ""
-var _money_icon_path := ""
 var _settings_icon_path := ""
 
 var _tooltip_texts: Dictionary = {"settings": "设置"}
@@ -32,20 +30,7 @@ var _tooltip_kind := ""
 var _shown := false
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.POLLUTION: _on_pollution,
-	PropertyKeysScript.MONEY: _on_money,
-	PropertyKeysScript.ACTIONS_REMAINING: _on_actions,
-	PropertyKeysScript.MAX_ACTIONS_PER_DAY: _on_actions,
 })
-
-
-static func action_label(actions: int, max_actions: int) -> String:
-	var total := maxi(1, max_actions)
-	var pips := ""
-	for index in total:
-		if index > 0:
-			pips += " "
-		pips += "●" if index < actions else "○"
-	return "今日行动\n%s" % pips
 
 
 func mount(parent: Control, deps: Dictionary = {}) -> void:
@@ -93,10 +78,6 @@ func get_tooltip() -> PanelContainer:
 	return _tooltip
 
 
-func get_actions_label() -> Label:
-	return _actions_label
-
-
 func hide_tooltip() -> void:
 	_hide_tooltip()
 
@@ -113,7 +94,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_drawer_open_duration = float(deps.get("drawer_open_duration", _drawer_open_duration))
 	_drawer_close_duration = float(deps.get("drawer_close_duration", _drawer_close_duration))
 	_pollution_icon_path = str(deps.get("pollution_icon_path", _pollution_icon_path))
-	_money_icon_path = str(deps.get("money_icon_path", _money_icon_path))
 	_settings_icon_path = str(deps.get("settings_icon_path", _settings_icon_path))
 
 
@@ -150,28 +130,6 @@ func _build_rail(parent: Control) -> void:
 	center.add_child(box)
 
 	_add_hud_icon(box, "HUDPollutionIcon", "pollution", _pollution_icon_path)
-	_add_hud_icon(box, "HUDMoneyIcon", "money", _money_icon_path)
-
-	var action_divider := ColorRect.new()
-	action_divider.color = _theme().theme_color("muted")
-	action_divider.modulate.a = 0.42
-	action_divider.custom_minimum_size.y = 1
-	box.add_child(action_divider)
-
-	var action_spacer := Control.new()
-	action_spacer.custom_minimum_size.y = 6
-	box.add_child(action_spacer)
-
-	_actions_label = _theme().label("", 18, _theme().theme_color("muted")) as Label
-	_actions_label.name = "HUDActionsLabel"
-	_actions_label.set_meta("action_animation_mode", "inline_pulse")
-	_actions_label.set_meta("hud_action_label", true)
-	_actions_label.custom_minimum_size = Vector2(118, 64)
-	_actions_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_actions_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_actions_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(_actions_label)
-
 	var settings_spacer := Control.new()
 	settings_spacer.custom_minimum_size.y = 10
 	box.add_child(settings_spacer)
@@ -268,23 +226,12 @@ func _on_pollution(value: Variant) -> void:
 	_set_tooltip_text("pollution", "污染 %d%%" % int(value))
 
 
-func _on_money(value: Variant) -> void:
-	_set_tooltip_text("money", "资金 %d" % int(value))
-
-
 func _set_tooltip_text(kind: String, text: String) -> void:
 	_tooltip_texts[kind] = text
 	if _tooltip_label == null:
 		return
 	if _tooltip_kind == kind or _tooltip == null or not _tooltip.visible:
 		_tooltip_label.text = text
-
-
-## Remaining actions and the daily cap both paint the pips, so either change reads the other from its model.
-func _on_actions(_value: Variant) -> void:
-	if _actions_label == null or not is_instance_valid(_actions_label):
-		return
-	_actions_label.text = action_label(int(_watch.read(PropertyKeysScript.ACTIONS_REMAINING)), int(_watch.read(PropertyKeysScript.MAX_ACTIONS_PER_DAY)))
 
 
 ## The UI theme bound by the host; panels resolve it instead of taking theme callables.

@@ -79,7 +79,6 @@ func _test_it_claims_every_settings_intent_and_nothing_else() -> void:
 		UiIntentsScript.EXIT_GAME,
 		UiIntentsScript.LANGUAGE_SELECTED,
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
-		UiIntentsScript.COMPOSER_CONFIRM_PRESSED,
 	]:
 		_assert_true(not _handler.handles(intent_name), "the handler should leave %s to the host" % intent_name)
 

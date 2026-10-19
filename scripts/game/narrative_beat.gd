@@ -62,11 +62,6 @@ func mode_requests() -> Array:
 
 func _plan(settlement: Dictionary) -> Array[String]:
 	var plan: Array[String] = []
-	if settlement.has("actions_before") and settlement.has("actions_after"):
-		if int(settlement.get("actions_after", 0)) < int(settlement.get("actions_before", 0)):
-			plan.append("action_spend")
-	if bool(settlement.get("day_transition", false)):
-		plan.append("day_transition")
 	if bool(settlement.get("flashback", false)):
 		plan.append("flashback")
 	return plan

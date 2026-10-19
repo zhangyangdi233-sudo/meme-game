@@ -1,6 +1,7 @@
 extends SceneTree
 ## Narrative overlay director: while in the tree it answers FLASHBACK_FINISHED on the bound bus by closing the
-## flashback and asking the host to settle; the flashback overlay takes no callback. Does not load the main scene.
+## flashback and finishing the beat back to gameplay (no day settles any more); the flashback overlay takes no callback.
+## Does not load the main scene.
 
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
@@ -17,7 +18,7 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_test_finished_flashback_event_settles_the_day()
+	_test_finished_flashback_event_returns_to_gameplay()
 	_test_finished_flashback_event_without_a_flashback_on_screen_settles_nothing()
 	_test_director_out_of_the_tree_does_not_answer()
 	_test_flashback_overlay_takes_no_callback()
@@ -47,8 +48,10 @@ func _mount() -> Dictionary:
 	director.attach_to(host)
 	director.apply_deps({
 		"ui_root": ui_root,
-		"settle_day": func(from_flashback: bool) -> bool:
-			heard.append("settle_day(%s)" % str(from_flashback))
+		"complete_beat": func(exit_mode: String) -> void:
+			heard.append("complete(%s)" % exit_mode),
+		"settle_day": func(_from_flashback: bool) -> bool:
+			heard.append("settle_day")
 			return true,
 	})
 	director.build_flashback_overlay()
@@ -59,22 +62,22 @@ func _flashback_finished() -> void:
 	GameEventBusScript.raise_event(GameEventsScript.FLASHBACK_FINISHED)
 
 
-func _test_finished_flashback_event_settles_the_day() -> void:
+func _test_finished_flashback_event_returns_to_gameplay() -> void:
 	var mounted := _mount()
 	var director = mounted["director"]
 	director.play_pollution_flashback()
 	_flashback_finished()
-	_assert_eq(mounted["heard"], ["flashback_finished", "settle_day(true)"], "a finished flashback should ask the host to settle the day")
+	_assert_eq(mounted["heard"], ["flashback_finished", "complete(gameplay)"], "a finished flashback should end the beat in gameplay without settling a day")
 	_assert_true(not director.flashback_panel.is_playing(), "a finished flashback should close the overlay")
 	_flashback_finished()
-	_assert_eq(mounted["heard"], ["flashback_finished", "settle_day(true)", "flashback_finished"], "a second finish should not settle again")
+	_assert_eq(mounted["heard"], ["flashback_finished", "complete(gameplay)", "flashback_finished"], "a second finish should not end the beat again")
 	_unmount(mounted)
 
 
 func _test_finished_flashback_event_without_a_flashback_on_screen_settles_nothing() -> void:
 	var mounted := _mount()
 	_flashback_finished()
-	_assert_eq(mounted["heard"], ["flashback_finished"], "a finish with no flashback on screen should not settle")
+	_assert_eq(mounted["heard"], ["flashback_finished"], "a finish with no flashback on screen should do nothing")
 	_unmount(mounted)
 
 
@@ -84,7 +87,7 @@ func _test_director_out_of_the_tree_does_not_answer() -> void:
 	director.play_pollution_flashback()
 	(mounted["host"] as Node).remove_child(director)
 	_flashback_finished()
-	_assert_eq(mounted["heard"], ["flashback_finished"], "a director out of the tree should not settle")
+	_assert_eq(mounted["heard"], ["flashback_finished"], "a director out of the tree should not answer")
 	director.free()
 	_unmount(mounted)
 
@@ -104,7 +107,7 @@ func _test_played_flashback_raises_its_event_when_it_finishes() -> void:
 	var deadline_msec := Time.get_ticks_msec() + 10000
 	while (mounted["heard"] as Array).size() < 2 and Time.get_ticks_msec() < deadline_msec:
 		await process_frame
-	_assert_eq(mounted["heard"], ["flashback_finished", "settle_day(true)"], "a flashback that plays to its end should raise FLASHBACK_FINISHED once and settle the day")
+	_assert_eq(mounted["heard"], ["flashback_finished", "complete(gameplay)"], "a flashback that plays to its end should raise FLASHBACK_FINISHED once and end the beat")
 	_unmount(mounted)
 
 

@@ -25,7 +25,6 @@ const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
-const RealityLanguageComposerPanelScript = preload("res://scripts/ui/reality_language_composer_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
 const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
@@ -41,13 +40,11 @@ const GameSocialFeedSourceScript = preload("res://scripts/game/game_social_feed_
 const RuntimeTextureCacheScript = preload("res://scripts/game/runtime_texture_cache.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const CoverWatcherSightingsScript = preload("res://scripts/game/cover_watcher_sightings.gd")
-const DaySettlementFeedbackScript = preload("res://scripts/game/day_settlement_feedback.gd")
 const LanguagePresenterScript = preload("res://scripts/game/language_presenter.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const IntentResultScript = preload("res://scripts/game/intent_result.gd")
 const SocialIntentHandlerScript = preload("res://scripts/game/social_intent_handler.gd")
 const NotebookIntentHandlerScript = preload("res://scripts/game/notebook_intent_handler.gd")
-const DoctorSentenceIntentHandlerScript = preload("res://scripts/game/doctor_sentence_intent_handler.gd")
 const SettingsIntentHandlerScript = preload("res://scripts/game/settings_intent_handler.gd")
 const GameModelsScript = preload("res://scripts/game/game_models.gd")
 const NarrativeOverlayDirectorScript = preload("res://scripts/game/narrative_overlay_director.gd")
@@ -65,15 +62,6 @@ const GameplayFlowStateScript = preload("res://scripts/game/flow/gameplay_flow_s
 const NarrativeFlowStateScript = preload("res://scripts/game/flow/narrative_flow_state.gd")
 const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
-const ACTION_FEEDBACK_TEXT := {
-	ActionOutcomeScript.PUBLISH_DONE: "句子发出去了。资金到账，污染留下。",
-	ActionOutcomeScript.PUBLISH_EMPTY: "发布空格里还没有完整梗。",
-	ActionOutcomeScript.PUBLISH_NO_ACTION: "发布空格里还没有完整梗。",
-	ActionOutcomeScript.FUSION_DONE: "融合完成：%s",
-	ActionOutcomeScript.FUSION_REJECTED: "需要两个不同且尚未融合过的完整梗。",
-	ActionOutcomeScript.DOCTOR_SENTENCE_DONE: "同一句话到了医生那里，已经不是原来的样子。",
-	ActionOutcomeScript.DOCTOR_SENTENCE_REJECTED: "句子还不完整，或者这些词还没有在手机里发布。",
-}
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
 const GUIDE_DOLL_CHARACTER_PATH := "res://assets/generated/characters/guide_doll.png"
@@ -83,7 +71,6 @@ const NPC_CHARACTER_PATHS := [
 	"res://assets/generated/characters/npc_archive_witness.png",
 ]
 const HUD_POLLUTION_ICON_PATH := "res://assets/generated/ui/hud_pollution_icon.png"
-const HUD_MONEY_ICON_PATH := "res://assets/generated/ui/hud_money_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
 const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"
 const REALITY_MOUSE_SENSITIVITY := 0.064
@@ -161,14 +148,12 @@ var _social_feed_panel: SocialFeedPanel
 var _social_source: GameSocialFeedSource
 var _language_material: LanguageMaterial
 var _cover_watcher_sightings: CoverWatcherSightings =CoverWatcherSightingsScript.new()
-var _day_settlement_feedback: DaySettlementFeedback = DaySettlementFeedbackScript.new()
 var _language_presenter: LanguagePresenter
 var _social_intent_handler: SocialIntentHandler = SocialIntentHandlerScript.new()
 var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScript.new()
-var _doctor_sentence_intent_handler: DoctorSentenceIntentHandler = DoctorSentenceIntentHandlerScript.new()
 var _settings_intent_handler: SettingsIntentHandler = SettingsIntentHandlerScript.new()
 ## Asked in turn for every intent; the first that claims it handles it and the host presents the result (ADR 0007).
-var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _doctor_sentence_intent_handler, _settings_intent_handler]
+var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _settings_intent_handler]
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
 var _babel_app_panel: BabelAppPanel
@@ -183,7 +168,6 @@ var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
 var _reality_conversation_panel
-var _reality_language_composer_panel
 var _playtest_assist_panel
 var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
 var _pickup_flight_layer: FlyToTargetLayer
@@ -219,7 +203,6 @@ func _ensure_audio_controller() -> void:
 		return
 	_audio_controller = GameAudioControllerScript.new()
 	_audio_controller.attach_to(self)
-	_audio_controller.set_state_source(_audio_controller_deps)
 
 
 func _ensure_narrative_director() -> void:
@@ -231,18 +214,12 @@ func _ensure_narrative_director() -> void:
 
 func _narrative_overlay_deps() -> Dictionary:
 	return {
-		"game": game,
 		"ui_root": _ui_root,
 		"audio": _audio_controller,
 		"request_narrative": func() -> void:
 			_request_session_mode("narrative"),
 		"complete_beat": _complete_narrative_beat,
 		"ending_unlocked": _ending_is_unlocked,
-		"settle_day": _settle_day_and_present_rewards,
-		"hud_actions_label": _hud_actions_label_ref,
-		"action_text": _action_text,
-		"level_display_name": _locale.level_display_name,
-		"tower_floor": func() -> int: return game.tower_floor if game != null else 1,
 		"capture_frozen_frame": _capture_frozen_frame_texture,
 	}
 
@@ -361,8 +338,6 @@ func _enter_tree() -> void:
 	_ensure_ui_event_bus()
 	_cover_watcher_sightings.configure(game)
 	_cover_watcher_sightings.attach(_ui_event_bus)
-	_day_settlement_feedback.configure(game)
-	_day_settlement_feedback.attach(_ui_event_bus)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -377,7 +352,6 @@ func _exit_tree() -> void:
 	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
 	_cover_watcher_sightings.detach()
-	_day_settlement_feedback.detach()
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -531,16 +505,12 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 		_camera_session.second_layer_texture = null
 	game = session_state
 	_cover_watcher_sightings.configure(game)
-	_day_settlement_feedback.configure(game)
 	if _language_material != null:
 		_language_material.configure(game, _locale)
 	_social_feed_source().configure(game, _locale, _language_material)
 	_migrate_social_author_ids()
-	_write_selected_meme("")
 	if _social_feed_panel != null:
 		_social_feed_panel.reset_view()
-	if _notebook_app_panel != null:
-		_notebook_app_panel.reset_view()
 	_app_windows = {}
 	_app_titles = {}
 	_app_bodies = {}
@@ -823,8 +793,6 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 
 
 func _build_world(build_playable_floor: bool = true) -> void:
-	if _narrative_director != null:
-		_narrative_director.kill_day_transition_tween()
 	if _audio_controller != null:
 		_audio_controller.reset_session()
 	if _camera_session != null:
@@ -1108,21 +1076,26 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 	})
 	if not game.event_log.is_empty():
 		_write_feedback_text(game.event_log[0])
-	_refresh_reality_hud()
+	_present_progress()
 	return true
 
 
+## Leaving a conversation the player spoke in completes an interaction; the state checks progress and the host
+## presents a new floor or the ending.
 func _exit_reality_interaction(should_render: bool = true) -> void:
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
-	_write_selected_language_token("")
-	game.reset_typed_reality_conversation()
+	var outcome: ActionOutcomeScript = game.end_typed_reality_conversation()
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
 		_set_reality_mouse_look(true)
-	if should_render:
-		_update_world_for_phone_view()
-		_refresh_reality_hud()
-		_sync_audio_state(false)
+	if not should_render:
+		return
+	_update_world_for_phone_view()
+	if outcome.succeeded and (outcome.floor_changed or _ending_is_unlocked()):
+		_present_progress()
+		return
+	_refresh_reality_hud()
+	_sync_audio_state(false)
 
 
 func _active_actor_display_name() -> String:
@@ -1366,8 +1339,6 @@ func _build_ui() -> void:
 
 	_ensure_reality_conversation_panel()
 	_reality_conversation_panel.mount(_ui_root, _reality_conversation_mount_deps())
-	_ensure_reality_language_composer_panel()
-	_reality_language_composer_panel.mount(_ui_root, _reality_language_composer_mount_deps())
 
 	_desk_log = DeskLogLabelScript.new()
 	_desk_log.add_theme_font_size_override("font_size", _ui_theme_helper.ui_font_size(16))
@@ -1383,11 +1354,9 @@ func _build_ui() -> void:
 	_build_playtest_assist_panel()
 
 	_bind_narrative_director()
-	_narrative_director.build_action_spend_overlay()
 	_build_settings_window()
 	_build_phone_camera_connection_overlay()
 	_build_history_window()
-	_narrative_director.build_day_transition_overlay()
 	_build_pickup_flight_layer()
 	_build_doll_guide_overlay()
 	_narrative_director.build_flashback_overlay()
@@ -1463,7 +1432,6 @@ func _apple_hud_mount_deps() -> Dictionary:
 		"drawer_open_duration": HUD_DRAWER_OPEN_DURATION,
 		"drawer_close_duration": HUD_DRAWER_CLOSE_DURATION,
 		"pollution_icon_path": HUD_POLLUTION_ICON_PATH,
-		"money_icon_path": HUD_MONEY_ICON_PATH,
 		"settings_icon_path": HUD_SETTINGS_ICON_PATH,
 		"on_tooltip_hidden": _on_apple_hud_tooltip_hidden,
 	}
@@ -1478,12 +1446,6 @@ func _hud_rail() -> PanelContainer:
 	if _apple_hud_panel == null:
 		return null
 	return _apple_hud_panel.get_rail()
-
-
-func _hud_actions_label_ref() -> Label:
-	if _apple_hud_panel == null:
-		return null
-	return _apple_hud_panel.get_actions_label()
 
 
 func _is_hud_drawer_expanded() -> bool:
@@ -1953,20 +1915,6 @@ func _reality_conversation_mount_deps() -> Dictionary:
 	}
 
 
-func _ensure_reality_language_composer_panel() -> void:
-	if _reality_language_composer_panel != null and is_instance_valid(_reality_language_composer_panel):
-		return
-	_reality_language_composer_panel = RealityLanguageComposerPanelScript.new()
-	_reality_language_composer_panel.name = "RealityLanguageComposerPanel"
-	add_child(_reality_language_composer_panel)
-
-
-func _reality_language_composer_mount_deps() -> Dictionary:
-	return {
-		"clear_children": _clear,
-	}
-
-
 func _ensure_babel_app_panel() -> void:
 	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
 		return
@@ -1999,7 +1947,6 @@ func _notebook_mount_deps() -> Dictionary:
 		"current_locale": func() -> String: return _locale.current_locale,
 		"char_canvas_position": func(unit: String, locale_code: String) -> Vector2:
 			return game.get_char_canvas_position(unit, locale_code) if game != null else Vector2.ZERO,
-		"can_spend_action": func() -> bool: return game != null and game.can_spend_action(),
 	}
 
 
@@ -2348,21 +2295,13 @@ func _playtest_assist_snapshot() -> Dictionary:
 	return {"visible": visible, "lines": lines}
 
 
-func _action_text(actions: int) -> String:
-	var cap := PropertyKeysScript.DEFAULT_MAX_ACTIONS
-	if game != null:
-		cap = int(game.max_actions_per_day)
-	return AppleHudPanelScript.action_label(actions, cap)
-
-
 func _render_world_prompt() -> void:
 	if _world_prompt == null:
 		return
 	var hud := _reality_hud_snapshot()
 	var plan := _day_plan()
-	var day_progress: Dictionary = hud.get("day_progress", {})
 	if str(hud.get("view_state", "")) == "phone_down":
-		_world_prompt.text = "DAY %d. %s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % [int(day_progress.get("day", 1)), plan["title"]]
+		_world_prompt.text = "%s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % plan["title"]
 	elif bool(hud.get("interaction_active", false)):
 		var conversation: Dictionary = hud.get("conversation", {})
 		_world_prompt.text = "%s：%s" % [_reality_hud_actor_label(hud), _corrupt(str(conversation.get("prompt", "")))]
@@ -2420,19 +2359,10 @@ func _on_social_page_changed() -> void:
 	_apply_phone_shell_theme()
 
 
-## The notebook already shows the new tab; the host only re-themes the new nodes.
-func _on_notebook_tab_changed() -> void:
-	if _ending_screen_installed:
-		return
-	_apply_phone_shell_theme()
-
-
 ## Points the handler about to handle an intent at the current run; only the social feed and the notebook need
 ## the language material, so only they build it.
 func _configure_intent_handler(handler: IntentHandler) -> void:
-	if handler == _doctor_sentence_intent_handler:
-		_doctor_sentence_intent_handler.configure(game)
-	elif handler == _settings_intent_handler:
+	if handler == _settings_intent_handler:
 		_settings_intent_handler.configure(game)
 	else:
 		_ensure_language_material()
@@ -2448,8 +2378,6 @@ func _composer_answer_panel() -> Control:
 ## A handler already changed the state and wrote its feedback; the host only presents what it asks for.
 func _present_intent_result(result: IntentResult) -> void:
 	match result.presentation:
-		IntentResultScript.ACTION:
-			_present_action_outcome(result.outcome)
 		IntentResultScript.SUBMIT:
 			_present_submit_outcome(result.outcome)
 		SocialIntentHandlerScript.PAGE_CHANGED:
@@ -2459,16 +2387,8 @@ func _present_intent_result(result: IntentResult) -> void:
 		SocialIntentHandlerScript.PICKUP:
 			_presenter().present_pickup(result.outcome, result.unit, get_viewport().get_mouse_position())
 			_present_pickup_outcome(result.outcome)
-		NotebookIntentHandlerScript.TAB_CHANGED:
-			_on_notebook_tab_changed()
 		NotebookIntentHandlerScript.PLACE:
 			_presenter().present_place(bool(result.value), result.unit, get_viewport().get_mouse_position())
-		NotebookIntentHandlerScript.FUSION_SLOTS_CHANGED:
-			_refresh_phone_shell()
-		DoctorSentenceIntentHandlerScript.COMPOSER_CHANGED:
-			_refresh_reality_hud()
-		DoctorSentenceIntentHandlerScript.CONFIRMED:
-			_present_doctor_sentence_outcome(result.outcome)
 		SettingsIntentHandlerScript.VHS_TOGGLED:
 			_present_vhs(bool(result.value))
 		SettingsIntentHandlerScript.SAVE_REQUESTED:
@@ -2492,31 +2412,8 @@ func _render_notebook_app() -> void:
 
 
 func _render_reality() -> void:
-	_render_reality_language_composer()
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.render()
-
-
-func _render_reality_language_composer() -> void:
-	if _reality_language_composer_panel == null:
-		return
-	var hud := _reality_hud_snapshot()
-	var conversation: Dictionary = hud.get("conversation", {})
-	var composing := bool(hud.get("interaction_active", false)) and str(conversation.get("phase", "")) == "composing" and str(conversation.get("mode", "")) == "lexeme"
-	var slots: Array = []
-	if composing:
-		for slot_value in game.get_craft_slots():
-			var slot: Dictionary = (slot_value as Dictionary).duplicate()
-			var slot_id := str(slot.get("id", ""))
-			slot["filled_text"] = _language_slot_text(slot_id, str(slot.get("placeholder", "等待词语")), "doctor")
-			slots.append(slot)
-	_reality_language_composer_panel.render({
-		"composing": composing,
-		"token_options": game.get_language_token_options("doctor") if composing else [],
-		"slots": slots,
-		"preview": game.get_language_sentence_preview("doctor") if composing else {},
-		"can_spend_action": game.can_spend_action(),
-	})
 
 
 func _typed_reality_bbcode() -> String:
@@ -2580,17 +2477,8 @@ func _advance_typed_reality_character() -> bool:
 	var result: Dictionary = game.advance_typed_reality_character()
 	if not bool(result.get("advanced", false)):
 		return false
-	if bool(result.get("locked_out", false)):
-		if _reality_scene_adapter != null:
-			_reality_scene_adapter.apply_interaction({"action": "end"})
-			_reality_scene_adapter.clear_nearby_targets()
-		_set_reality_mouse_look(true)
-	if bool(result.get("action_spent", false)):
-		var outcome: ActionOutcomeScript = result["outcome"]
-		_present_settlement(outcome.settlement())
-	else:
-		_refresh_reality_hud_in_run()
-		_sync_audio_state(false)
+	_refresh_reality_hud_in_run()
+	_sync_audio_state(false)
 	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null:
 		_reality_scene_adapter.sync_world_state(_reality_scene_deps())
 	return true
@@ -2631,8 +2519,6 @@ func _update_reality_hud_visibility() -> void:
 			_world_prompt.visible = false
 		if _reality_conversation_panel != null:
 			_reality_conversation_panel.set_shown(false)
-		if _reality_language_composer_panel != null:
-			_reality_language_composer_panel.update_visibility(false, "", "")
 		return
 	var hud := _reality_hud_snapshot()
 	var in_phone := str(hud.get("view_state", "phone_down")) == "phone_down"
@@ -2641,15 +2527,8 @@ func _update_reality_hud_visibility() -> void:
 		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
 		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
 	var interaction_visible := (not in_phone) and interaction_active
-	var conversation: Dictionary = hud.get("conversation", {})
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.set_shown(interaction_visible)
-	if _reality_language_composer_panel != null:
-		_reality_language_composer_panel.update_visibility(
-			interaction_visible,
-			str(conversation.get("phase", "")),
-			str(conversation.get("mode", ""))
-		)
 
 
 func _app_window_is_open(app_id: String) -> bool:
@@ -2923,7 +2802,7 @@ func _ending_is_unlocked() -> bool:
 	return game != null and game.ending_unlocked
 
 
-## A day settlement or a floor-three finish can unlock the ending; the host asks right after it settles.
+## The progress check after a valid interaction can unlock the ending; the host asks right after it ran.
 func _present_ending_if_unlocked() -> bool:
 	if not _session_is_in_run() or not _request_ending_if_unlocked():
 		return false
@@ -3058,7 +2937,7 @@ func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer = FlyToTargetLayer.new()
 	_pickup_flight_layer.name = "PickupFlightLayer"
 	_pickup_flight_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# 高于日结过场(95),低于闪回(100):日结黑幕不吞掉仍在飞行的字。
+	# 低于闪回(100):闪回黑幕之下,仍在飞行的字不被其他覆盖层吞掉。
 	_pickup_flight_layer.z_index = 97
 	_ui_root.add_child(_pickup_flight_layer)
 	_pickup_flight_layer.flight_landed.connect(_on_pickup_flight_landed)
@@ -3075,15 +2954,15 @@ func _ensure_notebook_window_home() -> void:
 	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
 
 
-## A pickup settles only when it spent the day's first action; later pickups are free.
+## A pickup already shows through the models; the host presents it only when it moved the floor or opened the ending.
 func _present_pickup_outcome(outcome: ActionOutcomeScript) -> void:
-	if outcome.spent_action:
-		_present_settlement(outcome.settlement())
+	if outcome.succeeded and (outcome.floor_changed or _ending_is_unlocked()):
+		_present_interaction_outcome(outcome)
 
 
 func _present_submit_outcome(outcome: ActionOutcomeScript) -> void:
 	if outcome.succeeded:
-		_present_settlement(outcome.settlement())
+		_present_interaction_outcome(outcome)
 
 
 func _on_pickup_flight_landed(_unit: String) -> void:
@@ -3116,82 +2995,35 @@ func _squash_notebook_window() -> void:
 	_notebook_squash_tween.tween_property(window, "scale", Vector2.ONE, 0.09).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func _write_selected_language_token(token_id: String) -> void:
-	_value_model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).write(token_id)
-
-
-func _write_selected_meme(meme_id: String) -> void:
-	_value_model(PropertyKeysScript.SELECTED_MEME).write(meme_id)
-
-
 func _write_feedback_text(text: String) -> void:
 	GameModelsScript.write_feedback(text)
 
 
-## The doctor handler already cleared the selected token when the sentence was spoken.
-func _present_doctor_sentence_outcome(outcome: ActionOutcomeScript) -> void:
-	_show_action_feedback(outcome)
-	if not outcome.succeeded:
-		_refresh_reality_hud()
-		return
-	_present_settlement(outcome.settlement())
-
-
-func _present_action_outcome(outcome: ActionOutcomeScript) -> void:
-	_show_action_feedback(outcome)
-	if not outcome.succeeded:
-		_refresh_phone_shell()
-		return
-	_present_settlement(outcome.settlement())
-
-
-func _show_action_feedback(outcome: ActionOutcomeScript) -> void:
-	var feedback := str(ACTION_FEEDBACK_TEXT.get(outcome.feedback_key, ""))
-	_write_feedback_text(feedback % outcome.feedback_detail if feedback.contains("%s") else feedback)
-
-
-func _present_settlement(settlement: Dictionary) -> void:
-	if not settlement.is_empty():
-		_refresh_play_surfaces()
-		var hud_actions_label := _hud_actions_label_ref()
-		if hud_actions_label != null and settlement.has("actions_before"):
-			hud_actions_label.text = _action_text(int(settlement.get("actions_before", 0)))
-		_bind_narrative_director()
-		_narrative_director.play_beat(settlement, _ending_is_unlocked())
-		return
-	if _settle_day_and_present_rewards():
+## A valid interaction completed. A flashback it crossed plays as a narrative beat; otherwise the host presents the
+## new floor or the ending the progress check left.
+func _present_interaction_outcome(outcome: ActionOutcomeScript) -> void:
+	var settlement := outcome.settlement()
+	if settlement.is_empty():
+		_present_progress()
 		return
 	_refresh_play_surfaces()
+	_sync_audio_state(false)
+	_bind_narrative_director()
+	_narrative_director.play_beat(settlement, _ending_is_unlocked())
 
 
-## Settles a pending day and raises DAY_SETTLED; the Reality scene adapter, audio and the desk line react on their own
-## (ADR 0007). The host still presents what comes next: the ending, or the redrawn play surfaces.
-func _settle_day_and_present_rewards(from_flashback: bool = false) -> bool:
-	if game == null or not game.settle_day_if_needed():
-		return false
-	GameEventBusScript.raise_event(GameEventsScript.DAY_SETTLED, {
-		GameEventsScript.KEY_DAY: game.day,
-		GameEventsScript.KEY_FROM_FLASHBACK: from_flashback,
-	})
-	if not _present_ending_if_unlocked():
-		_refresh_play_surfaces()
-	return true
+## Shows the ending when the progress check unlocked it; otherwise redraws the play surfaces, which rebuild the floor
+## when it moved.
+func _present_progress() -> void:
+	_sync_audio_state(false)
+	if _present_ending_if_unlocked():
+		return
+	_refresh_play_surfaces()
 
 
 func _day_plan() -> Dictionary:
 	var current_day := 1 if game == null else game.day
 	return SocialFeedCatalogScript.day_plan_for_day(current_day)
-
-
-func _language_slot_text(slot_id: String, placeholder: String, world: String) -> String:
-	var token_id := str(game.language_sentence_slots.get(slot_id, ""))
-	if token_id.is_empty():
-		return placeholder
-	for option_value in game.get_language_token_options(world):
-		var option: Dictionary = option_value as Dictionary
-		if str(option.get("id", "")) == token_id:
-			return str(option.get("display_text", option.get("text", placeholder)))
-	return placeholder
 
 
 func _corrupt(text: String) -> String:

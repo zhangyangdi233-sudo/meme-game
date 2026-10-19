@@ -59,26 +59,19 @@ func _test_composer_state() -> void:
 
 	for unit in ["门", "可", "以", "打", "开"]:
 		game.free_sentence_place(unit, "zh")
-	var actions_before: int = game.actions_remaining
-	var money_before: int = game.money
 	var pollution_before: int = game.pollution
 	var submit: Dictionary = game.submit_free_sentence("zh")
 	_assert_true(bool(submit.get("submitted", false)), "a one-or-more unit sentence can always be posted")
 	_assert_eq_text(str(submit.get("tier", "")), "rule", "门可以打开 should land as a rule")
-	_assert_eq_int(game.actions_remaining, actions_before - 1, "posting costs exactly one action")
-	_assert_true(game.money > money_before, "posting should pay out funds")
+	_assert_true(not submit.has("money_gain"), "posting should pay out no funds")
 	_assert_true(game.pollution > pollution_before, "posting should raise pollution")
 	_assert_true(game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(game.is_world_rule_active("door|can_open"), "the door rule should enter the world rule table")
 	_assert_true(not game.published_memes.is_empty() and str((game.published_memes[0] as Dictionary).get("kind", "")) == "free_sentence", "the post should enter the published feed records")
 
-	var no_actions = StateScript.new()
-	no_actions.new_run()
-	no_actions.pick_social_char("floor_13", "门", "zh")
-	no_actions.free_sentence_place("门", "zh")
-	no_actions.actions_remaining = 0
-	var blocked: Dictionary = no_actions.submit_free_sentence("zh")
-	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "posting without actions must be refused")
+	for unit in ["门", "可", "以", "打", "开"]:
+		game.free_sentence_place(unit, "zh")
+	_assert_true(bool(game.submit_free_sentence("zh").get("submitted", false)), "posting again should never be refused")
 
 
 func _test_rule_application_and_tasks() -> void:
@@ -136,10 +129,9 @@ func _test_rule_application_and_tasks() -> void:
 	var exit_submit: Dictionary = hidden.submit_free_sentence("zh")
 	_assert_true(bool(exit_submit.get("floor4_task_completed", false)), "出口存在 should complete the floor-four ultimate task")
 	_assert_true(hidden.floor4_task_complete, "the floor-four task should latch")
-	_assert_true(not hidden.ending_unlocked, "the hidden ending must wait for the day boundary so the player sees the exit appear")
-	hidden.needs_day_settlement = true
-	hidden.settle_day_if_needed()
-	_assert_true(hidden.ending_unlocked, "the day boundary should unlock the hidden ending")
+	_assert_true(not hidden.ending_unlocked, "the hidden ending must wait for the next interaction so the player sees the exit appear")
+	hidden.pick_social_char("floor_13", "门", "zh")
+	_assert_true(hidden.ending_unlocked, "the next interaction should unlock the hidden ending")
 
 	# 重复投稿同一规则不得再次报告任务完成。
 	var repeat = StateScript.new()
@@ -298,17 +290,13 @@ func _test_ui_flow() -> void:
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(str(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.FEEDBACK_TEXT).read()).begins_with("投稿已发出"), "posting should report one of the three response tiers")
 
-	# 无行动时投稿按钮必须置灰。
-	var saved_actions: int = game_root.game.actions_remaining
-	game_root.game.actions_remaining = 0
-	game_root.game.needs_day_settlement = false
+	# 投稿不限次数:放入字后投稿按钮总是可按。
 	game_root.game.pick_social_char("floor_13", "出", "zh")
 	game_root.game.free_sentence_place("出", "zh")
 	game_root._render()
 	await process_frame
-	var drained_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
-	_assert_true(drained_button != null and drained_button.disabled, "no actions must gray out the post button")
-	game_root.game.actions_remaining = saved_actions
+	var ready_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	_assert_true(ready_button != null and not ready_button.disabled, "a placed word should keep the post button enabled")
 	game_root.game.free_sentence_clear()
 
 	# 第三层门道具:任务前封门可见且有碰撞,任务后门开框亮、碰撞解除。

@@ -63,17 +63,12 @@ func _test_pool_integrity() -> void:
 func _test_state_flow() -> void:
 	var game = StateScript.new()
 	game.new_run()
-	_assert_eq_int(game.actions_remaining, 5, "a new run should start with five actions")
-
 	var first: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	_assert_true(bool(first.get("picked", false)), "first pickup should succeed")
-	_assert_true(bool(first.get("action_spent", false)), "the day's first pickup should cost one action")
-	_assert_eq_int(game.actions_remaining, 4, "action count should drop to four")
+	_assert_true(not first.has("action_spent"), "a pickup should report no action cost")
 
 	var second: Dictionary = game.pick_social_char("floor_13", "开", "zh")
 	_assert_true(bool(second.get("picked", false)), "second pickup should succeed")
-	_assert_true(not bool(second.get("action_spent", false)), "same-day follow-up pickups should be free")
-	_assert_eq_int(game.actions_remaining, 4, "free pickups must not consume actions")
 
 	var duplicate: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	_assert_true(not bool(duplicate.get("picked", false)), "duplicate units should be rejected")
@@ -95,31 +90,10 @@ func _test_state_flow() -> void:
 	_assert_true(restored.load_save_data(save_data), "save data should load")
 	_assert_true(restored.is_social_char_collected("门", "zh"), "collected units should survive a save round-trip")
 	_assert_true(restored.is_social_char_collected("开", "zh"), "all collected units should survive")
-	_assert_eq_int(int(restored.last_char_pick_day), int(game.last_char_pick_day), "last pick day should survive the round-trip")
 
-	# 次日首拾重新计费。
-	game.needs_day_settlement = true
-	game.settle_day_if_needed()
-	var next_day: Dictionary = game.pick_social_char("self_call", "我", "zh")
-	_assert_true(bool(next_day.get("picked", false)), "next-day pickup should succeed")
-	_assert_true(bool(next_day.get("action_spent", false)), "a new day's first pickup should cost an action again")
-
-	# 无行动时的首拾必须被拒绝。
-	var drained = StateScript.new()
-	drained.new_run()
-	drained.actions_remaining = 0
-	var blocked: Dictionary = drained.pick_social_char("floor_13", "门", "zh")
-	_assert_true(not bool(blocked.get("picked", false)), "first pickup with no actions must fail")
-	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "the refusal reason should be no-actions")
-
-	# 首拾恰好花掉最后一次行动 → 应触发日结标记。
-	var last_action = StateScript.new()
-	last_action.new_run()
-	last_action.actions_remaining = 1
-	var final_pick: Dictionary = last_action.pick_social_char("floor_13", "门", "zh")
-	_assert_true(bool(final_pick.get("picked", false)), "the last action should still allow a first pickup")
-	_assert_eq_int(last_action.actions_remaining, 0, "the last action should be consumed")
-	_assert_true(last_action.needs_day_settlement, "spending the final action on a pickup should schedule day settlement")
+	# 拾取不限次数。
+	var later: Dictionary = game.pick_social_char("self_call", "我", "zh")
+	_assert_true(bool(later.get("picked", false)), "pickups should never run out")
 
 
 func _test_flight_layer_determinism() -> void:
@@ -138,6 +112,7 @@ func _test_ui_flow() -> void:
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
+	game_root._skip_prologue()
 	await process_frame
 
 	var flight_layer := _find_node_by_name(game_root, "PickupFlightLayer")
@@ -151,20 +126,17 @@ func _test_ui_flow() -> void:
 		_assert_true(pickup_line.text.contains("[url=门]"), "the seeded 门 should render as a clickable unit")
 	_assert_true(_find_node_by_name(game_root, "SocialCommentsHeader") != null, "post detail should show the anonymous comments header")
 	_assert_true(_find_node_by_name(game_root, "SocialCommentText0") != null, "post detail should show at least one comment")
-	_assert_true(_find_node_by_name(game_root, "SocialPickupCostHint") != null, "post detail should explain the first-pickup action cost")
+	_assert_true(_find_node_by_name(game_root, "SocialPickupCostHint") == null, "post detail should not word an action cost")
 
 	# bbcode 转义不再级联。
 	_assert_eq_text(game_root._escape_bbcode("[b]x[/b]"), "[lb]b[rb]x[lb]/b[rb]", "bbcode escaping must not cascade")
 
-	var actions_before: int = game_root.game.actions_remaining
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
-	game_root._narrative_director.finish_action_spend_animation()
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
 	_assert_true(game_root.game.is_app_window_open("notebook"), "a pickup should open the notebook window")
 	var notebook_window: Control = game_root._notebook_window_control()
 	_assert_true(notebook_window != null and notebook_window.get_global_rect().position.x < 400.0, "the notebook should return to its upper-left home position")
-	_assert_eq_int(game_root.game.actions_remaining, actions_before - 1, "the first pickup should cost one action")
 	if flight_layer != null:
 		_assert_true(bool(flight_layer.is_animating()), "a successful pickup should start the flight animation")
 		flight_layer.finish_all_immediately()
@@ -189,7 +161,7 @@ func _test_ui_flow() -> void:
 		await process_frame
 	_assert_true(not landed_units.is_empty(), "a natural flight must emit flight_landed within ~3 seconds")
 	_assert_true(game_root._notebook_squash_tween != null, "landing must squash the notebook window")
-	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "the free same-day pickup should collect its unit")
+	_assert_true(game_root.game.is_social_char_collected("开", "zh"), "a later pickup should collect its unit")
 
 	game_root._social_feed_panel.open_post(0)
 	await process_frame

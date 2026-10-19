@@ -1,6 +1,6 @@
 extends SceneTree
-## In the main scene, the host routes the reality conversation intents itself and hands the doctor sentence
-## composer to its handler (routing smoke; test_doctor_sentence_intent_handler covers what each intent does).
+## In the main scene, the host routes the reality conversation intents itself. The reality HUD builds no doctor
+## sentence composer, and leaving a spoken conversation runs the progress check: at the threshold the floor moves.
 
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -26,7 +26,7 @@ func _run_async() -> void:
 		game_root._skip_prologue()
 		await process_frame
 		_test_the_host_no_longer_keeps_the_transient_selections(game_root)
-		_test_the_host_routes_the_composer_and_presents_a_refused_confirm(game_root)
+		_test_the_reality_hud_builds_no_doctor_composer(game_root)
 		await _test_conversation_intents_choose_and_leave(game_root)
 		game_root.queue_free()
 		await process_frame
@@ -38,11 +38,6 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
-
-
-func _selected_token() -> String:
-	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	return str(manager.model(PropertyKeysScript.SELECTED_LANGUAGE_TOKEN).read())
 
 
 func _feedback() -> String:
@@ -60,11 +55,14 @@ func _test_the_host_no_longer_keeps_the_transient_selections(game_root: Node) ->
 	_assert_true(not fields.has("selected_meme_id"), "the host should not keep the selected meme")
 
 
-func _test_the_host_routes_the_composer_and_presents_a_refused_confirm(game_root: Node) -> void:
-	GameEventBus.raise(UiIntentsScript.COMPOSER_TOKEN_PRESSED, {UiIntentsScript.KEY_TOKEN_ID: "ghost-2"})
-	_assert_eq(_selected_token(), "ghost-2", "the host should route a token press to the doctor sentence handler")
-	GameEventBus.raise(UiIntentsScript.COMPOSER_CONFIRM_PRESSED)
-	_assert_eq(_feedback(), "句子还不完整，或者这些词还没有在手机里发布。", "the host should present a refused confirm's feedback")
+func _test_the_reality_hud_builds_no_doctor_composer(game_root: Node) -> void:
+	_assert_true(game_root.find_child("RealityLanguageComposerPanel", true, false) == null, "the host should not build the doctor sentence composer")
+	_assert_true(game_root.find_child("RealityLanguageComposer", true, false) == null, "the reality HUD should hold no composer overlay")
+	var fields: Array[String] = []
+	for property in game_root.get_property_list():
+		fields.append(str(property.get("name", "")))
+	_assert_true(not fields.has("_reality_language_composer_panel"), "the host should keep no composer panel")
+	_assert_true(not fields.has("_doctor_sentence_intent_handler"), "the host should keep no doctor sentence handler")
 
 
 func _test_conversation_intents_choose_and_leave(game_root: Node) -> void:
@@ -86,7 +84,31 @@ func _test_conversation_intents_choose_and_leave(game_root: Node) -> void:
 	_assert_eq(game_root.game.conversation_phase, "typing", "a choice intent should start the typed reply")
 	GameEventBus.raise(UiIntentsScript.CONVERSATION_CONTINUE_PRESSED)
 	_assert_eq(game_root.game.conversation_phase, "idle", "a continue intent outside a result should leave the conversation")
-	_assert_eq(_selected_token(), "", "leaving the conversation should clear the selected token")
+	_assert_eq(game_root.game.tower_floor, 1, "leaving before the reply was spoken should not move the floor")
+
+	game_root.game.pollution = 25
+	game_root._refresh_nearby_reality_actor()
+	_assert_true(game_root._try_reality_interaction(), "the doll should open its conversation again")
+	choices = game_root.game.get_typed_reality_choices()
+	GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_PRESSED, {UiIntentsScript.KEY_CHOICE_ID: str(choices[0].get("id", ""))})
+	var budget := 400
+	while game_root.game.conversation_phase == "typing" and budget > 0:
+		budget -= 1
+		game_root._advance_typed_reality_character()
+	_assert_eq(game_root.game.conversation_phase, "result", "the reply should be spoken out")
+	while game_root.game.conversation_phase == "result":
+		GameEventBus.raise(UiIntentsScript.CONVERSATION_CONTINUE_PRESSED)
+		if game_root.game.conversation_phase == "choosing":
+			choices = game_root.game.get_typed_reality_choices()
+			GameEventBus.raise(UiIntentsScript.CONVERSATION_CHOICE_PRESSED, {UiIntentsScript.KEY_CHOICE_ID: str(choices[0].get("id", ""))})
+			budget = 400
+			while game_root.game.conversation_phase == "typing" and budget > 0:
+				budget -= 1
+				game_root._advance_typed_reality_character()
+	await process_frame
+	_assert_eq(game_root.game.conversation_phase, "idle", "the spoken conversation should end")
+	_assert_eq(game_root.game.tower_floor, 2, "ending a spoken conversation at 25% pollution should move the floor")
+	_assert_eq(game_root._reality_scene_adapter._built_floor, 2, "the host should rebuild the street for the new floor")
 
 
 func _assert_true(condition: bool, message: String) -> void:

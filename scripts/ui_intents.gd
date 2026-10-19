@@ -19,12 +19,9 @@ const KEY_META := "meta"
 const KEY_DATA := "data"
 const KEY_BEFORE_INDEX := "before_index"
 const KEY_UNIT_INDEX := "unit_index"
-const KEY_TAB_ID := "tab_id"
 const KEY_TILE_POSITIONS := "tile_positions"
 const KEY_UNIT := "unit"
 const KEY_RELEASE_GLOBAL := "release_global"
-const KEY_SLOT_ID := "slot_id"
-const KEY_TOKEN_ID := "token_id"
 
 ## Main menu. Payload: {}.
 const START_GAME := "start_game"
@@ -82,20 +79,15 @@ const SOCIAL_COMPOSER_TILE_DROPPED := "social_composer_tile_dropped"
 const SOCIAL_COMPOSER_ANSWER_TAPPED := "social_composer_answer_tapped"
 const SOCIAL_CLOSE_REQUESTED := "social_close_requested"
 const SOCIAL_DETAIL_CLOSE_REQUESTED := "social_detail_close_requested"
-const SOCIAL_PUBLISH_CONFIRM_REQUESTED := "social_publish_confirm_requested"
 const SOCIAL_COMPOSER_SUBMIT_REQUESTED := "social_composer_submit_requested"
 
-## Notebook. Payload: {KEY_TAB_ID: String} for a tab change, {KEY_TILE_POSITIONS: Dictionary} for the resting canvas tiles,
+## Notebook. Payload: {KEY_TILE_POSITIONS: Dictionary} for the resting canvas tiles,
 ## {KEY_UNIT: String, KEY_RELEASE_GLOBAL: Vector2} for a tile dropped off the canvas, {KEY_UNIT: String} for a tapped tile,
-## {KEY_DATA: Dictionary, KEY_SLOT_ID: String} for a meme dropped on a fusion slot, {KEY_SLOT_ID: String} for a pressed slot, {} for the rest.
+## {} for the rest.
 const NOTEBOOK_CRAFT_REQUESTED := "notebook_craft_requested"
-const NOTEBOOK_FUSION_REQUESTED := "notebook_fusion_requested"
-const NOTEBOOK_TAB_CHANGED := "notebook_tab_changed"
 const NOTEBOOK_CANVAS_POSITIONS_COMMITTED := "notebook_canvas_positions_committed"
 const NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE := "notebook_canvas_tile_dropped_outside"
 const NOTEBOOK_COMPOSER_BANK_TAPPED := "notebook_composer_bank_tapped"
-const NOTEBOOK_FUSION_MEME_DROPPED := "notebook_fusion_meme_dropped"
-const NOTEBOOK_FUSION_SLOT_PRESSED := "notebook_fusion_slot_pressed"
 
 ## Reality conversation. Payload: {KEY_CHOICE_ID: String} for a choice, {} for the continue button.
 const CONVERSATION_CHOICE_HOVERED := "conversation_choice_hovered"
@@ -103,9 +95,3 @@ const CONVERSATION_CHOICE_UNHOVERED := "conversation_choice_unhovered"
 const CONVERSATION_CHOICE_PRESSED := "conversation_choice_pressed"
 const CONVERSATION_CONTINUE_PRESSED := "conversation_continue_pressed"
 
-## Reality language composer. Payload: {KEY_TOKEN_ID: String} for a pressed token, {KEY_DATA: Dictionary, KEY_SLOT_ID: String}
-## for a token dropped on a slot, {KEY_SLOT_ID: String} for a pressed slot, {} for the confirm button.
-const COMPOSER_TOKEN_PRESSED := "composer_token_pressed"
-const COMPOSER_TOKEN_DROPPED := "composer_token_dropped"
-const COMPOSER_SLOT_PRESSED := "composer_slot_pressed"
-const COMPOSER_CONFIRM_PRESSED := "composer_confirm_pressed"

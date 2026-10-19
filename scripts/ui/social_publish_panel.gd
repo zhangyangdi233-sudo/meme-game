@@ -1,8 +1,8 @@
 class_name SocialPublishPanel
 extends Node
-## Game-side publish page of the social app: the sentence composer, the last publish result and the confirm button.
-## The social panel hands it the page host to paint into; while shown it watches the remaining actions,
-## the sentence being composed and the last publish result, and repaints its own page.
+## Game-side publish page of the social app: the sentence composer and its post button. Posting is never limited.
+## The social panel hands it the page host to paint into; while shown it watches the sentence being composed and
+## repaints its own page.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Every player action is raised on the event bus (ADR 0007).
 
@@ -17,14 +17,9 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _host: Control
 var _page: Control
-var _confirm_publish_button: Button
-var _painted_can_spend := false
 var _painted_sentence_units: Array = []
-var _painted_last_result: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
-	PropertyKeysScript.ACTIONS_REMAINING: _on_model_changed,
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
-	PropertyKeysScript.LAST_PUBLISH_RESULT: _on_model_changed,
 })
 
 
@@ -38,7 +33,6 @@ func render(host: Control) -> void:
 func release() -> void:
 	_host = null
 	_page = null
-	_confirm_publish_button = null
 
 
 ## Watches the models while the social app shows and lets go when it hides.
@@ -51,24 +45,17 @@ func set_shown(shown: bool) -> void:
 		_watch.stop()
 
 
-func get_confirm_button() -> Button:
-	return _confirm_publish_button
-
-
 func _paint() -> void:
 	if _host == null:
 		return
 	if _page != null and is_instance_valid(_page):
 		_host.remove_child(_page)
 		_page.queue_free()
-	_painted_can_spend = _can_spend()
 	_painted_sentence_units = _sentence_units()
-	_painted_last_result = _last_result()
 	_render_publish_page(_host)
 
 
 func _render_publish_page(parent: Control) -> void:
-	_confirm_publish_button = null
 	var publish_page := VBoxContainer.new()
 	publish_page.name = "SocialPublishPage"
 	publish_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -100,8 +87,6 @@ func _render_publish_page(parent: Control) -> void:
 	publish_content.add_theme_constant_override("separation", 8)
 	publish_scroll.add_child(publish_content)
 
-	var publish_result := _painted_last_result
-
 	var composer := _theme().panel() as PanelContainer
 	composer.name = "SocialPublishComposer"
 	composer.set_meta("soft_panel", true)
@@ -126,51 +111,6 @@ func _render_publish_page(parent: Control) -> void:
 	composer_header.add_child(unit_counter)
 	composer_box.add_child(_theme().label("把笔记本里的字拖进来", 17, _theme().theme_color("ink")) as Label)
 	_render_publish_sentence_area(composer_box, placed_sentence_units)
-
-	var result_panel := _theme().panel() as PanelContainer
-	result_panel.name = "SocialPublishOutcomePanel"
-	result_panel.set_meta("soft_panel", true)
-	publish_content.add_child(result_panel)
-	var result_box := VBoxContainer.new()
-	result_box.add_theme_constant_override("separation", 8)
-	result_panel.add_child(result_box)
-	result_box.add_child(_theme().label("02  /  本次变化", 13, _theme().theme_color("accent")) as Label)
-	var outcome_row := HBoxContainer.new()
-	outcome_row.add_theme_constant_override("separation", 12)
-	result_box.add_child(outcome_row)
-	var money_text := "+%d" % int(publish_result.get("money_gain", 0)) if not publish_result.is_empty() else "--"
-	var money_outcome := _theme().label("资金  %s" % money_text, 22, _theme().theme_color("ink")) as Label
-	money_outcome.name = "SocialPublishMoneyOutcome"
-	money_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(money_outcome)
-	var pollution_text := "+%d%%" % int(publish_result.get("pollution_gain", 0)) if not publish_result.is_empty() else "--"
-	var pollution_outcome := _theme().label("污染  %s" % pollution_text, 22, _theme().theme_color("ink")) as Label
-	pollution_outcome.name = "SocialPublishPollutionOutcome"
-	pollution_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outcome_row.add_child(pollution_outcome)
-
-	var hint := _theme().label("确认发布消耗 1 次行动；预览与拖拽不扣行动。", 13, _theme().theme_color("accent")) as Label
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	publish_content.add_child(hint)
-
-	var action_bar := _theme().panel() as PanelContainer
-	action_bar.name = "SocialPublishActionBar"
-	action_bar.set_meta("fixed_action_bar", true)
-	action_bar.set_meta("soft_panel", true)
-	publish_page.add_child(action_bar)
-	var action_box := VBoxContainer.new()
-	action_box.add_theme_constant_override("separation", 6)
-	action_bar.add_child(action_box)
-	_confirm_publish_button = Button.new()
-	_confirm_publish_button.name = "SocialPublishButton"
-	_confirm_publish_button.text = "确认发布"
-	_confirm_publish_button.custom_minimum_size.y = 56
-	_confirm_publish_button.pressed.connect(_on_publish_confirm_pressed)
-	action_box.add_child(_confirm_publish_button)
-
-
-func _on_publish_confirm_pressed() -> void:
-	GameEventBus.raise(UiIntentsScript.SOCIAL_PUBLISH_CONFIRM_REQUESTED)
 
 
 func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Array) -> void:
@@ -231,9 +171,6 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	if placed_units.is_empty():
 		post_button.text = "先放入一个字"
 		post_button.disabled = true
-	elif not _can_spend():
-		post_button.text = "今天不能再投稿"
-		post_button.disabled = true
 	else:
 		post_button.text = "投稿"
 		post_button.disabled = false
@@ -263,12 +200,6 @@ func _on_model_changed(_value: Variant) -> void:
 	_repaint_unless_syncing()
 
 
-## Posting costs an action, so the page can post while any are left today.
-func _can_spend() -> bool:
-	var value: Variant = _watch.read(PropertyKeysScript.ACTIONS_REMAINING)
-	return value != null and int(value) > 0
-
-
 func _repaint_unless_syncing() -> void:
 	if not _watch.is_syncing():
 		_repaint_if_stale()
@@ -278,7 +209,7 @@ func _repaint_unless_syncing() -> void:
 func _repaint_if_stale() -> void:
 	if _host == null:
 		return
-	if _can_spend() == _painted_can_spend and _sentence_units() == _painted_sentence_units and _last_result() == _painted_last_result:
+	if _sentence_units() == _painted_sentence_units:
 		return
 	_paint()
 	_theme().apply_ui_theme(_page)
@@ -288,11 +219,6 @@ func _repaint_if_stale() -> void:
 func _sentence_units() -> Array:
 	var value: Variant = _watch.read(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	return value as Array if value is Array else []
-
-
-func _last_result() -> Dictionary:
-	var value: Variant = _watch.read(PropertyKeysScript.LAST_PUBLISH_RESULT)
-	return value as Dictionary if value is Dictionary else {}
 
 
 func _source() -> SocialFeedSource:

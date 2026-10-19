@@ -13,7 +13,7 @@ func _init() -> void:
 	_assert_true(_state_script != null and _content_script != null, "doll system dependencies should load")
 	if _state_script != null and _content_script != null:
 		test_three_authored_doll_appearances_offer_tutorial_responses()
-		test_doll_choice_guides_once_without_spending_an_action()
+		test_doll_choice_guides_once()
 		test_pollution_locked_doll_choice_stays_unavailable_until_ready()
 		test_ordinary_npc_never_grants_a_meme_frame()
 		test_doll_state_round_trips_and_legacy_shop_state_is_normalized()
@@ -47,27 +47,23 @@ func test_three_authored_doll_appearances_offer_tutorial_responses() -> void:
 			_assert_true(not str(choice).contains("price"), "guide responses must not expose a shop price")
 
 
-func test_doll_choice_guides_once_without_spending_an_action() -> void:
+func test_doll_choice_guides_once() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
 	var encounter: Dictionary = _content_script.get_doll_encounter_for_floor(1)
 	var doll_id := str(encounter.get("doll_id", ""))
-	var actions_before: int = game.actions_remaining
 	_assert_true(game.start_typed_reality_conversation(doll_id, "doll", "缝线布偶"), "a discovered doll should start its authored conversation")
 	var first_choice: Dictionary = game.get_typed_reality_choices()[0]
 	var choice_id := str(first_choice.get("id", ""))
 	_finish_typed_turn(game, choice_id)
-	_assert_eq(game.actions_remaining, actions_before, "tutorial guidance should not consume one of five daily actions")
 	_assert_eq(game.owned_meme_frames, 0, "the guide should not grant an obsolete frame")
 	_assert_true(doll_id in game.claimed_doll_ids, "the doll should remember that its first guidance was heard")
 	_assert_eq(str((game.doll_choice_results.get(doll_id, {}) as Dictionary).get("choice_id", "")), choice_id, "the selected intention should persist")
 	_assert_true(bool(game.conversation_reward.get("guided", false)), "the result surface should expose successful guidance")
 	_assert_eq(str(game.get_tutorial_step().get("id", "")), "open_social", "first guidance should advance onboarding to the phone")
 
-	var repeat_actions: int = game.actions_remaining
 	_assert_true(game.start_typed_reality_conversation(doll_id, "doll", "缝线布偶"), "a claimed guide doll should still be speakable")
 	_finish_typed_turn(game, str(game.get_typed_reality_choices()[1].get("id", "")))
-	_assert_eq(game.actions_remaining, repeat_actions, "repeated guidance should remain free")
 	_assert_eq(game.owned_meme_frames, 0, "repeated guidance must not create frame stock")
 	_assert_true(bool(game.conversation_reward.get("duplicate", false)), "repeat dialogue should be identified without replaying tutorial progress")
 
@@ -121,30 +117,12 @@ func test_doll_state_round_trips_and_legacy_shop_state_is_normalized() -> void:
 	_assert_true(game.start_typed_reality_conversation(doll_id, "doll", "缝线布偶"), "floor two doll should start")
 	_finish_typed_turn(game, str(game.get_typed_reality_choices()[0].get("id", "")))
 	var save_data: Dictionary = game.to_save_data()
-	_assert_eq(int(save_data.get("version", 0)), 5, "the tutorial and language bridge should advance the state save version")
+	_assert_eq(int(save_data.get("version", 0)), 6, "the save should use version six")
 	var restored: RefCounted = _state_script.new()
 	_assert_true(restored.load_save_data(save_data), "current doll save should load")
 	_assert_eq(restored.claimed_doll_ids, game.claimed_doll_ids, "claimed dolls should survive save/load")
 	_assert_eq(restored.doll_choice_results, game.doll_choice_results, "doll choices should survive save/load")
 	_assert_true(restored.owned_meme_frame_ids.is_empty(), "current guide state should not create frame provenance")
-
-	var legacy_state: Dictionary = save_data.get("state", {}).duplicate(true)
-	legacy_state.erase("claimed_doll_ids")
-	legacy_state.erase("doll_choice_results")
-	legacy_state.erase("owned_meme_frame_ids")
-	legacy_state["owned_meme_frames"] = 2
-	legacy_state["active_app"] = "shop"
-	legacy_state["active_app_window"] = "shop"
-	legacy_state["daily_meme_frame_bought"] = true
-	legacy_state["npc_meme_frame_reward_attempt_keys"] = ["1|npc0"]
-	var legacy_save := {"version": 3, "state": legacy_state}
-	var migrated: RefCounted = _state_script.new()
-	_assert_true(migrated.load_save_data(legacy_save), "V3 shop-era save should migrate without losing legitimate frame stock")
-	_assert_eq(migrated.active_app, "social", "removed shop app should normalize to social")
-	_assert_eq(migrated.active_app_window, "social", "removed shop window should not restore as an invisible active window")
-	_assert_eq(migrated.owned_meme_frame_ids.size(), 2, "legacy frame count should receive neutral provenance ids")
-	_assert_true(not migrated.has_method("buy_daily_meme_frame"), "removed purchases must not remain callable after migration")
-	_assert_true(not migrated.has_method("get_npc_meme_frame_reward_rules"), "ordinary NPC reward rules must be gone")
 
 
 func test_notebook_craft_preserves_clean_sentence_from_collected_tokens() -> void:

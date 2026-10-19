@@ -51,7 +51,6 @@ func _capture() -> void:
 		"pollution_bias": 2,
 		"fusion_level": 0,
 	}]
-	main.game.fusion_slots = {"left": "capture-ha", "right": "capture-tower"}
 	if main.has_method("_on_app_pressed"):
 		main._on_app_pressed("notebook")
 	for frame in 5:

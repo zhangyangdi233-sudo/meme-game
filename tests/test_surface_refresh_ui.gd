@@ -131,9 +131,10 @@ func _unlock_ending(game_root: Node) -> void:
 	game_root._refresh_ending()
 
 
+## The pollution icon stands in for the HUD rail: a redraw that rebuilds the rail frees it.
 func _stamp_hud(game_root: Node) -> Variant:
-	var hud := game_root._hud_actions_label_ref() as Label
-	_assert_true(hud != null, "Reality HUD should expose an actions label")
+	var hud := Harness.find_node_by_name(game_root, "HUDPollutionIcon") as Button
+	_assert_true(hud != null, "Reality HUD should expose a pollution icon")
 	if hud != null:
 		hud.text = HUD_SENTINEL
 	return hud
@@ -149,11 +150,11 @@ func _stamp_world_prompt(game_root: Node) -> Variant:
 
 func _assert_hud_untouched(hud: Variant, action: String) -> void:
 	_assert_true(
-		hud is Label and is_instance_valid(hud),
+		hud is Button and is_instance_valid(hud),
 		"%s should leave the Reality HUD node in place" % action
 	)
-	if hud is Label and is_instance_valid(hud):
-		_assert_eq((hud as Label).text, HUD_SENTINEL, "%s should not re-run Reality HUD content" % action)
+	if hud is Button and is_instance_valid(hud):
+		_assert_eq((hud as Button).text, HUD_SENTINEL, "%s should not re-run Reality HUD content" % action)
 
 
 func _assert_prompt_untouched(prompt: Variant, action: String) -> void:

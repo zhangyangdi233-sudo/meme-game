@@ -36,11 +36,15 @@ _Avoid_: treating the composer as Framework, host talking to the composer instea
 
 **Interaction outcome**:
 The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind. Host and Reality HUD read this instead of live world objects.
-_Avoid_: publish outcome (funds/pollution), live actor/item, treating the whole nearby crowd as the API
+_Avoid_: publish outcome (pollution gain), live actor/item, treating the whole nearby crowd as the API
+
+**Valid interaction**:
+A post (free sentence submit), a conversation the player spoke in and then left, or a pickup (a social word or a world item). There are no daily actions, funds or day settlement: the run goes on until the ending. When a valid interaction completes the state runs the progress check: the pollution floor step, the floor-three finish and the hidden ending. A post that just made the exit exist holds the hidden ending back for the next one.
+_Avoid_: daily actions, funds, day settlement, checking progress on a timer or when pollution changes
 
 **Action outcome**:
-What one player action reports back from the state: whether it succeeded, whether it spent a daily action, a feedback key, and the settlement (flashback, day transition, actions before and after). Host presents it once instead of snapshotting the action count. Publishing, fusion, and the doctor sentence return one; typed reality characters, social char picks, and free sentence submits carry one under `outcome`.
-_Avoid_: host comparing `actions_before` itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
+What one valid interaction reports back from the state: whether it counted, whether the pollution flashback is due, and whether the progress check moved the floor. Its settlement is the flashback beat or nothing. The host presents it once: the flashback beat, or the ending, or the redrawn surfaces (which rebuild a new floor). Social char picks and free sentence submits carry one under `outcome`; leaving a conversation returns one from `end_typed_reality_conversation()`.
+_Avoid_: host re-checking the floor itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
 
 **Look pose**:
 The Reality scene adapter's player position and first-person yaw/pitch.
@@ -79,11 +83,11 @@ How any UI tells the host what the player did. The control emits on the game eve
 _Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
 
 **Game event**:
-Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the day settled). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first; the cover watcher appearing and vanishing (`COVER_WATCHER_APPEARED` / `COVER_WATCHER_VANISHED`, with the floor) followed, then the day settling (`DAY_SETTLED`, with the new day and whether the flashback settled it) and the pollution flashback finishing (`FLASHBACK_FINISHED`). See ADR 0007.
+Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the flashback finished). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first; the cover watcher appearing and vanishing (`COVER_WATCHER_APPEARED` / `COVER_WATCHER_VANISHED`, with the floor) followed, then the pollution flashback finishing (`FLASHBACK_FINISHED`). The day settling (`DAY_SETTLED`) was removed with the action economy (#108). See ADR 0007.
 _Avoid_: a game event for a fact that is true now (that is a model), listening for an intent name outside the host, handing an `AudioStreamPlayer` down so a caller can play it
 
 **Intent handler**:
-A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. Each extends the `@abstract` `IntentHandler`; the social feed, the notebook, the doctor sentence composer and the settings window have one. A domain's own presentation kinds live on its handler; `IntentResult` keeps the shared ones. See ADR 0007.
+A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. Each extends the `@abstract` `IntentHandler`; the social feed, the notebook and the settings window have one. A domain's own presentation kinds live on its handler; `IntentResult` keeps the shared ones. See ADR 0007.
 _Avoid_: a handler subscribing to the bus itself, a handler reaching into host nodes, the host writing state for an intent a handler claims
 
 **Service registry**:
