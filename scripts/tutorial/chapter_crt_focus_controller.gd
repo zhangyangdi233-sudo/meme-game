@@ -30,7 +30,6 @@ var _frozen_player := Vector3.ZERO
 var _visuals: Array[Dictionary] = []
 var _lights: Array[Dictionary] = []
 var _spot: SpotLight3D
-var _beam: MeshInstance3D
 
 func setup(world: Node, camera: Camera3D, player: Node3D, ui_root: Control, progress_getter: Callable, save_callback: Callable, locale_getter: Callable) -> void:
 	cancel()
@@ -131,8 +130,22 @@ func _begin(data: Dictionary) -> void:
 	_original_environment = _camera.environment
 	_look_pose = _original_pose.looking_at(_world.terminal_camera_target(), Vector3.UP)
 	for mesh in _world.get_crt_focus_visuals():
-		_visuals.append({"node": mesh, "layers": mesh.layers})
-		mesh.layers |= CRT_LAYER
+		# Godot 4.6 Forward+ can retain stale light pairs when a live mesh's
+		# layers change (godotengine/godot#121989). Isolate fixed-layer mirrors
+		# instead; the authored geometry and its renderer registration stay put.
+		var mirror := MeshInstance3D.new()
+		mirror.name = "CRTFocusMirror%d" % _visuals.size()
+		mirror.layers = CRT_LAYER
+		mirror.mesh = mesh.mesh
+		mirror.material_override = mesh.material_override
+		mirror.material_overlay = mesh.material_overlay
+		mirror.cast_shadow = mesh.cast_shadow
+		for surface in mesh.mesh.get_surface_count():
+			mirror.set_surface_override_material(surface, mesh.get_surface_override_material(surface))
+		mirror.transform = _world.global_transform.affine_inverse() * mesh.global_transform
+		mirror.visible = mesh.is_visible_in_tree()
+		_world.add_child(mirror)
+		_visuals.append({"node": mirror})
 	for candidate in get_tree().root.find_children("*", "Light3D", true, false):
 		if candidate.get_world_3d() == _camera.get_world_3d():
 			_lights.append({"node": candidate, "visible": candidate.visible})
@@ -161,7 +174,6 @@ func _begin(data: Dictionary) -> void:
 	_spot.light_cull_mask = CRT_LAYER
 	# Hidden ceiling geometry must not shadow the isolated teaching object.
 	_spot.shadow_enabled = false
-	_build_beam(apex, target)
 	_active = true
 	_returning = false
 	_elapsed = 0.0
@@ -179,7 +191,8 @@ func _restore_lighting() -> void:
 		_camera.environment = _original_environment
 	for saved in _visuals:
 		if is_instance_valid(saved.node):
-			saved.node.layers = saved.layers
+			saved.node.visible = false
+			saved.node.queue_free()
 	for saved in _lights:
 		if is_instance_valid(saved.node):
 			saved.node.visible = saved.visible
@@ -189,32 +202,6 @@ func _restore_lighting() -> void:
 		_spot.visible = false
 		_spot.queue_free()
 	_spot = null
-	if is_instance_valid(_beam):
-		_beam.visible = false
-		_beam.queue_free()
-	_beam = null
-
-func _build_beam(apex: Vector3, target: Vector3) -> void:
-	_beam = MeshInstance3D.new()
-	_beam.name = "CRTFirstVisitWhiteLightBeam"
-	_beam.layers = CRT_LAYER
-	_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.025
-	cone.bottom_radius = 0.46
-	cone.height = apex.distance_to(target)
-	cone.radial_segments = 32
-	cone.cap_top = false
-	cone.cap_bottom = false
-	_beam.mesh = cone
-	var shader := Shader.new()
-	shader.code = "shader_type spatial; render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabled; void fragment(){ ALBEDO = vec3(0.92,0.95,1.0); ALPHA = 0.055 * smoothstep(0.0,0.16,UV.y) * (1.0-smoothstep(0.82,1.0,UV.y)); }"
-	var material := ShaderMaterial.new()
-	material.shader = shader
-	_beam.material_override = material
-	_world.add_child(_beam)
-	_beam.global_position = (apex + target) * 0.5
-	_beam.global_basis = Basis(Quaternion(Vector3.UP, (apex - target).normalized()))
 
 func cancel() -> void:
 	if _active:

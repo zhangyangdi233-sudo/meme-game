@@ -138,7 +138,7 @@ static func room_count_for_floor(floor_number: int) -> int:
 
 static func npc_count_for_floor(floor_number: int) -> int:
 	if floor_number == 2:
-		return 2
+		return 0
 	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
 	return int(ORDINARY_NPC_COUNTS[floor_index])
 
@@ -1230,7 +1230,6 @@ func _build_sunlit_brick_street(parent: Node3D, palette: Dictionary) -> void:
 	set_meta("crossroad_arm_length", SUNLIT_CROSSROAD_ARM_LENGTH)
 	set_meta("crossroad_total_span", crossroad_span)
 	set_meta("crossroad_layout", "continuous_four_way")
-	set_meta("dreamcore_overlay", "regular_grid_with_controlled_anomalies")
 	var sidewalk_width := 3.15
 	var edge_segment_length := (map_length - SUNLIT_CROSSROAD_OPENING) * 0.5
 	for side in [-1.0, 1.0]:
@@ -1251,7 +1250,6 @@ func _build_sunlit_brick_street(parent: Node3D, palette: Dictionary) -> void:
 		)
 	_build_sunlit_edge_walls(parent, palette)
 	_build_sunlit_branch_boundaries(parent, palette)
-	_build_sunlit_dreamcore_rhythm(parent, palette)
 	_build_road_markings(parent, palette)
 	_build_crossroad_markings(parent, palette)
 	for stripe_index in 5:
@@ -1374,66 +1372,6 @@ func _build_sunlit_branch_boundaries(parent: Node3D, palette: Dictionary) -> voi
 		boundary_count += 1
 	set_meta("terrain_boundary_wall_count", boundary_count)
 	set_meta("crossroad_branch_wall_count", branch_wall_count)
-
-
-func _build_sunlit_dreamcore_rhythm(parent: Node3D, palette: Dictionary) -> void:
-	var rhythm := Node3D.new()
-	rhythm.name = "DreamcoreThresholdRhythm"
-	rhythm.set_meta("dreamcore_overlay", true)
-	rhythm.set_meta("design_rule", "eighty_percent_grid_twenty_percent_anomaly")
-	parent.add_child(rhythm)
-	var light_slot_count := 0
-	var false_door_count := 0
-	for direction in [-1.0, 1.0]:
-		var direction_name := "West" if direction < 0.0 else "East"
-		for bay_index in 9:
-			var x: float = direction * (map_width * 0.5 + SUNLIT_DREAMCORE_BAY * (float(bay_index) + 0.5))
-			var anomaly_offset := 0.42 if direction > 0.0 and bay_index == 5 else 0.0
-			_add_box(
-				rhythm,
-				"ThresholdBeam%s%02d" % [direction_name, bay_index],
-				Vector3(0.16, 0.18, SUNLIT_CROSSROAD_OPENING - 1.0),
-				Vector3(x + anomaly_offset, 4.72, 0.0),
-				"brick_light",
-				palette,
-				false
-			)
-			_add_box(
-				rhythm,
-				"CeilingLightSlot%s%02d" % [direction_name, bay_index],
-				Vector3(1.72, 0.08, 0.34),
-				Vector3(x + anomaly_offset, 4.58, 0.0),
-				"crosswalk",
-				palette,
-				false
-			)
-			light_slot_count += 1
-			if bay_index % 2 == 0:
-				var light := OmniLight3D.new()
-				light.name = "ThresholdLight%s%02d" % [direction_name, bay_index]
-				light.position = Vector3(x + anomaly_offset, 4.22, 0.0)
-				light.light_color = Color("FFF1C9")
-				light.light_energy = 0.36
-				light.omni_range = 7.4
-				light.shadow_enabled = false
-				rhythm.add_child(light)
-			if bay_index % 3 == 1:
-				var door_side := -1.0 if posmod(bay_index + int(direction > 0.0), 2) == 0 else 1.0
-				var door_height := 1.42 if direction > 0.0 and bay_index == 7 else 2.62
-				var false_door := _add_box(
-					rhythm,
-					"FalseDoor%s%02d" % [direction_name, bay_index],
-					Vector3(1.55, door_height, 0.09),
-					Vector3(x, door_height * 0.5, door_side * (SUNLIT_CROSSROAD_OPENING * 0.5 - SUNLIT_EDGE_WALL_THICKNESS - 0.06)),
-					"wall_dark",
-					palette,
-					false
-				)
-				false_door.set_meta("false_door", true)
-				false_door.set_meta("controlled_anomaly", door_height < 2.0)
-				false_door_count += 1
-	set_meta("dreamcore_light_slot_count", light_slot_count)
-	set_meta("dreamcore_false_door_count", false_door_count)
 
 
 func _build_crossroad_markings(parent: Node3D, palette: Dictionary) -> void:
@@ -2547,20 +2485,16 @@ func _build_actors(actor_textures: Dictionary) -> void:
 		_actors.append(actor)
 
 
-func _build_floor_two_actors(actor_textures: Dictionary) -> void:
+func _build_floor_two_actors(_actor_textures: Dictionary) -> void:
 	var actors := Node3D.new()
 	actors.name = "Actors"
 	add_child(actors)
-	var textures: Array = actor_textures.get("npcs", [])
-	var actor_ids := ["floor2_wayfinder", "floor2_cartographer"]
-	var labels := ["寻路人", "绘图人"]
-	for index in 2:
-		var texture: Texture2D = textures[index % textures.size()] if not textures.is_empty() else actor_textures.get("key_npc")
-		var actor := _make_actor(actor_ids[index], "npc", labels[index], _floor_two_layout.npcs[actor_ids[index]], texture, index)
-		actor.set_meta("actor_id", actor_ids[index])
-		actor.set_meta("floor_two_journey", true)
-		actors.add_child(actor)
-		_actors.append(actor)
+	# Keep the former entrance anchor, replacing its NPC with the readable note.
+	var note: Area3D = load("res://scripts/world/floor_two_note.gd").new()
+	note.name = "FloorTwoNote"
+	note.position = _floor_two_layout.npcs["floor2_wayfinder"]
+	actors.add_child(note)
+	_actors.append(note)
 	var exit := Area3D.new()
 	exit.name = "FloorTwoExit"
 	exit.position = _floor_two_layout.exit_position

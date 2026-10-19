@@ -19,10 +19,10 @@ func _run() -> void:
 	state.new_run()
 	state.chapter1_progress = {}
 	state.tower_floor = 2
-	state.floor_two_progress = Journey.finish_dialogue({}, Journey.WAYFINDER)
+	# This spatial-input fixture starts after the dedicated arrival cinematic.
+	state.floor_two_progress = Journey.complete_map_intro({})
 	for id in Journey.TURN_IDS:
 		state.floor_two_progress = Journey.visit_turn(state.floor_two_progress, id)
-	state.floor_two_progress = Journey.finish_dialogue(state.floor_two_progress, Journey.CARTOGRAPHER)
 	main._begin_game_session(state, {}, false)
 	await _frames(8)
 	main._open_phone_launcher()

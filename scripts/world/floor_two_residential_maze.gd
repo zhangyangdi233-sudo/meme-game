@@ -8,6 +8,8 @@ var _height: Callable
 var _materials: Dictionary = {}
 var _window_light_count := 0
 var _detail_batches: Dictionary = {}
+var _detail_layer := 1
+var _detail_parent: Node3D
 
 
 func build(layout: Dictionary, height_sampler: Callable) -> void:
@@ -32,7 +34,7 @@ func ground_material() -> StandardMaterial3D:
 	return _materials.stone
 
 
-func _build_house(data: Dictionary) -> void:
+func _build_house(data: Dictionary, solid := true, render_layer := 1) -> Node3D:
 	var cell: Vector2i = data.cell
 	var rect: Rect2 = data.rect
 	var center := rect.get_center()
@@ -45,14 +47,19 @@ func _build_house(data: Dictionary) -> void:
 	var top := highest_ground + float(data.height)
 	var house := Node3D.new()
 	house.name = str(data.id)
-	house.set_meta("physical_house", true)
+	house.set_meta("physical_house", solid)
 	house.set_meta("maze_cell", cell)
 	house.set_meta("floor_count", int(data.storeys))
 	house.set_meta("building_footprint", rect)
 	house.set_meta("roof_height", top)
 	add_child(house)
+	_detail_layer = render_layer
+	_detail_parent = self if solid else house
 	var wall_material: StandardMaterial3D = _materials["plaster_%d" % posmod(cell.x + cell.y, 3)]
-	_box(house, "SolidResidence", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), wall_material, true)
+	if solid:
+		_box(house, "SolidResidence", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), wall_material, true)
+	else:
+		_layer_box(house, "ResidenceShell", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), wall_material, render_layer)
 	_box(house, "OverhangingCornice", Vector3(rect.size.x + 0.26, 0.18, rect.size.y + 0.26), Vector3(center.x, top + 0.08, center.y), _materials.trim)
 	_box(house, "RoofCap", Vector3(rect.size.x + 0.16, 0.12, rect.size.y + 0.16), Vector3(center.x, top + 0.23, center.y), _materials.roof)
 	for direction in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]:
@@ -74,6 +81,9 @@ func _build_house(data: Dictionary) -> void:
 			if storey > 0:
 				_box(face, "StoreyBand%d" % storey, Vector3(8.02, 0.12, 0.16), Vector3(0, highest_ground + 0.55 + float(storey) * 3.2, 0.08), _materials.trim)
 		_door_recess(face, Vector3(0, frontage_ground, 0.055))
+	_detail_layer = 1
+	_detail_parent = self
+	return house
 
 
 func _window(parent: Node3D, label: String, position: Vector3, warm: bool, shutters: bool) -> void:
@@ -94,7 +104,7 @@ func _window(parent: Node3D, label: String, position: Vector3, warm: bool, shutt
 			_box(window, "Shutter%s" % str(side), Vector3(0.27, 1.4, 0.055), Vector3(side * 0.39, 0, 0.055), _materials.wood)
 			for slat in 7:
 				_box(window, "Slat_%s_%d" % [str(side), slat], Vector3(0.29, 0.045, 0.075), Vector3(side * 0.39, -0.58 + float(slat) * 0.19, 0.08), _materials.roof)
-	if warm and _window_light_count < 6:
+	if warm and _window_light_count < 6 and _detail_layer == 1:
 		var light := OmniLight3D.new()
 		light.name = "WindowGlow"
 		light.position = Vector3(0, 0, 0.5)
@@ -195,6 +205,13 @@ func _build_exit(position: Vector3) -> void:
 
 
 func _build_difference(data: Dictionary) -> void:
+	if str(data.kind) == "false_residence":
+		# Identical residential construction, with no collision at any depth.
+		# Render membership is fixed before insertion; no gesture changes physics.
+		var residence := _build_house(data.residence, false, Layout.NORMAL_ONLY_LAYER)
+		residence.set_meta("xray_difference", data.duplicate(true))
+		residence.set_meta("fixed_collision", false)
+		return
 	var host := Node3D.new()
 	host.name = str(data.id)
 	host.set_meta("xray_difference", data.duplicate(true))
@@ -206,19 +223,6 @@ func _build_difference(data: Dictionary) -> void:
 	var top := maxf(_sample(rect.position), _sample(rect.end)) + float(data.height)
 	var layer := Layout.NORMAL_ONLY_LAYER if data.normal_visible else Layout.XRAY_RENDER_LAYER
 	_layer_box(host, "Facade" if data.normal_visible else "SolidPartition", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), _materials.plaster_1, layer, bool(data.solid))
-	if not data.normal_visible:
-		return
-	# The incomplete cream window frame is visible from the approach, giving the
-	# tracked-hand lesson a deliberate target instead of asking for blind probing.
-	host.set_meta("teaching_clue", "incomplete_window_frame")
-	var focus: Vector3 = data.observation_point
-	for side in [-1.0, 1.0]:
-		for end in [-1.0, 1.0]:
-			var z: float = center.y + float(side) * (rect.size.y * 0.5 + 0.025)
-			_layer_box(host, "FrameHorizontal", Vector3(0.5, 0.10, 0.025), Vector3(focus.x + end * 0.48, focus.y + 0.67, z), _materials.clue, layer)
-			_layer_box(host, "FrameVertical", Vector3(0.10, 0.5, 0.025), Vector3(focus.x + end * 0.68, focus.y + 0.47, z), _materials.clue, layer)
-			_layer_box(host, "FrameLowerHorizontal", Vector3(0.5, 0.10, 0.025), Vector3(focus.x + end * 0.48, focus.y - 0.67, z), _materials.clue, layer)
-			_layer_box(host, "FrameLowerVertical", Vector3(0.10, 0.5, 0.025), Vector3(focus.x + end * 0.68, focus.y - 0.47, z), _materials.clue, layer)
 
 
 func _layer_box(parent: Node3D, label: String, size: Vector3, position: Vector3, material: Material, layer: int, solid := false) -> void:
@@ -251,11 +255,12 @@ func _layer_box(parent: Node3D, label: String, size: Vector3, position: Vector3,
 
 func _box(parent: Node3D, label: String, size: Vector3, position: Vector3, material: Material, collision := false) -> void:
 	if not collision:
-		var key := material.get_instance_id()
+		var batch_parent: Node3D = _detail_parent if is_instance_valid(_detail_parent) else self
+		var key := "%d:%d:%d" % [material.get_instance_id(), _detail_layer, batch_parent.get_instance_id()]
 		if not _detail_batches.has(key):
-			_detail_batches[key] = {"material": material, "transforms": []}
+			_detail_batches[key] = {"material": material, "transforms": [], "layer": _detail_layer, "parent": batch_parent}
 		var local_transform := Transform3D(Basis.IDENTITY.scaled(size), position)
-		_detail_batches[key].transforms.append(global_transform.affine_inverse() * parent.global_transform * local_transform)
+		_detail_batches[key].transforms.append(batch_parent.global_transform.affine_inverse() * parent.global_transform * local_transform)
 		return
 	var holder := StaticBody3D.new()
 	holder.name = label
@@ -293,8 +298,11 @@ func _flush_detail_batches() -> void:
 		batch.name = "ResidentialDetailBatch%d" % count
 		batch.multimesh = instances
 		batch.material_override = bucket.material
+		batch.layers = int(bucket.layer)
+		if batch.layers != 1:
+			batch.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(batch)
+		bucket.parent.add_child(batch)
 		count += 1
 	set_meta("detail_material_batch_count", count)
 	_detail_batches.clear()
@@ -322,10 +330,6 @@ func _make_materials() -> void:
 	_materials.warm_window.emission_enabled = true
 	_materials.warm_window.emission = Color("E6B36F")
 	_materials.warm_window.emission_energy_multiplier = 0.75
-	_materials.clue = _material(Color("EEE8D8"))
-	_materials.clue.emission_enabled = true
-	_materials.clue.emission = Color("EEE8D8")
-	_materials.clue.emission_energy_multiplier = 0.16
 
 
 func _material(color: Color, texture: Texture2D = null, scale_value := 1.0) -> StandardMaterial3D:

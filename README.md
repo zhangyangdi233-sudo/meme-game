@@ -10,7 +10,11 @@ Godot 4.6 心理恐怖游戏。玩家在重复的地下室中拾字、组句、�
 
 Windows 本机工程为 `D:\aphasia\meme-game`，双击父目录的 `启动游戏.cmd` 即启动此工程。项目协作约定见 [AGENTS.md](AGENTS.md)。
 
-直接测试第二层：双击 `D:\aphasia\启动第二章.cmd`。进入独立测试存档的教学起点，地图与入口第一个 NPC 完成对话后解锁。WASD 行走，Tab 收放手机，手机外按住右键转向，Esc 设置摄像头和语言。
+首次CRT按F闪退、取消上方光束、居中放大的操作引导和厚毛毯脚步音效的修订及真实渲染验证见 [本轮修订](docs/2026-10-19-crt-lighting-audio-followup.md)。
+
+当晚最新修订：第二层改为无 NPC 的地图入场解锁与住宅隐道；加入红字纸条，调整 CRT 提示安全区和规则投稿反馈，清理路口横杆灯与假门。见 [当前结果、研究与测试证据](docs/2026-10-19-floor-two-final-revision.md)。
+
+直接测试第二层：双击 `D:\aphasia\启动第二章.cmd`。进入独立测试存档的教学起点；标题结束后，镜头和移动短暂固定，手机自动滑出，地图图标由灰变亮解锁。第二层已移除全部 NPC，原寻路人位置留下红字纸条，靠近按 F 阅读，关闭后消失。WASD 行走，Tab 收放手机，手机外按住右键转向，Esc 设置摄像头和语言。
 
 ## 当前玩法
 
@@ -19,7 +23,7 @@ Windows 本机工程为 `D:\aphasia\meme-game`，双击父目录的 `启动游�
 3. 第 1 轮解锁手机“信号瀑布”，第 3 轮解锁“笔记本”。第 2、4、5 轮仍需交付，第 5 轮不再授予新 App。
 4. 交付后靠近左后方普通出口门按 F。门开时镜头持续推进，前四轮衔接下一轮楼梯入口；第五轮门内呈现真实十字路口视图，并进入该空间。循环没有黑隧道、白光门或白闪。
 5. 空旷十字路口的远门核验五轮完成与两款 App 权限，开门穿过后进入第二层。到达新楼层显示约 2.6 秒的大号无衬线标题，仍能看见世界画面。
-6. 第二层保留起伏地形，高低住宅组成25×25格、主路约720米的迷宫。与入口寻路人完成对话即可取得地图 App，绘图人提供沿途提示；地图实时标记位置并保存已探索区域。用双手围框依次看异常墙、隐道和 X-ray 独有的白光出口，发现后靠近按 F 进入第三层。此场景与第二回地下室不同。
+6. 第二层保留起伏地形，高低住宅组成25×25格、主路约720米的迷宫。地图在入场演出后自动解锁，实时标记位置并保存已探索区域。两处隐道外观与旁边住宅相同，实际可穿行；用双手围框依次发现这两处住宅隐道和 X-ray 独有的白光出口，随后靠近出口按 F 进入第三层。此场景与第二回地下室不同。
 
 资金、每日行动限制、巴别塔 App、资源栏、自动播放和历史入口已移除。污染继续在后台影响语言和后续楼层，玩家界面不显示数值；后续推进在有效交互完成时检查。旧版隐藏物品与应用权限分别保存，不互相替代。
 
@@ -45,7 +49,7 @@ Windows 本机工程为 `D:\aphasia\meme-game`，双击父目录的 `启动游�
 & 'D:\aphasia\Start-Aphasia.ps1'
 # 独立开发存档，F9 显示开发面板：
 & 'D:\aphasia\Start-Chapter1-Dev.ps1'
-# 直接体验第二层，使用独立预览存档并预先解锁地图：
+# 直接体验第二层，使用独立预览存档并播放地图解锁演出：
 & 'D:\aphasia\Start-FloorTwoPreview.ps1'
 ~~~
 
@@ -78,8 +82,8 @@ WASD/方向键移动，鼠标转向，F 交互，拾取手机后 Tab 开关手�
 python tools/verify_basement_revision.py --godot 'C:\你的工具目录\Godot_v4.6.3-stable_win64_console.exe'
 ~~~
 
-用户视频已通过 Godot 实际解码、循环与暂停验证。真实摄像头识别、Windows 系统键和耳机混音仍需实机体验；部分主场景测试退出时仍有 RID/ObjectDB 清理诊断。第一章保留两款 App，地图是第二层 NPC 赠予的第三款，不能套用旧版巴别塔 App 的规格。
+用户视频已通过 Godot 实际解码、循环与暂停验证。真实摄像头识别、Windows 系统键和耳机混音仍需实机体验；部分主场景测试退出时仍有 RID/ObjectDB 清理诊断。第一章保留两款 App，地图是第二层入场演出解锁的第三款，不能套用旧版巴别塔 App 的规格。
 
-背景乐保留本地合成的 96 秒循环，生成与校验入口为 `tools/generate_music_stems.py`；本轮播放音量降低 5 dB。新增地毯实录脚步来源和许可见 [assets/audio/foley](assets/audio/foley/)，敲门许可见 [opening_door_knock.LICENSE.txt](assets/audio/sfx/opening_door_knock.LICENSE.txt)。研究出处见 [reference-research.md](docs/handoff/2026-10-10/reference-research.md)。RichTextLabel2 插件的 MIT 许可保存在 [addons/richtext2/LICENSE](addons/richtext2/LICENSE)。
+背景乐保留本地合成的 96 秒循环，生成与校验入口为 `tools/generate_music_stems.py`；本轮播放音量降低 5 dB。地毯脚步按用户最终选择恢复为A原实录（Mihacappy，CC0），普通行走约0.59秒一步，来源和许可见 [assets/audio/foley](assets/audio/foley/)，敲门许可见 [opening_door_knock.LICENSE.txt](assets/audio/sfx/opening_door_knock.LICENSE.txt)。研究出处见 [reference-research.md](docs/handoff/2026-10-10/reference-research.md)。RichTextLabel2 插件的 MIT 许可保存在 [addons/richtext2/LICENSE](addons/richtext2/LICENSE)。
 
 第五回雪花声的 CC0 来源见 [tv_static_SOURCE.md](assets/audio/sfx/tv_static_SOURCE.md)，用户视频的转换记录见 [basement_crt_loop_SOURCE.md](assets/video/basement_crt_loop_SOURCE.md)。[地图方案比较与 Promesa 视觉分析](docs/references/2026-10-16/README.md) 已随仓库保存；官方参考图片、研究用插件源码、用户存档与本机工具不在发布内容中。

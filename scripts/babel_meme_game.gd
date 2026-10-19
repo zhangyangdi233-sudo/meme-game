@@ -13,6 +13,7 @@ const HandXRayOverlayScript = preload("res://scripts/ui/hand_xray_overlay.gd")
 const ChapterXRayViewScript = preload("res://scripts/world/chapter_xray_view.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const RulePublicationView = preload("res://scripts/ui/rule_publication_view.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const ChapterDevelopmentPanelScript = preload("res://scripts/ui/chapter_development_panel.gd")
 const ChapterOpeningNarrationScript = preload("res://scripts/ui/chapter_opening_narration.gd")
@@ -493,6 +494,11 @@ var _pickup_press_audio: AudioStreamPlayer
 var _pickup_land_audio: AudioStreamPlayer
 var _notebook_hinge_audio: AudioStreamPlayer
 var _pickup_flight_layer: PickupFlightLayer
+var _rule_publication_view: Control
+var _floor_two_map_unlock: Node
+var _floor_two_unlock_shield: Control
+var _floor_two_title_started := false
+var _floor_two_note_view: Control
 var _notebook_squash_tween: Tween
 var _doll_guide_panel: PanelContainer
 var _doll_guide_line_label: Label
@@ -582,6 +588,7 @@ func _process(delta: float) -> void:
 		return
 	if _game_started:
 		_ensure_reality_floor_current()
+		_update_floor_two_arrival(delta)
 		_update_crt_focus_tutorial(delta)
 		_refresh_nearby_reality_actor()
 		_update_chapter_development_panel()
@@ -623,9 +630,17 @@ func _physics_process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _floor_two_note_active() and not _settings_open and _active_input_modal() == null:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_F, KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE]:
+			_floor_two_note_view.close()
+			get_viewport().set_input_as_handled()
+			return
 	if _handle_settings_shortcut(event):
 		return
 	if _settings_open:
+		return
+	if _floor_two_map_intro_pending() and _active_input_modal() == null:
+		get_viewport().set_input_as_handled()
 		return
 	if _crt_focus_tutorial_active():
 		_crt_focus_tutorial.route_input(event)
@@ -830,7 +845,7 @@ func _active_input_modal() -> Control:
 
 
 func _world_overlay_blocks_input() -> bool:
-	return _active_input_modal() != null or (is_instance_valid(_prologue_overlay) and _prologue_overlay.is_visible_in_tree())
+	return _floor_two_map_intro_pending() or _floor_two_note_active() or _active_input_modal() != null or (is_instance_valid(_prologue_overlay) and _prologue_overlay.is_visible_in_tree())
 
 
 func _crt_focus_tutorial_active() -> bool:
@@ -1063,6 +1078,7 @@ func _begin_chapter_terminal() -> bool:
 
 
 func _end_chapter_terminal(render_after: bool = true) -> void:
+	_cancel_rule_publication()
 	if not is_instance_valid(_chapter_terminal_session):
 		_chapter_terminal_session = null
 		_chapter_terminal_exiting = false
@@ -1097,6 +1113,7 @@ func _complete_chapter_terminal_exit(session_id: int) -> void:
 func _on_chapter_terminal_app_pressed(app_id: String) -> void:
 	if not _chapter_terminal_active() or not game.set_active_app(app_id, "terminal"):
 		return
+	_cancel_rule_publication()
 	if app_id == "notebook":
 		_social_screen = "publish"
 		_social_detail_open = false
@@ -1268,6 +1285,8 @@ func continue_game() -> bool:
 
 
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
+	_cancel_floor_two_presentations()
+	_floor_two_title_started = false
 	_end_chapter_terminal(false)
 	_close_chapter_task(false)
 	_game_started = true
@@ -1279,6 +1298,10 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_phone_art_alpha = 1.0
 	_second_layer_texture = null
 	game = session_state
+	# An interrupted reveal always restarts from a closed phone after the title.
+	if game.tower_floor == 2 and load("res://scripts/progression/floor_two_journey.gd").needs_map_intro(game.floor_two_progress):
+		game.set_view_state("npc_up")
+		game.active_app_window = ""
 	_floor_two_map_state = null
 	_phone_map_page = null
 	_floor_two_exploration_dirty = false
@@ -1339,6 +1362,8 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 
 
 func show_main_menu() -> void:
+	_cancel_floor_two_presentations()
+	_cancel_rule_publication()
 	_end_chapter_terminal(false)
 	_close_chapter_task(false)
 	if _game_started:
@@ -1470,6 +1495,7 @@ func set_view_state(value: String) -> void:
 	if value == "npc_up" and game.view_state == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
+		_cancel_rule_publication()
 		_phone_world_look_active = false
 		_reality_interaction_active = false
 		_active_reality_actor = null
@@ -1606,6 +1632,7 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 
 
 func _build_world() -> void:
+	_cancel_floor_two_presentations()
 	if is_instance_valid(_crt_focus_tutorial):
 		_crt_focus_tutorial.cancel()
 	_crt_focus_world = null
@@ -1819,6 +1846,7 @@ func _rebuild_reality_floor() -> void:
 	_reality_pitch = 0.0
 	if game.tower_floor == 2:
 		_configure_floor_two_map()
+		_sync_floor_two_note()
 
 
 func _ensure_reality_floor_current() -> void:
@@ -1955,7 +1983,7 @@ func _recover_reality_player() -> void:
 func _refresh_nearby_reality_actor() -> void:
 	var previous_actor := _nearby_reality_actor
 	var previous_item := _nearby_reality_item
-	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _chapter_opening_narration_active() or _crt_focus_tutorial_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
+	if game.view_state != "npc_up" or _world_overlay_blocks_input() or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _chapter_opening_narration_active() or _crt_focus_tutorial_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
 		_nearby_reality_actor = null
 		_nearby_reality_item = null
 		if previous_actor != null or previous_item != null:
@@ -1967,6 +1995,8 @@ func _refresh_nearby_reality_actor() -> void:
 	var nearest_kind := ""
 	var nearest_distance := REALITY_INTERACTION_DISTANCE
 	for actor in _reality_floor.get_interactable_actors():
+		if not actor.is_visible_in_tree():
+			continue
 		if game.tower_floor == 2 and str(actor.get_meta("actor_type", "")) == "floor2_exit" and not preload("res://scripts/progression/floor_two_journey.gd").can_exit(game.floor_two_progress):
 			continue
 		if _chapter_active() and not _reality_floor.is_actor_reachable(actor, _reality_player.global_position):
@@ -2020,6 +2050,9 @@ func _try_reality_interaction() -> bool:
 	if actor_type == "floor2_exit":
 		_active_reality_actor = null
 		return _try_floor_two_exit()
+	if actor_type == "floor2_note":
+		_active_reality_actor = null
+		return _open_floor_two_note()
 	if not game.start_typed_reality_conversation(actor_id, actor_type, actor_label):
 		_active_reality_actor = null
 		return false
@@ -4202,6 +4235,11 @@ func _toggle_settings_window() -> void:
 		_close_settings_window()
 		return
 	_settings_open = true
+	_cancel_rule_publication()
+	if _floor_two_note_active():
+		_floor_two_note_view.hide()
+	if is_instance_valid(_floor_two_unlock_shield):
+		_floor_two_unlock_shield.hide()
 	_chapter_opening_mouse_down = false
 	_chapter_opening_touch_index = -1
 	_set_reality_mouse_look(false)
@@ -4216,6 +4254,8 @@ func _toggle_settings_window() -> void:
 
 func _close_settings_window() -> void:
 	_settings_open = false
+	if _floor_two_note_active():
+		_floor_two_note_view.show()
 	if _settings_window != null:
 		_settings_window.visible = false
 	_set_chapter_exploration_paused(false)
@@ -4588,6 +4628,7 @@ func _refresh_phone_dock() -> void:
 func _phone_go_home() -> void:
 	if _settings_open or _input_locked:
 		return
+	_cancel_rule_publication()
 	_open_app_windows.clear()
 	_social_detail_open = false
 	game.active_app_window = ""
@@ -4816,7 +4857,9 @@ func _render_world_prompt() -> void:
 		]
 	elif _nearby_reality_actor != null:
 		if str(_nearby_reality_actor.get_meta("actor_type", "")) == "floor2_exit":
-			_world_prompt.text = "F  " + _locale.translate("离开街区" if game.is_phone_app_unlocked("map") else "先完成引路人的任务")
+			_world_prompt.text = "F  " + _locale.translate("离开街区")
+		elif str(_nearby_reality_actor.get_meta("actor_type", "")) == "floor2_note":
+			_world_prompt.text = {"zh": "F  拾起纸条", "ja": "F  紙切れを拾う", "en": "F  Pick up the note"}.get(_locale.current_locale, "F  拾起纸条")
 		else:
 			_world_prompt.text = "F  交谈 · %s" % str(_nearby_reality_actor.get_meta("display_name", "对方"))
 	else:
@@ -4973,13 +5016,147 @@ func _render_map_app() -> void:
 	_phone_map_page.call("configure", _floor_two_map_snapshot(), _locale.current_locale)
 
 
+func _floor_two_map_intro_pending() -> bool:
+	return _game_started and game != null and game.tower_floor == 2 and not _chapter_active() and load("res://scripts/progression/floor_two_journey.gd").needs_map_intro(game.floor_two_progress)
+
+
+func _floor_two_map_unlock_active() -> bool:
+	return is_instance_valid(_floor_two_map_unlock) and _floor_two_map_unlock.active()
+
+
+func _floor_two_note_active() -> bool:
+	return is_instance_valid(_floor_two_note_view) and bool(_floor_two_note_view.active)
+
+
+func _update_floor_two_arrival(delta: float) -> void:
+	if game == null or game.tower_floor != 2 or _chapter_active():
+		if _floor_two_map_unlock_active() or _floor_two_note_active():
+			_cancel_floor_two_presentations()
+		_floor_two_title_started = false
+		return
+	var journey = load("res://scripts/progression/floor_two_journey.gd")
+	if not journey.needs_map_intro(game.floor_two_progress):
+		return
+	var paused := _settings_open or not _application_focused or _input_locked or _active_input_modal() != null
+	if not _floor_two_title_started:
+		if not paused:
+			_play_floor_arrival(2)
+		return
+	if is_instance_valid(_day_transition_tween) and _day_transition_tween.is_valid():
+		if paused:
+			_day_transition_tween.pause()
+		elif not _day_transition_tween.is_running():
+			_day_transition_tween.play()
+		return
+	if not _floor_two_map_unlock_active():
+		if paused or not is_instance_valid(_phone_panel):
+			return
+		_begin_floor_two_map_unlock()
+	if _floor_two_map_unlock_active():
+		if is_instance_valid(_floor_two_unlock_shield):
+			_floor_two_unlock_shield.visible = not paused
+		_phone_panel.set_map_unlock_paused(paused)
+		_floor_two_map_unlock.update(delta, paused)
+
+
+func _begin_floor_two_map_unlock() -> void:
+	_cancel_rule_publication()
+	if not is_instance_valid(_floor_two_map_unlock):
+		_floor_two_map_unlock = load("res://scripts/tutorial/floor_two_map_unlock.gd").new()
+		add_child(_floor_two_map_unlock)
+		_floor_two_map_unlock.brightness_changed.connect(_on_floor_two_map_brightness)
+		_floor_two_map_unlock.finished.connect(_complete_floor_two_map_unlock)
+	game.set_view_state("phone_down")
+	game.active_app_window = ""
+	_open_app_windows.clear()
+	_phone_launcher_open = true
+	_reality_player.velocity = Vector3.ZERO
+	_set_reality_mouse_look(false)
+	if not is_instance_valid(_floor_two_unlock_shield):
+		_floor_two_unlock_shield = Control.new()
+		_floor_two_unlock_shield.name = "FloorTwoMapUnlockInputShield"
+		_floor_two_unlock_shield.mouse_filter = Control.MOUSE_FILTER_STOP
+		_floor_two_unlock_shield.z_index = 46
+		_ui_root.add_child(_floor_two_unlock_shield)
+		_floor_two_unlock_shield.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_floor_two_unlock_shield.show()
+	_floor_two_map_unlock.begin()
+	_render()
+
+
+func _on_floor_two_map_brightness(fraction: float) -> void:
+	if is_instance_valid(_phone_panel):
+		_phone_panel.set_map_unlock_progress(fraction)
+
+
+func _complete_floor_two_map_unlock() -> void:
+	if not _game_started or game.tower_floor != 2 or _chapter_active():
+		return
+	var journey = load("res://scripts/progression/floor_two_journey.gd")
+	game.floor_two_progress = journey.complete_map_intro(game.floor_two_progress)
+	if is_instance_valid(_floor_two_unlock_shield):
+		_floor_two_unlock_shield.hide()
+	_phone_panel.set_map_unlock_progress(-1.0)
+	_render()
+	_save_progress()
+
+
+func _cancel_floor_two_presentations() -> void:
+	if is_instance_valid(_floor_two_map_unlock):
+		_floor_two_map_unlock.cancel()
+	if is_instance_valid(_floor_two_unlock_shield):
+		_floor_two_unlock_shield.hide()
+	if is_instance_valid(_phone_panel):
+		_phone_panel.set_map_unlock_paused(false)
+		_phone_panel.set_map_unlock_progress(-1.0)
+	if is_instance_valid(_floor_two_note_view):
+		_floor_two_note_view.cancel()
+
+
+func _sync_floor_two_note() -> void:
+	if game == null or game.tower_floor != 2 or not is_instance_valid(_reality_floor):
+		return
+	var note := _reality_floor.find_child("FloorTwoNote", true, false) as Area3D
+	if note != null:
+		var journey = load("res://scripts/progression/floor_two_journey.gd")
+		note.visible = not journey.normalize(game.floor_two_progress).note_read and not _floor_two_note_active()
+		note.collision_layer = 2 if note.visible else 0
+
+
+func _open_floor_two_note() -> bool:
+	var journey = load("res://scripts/progression/floor_two_journey.gd")
+	if game.tower_floor != 2 or journey.normalize(game.floor_two_progress).note_read or _floor_two_map_unlock_active() or (is_instance_valid(_day_transition_overlay) and _day_transition_overlay.visible):
+		return false
+	if not is_instance_valid(_floor_two_note_view):
+		_floor_two_note_view = load("res://scripts/ui/floor_two_note_view.gd").new()
+		_ui_root.add_child(_floor_two_note_view)
+		_floor_two_note_view.closed.connect(_close_floor_two_note)
+	_cancel_rule_publication()
+	_set_reality_mouse_look(false)
+	_reality_player.velocity = Vector3.ZERO
+	_floor_two_note_view.open(_locale.current_locale)
+	_sync_floor_two_note()
+	_nearby_reality_actor = null
+	_render_world_prompt()
+	return true
+
+
+func _close_floor_two_note() -> void:
+	if not _game_started or game.tower_floor != 2:
+		return
+	game.floor_two_progress = load("res://scripts/progression/floor_two_journey.gd").mark_note_read(game.floor_two_progress)
+	_sync_floor_two_note()
+	_save_progress()
+	_set_reality_mouse_look(game.view_state == "npc_up" and not _settings_open)
+
+
 func _try_floor_two_exit() -> bool:
 	if game.tower_floor != 2:
 		return false
 	if not preload("res://scripts/progression/floor_two_journey.gd").can_exit(game.floor_two_progress):
 		return false
 	if not game.is_phone_app_unlocked("map"):
-		log_text = "先完成引路人的任务"
+		log_text = "地图尚未解锁"
 		_render_world_prompt()
 		return true
 	_store_floor_two_map()
@@ -5181,6 +5358,9 @@ func _render_social_home_page(parent: VBoxContainer) -> void:
 		card_panel.set_meta("social_card", true)
 		card_panel.set_meta("post_id", str(post.get("id", "")))
 		card_panel.set_meta("is_player_post", own_post)
+		if bool(post.get("is_rule", false)):
+			card_panel.set_meta("rule_card", true)
+			card_panel.set_meta("rule_current", bool(post.rule_current))
 		card_panel.set_meta("masonry_column_index", column_index)
 		card_panel.custom_minimum_size = Vector2(0, card_height)
 		card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -5300,13 +5480,18 @@ func _render_social_channel_empty_state(parent: VBoxContainer, node_name: String
 
 func _social_visible_post_indices() -> Array[int]:
 	var result: Array[int] = []
+	var current_rules: Array[int] = []
 	if _social_channel != "following":
 		# Negative indices count from the oldest publication. Prepending a new
 		# publication keeps existing card/detail indices and like identities stable.
 		for publication_index in game.published_memes.size():
 			var post_index := publication_index - game.published_memes.size()
-			if not _social_post_for_index(post_index).is_empty():
+			var publication := _social_post_for_index(post_index)
+			if bool(publication.get("rule_current", false)):
+				current_rules.append(post_index)
+			elif not publication.is_empty():
 				result.append(post_index)
+	result = current_rules + result
 	for post_index in SOCIAL_POST_CARDS.size():
 		if _social_channel == "following":
 			var post := _social_post_for_index(post_index)
@@ -5332,6 +5517,30 @@ func _render_social_card_poster(parent: VBoxContainer, post_index: int, post: Di
 	poster.mouse_filter = Control.MOUSE_FILTER_PASS
 	poster.add_theme_stylebox_override("panel", _style(_social_poster_color(post_index), _theme_color("accent")))
 	parent.add_child(poster)
+	if bool(post.get("is_rule", false)):
+		poster.set_meta("rule_card", true)
+		poster.set_meta("rule_current", bool(post.rule_current))
+		var rules := VBoxContainer.new()
+		rules.mouse_filter = Control.MOUSE_FILTER_PASS
+		rules.add_theme_constant_override("separation", 12)
+		poster.add_child(rules)
+		var badge := _social_player_text_label(str(post.rule_status), 14, RulePublicationView.PAPER)
+		badge.name = "SocialRuleStatus%d" % post_index
+		badge.set_meta("rule_ink", true)
+		badge.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.mouse_filter = Control.MOUSE_FILTER_PASS
+		rules.add_child(badge)
+		var rule_text := _social_player_text_label(str(post.rule_text), 25, RulePublicationView.PAPER)
+		rule_text.name = "SocialRuleText%d" % post_index
+		rule_text.set_meta("rule_ink", true)
+		rule_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rule_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rule_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		rule_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		rule_text.mouse_filter = Control.MOUSE_FILTER_PASS
+		rules.add_child(rule_text)
+		return
 	if bool(post.get("is_player_post", false)):
 		var clip := Control.new()
 		clip.custom_minimum_size.y = poster.custom_minimum_size.y
@@ -5498,6 +5707,15 @@ func _render_social_detail_page(parent: VBoxContainer, companion: bool = false) 
 		status.name = "SocialDetailOwnStatus"
 		status.set_meta("on_dark", true)
 		detail_box.add_child(status)
+		if bool(post.get("is_rule", false)):
+			detail_card.set_meta("rule_card", true)
+			detail_card.set_meta("poster_frame", true)
+			detail_card.set_meta("rule_current", bool(post.rule_current))
+			var rule_heading := _social_player_text_label("%s\n%s" % [post.rule_status, post.rule_text], 26, RulePublicationView.PAPER)
+			rule_heading.name = "SocialDetailRule"
+			rule_heading.set_meta("rule_ink", true)
+			rule_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			detail_box.add_child(rule_heading)
 	var post_text := _social_player_text_label(str(post["text"]), 17, _theme_color("surface")) if own_post else _label(_corrupt(str(post["text"])), 17, _theme_color("surface"))
 	post_text.name = "SocialDetailPostText"
 	post_text.set_meta("on_dark", true)
@@ -6418,6 +6636,9 @@ func _update_visibility() -> void:
 
 
 func _animate_world(delta: float) -> void:
+	if _floor_two_map_unlock_active() or _floor_two_note_active():
+		_animate_vhs(delta)
+		return
 	if _crt_focus_tutorial_active():
 		if is_instance_valid(_reality_floor):
 			_reality_floor.set_atmosphere_paused(true)
@@ -6570,7 +6791,7 @@ func _social_post_for_index(post_index: int) -> Dictionary:
 			original_text = str(publication.get("text", ""))
 		if original_text.strip_edges().is_empty():
 			return {}
-		return {
+		var own_post := {
 			"id": "player-publication:%s:%d" % [str(publication.get("id", "")), -post_index],
 			"publication_id": str(publication.get("id", "")),
 			"handle": "我", "is_player_post": true,
@@ -6578,6 +6799,8 @@ func _social_post_for_index(post_index: int) -> Dictionary:
 			"content_locale": str(publication.get("content_locale", "zh")),
 			"tokens": [], "pickup_available": false,
 		}
+		own_post.merge(RulePublicationView.describe(game.published_memes, publication_index, game.world_rules, _locale.current_locale))
+		return own_post
 	if SOCIAL_POST_CARDS.is_empty():
 		return {}
 	var day_offset := 0 if game == null else maxi(0, game.day - 1) * 3
@@ -6702,6 +6925,7 @@ func _close_app_window(app_id: String) -> void:
 		return
 	if _input_locked:
 		return
+	_cancel_rule_publication()
 	_open_app_windows[app_id] = false
 	if app_id == "social":
 		_social_detail_open = false
@@ -6732,6 +6956,7 @@ func _open_phone_launcher() -> void:
 		return
 	if _input_locked:
 		return
+	_cancel_rule_publication()
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	_phone_launcher_open = true
@@ -6968,6 +7193,8 @@ func _apply_world_theme() -> void:
 			mat.albedo_color = Color.WHITE if mat.albedo_texture != null else _theme_color("surface")
 			mat.emission = _theme_color("muted")
 func _apply_ui_theme(node: Node = null) -> void:
+	if node != null and (node.has_meta("rule_presentation_theme") or node.has_meta("floor_two_note_theme")):
+		return
 	if node != null and node.has_meta("phone_dock"):
 		for app in _app_windows.values():
 			if is_instance_valid(app):
@@ -6982,7 +7209,9 @@ func _apply_ui_theme(node: Node = null) -> void:
 	if node == null:
 		return
 	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
-		if node.has_meta("hud_action_label"):
+		if node.has_meta("rule_ink"):
+			(node as Label).add_theme_color_override("font_color", RulePublicationView.PAPER)
+		elif node.has_meta("hud_action_label"):
 			(node as Label).add_theme_color_override("font_color", _theme_color("muted"))
 		elif node.has_meta("on_dark"):
 			(node as Label).add_theme_color_override("font_color", _theme_color("surface"))
@@ -7072,6 +7301,8 @@ func _apply_ui_theme(node: Node = null) -> void:
 			(node as PanelContainer).add_theme_stylebox_override("panel", _reward_card_style(_theme_color("ink"), _theme_color("muted")))
 		elif node.has_meta("phone_surface"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", _phone_surface_style())
+		elif node.has_meta("rule_card"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", RulePublicationView.card_style(bool(node.get_meta("rule_current", false)), node.has_meta("poster_frame")))
 		elif node.has_meta("social_card"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", _social_card_style())
 		elif node.has_meta("poster_frame"):
@@ -7282,6 +7513,8 @@ func _play_day_transition() -> void:
 
 
 func _play_floor_arrival(floor_number: int) -> void:
+	if floor_number == 2:
+		_floor_two_title_started = true
 	if _day_transition_overlay == null:
 		return
 	if _day_transition_tween != null and _day_transition_tween.is_valid():
@@ -7522,6 +7755,7 @@ func _on_app_pressed(app_id: String) -> void:
 		return
 	if _input_locked:
 		return
+	_cancel_rule_publication()
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	game.set_active_app(app_id)
@@ -7962,6 +8196,8 @@ func _on_composer_submit_pressed() -> void:
 		log_text += "\n" + "出口开始存在。"
 	_after_effective_action(actions_before)
 	_save_progress()
+	if str(submit_result.get("tier", "")) == "rule" and not _input_locked:
+		_rule_publication_view.present(RuleEngineScript.rule_display_text(str(submit_result.rule_key), bool(submit_result.get("negated", false)), _locale.current_locale), _locale.current_locale, _rule_publication_target)
 
 
 func _build_pickup_flight_layer() -> void:
@@ -7972,6 +8208,37 @@ func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer.z_index = 97
 	_ui_root.add_child(_pickup_flight_layer)
 	_pickup_flight_layer.pickup_landed.connect(_on_pickup_flight_landed)
+	_rule_publication_view = RulePublicationView.new()
+	_pickup_flight_layer.add_child(_rule_publication_view)
+	_rule_publication_view.feed_requested.connect(_show_published_rule_in_feed)
+
+
+func _cancel_rule_publication() -> void:
+	if is_instance_valid(_rule_publication_view):
+		_rule_publication_view.cancel()
+
+
+func _show_published_rule_in_feed() -> void:
+	if not _game_started or _settings_open or _input_locked or not _chapter_app_access("social"):
+		return
+	if not _chapter_terminal_active():
+		if game.view_state != "phone_down":
+			return
+		game.set_active_app("social")
+		_open_app_windows.clear()
+		_open_app_windows["social"] = true
+		_phone_launcher_open = false
+	_social_screen = "home"
+	_social_channel = "discover"
+	_social_detail_open = false
+	_render()
+
+
+func _rule_publication_target() -> Vector2:
+	var card := find_child("SocialPostPoster%d" % -game.published_memes.size(), true, false) as Control
+	if card != null and card.is_visible_in_tree():
+		return card.get_global_rect().get_center()
+	return _pickup_flight_layer.get_global_rect().get_center()
 
 
 ## Keep the notebook embedded; collecting a word must not cover the feed.

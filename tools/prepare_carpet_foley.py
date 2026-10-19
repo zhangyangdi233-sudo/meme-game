@@ -1,7 +1,9 @@
-"""Shape the CC0 carpet recording into soft, muffled steps on thick pile."""
+"""Restore the user's chosen A recording with complete, naturally paced contacts."""
 from pathlib import Path
+import hashlib
 import json
 import argparse
+import wave
 import numpy as np
 import soundfile as sf
 
@@ -11,9 +13,14 @@ parser.add_argument('--verify', action='store_true', help='Check committed clips
 args = parser.parse_args()
 
 
+SOURCE = base / 'carpet_steps_mihacappy.ogg'
+SOURCE_URL = 'https://freesound.org/people/Mihacappy/sounds/848210/'
+DURATION = .28
+
+
 def soften_pile(cut, rate):
-    # Filter the recording itself. Padding avoids wrapping a footfall's tail
-    # around to its attack; the soft rolloff avoids a brick-wall ringing edge.
+    # Preserve A's recording and existing soft EQ, rather than synthesizing a
+    # different timbre. Filter the original full excerpt before trimming its tail.
     padding = int(rate * .12)
     padded = np.pad(cut, (padding, padding))
     frequencies = np.fft.rfftfreq(len(padded), 1 / rate)
@@ -23,52 +30,69 @@ def soften_pile(cut, rate):
     return filtered[padding:padding + len(cut)]
 
 
-data, rate = sf.read(base / 'carpet_steps_mihacappy.ogg')
+data, rate = sf.read(SOURCE)
 mono = data.mean(axis=1) if data.ndim > 1 else data
 window = int(rate * .025)
-energy = np.array([np.sqrt(np.mean(mono[i:i+window] ** 2)) for i in range(0, len(mono)-window, window)])
-# Select isolated attacks; leave enough room for a full cloth/sole decay.
-ranked = np.argsort(energy)[::-1]
+energy = np.array([np.sqrt(np.mean(mono[i:i + window] ** 2))
+                   for i in range(0, len(mono) - window, window)])
+# These are the same source contacts selected for A, which the user preferred
+# after comparing recorded alternatives. Do not substitute procedural noise.
 peaks = []
-for index in ranked:
+for index in np.argsort(energy)[::-1]:
     second = float(index * window / rate)
-    if .25 < second < len(mono) / rate - .5 and all(abs(second - previous) > .7 for previous in peaks):
+    if .25 < second < len(mono) / rate - .5 and all(abs(second - old) > .7 for old in peaks):
         peaks.append(second)
         if len(peaks) == 4:
             break
+
+
 segments = []
 measurements = []
 for index, peak in enumerate(sorted(peaks), 1):
     start = max(0, int((peak - .09) * rate))
-    cut = mono[start:start+int(.48*rate)].copy()
-    # Normalize before damping, never boost the softened tail back to a click.
-    cut *= .65 / max(.001, float(np.max(np.abs(cut))))
-    untreated = cut.copy()
-    cut = soften_pile(cut, rate)
-    fade = min(int(rate * .045), len(cut)//3)
-    cut[:fade] *= np.linspace(0, 1, fade)
-    cut[-fade:] *= np.linspace(1, 0, fade)
+    original = mono[start:start + int(.48 * rate)].copy()
+    original *= .65 / max(.001, float(abs(original).max()))
+    original = soften_pile(original, rate)
+    fade = int(rate * .045)
+    original[:fade] *= np.linspace(0, 1, fade)
+    original[-fade:] *= np.linspace(1, 0, fade)
+    trim_start = int(rate * .04)
+    contact = original[trim_start:trim_start + int(rate * DURATION)].copy()
+    contact[:int(rate * .006)] *= np.linspace(0, 1, int(rate * .006))
+    contact[-int(rate * .018):] *= np.linspace(1, 0, int(rate * .018))
+    pcm = np.round(np.clip(contact, -1, 1) * 32767).astype('<i2')
     name = f'carpet_step_{index:02d}.wav'
     if args.verify:
-        stored, stored_rate = sf.read(base / name)
-        assert stored_rate == rate and stored.shape == cut.shape, name + ': format changed'
-        assert np.max(np.abs(stored - cut)) <= 1.01 / 32768, name + ': regenerate the clip'
+        with wave.open(str(base / name), 'rb') as stored:
+            assert stored.getframerate() == rate and stored.getnchannels() == 1 and stored.getsampwidth() == 2
+            assert stored.readframes(stored.getnframes()) == pcm.tobytes(), name + ': regenerate the clip'
     else:
-        sf.write(base / name, cut, rate, subtype='PCM_16')
-    spectrum = np.abs(np.fft.rfft(cut)) ** 2
-    frequencies = np.fft.rfftfreq(len(cut), 1 / rate)
-    high_share = float(spectrum[frequencies >= 2500].sum() / max(spectrum.sum(), 1e-12))
-    rms_ratio = float(np.sqrt(np.mean(cut ** 2) / max(np.mean(untreated ** 2), 1e-12)))
-    assert high_share < .01 and rms_ratio < 1.0, name + ': footfall must be softer, not brighter or louder'
-    measurements.append({'file': name, 'high_band_energy_fraction': round(high_share, 6), 'rms_ratio_to_source_cut': round(rms_ratio, 4)})
-    segments.append({'file': name, 'start_seconds': round(start/rate, 4), 'duration_seconds': .48})
+        with wave.open(str(base / name), 'wb') as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(rate)
+            output.writeframes(pcm.tobytes())
+    cut = pcm.astype(float) / 32768
+    measurements.append({'file': name, 'peak': round(float(abs(cut).max()), 4),
+                         'rms': round(float(np.sqrt(np.mean(cut ** 2))), 4)})
+    segments.append({'file': name, 'original_A_start_seconds': round(start / rate, 4),
+                     'source_start_seconds': round((start + trim_start) / rate, 4),
+                     'duration_seconds': DURATION,
+                     'sha256': hashlib.sha256((base / name).read_bytes()).hexdigest()})
 metadata = {
-    'author':'Mihacappy', 'license':'CC0 1.0', 'title':'steps_carpet.wav',
-    'source':'https://freesound.org/people/Mihacappy/sounds/848210/',
-    'download':'https://cdn.freesound.org/previews/848/848210_10594370-lq.ogg',
-    'note':'Public compressed preview, mono excerpts normalized before soft filtering. No post-filter gain normalization. Thick-pile damping: 1150 Hz soft low-pass, 65 Hz rumble reduction, 45 ms edge fades. Playback -20 dB.',
-    'sample_rate': rate, 'segments':segments
+    'active_source': 'User-selected A real carpet recording, natural walking cadence, 2026-10-19',
+    'author': 'Mihacappy', 'license': 'CC0 1.0', 'title': 'steps_carpet.wav',
+    'source': SOURCE_URL, 'source_file': SOURCE.name,
+    'source_sha256': hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
+    'download': 'https://cdn.freesound.org/previews/848/848210_10594370-lq.ogg',
+    'license_url': 'https://creativecommons.org/publicdomain/zero/1.0/',
+    'license_verified_on': '2026-10-19',
+    'generator': 'tools/prepare_carpet_foley.py',
+    'note': 'Real recording, not synthesis. Restores the four A source contacts and its 65 Hz / 1150 Hz soft EQ. Trim each A excerpt at 40-320 ms with 6/18 ms edge fades; preserve natural transients and pitch. Ordinary walking is 1.95/3.3 = 0.5909 seconds per contact, matching the recording; actual sprinting remains separate at 0.3112 s. No resynthesis or time stretching. Runtime gain remains -20 dB.',
+    'sample_rate': rate, 'segments': segments
 }
-if not args.verify:
+if args.verify:
+    assert json.loads((base / 'carpet_steps_source.json').read_text(encoding='utf-8')) == metadata, 'Source manifest differs; regenerate'
+else:
     (base/'carpet_steps_source.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
 print(json.dumps({'verified': args.verify, 'clips': measurements}, indent=2))

@@ -99,6 +99,8 @@ func finish_all_immediately() -> void:
 	for child in get_children():
 		if child is Label:
 			(child as Label).queue_free()
+		elif child.has_meta("rule_presentation_theme") and child.has_method("cancel"):
+			child.cancel()
 	_active_count = 0
 	_fade_backdrop(0.0, 0.05)
 

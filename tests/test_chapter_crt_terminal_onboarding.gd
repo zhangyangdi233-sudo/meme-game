@@ -5,7 +5,8 @@ extends SceneTree
 const State = preload("res://scripts/meme_game_state.gd")
 const ExistingFlow = preload("res://tests/test_chapter_terminal_flow.gd")
 const TutorialState = preload("res://scripts/tutorial/chapter_crt_tutorial_state.gd")
-const OUTPUT := "res://artifacts/crt-onboarding-20261019"
+const DEFAULT_OUTPUT := "res://artifacts/crt-onboarding-20261019"
+var output := DEFAULT_OUTPUT
 var main: Node
 var viewport: SubViewport
 var failures: Array[String] = []
@@ -14,9 +15,18 @@ var locale := "zh"
 
 func _init() -> void:
 	root.visible = false
+	# This native capture intentionally has no foreground Window. Emulate the
+	# host's focus state while all CRT actions still use its real input route.
+	process_frame.connect(func():
+		if is_instance_valid(main):
+			main._application_focused = true
+	)
 	_run.call_deferred()
 
 func _run() -> void:
+	if not OS.get_environment("CRT_TEST_OUTPUT").is_empty():
+		output = OS.get_environment("CRT_TEST_OUTPUT")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output))
 	if OS.get_environment("CRT_TEST_LOCALE") in ["en", "ja"]:
 		locale = OS.get_environment("CRT_TEST_LOCALE")
 	var units := TutorialState.teaching_units(locale)
@@ -89,6 +99,7 @@ func _run() -> void:
 		await _finish()
 		return
 	_check(_session().tutorial_active(), "first CRT visit starts its guarded lesson")
+	await _check_guide_layout("post")
 	await _capture("terminal-01-single-post.png")
 	main._open_social_post(0)
 	_check(not main._social_detail_open, "direct callback cannot bypass the real input transaction")
@@ -96,6 +107,7 @@ func _run() -> void:
 	_check(not main._social_detail_open, "gray post cannot be opened through real screen input")
 	await _click_control("SocialPostPoster0")
 	_check(main._social_detail_open and _phase() == "collect", "only highlighted post opens and advances the lesson")
+	await _check_guide_layout("collect")
 	await _capture("terminal-02-three-words.png")
 	for unit in units:
 		var picked := await _pick(unit)
@@ -120,6 +132,7 @@ func _run() -> void:
 			await _frames(6)
 			_check(main._chapter_terminal_active() and _phase() == "collect" and main.game.chapter1_progress.crt_tutorial.collected == [units[0]], "re-entering CRT resumes the same post and remaining two units")
 	_check(_phase() == "compose", "all three real pickups unlock only drag composition")
+	await _check_guide_layout("compose")
 	await _capture("terminal-03-drag-words.png")
 	var body := _word_body(units[0])
 	_check(body != null, "shared notebook owns a physics tile for the first picked character")
@@ -152,6 +165,7 @@ func _run() -> void:
 		await _drag(source, target.get_global_rect().get_center())
 		_check(unit in main.game.get_free_sentence_units(), "physical drag delivers %s into the real sentence" % unit)
 	_check(_phase() == "publish", "three genuine drags unlock Publish")
+	await _check_guide_layout("publish")
 	await _capture("terminal-04-publish.png")
 	var before: int = main.game.published_memes.size()
 	await _click_control("NotebookCraftButton")
@@ -163,10 +177,16 @@ func _run() -> void:
 	_check(publication.get("chapter_task_id") == "basement_help_01" and publication.get("chapter_round_token") == main.game.chapter1_progress.transition_serial, "tutorial publication belongs to this first-basement task and current visit token")
 	_check(main.game.has_current_chapter_submission(), "tutorial publication satisfies the genuine NPC current-task submission gate")
 	_check(not _session().tutorial_active() and _content().find_child("CRTTutorialOverlay", true, false) == null, "completion removes input shield and restores normal content")
-	await _click_control("SocialDetailWindowCloseButton")
+	await create_timer(0.3).timeout
+	await _capture("terminal-05-publication-feedback.png", 0.0)
+	await create_timer(2.4).timeout
+	_check(not main._social_detail_open and main._social_screen == "home" and main._social_channel == "discover", "publication feedback returns to the discover feed automatically")
+	var rule_text := _content().find_child("SocialRuleText-1", true, false) as Control
+	_check(rule_text != null and rule_text.is_visible_in_tree(), "completed lesson leaves the current rule visible in the feed")
+	await _capture("terminal-06-current-rule.png")
 	await _click_control("SocialPostPoster1")
 	_check(main._social_detail_post_index == 1, "other posts work normally after teaching finishes")
-	await _capture("terminal-05-unlocked.png")
+	await _capture("terminal-07-unlocked.png")
 	await _finish()
 
 func _phase() -> String:
@@ -183,6 +203,57 @@ func _word_body(unit: String) -> RigidBody2D:
 		if str(candidate.get_meta("word_unit", "")) == unit:
 			return candidate
 	return null
+
+func _check_guide_layout(phase: String) -> void:
+	await _frames(3)
+	var overlay := _content().find_child("CRTTutorialOverlay", true, false) as Control
+	var label := _content().find_child("CRTTutorialInstruction", true, false) as Label
+	_check(overlay != null and label != null, "%s has its visible instruction label" % phase)
+	if overlay == null or label == null:
+		return
+	var painted := label.get_global_rect().grow(label.get_theme_constant("outline_size"))
+	var local_painted := Rect2(painted.position - overlay.global_position, painted.size)
+	var clear := true
+	for hole: Rect2 in overlay.get("holes"):
+		clear = clear and not local_painted.intersects(hole.grow(4.0))
+	_check(clear, "%s instruction including its outline stays outside every interaction hole" % phase)
+	_check(_content().get_global_rect().encloses(painted), "%s instruction fits entirely inside the CRT" % phase)
+	_check(label.get_minimum_size().y <= label.size.y and label.get_visible_line_count() == label.get_line_count(), "%s translation is fully visible without clipping" % phase)
+	_check(label.get_theme_font_size("font_size") >= 48, "%s instruction remains large and readable" % phase)
+	var clear_of_body := true
+	var covered_text: Array[String] = []
+	for body: Label in _content().find_children("*", "Label", true, false):
+		if body == label or not body.is_visible_in_tree() or body.text.strip_edges().is_empty():
+			continue
+		# The opaque post-detail window covers the feed beneath it.
+		var social_app: Control = main._app_windows.social
+		if main._social_detail_open and social_app.is_ancestor_of(body):
+			continue
+		var text_rect := body.get_global_rect()
+		var text_height := body.get_minimum_size().y
+		if body.vertical_alignment == VERTICAL_ALIGNMENT_CENTER:
+			text_rect.position.y += (text_rect.size.y - text_height) * 0.5
+		elif body.vertical_alignment == VERTICAL_ALIGNMENT_BOTTOM:
+			text_rect.position.y += text_rect.size.y - text_height
+		text_rect.size.y = text_height
+		var ancestor := body.get_parent()
+		while ancestor != null and ancestor != _content():
+			if ancestor is Control and ancestor.clip_contents:
+				text_rect = text_rect.intersection(ancestor.get_global_rect())
+			ancestor = ancestor.get_parent()
+		if text_rect.has_area() and painted.intersects(text_rect.grow(4.0)):
+			clear_of_body = false
+			covered_text.append("%s %s" % [body.name, text_rect])
+	_check(clear_of_body, "%s instruction avoids app text, including dimmed labels: %s" % [phase, covered_text])
+	var correct_side := painted.end.x < 792.0 if phase == "compose" else painted.position.x > 808.0
+	_check(correct_side, "%s instruction uses the inactive side instead of covering the work area" % phase)
+	if phase == "publish":
+		var publish := _content().find_child("NotebookCraftButton", true, false) as Control
+		_check(painted.position.y > publish.get_global_rect().end.y + 80.0, "publish instruction sits in the lower right dark area below the button")
+	var report := {"phase": phase, "locale": locale, "text": label.text, "bounds_with_outline": str(painted), "font_size": label.get_theme_font_size("font_size"), "line_count": label.get_line_count(), "covered_text": covered_text}
+	var report_file := FileAccess.open(output.path_join(locale + "-" + phase + "-layout.json"), FileAccess.WRITE)
+	if report_file != null:
+		report_file.store_string(JSON.stringify(report, "\t"))
 
 func _pick(unit: String) -> bool:
 	for rich: RichTextLabel in _content().find_children("*", "RichTextLabel", true, false):
@@ -260,19 +331,20 @@ func _window_point(pixel: Vector2) -> Vector2:
 			return main._camera.unproject_position(mesh.to_global(point))
 	return Vector2(-100, -100)
 
-func _capture(filename: String) -> void:
+func _capture(filename: String, settle_delay: float = 0.6) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	await create_timer(0.6).timeout
+	if settle_delay > 0.0:
+		await create_timer(settle_delay).timeout
 	await RenderingServer.frame_post_draw
-	viewport.get_texture().get_image().save_png(OUTPUT.path_join(locale + "-" + filename))
-	_session().get_terminal().get_display_viewport().get_texture().get_image().save_png(OUTPUT.path_join(locale + "-" + filename.replace(".png", "-screen.png")))
+	viewport.get_texture().get_image().save_png(output.path_join(locale + "-" + filename))
+	_session().get_terminal().get_display_viewport().get_texture().get_image().save_png(output.path_join(locale + "-" + filename.replace(".png", "-screen.png")))
 
 func _capture_focus(filename: String) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	await RenderingServer.frame_post_draw
-	viewport.get_texture().get_image().save_png(OUTPUT.path_join(locale + "-" + filename))
+	viewport.get_texture().get_image().save_png(output.path_join(locale + "-" + filename))
 
 func _frames(count: int) -> void:
 	for index in count:
@@ -284,6 +356,13 @@ func _check(condition: bool, label: String) -> void:
 		failures.append(label)
 
 func _finish() -> void:
+	if main._chapter_terminal_active():
+		var leave := InputEventKey.new()
+		leave.keycode = KEY_TAB
+		leave.pressed = true
+		main._input(leave)
+		await create_timer(0.75).timeout
+		await _frames(3)
 	main.free()
 	viewport.queue_free()
 	await _frames(3)

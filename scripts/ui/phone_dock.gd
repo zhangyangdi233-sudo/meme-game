@@ -21,6 +21,8 @@ var _viewport_size := Vector2.ZERO
 var _scale_factor := 1.0
 var _slide_fraction := 0.0
 var _last_page := ""
+var _map_unlock_progress := -1.0
+var _map_slide_paused := false
 
 class EdgeTab extends Button:
 	var opened := false
@@ -190,10 +192,36 @@ func configure(available: bool, expanded: bool, permissions: Dictionary, viewpor
 		if _slide != null and _slide.is_valid():
 			_slide.kill()
 		_slide = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
+		_map_slide_paused = false
 		_slide.tween_method(_set_slide, _slide_fraction, 1.0 if _open else 0.0, 0.52)
 	if resized_view:
 		_layout_face()
 	_update_tab()
+	set_map_unlock_progress(_map_unlock_progress)
+
+
+func set_map_unlock_progress(value: float) -> void:
+	_map_unlock_progress = value
+	if not app_buttons.has("map"):
+		return
+	var button := app_buttons.map as Button
+	var fraction := clampf(value, 0.0, 1.0)
+	button.add_theme_color_override("font_disabled_color", Color("92877A").lerp(INK, fraction))
+	button.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, lerpf(0.28, 1.0, fraction)))
+	button.set_meta("unlock_brightness", fraction)
+	if value >= 0:
+		button.disabled = true
+
+
+func set_map_unlock_paused(paused: bool) -> void:
+	if _slide == null or not _slide.is_valid():
+		return
+	if paused and _slide.is_running():
+		_slide.pause()
+		_map_slide_paused = true
+	elif not paused and _map_slide_paused:
+		_slide.play()
+		_map_slide_paused = false
 
 func _set_slide(value: float) -> void:
 	_slide_fraction = value

@@ -1,31 +1,45 @@
 {
+  "active_source": "User-selected A real carpet recording, natural walking cadence, 2026-10-19",
   "author": "Mihacappy",
   "license": "CC0 1.0",
   "title": "steps_carpet.wav",
   "source": "https://freesound.org/people/Mihacappy/sounds/848210/",
+  "source_file": "carpet_steps_mihacappy.ogg",
+  "source_sha256": "99e8395519a93c61b7e112b21a66e33ceaef5b4d1654574e9e7cca5209595c9c",
   "download": "https://cdn.freesound.org/previews/848/848210_10594370-lq.ogg",
-  "note": "Public compressed preview, mono excerpts normalized before soft filtering. No post-filter gain normalization. Thick-pile damping: 1150 Hz soft low-pass, 65 Hz rumble reduction, 45 ms edge fades. Playback -20 dB.",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "license_verified_on": "2026-10-19",
+  "generator": "tools/prepare_carpet_foley.py",
+  "note": "Real recording, not synthesis. Restores the four A source contacts and its 65 Hz / 1150 Hz soft EQ. Trim each A excerpt at 40-320 ms with 6/18 ms edge fades; preserve natural transients and pitch. Ordinary walking is 1.95/3.3 = 0.5909 seconds per contact, matching the recording; actual sprinting remains separate at 0.3112 s. No resynthesis or time stretching. Runtime gain remains -20 dB.",
   "sample_rate": 48000,
   "segments": [
     {
       "file": "carpet_step_01.wav",
-      "start_seconds": 0.61,
-      "duration_seconds": 0.48
+      "original_A_start_seconds": 0.61,
+      "source_start_seconds": 0.65,
+      "duration_seconds": 0.28,
+      "sha256": "ae65fe4eb2a5cc506efba7d2222b3aeb95222089c9488b88156b2d52cdc1434f"
     },
     {
       "file": "carpet_step_02.wav",
-      "start_seconds": 2.36,
-      "duration_seconds": 0.48
+      "original_A_start_seconds": 2.36,
+      "source_start_seconds": 2.4,
+      "duration_seconds": 0.28,
+      "sha256": "a70cfe8c77f846bc25a4784d311c96d29402fcb4e610fcfd8bcafccaf6ac7d72"
     },
     {
       "file": "carpet_step_03.wav",
-      "start_seconds": 4.06,
-      "duration_seconds": 0.48
+      "original_A_start_seconds": 4.06,
+      "source_start_seconds": 4.1,
+      "duration_seconds": 0.28,
+      "sha256": "0f3eeb668cab3c0daed1a5c871d04812a053c4868c34c0d0265855d5ab09ea49"
     },
     {
       "file": "carpet_step_04.wav",
-      "start_seconds": 5.26,
-      "duration_seconds": 0.48
+      "original_A_start_seconds": 5.26,
+      "source_start_seconds": 5.3,
+      "duration_seconds": 0.28,
+      "sha256": "69d7ee48fa379dedef110f301d5176f68a06d4c0e6f7ce7139ab8c91af313cc7"
     }
   ]
 }

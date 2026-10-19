@@ -64,9 +64,7 @@ static func build(height_sampler: Callable = Callable()) -> Dictionary:
 			if is_walkable(cell):
 				walkable_cells.append(cell)
 			elif _has_road_neighbor(cell):
-				# Heights change by parcel along regular rows, not by random scatter.
-				var storeys: int = [1, 2, 2, 3, 1, 4][posmod(int(x / 2) + z * 3, 6)]
-				buildings.append({"id": "house_%02d_%02d" % [x, z], "cell": cell, "rect": building_rect(cell), "storeys": storeys, "height": 3.6 + 3.2 * float(storeys - 1)})
+				buildings.append(residence_at(cell))
 	var turns: Array[Vector3] = []
 	for cell in TURN_CELLS:
 		turns.append(point_at_cell(cell, height_sampler))
@@ -92,6 +90,8 @@ static func build(height_sampler: Callable = Callable()) -> Dictionary:
 	var exit_target := point_at_cell(EXIT_CELL, height_sampler, Vector2(0, -3.5)) + Vector3.UP * 1.45
 	targets.append({"id": "exit", "position": exit_target, "max_distance": 9.0, "required_previous": "hidden_path"})
 	return {
+		# Only the perceived facades changed; keep the physical-map version so
+		# existing exploration saves survive this purely visual revision.
 		"version": 2, "floor": 2, "bounds": BOUNDS, "cell_size": CELL_SIZE,
 		"grid_size": GRID_SIZE, "rows": PackedStringArray(ROWS),
 		"normal_rows": PackedStringArray(ROWS), "normal_blocking_rects": normal_blocking,
@@ -127,6 +127,12 @@ static func building_rect(cell: Vector2i) -> Rect2:
 	return Rect2(BOUNDS.position + Vector2(cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 
 
+static func residence_at(cell: Vector2i) -> Dictionary:
+	# Both solid neighbours and concealed passages use this same parcel grammar.
+	var storeys: int = [1, 2, 2, 3, 1, 4][posmod(int(cell.x / 2) + cell.y * 3, 6)]
+	return {"id": "house_%02d_%02d" % [cell.x, cell.y], "cell": cell, "rect": building_rect(cell), "storeys": storeys, "height": 3.6 + 3.2 * float(storeys - 1)}
+
+
 static func hidden_wall_rect() -> Rect2:
 	var point := point_at_cell(HIDDEN_WALL_CELL)
 	# A half-width partition on a side loop leaves a four-metre route around it.
@@ -143,7 +149,10 @@ static func _xray_differences(height_sampler: Callable) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry in [{"id": "XrayIntroFacade", "observation": "xray_intro", "cell": XRAY_INTRO_CELL}, {"id": "HiddenPathFacade", "observation": "hidden_path", "cell": HIDDEN_PATH_CELL}]:
 		var point := point_at_cell(entry.cell, height_sampler)
-		result.append({"id": entry.id, "observation_id": entry.observation, "kind": "false_facade", "rect": Rect2(Vector2(point.x - 4.0, point.z - 0.12), Vector2(8.0, 0.24)), "height": 3.6, "normal_visible": true, "xray_visible": false, "solid": false, "observation_point": point_at(Vector2(point.x, point.z + 0.14), height_sampler) + Vector3.UP * 1.45, "max_observe_distance": 9.0})
+		var residence := residence_at(entry.cell)
+		residence.id = entry.id
+		var frontage := Vector2(point.x, point.z + CELL_SIZE * 0.5 + 0.14)
+		result.append({"id": entry.id, "observation_id": entry.observation, "kind": "false_residence", "rect": residence.rect, "height": residence.height, "residence": residence, "normal_visible": true, "xray_visible": false, "solid": false, "observation_point": point_at(frontage, height_sampler) + Vector3.UP * 1.45, "max_observe_distance": 9.0})
 	result.append({"id": "XraySolidPartition", "observation_id": "", "kind": "hidden_solid_wall", "rect": hidden_wall_rect(), "height": 2.8, "normal_visible": false, "xray_visible": true, "solid": true, "observation_point": point_at_cell(HIDDEN_WALL_CELL, height_sampler) + Vector3.UP * 1.45, "max_observe_distance": 9.0})
 	return result
 

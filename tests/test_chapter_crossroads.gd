@@ -24,6 +24,7 @@ func _run() -> void:
 		_check(world.find_child("CrossroadGround", true, false) != null, "original crossroad collision retained")
 		_check(world.find_child("CrossRoad", true, false) != null, "original crossroad geometry retained")
 		_check(world.find_child("BrickWall", true, false) != null, "yellow boundary wall retained after removing its picture")
+		_check(world.find_child("DreamcoreThresholdRhythm", true, false) == null, "crossroad branches have no overhead bars, lights, or decorative false doors")
 		_check(world.find_child("ReferencePortal", true, false) == null, "crossroads horizon has no floating photo board")
 		_check(world.find_children("MemoryPanel*", "MeshInstance3D", true, false).is_empty(), "crossroads walls have no pixel image panels")
 		_check(world.find_child("CoverWatcherEvent", true, false) == null, "empty crossroads does not spawn legacy watcher")

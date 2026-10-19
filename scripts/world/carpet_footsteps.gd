@@ -2,7 +2,9 @@ class_name CarpetFootsteps
 extends Node
 ## Distance-driven foley. Camera tweening, falling, pauses and teleports are silent.
 
-const STRIDE_METERS := 0.86
+## Distance between individual foot contacts, not a full left/right gait cycle.
+const STRIDE_METERS := 1.95
+const RUN_STRIDE_METERS := 1.90
 const MAX_FRAME_DISTANCE := 1.5
 var step_count := 0
 var _last_position := Vector3.ZERO
@@ -21,7 +23,7 @@ func _ready() -> void:
 		var stream := AudioStreamWAV.load_from_file("res://assets/audio/foley/carpet_step_%02d.wav" % index)
 		if stream != null: _steps.append(stream)
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var host := get_parent()
 	if host == null or not "game" in host:
 		return
@@ -35,9 +37,9 @@ func _physics_process(_delta: float) -> void:
 	enabled = enabled and not bool(host.call("_chapter_terminal_active")) and not bool(host.call("_chapter_task_active"))
 	# The wooden stair flight is above the carpeted room floor.
 	enabled = enabled and player.position.y < 0.3
-	advance(player.position, enabled, player.is_on_floor())
+	advance(player.position, enabled, player.is_on_floor(), delta)
 
-func advance(position: Vector3, enabled: bool, grounded: bool) -> void:
+func advance(position: Vector3, enabled: bool, grounded: bool, delta: float = 0.0) -> void:
 	if not _has_position:
 		_last_position = position
 		_has_position = true
@@ -49,11 +51,22 @@ func advance(position: Vector3, enabled: bool, grounded: bool) -> void:
 		if _audio != null: _audio.stop()
 		return
 	_distance += motion
-	if _distance < STRIDE_METERS:
+	var speed := motion / delta if delta > 0.0 else 3.3
+	var stride := _stride_for_speed(speed)
+	if _distance < stride:
 		return
-	_distance = fmod(_distance, STRIDE_METERS)
+	_distance = fmod(_distance, stride)
+	# Never truncate a contact into another attack if a frame/correction advances
+	# unusually far. Normal walk/run intervals leave room for its entire decay.
+	if _audio != null and _audio.playing:
+		return
 	step_count += 1
 	if _audio != null and not _steps.is_empty():
 		_audio.stream = _steps[(step_count - 1) % _steps.size()]
 		_audio.pitch_scale = [0.97, 1.02, 0.99, 1.04][(step_count - 1) % 4]
 		_audio.play()
+
+func _stride_for_speed(speed: float) -> float:
+	# Match the recording's natural ~0.59 s walk at the game's 3.3 units/s;
+	# preserve the true sprint's ~0.311 s contacts at 6.105 units/s.
+	return lerpf(STRIDE_METERS, RUN_STRIDE_METERS, clampf((speed - 3.3) / (6.105 - 3.3), 0.0, 1.0))

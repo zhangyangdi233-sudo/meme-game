@@ -1,0 +1,68 @@
+{
+  "reviewed": "2026-10-19",
+  "sources": [
+    {
+      "title": "Godot 4.6 volumetric fog and quad alternative",
+      "url": "https://docs.godotengine.org/en/4.6/tutorials/3d/volumetric_fog.html",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot 4.6 renderer feature table",
+      "url": "https://docs.godotengine.org/en/4.6/tutorials/rendering/renderers.html",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot 4.6 transparency sorting",
+      "url": "https://docs.godotengine.org/en/4.6/tutorials/3d/3d_rendering_limitations.html",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot 4.6 spatial shader reference",
+      "url": "https://docs.godotengine.org/en/4.6/tutorials/shaders/shader_reference/spatial_shader.html",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot 4.6 stable GLES3 additive source",
+      "url": "https://github.com/godotengine/godot/blob/4.6-stable/drivers/gles3/rasterizer_scene_gles3.cpp#L2948",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "ASC Lighting a Set with Stephen H. Burum",
+      "url": "https://theasc.com/article/lighting-a-set/",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "ASC Lighting for LED Stages",
+      "url": "https://theasc.com/article/lighting-for-led-stages/",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot fixed-layer mesh/light-pair issue",
+      "url": "https://github.com/godotengine/godot/issues/121989",
+      "use": "Read-only reference; no external source code or article copied into production"
+    },
+    {
+      "title": "Godot pairing fix",
+      "url": "https://github.com/godotengine/godot/pull/122064",
+      "use": "Read-only reference; no external source code or article copied into production"
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "D:\\aphasia\\meme-game\\docs\\research\\2026-10-19-crt-soft-light-technical-comparison.md",
+      "bytes": 8858,
+      "sha256": "e0276b603ff1964eaa62b5362acbe387793a25a3313e817c7f1293db3c9ad939"
+    },
+    {
+      "path": "D:\\aphasia\\meme-game\\shaders\\chapter_crt_soft_beam.gdshader",
+      "bytes": 1199,
+      "sha256": "cc2362e9264f5bc7ed030bb368213f780c138abe525e96d0b581f407b34095d4"
+    },
+    {
+      "path": "D:\\aphasia\\参考\\20261019-cinematic-lighting\\arri-lighting-handbook.pdf",
+      "bytes": 7883168,
+      "sha256": "b09776d4906e544b40295a8a8989bc138c0d3cb4ad6d283162c6c3f108e764b4"
+    }
+  ],
+  "current_status": "Visible beam removed at user request; only CRT cabinet lighting remains. Soft shader retained but unused."
+}

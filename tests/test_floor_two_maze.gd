@@ -13,7 +13,7 @@ func _run() -> void:
 	_check(data.rows.size() == 25 and data.walkable_cells.size() == 176, "fixed expanded plan has twenty-five rows and 176 walkable cells")
 	_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL) == 82, "shortest full route is 656 metres")
 	_check(data.primary_route.size() == 91, "authored main route has ninety-one points across 720 metres")
-	_check(_distance(Layout.SPAWN_CELL, Layout.WAYFINDER_CELL) == 2, "map-giving first NPC is available after sixteen metres")
+	_check(_distance(Layout.SPAWN_CELL, Layout.WAYFINDER_CELL) == 2, "the retained paper-note entrance anchor is sixteen metres from spawn")
 	var edges := 0
 	var dead_ends := 0
 	for cell: Vector2i in data.walkable_cells:
@@ -25,7 +25,7 @@ func _run() -> void:
 		dead_ends += int(degree == 1)
 	_check(edges / 2 - data.walkable_cells.size() + 1 == 7 and dead_ends == 12, "seven loops and twelve dead ends add deliberate navigation choices")
 	for cell in [Layout.WAYFINDER_CELL, Layout.TURN_CELLS[0], Layout.TURN_CELLS[1], Layout.CARTOGRAPHER_CELL, Layout.XRAY_INTRO_CELL, Layout.HIDDEN_PATH_CELL]:
-		_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL, cell) == -1, "required NPC/turn cell %s cannot be bypassed" % cell)
+		_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL, cell) == -1, "authored passage/turn cell %s cannot be bypassed" % cell)
 	for index in Layout.GRID_SIZE.x:
 		_check(not Layout.is_walkable(Vector2i(index, 0)) and not Layout.is_walkable(Vector2i(index, 24)) and not Layout.is_walkable(Vector2i(0, index)) and not Layout.is_walkable(Vector2i(24, index)), "continuous outer residences prevent perimeter shortcut")
 	var world := World.new()
@@ -36,7 +36,7 @@ func _run() -> void:
 	data = world.get_floor_two_map_layout()
 	_check(world.get_meta("layout_mode") == "residential_maze", "actual generator selects residential maze")
 	_check(world.get_meta("terrain_profile") == "undulating_irregular_disc" and world.get_meta("disc_mound_count") == 13, "original hill terrain remains")
-	_check(world.get_meta("ordinary_npc_count") == 2 and world.get_interactable_actors().size() == 3, "only two journey NPCs and physical exit remain")
+	_check(world.get_meta("ordinary_npc_count") == 0 and world.get_interactable_actors().size() == 2, "second floor has no NPCs; only its paper note and exit remain interactable")
 	_check(data.blocking_rects.size() == 5, "physical fine grid includes four passage side walls and the permanent hidden partition")
 	for rect: Rect2 in data.blocking_rects:
 		var center := rect.get_center()
@@ -51,7 +51,7 @@ func _run() -> void:
 	var ids: Array[String] = []
 	for actor in world.get_interactable_actors():
 		ids.append(actor.get_meta("actor_id"))
-	_check(ids == ["floor2_wayfinder", "floor2_cartographer", "floor2_exit"], "stable actor ids match journey and F routing")
+	_check(ids == ["floor2_note", "floor2_exit"], "stable note and exit ids match F routing without retired NPC actors")
 	for day in range(1, 13):
 		world.configure_authored_events(day, {})
 		_check(world.get_meta("authored_event_count") == 0 and World.authored_event_kinds_for_floor_day(2, day).is_empty() and world.find_child("AuthoredHorrorEvents", true, false) == null, "day %d cannot resurrect old second-floor props/events" % day)

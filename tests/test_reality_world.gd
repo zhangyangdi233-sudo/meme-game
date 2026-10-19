@@ -62,12 +62,19 @@ func _run() -> void:
 		game_root._animate_world(0.5)
 		_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
 		game_root._reality_interaction_active = false
+	game_root.set_view_state("phone_down")
+	await create_timer(0.5).timeout
+	_assert_eq(game_root.game.view_state, "phone_down", "cinematic frame checks should run with the phone open")
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
-		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
+		_assert_true(top_bar.visible and bottom_bar.visible, "opening the phone should preserve both cinematic bars around the world")
 		_assert_eq(float(top_bar.get_meta("target_aspect_ratio", 0.0)), 2.35, "cinematic bars should target the selected 2.35 aspect ratio")
-	if social_window != null and top_bar != null:
-		_assert_true(social_window.z_index > top_bar.z_index, "phone app windows should render above the cinematic bars")
+	var phone_dock := game_root._phone_panel as CanvasItem
+	_assert_true(phone_dock != null and phone_dock.is_visible_in_tree(), "the phone dock should be visible during cinematic frame checks")
+	if social_window != null and phone_dock != null and top_bar != null and bottom_bar != null:
+		_assert_true(phone_dock.get_canvas() == top_bar.get_canvas() and social_window.get_canvas() == top_bar.get_canvas() and bottom_bar.get_canvas() == top_bar.get_canvas(), "phone and cinematic bars should share the same canvas for their relative z ordering")
+		var bar_z := maxi(_effective_z(top_bar), _effective_z(bottom_bar))
+		_assert_true(_effective_z(phone_dock) > bar_z and _effective_z(social_window) > bar_z, "phone dock and embedded app should render in front of both bars after parent z is included")
 
 	_assert_eq(game_root._room_count_for_floor(1), 4, "floor one should begin with four rooms")
 	_assert_eq(game_root._room_count_for_floor(2), 6, "floor two should add two rooms")
@@ -76,12 +83,10 @@ func _run() -> void:
 	for floor_number in range(2, 5):
 		var growth: int = game_root._room_count_for_floor(floor_number) - game_root._room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
-	var expected_npc_counts := [4, 2, 2, 0]
+	var expected_npc_counts := [4, 0, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
 		_assert_eq(game_root._npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
-		if floor_index > 0:
-			_assert_true(expected_npc_counts[floor_index] <= expected_npc_counts[floor_index - 1], "authored NPC population should never increase on ascent")
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 4, "generated first floor should match the room formula")
 	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 4, "first floor should contain four ordinary NPCs")
 	_assert_eq(str(floor_root.get_meta("district_style", "")), "sunlit_brick_street", "first floor should use the sunlit brick-road reference grammar")
@@ -129,10 +134,10 @@ func _run() -> void:
 	_assert_eq(int(floor_root.get_meta("crossroad_branch_wall_count", 0)), 6, "left and right branches should each have two side walls and one end wall")
 	_assert_true(_find_node_by_name(floor_root, "CrossroadEndWallWest") != null and _find_node_by_name(floor_root, "CrossroadEndWallEast") != null, "both horizontal branches should terminate in real walls")
 	_assert_true(_find_node_by_name(floor_root, "StreetEndWallNorth") != null and _find_node_by_name(floor_root, "StreetEndWallSouth") != null, "the long street should close its north and south ends")
-	_assert_eq(str(floor_root.get_meta("dreamcore_overlay", "")), "regular_grid_with_controlled_anomalies", "first-floor additions should use controlled dreamcore repetition")
-	_assert_eq(int(floor_root.get_meta("dreamcore_light_slot_count", 0)), 18, "both branches should repeat nine threshold light bays")
-	_assert_true(int(floor_root.get_meta("dreamcore_false_door_count", 0)) >= 6, "repeated false doors should introduce sparse architectural wrongness")
-	_assert_true(_find_node_by_name(floor_root, "DreamcoreThresholdRhythm") != null, "dreamcore atmosphere should be represented by original procedural geometry")
+	_assert_true(_find_node_by_name(floor_root, "DreamcoreThresholdRhythm") == null, "yellow crossroads should have open sky without the decorative threshold assembly")
+	_assert_true(floor_root.find_children("ThresholdBeam*", "", true, false).is_empty(), "crossroad branches should have no overhead bars")
+	_assert_true(floor_root.find_children("CeilingLightSlot*", "", true, false).is_empty() and floor_root.find_children("ThresholdLight*", "", true, false).is_empty(), "removed overhead lights should have neither visible fixtures nor active light sources")
+	_assert_true(floor_root.find_children("FalseDoor*", "", true, false).is_empty(), "crossroad boundary walls should have no decorative black false doors")
 	_assert_eq(int(floor_root.get_meta("air_wall_count", 0)), 12, "the cross-shaped map perimeter should expose twelve joined air-wall segments")
 	var air_walls := _find_node_by_name(floor_root, "AirWalls") as Node3D
 	_assert_true(air_walls != null and air_walls.get_child_count() == 12, "air-wall container should follow every edge of the cross-shaped floor")
@@ -362,9 +367,11 @@ func _run() -> void:
 	floor_root = game_root.get_node_or_null("RealityFloor") as Node3D
 	await physics_frame
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 2, "second floor contains two actual walkthrough rooms")
-	_assert_eq(int(floor_root.get_meta("logical_room_count", 0)), 2, "retired reward anchors are replaced by the two NPC passage rooms")
-	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 2, "second floor contains exactly two journey NPCs")
-	_assert_eq(_count_actors(floor_root, "npc"), 2, "actual second-floor actor population matches journey metadata")
+	_assert_eq(int(floor_root.get_meta("logical_room_count", 0)), 2, "the two roofed passage rooms remain after retiring their NPCs")
+	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 0, "second floor contains no journey NPCs")
+	_assert_eq(_count_actors(floor_root, "npc"), 0, "actual second-floor actor population is empty")
+	_assert_eq(_count_actors(floor_root, "floor2_note"), 1, "second floor replaces dialogue with one physical paper note")
+	_assert_eq(floor_root.get_interactable_actors().size(), 2, "only the note and true exit are second-floor interactables")
 	_assert_eq(_count_actors(floor_root, "floor2_exit"), 1, "second floor has a real F-interactable exit")
 	_assert_true(_find_actor(floor_root, "doll") == null and _find_actor(floor_root, "key_npc") == null, "old doll and prerequisite clue actors stay removed")
 	_assert_eq(str(floor_root.get_meta("layout_mode", "")), "residential_maze", "second floor uses the shared residential maze plan")
@@ -385,7 +392,7 @@ func _run() -> void:
 	_assert_true(disc_material.cull_mode == BaseMaterial3D.CULL_DISABLED and disc_material.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST, "terrain remains visible with original pixel stone material")
 	var logical_rooms: Array[Node3D] = []
 	_collect_nodes_with_meta(floor_root, "logical_room", logical_rooms)
-	_assert_eq(logical_rooms.size(), 2, "both mandatory NPC rooms are physical roofed passages")
+	_assert_eq(logical_rooms.size(), 2, "both entrance rooms remain physical roofed passages")
 	var layout: Dictionary = floor_root.get_floor_two_map_layout()
 	_assert_eq(layout.walkable_cells.size(), 176, "phone and world share the expanded 176-cell path graph")
 	var physical_houses: Array[Node3D] = []
@@ -715,6 +722,17 @@ func _collect_nodes_with_meta(node: Node, meta_name: StringName, result: Array[N
 		result.append(node as Node3D)
 	for child in node.get_children():
 		_collect_nodes_with_meta(child, meta_name, result)
+
+
+func _effective_z(item: CanvasItem) -> int:
+	var value := 0
+	var current := item
+	while current != null:
+		value += current.z_index
+		if not current.z_as_relative:
+			break
+		current = current.get_parent() as CanvasItem
+	return value
 
 
 func _assert_true(value: bool, message: String) -> void:

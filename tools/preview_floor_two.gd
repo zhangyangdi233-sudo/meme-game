@@ -20,17 +20,9 @@ func _run() -> void:
 	state.chapter1_progress = {}
 	state.tower_floor = 2
 	state.set_view_state("npc_up")
-	# Grant the app for this viewing session through the same journey state API.
-	# Exploration starts empty so walking still demonstrates persistent fog.
-	var journey = load("res://scripts/progression/floor_two_journey.gd")
-	state.floor_two_progress = journey.finish_dialogue({}, journey.WAYFINDER)
-	for checkpoint in journey.TURN_IDS:
-		state.floor_two_progress = journey.visit_turn(state.floor_two_progress, checkpoint)
-	state.floor_two_progress = journey.finish_dialogue(state.floor_two_progress, journey.CARTOGRAPHER)
+	# Begin with the genuine title -> phone -> gray-to-lit map introduction.
 	main._begin_game_session(state, {}, false)
 	for frame in 4:
 		await process_frame
-	main._open_phone_launcher()
-	main._on_app_pressed("map")
 	main._save_progress()
 	print("FLOOR_TWO_PREVIEW_READY floor=%d map_unlocked=%s position=%s" % [main.game.tower_floor, main.game.is_phone_app_unlocked("map"), main._reality_player.position])

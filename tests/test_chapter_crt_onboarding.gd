@@ -65,6 +65,9 @@ func _focus_restoration() -> void:
 	var original_mask := camera.cull_mask
 	var original_environment := camera.environment
 	var light_states: Dictionary = {}
+	var mesh_layers: Dictionary = {}
+	for mesh in world.get_crt_focus_visuals():
+		mesh_layers[mesh] = mesh.layers
 	for light in world.find_children("*", "Light3D", true, false):
 		if light.get_world_3d() == camera.get_world_3d():
 			light_states[light] = light.visible
@@ -75,10 +78,17 @@ func _focus_restoration() -> void:
 	var held := player.position
 	_check(focus.is_active() and progress.crt_tutorial.focus_started, "real downward stair crossing starts exactly once")
 	_check(camera.cull_mask == (1 << 17) and camera.environment.background_color == Color.BLACK, "instant isolated black view retains only CRT layer")
+	for mesh in mesh_layers:
+		_check(mesh.layers == mesh_layers[mesh], "focus must not change live CRT geometry layers (Godot 4.6 Forward+ light pairing)")
+	var mirrors: Array[Node] = world.find_children("CRTFocusMirror*", "MeshInstance3D", true, false)
+	_check(mirrors.size() == mesh_layers.size(), "isolated view contains a fixed-layer mirror of every CRT visual")
+	for mirror in mirrors:
+		_check(mirror.layers == camera.cull_mask, "teaching mirror has its final layer before entering the rendered world")
 	var teaching_spot := world.find_child("CRTFirstVisitWhiteSpotlight", true, false) as SpotLight3D
 	var teaching_beam := world.find_child("CRTFirstVisitWhiteLightBeam", true, false) as MeshInstance3D
 	_check(teaching_spot != null and teaching_spot.layers == camera.cull_mask and teaching_spot.light_cull_mask == camera.cull_mask, "white spotlight itself survives the isolated camera mask")
-	_check(teaching_beam != null and teaching_beam.layers == camera.cull_mask, "compatibility renderer receives a temporary visible top-down white beam")
+	_check(teaching_beam == null, "isolated CRT focus has no visible overhead beam or mist geometry")
+	_check(teaching_spot != null and teaching_spot.visible and teaching_spot.light_energy > 0.0, "invisible spotlight still makes the CRT cabinet readable against black")
 	for light in light_states:
 		_check(not light.visible, "all original lights are suppressed during focus")
 	var paused_pose := camera.global_transform
@@ -98,6 +108,8 @@ func _focus_restoration() -> void:
 	focus.route_input(click)
 	_check(progress.crt_tutorial.focus_line == 2, "actual input event advances exactly one line")
 	focus.cancel()
+	await process_frame
+	_check(world.find_children("CRTFocusMirror*", "MeshInstance3D", true, false).is_empty() and world.find_child("CRTFirstVisitWhiteSpotlight", true, false) == null, "cancel frees temporary CRT mirrors and spotlight instead of retaining hidden lights")
 	_check(camera.global_transform.is_equal_approx(original_pose) and camera.environment == original_environment and camera.cull_mask == original_mask, "cancel restores full camera state")
 	for light in light_states:
 		_check(light.visible == light_states[light], "cancel restores each light's previous visibility")

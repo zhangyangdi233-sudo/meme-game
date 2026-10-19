@@ -21,8 +21,10 @@ func _run() -> void:
 		return
 	var progress: Dictionary = Journey.normalize({})
 	_check(Journey.record_xray_observation(progress, "xray_intro") == progress, "seeing before map tutorial cannot grant later progress")
-	progress = Journey.finish_dialogue(progress, Journey.WAYFINDER)
-	_check(progress.map_unlocked and progress.visited_turn_ids.is_empty(), "first NPC alone enables the three observation lessons")
+	# This geometry/observation fixture starts after the arrival presentation;
+	# the real timed title and map-unlock animation have their own integration test.
+	progress = Journey.complete_map_intro({})
+	_check(progress.map_unlocked and progress.visited_turn_ids.is_empty(), "completed arrival presentation enables the three observation lessons")
 	_check(not Journey.can_exit(progress), "map alone does not reveal the white exit")
 	_check(Journey.record_xray_observation(progress, "exit") == progress, "exit observation cannot skip first two lessons")
 	_check(Journey.record_xray_observation(progress, "unknown") == progress, "unknown world objects cannot advance a lesson")

@@ -19,8 +19,8 @@ func _run() -> void:
 	state.pending_floor_transition = 3
 	state.settle_day_if_needed()
 	_check(state.tower_floor == 2, "pollution and stale pending transitions cannot bypass the maze")
-	_check(state.has_method("finish_floor_two_dialogue"), "quest reward has an actual dialogue completion entry point")
-	_check(state.has_method("visit_floor_two_turn"), "walking through mandatory turns updates the quest")
+	_check(load("res://scripts/progression/floor_two_journey.gd").has_method("complete_map_intro"), "map reward has a presentation-completion entry point")
+	_check(state.has_method("visit_floor_two_turn"), "walking can still record optional route turns")
 	_check(state.has_method("try_exit_floor_two"), "the second floor has a physical exit gate")
 	if not state.has_method("finish_floor_two_dialogue"):
 		_finish()
@@ -43,6 +43,12 @@ func _run() -> void:
 	_check(not main._road.visible, "old RoadTile geometry is absent from the residential maze")
 	var layout: Dictionary = main._reality_floor.get_floor_two_map_layout()
 	_check(not layout.is_empty(), "rendered level exposes its shared layout")
+	if not await _exercise_arrival(main):
+		main.free()
+		_finish()
+		return
+	await _exercise_note(main)
+	main.set_view_state("npc_up")
 	# Held movement keys must never travel or reveal streets behind a modal.
 	for overlay in ["connection", "prologue"]:
 		if overlay == "connection":
@@ -67,10 +73,9 @@ func _run() -> void:
 		tab.pressed = true
 		main._unhandled_input(tab)
 		_check(main.game.view_state == "npc_up", "%s blocks phone toggle behind the overlay" % overlay)
-		for actor: Area3D in main._reality_floor.get_interactable_actors():
-			if str(actor.get_meta("actor_id", "")) == "floor2_wayfinder":
-				main._reality_player.position = main._reality_floor.clamp_to_playable_position(actor.position + Vector3(0, 0, 1), 0.45)
-		_check(not main._try_reality_interaction(), "%s blocks an actual nearby NPC interaction" % overlay)
+		main._reality_player.position = layout.exit_position + Vector3(0, 0, 1.0)
+		main._refresh_nearby_reality_actor()
+		_check(not main._try_reality_interaction(), "%s blocks the actual nearby exit interaction" % overlay)
 		main._reality_player.position = layout.turn_points[0]
 		main._update_floor_two_exploration(2.1)
 		_check(main._floor_two_map_snapshot().explored == paused_exploration, "%s cannot discover a displaced player position" % overlay)
@@ -79,20 +84,8 @@ func _run() -> void:
 			main._hide_phone_camera_connection_overlay()
 		else:
 			main._prologue_overlay.hide()
-	var map_icon: Button = main._phone_panel.app_buttons.get("map")
-	_check(map_icon != null and map_icon.visible and map_icon.disabled, "second floor shows a locked map icon")
-	main._on_app_pressed("map")
-	_check(main.game.active_app_window != "map", "locked map cannot be opened through callbacks")
-	_check(main._cover_watcher_stinger.get_meta("generated_audio_path", "") == main.FLOOR_TWO_WHISPER_PATH, "new second floor plays the familiar whisper without a watcher model")
 	_check(main._reality_floor.find_child("CoverWatcherEvent", true, false) == null, "retired watcher visual is absent")
-	# Speaking to the cartographer before accepting the task never awards an app.
-	await _speak(main, "floor2_cartographer")
-	_check(not main.game.is_phone_app_unlocked("map"), "early cartographer dialogue does not unlock the map")
-	await _speak(main, "floor2_wayfinder")
-	_check(bool(main.game.floor_two_progress.get("accepted", false)), "completed keyboard dialogue records the first NPC conversation")
-	_check(main.game.floor_two_progress.visited_turn_ids.is_empty(), "map reward does not require reaching either old checkpoint")
-	_check(main.game.is_phone_app_unlocked("map"), "first wayfinder dialogue immediately awards the map")
-	_check(not map_icon.disabled, "reward immediately enables the phone icon")
+	_check(not main.game.floor_two_progress.accepted and main.game.is_phone_app_unlocked("map"), "arrival grants the map without removed NPCs or acceptance history")
 	main._open_phone_launcher()
 	main._on_app_pressed("map")
 	await _frames()
@@ -116,7 +109,7 @@ func _run() -> void:
 			added += 1 if previous[index] == 0 and restored[index] == 1 else 0
 		print("MAP RESTORE: lost=%d added=%d position=%s -> %s" % [lost, added, position_before, main._reality_player.position])
 	_check(main.game.exploration_maps == before, "Continue preserves the visited cells")
-	_check(main.game.floor_two_progress.accepted and main.game.floor_two_progress.visited_turn_ids.is_empty(), "Continue retains the map with only the first NPC completed")
+	_check(main.game.floor_two_progress.map_intro_completed and not main.game.floor_two_progress.accepted, "Continue retains the completed map introduction without NPC history")
 	_check(not main.game.try_exit_floor_two(), "map ownership alone cannot bypass the Xray discoveries")
 	# Spatial hand-frame evidence is covered by test_floor_two_phone_xray_flow;
 	# this flow verifies that the resulting ordered discoveries reach the F gate.
@@ -143,6 +136,11 @@ func _run() -> void:
 	main.new_game()
 	await _frames()
 	_check(not main.game.is_phone_app_unlocked("map") and main.game.exploration_maps.is_empty(), "new game resets app permissions and map exploration")
+	var accepted_legacy = State.new()
+	accepted_legacy.load_save_data({"version": 5, "state": {"tower_floor": 2, "floor_two_progress": {"accepted": true}, "view_state": "npc_up"}})
+	main._begin_game_session(accepted_legacy, {}, false)
+	await _frames()
+	_check(main.game.is_phone_app_unlocked("map") and not main._floor_two_map_unlock_active() and not main._day_transition_overlay.visible, "accepted legacy saves keep their map without replaying title or unlock")
 	main._set_reality_mouse_look(false)
 	main.free()
 	await _frames()
@@ -151,29 +149,164 @@ func _run() -> void:
 	_check(not legacy.is_phone_app_unlocked("map"), "old saves do not silently unlock the new app")
 	_finish()
 
-func _speak(main, actor_id: String) -> void:
-	main.set_view_state("npc_up")
-	var actor: Area3D
-	for candidate: Area3D in main._reality_floor.get_interactable_actors():
-		if str(candidate.get_meta("actor_id", "")) == actor_id:
-			actor = candidate
-	_check(actor != null, "%s exists as an actual NPC" % actor_id)
-	if actor == null:
-		return
-	main._reality_player.position = main._reality_floor.clamp_to_playable_position(actor.position + Vector3(0, 0, 1), 0.45)
-	main._refresh_nearby_reality_actor()
-	_check(main._try_reality_interaction(), "%s starts via F interaction" % actor_id)
-	_check(main.game.conversation_phase == "typing", "NPC retains the protagonist keyboard mechanism")
-	var guard := 0
-	while main.game.conversation_phase == "typing" and guard < 400:
-		main._advance_typed_reality_character()
-		guard += 1
-	_check(main.game.conversation_phase == "result", "typed reply reaches the automatic response phase")
-	main._update_reality_dialogue(120.0)
+func _exercise_arrival(main) -> bool:
+	_check(main._day_transition_overlay.visible and not main.game.is_phone_app_unlocked("map"), "fresh arrival plays the floor title before granting access")
+	_check(not main._open_floor_two_note() and not main._floor_two_note_active(), "the visible floor title cannot be interrupted by opening the note")
+	var phone_tab: Button = main._phone_panel.tab
+	_check(is_instance_valid(phone_tab) and phone_tab.visible and phone_tab.get_global_rect().has_area(), "the arrival test targets the actual visible phone edge button")
+	_click(phone_tab.get_global_rect().get_center())
 	await _frames()
-	_check(main._reality_interaction_active and main._reality_end_button.visible, "the final reply waits at the End button")
-	main._reality_end_button.pressed.emit()
-	_check(not main._reality_interaction_active, "the End button immediately closes dialogue")
+	_check(main._day_transition_overlay.visible and main.game.view_state == "npc_up" and main.game.active_app_window.is_empty() and not main._phone_panel._open and main._phone_panel._slide_fraction < 0.01, "a real GUI click on the phone edge cannot interrupt the floor title or slide the phone out early")
+	if not await _wait_for(func(): return main._floor_two_map_unlock_active(), 5.0, "real frames finish the title and start the phone introduction"):
+		return false
+	var map_icon: Button = main._phone_panel.app_buttons.map
+	_check(map_icon.visible and map_icon.disabled and float(map_icon.get_meta("unlock_brightness")) < 0.05, "phone initially presents a visible gray disabled map icon")
+	_check(not main._day_transition_overlay.visible and main.game.view_state == "phone_down", "the title is gone before the phone slides out")
+	_check(not main._open_floor_two_note() and not main._floor_two_note_active(), "map unlock rejects the note until its presentation finishes")
+	main._on_app_pressed("map")
+	_check(main.game.active_app_window != "map", "gray map cannot be opened through callbacks")
+	var locked_position: Vector3 = main._reality_player.position
+	var locked_camera: Transform3D = main._camera.global_transform
+	var locked_exploration: PackedByteArray = main._floor_two_map_snapshot().explored.duplicate()
+	Input.action_press("reality_forward")
+	for frame in 12:
+		await physics_frame
+	Input.action_release("reality_forward")
+	_key(KEY_TAB)
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(80, 25)
+	Input.parse_input_event(motion)
+	await _frames()
+	_check(main._reality_player.position.is_equal_approx(locked_position) and main._camera.global_transform.is_equal_approx(locked_camera), "unlock freezes real movement and camera input")
+	_check(main.game.view_state == "phone_down" and main._floor_two_map_unlock_active(), "Tab cannot close the phone during its introduction")
+	_check(main._floor_two_map_snapshot().explored == locked_exploration, "frozen presentation does not reveal map cells")
+	_key(KEY_ESCAPE)
+	await _frames()
+	_check(main._settings_open, "actual Esc opens settings during map introduction")
+	_check(not main._floor_two_unlock_shield.visible, "settings immediately hide the unlock input shield so its controls remain usable")
+	var brightness: float = map_icon.get_meta("unlock_brightness")
+	var slide: float = main._phone_panel._slide_fraction
+	await create_timer(0.45).timeout
+	_check(is_equal_approx(float(map_icon.get_meta("unlock_brightness")), brightness) and is_equal_approx(main._phone_panel._slide_fraction, slide), "settings pause both map brightness and the phone slide")
+	_key(KEY_ESCAPE)
+	await _frames()
+	_check(not main._settings_open, "Esc closes settings without dismissing the introduction")
+	main._notification(MainLoop.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	brightness = map_icon.get_meta("unlock_brightness")
+	await create_timer(0.25).timeout
+	_check(is_equal_approx(float(map_icon.get_meta("unlock_brightness")), brightness) and main._floor_two_map_unlock_active(), "application focus loss pauses the introduction without rewarding it")
+	main._notification(MainLoop.NOTIFICATION_APPLICATION_FOCUS_IN)
+	if not await _wait_for(func(): return float(map_icon.get_meta("unlock_brightness")) > 0.1 and float(map_icon.get_meta("unlock_brightness")) < 0.95, 2.0, "real frames visibly brighten the still-disabled icon"):
+		return false
+	_check(map_icon.disabled and not main.game.is_phone_app_unlocked("map"), "partial animation cannot grant app permission")
+	_check(main._save_progress(), "an interrupted introduction can be saved")
+	main.show_main_menu()
+	await _frames()
+	_check(not main._floor_two_map_unlock_active(), "leaving the session cancels the presentation")
+	_check(main.continue_game(), "Continue loads an interrupted introduction")
+	await _frames()
+	_check(not main.game.is_phone_app_unlocked("map") and main._day_transition_overlay.visible, "Continue replays the title while the unfinished map stays locked")
+	_check(main.game.view_state == "npc_up" and main.game.active_app_window.is_empty() and not main._phone_panel._open and main._phone_panel._slide_fraction < 0.01, "an interrupted phone save is restored closed until the replayed title ends")
+	if not await _wait_for(func(): return main._floor_two_map_unlock_active(), 5.0, "interrupted introduction safely starts again after its title"):
+		return false
+	if not await _wait_for(func(): return main.game.is_phone_app_unlocked("map"), 3.5, "real unpaused frames complete and grant the map"):
+		return false
+	_check(not main._floor_two_map_unlock_active() and not main._phone_panel.app_buttons.map.disabled, "completion releases input and enables the icon")
+	_check(main.game.view_state == "phone_down" and main.game.active_app_window.is_empty() and main._phone_launcher_open, "completion leaves the phone open on its homepage")
+	_check(bool(main._load_save_payload().game.state.floor_two_progress.map_intro_completed), "completion immediately saves its one-time reward")
+	_check(main._cover_watcher_stinger.get_meta("generated_audio_path", "") == main.FLOOR_TWO_WHISPER_PATH, "new second floor plays the familiar whisper without a watcher model after arrival input is released")
+	var layout: Dictionary = main._reality_floor.get_floor_two_map_layout()
+	var route: Array = layout.primary_route
+	var direction: Vector3 = (route[1] - route[0]).normalized()
+	main._reality_player.position = route[0]
+	main._reality_yaw = rad_to_deg(atan2(-direction.x, -direction.z))
+	var before: Vector3 = main._reality_player.position
+	Input.action_press("reality_forward")
+	for frame in 18:
+		await physics_frame
+	Input.action_release("reality_forward")
+	_check(Vector2(main._reality_player.position.x, main._reality_player.position.z).distance_to(Vector2(before.x, before.z)) > 0.2, "actual walking resumes while the unlocked phone stays open")
+	_click(main._phone_panel.tab.get_global_rect().get_center())
+	await _frames()
+	_check(main.game.view_state == "npc_up" and not main._phone_panel._open, "the same real GUI click closes the phone once the introduction releases input")
+	_click(main._phone_panel.tab.get_global_rect().get_center())
+	await _frames()
+	_check(main.game.view_state == "phone_down" and main._phone_panel._open, "the edge button can reopen the phone after the introduction")
+	return true
+
+func _exercise_note(main) -> void:
+	main.set_view_state("npc_up")
+	var note := main._reality_floor.find_child("FloorTwoNote", true, false) as Area3D
+	_check(note != null and note.visible, "the unread note exists as a physical object")
+	if note == null:
+		return
+	main._reality_player.position = main._reality_floor.clamp_to_playable_position(note.position + Vector3(0, 0, 0.65), 0.45)
+	main._reality_player.velocity = Vector3.ZERO
+	main._refresh_nearby_reality_actor()
+	_key(KEY_F)
+	await _frames()
+	_check(main._floor_two_note_active() and not note.visible and note.collision_layer == 0, "real F opens the nearby paper and hides its world duplicate")
+	if not main._floor_two_note_active():
+		return
+	_key(KEY_F10)
+	await _frames()
+	_check(main._settings_open and main._floor_two_note_active() and not main._floor_two_note_view.visible and not main.game.floor_two_progress.note_read, "F10 settings temporarily hide the active paper without reading or dismissing it")
+	_key(KEY_F10)
+	await _frames()
+	_check(not main._settings_open and main._floor_two_note_active() and main._floor_two_note_view.visible and not main.game.floor_two_progress.note_read, "closing settings restores the same unread paper")
+	var position: Vector3 = main._reality_player.position
+	var explored: PackedByteArray = main._floor_two_map_snapshot().explored.duplicate()
+	Input.action_press("reality_forward")
+	for frame in 12:
+		await physics_frame
+	Input.action_release("reality_forward")
+	_key(KEY_TAB)
+	await _frames()
+	_check(main._reality_player.position.is_equal_approx(position) and main._floor_two_map_snapshot().explored == explored and main.game.view_state == "npc_up", "reading the note blocks locomotion, fog exploration and Tab")
+	_key(KEY_ENTER)
+	await _frames()
+	_check(not main._floor_two_note_active() and main.game.floor_two_progress.note_read and not note.visible and note.collision_layer == 0, "actual Enter closes the paper and permanently removes the world copy")
+	_check(bool(main._load_save_payload().game.state.floor_two_progress.note_read), "closing the paper saves its read state immediately")
+	_check(main.continue_game(), "Continue reloads the already-read note")
+	await _frames()
+	note = main._reality_floor.find_child("FloorTwoNote", true, false) as Area3D
+	_check(main.game.floor_two_progress.note_read and note != null and not note.visible and note.collision_layer == 0, "the read paper stays absent after Continue")
+	_check(not main._floor_two_note_active() and not main._floor_two_map_unlock_active(), "Continue cannot leave a note overlay or repeat a completed introduction")
+
+func _key(code: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = code
+	event.physical_keycode = code
+	event.pressed = true
+	Input.parse_input_event(event)
+	var release := event.duplicate() as InputEventKey
+	release.pressed = false
+	Input.parse_input_event(release)
+
+func _click(position: Vector2) -> void:
+	# The fixture uses Control viewport coordinates; push_input(true) keeps
+	# those coordinates unchanged through the real _input -> GUI dispatch.
+	var motion := InputEventMouseMotion.new()
+	motion.position = position
+	motion.global_position = position
+	root.push_input(motion, true)
+	var event := InputEventMouseButton.new()
+	event.position = position
+	event.global_position = position
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	root.push_input(event, true)
+	var release := event.duplicate() as InputEventMouseButton
+	release.pressed = false
+	root.push_input(release, true)
+
+func _wait_for(predicate: Callable, timeout: float, message: String) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
+	while not predicate.call() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	var complete := bool(predicate.call())
+	_check(complete, message)
+	return complete
 
 func _frames() -> void:
 	for i in 4:

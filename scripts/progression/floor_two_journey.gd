@@ -5,24 +5,29 @@ const TURN_IDS := ["turn_1", "turn_2"]
 const XRAY_OBSERVATION_IDS := ["xray_intro", "hidden_path", "exit"]
 const WAYFINDER := "floor2_wayfinder"
 const CARTOGRAPHER := "floor2_cartographer"
+const PROGRESS_VERSION := 2
 
 
 static func normalize(raw: Variant = {}) -> Dictionary:
-	var result := {"accepted": false, "visited_turn_ids": [], "map_unlocked": false, "xray_observed_ids": [], "exit_reached": false}
-	if not raw is Dictionary or not _is_true(raw.get("accepted", false)):
+	var result := {"version": PROGRESS_VERSION, "accepted": false, "visited_turn_ids": [], "map_unlocked": false, "map_intro_completed": false, "note_read": false, "xray_observed_ids": [], "exit_reached": false}
+	if not raw is Dictionary:
 		return result
-	result.accepted = true
+	result.accepted = _is_true(raw.get("accepted", false))
+	result.note_read = _is_true(raw.get("note_read", false))
+	# Before v2, completing the first NPC was the sole valid map grant. Preserve
+	# that reward, but never infer it from a bare map flag or a malformed version.
+	var legacy_reward: bool = not raw.has("version") and result.accepted
+	var raw_version: Variant = raw.get("version", 0)
+	var current_reward: bool = (raw_version is int or raw_version is float) and raw_version == PROGRESS_VERSION and _is_true(raw.get("map_intro_completed", false))
+	result.map_intro_completed = legacy_reward or current_reward
+	result.map_unlocked = result.map_intro_completed
 	var visited: Variant = raw.get("visited_turn_ids", [])
-	if visited is Array or visited is PackedStringArray:
+	if result.map_unlocked and (visited is Array or visited is PackedStringArray):
 		# Retain the optional walking history without inventing or reordering it.
 		for index in mini(visited.size(), TURN_IDS.size()):
 			if visited[index] != TURN_IDS[index]:
 				break
 			result.visited_turn_ids.append(TURN_IDS[index])
-	# Acceptance is written only when the first NPC dialogue completes. It now
-	# grants the map directly, including old saves still waiting at the turns.
-	# A map flag by itself cannot reach this branch without accepted == true.
-	result.map_unlocked = true
 	var observed: Variant = raw.get("xray_observed_ids", [])
 	if result.map_unlocked and (observed is Array or observed is PackedStringArray):
 		for index in mini(observed.size(), XRAY_OBSERVATION_IDS.size()):
@@ -30,6 +35,23 @@ static func normalize(raw: Variant = {}) -> Dictionary:
 				break
 			result.xray_observed_ids.append(XRAY_OBSERVATION_IDS[index])
 	result.exit_reached = result.xray_observed_ids.size() == XRAY_OBSERVATION_IDS.size() and _is_true(raw.get("exit_reached", false))
+	return result
+
+
+static func needs_map_intro(progress: Dictionary) -> bool:
+	return not normalize(progress).map_intro_completed
+
+
+static func complete_map_intro(progress: Dictionary) -> Dictionary:
+	var result := normalize(progress)
+	result.map_intro_completed = true
+	result.map_unlocked = true
+	return result
+
+
+static func mark_note_read(progress: Dictionary) -> Dictionary:
+	var result := normalize(progress)
+	result.note_read = true
 	return result
 
 
@@ -50,17 +72,15 @@ static func can_exit(progress: Dictionary) -> bool:
 static func visit_turn(progress: Dictionary, checkpoint_id: String) -> Dictionary:
 	var result := normalize(progress)
 	var next_index: int = result.visited_turn_ids.size()
-	if result.accepted and next_index < TURN_IDS.size() and checkpoint_id == TURN_IDS[next_index]:
+	if result.map_unlocked and next_index < TURN_IDS.size() and checkpoint_id == TURN_IDS[next_index]:
 		result.visited_turn_ids.append(checkpoint_id)
 	return result
 
 
-static func finish_dialogue(progress: Dictionary, actor_id: String) -> Dictionary:
-	var result := normalize(progress)
-	if actor_id == WAYFINDER:
-		result.accepted = true
-		result.map_unlocked = true
-	return result
+static func finish_dialogue(progress: Dictionary, _actor_id: String) -> Dictionary:
+	# Retained for older callers. The second-floor NPCs no longer grant tasks or
+	# map access; only the completed phone introduction may unlock the app.
+	return normalize(progress)
 
 
 static func dialogue_for(actor_id: String, progress: Dictionary) -> Dictionary:

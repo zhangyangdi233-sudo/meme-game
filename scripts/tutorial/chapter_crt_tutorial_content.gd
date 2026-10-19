@@ -6,9 +6,9 @@ const LINES := {
 	"ja": ["これは君にとって見覚えのあるものだ", "前はこれを見つめて、ぼんやりするのが好きだったね", "今は忘れてしまっていても、無理はない", "でも今の君にとって、このものは……", "面白い……だろう？", "この古い相棒を見に行ってごらん", "今の君には、これだけが頼りだよ！"],
 }
 const HINTS := {
-	"zh": {"post": "先打开这一条亮着的帖子。", "collect": "点亮的三个字：%s。把它们拾进笔记本。", "compose": "把 %s 从右侧字盘拖到上面的句子栏。", "publish": "句子拼好了。点击「发布」。", "click": "点击继续"},
-	"en": {"post": "Open the highlighted post.", "collect": "Pick up these three words: %s.", "compose": "Drag %s from the tray into the sentence above.", "publish": "Your sentence is ready. Click Publish.", "click": "Click to continue"},
-	"ja": {"post": "光っている投稿を開こう。", "collect": "光る三つの言葉 %s を拾おう。", "compose": "右のトレイから %s を上の文へドラッグしよう。", "publish": "文ができた。「投稿」を押そう。", "click": "クリックで次へ"},
+	"zh": {"post": "先打开这一条\n亮着的帖子。", "collect": "点亮的三个字：\n%s。\n把它们拾进笔记本。", "compose": "把 %s\n从右侧字盘拖到\n上面的句子栏。", "publish": "点击\n「发布」", "click": "点击继续"},
+	"en": {"post": "Open the\nhighlighted post.", "collect": "Pick up these three words:\n%s.", "compose": "Drag %s\nfrom the right tray\nto the sentence above.", "publish": "Click\nPublish", "click": "Click to continue"},
+	"ja": {"post": "光っている投稿を\n開こう。", "collect": "光る三つの言葉\n%s\nを拾おう。", "compose": "右のトレイから\n%s を\n上の文へドラッグ。", "publish": "「投稿」\nを押そう", "click": "クリックで次へ"},
 }
 
 static func line(number: int, locale: String) -> String:

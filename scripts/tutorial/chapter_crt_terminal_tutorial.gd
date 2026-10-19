@@ -176,7 +176,7 @@ func refresh() -> void:
 		var marked_text := _pickup_text(str(rich.get_meta("crt_tutorial_plain")), data)
 		if rich.text != marked_text:
 			rich.text = marked_text
-	_overlay.present(rectangles, Content.hint(data.lesson_phase, locale, State.teaching_units(data.locale)))
+	_overlay.present(rectangles, Content.hint(data.lesson_phase, locale, State.teaching_units(data.locale)), data.lesson_phase)
 
 func _pickup_text(text: String, data: Dictionary) -> String:
 	var result := ""

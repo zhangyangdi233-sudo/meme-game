@@ -38,6 +38,14 @@ func _run() -> void:
 	_check(route.size() == 91, "actual expanded primary route contains all 91 waypoints")
 	_check(_route_length(route) >= 720.0, "walk the complete expanded 720 metre route")
 	_check(is_equal_approx(player.get_node("PlayerCollision").shape.radius, 0.34), "use actual full-size player collision capsule")
+	# A fresh arrival now deliberately locks locomotion until the title and phone
+	# reveal finish. Let the real sequence run before beginning the walking audit.
+	for frame in 600:
+		if main.game.is_phone_app_unlocked("map"):
+			break
+		await process_frame
+	_check(main.game.is_phone_app_unlocked("map"), "actual title and map reveal finish before the route walk")
+	main.set_view_state("npc_up")
 	for frame in 60:
 		await physics_frame
 	_check(player.is_on_floor(), "real gravity settles the player onto the starting terrain")
