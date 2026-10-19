@@ -349,12 +349,13 @@ func _run() -> void:
 				_assert_eq(game_root.game.conversation_phase, "result", "automatic continuation should not skip the NPC reply immediately")
 				game_root._update_reality_dialogue(120.0)
 				if final_reply:
-					_assert_true(not game_root._reality_interaction_active, "the final NPC reply should automatically end the dialogue")
+					_assert_true(game_root._reality_interaction_active and game_root._reality_end_button.visible, "the final NPC reply should present its End button")
+					game_root._reality_end_button.pressed.emit()
 				else:
 					_assert_eq(game_root.game.conversation_turn_index, completed_turn + 1, "the NPC reading interval should automatically select the next authored turn")
-			_assert_true(not game_root._reality_interaction_active, "completing the conversation should return to free walking without a button")
+			_assert_true(not game_root._reality_interaction_active, "clicking End should return to free walking immediately")
 			_assert_eq(game_root.game.actions_remaining, actions_before_dialogue, "the complete guide-doll conversation should retain its action-free behavior")
-			_assert_true(bool(game_root._reality_mouse_look_enabled), "automatic dialogue completion should restore free mouse look")
+			_assert_true(bool(game_root._reality_mouse_look_enabled), "ending dialogue should restore free mouse look")
 
 	game_root.game.tower_floor = 2
 	game_root._ensure_reality_floor_current()
@@ -386,11 +387,11 @@ func _run() -> void:
 	_collect_nodes_with_meta(floor_root, "logical_room", logical_rooms)
 	_assert_eq(logical_rooms.size(), 2, "both mandatory NPC rooms are physical roofed passages")
 	var layout: Dictionary = floor_root.get_floor_two_map_layout()
-	_assert_eq(layout.walkable_cells.size(), 46, "phone and world share the forty-six-cell path graph")
+	_assert_eq(layout.walkable_cells.size(), 176, "phone and world share the expanded 176-cell path graph")
 	var physical_houses: Array[Node3D] = []
 	_collect_nodes_with_meta(floor_root, "physical_house", physical_houses)
 	_assert_eq(physical_houses.size(), layout.buildings.size(), "each blocked map parcel is backed by a residential building")
-	_assert_eq(physical_houses.size(), 123, "regular residential grid encloses the maze without exterior shortcuts")
+	_assert_eq(physical_houses.size(), 217, "road-frontage residences enclose the expanded maze without exterior shortcuts")
 	var floor_two_spawn: Vector3 = floor_root.call("start_position")
 	_assert_true(bool(floor_root.call("contains_playable_position", floor_two_spawn)), "second-floor spawn is inside its first corridor")
 	_assert_near(float(floor_root.call("start_yaw_degrees")), 0.0, 0.01, "spawn faces the mandatory first room")
@@ -522,9 +523,16 @@ func _assert_actor_face_veil(actor: Area3D, billboard: Sprite3D, actor_label: St
 	_assert_near(billboard.position.y - portrait_world_height * 0.5 + bottom_padding, 0.0, 0.01, "%s opaque shoes should meet the ground instead of floating" % actor_label)
 	_assert_near(face_center_world_y, camera_eye_height, 0.08, "%s blank face should remain level with the first-person camera" % actor_label)
 	_assert_eq(billboard.billboard, BaseMaterial3D.BILLBOARD_FIXED_Y, "%s character should face camera horizontally without lifting its feet" % actor_label)
-	_assert_true(not billboard.shaded, "%s character colors should remain unlit and floor-independent" % actor_label)
+	_assert_true(billboard.shaded, "%s character must receive surrounding scene light" % actor_label)
 	_assert_eq(billboard.texture_filter, BaseMaterial3D.TEXTURE_FILTER_NEAREST, "%s character layer should avoid colored mipmap bleed at long distance" % actor_label)
-	_assert_eq(billboard.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s character layer should not inherit floor lighting through shadows" % actor_label)
+	_assert_eq(billboard.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s billboard delegates shadows to one explicitly oriented alpha-cut plane" % actor_label)
+	var shadow_plane := actor.get_node_or_null("NPCShadowBody/PortraitSilhouette") as Sprite3D
+	_assert_true(shadow_plane != null, "%s must not be enclosed by a self-shadowing capsule proxy" % actor_label)
+	if shadow_plane != null:
+		_assert_true(shadow_plane.texture == billboard.texture, "%s shadow should follow the original transparent portrait silhouette" % actor_label)
+		_assert_eq(shadow_plane.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "%s silhouette should only cast a shadow" % actor_label)
+		_assert_eq(shadow_plane.billboard, BaseMaterial3D.BILLBOARD_DISABLED, "%s shadow must use one CPU pose across main and X-ray cameras" % actor_label)
+		_assert_eq(shadow_plane.alpha_cut, SpriteBase3D.ALPHA_CUT_DISCARD, "%s shadow must discard transparent canvas pixels" % actor_label)
 	_assert_true(billboard.material_override == null, "%s original character image should not receive a darkening or face-effect material" % actor_label)
 	_assert_eq(billboard.modulate, Color.WHITE, "%s original character colors should remain unchanged" % actor_label)
 	var overlay := actor.get_node_or_null("FaceScribbleOverlay") as Sprite3D

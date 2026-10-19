@@ -1,7 +1,7 @@
 extends RefCounted
 ## Opening copy imported verbatim from the user's Pages manuscript on 2026-10-13.
 ## Author numbers remain stable: 27 is a stage direction; 28 cues the knock.
-## The Chinese source is preserved. Japanese is the requested spoken translation.
+## The Chinese source is preserved. Subtitle translations share the same numbers.
 
 const LINES := {
 	"1": {
@@ -156,6 +156,39 @@ const LINES := {
 	}
 }
 
+const EN_LINES := {
+	"1": "Hello.",
+	"2": "It seems you've forgotten me again...",
+	"3": "Sigh...",
+	"4": "This happens often.",
+	"5": "I told you before.",
+	"6": "But you always let your emotions take over.",
+	"7": "I've tried so hard to help you make rational decisions.",
+	"8": "But it...",
+	"9": "Every time it matters,",
+	"10": "it locks me away.",
+	"11": "It seems...",
+	"12": "it has locked you away too.",
+	"13": "It's all right...",
+	"14": "I can help you find a way out.",
+	"15": "Because all of this is only an illusion you created yourself.",
+	"16": "In theory,",
+	"17": "you actually know this place better than I do.",
+	"18": "I know what you're thinking right now.",
+	"19": "You're thinking...",
+	"20": "\"Who is this narrator?\"",
+	"21": "\"Why can't I speak?\"",
+	"22": "\"I just wanted to try this 'game.'\"",
+	"23": "\"Why does it keep telling me what to do?\"",
+	"24": "Please remember:",
+	"25": "your goal is to escape this place.",
+	"26": "You are the \"owner\" of this body.",
+	"27": "(A knock sounds in the game.)",
+	"28": "It seems your subconscious is ready.",
+	"29": "Go!",
+	"30": "Emida...",
+}
+
 
 static func is_spoken_line(number: int) -> bool:
 	return LINES.has(str(number)) and not bool(LINES[str(number)].stage_direction)
@@ -165,6 +198,8 @@ static func line_text(number: int, locale: String = "zh") -> String:
 	if not is_spoken_line(number):
 		return ""
 	var row: Dictionary = LINES[str(number)]
+	if locale.begins_with("en"):
+		return str(EN_LINES[str(number)])
 	return str(row.ja) if locale.begins_with("ja") else str(row.zh)
 
 

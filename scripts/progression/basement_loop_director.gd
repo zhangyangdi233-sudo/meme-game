@@ -32,6 +32,7 @@ static func initial_progress(randomize_decoration: bool = true) -> Dictionary:
 		"basement_whisper_played": false,
 		"phone_collected": false,
 		"basement_crt_event_played": false,
+		"crt_tutorial": preload("res://scripts/tutorial/chapter_crt_tutorial_state.gd").normalize({}),
 		"entrance_locked": false,
 		"exit_tunnel_entered": false,
 		"completed_task_ids": [],
@@ -50,6 +51,7 @@ static func normalize_progress(raw: Dictionary) -> Dictionary:
 	progress.basement_whisper_played = _is_true(raw.get("basement_whisper_played", false))
 	progress.phone_collected = _is_true(raw.get("phone_collected", false))
 	progress.basement_crt_event_played = _is_true(raw.get("basement_crt_event_played", false))
+	progress.crt_tutorial = preload("res://scripts/tutorial/chapter_crt_tutorial_state.gd").normalize(raw.get("crt_tutorial", {}))
 	progress.decoration_seed = clampi(_integer_or(raw.get("decoration_seed", 1701), 1701), 1, 2147483646)
 	var raw_config: Variant = raw.get("reward_config", {})
 	var legacy_app_schema: bool = not raw.has("unlocked_app_ids") and not (raw_config is Dictionary and raw_config.has("task_app_unlocks"))

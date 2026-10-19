@@ -380,6 +380,13 @@ var _hand_phone_image: TextureRect
 var _hand_tracking_receiver
 var _hand_xray_overlay: Control
 var _chapter_xray_view: Node
+var _crt_focus_tutorial: Node
+var _crt_focus_world: Node
+var _floor_two_normal_walkable := PackedByteArray()
+var _floor_two_exit_uv := Vector2(-1, -1)
+var _floor_two_lesson_layout: Dictionary = {}
+var _floor_two_xray_hint: Label
+var _phone_world_look_active := false
 var _second_layer_texture: Texture2D
 var _camera_consent_overlay: Control
 var _camera_access_toggle: CheckButton
@@ -464,6 +471,7 @@ var _meme_bank_selected_index := 0
 var _meme_bank_tween: Tween
 var _reality_subtitle_panel: PanelContainer
 var _reality_subtitle_label: RichTextLabel
+var _reality_end_button: Button
 var _reality_choice_row: HBoxContainer
 var _reality_intent_preview: RichTextLabel
 var _reality_typing_line: RichTextLabel
@@ -574,6 +582,7 @@ func _process(delta: float) -> void:
 		return
 	if _game_started:
 		_ensure_reality_floor_current()
+		_update_crt_focus_tutorial(delta)
 		_refresh_nearby_reality_actor()
 		_update_chapter_development_panel()
 		_apply_responsive_layouts_if_needed()
@@ -594,6 +603,7 @@ func _notification(what: int) -> void:
 	if what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_application_focused = false
 		_reality_mouse_look_enabled = false
+		_phone_world_look_active = false
 		_reality_touch_look_index = -1
 		_dragged_window = null
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -616,6 +626,10 @@ func _input(event: InputEvent) -> void:
 	if _handle_settings_shortcut(event):
 		return
 	if _settings_open:
+		return
+	if _crt_focus_tutorial_active():
+		_crt_focus_tutorial.route_input(event)
+		get_viewport().set_input_as_handled()
 		return
 	if _world_overlay_blocks_input():
 		_reality_touch_look_index = -1
@@ -641,6 +655,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if _handle_hud_drawer_global_input(event):
 		return
+	if _handle_phone_world_look(event):
+		return
 	if _handle_reality_touch_look(event):
 		return
 	if _handle_reality_trackpad_pan(event):
@@ -661,6 +677,28 @@ func _input(event: InputEvent) -> void:
 		if _dragged_window == _meme_bank_window:
 			_avoid_meme_bank_overlaps()
 		_dragged_window = null
+
+
+func _handle_phone_world_look(event: InputEvent) -> bool:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if not event.pressed and _phone_world_look_active:
+			_phone_world_look_active = false
+			_set_reality_mouse_look(false)
+			get_viewport().set_input_as_handled()
+			return true
+		if event.pressed and _floor_two_phone_walk_active() and _application_focused and not _reality_interaction_active and not _phone_text_entry_focused() and not _phone_panel.get_global_rect().has_point(event.position):
+			_phone_world_look_active = true
+			_set_reality_mouse_look(true)
+			get_viewport().set_input_as_handled()
+			return true
+	if event is InputEventMouseMotion and _phone_world_look_active:
+		if _reality_mouse_capture_allowed() and _reality_mouse_capture_matches():
+			_apply_reality_look_delta(event.relative, REALITY_MOUSE_SENSITIVITY)
+		else:
+			_sync_reality_mouse_capture()
+		get_viewport().set_input_as_handled()
+		return true
+	return false
 
 
 func _handle_reality_touch_look(event: InputEvent) -> bool:
@@ -793,6 +831,34 @@ func _active_input_modal() -> Control:
 
 func _world_overlay_blocks_input() -> bool:
 	return _active_input_modal() != null or (is_instance_valid(_prologue_overlay) and _prologue_overlay.is_visible_in_tree())
+
+
+func _crt_focus_tutorial_active() -> bool:
+	return is_instance_valid(_crt_focus_tutorial) and _crt_focus_tutorial.is_active()
+
+
+func _update_crt_focus_tutorial(delta: float) -> void:
+	var eligible := _chapter_active() and _chapter_world_ready and str(game.chapter1_progress.phase) == "basement" and int(game.chapter1_progress.round_index) == 0
+	if not eligible or _crt_focus_world != _reality_floor:
+		if is_instance_valid(_crt_focus_tutorial):
+			_crt_focus_tutorial.cancel()
+			_crt_focus_tutorial.free()
+		_crt_focus_tutorial = null
+		_crt_focus_world = null
+	if not eligible:
+		return
+	if not is_instance_valid(_crt_focus_tutorial):
+		_crt_focus_tutorial = preload("res://scripts/tutorial/chapter_crt_focus_controller.gd").new()
+		_crt_focus_world = _reality_floor
+		add_child(_crt_focus_tutorial)
+		_crt_focus_tutorial.setup(_reality_floor, _camera, _reality_player, _ui_root, func(): return game.chapter1_progress, _save_progress, func(): return _locale.current_locale)
+	var was_active := _crt_focus_tutorial_active()
+	var paused := _settings_open or _input_locked or not _application_focused or _world_overlay_blocks_input() or _chapter_terminal_active() or _chapter_task_active() or game.view_state != "npc_up"
+	_crt_focus_tutorial.update(delta, paused)
+	if _crt_focus_tutorial_active() and not was_active:
+		_set_reality_mouse_look(false)
+	elif was_active and not _crt_focus_tutorial_active():
+		_set_reality_mouse_look(true)
 
 
 func new_game() -> void:
@@ -1404,6 +1470,7 @@ func set_view_state(value: String) -> void:
 	if value == "npc_up" and game.view_state == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
+		_phone_world_look_active = false
 		_reality_interaction_active = false
 		_active_reality_actor = null
 		_nearby_reality_actor = null
@@ -1436,7 +1503,7 @@ func _toggle_view_state() -> void:
 
 func _capture_phone_layer_for_xray() -> bool:
 	# Basement X-ray samples its live World3D, never a phone UI screenshot.
-	if _chapter_active() and str(game.chapter1_progress.phase) == "basement":
+	if (_chapter_active() and str(game.chapter1_progress.phase) == "basement") or game.tower_floor == 2:
 		return false
 	if not _game_started or get_viewport() == null or DisplayServer.get_name().to_lower() == "headless":
 		return false
@@ -1454,7 +1521,8 @@ func _capture_phone_layer_for_xray() -> bool:
 
 func _sync_chapter_xray_view() -> void:
 	var in_basement := _chapter_active() and _chapter_world_ready and str(game.chapter1_progress.phase) == "basement"
-	if not in_basement or not is_instance_valid(_camera) or not is_instance_valid(_hand_xray_overlay):
+	var in_maze := _game_started and not _chapter_active() and game.tower_floor == 2
+	if not (in_basement or in_maze) or not is_instance_valid(_camera) or not is_instance_valid(_hand_xray_overlay):
 		_release_chapter_xray_view()
 		return
 	if not is_instance_valid(_chapter_xray_view):
@@ -1463,8 +1531,10 @@ func _sync_chapter_xray_view() -> void:
 		add_child(_chapter_xray_view)
 		_chapter_xray_view.bind_camera(_camera)
 		_hand_xray_overlay.set_layer_texture(_chapter_xray_view.get_texture())
-	var allowed := _camera_enabled and game.view_state == "npc_up" and not _settings_open and not _input_locked and not _chapter_terminal_active() and not _chapter_task_active()
+	var allowed := _camera_enabled and (game.view_state == "npc_up" or _floor_two_phone_walk_active()) and not _settings_open and not _input_locked and not _reality_interaction_active and not _world_overlay_blocks_input() and _application_focused and not _chapter_terminal_active() and not _chapter_task_active()
 	if is_instance_valid(_chapter_door_transition) and _chapter_door_transition.is_active():
+		allowed = false
+	if _crt_focus_tutorial_active():
 		allowed = false
 	_hand_xray_overlay.visible = allowed
 	_chapter_xray_view.update_view(allowed and _hand_xray_overlay.is_frame_active(), Vector2i(_viewport_size()))
@@ -1488,7 +1558,9 @@ func _release_chapter_xray_view() -> void:
 
 
 func _reality_mouse_capture_allowed() -> bool:
-	if not _game_started or game == null or game.view_state != "npc_up":
+	if _crt_focus_tutorial_active():
+		return false
+	if not _game_started or game == null or (game.view_state != "npc_up" and not (_floor_two_phone_walk_active() and _phone_world_look_active)):
 		return false
 	if not _application_focused or _settings_open or _input_locked or _reality_interaction_active or _world_overlay_blocks_input():
 		return false
@@ -1517,6 +1589,8 @@ func _sync_reality_mouse_capture() -> void:
 func _set_reality_mouse_look(enabled: bool) -> void:
 	enabled = enabled and _reality_mouse_capture_allowed()
 	_reality_mouse_look_enabled = enabled
+	if not enabled:
+		_phone_world_look_active = false
 	if not enabled or game.view_state != "npc_up":
 		_reality_touch_look_index = -1
 	if enabled and not _reality_mouse_capture_matches():
@@ -1532,6 +1606,9 @@ func _apply_reality_look_delta(relative_motion: Vector2, sensitivity: float) -> 
 
 
 func _build_world() -> void:
+	if is_instance_valid(_crt_focus_tutorial):
+		_crt_focus_tutorial.cancel()
+	_crt_focus_world = null
 	_end_chapter_terminal(false)
 	_close_chapter_task(false)
 	_crt_vhs_toggle = null
@@ -1570,6 +1647,7 @@ func _build_world() -> void:
 	add_child(_camera)
 	_camera.current = true
 	_camera.cull_mask &= ~ChapterXRayViewScript.XRAY_RENDER_LAYER
+	_camera.cull_mask |= ChapterXRayViewScript.NORMAL_ONLY_LAYER
 	_camera.fov = 58.0
 	_configure_reality_depth_of_field()
 	_ensure_reality_input_map()
@@ -1647,9 +1725,7 @@ func _build_world() -> void:
 	npc_mat.albedo_color = _theme_color("surface")
 	npc_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	npc_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	npc_mat.emission_enabled = true
-	npc_mat.emission = _theme_color("muted")
-	npc_mat.emission_energy_multiplier = 0.12
+	npc_mat.emission_enabled = false
 	npc_body.material_override = npc_mat
 	_npc.add_child(npc_body)
 
@@ -1803,7 +1879,19 @@ func _npc_count_for_floor(floor_number: int) -> int:
 	return RealityFloorGeneratorScript.npc_count_for_floor(floor_number)
 
 
+func _floor_two_phone_walk_active() -> bool:
+	return _game_started and not _chapter_active() and game.tower_floor == 2 and game.view_state == "phone_down"
+
+
+func _phone_text_entry_focused() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	return focused is LineEdit or focused is TextEdit
+
+
 func _update_reality_player(delta: float) -> void:
+	if _crt_focus_tutorial_active():
+		_reality_player.velocity = Vector3.ZERO
+		return
 	if _world_overlay_blocks_input() or _chapter_opening_narration_active() or not _application_focused or _chapter_terminal_active() or _chapter_task_active():
 		_reality_player.velocity = Vector3.ZERO
 		return
@@ -1812,7 +1900,7 @@ func _update_reality_player(delta: float) -> void:
 	if _should_recover_reality_player():
 		_recover_reality_player()
 		return
-	var can_walk: bool = game.view_state == "npc_up" and not _reality_interaction_active and not _input_locked and not _settings_open
+	var can_walk: bool = (game.view_state == "npc_up" or _floor_two_phone_walk_active()) and not _phone_text_entry_focused() and not _reality_interaction_active and not _input_locked and not _settings_open
 	var input_vector := Vector2.ZERO
 	if can_walk:
 		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
@@ -1867,7 +1955,7 @@ func _recover_reality_player() -> void:
 func _refresh_nearby_reality_actor() -> void:
 	var previous_actor := _nearby_reality_actor
 	var previous_item := _nearby_reality_item
-	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _chapter_opening_narration_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
+	if game.view_state != "npc_up" or _reality_interaction_active or _chapter_terminal_active() or _chapter_task_active() or _chapter_opening_narration_active() or _crt_focus_tutorial_active() or _settings_open or _input_locked or _reality_floor == null or _reality_player == null:
 		_nearby_reality_actor = null
 		_nearby_reality_item = null
 		if previous_actor != null or previous_item != null:
@@ -1879,6 +1967,8 @@ func _refresh_nearby_reality_actor() -> void:
 	var nearest_kind := ""
 	var nearest_distance := REALITY_INTERACTION_DISTANCE
 	for actor in _reality_floor.get_interactable_actors():
+		if game.tower_floor == 2 and str(actor.get_meta("actor_type", "")) == "floor2_exit" and not preload("res://scripts/progression/floor_two_journey.gd").can_exit(game.floor_two_progress):
+			continue
 		if _chapter_active() and not _reality_floor.is_actor_reachable(actor, _reality_player.global_position):
 			continue
 		var offset: Vector3 = actor.global_position - _reality_player.global_position
@@ -1906,6 +1996,8 @@ func _refresh_nearby_reality_actor() -> void:
 
 
 func _try_reality_interaction() -> bool:
+	if _crt_focus_tutorial_active():
+		return false
 	if game.view_state != "npc_up" or _settings_open or _input_locked or _chapter_opening_narration_active() or _world_overlay_blocks_input():
 		return false
 	if _chapter_terminal_active() or _chapter_task_active():
@@ -2080,6 +2172,8 @@ func _collect_nearby_reality_item() -> bool:
 
 func _exit_reality_interaction(should_render: bool = true) -> void:
 	_cancel_reality_dialogue_playback()
+	if is_instance_valid(_reality_end_button):
+		_reality_end_button.hide()
 	_close_chapter_task(false)
 	_reality_interaction_active = false
 	_active_reality_actor = null
@@ -2947,6 +3041,15 @@ func _build_ui() -> void:
 	_reality_subtitle_label.add_theme_color_override("font_outline_color", Color("050705"))
 	_reality_subtitle_label.add_theme_constant_override("outline_size", 6)
 	subtitle_box.add_child(_reality_subtitle_label)
+	_reality_end_button = Button.new()
+	_reality_end_button.name = "RealityConversationEnd"
+	_reality_end_button.text = _locale.translate("结束对话")
+	_reality_end_button.custom_minimum_size = Vector2(150, 46)
+	_reality_end_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_reality_end_button.focus_mode = Control.FOCUS_NONE
+	_reality_end_button.pressed.connect(_on_reality_end_pressed)
+	_reality_end_button.hide()
+	subtitle_box.add_child(_reality_end_button)
 	_build_reality_language_composer()
 
 	_meme_bank_window = Control.new()
@@ -3523,14 +3626,14 @@ func _build_cinematic_bars() -> void:
 	_cinematic_top_bar.name = "CinematicTopBar"
 	_cinematic_top_bar.color = Color("050705")
 	_cinematic_top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cinematic_top_bar.z_index = 8
+	_cinematic_top_bar.z_index = 10
 	_ui_root.add_child(_cinematic_top_bar)
 
 	_cinematic_bottom_bar = ColorRect.new()
 	_cinematic_bottom_bar.name = "CinematicBottomBar"
 	_cinematic_bottom_bar.color = Color("050705")
 	_cinematic_bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cinematic_bottom_bar.z_index = 8
+	_cinematic_bottom_bar.z_index = 10
 	_ui_root.add_child(_cinematic_bottom_bar)
 	_layout_cinematic_bars()
 
@@ -3563,7 +3666,7 @@ func _layout_hud_rail() -> void:
 	if _hud_panel == null:
 		return
 	var viewport_size := _viewport_size()
-	var uses_cinematic_frame: bool = _game_started and game != null and game.view_state == "npc_up"
+	var uses_cinematic_frame: bool = _game_started and game != null and not _chapter_active()
 	var frame_inset := _cinematic_bar_height(viewport_size) if uses_cinematic_frame else 0.0
 	var top_limit := frame_inset + HUD_RAIL_FRAME_MARGIN
 	var bottom_limit := viewport_size.y - frame_inset - HUD_RAIL_FRAME_MARGIN
@@ -4689,6 +4792,9 @@ func _action_pips(actions: int) -> String:
 
 
 func _render_world_prompt() -> void:
+	if _crt_focus_tutorial_active():
+		_world_prompt.hide()
+		return
 	if _chapter_active():
 		if _nearby_reality_actor != null and str(_nearby_reality_actor.get_meta("actor_type", "")) == "chapter1_exit" and not _phone_is_owned():
 			_world_prompt.text = _locale.translate("先拿走楼梯旁桌上的手机。")
@@ -4747,6 +4853,15 @@ func _configure_floor_two_map() -> void:
 	_floor_two_map_state = load("res://scripts/world/exploration_map_state.gd").new()
 	var saved: Variant = game.exploration_maps.get("floor_2", {})
 	_floor_two_map_state.call("configure", layout, saved if saved is Dictionary else {})
+	_floor_two_lesson_layout = layout
+	var normal_layout := layout.duplicate(true)
+	normal_layout.rows = layout.get("normal_rows", layout.rows)
+	normal_layout.blocking_rects = layout.get("normal_blocking_rects", layout.get("blocking_rects", []))
+	var normal_state = load("res://scripts/world/exploration_map_state.gd").new()
+	normal_state.configure(normal_layout)
+	_floor_two_normal_walkable = normal_state.snapshot(Vector3.ZERO, 0.0).walkable
+	var exit_position: Vector3 = layout.get("exit_position", Vector3.ZERO)
+	_floor_two_exit_uv = (Vector2(exit_position.x, exit_position.z) - layout.bounds.position) / layout.bounds.size
 
 
 func _store_floor_two_map() -> void:
@@ -4759,12 +4874,18 @@ func _floor_two_map_snapshot() -> Dictionary:
 		_configure_floor_two_map()
 	if not is_instance_valid(_floor_two_map_state) or not is_instance_valid(_reality_player):
 		return {}
-	return _floor_two_map_state.call("snapshot", _reality_player.position, deg_to_rad(_reality_yaw), game.tower_floor == 2 and not _chapter_active())
+	var snapshot: Dictionary = _floor_two_map_state.call("snapshot", _reality_player.position, deg_to_rad(_reality_yaw), game.tower_floor == 2 and not _chapter_active())
+	snapshot.xray_walkable = snapshot.walkable
+	if _floor_two_normal_walkable.size() == snapshot.walkable.size():
+		snapshot.walkable = _floor_two_normal_walkable
+	snapshot.exit_uv = _floor_two_exit_uv
+	return snapshot
 
 
 func _update_floor_two_exploration(delta: float) -> void:
 	if not _game_started or game == null or not is_instance_valid(_reality_player):
 		return
+	_update_floor_two_xray_hint()
 	if game.tower_floor == 2 and not _chapter_active():
 		if not is_instance_valid(_floor_two_map_state):
 			_configure_floor_two_map()
@@ -4777,6 +4898,7 @@ func _update_floor_two_exploration(delta: float) -> void:
 				_store_floor_two_map()
 				_floor_two_exploration_dirty = true
 			if not _reality_interaction_active:
+				_update_floor_two_xray_observation()
 				var probe: Dictionary = _reality_floor.floor_two_probe(_reality_player.position)
 				var checkpoint := str(probe.get("checkpoint", ""))
 				if not checkpoint.is_empty() and game.visit_floor_two_turn(checkpoint):
@@ -4786,6 +4908,59 @@ func _update_floor_two_exploration(delta: float) -> void:
 				_save_progress()
 	if is_instance_valid(_phone_map_page) and _phone_map_page.is_visible_in_tree():
 		_phone_map_page.call("configure", _floor_two_map_snapshot(), _locale.current_locale)
+		var frame_active: bool = is_instance_valid(_hand_xray_overlay) and _hand_xray_overlay.visible and _hand_xray_overlay.is_frame_active()
+		_phone_map_page.set_xray_frame(_hand_xray_overlay.get_frame_rect_normalized() if frame_active else Rect2(), _viewport_size(), frame_active and game.tower_floor == 2)
+
+
+func _update_floor_two_xray_hint() -> void:
+	var journey = preload("res://scripts/progression/floor_two_journey.gd")
+	var show_hint: bool = game.tower_floor == 2 and not _chapter_active() and game.is_phone_app_unlocked("map") and not journey.can_exit(game.floor_two_progress) and not _settings_open and not _input_locked and not _reality_interaction_active and not _world_overlay_blocks_input()
+	if not show_hint:
+		if is_instance_valid(_floor_two_xray_hint):
+			_floor_two_xray_hint.hide()
+		return
+	if not is_instance_valid(_floor_two_xray_hint):
+		_floor_two_xray_hint = _label("", 21, Color("FFF1C9"))
+		_floor_two_xray_hint.name = "FloorTwoXrayLessonHint"
+		_floor_two_xray_hint.set_meta("skip_localization", true)
+		_floor_two_xray_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_floor_two_xray_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		_floor_two_xray_hint.position = Vector2(32, -142)
+		_floor_two_xray_hint.size = Vector2(670, 110)
+		_floor_two_xray_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_floor_two_xray_hint.add_theme_color_override("font_outline_color", Color("171B19"))
+		_floor_two_xray_hint.add_theme_constant_override("outline_size", 6)
+		_floor_two_xray_hint.z_index = 12
+		_ui_root.add_child(_floor_two_xray_hint)
+	var hints := ["按 Esc，在设置中连接摄像头，开始手指 X-ray 教学。", "双手拇指和食指围出一个框。透过它看前方的异常墙，也能查看手机里的另一张地图。", "刚才的墙后还有路。继续用手指围框，寻找隐藏通道。\nTab 收放手机；打开地图时也可用 WASD 行走。", "普通地图没有画出真正的出口。用手指框寻找白光门。"]
+	var index := 0 if not _camera_enabled else 1 + mini(2, journey.normalize(game.floor_two_progress).xray_observed_ids.size())
+	_floor_two_xray_hint.text = _locale.translate(hints[index])
+	var viewport_size := _viewport_size()
+	var hint_width := minf(670.0, maxf(80.0, viewport_size.x - 64.0))
+	var left_of_phone := _phone_panel.get_global_rect().position.x - 48.0 if _floor_two_phone_walk_active() and is_instance_valid(_phone_panel) else hint_width
+	if left_of_phone >= 260.0:
+		hint_width = minf(hint_width, left_of_phone)
+	_floor_two_xray_hint.size = Vector2(hint_width, 110)
+	_floor_two_xray_hint.position = Vector2(minf(32.0, viewport_size.x * 0.05), -142.0 if left_of_phone >= 260.0 else -viewport_size.y + 24.0)
+	_floor_two_xray_hint.show()
+
+
+func _update_floor_two_xray_observation() -> void:
+	if not _camera_enabled or not game.is_phone_app_unlocked("map") or not is_instance_valid(_hand_xray_overlay) or not _hand_xray_overlay.visible or not _hand_xray_overlay.is_frame_active():
+		return
+	var phone_rect := _phone_panel.get_global_rect() if _floor_two_phone_walk_active() and is_instance_valid(_phone_panel) else Rect2()
+	var ids := preload("res://scripts/world/floor_two_xray_observation.gd").visible_targets(_floor_two_lesson_layout, _camera, _reality_player.position, _hand_xray_overlay.get_frame_rect_normalized(), _viewport_size(), phone_rect)
+	if _floor_two_phone_walk_active() and is_instance_valid(_phone_map_page) and _phone_map_page.is_visible_in_tree():
+		_phone_map_page.configure(_floor_two_map_snapshot(), _locale.current_locale)
+		_phone_map_page.set_xray_frame(_hand_xray_overlay.get_frame_rect_normalized(), _viewport_size(), true)
+		ids.append_array(_phone_map_page.observed_xray_targets(_floor_two_lesson_layout, _reality_player.position))
+	var journey = load("res://scripts/progression/floor_two_journey.gd")
+	for id in ids:
+		var next: Dictionary = journey.record_xray_observation(game.floor_two_progress, id)
+		if next != game.floor_two_progress:
+			game.floor_two_progress = next
+			_floor_two_exploration_dirty = true
+			_save_progress()
 
 
 func _render_map_app() -> void:
@@ -4800,6 +4975,8 @@ func _render_map_app() -> void:
 
 func _try_floor_two_exit() -> bool:
 	if game.tower_floor != 2:
+		return false
+	if not preload("res://scripts/progression/floor_two_journey.gd").can_exit(game.floor_two_progress):
 		return false
 	if not game.is_phone_app_unlocked("map"):
 		log_text = "先完成引路人的任务"
@@ -5670,8 +5847,12 @@ func _open_social_post(post_index: int) -> void:
 	var post := _social_post_for_index(post_index)
 	if post.is_empty():
 		return
+	var tutorial_payload := {"post_id": str(post.get("id", ""))}
+	if not _chapter_crt_tutorial_allows("open_post", tutorial_payload):
+		return
 	_social_detail_post_index = post_index
 	_social_detail_open = true
+	_chapter_crt_tutorial_commit("open_post", tutorial_payload)
 	if not bool(post.get("is_player_post", false)):
 		game.notify_tutorial("post_opened", {"post_index": post_index})
 	if _social_detail_window != null:
@@ -5896,10 +6077,10 @@ func _render_reality() -> void:
 	var actor_name := _active_actor_display_name()
 	var npc_line: String = game.conversation_prompt if _reality_interaction_active and not game.conversation_prompt.is_empty() else str(plan["line"])
 	var phase := str(game.conversation_phase)
+	if phase == "result":
+		npc_line = game.conversation_feedback if not game.conversation_feedback.is_empty() else game.conversation_result_line
 	var subtitle := "%s：%s" % [actor_name, npc_line]
-	if not game.conversation_feedback.is_empty():
-		subtitle += "\n" + str(game.conversation_feedback)
-	if not _chapter_task_payload.is_empty() and not game.has_current_chapter_submission():
+	if phase == "result" and not game.conversation_can_continue and not _chapter_task_payload.is_empty() and not game.has_current_chapter_submission():
 		subtitle += "\n" + _locale.translate("去电脑上拾字并投稿一句话，再回来告诉我。")
 	_set_dialogue_text(_reality_subtitle_label, subtitle)
 
@@ -5907,13 +6088,6 @@ func _render_reality() -> void:
 	var result := _reality_interaction_active and phase == "result"
 	_reality_choice_row.visible = false
 	_reality_typing_line.visible = typing
-	if result and game.conversation_actor_type == "doctor" and not game.last_polluted_sentence.is_empty():
-		_set_dialogue_text(_reality_subtitle_label, "%s：%s\n你说：%s\n理解度：%d%%" % [
-			actor_name,
-			game.conversation_feedback,
-			game.last_polluted_sentence,
-			game.npc_understanding,
-		])
 	_reality_intent_preview.visible = false
 
 	if typing:
@@ -5926,12 +6100,14 @@ func _render_reality() -> void:
 	_reality_typing_progress.visible = typing and not _reality_typing_progress.text.is_empty()
 	if result:
 		var flow := _ensure_dialogue_flow()
-		if flow != null and not flow.pending:
+		if flow != null and not flow.pending and not flow.reply_finished:
 			# RicherTextLabel updates parsed text on a deferred call. Its current
 			# value can still be the opening line, which the player already read.
 			# Only this response owns the interval before the next turn or exit.
 			var reply := game.conversation_feedback if not game.conversation_feedback.is_empty() else game.conversation_result_line
 			flow.begin_reply(_locale.translate(reply))
+	_reality_end_button.text = _locale.translate("结束对话")
+	_reality_end_button.visible = _reality_reply_ready_to_close()
 
 
 func _render_reality_language_composer() -> void:
@@ -6069,7 +6245,22 @@ func _finish_reality_reply() -> void:
 		return
 	if game.finish_floor_two_dialogue():
 		_save_progress()
-	_exit_reality_interaction()
+	var flow := _ensure_dialogue_flow()
+	if flow != null:
+		flow.ready_to_close = true
+	_render()
+
+
+func _reality_reply_ready_to_close() -> bool:
+	if not _reality_interaction_active or game.conversation_phase != "result" or not is_instance_valid(_ui_root):
+		return false
+	var flow := _ui_root.get_node_or_null("LinearDialogueFlow")
+	return flow != null and flow.ready_to_close and not _settings_open and not _input_locked and _application_focused and not _world_overlay_blocks_input()
+
+
+func _on_reality_end_pressed() -> void:
+	if _reality_reply_ready_to_close():
+		_exit_reality_interaction()
 
 
 func _advance_typed_reality_character() -> bool:
@@ -6157,6 +6348,8 @@ func _update_visibility() -> void:
 	var interaction_visible := (not in_phone) and _reality_interaction_active
 	if _reality_subtitle_panel != null:
 		_reality_subtitle_panel.visible = interaction_visible
+	if is_instance_valid(_reality_end_button):
+		_reality_end_button.visible = interaction_visible and _reality_reply_ready_to_close()
 	if _reality_choice_row != null:
 		_reality_choice_row.visible = false
 	if _reality_intent_preview != null:
@@ -6183,9 +6376,9 @@ func _update_visibility() -> void:
 	if _road != null:
 		_road.visible = not _chapter_active() and game.tower_floor != 2
 	if _cinematic_top_bar != null:
-		_cinematic_top_bar.visible = _game_started and not in_phone
+		_cinematic_top_bar.visible = _game_started
 	if _cinematic_bottom_bar != null:
-		_cinematic_bottom_bar.visible = _game_started and not in_phone
+		_cinematic_bottom_bar.visible = _game_started
 	_layout_hud_rail()
 	_hud_panel.visible = true
 	_hud_reveal_zone.visible = true
@@ -6225,6 +6418,11 @@ func _update_visibility() -> void:
 
 
 func _animate_world(delta: float) -> void:
+	if _crt_focus_tutorial_active():
+		if is_instance_valid(_reality_floor):
+			_reality_floor.set_atmosphere_paused(true)
+		_animate_vhs(delta)
+		return
 	if not _game_started:
 		if _camera != null:
 			_camera.position = _camera.position.lerp(Vector3(0.0, 1.54, 2.55), minf(1.0, delta * 3.0))
@@ -7629,8 +7827,20 @@ func _on_canvas_tile_moved(unit: String, tile_position: Vector2) -> void:
 
 
 ## 命中发布区才重绘；其它落点继续由原来的物理刚体处理。
+func _chapter_crt_tutorial_allows(action: String, payload: Dictionary) -> bool:
+	return not _chapter_terminal_active() or _chapter_terminal_session.tutorial_allows(action, payload)
+
+
+func _chapter_crt_tutorial_commit(action: String, payload: Dictionary) -> void:
+	if _chapter_terminal_active():
+		_chapter_terminal_session.tutorial_commit(action, payload)
+
+
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
 	if not _chapter_app_access("notebook"):
+		return
+	var tutorial_payload := {"unit": unit, "dragged": true}
+	if not _chapter_crt_tutorial_allows("place", tutorial_payload):
 		return
 	var dropped_into_sentence := false
 	for app_id in ["notebook", "social"]:
@@ -7642,12 +7852,15 @@ func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> v
 			dropped_into_sentence = game.free_sentence_place(unit, _locale.current_locale)
 			break
 	if dropped_into_sentence:
+		_chapter_crt_tutorial_commit("place", tutorial_payload)
 		log_text = "字进入了句子。"
 		_render()
 
 
 func _on_composer_bank_tapped(unit: String) -> void:
 	if _input_locked or not _chapter_app_access("notebook"):
+		return
+	if not _chapter_crt_tutorial_allows("place", {"unit": unit, "dragged": false}):
 		return
 	if game.free_sentence_place(unit, _locale.current_locale):
 		if _pickup_flight_layer != null:
@@ -7659,7 +7872,10 @@ func _on_composer_bank_tapped(unit: String) -> void:
 func _on_composer_answer_tapped(unit_index: int) -> void:
 	if _input_locked or not _chapter_app_access("notebook"):
 		return
+	if not _chapter_crt_tutorial_allows("remove", {}):
+		return
 	if game.free_sentence_remove(unit_index):
+		_chapter_crt_tutorial_commit("remove", {})
 		_render()
 
 
@@ -7676,10 +7892,16 @@ func _handle_composer_drop(data: Dictionary, target_index: int) -> void:
 		return
 	match str(data.get("kind", "")):
 		"composer_unit":
+			var tutorial_payload := {"unit": str(data.get("id", "")), "dragged": true}
+			if not _chapter_crt_tutorial_allows("place", tutorial_payload):
+				return
 			if game.free_sentence_place_at(str(data.get("id", "")), target_index, _locale.current_locale):
+				_chapter_crt_tutorial_commit("place", tutorial_payload)
 				log_text = "字进入了句子。"
 				_render()
 		"composer_reorder":
+			if not _chapter_crt_tutorial_allows("reorder", {}):
+				return
 			var from_index := int(str(data.get("id", "-1")))
 			var to_index := target_index
 			if from_index < to_index:
@@ -7711,6 +7933,9 @@ func _visible_composer_control(node_name: String) -> Control:
 func _on_composer_submit_pressed() -> void:
 	if _input_locked or not _chapter_app_access("notebook"):
 		return
+	var tutorial_payload := {"units": game.get_free_sentence_units().duplicate()}
+	if not _chapter_crt_tutorial_allows("publish", tutorial_payload):
+		return
 	var actions_before: int = int(game.actions_remaining)
 	var submit_result: Dictionary = game.submit_free_sentence(_locale.current_locale)
 	if not bool(submit_result.get("submitted", false)):
@@ -7723,6 +7948,7 @@ func _on_composer_submit_pressed() -> void:
 				log_text = "投稿没有发出去。"
 		_render_status()
 		return
+	_chapter_crt_tutorial_commit("publish", tutorial_payload)
 	match str(submit_result.get("tier", "")):
 		"rule":
 			log_text = "投稿已发出。有什么地方遵守了它。"
@@ -7834,9 +8060,14 @@ func _on_pickup_unit_meta(meta: Variant, post_id: String) -> void:
 	if _input_locked or not _chapter_app_access("social"):
 		return
 	var unit := str(meta)
+	var tutorial_payload := {"post_id": post_id, "unit": unit}
+	if not _chapter_crt_tutorial_allows("pickup", tutorial_payload):
+		return
 	var actions_before: int = int(game.actions_remaining)
 	var origin: Vector2 = _chapter_pointer_position()
 	var pick_result: Dictionary = game.pick_social_char(post_id, unit, _locale.current_locale)
+	if bool(pick_result.get("picked", false)) or str(pick_result.get("reason", "")) == "duplicate":
+		_chapter_crt_tutorial_commit("pickup", tutorial_payload)
 	if bool(pick_result.get("picked", false)):
 		log_text = "一个字进入了笔记本。"
 		_play_ui_sound(_pickup_press_audio)

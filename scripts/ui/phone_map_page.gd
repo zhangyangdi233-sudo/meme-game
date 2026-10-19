@@ -16,6 +16,12 @@ var _columns := 0
 var _rows := 0
 var _explored := PackedByteArray()
 var _walkable := PackedByteArray()
+var _xray_walkable := PackedByteArray()
+var _xray_texture: ImageTexture
+var _xray_frame := Rect2()
+var _xray_viewport_size := Vector2.ZERO
+var _xray_active := false
+var _exit_uv := Vector2(-1, -1)
 var _grid_image: Image
 var _grid_texture: ImageTexture
 var _player_uv := Vector2.ZERO
@@ -39,12 +45,15 @@ func configure(snapshot: Dictionary, locale_code: String = "zh") -> void:
 	var rows := clampi(int(snapshot.get("rows", 0)), 0, 512)
 	var explored := _byte_array(snapshot.get("explored", PackedByteArray()))
 	var walkable := _byte_array(snapshot.get("walkable", PackedByteArray()))
-	var grid_changed := columns != _columns or rows != _rows or explored != _explored or walkable != _walkable
+	var xray_walkable := _byte_array(snapshot.get("xray_walkable", walkable))
+	_exit_uv = snapshot.get("exit_uv", Vector2(-1, -1))
+	var grid_changed := columns != _columns or rows != _rows or explored != _explored or walkable != _walkable or xray_walkable != _xray_walkable
 	if grid_changed:
 		_columns = columns
 		_rows = rows
 		_explored = explored.duplicate()
 		_walkable = walkable.duplicate()
+		_xray_walkable = xray_walkable.duplicate()
 		_rebuild_grid()
 		_layout_map()
 	var point: Variant = snapshot.get("player_uv", Vector2.ZERO)
@@ -106,6 +115,7 @@ func _rebuild_grid() -> void:
 	if _columns <= 0 or _rows <= 0:
 		_grid_image = null
 		_grid_texture = null
+		_xray_texture = null
 		return
 	_grid_image = Image.create(_columns, _rows, false, Image.FORMAT_RGBA8)
 	_grid_image.fill(Color.BLACK)
@@ -118,6 +128,77 @@ func _rebuild_grid() -> void:
 		_grid_texture.update(_grid_image)
 	else:
 		_grid_texture = ImageTexture.create_from_image(_grid_image)
+	var xray_image := _grid_image.duplicate() as Image
+	for index in mini(_columns * _rows, _explored.size()):
+		if _explored[index] == 0:
+			continue
+		xray_image.set_pixel(index % _columns, index / _columns, ROAD_COLOR if index < _xray_walkable.size() and _xray_walkable[index] != 0 else WALL_COLOR)
+	_xray_texture = ImageTexture.create_from_image(xray_image)
+
+
+func set_xray_frame(frame: Rect2, viewport_size: Vector2, active: bool) -> void:
+	_xray_frame = frame
+	_xray_viewport_size = viewport_size
+	_xray_active = active
+	queue_redraw()
+
+
+func _local_xray_clip() -> Rect2:
+	if not _xray_active or _xray_viewport_size.x <= 0 or _xray_viewport_size.y <= 0:
+		return Rect2()
+	var inverse := get_global_transform().affine_inverse()
+	var start := inverse * (_xray_frame.position * _xray_viewport_size)
+	var finish := inverse * (_xray_frame.end * _xray_viewport_size)
+	return Rect2(start, finish - start).abs().intersection(_map_rect)
+
+
+func _draw_xray_map() -> void:
+	var clip := _local_xray_clip()
+	if not clip.has_area() or _xray_texture == null:
+		return
+	var source := Rect2((clip.position - _map_rect.position) / _map_rect.size * Vector2(_columns, _rows), clip.size / _map_rect.size * Vector2(_columns, _rows))
+	draw_texture_rect_region(_xray_texture, clip, source)
+	draw_rect(clip, Color("A7BD8B"), false, 2.0)
+
+
+func _draw_xray_exit() -> void:
+	var clip := _local_xray_clip()
+	if not clip.has_area() or _xray_texture == null:
+		return
+	var cell := Vector2i((_exit_uv * Vector2(_columns, _rows)).floor())
+	if cell.x < 0 or cell.y < 0 or cell.x >= _columns or cell.y >= _rows or _explored[cell.y * _columns + cell.x] == 0:
+		return
+	var icon := Rect2(_map_rect.position + _exit_uv * _map_rect.size - Vector2(3, 5), Vector2(6, 10))
+	if clip.encloses(icon):
+		draw_rect(icon.grow(1), INK_COLOR)
+		draw_rect(icon, Color.WHITE)
+
+
+func observed_xray_targets(layout: Dictionary, player: Vector3) -> Array[String]:
+	var result: Array[String] = []
+	var clip := _local_xray_clip()
+	if not is_visible_in_tree() or not clip.has_area() or _columns <= 0 or _rows <= 0:
+		return result
+	var bounds: Rect2 = layout.get("bounds", Rect2())
+	if not bounds.has_area():
+		return result
+	for target: Dictionary in layout.get("xray_targets", []):
+		var point: Vector3 = target.position
+		if player.distance_to(point) > float(target.get("max_distance", 9.0)):
+			continue
+		var uv: Vector2 = (Vector2(point.x, point.z) - bounds.position) / bounds.size
+		if str(target.id) == "exit":
+			uv = _exit_uv
+		var cell := Vector2i((uv * Vector2(_columns, _rows)).floor())
+		if cell.x < 0 or cell.y < 0 or cell.x >= _columns or cell.y >= _rows:
+			continue
+		var index := cell.y * _columns + cell.x
+		if index >= _explored.size() or _explored[index] == 0:
+			continue
+		var visible_mark := Rect2(_map_rect.position + uv * _map_rect.size - Vector2(3, 5), Vector2(6, 10))
+		if clip.encloses(visible_mark):
+			result.append(str(target.id))
+	return result
 
 func _refresh_labels() -> void:
 	var words: Array = STRINGS[_locale_code]
@@ -154,8 +235,10 @@ func _draw() -> void:
 	draw_rect(_map_rect, Color.BLACK)
 	if _grid_texture != null:
 		draw_texture_rect(_grid_texture, _map_rect, false)
+	_draw_xray_map()
 	draw_rect(_map_rect, Color("8B887E"), false, 1)
 	if not _show_marker:
+		_draw_xray_exit()
 		return
 	var radius := minf(12, minf(_map_rect.size.x, _map_rect.size.y) * 0.04)
 	var center := _map_rect.position + _player_uv * _map_rect.size
@@ -166,3 +249,5 @@ func _draw() -> void:
 	draw_colored_polygon(points, INK_COLOR)
 	points.append(points[0])
 	draw_polyline(points, ROAD_COLOR, 2, true)
+	# Near the doorway, the position marker must not hide the only exit clue.
+	_draw_xray_exit()

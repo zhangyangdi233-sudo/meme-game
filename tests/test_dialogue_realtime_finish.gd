@@ -7,6 +7,7 @@ var checks := 0
 
 func _init() -> void:
 	root.visible = false
+	root.size = Vector2i(1600, 900)
 	_run.call_deferred()
 
 func _run() -> void:
@@ -26,7 +27,7 @@ func _run() -> void:
 	await process_frame
 	await _speak_through_keys(main, "floor2_wayfinder")
 	await _wait_for_last_reply(main, "wayfinder")
-	_check(main.game.floor_two_progress.accepted, "automatic completion accepts the wayfinder task")
+	_check(main.game.floor_two_progress.accepted, "completing the reply accepts the wayfinder task")
 	if main._reality_interaction_active:
 		main._exit_reality_interaction()
 	main.game.visit_floor_two_turn("turn_1")
@@ -46,9 +47,9 @@ func _run() -> void:
 		_check(main._reality_interaction_active and is_equal_approx(flow.remaining_seconds, before), "actual frames pause the reply under a modal")
 		main._hide_phone_camera_connection_overlay()
 	await _wait_for_last_reply(main, "cartographer")
-	_check(main.game.is_phone_app_unlocked("map"), "automatic completion delivers the map without another input")
-	_check(main.game.conversation_phase == "idle", "the last reply clears the conversation state")
-	_check(not main._reality_subtitle_panel.visible, "the last reply removes the blocking dialogue presentation")
+	_check(main.game.is_phone_app_unlocked("map"), "completing the reply delivers the map")
+	_check(main.game.conversation_phase == "idle", "the end button clears the conversation state")
+	_check(not main._reality_subtitle_panel.visible, "the end button removes the blocking dialogue presentation")
 	# The interactive preview starts with the map already earned. Its repeat
 	# conversations must close through the same real frame path as first visits.
 	await _speak_through_keys(main, "floor2_wayfinder")
@@ -62,6 +63,10 @@ func _run() -> void:
 	main._notification(MainLoop.NOTIFICATION_APPLICATION_FOCUS_IN)
 	await _wait_for_last_reply(main, "preview-cartographer-repeat")
 	_check(main.game.is_phone_app_unlocked("map"), "repeat conversations preserve the earned app")
+	for code in ["ja", "en"]:
+		main._locale.set_locale(code)
+		await _speak_through_keys(main, "floor2_cartographer")
+		await _wait_for_last_reply(main, "%s-repeat" % code)
 	main._set_reality_mouse_look(false)
 	main.queue_free()
 	for frame in 4:
@@ -84,23 +89,63 @@ func _speak_through_keys(main, actor_id: String) -> void:
 	_press(KEY_F)
 	await process_frame
 	_check(main._reality_interaction_active and main.game.conversation_phase == "typing", "real F input starts the fixed protagonist line")
+	var japanese: bool = main._locale.current_locale == "ja"
+	if main._locale.current_locale != "zh":
+		var source: Dictionary = main.game._reality_dialogue_for_actor(actor_id, "npc")
+		_check(main.game.conversation_prompt != str(source.get("line", "")), "actual NPC dialogue uses the selected locale instead of Chinese fallback")
 	for unit in 400:
 		if main.game.conversation_phase != "typing":
 			break
+		var previous: int = main.game.conversation_reveal_index
+		var last_character: bool = previous + 1 == main.game.get_typed_reality_unit_count()
 		_press(KEY_A, 97)
+		if last_character:
+			_check(main.game.conversation_phase == "result", "the last key enters the NPC reply synchronously, without a post-typing delay")
 		await process_frame
+		if japanese:
+			_check(main.game.conversation_reveal_index == previous + 1, "an actual Japanese key event advances one character")
+			var revealed: Dictionary = main.game.conversation_revealed_units[previous]
+			_check(str(revealed.clean).length() == 1 and str(revealed.display).length() == 1, "Japanese clean and corrupted displays both reveal a single character")
 	_check(main.game.conversation_phase == "result" and main.game.conversation_completed, "real typing reaches the final NPC reply even at maximum pollution")
+	await process_frame
+	_check(not main._reality_subtitle_label.get_parsed_text().contains(main.game.conversation_prompt), "the final keystroke immediately replaces the old prompt with the NPC reply")
+	var button := main.find_child("RealityConversationEnd", true, false) as Button
+	_check(button != null and not button.visible, "the end button stays hidden until the last reply finishes")
 
 func _wait_for_last_reply(main, label: String) -> void:
 	# Only the newly displayed response needs reading time. The opening line was
 	# already visible throughout typing and must not start a second long delay.
 	var allowance := Flow.reading_seconds(main.game.conversation_feedback) + 0.6
 	var elapsed := 0.0
-	while main._reality_interaction_active and elapsed < allowance:
+	var button := main.find_child("RealityConversationEnd", true, false) as Button
+	while main._reality_interaction_active and (button == null or not button.visible) and elapsed < allowance:
 		await process_frame
 		elapsed += main.get_process_delta_time()
 	print("REALTIME %s elapsed=%.3f allowance=%.3f active=%s" % [label, elapsed, allowance, main._reality_interaction_active])
-	_check(not main._reality_interaction_active, "%s automatically exits after the last response's reading time using only real frames" % label)
+	_check(main._reality_interaction_active and button != null and button.visible, "%s offers the end button after real reply frames and waits for a click" % label)
+	if button == null or not button.visible:
+		return
+	_check(button.text == main._locale.translate("结束对话"), "the only exit button follows the selected language")
+	if label == "wayfinder":
+		main._toggle_settings_window()
+		_check(not button.visible, "settings hides the completed dialogue button")
+		main._on_reality_end_pressed()
+		_check(main._reality_interaction_active, "a blocked End callback cannot close dialogue behind settings")
+		main._close_settings_window()
+		_check(button.visible, "closing settings restores the completed dialogue button")
+	main._render()
+	await _wait_frames_for(0.2)
+	_check(button.visible and not main._ui_root.get_node("LinearDialogueFlow").pending, "rerendering never restarts a completed reply")
+	var click := InputEventMouseButton.new()
+	click.position = button.get_global_rect().get_center()
+	click.global_position = click.position
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	root.push_input(click, true)
+	click = click.duplicate()
+	click.pressed = false
+	root.push_input(click, true)
+	_check(not main._reality_interaction_active and main.game.conversation_phase == "idle", "clicking the end button exits synchronously without another frame or key")
 
 func _wait_frames_for(seconds: float) -> void:
 	var elapsed := 0.0
@@ -118,6 +163,9 @@ func _press(code: Key, unicode_value: int = 0) -> void:
 	event = event.duplicate()
 	event.pressed = false
 	Input.parse_input_event(event)
+	# Deliver Godot's accumulated key events now, so the immediate-phase check
+	# measures the input handler rather than the engine's next-frame queue flush.
+	Input.flush_buffered_events()
 
 func _check(condition: bool, message: String) -> void:
 	checks += 1

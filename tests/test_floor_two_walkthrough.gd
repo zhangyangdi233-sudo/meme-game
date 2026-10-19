@@ -2,7 +2,7 @@ extends SceneTree
 
 # Exercise the shipped CharacterBody3D controller continuously; route points are
 # steering targets, never positions assigned to the body.
-const OUTPUT := "res://artifacts/floor-two-walkthrough-20261016"
+const OUTPUT := "res://artifacts/maze-xray-20261019"
 const REACH_DISTANCE := 0.42
 const MAX_SEGMENT_STEPS := 720
 const MAX_STALLED_STEPS := 180
@@ -35,7 +35,8 @@ func _run() -> void:
 	var player: CharacterBody3D = main._reality_player
 	var world: Node3D = main._reality_floor
 	var route: Array = world.get_floor_two_map_layout().primary_route
-	_check(route.size() == 33, "actual generated primary route contains all 33 waypoints")
+	_check(route.size() == 91, "actual expanded primary route contains all 91 waypoints")
+	_check(_route_length(route) >= 720.0, "walk the complete expanded 720 metre route")
 	_check(is_equal_approx(player.get_node("PlayerCollision").shape.radius, 0.34), "use actual full-size player collision capsule")
 	for frame in 60:
 		await physics_frame

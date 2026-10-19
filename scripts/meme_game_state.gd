@@ -769,7 +769,7 @@ func finish_floor_two_dialogue() -> bool:
 
 
 func try_exit_floor_two() -> bool:
-	if tower_floor != 2 or _is_chapter_practice() or not is_phone_app_unlocked("map"):
+	if tower_floor != 2 or _is_chapter_practice() or not is_phone_app_unlocked("map") or not FloorTwoJourneyScript.can_exit(floor_two_progress):
 		return false
 	floor_two_progress = FloorTwoJourneyScript.normalize(floor_two_progress)
 	floor_two_progress.exit_reached = true
@@ -1102,6 +1102,8 @@ func advance_typed_reality_character() -> Dictionary:
 	var display_character := clean_character
 	if corrupted:
 		display_character = _conversation_corruption_text(roll, conversation_reveal_index)
+		if conversation_locale == "ja":
+			display_character = display_character.substr(0, 1)
 	conversation_revealed_units.append({
 		"clean": clean_character,
 		"display": display_character,

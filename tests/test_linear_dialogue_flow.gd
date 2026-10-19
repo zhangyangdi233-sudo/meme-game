@@ -33,7 +33,7 @@ func _run() -> void:
 		main._render()
 		_check(main.game.conversation_phase == "typing", "NPC proceeds directly to the single protagonist line in %s" % locale_code)
 		_check(not main._reality_choice_row.visible and main._reality_choice_row.get_child_count() == 0, "NPC has no response options in %s" % locale_code)
-		_check(main.find_child("RealityConversationContinue", true, false) == null, "dialogue has no continue, end or leave button")
+		_check(main.find_child("RealityConversationContinue", true, false) == null and not main._reality_end_button.visible, "dialogue has no Continue button and hides End until the final reply")
 		var keyboard: Node = main._ui_root.get_node_or_null("LinearDialogueKeyboard")
 		_check(keyboard != null, "dialogue owns a keyboard input receiver")
 		if keyboard == null:
@@ -73,7 +73,8 @@ func _run() -> void:
 		_check(main.game.conversation_completed, "single route completes all key NPC dialogue")
 		_check(main.game.is_prerequisite_item_revealed(str(main.game.get_prerequisite_item_for_floor(1).id)), "single route retains the hidden-clue reward")
 		_advance_reply(main)
-		_check(not main._reality_interaction_active, "the final NPC reply automatically returns to exploration")
+		_close_completed_dialogue(main)
+		_check(not main._reality_interaction_active, "the end button returns to exploration after the final reply")
 		await process_frame
 		await process_frame
 		var previous_npc_sentence: String = main.game.last_clean_sentence
@@ -88,7 +89,8 @@ func _run() -> void:
 		_finish_conversation(main, keyboard)
 		_check(main.game.conversation_completed, "doctor line completes without requiring old menu selections")
 		_advance_reply(main)
-		_check(not main._reality_interaction_active, "the doctor's final reply automatically ends without a menu")
+		_close_completed_dialogue(main)
+		_check(not main._reality_interaction_active, "the doctor's final reply offers the same immediate end button")
 		await process_frame
 		await process_frame
 	_test_reply_cancellation(main)
@@ -186,11 +188,12 @@ func _test_playback_clock() -> void:
 	for texts in [["好。", "这是一段需要让玩家有充足时间阅读的回复。"], ["Yes.", "Take enough time to read this complete reply before moving on."], ["はい。", "次の会話に進む前に、ここにある返事をゆっくり読んでください。"]]:
 		_check(flow.reading_seconds(texts[1]) > flow.reading_seconds(texts[0]), "longer NPC replies receive longer reading time in every writing system")
 	flow.begin_reply("OK.")
-	_check(not flow.advance(0.5, false), "an NPC response is never immediately skipped")
+	_check(not flow.advance(0.2, false), "an NPC response is never immediately skipped")
 	_check(not flow.advance(1000.0, true), "a paused playback clock does not elapse")
 	_check(not flow.advance(-100.0, false), "negative frame time cannot finish a reply")
-	_check(not flow.advance(1.9, false), "pausing preserves the exact remaining reading time")
-	_check(flow.advance(0.2, false), "reply ends after its remaining unpaused time elapses")
+	_check(not flow.advance(0.2, false), "pausing preserves the exact remaining reading time")
+	_check(flow.advance(0.21, false), "a short reply finishes in well under the former 2.5-second minimum")
+	_check(flow.reply_finished, "completed playback is retained across rerenders")
 	_check(not flow.advance(1000.0, false), "a completed clock can advance only one turn")
 	flow.begin_reply("OK.")
 	flow.cancel()
@@ -226,7 +229,8 @@ func _test_reply_cancellation(main: Node) -> void:
 	main._update_reality_dialogue(0.1)
 	_check(main.game.conversation_phase == "result", "the replacement actor's response receives a fresh interval")
 	main._process(1000.0)
-	_check(not main._reality_interaction_active, "the production frame update automatically finishes the final NPC reply")
+	_close_completed_dialogue(main)
+	_check(not main._reality_interaction_active, "the production frame exposes End and its click finishes the final NPC reply")
 	main.game.start_typed_reality_conversation("doctor", "doctor", "医生")
 	main._localize_active_conversation()
 	main._reality_interaction_active = true
@@ -270,7 +274,8 @@ func _test_chapter_delivery(main: Node) -> void:
 		_finish_conversation(main, keyboard)
 		_check(not main.game.chapter1_progress.completed_task_ids.has(Director.TASK_IDS[visit]), "speaking without a submitted expression cannot complete delivery")
 		_advance_reply(main)
-		_check(not main._reality_interaction_active, "the submission reminder closes automatically")
+		_close_completed_dialogue(main)
+		_check(not main._reality_interaction_active, "the submission reminder closes on End")
 		main.game.pick_social_char("floor_13", "门")
 		main.game.free_sentence_place("门")
 		_check(main.game.submit_free_sentence().submitted, "visit %d has an actual submitted expression" % visit)
@@ -280,9 +285,17 @@ func _test_chapter_delivery(main: Node) -> void:
 		_check(main.game.chapter1_progress.completed_task_ids.has(Director.TASK_IDS[visit]), "completing the dialogue naturally delivers visit %d" % visit)
 		_check(not main.game.chapter1_progress.unlocked_app_ids.is_empty(), "NPC app grants remain available on visit %d" % visit)
 		_advance_reply(main)
-		_check(not main._reality_interaction_active, "task delivery closes automatically after the final NPC response")
+		_close_completed_dialogue(main)
+		_check(not main._reality_interaction_active, "task delivery closes on End after the final NPC response")
 		main.notify_chapter1("basement_exit_requested", {"round_token": token})
 		await process_frame
+
+
+func _close_completed_dialogue(main: Node) -> void:
+	var button := main.find_child("RealityConversationEnd", true, false) as Button
+	_check(main._reality_interaction_active and button != null and button.visible, "the final reply waits at its only End button")
+	if button != null:
+		button.pressed.emit()
 
 
 func _finish_conversation(main: Node, keyboard: Node) -> void:

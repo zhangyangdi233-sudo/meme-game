@@ -89,14 +89,9 @@ func _run() -> void:
 	await _speak(main, "floor2_cartographer")
 	_check(not main.game.is_phone_app_unlocked("map"), "early cartographer dialogue does not unlock the map")
 	await _speak(main, "floor2_wayfinder")
-	_check(bool(main.game.floor_two_progress.get("accepted", false)), "completed keyboard dialogue accepts the route task")
-	_check(not main.game.visit_floor_two_turn("turn_2"), "later turn cannot be reported before the first")
-	for point: Vector3 in layout.turn_points:
-		main._reality_player.position = point
-		main._update_floor_two_exploration(0.1)
-	_check(main.game.floor_two_progress.visited_turn_ids.size() == 2, "walking through both mandatory turns completes the route task")
-	await _speak(main, "floor2_cartographer")
-	_check(main.game.is_phone_app_unlocked("map"), "completed task and cartographer dialogue award the map")
+	_check(bool(main.game.floor_two_progress.get("accepted", false)), "completed keyboard dialogue records the first NPC conversation")
+	_check(main.game.floor_two_progress.visited_turn_ids.is_empty(), "map reward does not require reaching either old checkpoint")
+	_check(main.game.is_phone_app_unlocked("map"), "first wayfinder dialogue immediately awards the map")
 	_check(not map_icon.disabled, "reward immediately enables the phone icon")
 	main._open_phone_launcher()
 	main._on_app_pressed("map")
@@ -121,7 +116,13 @@ func _run() -> void:
 			added += 1 if previous[index] == 0 and restored[index] == 1 else 0
 		print("MAP RESTORE: lost=%d added=%d position=%s -> %s" % [lost, added, position_before, main._reality_player.position])
 	_check(main.game.exploration_maps == before, "Continue preserves the visited cells")
-	_check(main.game.floor_two_progress.visited_turn_ids.size() == 2, "Continue preserves route task")
+	_check(main.game.floor_two_progress.accepted and main.game.floor_two_progress.visited_turn_ids.is_empty(), "Continue retains the map with only the first NPC completed")
+	_check(not main.game.try_exit_floor_two(), "map ownership alone cannot bypass the Xray discoveries")
+	# Spatial hand-frame evidence is covered by test_floor_two_phone_xray_flow;
+	# this flow verifies that the resulting ordered discoveries reach the F gate.
+	var journey = load("res://scripts/progression/floor_two_journey.gd")
+	for id in journey.XRAY_OBSERVATION_IDS:
+		main.game.floor_two_progress = journey.record_xray_observation(main.game.floor_two_progress, id)
 	main.set_view_state("npc_up")
 	main._reality_player.position = layout.exit_position + Vector3(0, 0, 1.0)
 	main._refresh_nearby_reality_actor()
@@ -170,7 +171,9 @@ func _speak(main, actor_id: String) -> void:
 	_check(main.game.conversation_phase == "result", "typed reply reaches the automatic response phase")
 	main._update_reality_dialogue(120.0)
 	await _frames()
-	_check(not main._reality_interaction_active, "dialogue closes automatically without a Continue button")
+	_check(main._reality_interaction_active and main._reality_end_button.visible, "the final reply waits at the End button")
+	main._reality_end_button.pressed.emit()
+	_check(not main._reality_interaction_active, "the End button immediately closes dialogue")
 
 func _frames() -> void:
 	for i in 4:

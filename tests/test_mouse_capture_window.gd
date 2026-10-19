@@ -98,6 +98,30 @@ func _run() -> void:
 	_check(not main._reality_mouse_look_enabled, "phone rejects stale world capture request")
 	_check_mode("phone rejects capture request", Input.MOUSE_MODE_VISIBLE, false)
 	main._set_reality_mouse_look(false)
+	var phone_look := InputEventMouseButton.new()
+	phone_look.button_index = MOUSE_BUTTON_RIGHT
+	phone_look.position = Vector2(32, 180)
+	phone_look.global_position = phone_look.position
+	phone_look.pressed = true
+	root.push_input(phone_look, true)
+	await _settle()
+	_check(main.game.view_state == "phone_down" and main._phone_world_look_active, "phone stays open during right-button world look")
+	_check_mode("phone held right-button look", Input.MOUSE_MODE_CAPTURED, true)
+	phone_look.pressed = false
+	root.push_input(phone_look, true)
+	await _settle()
+	_check_mode("phone right-button released", Input.MOUSE_MODE_VISIBLE, false)
+	phone_look.pressed = true
+	root.push_input(phone_look, true)
+	_key(KEY_TAB)
+	await _settle()
+	phone_look.pressed = false
+	root.push_input(phone_look, true)
+	await _settle()
+	_check(not main._phone_world_look_active and main.game.view_state == "npc_up", "Tab clears held phone-look state")
+	_check_mode("release after closing phone", Input.MOUSE_MODE_CAPTURED, true)
+	_key(KEY_TAB)
+	await _settle()
 	_key(KEY_ESCAPE)
 	await _settle()
 	_check(main._settings_open, "Escape opens settings over phone")

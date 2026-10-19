@@ -1,0 +1,159 @@
+{
+  "retrieved_utc": "2026-10-19T05:54:14.959973+00:00",
+  "purpose": "read-only design research; no downloaded code/assets shipped or executed",
+  "files": [
+    {
+      "repository": "https://github.com/Terkwood/maze",
+      "commit": "e3a81507b7eaa832a5b53700123a2bce0df397fc",
+      "source_url": "https://raw.githubusercontent.com/Terkwood/maze/e3a81507b7eaa832a5b53700123a2bce0df397fc/README.md",
+      "local_path": "Terkwood__maze/README.md",
+      "license": "MIT",
+      "sha256": "d71e3833bb1a9c3a02e01384d6cfc3337db531a66882d4a319594b762b86cc8a",
+      "bytes": 565
+    },
+    {
+      "repository": "https://github.com/Terkwood/maze",
+      "commit": "e3a81507b7eaa832a5b53700123a2bce0df397fc",
+      "source_url": "https://raw.githubusercontent.com/Terkwood/maze/e3a81507b7eaa832a5b53700123a2bce0df397fc/LICENSE",
+      "local_path": "Terkwood__maze/LICENSE",
+      "license": "MIT",
+      "sha256": "d46831a2332256a17eb806af9394d74d618c0c41adcac83176c70dec2b50851f",
+      "bytes": 1065
+    },
+    {
+      "repository": "https://github.com/Terkwood/maze",
+      "commit": "e3a81507b7eaa832a5b53700123a2bce0df397fc",
+      "source_url": "https://raw.githubusercontent.com/Terkwood/maze/e3a81507b7eaa832a5b53700123a2bce0df397fc/HedgeMaze.gd",
+      "local_path": "Terkwood__maze/HedgeMaze.gd",
+      "license": "MIT",
+      "sha256": "dfc282327f6742c30d7623a721c9d5f430b08ae068d38208fffe6656d18aedf2",
+      "bytes": 6318
+    },
+    {
+      "repository": "https://github.com/Terkwood/maze",
+      "commit": "e3a81507b7eaa832a5b53700123a2bce0df397fc",
+      "source_url": "https://raw.githubusercontent.com/Terkwood/maze/e3a81507b7eaa832a5b53700123a2bce0df397fc/WallBody.gd",
+      "local_path": "Terkwood__maze/WallBody.gd",
+      "license": "MIT",
+      "sha256": "da791676d4013c99baafb6a0b98e7895bf97eac7dd23c352cab4ddfafee95f3f",
+      "bytes": 139
+    },
+    {
+      "repository": "https://github.com/DeybisMelendez/maze-generator-godot",
+      "commit": "18e20a6c9eba27f918747c2274572a10d9b7bc30",
+      "source_url": "https://raw.githubusercontent.com/DeybisMelendez/maze-generator-godot/18e20a6c9eba27f918747c2274572a10d9b7bc30/README.md",
+      "local_path": "DeybisMelendez__maze-generator-godot/README.md",
+      "license": "MIT",
+      "sha256": "4b103963b8da572fd9131e5c95e7518e0f4b5761ba9dd00e191d84768aed0a3d",
+      "bytes": 574
+    },
+    {
+      "repository": "https://github.com/DeybisMelendez/maze-generator-godot",
+      "commit": "18e20a6c9eba27f918747c2274572a10d9b7bc30",
+      "source_url": "https://raw.githubusercontent.com/DeybisMelendez/maze-generator-godot/18e20a6c9eba27f918747c2274572a10d9b7bc30/LICENSE",
+      "local_path": "DeybisMelendez__maze-generator-godot/LICENSE",
+      "license": "MIT",
+      "sha256": "27c219a54c8556c4b721d104171d477428325b8d08358b77beb668b58d6e99e6",
+      "bytes": 1072
+    },
+    {
+      "repository": "https://github.com/DeybisMelendez/maze-generator-godot",
+      "commit": "18e20a6c9eba27f918747c2274572a10d9b7bc30",
+      "source_url": "https://raw.githubusercontent.com/DeybisMelendez/maze-generator-godot/18e20a6c9eba27f918747c2274572a10d9b7bc30/maze_generator.gd",
+      "local_path": "DeybisMelendez__maze-generator-godot/maze_generator.gd",
+      "license": "MIT",
+      "sha256": "21c0596e8f599d4bec4302b0dff4d500ce3c8e777bf6a234568b33c87a4c937a",
+      "bytes": 2315
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/README.md",
+      "local_path": "MarcioMed07__GMG/README.md",
+      "license": "MIT",
+      "sha256": "b62467f10433ab028e7362d23f2e26bc19cd0ff0015f088a2a08127d5c5e14e4",
+      "bytes": 379
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/LICENSE",
+      "local_path": "MarcioMed07__GMG/LICENSE",
+      "license": "MIT",
+      "sha256": "a406579cd136771c705c521db86ca7d60a6f3de7c9b5460e6193a2df27861bde",
+      "bytes": 1068
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/Scripts/Maze.gd",
+      "local_path": "MarcioMed07__GMG/Scripts/Maze.gd",
+      "license": "MIT",
+      "sha256": "2beefa7b2521aef1787a9b00c338b1e6efb0cbb8f9a28e1f9a639d898211401b",
+      "bytes": 3131
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/Scripts/Cell.gd",
+      "local_path": "MarcioMed07__GMG/Scripts/Cell.gd",
+      "license": "MIT",
+      "sha256": "1e04cdcc2963ad9accde80ce433531b9a53306f6e21ccfa7a8fc3c3670b3740d",
+      "bytes": 775
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/Scripts/Algorithms/DepthFirst.gd",
+      "local_path": "MarcioMed07__GMG/Scripts/Algorithms/DepthFirst.gd",
+      "license": "MIT",
+      "sha256": "741e0a4f509085c1e983e4831c9a58594c86a87f61db7ef6c6256a97fc17963f",
+      "bytes": 2017
+    },
+    {
+      "repository": "https://github.com/MarcioMed07/GMG",
+      "commit": "ac9cc9993a33aad63e9046fbc6c747c53b96e022",
+      "source_url": "https://raw.githubusercontent.com/MarcioMed07/GMG/ac9cc9993a33aad63e9046fbc6c747c53b96e022/Scripts/Algorithms/Prim.gd",
+      "local_path": "MarcioMed07__GMG/Scripts/Algorithms/Prim.gd",
+      "license": "MIT",
+      "sha256": "8752895fbad3a6dcf0c8e561059e8c5893df2f8d2f1c1e47d8ddc1598752fdbf",
+      "bytes": 1709
+    },
+    {
+      "repository": "https://github.com/jamis/theseus",
+      "commit": "eff25e2d02da00bb9515690b83008ec05e852317",
+      "source_url": "https://raw.githubusercontent.com/jamis/theseus/eff25e2d02da00bb9515690b83008ec05e852317/README.rdoc",
+      "local_path": "jamis__theseus/README.rdoc",
+      "license": "Public-domain declaration in README.rdoc (not an SPDX license file)",
+      "sha256": "311ae4050e21c36d721da9110a386b14e3dd18ff90394b32a146afb98c062dbd",
+      "bytes": 5256
+    },
+    {
+      "repository": "https://github.com/jamis/theseus",
+      "commit": "eff25e2d02da00bb9515690b83008ec05e852317",
+      "source_url": "https://raw.githubusercontent.com/jamis/theseus/eff25e2d02da00bb9515690b83008ec05e852317/lib/theseus/maze.rb",
+      "local_path": "jamis__theseus/lib/theseus/maze.rb",
+      "license": "Public-domain declaration in README.rdoc (not an SPDX license file)",
+      "sha256": "a6d499e6f1ec5af65cb5a2981aa10675114129a91cf53c82d56f06b1d45230ca",
+      "bytes": 31027
+    },
+    {
+      "repository": "https://github.com/jamis/theseus",
+      "commit": "eff25e2d02da00bb9515690b83008ec05e852317",
+      "source_url": "https://raw.githubusercontent.com/jamis/theseus/eff25e2d02da00bb9515690b83008ec05e852317/lib/theseus/mask.rb",
+      "local_path": "jamis__theseus/lib/theseus/mask.rb",
+      "license": "Public-domain declaration in README.rdoc (not an SPDX license file)",
+      "sha256": "2b7cdb8932c171d56cdbdf986779c6ed76d89a0ce33b8ff39dad1530353ef4b8",
+      "bytes": 3561
+    },
+    {
+      "repository": "https://github.com/jamis/theseus",
+      "commit": "eff25e2d02da00bb9515690b83008ec05e852317",
+      "source_url": "https://raw.githubusercontent.com/jamis/theseus/eff25e2d02da00bb9515690b83008ec05e852317/lib/theseus/algorithms/recursive_backtracker.rb",
+      "local_path": "jamis__theseus/lib/theseus/algorithms/recursive_backtracker.rb",
+      "license": "Public-domain declaration in README.rdoc (not an SPDX license file)",
+      "sha256": "da221c6d32a97b0b150e11212418abf35ea2fda39b2b6b1f33a2f626874043b8",
+      "bytes": 2580
+    }
+  ]
+}

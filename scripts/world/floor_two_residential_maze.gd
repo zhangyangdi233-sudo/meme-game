@@ -1,6 +1,6 @@
 extends Node3D
 ## Original low-poly residential kit. Its occupied parcels are exactly the map's
-## # cells; the two roofed passage rooms remain inside their walkable . cells.
+## road-frontage # cells; the two passage rooms stay inside walkable . cells.
 
 const Layout = preload("res://scripts/world/floor_two_maze_layout.gd")
 const WhiteGate = preload("res://scripts/world/chapter_white_gate.gd")
@@ -22,6 +22,8 @@ func build(layout: Dictionary, height_sampler: Callable) -> void:
 		_build_house(data)
 	_build_passage(Layout.WAYFINDER_CELL, false, "WayfinderPassage")
 	_build_passage(Layout.CARTOGRAPHER_CELL, true, "CartographerPassage")
+	for difference: Dictionary in layout.get("xray_differences", []):
+		_build_difference(difference)
 	_build_exit(layout.exit_position)
 	_flush_detail_batches()
 
@@ -50,15 +52,15 @@ func _build_house(data: Dictionary) -> void:
 	house.set_meta("roof_height", top)
 	add_child(house)
 	var wall_material: StandardMaterial3D = _materials["plaster_%d" % posmod(cell.x + cell.y, 3)]
-	_box(house, "SolidResidence", Vector3(8.0, top - bottom, 8.0), Vector3(center.x, (top + bottom) * 0.5, center.y), wall_material, true)
-	_box(house, "OverhangingCornice", Vector3(8.26, 0.18, 8.26), Vector3(center.x, top + 0.08, center.y), _materials.trim)
-	_box(house, "RoofCap", Vector3(8.16, 0.12, 8.16), Vector3(center.x, top + 0.23, center.y), _materials.roof)
+	_box(house, "SolidResidence", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), wall_material, true)
+	_box(house, "OverhangingCornice", Vector3(rect.size.x + 0.26, 0.18, rect.size.y + 0.26), Vector3(center.x, top + 0.08, center.y), _materials.trim)
+	_box(house, "RoofCap", Vector3(rect.size.x + 0.16, 0.12, rect.size.y + 0.16), Vector3(center.x, top + 0.23, center.y), _materials.roof)
 	for direction in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]:
 		if not Layout.is_walkable(cell + direction):
 			continue
 		var face := Node3D.new()
 		face.name = "Facade_%d_%d" % [direction.x, direction.y]
-		face.position = Vector3(center.x + float(direction.x) * 4.005, 0, center.y + float(direction.y) * 4.005)
+		face.position = Vector3(center.x + float(direction.x) * (rect.size.x * 0.5 + 0.005), 0, center.y + float(direction.y) * (rect.size.y * 0.5 + 0.005))
 		face.rotation.y = atan2(float(direction.x), float(direction.y))
 		house.add_child(face)
 		var frontage_ground := _sample(center + Vector2(direction) * 3.95)
@@ -163,6 +165,9 @@ func _build_exit(position: Vector3) -> void:
 	host.add_child(pivot)
 	WhiteGate.attach(pivot, host)
 	for mesh: MeshInstance3D in host.find_children("*", "MeshInstance3D", true, false):
+		mesh.layers = Layout.XRAY_RENDER_LAYER
+		mesh.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if str(mesh.name).begins_with("LightSeam_") or mesh.name == "OpeningDoor_LightPlane":
 			continue
 		for surface in mesh.mesh.get_surface_count():
@@ -176,9 +181,72 @@ func _build_exit(position: Vector3) -> void:
 			paint.emission_energy_multiplier = 0.22
 			paint.roughness = 0.9
 			mesh.set_surface_override_material(surface, paint)
+	for light: Light3D in host.find_children("*", "Light3D", true, false):
+		light.layers = Layout.XRAY_RENDER_LAYER
+		light.light_cull_mask = Layout.XRAY_RENDER_LAYER
+		light.light_bake_mode = Light3D.BAKE_DISABLED
+		light.light_indirect_energy = 0.0
+		light.light_volumetric_fog_energy = 0.0
+		light.light_energy = 0.0
 	host.set_meta("exit_visual_only", true)
+	host.set_meta("xray_only", true)
 	# The original house behind this authored door remains a solid boundary.
 	# Gameplay handles F at floor2_exit and transitions without walking outside.
+
+
+func _build_difference(data: Dictionary) -> void:
+	var host := Node3D.new()
+	host.name = str(data.id)
+	host.set_meta("xray_difference", data.duplicate(true))
+	host.set_meta("fixed_collision", bool(data.solid))
+	add_child(host)
+	var rect: Rect2 = data.rect
+	var center := rect.get_center()
+	var bottom := minf(_sample(rect.position), _sample(rect.end)) - 0.6
+	var top := maxf(_sample(rect.position), _sample(rect.end)) + float(data.height)
+	var layer := Layout.NORMAL_ONLY_LAYER if data.normal_visible else Layout.XRAY_RENDER_LAYER
+	_layer_box(host, "Facade" if data.normal_visible else "SolidPartition", Vector3(rect.size.x, top - bottom, rect.size.y), Vector3(center.x, (top + bottom) * 0.5, center.y), _materials.plaster_1, layer, bool(data.solid))
+	if not data.normal_visible:
+		return
+	# The incomplete cream window frame is visible from the approach, giving the
+	# tracked-hand lesson a deliberate target instead of asking for blind probing.
+	host.set_meta("teaching_clue", "incomplete_window_frame")
+	var focus: Vector3 = data.observation_point
+	for side in [-1.0, 1.0]:
+		for end in [-1.0, 1.0]:
+			var z: float = center.y + float(side) * (rect.size.y * 0.5 + 0.025)
+			_layer_box(host, "FrameHorizontal", Vector3(0.5, 0.10, 0.025), Vector3(focus.x + end * 0.48, focus.y + 0.67, z), _materials.clue, layer)
+			_layer_box(host, "FrameVertical", Vector3(0.10, 0.5, 0.025), Vector3(focus.x + end * 0.68, focus.y + 0.47, z), _materials.clue, layer)
+			_layer_box(host, "FrameLowerHorizontal", Vector3(0.5, 0.10, 0.025), Vector3(focus.x + end * 0.48, focus.y - 0.67, z), _materials.clue, layer)
+			_layer_box(host, "FrameLowerVertical", Vector3(0.10, 0.5, 0.025), Vector3(focus.x + end * 0.68, focus.y - 0.47, z), _materials.clue, layer)
+
+
+func _layer_box(parent: Node3D, label: String, size: Vector3, position: Vector3, material: Material, layer: int, solid := false) -> void:
+	# Keep these few objects outside the shared material MultiMeshes: layer
+	# membership is part of their meaning and must not merge with ordinary trim.
+	var mesh := MeshInstance3D.new()
+	mesh.name = label
+	var box := BoxMesh.new()
+	box.size = size
+	mesh.mesh = box
+	mesh.material_override = material
+	mesh.layers = layer
+	mesh.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh.position = position
+	parent.add_child(mesh)
+	if solid:
+		var body := StaticBody3D.new()
+		body.name = "PermanentCollision"
+		body.position = position
+		body.collision_layer = 1
+		body.collision_mask = 1
+		parent.add_child(body)
+		var collider := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = size
+		collider.shape = shape
+		body.add_child(collider)
 
 
 func _box(parent: Node3D, label: String, size: Vector3, position: Vector3, material: Material, collision := false) -> void:
@@ -254,6 +322,10 @@ func _make_materials() -> void:
 	_materials.warm_window.emission_enabled = true
 	_materials.warm_window.emission = Color("E6B36F")
 	_materials.warm_window.emission_energy_multiplier = 0.75
+	_materials.clue = _material(Color("EEE8D8"))
+	_materials.clue.emission_enabled = true
+	_materials.clue.emission = Color("EEE8D8")
+	_materials.clue.emission_energy_multiplier = 0.16
 
 
 func _material(color: Color, texture: Texture2D = null, scale_value := 1.0) -> StandardMaterial3D:

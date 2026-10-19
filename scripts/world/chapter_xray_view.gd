@@ -3,6 +3,7 @@ extends Node
 ## It never owns input, enables hardware, or decides whether the gesture is active.
 
 const XRAY_RENDER_LAYER := 1 << 19
+const NORMAL_ONLY_LAYER := 1 << 18
 
 var _source: Camera3D
 var _viewport: SubViewport
@@ -46,7 +47,7 @@ func update_view(active: bool, viewport_size: Vector2i) -> void:
 	_camera.v_offset = _source.v_offset
 	_camera.environment = _source.environment
 	_camera.attributes = _source.attributes
-	_camera.cull_mask = _source.cull_mask | XRAY_RENDER_LAYER
+	_camera.cull_mask = (_source.cull_mask | XRAY_RENDER_LAYER) & ~NORMAL_ONLY_LAYER
 	if active:
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 

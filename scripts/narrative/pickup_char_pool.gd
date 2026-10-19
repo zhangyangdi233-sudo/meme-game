@@ -19,7 +19,7 @@ const UNIT_POOLS := {
 	"ja": [
 		"ドア", "ひらく", "でぐち", "ある", "ない", "でんき", "つく",
 		"わたし", "あなた", "いえ", "かえる", "なまえ", "こえ",
-		"あんぜん", "ばしょ", "できる", "のこる", "いる", "その", "みち",
+		"あんぜん", "ばしょ", "できる", "のこる", "いる", "その", "みち", "は",
 	],
 	"en": [
 		"door", "can", "be", "opened", "open", "exit", "exists", "exist",
@@ -77,6 +77,7 @@ const WORD_DICTIONARY := {
 		"できる": {"units": ["できる"], "roles": ["modal"]},
 		"ない": {"units": ["ない"], "roles": ["negation"]},
 		"その": {"units": ["その"], "roles": ["particle"]},
+		"は": {"units": ["は"], "roles": ["particle"]},
 		"あんぜん": {"units": ["あんぜん"], "roles": ["modifier"]},
 	},
 	"en": {
@@ -112,10 +113,10 @@ const WORD_DICTIONARY := {
 ## line 与每条 comment 的文本必须包含各自 units 中的全部单位(测试逐一断言)。
 const POST_SEEDS := {
 	"floor_13": {
-		"units": {"zh": ["门", "开", "出"], "ja": ["ドア", "ひらく"], "en": ["door", "open"]},
+		"units": {"zh": ["门", "开", "出"], "ja": ["ドア", "は", "ひらく"], "en": ["door", "open"]},
 		"line": {
 			"zh": "顶楼的门开着。没人出来。",
-			"ja": "屋上のドアがひらく音。だれも出ない。",
+			"ja": "屋上のドアはひらく。だれも出ない。",
 			"en": "The top-floor door stands open. Nobody came out.",
 		},
 		"comments": [

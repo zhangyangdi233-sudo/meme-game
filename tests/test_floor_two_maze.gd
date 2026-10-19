@@ -10,12 +10,24 @@ func _init() -> void:
 
 func _run() -> void:
 	var data := Layout.data()
-	_check(data.rows.size() == 13 and data.walkable_cells.size() == 46, "fixed shared plan has thirteen rows and forty-six walkable cells")
-	_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL) == 32, "shortest full route is 256 metres")
-	for cell in [Layout.WAYFINDER_CELL, Layout.TURN_CELLS[0], Layout.TURN_CELLS[1], Layout.CARTOGRAPHER_CELL]:
+	_check(data.rows.size() == 25 and data.walkable_cells.size() == 176, "fixed expanded plan has twenty-five rows and 176 walkable cells")
+	_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL) == 82, "shortest full route is 656 metres")
+	_check(data.primary_route.size() == 91, "authored main route has ninety-one points across 720 metres")
+	_check(_distance(Layout.SPAWN_CELL, Layout.WAYFINDER_CELL) == 2, "map-giving first NPC is available after sixteen metres")
+	var edges := 0
+	var dead_ends := 0
+	for cell: Vector2i in data.walkable_cells:
+		_check(_distance(Layout.SPAWN_CELL, cell) >= 0, "every side street and dead end is reachable")
+		var degree := 0
+		for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			degree += int(Layout.is_walkable(cell + offset))
+		edges += degree
+		dead_ends += int(degree == 1)
+	_check(edges / 2 - data.walkable_cells.size() + 1 == 7 and dead_ends == 12, "seven loops and twelve dead ends add deliberate navigation choices")
+	for cell in [Layout.WAYFINDER_CELL, Layout.TURN_CELLS[0], Layout.TURN_CELLS[1], Layout.CARTOGRAPHER_CELL, Layout.XRAY_INTRO_CELL, Layout.HIDDEN_PATH_CELL]:
 		_check(_distance(Layout.SPAWN_CELL, Layout.EXIT_CELL, cell) == -1, "required NPC/turn cell %s cannot be bypassed" % cell)
-	for index in 13:
-		_check(not Layout.is_walkable(Vector2i(index, 0)) and not Layout.is_walkable(Vector2i(index, 12)) and not Layout.is_walkable(Vector2i(0, index)) and not Layout.is_walkable(Vector2i(12, index)), "continuous outer residences prevent perimeter shortcut")
+	for index in Layout.GRID_SIZE.x:
+		_check(not Layout.is_walkable(Vector2i(index, 0)) and not Layout.is_walkable(Vector2i(index, 24)) and not Layout.is_walkable(Vector2i(0, index)) and not Layout.is_walkable(Vector2i(24, index)), "continuous outer residences prevent perimeter shortcut")
 	var world := World.new()
 	root.add_child(world)
 	world.rebuild(2, {}, {})
@@ -25,7 +37,7 @@ func _run() -> void:
 	_check(world.get_meta("layout_mode") == "residential_maze", "actual generator selects residential maze")
 	_check(world.get_meta("terrain_profile") == "undulating_irregular_disc" and world.get_meta("disc_mound_count") == 13, "original hill terrain remains")
 	_check(world.get_meta("ordinary_npc_count") == 2 and world.get_interactable_actors().size() == 3, "only two journey NPCs and physical exit remain")
-	_check(data.blocking_rects.size() == 4, "phone fine grid receives all four passage side-wall footprints")
+	_check(data.blocking_rects.size() == 5, "physical fine grid includes four passage side walls and the permanent hidden partition")
 	for rect: Rect2 in data.blocking_rects:
 		var center := rect.get_center()
 		var point := Vector3(center.x, 0, center.y)
@@ -61,6 +73,10 @@ func _run() -> void:
 		var recovered := world.clamp_to_playable_position(original)
 		_check(world.contains_playable_position(recovered) and _body_hits(world, recovered).is_empty(), "old building-interior save recovers to a clear passage")
 		_check(recovered.y > float(world.floor_two_probe(recovered).ground_height), "save recovery preserves terrain elevation")
+		var roof_rect: Rect2 = building.rect.grow(0.14)
+		for flat in [roof_rect.position, roof_rect.end, roof_rect.position + Vector2(roof_rect.size.x, 0), roof_rect.position + Vector2(0, roof_rect.size.y)]:
+			var corner := Vector3(flat.x, 0, flat.y)
+			_check(world._floor_two_disc_contains(corner, 0.5), "every building and cornice stays inside the original terrain boundary")
 	for cell in data.walkable_cells:
 		var point := Layout.point_at_cell(cell)
 		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:

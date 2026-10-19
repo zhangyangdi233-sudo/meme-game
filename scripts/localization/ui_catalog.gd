@@ -2,6 +2,11 @@ extends RefCounted
 
 
 const EN: Dictionary = {
+	"按 Esc，在设置中连接摄像头，开始手指 X-ray 教学。": "Press Esc and connect a camera in Settings to begin the finger-frame X-ray lesson.",
+	"双手拇指和食指围出一个框。透过它看前方的异常墙，也能查看手机里的另一张地图。": "Make a frame with both thumbs and index fingers. Look through it at the strange wall ahead, or at the other map on your phone.",
+	"刚才的墙后还有路。继续用手指围框，寻找隐藏通道。": "There is a path behind that wall. Keep framing the view with your fingers to find hidden passages.",
+	"Tab 收放手机；打开地图时也可用 WASD 行走。": "Tab opens or lowers your phone. You can keep walking with WASD while viewing the map.",
+	"普通地图没有画出真正的出口。用手指框寻找白光门。": "The ordinary map does not show the true exit. Use your finger frame to find the door of white light.",
 	"地图": "Map",
 	"白光门": "Door of light",
 	"地图 App": "Map App",
@@ -594,6 +599,11 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
+	"按 Esc，在设置中连接摄像头，开始手指 X-ray 教学。": "Escで設定を開き、カメラを接続して、指の枠で見るX-rayの練習を始めよう。",
+	"双手拇指和食指围出一个框。透过它看前方的异常墙，也能查看手机里的另一张地图。": "両手の親指と人差し指で枠を作ろう。枠越しに前の奇妙な壁を見ると、携帯のもう一枚の地図も見られる。",
+	"刚才的墙后还有路。继续用手指围框，寻找隐藏通道。": "さっきの壁の向こうにも道がある。指の枠で隠れた通路を探そう。",
+	"Tab 收放手机；打开地图时也可用 WASD 行走。": "Tabで携帯を出し入れ。地図を見ながらWASDで歩ける。",
+	"普通地图没有画出真正的出口。用手指框寻找白光门。": "普通の地図に本当の出口は描かれていない。指の枠で白く光る扉を探そう。",
 	"地图": "地図",
 	"白光门": "白い光の扉",
 	"地图 App": "地図アプリ",

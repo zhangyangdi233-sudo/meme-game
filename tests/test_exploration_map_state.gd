@@ -62,6 +62,22 @@ func _test_exploration(state_script: Script) -> void:
 	_check(wall_snapshot.walkable[2 * 7 + 2] == 0, "sub-cell building walls override coarse road cells")
 	_check(_seen(wall_snapshot, 2, 2) and not _seen(wall_snapshot, 3, 2), "fine wall faces become known without revealing the road behind")
 	_check(not wall_state.reveal_at(Vector3(5, 0, 5)), "fine wall interiors cannot be used as exploration origins")
+	# Both orientations deliberately straddle grid boundaries: no 2m cell center
+	# lies inside a 24cm wall, but the wall must still be visible and occlude sight.
+	var narrow_layout := _layout(["#######", "#.....#", "#.....#", "#.....#", "#######"], 2.0)
+	narrow_layout.blocking_rects = [Rect2(3.88, 2, 0.24, 6)]
+	var narrow_state = state_script.new()
+	narrow_state.configure(narrow_layout)
+	narrow_state.reveal_at(Vector3(3, 0, 5))
+	var narrow_snapshot: Dictionary = narrow_state.snapshot(Vector3(3, 0, 5), 0.0)
+	_check(narrow_snapshot.walkable[2 * 7 + 2] == 0, "vertical thin wall occupies one stable grid column")
+	_check(_seen(narrow_snapshot, 2, 2) and not _seen(narrow_snapshot, 3, 2), "vertical thin wall reveals its surface but occludes the road behind")
+	narrow_layout.blocking_rects = [Rect2(2, 3.88, 8, 0.24)]
+	narrow_state.configure(narrow_layout)
+	narrow_state.reveal_at(Vector3(5, 0, 3))
+	narrow_snapshot = narrow_state.snapshot(Vector3(5, 0, 3), 0.0)
+	_check(narrow_snapshot.walkable[2 * 7 + 2] == 0, "horizontal thin wall occupies one stable grid row")
+	_check(_seen(narrow_snapshot, 2, 2) and not _seen(narrow_snapshot, 2, 3), "horizontal thin wall blocks map sight")
 	var wall_save: Dictionary = wall_state.to_save_data()
 	wall_state.configure(_layout(["#######", "#.....#", "#.....#", "#.....#", "#######"], 2.0), wall_save)
 	_check(wall_state.snapshot(Vector3(3, 0, 5), 0.0).explored.count(1) == 0, "changing only fine walls invalidates an incompatible discovery mask")
@@ -132,10 +148,27 @@ func _test_exploration(state_script: Script) -> void:
 	state.configure(actual_layout)
 	_check(state.reveal_at(actual_layout.spawn), "actual maze spawn is a valid exploration position")
 	snapshot = state.snapshot(actual_layout.spawn, 0.0)
-	_check(snapshot.active and snapshot.columns == 52 and snapshot.rows == 52, "actual maze uses the agreed active 52-by-52 phone map")
-	for wall_point: Vector2 in [Vector2(-43, 23), Vector2(-37, 23), Vector2(7, -27), Vector2(7, -21)]:
+	_check(snapshot.active and snapshot.columns == 100 and snapshot.rows == 100, "expanded maze uses an active 100-by-100 phone map")
+	for rect: Rect2 in actual_layout.blocking_rects:
+		var wall_point := rect.get_center()
 		var wall_cell: Vector2i = Vector2i((wall_point - actual_layout.bounds.position) / 2.0)
 		_check(snapshot.walkable[wall_cell.y * snapshot.columns + wall_cell.x] == 0, "actual NPC gatehouse sidewalls are buildings on the phone map")
+	for gatehouse_cell: Vector2i in actual_layout.gatehouse_cells:
+		var gate_point: Vector3 = load("res://scripts/world/floor_two_maze_layout.gd").point_at_cell(gatehouse_cell)
+		_check(state.snapshot(gate_point, 0.0).active, "thin-wall rasterization preserves the 2.8m NPC passage center")
+	var perceived_layout := actual_layout.duplicate(true)
+	perceived_layout.rows = actual_layout.normal_rows
+	perceived_layout.blocking_rects = actual_layout.normal_blocking_rects
+	var perceived = state_script.new()
+	perceived.configure(perceived_layout)
+	var perceived_snapshot: Dictionary = perceived.snapshot(actual_layout.spawn, 0.0)
+	_check(perceived_snapshot.walkable != snapshot.walkable, "real ordinary and Xray maps have different rasterized geometry")
+	for difference: Dictionary in actual_layout.xray_differences:
+		var center: Vector2 = difference.rect.get_center()
+		var cell := Vector2i(((center - actual_layout.bounds.position) / 2.0).floor())
+		var index: int = cell.y * snapshot.columns + cell.x
+		_check(snapshot.walkable[index] == int(not difference.solid), "true map represents permanent collision at each difference")
+		_check(perceived_snapshot.walkable[index] == int(not difference.normal_visible), "ordinary map represents the visible facade without exposing invisible partitions")
 	var exit_uv: Vector2 = (Vector2(actual_layout.exit_position.x, actual_layout.exit_position.z) - actual_layout.bounds.position) / 2.0
 	_check(not _seen(snapshot, int(exit_uv.x), int(exit_uv.y)), "spawn discovery does not expose the actual distant exit")
 	var primary: Array = actual_layout.primary_route

@@ -7,6 +7,9 @@ import subprocess
 import time
 
 TESTS = [
+    'test_floor_two_phone_xray_flow', 'test_floor_two_xray_maze',
+    'test_chapter_crt_onboarding', 'test_chapter_crt_terminal_onboarding',
+    'test_dialogue_localization_revision',
     'test_notebook_phone_flow', 'test_published_social_feed', 'test_retired_guide_ui',
     'test_audio_runtime', 'test_crossroads_white_gate',
     'test_floor_two_journey', 'test_exploration_map_state',

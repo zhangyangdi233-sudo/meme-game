@@ -7,6 +7,7 @@ const CATALOG_PATHS := [
 	"res://scripts/localization/ui_catalog.gd",
 	"res://scripts/localization/state_catalog.gd",
 	"res://scripts/localization/language_bridge_catalog.gd",
+	"res://scripts/localization/narrative_dialogue_catalog.gd",
 ]
 const JAPANESE_STANDALONE_PARTICLES := ["の", "に", "へ", "を", "が", "は", "で", "と"]
 const CHINESE_LEVEL_NAMES := ["第一层", "第二层", "第三层", "第四层"]
@@ -211,33 +212,8 @@ static func split_dialogue_units(source: String, locale_code: String) -> Array[S
 		for match_result in english_word_regex.search_all(source):
 			units.append(match_result.get_string())
 		return units
-	if normalized.begins_with("ja"):
-		var japanese_unit_regex := RegEx.new()
-		japanese_unit_regex.compile("[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*[\\x{4E00}-\\x{9FFF}々〆ヵヶ]*|[\\x{4E00}-\\x{9FFF}々〆ヵヶ]+[\\x{3040}-\\x{309F}ー]*|[\\x{3040}-\\x{309F}ー]+|[\\x{30A0}-\\x{30FF}ー]+")
-		var cursor := 0
-		var leading_separator := ""
-		for match_result in japanese_unit_regex.search_all(source):
-			var match_start := match_result.get_start()
-			if match_start > cursor:
-				var separator := source.substr(cursor, match_start - cursor)
-				if units.is_empty():
-					leading_separator += separator
-				else:
-					units[units.size() - 1] += separator
-			var unit := match_result.get_string()
-			if unit in JAPANESE_STANDALONE_PARTICLES and not units.is_empty():
-				units[units.size() - 1] += leading_separator + unit
-				leading_separator = ""
-			else:
-				units.append(leading_separator + unit)
-				leading_separator = ""
-			cursor = match_result.get_end()
-		if cursor < source.length():
-			if units.is_empty():
-				units.append(source)
-			else:
-				units[units.size() - 1] += source.substr(cursor)
-		return units
+	# Dialogue typing and collectible words have different units. Japanese and
+	# Chinese reveal one character per press; pickable_units keeps lexical words.
 	for index in source.length():
 		units.append(source.substr(index, 1))
 	return units

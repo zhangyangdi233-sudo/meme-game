@@ -4,6 +4,7 @@ extends RefCounted
 const RESOLUTION := 2.0
 const REVEAL_RADIUS := 4.0
 const MAX_AXIS_CELLS := 256
+const RASTER_VERSION := 2
 
 var _bounds := Rect2()
 var _columns := 0
@@ -69,7 +70,7 @@ func configure(layout: Dictionary, saved: Dictionary = {}) -> void:
 	_rows = fine_size.y
 	_layout_id = id_value
 	_layout_version = version
-	_layout_fingerprint = var_to_bytes([bounds, coarse_size, checked_rows, checked_blockers]).hex_encode().sha256_text()
+	_layout_fingerprint = var_to_bytes([RASTER_VERSION, bounds, coarse_size, checked_rows, checked_blockers]).hex_encode().sha256_text()
 	_walkable.resize(_columns * _rows)
 	_explored.resize(_columns * _rows)
 	_explored.fill(0)
@@ -82,11 +83,17 @@ func configure(layout: Dictionary, saved: Dictionary = {}) -> void:
 	for blocker in checked_blockers:
 		var first := Vector2i(((blocker.position - _bounds.position) / RESOLUTION).floor())
 		var last := Vector2i(((blocker.end - _bounds.position) / RESOLUTION).ceil()).min(Vector2i(_columns, _rows))
+		var thin_cell := Vector2i(((blocker.get_center() - _bounds.position) / RESOLUTION).floor())
 		for y in range(first.y, last.y):
 			for x in range(first.x, last.x):
 				var center := _bounds.position + Vector2(x + 0.5, y + 0.5) * RESOLUTION
 				var index := y * _columns + x
-				if _walkable[index] == 1 and blocker.has_point(center):
+				# A thin facade can straddle two cells without covering either
+				# center. Give its thin axis one deterministic cell; retain center
+				# sampling on thick axes so 2.8m entrance passages stay open.
+				var covered_x := x == thin_cell.x if blocker.size.x < RESOLUTION else center.x >= blocker.position.x and center.x < blocker.end.x
+				var covered_y := y == thin_cell.y if blocker.size.y < RESOLUTION else center.y >= blocker.position.y and center.y < blocker.end.y
+				if _walkable[index] == 1 and covered_x and covered_y:
 					_walkable[index] = 0
 					_walkable_count -= 1
 	_restore(saved)

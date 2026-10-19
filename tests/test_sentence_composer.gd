@@ -2,8 +2,10 @@ extends SceneTree
 ## 自由造句台 + 世界规则 + 终极任务 + 玩偶引导的回归测试。
 
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const JourneyScript = preload("res://scripts/progression/floor_two_journey.gd")
 
 var _failures: Array[String] = []
+var _checks := 0
 
 
 func _init() -> void:
@@ -13,7 +15,7 @@ func _init() -> void:
 func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
-		print("sentence composer tests passed")
+		print("sentence composer tests passed (%d checks)" % _checks)
 		quit(0)
 	else:
 		for failure in _failures:
@@ -61,8 +63,8 @@ func _test_composer_state() -> void:
 	var submit: Dictionary = game.submit_free_sentence("zh")
 	_assert_true(bool(submit.get("submitted", false)), "a one-or-more unit sentence can always be posted")
 	_assert_eq_text(str(submit.get("tier", "")), "rule", "门可以打开 should land as a rule")
-	_assert_eq_int(game.actions_remaining, actions_before - 1, "posting costs exactly one action")
-	_assert_true(game.money > money_before, "posting should pay out funds")
+	_assert_eq_int(game.actions_remaining, actions_before, "unlimited posting preserves legacy action count")
+	_assert_true(game.money == money_before and int(submit.get("money_gain", -1)) == 0, "posting has no currency reward or fee")
 	_assert_true(game.pollution > pollution_before, "posting should raise pollution")
 	_assert_true(game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(game.is_world_rule_active("door|can_open"), "the door rule should enter the world rule table")
@@ -73,8 +75,9 @@ func _test_composer_state() -> void:
 	no_actions.pick_social_char("floor_13", "门", "zh")
 	no_actions.free_sentence_place("门", "zh")
 	no_actions.actions_remaining = 0
-	var blocked: Dictionary = no_actions.submit_free_sentence("zh")
-	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "posting without actions must be refused")
+	no_actions.money = 0
+	var unlimited_submit: Dictionary = no_actions.submit_free_sentence("zh")
+	_assert_true(bool(unlimited_submit.get("submitted", false)) and str(unlimited_submit.get("reason", "")) == "" and no_actions.money == 0, "zero legacy actions and funds must not block or charge a non-empty submission")
 
 
 func _test_rule_application_and_tasks() -> void:
@@ -104,7 +107,18 @@ func _test_rule_application_and_tasks() -> void:
 	early.pollution = 65
 	early.request_floor_transition_for_pollution()
 	early.resolve_floor_transition_at_boundary()
-	_assert_eq_int(early.tower_floor, 3, "pollution should carry the run to floor three")
+	_assert_eq_int(early.tower_floor, 2, "pollution cannot skip the second-floor route and physical exit")
+	_assert_true(not early.floor3_task_complete and not early.try_exit_floor_two(), "an early door rule does not bypass the second-floor task")
+	# Pure-state fixture earns route and Xray evidence through their transitions;
+	# spatial hand-frame and physical F validation live in the floor-two flow tests.
+	early.floor_two_progress = JourneyScript.finish_dialogue(early.floor_two_progress, JourneyScript.WAYFINDER)
+	for checkpoint_id in JourneyScript.TURN_IDS:
+		early.visit_floor_two_turn(checkpoint_id)
+	early.floor_two_progress = JourneyScript.finish_dialogue(early.floor_two_progress, JourneyScript.CARTOGRAPHER)
+	_assert_true(not early.try_exit_floor_two(), "the route reward alone cannot bypass the required Xray discoveries")
+	for observation_id in JourneyScript.XRAY_OBSERVATION_IDS:
+		early.floor_two_progress = JourneyScript.record_xray_observation(early.floor_two_progress, observation_id)
+	_assert_true(early.try_exit_floor_two() and early.tower_floor == 3, "completed Xray evidence permits the explicit exit transition to floor three")
 	_assert_true(early.floor3_task_complete, "arriving on floor three should redeem the earlier door rule")
 
 	# 否定不解锁;之后的正例解锁;解锁后再否定不收回(任务锁存)。
@@ -247,7 +261,7 @@ func _test_ui_flow() -> void:
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(game_root.log_text.begins_with("投稿已发出"), "posting should report one of the three response tiers")
 
-	# 无行动时投稿按钮必须置灰。
+	# 非空句子不再受旧行动点限制。
 	var saved_actions: int = game_root.game.actions_remaining
 	game_root.game.actions_remaining = 0
 	game_root.game.needs_day_settlement = false
@@ -256,7 +270,7 @@ func _test_ui_flow() -> void:
 	game_root._render()
 	await process_frame
 	var drained_button := _find_node_by_name(game_root, "SocialPublishPostButton") as Button
-	_assert_true(drained_button != null and drained_button.disabled, "no actions must gray out the post button")
+	_assert_true(drained_button != null and not drained_button.disabled, "a non-empty sentence stays publishable with zero legacy actions")
 	game_root.game.actions_remaining = saved_actions
 	game_root.game.free_sentence_clear()
 
@@ -324,15 +338,18 @@ func _find_node_by_name(node: Node, node_name: String) -> Node:
 
 
 func _assert_true(condition: bool, message: String) -> void:
+	_checks += 1
 	if not condition:
 		_failures.append(message)
 
 
 func _assert_eq_int(value: int, expected: int, message: String) -> void:
+	_checks += 1
 	if value != expected:
 		_failures.append("%s (got %d, expected %d)" % [message, value, expected])
 
 
 func _assert_eq_text(value: String, expected: String, message: String) -> void:
+	_checks += 1
 	if value != expected:
 		_failures.append("%s (got %s, expected %s)" % [message, value, expected])

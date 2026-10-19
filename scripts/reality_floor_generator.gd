@@ -1100,7 +1100,7 @@ func _build_floor_two_residential_maze(parent: Node3D) -> void:
 	terrain.material_override = residences.ground_material()
 	set_meta("physical_house_count", _floor_two_layout.buildings.size())
 	set_meta("maze_walkable_cell_count", _floor_two_layout.walkable_cells.size())
-	set_meta("maze_layout_version", 1)
+	set_meta("maze_layout_version", int(_floor_two_layout.version))
 	set_meta("minimum_clear_path_width", 2.8)
 	set_meta("walkthrough_room_count", 2)
 	set_meta("night_facade_bay_count", residences.find_children("Facade_*", "Node3D", true, false).size())
@@ -2634,6 +2634,7 @@ func _make_doll_actor(encounter: Dictionary, doll_position: Vector3, doll_textur
 	sprite.set_meta("camera_facing_layer", true)
 	sprite.set_meta("user_authored_guide_asset", true)
 	doll.add_child(sprite)
+	preload("res://scripts/world/npc_scene_lighting.gd").apply(doll, sprite, DOLL_PORTRAIT_WORLD_HEIGHT)
 	return doll
 
 
@@ -2727,6 +2728,7 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	scribble_material.set_shader_parameter("seed", float(built_floor * 17 + tint_index * 7))
 	scribble_overlay.material_override = scribble_material
 	actor.add_child(scribble_overlay)
+	preload("res://scripts/world/npc_scene_lighting.gd").apply(actor, sprite, ACTOR_PORTRAIT_WORLD_HEIGHT)
 	return actor
 
 

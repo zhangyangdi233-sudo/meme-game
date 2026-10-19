@@ -1,11 +1,12 @@
 extends SceneTree
 ## 瀑布流拾字系统回归测试:字池完整性(三语言)、主谓宾覆盖、
-## 每日首拾计费、存档往返、帖内高亮/灰化、评论区、笔记本字库、飞行动画层。
+## 无限拾取、存档往返、帖内高亮/灰化、评论区、内嵌笔记本字库、飞行动画层。
 
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 
 var _failures: Array[String] = []
+var _checks := 0
 
 
 func _init() -> void:
@@ -15,7 +16,7 @@ func _init() -> void:
 func _run_async() -> void:
 	await _run()
 	if _failures.is_empty():
-		print("pickup char flow tests passed")
+		print("pickup char flow tests passed (%d checks)" % _checks)
 		quit(0)
 	else:
 		for failure in _failures:
@@ -63,13 +64,13 @@ func _test_state_flow() -> void:
 
 	var first: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	_assert_true(bool(first.get("picked", false)), "first pickup should succeed")
-	_assert_true(bool(first.get("action_spent", false)), "the day's first pickup should cost one action")
-	_assert_eq_int(game.actions_remaining, 4, "action count should drop to four")
+	_assert_true(not bool(first.get("action_spent", false)), "the day's first pickup is unlimited and does not spend an action")
+	_assert_eq_int(game.actions_remaining, 5, "legacy action count must remain unchanged")
 
 	var second: Dictionary = game.pick_social_char("floor_13", "开", "zh")
 	_assert_true(bool(second.get("picked", false)), "second pickup should succeed")
 	_assert_true(not bool(second.get("action_spent", false)), "same-day follow-up pickups should be free")
-	_assert_eq_int(game.actions_remaining, 4, "free pickups must not consume actions")
+	_assert_eq_int(game.actions_remaining, 5, "follow-up pickups must not consume actions")
 
 	var duplicate: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	_assert_true(not bool(duplicate.get("picked", false)), "duplicate units should be rejected")
@@ -93,29 +94,29 @@ func _test_state_flow() -> void:
 	_assert_true(restored.is_social_char_collected("开", "zh"), "all collected units should survive")
 	_assert_eq_int(int(restored.last_char_pick_day), int(game.last_char_pick_day), "last pick day should survive the round-trip")
 
-	# 次日首拾重新计费。
+	# 跨日也不重新引入已取消的行动限制。
 	game.needs_day_settlement = true
 	game.settle_day_if_needed()
 	var next_day: Dictionary = game.pick_social_char("self_call", "我", "zh")
 	_assert_true(bool(next_day.get("picked", false)), "next-day pickup should succeed")
-	_assert_true(bool(next_day.get("action_spent", false)), "a new day's first pickup should cost an action again")
+	_assert_true(not bool(next_day.get("action_spent", false)), "a new day's first pickup remains free")
 
-	# 无行动时的首拾必须被拒绝。
+	# 旧存档行动值为零也不能阻塞拾字。
 	var drained = StateScript.new()
 	drained.new_run()
 	drained.actions_remaining = 0
-	var blocked: Dictionary = drained.pick_social_char("floor_13", "门", "zh")
-	_assert_true(not bool(blocked.get("picked", false)), "first pickup with no actions must fail")
-	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "the refusal reason should be no-actions")
+	var unlimited_pick: Dictionary = drained.pick_social_char("floor_13", "门", "zh")
+	_assert_true(bool(unlimited_pick.get("picked", false)), "first pickup succeeds even with zero legacy actions")
+	_assert_eq_text(str(unlimited_pick.get("reason", "")), "", "zero legacy actions must not generate a refusal")
 
-	# 首拾恰好花掉最后一次行动 → 应触发日结标记。
+	# 旧存档只剩一次行动时也不耗尽或强制日结。
 	var last_action = StateScript.new()
 	last_action.new_run()
 	last_action.actions_remaining = 1
 	var final_pick: Dictionary = last_action.pick_social_char("floor_13", "门", "zh")
 	_assert_true(bool(final_pick.get("picked", false)), "the last action should still allow a first pickup")
-	_assert_eq_int(last_action.actions_remaining, 0, "the last action should be consumed")
-	_assert_true(last_action.needs_day_settlement, "spending the final action on a pickup should schedule day settlement")
+	_assert_eq_int(last_action.actions_remaining, 1, "pickup leaves a single legacy action unchanged")
+	_assert_true(not last_action.needs_day_settlement, "unlimited pickup must not force a day settlement")
 
 
 func _test_flight_layer_determinism() -> void:
@@ -147,7 +148,7 @@ func _test_ui_flow() -> void:
 		_assert_true(pickup_line.text.contains("[url=门]"), "the seeded 门 should render as a clickable unit")
 	_assert_true(_find_node_by_name(game_root, "SocialCommentsHeader") != null, "post detail should show the anonymous comments header")
 	_assert_true(_find_node_by_name(game_root, "SocialCommentText0") != null, "post detail should show at least one comment")
-	_assert_true(_find_node_by_name(game_root, "SocialPickupCostHint") != null, "post detail should explain the first-pickup action cost")
+	_assert_true(_find_node_by_name(game_root, "SocialPickupCostHint") != null, "post detail should retain its pickup instruction")
 
 	# bbcode 转义不再级联。
 	_assert_eq_text(game_root._escape_bbcode("[b]x[/b]"), "[lb]b[rb]x[lb]/b[rb]", "bbcode escaping must not cascade")
@@ -156,23 +157,23 @@ func _test_ui_flow() -> void:
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
-	_assert_true(bool(game_root._open_app_windows.get("notebook", false)), "a pickup should open the notebook window")
+	_assert_true(not bool(game_root._open_app_windows.get("notebook", false)), "a pickup must leave the feed open without launching the notebook over it")
 	var notebook_window: Control = game_root._notebook_window_control()
-	_assert_true(notebook_window != null and notebook_window.get_global_rect().position.x < 400.0, "the notebook should return to its upper-left home position")
-	_assert_eq_int(game_root.game.actions_remaining, actions_before - 1, "the first pickup should cost one action")
+	_assert_true(notebook_window != null and game_root._phone_panel.is_ancestor_of(notebook_window), "the notebook stays embedded inside the phone")
+	_assert_eq_int(game_root.game.actions_remaining, actions_before, "the first pickup must preserve legacy action count")
 	if flight_layer != null:
 		_assert_true(bool(flight_layer.is_animating()), "a successful pickup should start the flight animation")
 		flight_layer.finish_all_immediately()
 
-	# 飞行目标必须锚定真实的笔记本窗口,并跟随窗口移动。
+	# 飞行目标锚定真实的内嵌笔记本,不可被旧浮窗拖动接口移走。
 	game_root.game.set_active_app("notebook")
 	game_root._render()
 	await process_frame
 	var target_before: Vector2 = game_root._notebook_flight_target()
-	_assert_true(game_root._notebook_window_control() != null, "the notebook window control must resolve via its app: key")
-	_assert_true(game_root._move_window_for_test("app:notebook", Vector2(40, 24)), "the notebook window should be movable in tests")
+	_assert_true(notebook_window != null and notebook_window.visible, "opening the notebook displays its embedded app control")
+	_assert_true(not game_root._move_window_for_test("app:notebook", Vector2(40, 24)), "the embedded notebook rejects the obsolete floating-window drag")
 	var target_after: Vector2 = game_root._notebook_flight_target()
-	_assert_true((target_after - target_before).is_equal_approx(Vector2(40, 24)), "the flight target must track the notebook window position")
+	_assert_true(target_after.is_equal_approx(target_before) and target_after.is_equal_approx(notebook_window.get_global_transform() * Vector2(56, 40)), "the flight target remains attached to the actual embedded notebook")
 
 	# 自然飞行完成:pickup_landed 信号必须发出,并触发笔记本受击。
 	var landed_units: Array = []
@@ -245,15 +246,18 @@ func _find_node_by_name(node: Node, node_name: String) -> Node:
 
 
 func _assert_true(condition: bool, message: String) -> void:
+	_checks += 1
 	if not condition:
 		_failures.append(message)
 
 
 func _assert_eq_int(value: int, expected: int, message: String) -> void:
+	_checks += 1
 	if value != expected:
 		_failures.append("%s (got %d, expected %d)" % [message, value, expected])
 
 
 func _assert_eq_text(value: String, expected: String, message: String) -> void:
+	_checks += 1
 	if value != expected:
 		_failures.append("%s (got %s, expected %s)" % [message, value, expected])

@@ -3,16 +3,22 @@ extends Node
 # Explicit frame time avoids deferred callbacks from an earlier conversation.
 var pending := false
 var remaining_seconds := 0.0
+var reply_finished := false
+var ready_to_close := false
 
 
 func begin_reply(text: String) -> void:
 	remaining_seconds = reading_seconds(text)
 	pending = true
+	reply_finished = false
+	ready_to_close = false
 
 
 func cancel() -> void:
 	pending = false
 	remaining_seconds = 0.0
+	reply_finished = false
+	ready_to_close = false
 
 
 func advance(delta: float, paused: bool) -> bool:
@@ -22,6 +28,7 @@ func advance(delta: float, paused: bool) -> bool:
 	if remaining_seconds > 0.0:
 		return false
 	pending = false
+	reply_finished = true
 	return true
 
 
@@ -42,4 +49,4 @@ static func reading_seconds(text: String) -> float:
 			inside_word = true
 	# Count the visible writing rather than locale, so mixed-language lines also
 	# receive reading time. No upper cap truncates a long authored response.
-	return maxf(2.5, 1.0 + float(east_asian_characters) / 6.0 + float(western_words) / 3.0)
+	return maxf(0.6, 0.2 + float(east_asian_characters) / 18.0 + float(western_words) / 5.0)

@@ -966,6 +966,29 @@ func terminal_camera_target() -> Vector3:
 	return _terminal_center
 
 
+func crossed_crt_focus_trigger(from: Vector3, to: Vector3) -> bool:
+	if stage != "basement" or _bound_round != 0 or not is_instance_valid(_asset):
+		return false
+	var stairs: Dictionary = _contract.get("stairs", {})
+	var midpoint := -(float(stairs.get("top_y", 1.6)) + float(stairs.get("bottom_y", -2.6))) * 0.5
+	var a := _asset.to_local(from)
+	var b := _asset.to_local(to)
+	if a.z >= midpoint or b.z < midpoint or is_equal_approx(a.z, b.z):
+		return false
+	var crossing := a.lerp(b, (midpoint - a.z) / (b.z - a.z))
+	return crossing.x >= float(stairs.get("x_min", -3.14)) and crossing.x <= float(stairs.get("x_max", -1.85)) and absf(crossing.y - float(stairs.get("rise", 2.7)) * 0.5) < 0.65
+
+
+func get_crt_focus_visuals() -> Array[MeshInstance3D]:
+	var result: Array[MeshInstance3D] = []
+	if is_instance_valid(_asset):
+		for candidate in _asset.find_children("Prop_CRT_TV*", "MeshInstance3D", true, false):
+			result.append(candidate)
+	if is_instance_valid(_screen_mesh) and _screen_mesh not in result:
+		result.append(_screen_mesh)
+	return result
+
+
 func anchor_world_position(marker_name: String) -> Vector3:
 	if _asset == null or not Binding.find_node(_asset, marker_name) is Node3D:
 		diagnostics.append("Missing requested chapter marker: %s" % marker_name)

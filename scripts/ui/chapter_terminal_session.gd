@@ -3,6 +3,7 @@ extends Node
 ## app instances and their signals remain owned by the main scene.
 
 const TERMINAL = preload("res://scripts/world/chapter_terminal.gd")
+const TUTORIAL = preload("res://scripts/tutorial/chapter_crt_terminal_tutorial.gd")
 const APP_IDS := ["social", "notebook"]
 const APP_LABELS := {"social": "信号瀑布", "notebook": "笔记本"}
 const DISPLAY_SIZE := Vector2(1600, 1200)
@@ -24,6 +25,8 @@ var _camera_original := Transform3D.IDENTITY
 var _camera_original_fov := 58.0
 var _camera_saved := false
 var _camera_returning := false
+var _tutorial: RefCounted
+var _reading_labels: Array[Dictionary] = []
 
 
 func _process(_delta: float) -> void:
@@ -78,12 +81,27 @@ func begin(host: Node, world: Node, vhs_enabled: bool) -> bool:
 	_active = true
 	_terminal.set_vhs_enabled(vhs_enabled)
 	_terminal.set_active(true)
+	_tutorial = TUTORIAL.new()
+	_tutorial.begin(host, _content)
 	refresh_layout()
 	return true
 
 
 func end() -> void:
 	_stop_camera_motion()
+	# Keep the lesson guard alive while cancelling a held GUI/physics-word
+	# press, so a synthetic release cannot be mistaken for a normal word tap.
+	if is_instance_valid(_terminal):
+		_terminal.set_active(false)
+	if _tutorial != null:
+		_tutorial.end()
+		_tutorial = null
+	for saved in _reading_labels:
+		if is_instance_valid(saved.node):
+			saved.node.clip_text = saved.clip_text
+			saved.node.custom_minimum_size = saved.minimum_size
+			saved.node.remove_meta("crt_bounded_header")
+	_reading_labels.clear()
 	if _saved_controls.is_empty() and _terminal == null:
 		return
 	_active = false
@@ -204,22 +222,59 @@ func refresh_layout() -> void:
 	_place(apps.notebook, Rect2(808, 90, 776, 1070), true, 10)
 	var detail_open := _selected_app == "social" and bool(_host.get("_social_detail_open"))
 	_place(_host.get("_social_detail_window"), Rect2(16, 90, 776, 1070), detail_open, 20)
+	_bound_detail_header()
 	_place(_host.get("_pickup_flight_layer"), Rect2(Vector2.ZERO, DISPLAY_SIZE), true, 100)
 	for saved in _hidden_controls:
 		if is_instance_valid(saved.node):
 			saved.node.hide()
 	for app_id in _tab_buttons:
 		_tab_buttons[app_id].set_pressed_no_signal(app_id == _selected_app)
+	if _tutorial != null:
+		_tutorial.refresh()
+
+
+func _bound_detail_header() -> void:
+	# Long translated author/archive headers must not widen the entire detail
+	# scroll content and place pickable words outside the physical CRT.
+	var archive := _content.find_child("SocialDetailSignalArchive", true, false) as Label
+	if archive == null:
+		return
+	for node in archive.get_parent().get_children():
+		if not node is Label:
+			continue
+		if not node.has_meta("crt_bounded_header"):
+			_reading_labels.append({"node": node, "clip_text": node.clip_text, "minimum_size": node.custom_minimum_size})
+			node.set_meta("crt_bounded_header", true)
+		node.clip_text = true
+		if node == archive:
+			node.custom_minimum_size.x = 180.0
 
 
 func route_input(event: InputEvent, camera: Camera3D) -> bool:
 	if not _active or not is_instance_valid(_terminal) or is_camera_moving() or _camera_returning:
 		return false
 	_input_depth += 1
+	if _tutorial != null:
+		_tutorial.before_input(event)
 	var handled: bool = _terminal.route_input(event, camera)
+	if _tutorial != null:
+		_tutorial.after_input(event)
 	_input_depth -= 1
 	_flush_retired_terminals()
 	return handled
+
+
+func tutorial_allows(action: String, payload: Dictionary = {}) -> bool:
+	return _tutorial.allows(action, payload) if _tutorial != null else true
+
+
+func tutorial_commit(action: String, payload: Dictionary = {}) -> void:
+	if _tutorial != null:
+		_tutorial.commit(action, payload)
+
+
+func tutorial_active() -> bool:
+	return _tutorial != null and _tutorial.active()
 
 
 func _flush_retired_terminals() -> void:
@@ -321,7 +376,7 @@ func _build_shell() -> void:
 	_content.add_child(toolbar)
 	var title := Label.new()
 	title.name = "TerminalTitle"
-	title.text = "CRT 教学端（开发）"
+	title.text = "信号终端"
 	title.set_meta("on_dark", true)
 	title.custom_minimum_size.x = 370
 	title.add_theme_font_size_override("font_size", 28)

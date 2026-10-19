@@ -120,10 +120,10 @@ func _test_japanese_dialogue_units() -> void:
 	locale.set_locale("ja")
 	var sentence := "はじめに、でんわで話す。"
 	var units := locale.dialogue_units(sentence)
-	_assert_eq(units, ["はじめに、", "でんわで", "話す。"], "Japanese dialogue should advance by natural language chunks instead of characters")
+	_assert_eq(units, ["は", "じ", "め", "に", "、", "で", "ん", "わ", "で", "話", "す", "。"], "Japanese dialogue should reveal exactly one character per key")
 	_assert_eq(LocaleScript.split_dialogue_units(sentence, "ja-JP"), units, "state code should be able to reuse the locale-aware dialogue splitter statically")
 	_assert_eq("".join(units), sentence, "Japanese dialogue units should preserve the complete sentence")
-	_assert_true(units.size() < sentence.length(), "Japanese dialogue should require fewer inputs than its character count")
+	_assert_true(units.size() == sentence.length(), "Japanese dialogue should require one input per character")
 
 
 func _test_audited_localization_copy() -> void:

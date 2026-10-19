@@ -1,0 +1,30 @@
+[
+  {
+    "file": "godot-tours-highlight.gd",
+    "source": "https://raw.githubusercontent.com/GameDev-One/godot-tours/c2dbcffa86d6aa17d538a421e3586add9b25d8b8/addons/godot_tours/core/overlays/highlight/highlight.gd",
+    "commit": "c2dbcffa86d6aa17d538a421e3586add9b25d8b8",
+    "license": "MIT",
+    "sha256": "7AAE11B7F64306C42AD0F9B56057D00057B7F0E4817FD28B1B32D3D9C54D069F"
+  },
+  {
+    "file": "godot-tours-README.md",
+    "source": "https://raw.githubusercontent.com/GameDev-One/godot-tours/c2dbcffa86d6aa17d538a421e3586add9b25d8b8/README.md",
+    "commit": "c2dbcffa86d6aa17d538a421e3586add9b25d8b8",
+    "license": "MIT",
+    "sha256": "2DD4A85B35A502F63B36C85C3D27FA176AEE773BF362ACFB600CD20662C22178"
+  },
+  {
+    "file": "godot-tours-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/GameDev-One/godot-tours/c2dbcffa86d6aa17d538a421e3586add9b25d8b8/LICENSE",
+    "commit": "c2dbcffa86d6aa17d538a421e3586add9b25d8b8",
+    "license": "MIT",
+    "sha256": "6B3D525AB821918C226F0C7FDD747603F159F8E41EFD3754212BE4BAEF6724BB"
+  },
+  {
+    "file": "godot-tours-task.gd",
+    "source": "https://raw.githubusercontent.com/GameDev-One/godot-tours/c2dbcffa86d6aa17d538a421e3586add9b25d8b8/addons/godot_tours/core/bubble/task/task.gd",
+    "commit": "c2dbcffa86d6aa17d538a421e3586add9b25d8b8",
+    "license": "MIT",
+    "sha256": "3378B8C8CBE6EA4A6B2BE666121BC613AB174D3D02716AD49A5FC2A8325A4245"
+  }
+]

@@ -402,7 +402,7 @@ func _finish_npc_conversation(main: Node) -> void:
 		if not main.game.conversation_can_continue:
 			_check(main.game.conversation_completed, "all authored turns finish even after heavy terminal practice pollution")
 			return
-		_check(_button(main, "RealityConversationContinue") == null, "completed NPC turn has no continue or end button")
+		_check(_button(main, "RealityConversationContinue") == null and not _button(main, "RealityConversationEnd").visible, "intermediate NPC turns have no Continue or End button")
 		main._update_reality_dialogue(1000.0)
 		await _frames()
 	_check(false, "authored conversation terminates within ten turns")
@@ -444,7 +444,11 @@ func _button(main: Node, node_name: String) -> Button:
 func _dismiss_task(main: Node) -> void:
 	if main._reality_interaction_active:
 		main._update_reality_dialogue(1000.0)
-	_check(not main._reality_interaction_active, "the final NPC reply automatically returns control to exploration")
+		var button := _button(main, "RealityConversationEnd")
+		_check(button != null and button.visible, "the final NPC reply presents End")
+		if button != null:
+			button.pressed.emit()
+	_check(not main._reality_interaction_active, "End immediately returns control to exploration")
 
 
 func _basement_state() -> MemeGameState:
@@ -454,6 +458,14 @@ func _basement_state() -> MemeGameState:
 	state.notify_chapter1("narration_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_knock_completed", {"sequence_id": "chapter1_opening"})
 	state.notify_chapter1("opening_door_opened")
+	# This broad app/task regression starts after onboarding. The dedicated
+	# test_chapter_crt_terminal_onboarding starts empty and performs every real
+	# UV pickup/drag/publish; this fixture keeps its independent empty inventory.
+	state.chapter1_progress.crt_tutorial = preload("res://scripts/tutorial/chapter_crt_tutorial_state.gd").normalize({
+		"focus_started": true, "focus_done": true, "focus_line": 7,
+		"lesson_phase": "complete", "locale": "zh", "collected": ["门", "打", "开"],
+		"dragged": ["门", "打", "开"], "published": true,
+	})
 	state.view_state = "npc_up"
 	state.active_app_window = ""
 	return state
