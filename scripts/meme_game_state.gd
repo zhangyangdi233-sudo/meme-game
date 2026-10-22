@@ -2,7 +2,7 @@ class_name MemeGameState
 extends RefCounted
 
 ## The phone's apps, in the order a closed foreground window falls back to.
-const PHONE_APP_FALLBACK_ORDER := ["social", "notebook"]
+const PHONE_APPS := ["social", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
@@ -567,11 +567,11 @@ func get_phone_shell_snapshot() -> Dictionary:
 ## A save may still name an app the phone no longer has (the tower app); the phone comes back on one it has.
 func _drop_retired_apps() -> void:
 	for app_id in open_app_windows:
-		if str(app_id) not in PHONE_APP_FALLBACK_ORDER:
+		if str(app_id) not in PHONE_APPS:
 			close_app_window(str(app_id))
-	if active_app not in PHONE_APP_FALLBACK_ORDER:
+	if active_app not in PHONE_APPS:
 		active_app = PropertyKeysScript.DEFAULT_APP
-	if not active_app_window.is_empty() and active_app_window not in PHONE_APP_FALLBACK_ORDER:
+	if not active_app_window.is_empty() and active_app_window not in PHONE_APPS:
 		active_app_window = active_app
 
 
@@ -597,7 +597,7 @@ func close_app_window(app_id: String) -> void:
 		model.remove_at(open_index)
 	if active_app_window == normalized:
 		active_app_window = ""
-		for candidate in PHONE_APP_FALLBACK_ORDER:
+		for candidate in PHONE_APPS:
 			if is_app_window_open(candidate):
 				active_app = candidate
 				if view_state == "phone_down":

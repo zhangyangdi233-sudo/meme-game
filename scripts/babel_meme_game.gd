@@ -1314,10 +1314,9 @@ func _build_ui() -> void:
 	_app_windows["social"] = _social_feed_panel.get_app_window()
 	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
 	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
-	for app_id in ["notebook"]:
-		_app_windows[app_id] = _phone_launcher_panel.get_app_window(app_id)
-		_app_titles[app_id] = _phone_launcher_panel.get_app_title(app_id)
-		_app_bodies[app_id] = _phone_launcher_panel.get_app_body(app_id)
+	_app_windows["notebook"] = _phone_launcher_panel.get_app_window("notebook")
+	_app_titles["notebook"] = _phone_launcher_panel.get_app_title("notebook")
+	_app_bodies["notebook"] = _phone_launcher_panel.get_app_body("notebook")
 	_ensure_notebook_app_panel()
 
 	_view_toggle_button = Button.new()
