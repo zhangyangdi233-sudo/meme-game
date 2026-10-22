@@ -20,7 +20,7 @@ func _run_async() -> void:
 		root.add_child(game_root)
 		game_root._locale.set_locale("zh")
 		game_root.new_game()
-		game_root._skip_prologue()
+		game_root._skip_chapter_one()
 		await process_frame
 		_test_bank_tap_and_craft_intents_build_and_post_a_sentence(game_root)
 		game_root.queue_free()

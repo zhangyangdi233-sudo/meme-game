@@ -197,7 +197,7 @@ func _test_ui_flow() -> void:
 	game_root.new_game()
 	await process_frame
 
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
 

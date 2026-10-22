@@ -2,11 +2,15 @@ extends Node
 class_name RealitySceneAdapter
 ## 3D reality floor, player locomotion, and proximity interaction for the main scene adapter.
 ## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
+## Chapter one's opening and basement are a chapter stage built here instead of a tower floor; the tower street is
+## built when the deps carry no chapter progress or a tower one.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const ChapterOneStageScript = preload("res://scripts/world/chapter_one_stage.gd")
 
 const MOVE_SPEED := 3.3
 const SPRINT_MULTIPLIER := 1.85
@@ -14,6 +18,13 @@ const ACCELERATION := 14.0
 const INTERACTION_DISTANCE := 2.25
 const FALL_RECOVERY_Y := -3.0
 const SAFE_INSET := 1.2
+## Chapter rooms are small; the opening's bounds already sit inside its ground.
+const CHAPTER_SAFE_INSET := 0.35
+## Opening the white door: it swings for the first seconds while the player is walked through, then the stage changes.
+const DOOR_SWING_SECONDS := 1.6
+const DOOR_TRANSITION_SECONDS := 2.4
+## Where the walk through the white door ends, past the door center.
+const DOOR_WALK_THROUGH := Vector3(0.0, 0.0, -0.8)
 
 signal nearby_targets_changed()
 
@@ -31,6 +42,14 @@ var _last_safe_position := Vector3.ZERO
 var _host: Node3D
 var _interaction_active := false
 var _gaze_before_interaction: Dictionary = {}
+var _chapter_stage: ChapterOneStage
+## The chapter phase the stage was built for; empty while the tower street is built.
+var _built_stage := ""
+var _nearby_door := false
+## Seconds into opening the white door, or a negative value when no door is opening.
+var _door_time := -1.0
+var _door_from := Vector3.ZERO
+var _paused := false
 
 
 func attach_to(host: Node3D) -> void:
@@ -66,6 +85,8 @@ func build_world_nodes() -> void:
 func reset_session_state() -> void:
 	_built_floor = 0
 	_built_day = 0
+	_built_stage = ""
+	_door_time = -1.0
 	if floor != null:
 		yaw = floor.start_yaw_degrees()
 	pitch = 0.0
@@ -76,11 +97,19 @@ func reset_session_state() -> void:
 func clear_nearby_targets() -> void:
 	nearby_actor = null
 	nearby_item = null
+	_nearby_door = false
 
 
 func rebuild_floor(deps: Dictionary) -> void:
 	if floor == null:
 		return
+	var stage_phase := _chapter_stage_phase(deps)
+	if not stage_phase.is_empty():
+		_build_chapter_stage(stage_phase)
+		return
+	if _chapter_stage != null:
+		_clear_chapter_stage()
+		floor.visible = _street_shown()
 	var progress: Dictionary = deps.get("day_progress", {})
 	var tower_floor := clampi(int(progress.get("tower_floor", 1)), 1, MemeGameStateScript.MAX_TOWER_FLOOR)
 	var day_number := int(progress.get("day", 1))
@@ -129,6 +158,16 @@ func rebuild_floor(deps: Dictionary) -> void:
 func ensure_floor_current(deps: Dictionary) -> void:
 	if floor == null:
 		return
+	# The opening stays built while its door opens; the next stage follows once the walk through has ended.
+	if _door_time >= 0.0:
+		return
+	var stage_phase := _chapter_stage_phase(deps)
+	if stage_phase != _built_stage:
+		rebuild_floor(deps)
+	if not stage_phase.is_empty():
+		if _chapter_stage != null:
+			_chapter_stage.sync_progress(_chapter_progress(deps))
+		return
 	var progress: Dictionary = deps.get("day_progress", {})
 	var tower_floor := int(progress.get("tower_floor", 1))
 	var day_number := int(progress.get("day", 1))
@@ -163,6 +202,9 @@ static func npc_count_for_floor(floor_number: int) -> int:
 func update_player(delta: float, deps: Dictionary) -> void:
 	if player == null:
 		return
+	if _door_time >= 0.0:
+		_advance_door_opening(delta)
+		return
 	if _should_recover_player():
 		_recover_player()
 		return
@@ -188,8 +230,27 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		player.move_and_slide()
 	if _should_recover_player():
 		_recover_player()
-	elif player.is_on_floor() and floor != null and floor.contains_playable_position(player.position, SAFE_INSET):
+	elif player.is_on_floor() and _contains_playable(player.position, _safe_inset()):
 		_last_safe_position = player.position
+
+
+## Opening settings holds the knock and a door that is opening.
+func set_paused(paused: bool) -> void:
+	_paused = paused
+	if _chapter_stage != null:
+		_chapter_stage.set_paused(paused)
+
+
+## The white door's center on the ground; zero when no stage has a door.
+func chapter_door_position() -> Vector3:
+	if _chapter_stage == null or not _chapter_stage.has_door():
+		return Vector3.ZERO
+	return _chapter_stage.door_position()
+
+
+## Whether a position is inside the chapter stage's playable bounds; false while the tower street is built.
+func chapter_contains(position: Vector3) -> bool:
+	return _chapter_stage != null and _chapter_stage.contains_playable_position(position)
 
 
 func apply_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
@@ -200,14 +261,21 @@ func apply_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
 func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_actor := nearby_actor
 	var previous_item := nearby_item
+	var previous_door := _nearby_door
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
 		or _interaction_active
+		or _door_time >= 0.0
 		or floor == null
 		or player == null
 	):
 		clear_nearby_targets()
-		if previous_actor != null or previous_item != null:
+		if previous_actor != null or previous_item != null or previous_door:
+			nearby_targets_changed.emit()
+		return
+	if _chapter_stage != null:
+		_nearby_door = _door_in_reach(deps)
+		if previous_door != _nearby_door:
 			nearby_targets_changed.emit()
 		return
 	var nearest: Area3D = null
@@ -236,6 +304,11 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 
 
 func nearby_outcome() -> Dictionary:
+	if _nearby_door:
+		return {
+			"kind": "door",
+			"action": "open_door",
+		}
 	if nearby_item != null:
 		return {
 			"kind": "item",
@@ -266,6 +339,13 @@ func probe_interaction(deps: Dictionary) -> Dictionary:
 
 
 func interaction_outcome() -> Dictionary:
+	if _door_time >= 0.0:
+		return {
+			"kind": "door",
+			"action": "open_door",
+			"interaction_active": true,
+			"progress": clampf(_door_time / DOOR_TRANSITION_SECONDS, 0.0, 1.0),
+		}
 	if not _interaction_active:
 		return {
 			"kind": "none",
@@ -281,6 +361,17 @@ func interaction_outcome() -> Dictionary:
 
 func apply_interaction(intent: Dictionary) -> Dictionary:
 	var action := str(intent.get("action", "none"))
+	# Once the white door is opening nothing turns it back.
+	if _door_time >= 0.0:
+		return interaction_outcome()
+	if action == "open_door":
+		if _nearby_door and player != null:
+			_nearby_door = false
+			_door_time = 0.0
+			_door_from = player.position
+			player.velocity = Vector3.ZERO
+			nearby_targets_changed.emit()
+		return interaction_outcome()
 	if action == "end":
 		return _drop_interaction(true)
 	if action == "collect":
@@ -445,6 +536,99 @@ func active_actor_outcome() -> Dictionary:
 	return actor_data
 
 
+func _chapter_progress(deps: Dictionary) -> Dictionary:
+	if not deps.has("chapter_one_progress"):
+		return ChapterOneProgressScript.tower()
+	return ChapterOneProgressScript.normalize(deps.get("chapter_one_progress"))
+
+
+## The chapter phase the deps ask a stage for, or empty for the tower street.
+func _chapter_stage_phase(deps: Dictionary) -> String:
+	var stage_phase := ChapterOneProgressScript.phase_of(_chapter_progress(deps))
+	return "" if stage_phase == ChapterOneProgressScript.PHASE_TOWER else stage_phase
+
+
+func _build_chapter_stage(stage_phase: String) -> void:
+	_clear_chapter_stage()
+	floor.visible = false
+	_chapter_stage = ChapterOneStageScript.new()
+	_chapter_stage.name = "ChapterOneStage"
+	_host.add_child(_chapter_stage)
+	_chapter_stage.build(stage_phase)
+	_chapter_stage.set_paused(_paused)
+	_chapter_stage.visible = _street_shown()
+	_built_stage = stage_phase
+	clear_nearby_targets()
+	_drop_interaction(false)
+	_door_time = -1.0
+	if player != null:
+		_last_safe_position = _chapter_stage.start_position()
+		player.position = _last_safe_position
+		player.velocity = Vector3.ZERO
+	yaw = _chapter_stage.start_yaw_degrees()
+	pitch = 0.0
+
+
+func _clear_chapter_stage() -> void:
+	if _chapter_stage != null and is_instance_valid(_chapter_stage):
+		_chapter_stage.get_parent().remove_child(_chapter_stage)
+		_chapter_stage.queue_free()
+	_chapter_stage = null
+	_built_stage = ""
+
+
+func _door_in_reach(deps: Dictionary) -> bool:
+	if not _chapter_stage.has_door() or not ChapterOneProgressScript.door_ready(_chapter_progress(deps)):
+		return false
+	var offset: Vector3 = _chapter_stage.door_position() - player.position
+	offset.y = 0.0
+	return offset.length() <= INTERACTION_DISTANCE
+
+
+## Swings the door and walks the player through it; when the walk ends the next ensure builds the next stage.
+func _advance_door_opening(delta: float) -> void:
+	if _paused:
+		return
+	_door_time += maxf(delta, 0.0)
+	_chapter_stage.set_door_open_ratio(smoothstep(0.0, DOOR_SWING_SECONDS, _door_time))
+	var through: Vector3 = _chapter_stage.door_position() + DOOR_WALK_THROUGH
+	through.y = _door_from.y
+	var walk := smoothstep(0.0, DOOR_TRANSITION_SECONDS, _door_time)
+	player.position = _door_from.lerp(through, walk)
+	player.velocity = Vector3.ZERO
+	yaw = rad_to_deg(lerp_angle(deg_to_rad(yaw), 0.0, walk))
+	pitch = lerpf(pitch, 0.0, walk)
+	if _door_time >= DOOR_TRANSITION_SECONDS:
+		_door_time = -1.0
+
+
+## The host hides the street and the player together while the phone is down.
+func _street_shown() -> bool:
+	return player == null or player.visible
+
+
+func _safe_inset() -> float:
+	return CHAPTER_SAFE_INSET if _chapter_stage != null else SAFE_INSET
+
+
+func _contains_playable(position: Vector3, inset: float) -> bool:
+	if _chapter_stage != null:
+		return _chapter_stage.contains_playable_position(position, inset)
+	return floor != null and floor.contains_playable_position(position, inset)
+
+
+func _clamp_playable(position: Vector3, inset: float) -> Vector3:
+	if _chapter_stage != null:
+		return _chapter_stage.clamp_to_playable_position(position, inset)
+	return floor.clamp_to_playable_position(position, inset)
+
+
+func _start_position() -> Vector3:
+	if _chapter_stage != null:
+		return _chapter_stage.start_position()
+	return floor.start_position()
+
+
 func apply_palette(palette: Dictionary) -> void:
 	if floor != null and is_instance_valid(floor):
 		floor.apply_palette(palette)
@@ -452,7 +636,9 @@ func apply_palette(palette: Dictionary) -> void:
 
 func set_street_shown(shown: bool) -> void:
 	if floor != null and is_instance_valid(floor):
-		floor.visible = shown
+		floor.visible = shown and _chapter_stage == null
+	if _chapter_stage != null and is_instance_valid(_chapter_stage):
+		_chapter_stage.visible = shown
 	if player != null and is_instance_valid(player):
 		player.visible = shown
 
@@ -471,7 +657,7 @@ func restore_world_pose(world_data: Dictionary) -> void:
 		return
 	var saved_position: Variant = world_data.get("player_position", Vector3.ZERO)
 	if saved_position is Vector3:
-		_last_safe_position = floor.clamp_to_playable_position(saved_position, SAFE_INSET)
+		_last_safe_position = _clamp_playable(saved_position, _safe_inset())
 		player.position = _last_safe_position
 		player.velocity = Vector3.ZERO
 	yaw = wrapf(float(world_data.get("yaw", 0.0)), -180.0, 180.0)
@@ -488,7 +674,7 @@ func world_save_pose() -> Dictionary:
 
 
 func update_authored_events(delta: float, camera_forward: Vector3) -> void:
-	if floor == null or player == null:
+	if floor == null or player == null or _chapter_stage != null:
 		return
 	floor.update_authored_events(delta, player.global_position, camera_forward)
 
@@ -498,17 +684,19 @@ func _should_recover_player() -> bool:
 		return false
 	if player.position.y < FALL_RECOVERY_Y:
 		return true
-	return not floor.contains_playable_position(player.position, -2.0)
+	return not _contains_playable(player.position, -2.0)
 
 
 func _recover_player() -> void:
 	if player == null or floor == null:
 		return
 	var recovery_position := _last_safe_position
-	if not floor.contains_playable_position(recovery_position, SAFE_INSET):
-		recovery_position = floor.start_position()
-	recovery_position = floor.clamp_to_playable_position(recovery_position, SAFE_INSET)
-	recovery_position.y = 0.08
+	if not _contains_playable(recovery_position, _safe_inset()):
+		recovery_position = _start_position()
+	recovery_position = _clamp_playable(recovery_position, _safe_inset())
+	# The street's ground is flat; a chapter stage keeps the height it was safe at (the basement landing is raised).
+	if _chapter_stage == null:
+		recovery_position.y = 0.08
 	player.position = recovery_position
 	player.velocity = Vector3.ZERO
 

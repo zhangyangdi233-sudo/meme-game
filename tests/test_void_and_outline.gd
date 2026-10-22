@@ -1,11 +1,11 @@
 extends SceneTree
-## The day-transition and prologue backdrops stay UiPalette.VOID, and the conversation text outlines stay
+## The day-transition and opening narration backdrops stay UiPalette.VOID, and the conversation text outlines stay
 ## UiPalette.OUTLINE, while the bound theme is on pollution_palette_5. Does not load the main scene.
 
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
+const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 const TRUE_BLACK := Color("000000")
@@ -27,19 +27,18 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_test_prologue_backdrop_stays_void()
+	_test_opening_backdrop_stays_void()
 	_test_conversation_text_outlines_stay_outline()
 
 
-func _test_prologue_backdrop_stays_void() -> void:
+func _test_opening_backdrop_stays_void() -> void:
 	var ui_root := _ui_root_on_pollution_palette_5()
-	var panel := ProloguePanelScript.new() as ProloguePanel
+	var panel := OpeningNarrationPanelScript.new()
 	ui_root.add_child(panel)
-	panel.mount(ui_root, {"prologue_lines": ["line"]})
-	var black := Harness.find_node_by_name(ui_root, "PrologueBlack") as ColorRect
-	_assert_true(black != null, "the prologue should build its black backdrop")
+	var black := Harness.find_node_by_name(ui_root, "OpeningBlack") as ColorRect
+	_assert_true(black != null, "the opening narration should build its black backdrop")
 	if black != null:
-		_assert_eq(black.color, TRUE_BLACK, "the prologue backdrop should stay true black under pollution palette 5")
+		_assert_eq(black.color, TRUE_BLACK, "the opening backdrop should stay true black under pollution palette 5")
 	ui_root.free()
 
 

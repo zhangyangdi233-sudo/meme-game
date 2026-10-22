@@ -22,7 +22,7 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.set_view_state("npc_up")
 	var doll := _find_actor(main, "doll")
 	if doll == null:

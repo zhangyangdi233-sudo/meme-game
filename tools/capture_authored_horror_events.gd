@@ -24,7 +24,7 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.tower_floor = 3
 	main.game.day = 1
 	main._ensure_reality_floor_current()

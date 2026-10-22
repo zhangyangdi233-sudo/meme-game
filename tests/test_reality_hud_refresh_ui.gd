@@ -129,7 +129,7 @@ func _boot_street() -> Node:
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root._on_app_pressed("social")
 	game_root.set_view_state("npc_up")
 	await process_frame

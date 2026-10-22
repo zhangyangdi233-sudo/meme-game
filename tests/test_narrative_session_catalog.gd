@@ -1,13 +1,15 @@
 extends SceneTree
 
 const CatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	test_catalog_loads_and_validates()
-	test_prologue_and_epilogue_locales()
+	test_opening_narration_in_every_language()
+	test_epilogue_locales()
 	test_doctor_and_prerequisite_lookup()
 	test_ending_choices_and_unknown_locale_fallback()
 	test_defensive_copies()
@@ -27,12 +29,20 @@ func test_catalog_loads_and_validates() -> void:
 	_assert_true(bool(validation.get("ok", false)), "catalog should validate: %s" % str(validation.get("problems", [])))
 
 
-func test_prologue_and_epilogue_locales() -> void:
-	var zh_prologue: Array = CatalogScript.prologue_lines("zh")
-	_assert_eq(zh_prologue.size(), 7, "prologue should keep seven authored lines")
-	_assert_eq(str(zh_prologue[0]), "（先确认一件事。你手里拿着什么？）", "zh prologue should keep the MemeGameState source line")
-	var en_prologue: Array = CatalogScript.prologue_lines("en")
-	_assert_eq(str(en_prologue[1]), "A phone. No signal. It was already lit when I woke up.", "en prologue should not go through the UI catalog")
+func test_opening_narration_in_every_language() -> void:
+	for locale_code in ["zh", "ja", "en"]:
+		var lines: Array = CatalogScript.opening_lines(locale_code)
+		_assert_eq(lines.size(), ChapterOneProgressScript.OPENING_LINE_COUNT, "%s opening should have every spoken line" % locale_code)
+		for line in lines:
+			_assert_true(not str(line).strip_edges().is_empty(), "%s opening lines should not be empty" % locale_code)
+	_assert_eq(str(CatalogScript.opening_lines("zh")[0]), "你好", "zh opening should start with the manuscript's first line")
+	_assert_eq(str(CatalogScript.opening_lines("ja")[ChapterOneProgressScript.KNOCK_LINE_INDEX]), "君の潜在意識は、もう準備ができたみたいだね。", "ja knock line should follow the manuscript")
+	_assert_eq(str(CatalogScript.opening_lines("en")[0]), "Hello.", "en opening should have its own draft")
+	_assert_eq(CatalogScript.opening_knock_line_index(), ChapterOneProgressScript.KNOCK_LINE_INDEX, "the catalog's knock cue should sit on the progress module's knock line")
+	_assert_true(not CatalogScript.load_catalog().has("prologue"), "the old prologue should leave the catalog")
+
+
+func test_epilogue_locales() -> void:
 	var ja_epilogue: Array = CatalogScript.epilogue_lines("ja")
 	_assert_eq(ja_epilogue.size(), 5, "epilogue should keep five authored lines")
 	_assert_eq(str(ja_epilogue[0]), "どの投稿も、賢者は最上階にいると言う。最上階には誰もいない。", "ja epilogue should use the catalog locale field")
@@ -62,10 +72,10 @@ func test_defensive_copies() -> void:
 	var item_b: Dictionary = CatalogScript.prerequisite_item(2, "zh")
 	item_a["label"] = "mutated"
 	_assert_ne(str(item_b.get("label", "")), "mutated", "prerequisite lookups should return defensive copies")
-	var lines_a: Array = CatalogScript.prologue_lines("zh")
-	var lines_b: Array = CatalogScript.prologue_lines("zh")
+	var lines_a: Array = CatalogScript.opening_lines("zh")
+	var lines_b: Array = CatalogScript.opening_lines("zh")
 	lines_a[0] = "mutated"
-	_assert_ne(str(lines_b[0]), "mutated", "prologue lookups should return defensive copies")
+	_assert_ne(str(lines_b[0]), "mutated", "opening lookups should return defensive copies")
 
 
 func test_moved_copy_leaves_meme_game_state() -> void:

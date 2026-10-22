@@ -16,3 +16,15 @@
 *.ogg       binary
 *.ttf       binary
 *.otf       binary
+
+# Large source and imported 3D/video assets live in Git LFS.
+# Existing PNG/WAV/OGG history stays as regular blobs; only these new kinds go to LFS.
+*.blend     filter=lfs diff=lfs merge=lfs -text
+*.blend1    filter=lfs diff=lfs merge=lfs -text
+*.glb       filter=lfs diff=lfs merge=lfs -text
+*.gltf      filter=lfs diff=lfs merge=lfs -text
+*.fbx       filter=lfs diff=lfs merge=lfs -text
+*.ogv       filter=lfs diff=lfs merge=lfs -text
+*.mp4       filter=lfs diff=lfs merge=lfs -text
+assets/chapter1/**/*.png    filter=lfs diff=lfs merge=lfs -text
+source_assets/**            filter=lfs diff=lfs merge=lfs -text

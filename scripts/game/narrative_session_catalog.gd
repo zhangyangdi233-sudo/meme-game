@@ -1,9 +1,12 @@
 class_name NarrativeSessionCatalog
 extends RefCounted
-## Loads authored session narrative (prologue, epilogue, doctor, prerequisites, ending)
+## Loads authored session narrative (chapter one's opening, epilogue, doctor, prerequisites, ending)
 ## from JSON. Callers look up by id and locale; JSON is read only through ContentJson.
 
 const ContentJsonScript = preload("res://framework/content_json.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+## The opening line that carries this cue is the one shown when the knock sounds.
+const KNOCK_CUE := "knock"
 const CATALOG_PATH := "res://content/narrative_session.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 
@@ -13,7 +16,7 @@ static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
 	if catalog.is_empty():
 		return {
 			"_path": path,
-			"prologue": [],
+			"opening": [],
 			"epilogue": [],
 			"doctor": [],
 			"prerequisite_items": [],
@@ -23,8 +26,21 @@ static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
 	return catalog
 
 
-static func prologue_lines(locale_code: String = "zh", path: String = CATALOG_PATH) -> Array:
-	return _localized_line_list(load_catalog(path).get("prologue", []), locale_code)
+## Chapter one's opening narration, one spoken line per entry, in reading order.
+static func opening_lines(locale_code: String = "zh", path: String = CATALOG_PATH) -> Array:
+	return _localized_line_list(load_catalog(path).get("opening", []), locale_code)
+
+
+## Index of the opening line that carries the knock cue, or -1 when none does.
+static func opening_knock_line_index(path: String = CATALOG_PATH) -> int:
+	var entries: Variant = load_catalog(path).get("opening", [])
+	if not entries is Array:
+		return -1
+	for index in (entries as Array).size():
+		var entry: Variant = entries[index]
+		if entry is Dictionary and str((entry as Dictionary).get("cue", "")) == KNOCK_CUE:
+			return index
+	return -1
 
 
 static func epilogue_lines(locale_code: String = "zh", path: String = CATALOG_PATH) -> Array:
@@ -107,7 +123,9 @@ static func has_ending_language_choice(choice_id: String, path: String = CATALOG
 static func validate(path: String = CATALOG_PATH) -> Dictionary:
 	var problems: Array[String] = []
 	var catalog := load_catalog(path)
-	_validate_line_list(catalog.get("prologue", []), "prologue", 7, problems)
+	_validate_line_list(catalog.get("opening", []), "opening", ChapterOneProgressScript.OPENING_LINE_COUNT, problems)
+	if opening_knock_line_index(path) != ChapterOneProgressScript.KNOCK_LINE_INDEX:
+		problems.append("opening knock cue should sit on line %d" % ChapterOneProgressScript.KNOCK_LINE_INDEX)
 	_validate_line_list(catalog.get("epilogue", []), "epilogue", 5, problems)
 	var doctor_floors: Array[int] = []
 	for entry_data in catalog.get("doctor", []):

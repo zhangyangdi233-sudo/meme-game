@@ -1,5 +1,5 @@
 extends SceneTree
-## Settings, HUD settings button, prologue and ending raise their actions on the event bus.
+## Settings, HUD settings button, the opening narration and ending raise their actions on the event bus.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
@@ -9,7 +9,8 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
-const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
+const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
 
 var _failures: Array[String] = []
@@ -33,7 +34,7 @@ func _run() -> void:
 	_test_intent_names_and_payload_keys()
 	_test_settings_window_raises_its_actions()
 	_test_hud_settings_button_raises_settings_pressed()
-	_test_prologue_raises_finished()
+	_test_opening_narration_raises_advance()
 	_test_ending_raises_language_choice_and_restart()
 
 
@@ -48,7 +49,7 @@ func _test_intent_names_and_payload_keys() -> void:
 	_assert_eq(UiIntentsScript.EXIT_CONFIRMED, "exit_confirmed", "exit confirmed intent name")
 	_assert_eq(UiIntentsScript.HISTORY_TOGGLE_REQUESTED, "history_toggle_requested", "history toggle intent name")
 	_assert_eq(UiIntentsScript.SETTINGS_PRESSED, "settings_pressed", "settings pressed intent name")
-	_assert_eq(UiIntentsScript.PROLOGUE_FINISHED, "prologue_finished", "prologue finished intent name")
+	_assert_eq(UiIntentsScript.OPENING_NARRATION_ADVANCED, "opening_narration_advanced", "opening narration advance intent name")
 	_assert_eq(UiIntentsScript.RESTART_REQUESTED, "restart_requested", "restart intent name")
 	_assert_eq(UiIntentsScript.KEY_VALUE, "value", "value payload key")
 	_assert_eq(UiIntentsScript.KEY_CHOICE_ID, "choice_id", "choice id payload key")
@@ -115,20 +116,18 @@ func _test_hud_settings_button_raises_settings_pressed() -> void:
 	RegistryScript.clear()
 
 
-func _test_prologue_raises_finished() -> void:
+func _test_opening_narration_raises_advance() -> void:
 	_bind_bus()
-	var host := Control.new()
-	root.add_child(host)
-	var panel := ProloguePanelScript.new()
+	PropertyBootScript.install()
+	var panel := OpeningNarrationPanelScript.new()
 	root.add_child(panel)
-	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
-	panel.mount(host, {
-		"prologue_lines": ["one", "two"],
-	})
-	panel.skip()
-	_assert_eq(_heard, [[UiIntentsScript.PROLOGUE_FINISHED, {}]], "finishing the prologue should raise an empty intent")
+	panel._process(OpeningNarrationPanelScript.BLACK_SECONDS + 0.1)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	panel._gui_input(click)
+	_assert_eq(_heard, [[UiIntentsScript.OPENING_NARRATION_ADVANCED, {}]], "a click on the opening narration should raise an empty intent")
 	panel.free()
-	host.free()
 	RegistryScript.clear()
 
 

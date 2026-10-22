@@ -104,7 +104,7 @@ func _test_the_debug_panel_simulates_the_save(game_root: Node) -> void:
 	await process_frame
 	_assert_eq(game_root.session_mode(), "prologue", "START on a simulated save without a file should fall back to a new game with the prologue")
 
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root.show_main_menu()
 	await process_frame
 	_assert_true(FileAccess.file_exists(TEST_SAVE_PATH), "returning to the title should write a real save")
@@ -155,7 +155,7 @@ func _test_the_debug_panel_needs_a_debug_build(game_root: Node) -> void:
 
 func _test_an_open_dialog_sits_above_every_game_ui(game_root: Node) -> void:
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	if _dialog() == null:
 		_failures.append("a run should still have the dialog bound")
@@ -171,7 +171,7 @@ func _test_an_open_dialog_sits_above_every_game_ui(game_root: Node) -> void:
 	_assert_true(dialog_z > int(highest["z"]), "the dialog (z %d) should sit above every other game UI (highest %s at z %d)" % [dialog_z, highest["name"], highest["z"]])
 
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_true(not is_instance_valid(screen) or not screen.visible, "a rebuilt world should leave the dialog closed")
 	var reopened := _dialog().open({"message": "又一次", "buttons": [{"text": "好"}]})

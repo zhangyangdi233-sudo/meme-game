@@ -23,7 +23,7 @@ func _capture() -> void:
 	main._locale.set_locale("zh")
 	if main.has_method("new_game"):
 		main.new_game()
-		main._skip_prologue()
+		main._skip_chapter_one()
 	if main._social_feed_panel != null:
 		main._social_feed_panel.open_post(0)
 	for frame in 6:

@@ -23,7 +23,7 @@ func _run_async() -> void:
 		root.add_child(game_root)
 		game_root._locale.set_locale("zh")
 		game_root.new_game()
-		game_root._skip_prologue()
+		game_root._skip_chapter_one()
 		await process_frame
 		_test_the_host_no_longer_keeps_the_transient_selections(game_root)
 		_test_the_reality_hud_builds_no_doctor_composer(game_root)

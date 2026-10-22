@@ -36,8 +36,7 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
-	for _line_index in 7:
-		game_root._advance_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_true(not game_root._reality_scene_deps().has("game"), "reality adapter deps should carry snapshots, not the live game")
 

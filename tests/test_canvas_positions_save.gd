@@ -38,7 +38,7 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._save_path = TEST_SAVE_PATH
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 
 	for unit in ["门", "开", "打"]:

@@ -18,6 +18,9 @@ const COVER_WATCHER_VANISHED := "cover_watcher_vanished"
 ## The pollution flashback director's timeline ended. Payload: {}.
 const FLASHBACK_FINISHED := "flashback_finished"
 
+## The knock at chapter one's white door played to its end. Payload: {}.
+const OPENING_KNOCK_FINISHED := "opening_knock_finished"
+
 ## Sound cues carried by SFX_REQUESTED.
 const CUE_PICKUP_PRESS := "pickup_press"
 const CUE_PICKUP_LAND := "pickup_land"

@@ -118,7 +118,6 @@ const EN: Dictionary = {
 	"结束": "Finish",
 	"继续交谈": "Continue Talking",
 	"%d/%d 语言单位": "%d/%d language units",
-	"进入第一天": "Enter Day One",
 	"继续": "Continue",
 	"污染 %d%%": "CORRUPTION %d%%",
 	"资金 %d": "FUNDS %d",
@@ -128,6 +127,8 @@ const EN: Dictionary = {
 	"F  拾取 · %s\n%s": "F  PICK UP · %s\n%s",
 	"交谈": "Talk",
 	"F  %s · %s": "F  %s · %s",
+	"F  开门": "F  OPEN THE DOOR",
+	"点击鼠标或触摸板继续": "Click or tap to continue",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.
 	"关键住户": "Key Resident",
@@ -626,7 +627,6 @@ const JA: Dictionary = {
 	"结束": "終了",
 	"继续交谈": "会話を続ける",
 	"%d/%d 语言单位": "%d/%d 言語単位",
-	"进入第一天": "1日目へ",
 	"继续": "続ける",
 	"污染 %d%%": "汚染度 %d%%",
 	"资金 %d": "資金 %d",
@@ -636,6 +636,8 @@ const JA: Dictionary = {
 	"F  拾取 · %s\n%s": "F  拾う · %s\n%s",
 	"交谈": "話す",
 	"F  %s · %s": "F  %s · %s",
+	"F  开门": "F  ドアを開ける",
+	"点击鼠标或触摸板继续": "クリックで次へ",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.
 	"关键住户": "鍵を握る住人",

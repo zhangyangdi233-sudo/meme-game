@@ -26,6 +26,18 @@ _Avoid_: Framework, Reality HUD, host reading live world objects as the API, tre
 Framework module that builds walkable space, collision, and generic geometry from engine primitives (cubes and the like). It does not know Babel rules, dolls, catalogs, or which floor the player is on. Cubes are the stand-in for objects; imported 3D models are not required.
 _Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
 
+**Chapter stage**:
+Game module (`scripts/world/chapter_one_stage.gd`) the Reality scene adapter builds instead of a tower floor while chapter one is in its opening or basement: the black water with the white door 29.5 m ahead and the knock behind it, or the basement room. Each comes from an imported model (`assets/chapter1/*.glb`, Git LFS) that brings its own ground and wall colliders; the stage adds the spawn, the playable bounds, the light and the door. The host still talks only to the adapter: the door is a `door` interaction outcome, and the knock finishing is the `OPENING_KNOCK_FINISHED` game event.
+_Avoid_: the host reaching the stage or its door, a second host-facing adapter, rebuilding the opening while its door is still opening
+
+**Chapter one progress**:
+Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_progress` run model: the phase (opening, basement, or tower for a run past chapter one or a save made before it), the opening line read so far, whether the narration is read and the knock heard, and the basement round. The narration advances one line per click; the knock is due on its line and heard once; the door opens into basement round one only after both. A save keeps the line and the knock; a broken or unearned value falls back to what was earned.
+_Avoid_: the panel or the stage writing the progress, a knock replayed after it was heard, inferring the basement from the world
+
+**Opening narration**:
+Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time after two seconds of black by `OpeningNarrationPanel` while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
+_Avoid_: prologue (the retired transmission overlay), a timer that advances lines, the UI catalog for the lines themselves
+
 **Floor look**:
 Game module (`scripts/game/floor_look.gd`) that answers the 3D street's colors from tables: a material role, the background / ambient / fog, a light or a fixed tint, by floor, district style and UI palette. `RealityFloorGenerator` asks it for every color and decides none itself.
 _Avoid_: color literals or palette blends in the generator, one `if built_floor ==` branch per color, treating it as part of the Floor composer
@@ -35,7 +47,7 @@ Game module that assembles one tower floor from catalogs and snapshots: who stan
 _Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models
 
 **Interaction outcome**:
-The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind. Host and Reality HUD read this instead of live world objects.
+The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built). Host and Reality HUD read this instead of live world objects.
 _Avoid_: publish outcome (pollution gain), live actor/item, treating the whole nearby crowd as the API
 
 **Valid interaction**:
@@ -51,7 +63,7 @@ The Reality scene adapter's player position and first-person yaw/pitch.
 _Avoid_: reading adapter fields as the host API, camera node as the look contract
 
 **Session mode**:
-The outer flow's current state: main menu, prologue, gameplay, narrative, or ending. The reusable machine (state interface + manager) is Framework; the five state scripts are Game and are created and injected at boot. Rules flags are transition conditions, not a way to infer the screen. See ADR 0004.
+The outer flow's current state: main menu, prologue (chapter one's opening narration), gameplay, narrative, or ending. The reusable machine (state interface + manager) is Framework; the five state scripts are Game and are created and injected at boot. Rules flags are transition conditions, not a way to infer the screen. See ADR 0004.
 _Avoid_: deriving the screen from overlay flags, treating language picker or camera consent as flow states, a single FSM for phone apps or conversations, putting Babel state names inside Framework
 
 **Content catalog**:

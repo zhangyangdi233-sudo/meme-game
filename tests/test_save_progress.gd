@@ -52,7 +52,7 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._save_path = TEST_SAVE_PATH
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root.game.day = 4
 	game_root.game.pollution = 47
 	game_root.game.tower_floor = 2
@@ -102,8 +102,8 @@ func _run() -> void:
 	var planar_error := Vector2(restored_position.x, restored_position.z).distance_to(Vector2(saved_position.x, saved_position.z))
 	_assert_true(planar_error < 0.05, "Continue should return the player to the saved world position (got %s)" % str(restored_position))
 	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
-	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
-	_assert_true(prologue == null, "Continue should not replay the prologue")
+	var narration := _find_node_by_name(game_root, "OpeningNarrationPanel") as Control
+	_assert_true(narration == null, "Continue past chapter one's opening should not replay the narration")
 	game_root._render()
 	_assert_eq(Harness.guidance_leftovers(game_root), [], "a loaded save should show no guide, test aid or tower app")
 	_assert_true(not (game_root.game.to_save_data().get("state", {}) as Dictionary).has("tutorial_progress"), "a loaded run should save no tutorial progress")
@@ -115,7 +115,7 @@ func _run() -> void:
 
 
 func _test_holding_start_and_yes_starts_a_new_game(game_root: Node) -> void:
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root.game.day = 5
 	game_root.show_main_menu()
 	await process_frame
@@ -140,7 +140,7 @@ func _test_holding_start_and_yes_starts_a_new_game(game_root: Node) -> void:
 	await process_frame
 	await process_frame
 	_assert_eq(game_root.game.day, 1, "YES should start a new run")
-	_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "YES should play the prologue")
+	_assert_true(_find_node_by_name(game_root, "OpeningNarrationPanel") != null, "YES should play the opening narration")
 	_assert_true(FileAccess.file_exists(TEST_SAVE_PATH), "YES should leave the old save for the next save to overwrite")
 
 
@@ -152,12 +152,12 @@ func _test_start_without_a_save_starts_a_new_game(game_root: Node) -> void:
 	_assert_eq(_has_save_model(), false, "the title should publish that the save is gone")
 	await _press_start(game_root)
 	_assert_eq(game_root.game.day, 1, "START without a save should start a new run")
-	_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "START without a save should play the prologue")
+	_assert_true(_find_node_by_name(game_root, "OpeningNarrationPanel") != null, "START without a save should play the opening narration")
 
 
 func _test_start_with_a_broken_save_starts_a_new_game(game_root: Node) -> void:
 	for broken in ["corrupt", "missing", "older-version"]:
-		game_root._skip_prologue()
+		game_root._skip_chapter_one()
 		game_root.game.day = 6
 		game_root.show_main_menu()
 		await process_frame
@@ -184,7 +184,7 @@ func _test_start_with_a_broken_save_starts_a_new_game(game_root: Node) -> void:
 		OS.remove_logger(_warnings)
 		var logged := _warnings.take()
 		_assert_eq(game_root.game.day, 1, "START with a %s save should start a new run" % broken)
-		_assert_true(_find_node_by_name(game_root, "PrologueOverlay") != null, "START with a %s save should play the prologue" % broken)
+		_assert_true(_find_node_by_name(game_root, "OpeningNarrationPanel") != null, "START with a %s save should play the opening narration" % broken)
 		_assert_eq(logged.size(), 1, "a %s save should be reported with one warning (got %s)" % [broken, str(logged)])
 
 

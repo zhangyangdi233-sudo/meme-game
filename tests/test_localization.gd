@@ -80,7 +80,7 @@ func _test_all_script_literals_have_translations() -> void:
 		"res://scripts/babel_meme_game.gd",
 		"res://scripts/meme_game_state.gd",
 		"res://scripts/reality_floor_generator.gd",
-		"res://scripts/ui/prologue_panel.gd",
+		"res://scripts/ui/opening_narration_panel.gd",
 		"res://scripts/ui/ending_screen_panel.gd",
 	]:
 		var file := FileAccess.open(path, FileAccess.READ)
@@ -143,8 +143,9 @@ func _test_audited_localization_copy() -> void:
 	_assert_true(not state_en.has("你想说一句普通的话。第七层先开口了。"), "epilogue copy should leave the state catalog after moving to the content catalog")
 	_assert_true(not ui_en.has("写着“小月亮”的旧名牌"), "prerequisite labels should leave the UI catalog after moving to the content catalog")
 	_assert_true(ui_en.has("沿主路往前走，在右侧第一盏不亮的路灯脚边。"), "prerequisite location hints should remain in the UI catalog for event_log")
-	_assert_eq(ui_en["进入第一天"], "Enter Day One", "prologue last-page chrome should stay in the UI catalog")
-	_assert_eq(ui_en["继续"], "Continue", "prologue continue chrome should stay in the UI catalog")
+	_assert_eq(ui_en["点击鼠标或触摸板继续"], "Click or tap to continue", "the opening narration hint should be in the UI catalog")
+	_assert_eq(ui_ja["点击鼠标或触摸板继续"], "クリックで次へ", "the opening narration hint should be in the Japanese UI catalog")
+	_assert_eq(ui_en["F  开门"], "F  OPEN THE DOOR", "the white door prompt should be in the UI catalog")
 	_assert_eq(ui_en["塔顶没有人"], "No One Is at the Top of the Tower", "ending title chrome should stay in the UI catalog")
 	_assert_eq(ui_en["重开"], "Start Over", "ending restart chrome should stay in the UI catalog")
 	_assert_true(ui_en.has("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。"), "ending result template should stay in the UI catalog")
@@ -270,21 +271,19 @@ func _test_language_selection_and_settings_ui() -> void:
 	_assert_true(_find_ui_node(game_root, "MainMenuStartButton") != null, "choosing English should return to the main menu")
 	game_root.new_game()
 	await process_frame
-	var prologue_header := _find_ui_node(game_root, "PrologueSignalHeader") as Label
-	var prologue_counter := _find_ui_node(game_root, "PrologueCounter") as Label
-	var prologue_continue := _find_ui_node(game_root, "PrologueContinueButton") as Button
-	_assert_true(prologue_header != null, "new game should show the prologue overlay")
-	if prologue_header != null:
-		_assert_eq(prologue_header.text, "NO SIGNAL  /  DAY 01  /  PRIVATE FREQUENCY", "prologue signal header should stay diegetic English")
-	if prologue_counter != null:
-		_assert_true(str(prologue_counter.text).begins_with("TRANSMISSION "), "prologue counter should stay diegetic English")
-	if prologue_continue != null:
-		_assert_eq(prologue_continue.text, "Continue", "prologue continue chrome should use the UI catalog")
+	var narration := _find_ui_node(game_root, "OpeningNarrationPanel") as Control
+	_assert_true(narration != null, "new game should show the opening narration")
+	if narration != null:
+		narration._process(2.1)
+		var narration_line := _find_ui_node(game_root, "OpeningNarrationLine") as Label
+		var narration_hint := _find_ui_node(game_root, "OpeningNarrationHint") as Label
+		_assert_eq(narration_line.text, "Hello.", "the English opening should read the English narration")
+		_assert_eq(narration_hint.text, "Click or tap to continue", "the opening hint should use the UI catalog")
 	var language_option := _find_ui_node(game_root, "SettingsLanguageOption") as OptionButton
 	var manual_save := _find_ui_node(game_root, "SettingsManualSaveButton") as Button
 	_assert_true(language_option != null, "settings should expose an in-game language switcher")
 	_assert_true(manual_save != null, "settings should expose manual save")
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root.game.ending_unlocked = true
 	game_root.game.relationship_residue = 10
 	game_root._render()

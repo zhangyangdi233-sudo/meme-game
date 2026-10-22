@@ -31,6 +31,7 @@ func _run() -> void:
 	root.add_child(game_root)
 	await process_frame
 	game_root.new_game()
+	game_root._skip_chapter_one()
 	await process_frame
 
 	var phone := game_root.get_node_or_null("PhoneRoadAmbience") as AudioStreamPlayer

@@ -20,7 +20,8 @@ const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
-const ProloguePanelScript = preload("res://scripts/ui/prologue_panel.gd")
+const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
@@ -137,7 +138,10 @@ var _dialog_manager: ScreenManager
 var _dialog_debug_panel: DialogDebugPanel
 var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
-var _prologue_panel: ProloguePanel
+var _opening_narration_panel: OpeningNarrationPanel
+## Black cover over the white door opening; it darkens as the door finishes and lifts in the next stage.
+var _door_fade: ColorRect
+var _door_was_opening := false
 var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
@@ -323,6 +327,7 @@ func _process(delta: float) -> void:
 		if not _ending_screen_installed:
 			_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
+		_update_door_fade(delta)
 		_apply_responsive_layouts_if_needed()
 		if _edge_drawer != null:
 			_edge_drawer.tick(delta)
@@ -333,6 +338,7 @@ func _enter_tree() -> void:
 	_ensure_ui_event_bus()
 	_cover_watcher_sightings.configure(game)
 	_cover_watcher_sightings.attach(_ui_event_bus)
+	_ui_event_bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -347,6 +353,8 @@ func _exit_tree() -> void:
 	if _ui_event_bus != null and _ui_event_bus.intent_emitted.is_connected(_on_ui_intent):
 		_ui_event_bus.intent_emitted.disconnect(_on_ui_intent)
 	_cover_watcher_sightings.detach()
+	if _ui_event_bus != null:
+		_ui_event_bus.unsubscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -447,7 +455,9 @@ func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 			return
 		if event.keycode == KEY_ESCAPE:
 			if _reality_interaction_is_active():
-				_exit_reality_interaction()
+				# The white door cannot be turned back once it is opening.
+				if not _reality_door_opening():
+					_exit_reality_interaction()
 			else:
 				_set_reality_mouse_look(false)
 			get_viewport().set_input_as_handled()
@@ -470,7 +480,7 @@ func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 func new_game() -> void:
 	var fresh_state: MemeGameState = MemeGameStateScript.new()
 	fresh_state.new_run()
-	_begin_game_session(fresh_state, {}, true)
+	_begin_game_session(fresh_state, {})
 
 
 func continue_game() -> bool:
@@ -481,7 +491,7 @@ func continue_game() -> bool:
 	var saved_state: Variant = payload.get("game", {})
 	if not saved_state is Dictionary or not restored_state.load_save_data(saved_state):
 		return false
-	_begin_game_session(restored_state, payload.get("world", {}), false)
+	_begin_game_session(restored_state, payload.get("world", {}))
 	return true
 
 
@@ -493,7 +503,9 @@ func _continue_or_new_game() -> void:
 	new_game()
 
 
-func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, show_prologue: bool) -> void:
+## A run still reading chapter one's opening narration (a new one, or a save made during it) opens on the
+## narration; any other run goes straight to the world.
+func _begin_game_session(session_state: MemeGameState, world_data: Dictionary) -> void:
 	_game_started = true
 	_phone_art_alpha = 1.0
 	if _camera_session != null:
@@ -517,17 +529,22 @@ func _begin_game_session(session_state: MemeGameState, world_data: Dictionary, s
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.reset_session_state()
 	_set_reality_mouse_look(false)
-	_write_feedback_text("你低头，手机边框从视野下方亮起来。" if show_prologue else "你回到离开时的位置。")
+	var show_opening := _reading_opening_narration()
+	_write_feedback_text("你低头，手机边框从视野下方亮起来。" if show_opening else "你回到离开时的位置。")
 	_session_world_data = world_data
 	# Leave the title mounted until main-menu exit. Prologue and ending enter mount the in-run scene.
-	if show_prologue:
-		_request_session_mode("prologue")
+	if show_opening:
+		game.set_view_state("npc_up")
+		if session_mode() == "prologue":
+			# A new run started from inside the opening remounts it for the new run.
+			uninstall_prologue_screen()
+			install_prologue_screen()
+		else:
+			_request_session_mode("prologue")
 	elif not _request_ending_if_unlocked():
 		if session_mode() != "gameplay":
 			_request_session_mode("gameplay")
 		_mount_in_run_scene()
-	if not show_prologue:
-		_skip_prologue()
 	var look_in_world := _world_hotkeys_installed and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up"
 	_set_reality_mouse_look(look_in_world)
 	_render()
@@ -705,6 +722,8 @@ func _inventory_snapshot() -> Dictionary:
 
 
 func set_view_state(value: String) -> void:
+	if value == "phone_down" and _phone_locked():
+		return
 	if value == "npc_up" and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down":
 		_capture_phone_layer_for_xray()
 	if game.set_view_state(value):
@@ -774,6 +793,7 @@ func _reality_scene_deps() -> Dictionary:
 		"claimed_doll_ids": game.claimed_doll_ids.duplicate() if game != null else [],
 		"floor3_task_complete": game.floor3_task_complete if game != null else false,
 		"floor4_task_complete": game.floor4_task_complete if game != null else false,
+		"chapter_one_progress": game.chapter_one_progress if game != null else ChapterOneProgressScript.tower(),
 	}
 
 
@@ -950,16 +970,26 @@ func _unmount_dialog_debug_panel() -> void:
 	_dialog_debug_panel = null
 
 
+## The opening narration sits under the rest of the in-run UI, so the HUD and settings stay clickable above it.
 func install_prologue_screen() -> void:
 	_mount_in_run_scene()
-	_build_prologue_overlay()
+	_unmount_opening_narration()
+	_opening_narration_panel = OpeningNarrationPanelScript.new()
+	_ui_root.add_child(_opening_narration_panel)
+	_ui_root.move_child(_opening_narration_panel, 0)
 	install_play_screen()
 
 
 func uninstall_prologue_screen() -> void:
-	if _prologue_panel != null and is_instance_valid(_prologue_panel):
-		_prologue_panel.unmount()
+	_unmount_opening_narration()
 	uninstall_play_screen()
+
+
+func _unmount_opening_narration() -> void:
+	if _opening_narration_panel != null and is_instance_valid(_opening_narration_panel):
+		_opening_narration_panel.get_parent().remove_child(_opening_narration_panel)
+		_opening_narration_panel.queue_free()
+	_opening_narration_panel = null
 
 
 func install_ending_screen() -> void:
@@ -1010,6 +1040,9 @@ func _refresh_nearby_reality_actor() -> void:
 func _try_reality_interaction() -> bool:
 	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		return false
+	# The white door cannot be turned back once it is opening.
+	if _reality_door_opening():
+		return true
 	if _reality_interaction_is_active():
 		_exit_reality_interaction()
 		return true
@@ -1020,6 +1053,8 @@ func _try_reality_interaction() -> bool:
 			return _collect_nearby_reality_item(outcome.get("item_data", {}) as Dictionary)
 		"converse":
 			return _begin_reality_actor_interaction(outcome)
+		"open_door":
+			return _open_reality_door()
 	return false
 
 
@@ -1355,21 +1390,96 @@ func _build_ui() -> void:
 	_apply_responsive_layouts_if_needed(true)
 
 
-func _build_prologue_overlay() -> void:
-	_ensure_prologue_panel()
-	_prologue_panel.mount(_ui_root, _prologue_mount_deps())
+func _reading_opening_narration() -> bool:
+	return game != null and ChapterOneProgressScript.is_reading_narration(game.chapter_one_progress)
 
 
-func _advance_prologue() -> void:
-	if _prologue_panel == null or not is_instance_valid(_prologue_panel):
+## The narration locks the phone until it is read, and a door that is opening keeps it down.
+func _phone_locked() -> bool:
+	return _reading_opening_narration() or _reality_door_opening()
+
+
+func _reality_door_opening() -> bool:
+	if _reality_scene_adapter == null:
+		return false
+	return str(_reality_scene_adapter.interaction_outcome().get("kind", "none")) == "door"
+
+
+func _advance_opening_narration() -> void:
+	if session_mode() != "prologue" or _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
 		return
-	_prologue_panel.advance()
-
-
-func _skip_prologue() -> void:
-	if _prologue_panel == null or not is_instance_valid(_prologue_panel):
+	if not game.advance_opening_narration():
 		return
-	_prologue_panel.skip()
+	if not _reading_opening_narration():
+		_finish_opening_narration()
+
+
+func _finish_opening_narration() -> void:
+	if _request_ending_if_unlocked():
+		_set_reality_mouse_look(false)
+		_refresh_ending()
+	else:
+		_request_session_mode("gameplay")
+		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
+		_refresh_play_surfaces()
+	_sync_audio_state(false)
+
+
+func _on_opening_knock_finished(_payload: Dictionary) -> void:
+	if game != null:
+		game.complete_opening_knock()
+
+
+## Development and test seam: leaves chapter one for the tower street with the phone up, as a run used to begin.
+func _skip_chapter_one() -> void:
+	game.skip_chapter_one()
+	game.set_view_state("phone_down")
+	_finish_opening_narration()
+	_rebuild_reality_floor()
+	_render()
+	_sync_audio_state(true)
+
+
+## Opening the white door: the state moves on to the basement and the adapter plays the door before it rebuilds.
+func _open_reality_door() -> bool:
+	if not game.open_opening_door():
+		return false
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.apply_interaction({"action": "open_door"})
+	_door_was_opening = true
+	_update_visibility()
+	_refresh_reality_hud()
+	return true
+
+
+## Darkens the screen as the door finishes opening, then lifts it once the next stage is built.
+func _update_door_fade(delta: float) -> void:
+	if _ui_root == null or not is_instance_valid(_ui_root):
+		return
+	var outcome: Dictionary = _reality_scene_adapter.interaction_outcome() if _reality_scene_adapter != null else {}
+	var target := 0.0
+	var opening := str(outcome.get("kind", "none")) == "door"
+	if opening:
+		target = smoothstep(0.7, 1.0, float(outcome.get("progress", 0.0)))
+	if _door_was_opening and not opening:
+		# The next stage is built: the phone and the prompt come back.
+		_door_was_opening = false
+		_update_visibility()
+		_refresh_reality_hud()
+	if _door_fade == null or not is_instance_valid(_door_fade):
+		if target <= 0.0:
+			return
+		_door_fade = ColorRect.new()
+		_door_fade.name = "DoorFade"
+		_door_fade.color = Color(UiPalette.VOID, 0.0)
+		_door_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_door_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ui_root.add_child(_door_fade)
+	var alpha := target if target > 0.0 else move_toward(_door_fade.color.a, 0.0, delta * 2.0)
+	_door_fade.color = Color(UiPalette.VOID, alpha)
+	if alpha <= 0.0:
+		_door_fade.queue_free()
+		_door_fade = null
 
 
 func _build_apple_hud() -> void:
@@ -1661,8 +1771,8 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 				_on_settings_language_selected(locale_code)
 			else:
 				_on_language_selected(locale_code)
-		UiIntentsScript.PROLOGUE_FINISHED:
-			_on_prologue_finished()
+		UiIntentsScript.OPENING_NARRATION_ADVANCED:
+			_advance_opening_narration()
 		UiIntentsScript.ENDING_LANGUAGE_SELECTED:
 			_on_ending_language_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
 		UiIntentsScript.RESTART_REQUESTED:
@@ -1712,21 +1822,6 @@ func _language_selection_mount_deps() -> Dictionary:
 	}
 
 
-func _ensure_prologue_panel() -> void:
-	if _prologue_panel != null and is_instance_valid(_prologue_panel):
-		return
-	_prologue_panel = ProloguePanelScript.new()
-	_prologue_panel.name = "ProloguePanel"
-	add_child(_prologue_panel)
-
-
-func _prologue_mount_deps() -> Dictionary:
-	return {
-		"set_localized_property": _ui_theme_helper.set_localized_property,
-		"prologue_lines": NarrativeSessionCatalogScript.prologue_lines(_locale.current_locale),
-	}
-
-
 func _ensure_camera_consent_panel() -> void:
 	if _camera_consent_panel != null and is_instance_valid(_camera_consent_panel):
 		return
@@ -1763,16 +1858,6 @@ func _on_camera_consent_source_selected(index: int) -> void:
 	if _camera_consent_source_option == null:
 		return
 	_on_camera_source_selected(index, _camera_consent_source_option)
-
-
-func _on_prologue_finished() -> void:
-	if _request_ending_if_unlocked():
-		_set_reality_mouse_look(false)
-		_refresh_ending()
-	else:
-		_set_reality_mouse_look(str(_phone_shell_snapshot().get("view_state", "")) == "npc_up")
-		_request_session_mode("gameplay")
-	_sync_audio_state(false)
 
 
 func _ensure_settings_history_panel() -> void:
@@ -2005,6 +2090,8 @@ func _on_settings_open_changed(_open: Variant) -> void:
 	# Registering in _enter_tree delivers the current value before the UI exists.
 	if not is_node_ready():
 		return
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.set_paused(_model_is_on(PropertyKeysScript.SETTINGS_OPEN))
 	if _apple_hud_panel != null:
 		_apple_hud_panel.hide_tooltip()
 	_update_visibility()
@@ -2227,6 +2314,8 @@ func _render_world_prompt() -> void:
 	var plan := _day_plan()
 	if str(hud.get("view_state", "")) == "phone_down":
 		_world_prompt.text = "%s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % plan["title"]
+	elif _reality_door_opening():
+		_world_prompt.text = ""
 	elif bool(hud.get("interaction_active", false)):
 		var conversation: Dictionary = hud.get("conversation", {})
 		_world_prompt.text = "%s：%s" % [_reality_hud_actor_label(hud), _corrupt(str(conversation.get("prompt", "")))]
@@ -2241,6 +2330,8 @@ func _render_world_prompt() -> void:
 				]
 			"actor":
 				_world_prompt.text = "F  交谈 · %s" % str(nearby.get("actor_label", "对方"))
+			"door":
+				_world_prompt.text = "F  开门"
 			_:
 				_world_prompt.text = ""
 
@@ -2438,7 +2529,7 @@ func _update_reality_hud_visibility() -> void:
 	if _world_prompt != null:
 		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
 		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
-	var interaction_visible := (not in_phone) and interaction_active
+	var interaction_visible := (not in_phone) and interaction_active and not _reality_door_opening()
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.set_shown(interaction_visible)
 
@@ -2457,7 +2548,7 @@ func _update_phone_shell_visibility() -> void:
 	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
 	var show_phone_home := show_play and in_phone
 	if _phone_launcher_panel != null:
-		_phone_launcher_panel.set_shown(show_play)
+		_phone_launcher_panel.set_shown(show_play and not _phone_locked())
 	if _phone_tab != null:
 		_phone_tab.visible = false
 	for app_id in _app_windows.keys():
@@ -2477,7 +2568,12 @@ func _update_phone_shell_visibility() -> void:
 func _update_world_for_phone_view() -> void:
 	var in_phone := _phone_view_is_down()
 	if _view_toggle_button != null:
-		_view_toggle_button.visible = _session_shows_play_chrome() and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and (in_phone or not _reality_interaction_is_active())
+		_view_toggle_button.visible = (
+			_session_shows_play_chrome()
+			and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN)
+			and not _phone_locked()
+			and (in_phone or not _reality_interaction_is_active())
+		)
 		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.set_street_shown(not in_phone)

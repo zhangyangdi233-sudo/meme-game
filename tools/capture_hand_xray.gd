@@ -37,7 +37,7 @@ func _capture() -> void:
 
 	main._resolve_camera_consent(false)
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	await _wait_frames(12)
 	main.set_view_state("npc_up")
 	await _wait_frames(50)

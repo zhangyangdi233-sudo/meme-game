@@ -26,7 +26,7 @@ func _run_async() -> void:
 		root.add_child(game_root)
 		game_root._locale.set_locale("zh")
 		game_root.new_game()
-		game_root._skip_prologue()
+		game_root._skip_chapter_one()
 		await process_frame
 
 		var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager

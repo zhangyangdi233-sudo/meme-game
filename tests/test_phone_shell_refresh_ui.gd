@@ -284,7 +284,7 @@ func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
 	await process_frame
 
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	game_root._on_app_pressed("social")
 	game_root._on_app_pressed("notebook")
@@ -318,7 +318,7 @@ func _boot_gameplay() -> Node:
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	return game_root
 

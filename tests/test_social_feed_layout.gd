@@ -17,7 +17,7 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._locale.set_locale("ja")
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	game_root.game.set_active_app("social")
 	game_root._social_feed_panel.show_screen("home")
 	for _frame in 8:

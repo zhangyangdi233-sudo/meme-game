@@ -34,7 +34,7 @@ $env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
 
 ## Modes
 
-**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (26 files after the harness split). Use after small module-only changes.
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (27 files after the harness split). Use after small module-only changes.
 
 ```powershell
 .\tools\run_tests.ps1 -Fast
@@ -72,9 +72,9 @@ tools/run_tests.sh --filter social
 
 `run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
 
-## What runs (106 tests)
+## What runs (110 tests)
 
-### GDScript (104)
+### GDScript (108)
 
 Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
 
@@ -111,6 +111,9 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_simplified_language_core` | state | metrics, publish preview, hidden floor |
 | `test_interaction_progress` | state | no funds, daily actions or day settlement in the state or the save; posts, pickups and conversations are not limited; the floor step, the floor-three finish and the hidden floor run when a post, a pickup, a world item pickup or leaving a spoken conversation completes (leaving unspoken checks nothing; the post that makes the exit exist holds the hidden ending for the next interaction); crossing 60% reports the flashback alone and the run goes on; saves are version 6 and older ones are refused |
 | `test_player_echo_quote` | state | echo quote stages (deterministic) |
+| `test_chapter_one_progress` | state | the opening narration advances one line at a time and completes after the last; the knock is due on its line and heard once; the door opens into basement round one only after the narration and the knock; broken or unearned saved progress falls back; a new run starts the opening, a save keeps the line and the knock, a save without chapter one stays on the tower, and the skip seam lands on the tower |
+| `test_chapter_one_stage` | module | the adapter builds the opening from its model 29.5 m from the white door and the player stands on the water; the door answers only in reach and once the narration is read and the knock heard; the knock plays on its line, pauses, is reported once on the bus and is not replayed once heard; opening the door is not cancelled, pauses, walks the player through, then the basement replaces the opening; the basement is a room the player stands and walks in; deps without chapter progress still build the tower street |
+| `test_opening_narration_panel` | module | two seconds of true black, then the catalog line in the chosen language and its formal font with a localized hint; repaints from the chapter progress and locale models; open settings holds the black and clicks; a left click on a shown line raises `OPENING_NARRATION_ADVANCED`, nothing during the black, for another button or once the narration is read |
 | `test_flashback_sequence` | module | director timeline + determinism |
 | `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build; the black covers stay true black |
 | `test_void_and_outline` | module | under pollution palette 5 the prologue backdrop stays true black, and the conversation text outlines stay near black |
@@ -132,7 +135,7 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
 | `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, words the feedback line, and returns the presentation |
 | `test_settings_intent_handler` | module | on an empty bus, the settings handler writes volume and autoplay, marks the exit prompt seen, and names the settings, save, VHS, history, main menu and quit presentations; it leaves `settings_open` to the panel |
-| `test_settings_prologue_ending_intents` | module | settings window, HUD settings button, prologue and ending screen raise their intents with the right name and payload |
+| `test_settings_prologue_ending_intents` | module | settings window, HUD settings button, the opening narration and ending screen raise their intents with the right name and payload |
 | `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
 | `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` and `COVER_WATCHER_APPEARED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes |
 | `test_narrative_overlay_director` | module | while in the tree the director answers `FLASHBACK_FINISHED` by closing the flashback and ending the beat in gameplay, once, without settling a day; with no flashback on screen, or out of the tree, it does nothing; a flashback played to its end raises the event; the overlay mounts with no callback |
@@ -146,11 +149,12 @@ When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` 
 | `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
 | `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
 | `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
+| `test_opening_scene` | **adapter** | a new run opens in the prologue on the black water and the narration with the phone up; the narration locks walking, turning and the phone (toggle, Tab); a click reads the next line; the knock sounds on its line and open settings pauses it and the narration; a save in the narration continues on the same line without the knock; F refuses the door until the knock finishes, then the door opens without being cut short, fades to black and the basement round one follows with the phone toggle back |
 | `test_main_scene` | **adapter** | integration smoke; the HUD shows no funds or action dots and no action pulse or day transition overlay is built; under pollution palette 5 the world prompt outline and cinematic bars keep their fixed colors; in a debug build a new game shows no doll guide window, playtest panel, TEST marker or tower app, the phone offers only social and notebook, and the doll stays in the street |
 | `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; its save simulation (follow / saved / empty) writes only the `has_save` model, shows the actual save and leaves the file untouched, and a simulated save without a file falls back to a new game; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
 | `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
 | `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
-| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; post detail words no action cost; START continues from the save, holding it and answering YES starts a new game and leaves the save file, starts a new game with the prologue without one, and falls back to a new game with one warning when the save is corrupt, missing or from an older state version; a continued save shows no guide, test aid or tower app and saves no tutorial progress |
+| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; post detail words no action cost; START continues from the save, holding it and answering YES starts a new game and leaves the save file, starts a new game with the opening narration without one, and falls back to a new game with one warning when the save is corrupt, missing or from an older state version; a continued save shows no guide, test aid or tower app and saves no tutorial progress |
 | `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS, history, exit request and the settings button to the settings handler and presents them, the exit request as the dialog; closing by model restores the chrome; 仍然退出 saves the run and preferences before quitting |
 | `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps and craft to the notebook handler and presents the submit |
 | `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; the reality HUD builds no doctor sentence composer; leaving a spoken conversation at 25% pollution moves the floor and the street is rebuilt for it; the host keeps no transient selection |

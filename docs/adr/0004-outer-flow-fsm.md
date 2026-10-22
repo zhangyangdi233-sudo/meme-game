@@ -9,3 +9,5 @@ The reusable machine (state interface + manager) lives in Framework. Game implem
 Enter/exit of a Game state installs that state's UI and world key binds. Clicks on covered UI stay with the fullscreen overlay. Rules such as `ending_unlocked` trigger transitions; gameplay code does not read those flags to decide the screen. Language picker and camera consent stay UI on main menu. In-game settings are not a flow state yet.
 
 Supersedes ADR 0003, which derived an owner from adapter flags and left a handler-level gate for later. That table lagged new overlays and had no enter/exit to bind keys. An earlier draft of this ADR kept the whole machine in Game; the mechanism is generic and belongs in Framework, the five states do not.
+
+Amended (#110): the prologue state now shows chapter one's opening narration over the opening world instead of a transmission overlay. A run is in it while the narration is being read, including a save made during it; reading the last line moves to gameplay. The narration sits under the play chrome, so settings stays reachable, and it locks the phone, walking and looking while it is read.

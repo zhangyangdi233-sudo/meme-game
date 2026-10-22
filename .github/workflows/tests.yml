@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Chapter one's imported models and their textures are Git LFS objects.
+          lfs: true
 
       - name: Cache Godot 4.6.3
         uses: actions/cache@v4

@@ -55,7 +55,7 @@ func _capture() -> void:
 	var main := scene.instantiate()
 	root.add_child(main)
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.tower_floor = floor_number
 	main._ensure_reality_floor_current()
 	main.set_view_state("npc_up")

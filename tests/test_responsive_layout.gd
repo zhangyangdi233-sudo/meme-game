@@ -34,6 +34,7 @@ func _run() -> void:
 	game_root._locale.set_locale("zh")
 	if game_root.has_method("new_game"):
 		game_root.new_game()
+		game_root._skip_chapter_one()
 	game_root._render()
 	await process_frame
 	await process_frame

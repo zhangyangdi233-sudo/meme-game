@@ -21,7 +21,7 @@ func _capture() -> void:
 	var main := scene.instantiate()
 	root.add_child(main)
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.tower_floor = 5
 	main.game.ending_unlocked = true
 	main.game.relationship_residue = 64

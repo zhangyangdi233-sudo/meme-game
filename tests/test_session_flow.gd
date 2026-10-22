@@ -87,9 +87,9 @@ func _run() -> void:
 	_assert_eq(game_root.session_mode(), "prologue", "a new run should set Session mode to prologue")
 	_assert_host_applied_screens(game_root, ["prologue", "play"], "prologue")
 	await _assert_world_hotkeys_inert(game_root, "prologue")
-	await _assert_prologue_overlay_eats_phone_clicks(game_root)
+	_assert_opening_hides_the_phone(game_root)
 
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "finishing the prologue should set Session mode to gameplay")
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after prologue")
@@ -194,7 +194,7 @@ func _run() -> void:
 func _run_narrative_beat(game_root) -> void:
 	game_root.new_game()
 	await process_frame
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "narrative beat should start from gameplay")
 	await _assert_gameplay_world_hotkeys_live(game_root)
@@ -223,7 +223,7 @@ func _run_narrative_beat(game_root) -> void:
 
 	game_root.new_game()
 	await process_frame
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	game_root.game.pollution = 60
 	game_root.game.check_pollution_flashback(59)
@@ -245,7 +245,7 @@ func _run_every_interaction_plays_its_flashback(game_root) -> void:
 	for path in ["pickup", "conversation"]:
 		game_root.new_game()
 		await process_frame
-		game_root._skip_prologue()
+		game_root._skip_chapter_one()
 		await process_frame
 		var outcome := ActionOutcomeScript.new()
 		outcome.succeeded = true
@@ -264,7 +264,7 @@ func _run_every_interaction_plays_its_flashback(game_root) -> void:
 func _run_interaction_opens_ending(game_root) -> void:
 	game_root.new_game()
 	await process_frame
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "the ending test should start from gameplay")
 	game_root.game.tower_floor = 4
@@ -279,7 +279,7 @@ func _run_interaction_opens_ending(game_root) -> void:
 func _run_ending_screen_install(game_root) -> void:
 	game_root.new_game()
 	await process_frame
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_eq(game_root.session_mode(), "gameplay", "ending install should start from gameplay")
 
@@ -327,8 +327,9 @@ func _assert_screen_set(game_root, expected: Array, label: String) -> void:
 func _assert_host_applied_screens(game_root, expected: Array, label: String) -> void:
 	_assert_screen_set(game_root, expected, label)
 	_assert_screen_node(game_root, "MainMenuLayer", "title" in expected, label)
-	_assert_screen_node(game_root, "PrologueOverlay", "prologue" in expected, label)
-	_assert_screen_node(game_root, "PhoneViewToggleButton", "play" in expected, label)
+	_assert_screen_node(game_root, "OpeningNarrationPanel", "prologue" in expected, label)
+	# The opening narration locks the phone, so its toggle stays hidden under the narration.
+	_assert_screen_node(game_root, "PhoneViewToggleButton", "play" in expected and "prologue" not in expected, label)
 	_assert_screen_node(game_root, "EndingScreen", "ending" in expected, label)
 
 
@@ -342,7 +343,7 @@ func _assert_screen_node(game_root, node_name: String, should_show: bool, label:
 	if node_name == "MainMenuLayer":
 		_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])
 		return
-	if node_name == "PrologueOverlay" or node_name == "EndingScreen":
+	if node_name == "OpeningNarrationPanel" or node_name == "EndingScreen":
 		_assert_true(node == null, "%s should unload %s" % [label, node_name])
 		return
 	_assert_true(node == null or not node.visible, "%s should hide %s" % [label, node_name])
@@ -413,9 +414,12 @@ func _assert_ending_overlay_eats_clicks(game_root) -> void:
 	)
 
 
-func _assert_prologue_overlay_eats_phone_clicks(game_root) -> void:
-	var overlay := _find_node_by_name(game_root, "PrologueOverlay") as Control
-	await _assert_overlay_eats_phone_clicks(game_root, overlay, "prologue overlay")
+func _assert_opening_hides_the_phone(game_root) -> void:
+	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Control
+	_assert_true(toggle == null or not toggle.visible, "the opening narration should hide the phone toggle")
+	var view_before := str(game_root.game.view_state)
+	game_root.set_view_state("phone_down")
+	_assert_eq(str(game_root.game.view_state), view_before, "the opening narration should keep the phone down")
 
 
 func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: String) -> void:

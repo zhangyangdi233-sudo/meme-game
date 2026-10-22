@@ -59,8 +59,9 @@ const HISTORY_TOGGLE_REQUESTED := "history_toggle_requested"
 ## HUD settings button. Payload: {}.
 const SETTINGS_PRESSED := "settings_pressed"
 
-## Prologue end and ending screen. Payload: {} except the language choice, {KEY_CHOICE_ID: String}.
-const PROLOGUE_FINISHED := "prologue_finished"
+## A click on the shown opening narration line, and the ending screen. Payload: {} except the language choice,
+## {KEY_CHOICE_ID: String}.
+const OPENING_NARRATION_ADVANCED := "opening_narration_advanced"
 const ENDING_LANGUAGE_SELECTED := "ending_language_selected"
 const RESTART_REQUESTED := "restart_requested"
 

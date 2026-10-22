@@ -33,7 +33,7 @@ func _capture() -> void:
 
 	main._on_language_selected("en")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.set_active_app("social")
 	main._social_feed_panel.show_screen("home")
 	for frame in 12:

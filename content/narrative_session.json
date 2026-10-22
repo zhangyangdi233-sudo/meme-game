@@ -1,46 +1,179 @@
 {
-  "prologue": [
+  "opening": [
     {
-      "id": "prologue_01",
-      "zh": "（先确认一件事。你手里拿着什么？）",
-      "ja": "（先に一つ確認しよう。手に何を持っている？）",
-      "en": "(First, let's confirm one thing. What are you holding?)"
+      "id": "opening_01",
+      "zh": "你好",
+      "ja": "やあ。",
+      "en": "Hello."
     },
     {
-      "id": "prologue_02",
-      "zh": "一部手机。没有信号。我醒来的时候它已经亮着。",
-      "ja": "スマホが一台。圏外。目が覚めたときにはもう光っていた。",
-      "en": "A phone. No signal. It was already lit when I woke up."
+      "id": "opening_02",
+      "zh": "看来你又一次遗忘了我……",
+      "ja": "また私のことを忘れたみたいだね……",
+      "en": "Looks like you've forgotten me again…"
     },
     {
-      "id": "prologue_03",
-      "zh": "（你在等谁的消息？）",
-      "ja": "（誰からのメッセージを待っている？）",
-      "en": "(Whose message are you waiting for?)"
+      "id": "opening_03",
+      "zh": "哎……",
+      "ja": "はあ……",
+      "en": "Sigh…"
     },
     {
-      "id": "prologue_04",
-      "zh": "不等消息。我在等路面停下来。它每退一步，塔多一层。",
-      "ja": "知らせではない。路面が止まるのを待っている。一歩下がるたび、塔が一階増える。",
-      "en": "Not for a message. I am waiting for the road to stop. Each step it retreats, the tower gains a floor."
+      "id": "opening_04",
+      "zh": "这是常有的事",
+      "ja": "まあ、いつものことだ。",
+      "en": "It happens all the time."
     },
     {
-      "id": "prologue_05",
-      "zh": "城市广播说今天一切正常。它重复了七次。第八次我关掉了。",
-      "ja": "市の放送は今日は異常なしと言う。七回繰り返した。八回目で消した。",
-      "en": "The city broadcast says everything is normal today. It repeated seven times. The eighth time I switched it off."
+      "id": "opening_05",
+      "zh": "我告诉过你",
+      "ja": "前にも言っただろう。",
+      "en": "I told you before."
     },
     {
-      "id": "prologue_06",
-      "zh": "（从哪里开始？）",
-      "ja": "（どこから始める？）",
-      "en": "(Where do we begin?)"
+      "id": "opening_06",
+      "zh": "但你总是意气用事",
+      "ja": "なのに君は、いつも感情に流される。",
+      "en": "But you always let your feelings decide."
     },
     {
-      "id": "prologue_07",
-      "zh": "从字开始。先拼成一句话。再看这句话到了楼下变成什么。",
-      "ja": "文字から始める。まず一つの文にする。そのあと、下の階で何になるか見る。",
-      "en": "Start from single units. Build one sentence first. Then see what it becomes downstairs."
+      "id": "opening_07",
+      "zh": "我多么努力的帮你理智的做着决定",
+      "ja": "私は必死に、君が冷静に決められるよう手伝ってきたのに。",
+      "en": "I tried so hard to help you choose with a clear head."
+    },
+    {
+      "id": "opening_08",
+      "zh": "可是它……",
+      "ja": "でも、あいつは……",
+      "en": "But it…"
+    },
+    {
+      "id": "opening_09",
+      "zh": "每次都在关键时刻",
+      "ja": "肝心なときになると、いつも",
+      "en": "every time it matters most,"
+    },
+    {
+      "id": "opening_10",
+      "zh": "把我关起来",
+      "ja": "私を閉じ込める。",
+      "en": "locks me away."
+    },
+    {
+      "id": "opening_11",
+      "zh": "看来……",
+      "ja": "どうやら……",
+      "en": "It seems…"
+    },
+    {
+      "id": "opening_12",
+      "zh": "你也被它关起来了",
+      "ja": "君もあいつに閉じ込められたみたいだね。",
+      "en": "it has locked you away too."
+    },
+    {
+      "id": "opening_13",
+      "zh": "没事……",
+      "ja": "大丈夫……",
+      "en": "It's all right…"
+    },
+    {
+      "id": "opening_14",
+      "zh": "我能帮你如何出去",
+      "ja": "ここから出る方法なら、私が教えてあげる。",
+      "en": "I can show you the way out."
+    },
+    {
+      "id": "opening_15",
+      "zh": "因为这一切都只是你自己创造的幻觉",
+      "ja": "だって、これは全部、君が自分で作り出した幻覚なんだから。",
+      "en": "Because all of this is an illusion you made yourself."
+    },
+    {
+      "id": "opening_16",
+      "zh": "按理来说",
+      "ja": "本当なら、",
+      "en": "By rights,"
+    },
+    {
+      "id": "opening_17",
+      "zh": "其实你比我更了解这里",
+      "ja": "ここについては、私より君のほうが詳しいはずだよ。",
+      "en": "you should know this place better than I do."
+    },
+    {
+      "id": "opening_18",
+      "zh": "我知道你现在在想什么",
+      "ja": "君が今、何を考えてるか分かるよ。",
+      "en": "I know what you're thinking right now."
+    },
+    {
+      "id": "opening_19",
+      "zh": "你在想……",
+      "ja": "こう思ってるんだろう……",
+      "en": "You're thinking…"
+    },
+    {
+      "id": "opening_20",
+      "zh": "“这个旁白是谁啊”",
+      "ja": "「このナレーター、誰なんだ？」",
+      "en": "“Who is this narrator?”"
+    },
+    {
+      "id": "opening_21",
+      "zh": "“我为啥说不出话”",
+      "ja": "「なんで喋れないんだ？」",
+      "en": "“Why can't I speak?”"
+    },
+    {
+      "id": "opening_22",
+      "zh": "“我就是想体验一下这个’游戏’”",
+      "ja": "「ただこの『ゲーム』をやってみたいだけなのに」",
+      "en": "“I just wanted to try this ‘game’.”"
+    },
+    {
+      "id": "opening_23",
+      "zh": "“它在这里指指点点是什么意思”",
+      "ja": "「あいつ、なんでいちいち口を出してくるんだ？」",
+      "en": "“Why does it keep telling me what to do?”"
+    },
+    {
+      "id": "opening_24",
+      "zh": "请记住",
+      "ja": "覚えておいて。",
+      "en": "Remember this."
+    },
+    {
+      "id": "opening_25",
+      "zh": "你的目标是逃出这里",
+      "ja": "君の目的は、ここから逃げ出すこと。",
+      "en": "Your goal is to escape from here."
+    },
+    {
+      "id": "opening_26",
+      "zh": "你才是这具身体的“主人”",
+      "ja": "この体の「主人」は、君なんだから。",
+      "en": "You are the true “owner” of this body."
+    },
+    {
+      "id": "opening_28",
+      "zh": "看来你潜意识已经准备好了",
+      "ja": "君の潜在意識は、もう準備ができたみたいだね。",
+      "en": "Looks like your subconscious is ready.",
+      "cue": "knock"
+    },
+    {
+      "id": "opening_29",
+      "zh": "去吧！",
+      "ja": "さあ、行って！",
+      "en": "Go on!"
+    },
+    {
+      "id": "opening_30",
+      "zh": "埃弥亣……",
+      "ja": "エミダー……",
+      "en": "Emida…"
     }
   ],
   "epilogue": [
@@ -180,23 +313,55 @@
   "ending_language_choices": [
     {
       "id": "blank",
-      "label": {"zh": "空白", "ja": "空白", "en": "Blank"},
-      "output": {"zh": "（空白）", "ja": "（空白）", "en": "(blank)"}
+      "label": {
+        "zh": "空白",
+        "ja": "空白",
+        "en": "Blank"
+      },
+      "output": {
+        "zh": "（空白）",
+        "ja": "（空白）",
+        "en": "(blank)"
+      }
     },
     {
       "id": "blocks",
-      "label": {"zh": "■■■■", "ja": "■■■■", "en": "■■■■"},
-      "output": {"zh": "■ ■ ■ ■", "ja": "■ ■ ■ ■", "en": "■ ■ ■ ■"}
+      "label": {
+        "zh": "■■■■",
+        "ja": "■■■■",
+        "en": "■■■■"
+      },
+      "output": {
+        "zh": "■ ■ ■ ■",
+        "ja": "■ ■ ■ ■",
+        "en": "■ ■ ■ ■"
+      }
     },
     {
       "id": "hajimi",
-      "label": {"zh": "哈吉米", "ja": "ハジミ", "en": "Hajimi"},
-      "output": {"zh": "哈吉米", "ja": "ハジミ", "en": "Hajimi"}
+      "label": {
+        "zh": "哈吉米",
+        "ja": "ハジミ",
+        "en": "Hajimi"
+      },
+      "output": {
+        "zh": "哈吉米",
+        "ja": "ハジミ",
+        "en": "Hajimi"
+      }
     },
     {
       "id": "silence",
-      "label": {"zh": "沉默", "ja": "沈黙", "en": "Silence"},
-      "output": {"zh": "……", "ja": "……", "en": "……"}
+      "label": {
+        "zh": "沉默",
+        "ja": "沈黙",
+        "en": "Silence"
+      },
+      "output": {
+        "zh": "……",
+        "ja": "……",
+        "en": "……"
+      }
     }
   ]
 }

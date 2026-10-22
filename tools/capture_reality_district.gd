@@ -29,7 +29,7 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.tower_floor = floor_number
 	main._ensure_reality_floor_current()
 	main.set_view_state("npc_up")

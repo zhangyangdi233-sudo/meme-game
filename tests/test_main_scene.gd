@@ -24,7 +24,7 @@ func _run_async() -> void:
 	_test_main_menu(game_root)
 
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 	_test_scene_contract(game_root)
 	_test_compact_hud_and_settings(game_root)

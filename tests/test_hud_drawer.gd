@@ -63,7 +63,7 @@ func _test_edge_drawer_integration() -> void:
 	var game_root := scene.instantiate()
 	root.add_child(game_root)
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
 
 	var rail := _find_node_by_name(game_root, "InternationalHUDRail") as PanelContainer

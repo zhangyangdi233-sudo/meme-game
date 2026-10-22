@@ -17,6 +17,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const MAX_TOWER_FLOOR := PropertyKeysScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
@@ -184,6 +185,10 @@ var world_rules: Dictionary:
 		return _read_run_map(PropertyKeysScript.WORLD_RULES)
 	set(value):
 		_write_run_map(PropertyKeysScript.WORLD_RULES, value)
+## Chapter one's progress (`ChapterOneProgress`): the opening narration, the knock, the basement round. A read is a copy.
+var chapter_one_progress: Dictionary:
+	get:
+		return ChapterOneProgressScript.normalize(_read_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS))
 var floor3_task_complete: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
@@ -461,6 +466,11 @@ func load_save_data(save_data: Dictionary) -> bool:
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
 	pollution = clampi(pollution, 0, 100)
+	# A save made before chapter one existed was already on the tower street.
+	if state_data.has(PropertyKeysScript.CHAPTER_ONE_PROGRESS):
+		_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, chapter_one_progress)
+	else:
+		_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
 	var normalized_watcher_floors: Array[int] = []
 	for floor_value in cover_watcher_seen_floors:
 		var floor_number := clampi(int(floor_value), 1, MAX_TOWER_FLOOR)
@@ -557,6 +567,33 @@ func set_view_state(value: String) -> bool:
 		phone_open = false
 		active_app_window = ""
 		reset_reality_phase()
+	return true
+
+
+## Shows the next opening line, or completes the narration after the last one. False when nothing moved.
+func advance_opening_narration() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.advance_narration(chapter_one_progress))
+
+
+## The opening knock played to its end. False before its line or once it was heard.
+func complete_opening_knock() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.complete_knock(chapter_one_progress))
+
+
+## The white door opens into the basement once the narration is read and the knock heard.
+func open_opening_door() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
+
+
+## Development and test seam: leaves chapter one for the tower street.
+func skip_chapter_one() -> void:
+	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
+
+
+func _step_chapter_one(next: Dictionary) -> bool:
+	if next == chapter_one_progress:
+		return false
+	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, next)
 	return true
 
 

@@ -23,7 +23,7 @@ func _capture() -> void:
 	main._locale.set_locale("zh")
 	if main.has_method("new_game"):
 		main.new_game()
-		main._skip_prologue()
+		main._skip_chapter_one()
 	main.game.owned_meme_frames = 1
 	main.game.notebook_tokens = [{
 		"id": "capture-glyph",
