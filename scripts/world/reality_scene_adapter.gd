@@ -656,6 +656,9 @@ func restore_world_pose(world_data: Dictionary) -> void:
 	if world_data.is_empty() or player == null or floor == null:
 		return
 	var saved_position: Variant = world_data.get("player_position", Vector3.ZERO)
+	# A save made while the white door opened is already past the opening; its pose belongs to the old stage.
+	if _chapter_stage != null and saved_position is Vector3 and not _chapter_stage.contains_playable_position(saved_position):
+		return
 	if saved_position is Vector3:
 		_last_safe_position = _clamp_playable(saved_position, _safe_inset())
 		player.position = _last_safe_position

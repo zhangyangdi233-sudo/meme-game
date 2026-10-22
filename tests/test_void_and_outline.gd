@@ -5,7 +5,7 @@ extends SceneTree
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
-const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
+const OpeningNarrationPanelScene = preload("res://scenes/ui/opening_narration.tscn")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 const TRUE_BLACK := Color("000000")
@@ -33,7 +33,7 @@ func _run() -> void:
 
 func _test_opening_backdrop_stays_void() -> void:
 	var ui_root := _ui_root_on_pollution_palette_5()
-	var panel := OpeningNarrationPanelScript.new()
+	var panel := OpeningNarrationPanelScene.instantiate()
 	ui_root.add_child(panel)
 	var black := Harness.find_node_by_name(ui_root, "OpeningBlack") as ColorRect
 	_assert_true(black != null, "the opening narration should build its black backdrop")

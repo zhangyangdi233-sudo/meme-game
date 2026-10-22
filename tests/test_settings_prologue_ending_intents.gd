@@ -9,6 +9,7 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const SettingsHistoryPanelScript = preload("res://scripts/ui/settings_history_panel.gd")
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
+const OpeningNarrationPanelScene = preload("res://scenes/ui/opening_narration.tscn")
 const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
@@ -119,7 +120,7 @@ func _test_hud_settings_button_raises_settings_pressed() -> void:
 func _test_opening_narration_raises_advance() -> void:
 	_bind_bus()
 	PropertyBootScript.install()
-	var panel := OpeningNarrationPanelScript.new()
+	var panel := OpeningNarrationPanelScene.instantiate() as OpeningNarrationPanel
 	root.add_child(panel)
 	panel._process(OpeningNarrationPanelScript.BLACK_SECONDS + 0.1)
 	var click := InputEventMouseButton.new()

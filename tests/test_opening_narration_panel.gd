@@ -4,7 +4,7 @@ extends SceneTree
 ## and a click raises the advance intent only while a line is shown.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
-const PanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
+const PanelScene = preload("res://scenes/ui/opening_narration.tscn")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
@@ -139,7 +139,7 @@ func _test_a_complete_narration_shows_no_line() -> void:
 
 
 func _mount() -> Control:
-	var panel := PanelScript.new() as Control
+	var panel := PanelScene.instantiate() as Control
 	root.add_child(panel)
 	await process_frame
 	return panel

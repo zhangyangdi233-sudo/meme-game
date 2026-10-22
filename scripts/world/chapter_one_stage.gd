@@ -96,6 +96,11 @@ func sync_progress(progress: Dictionary) -> void:
 	if not ChapterOneProgressScript.knock_due(progress):
 		return
 	_knock_started = true
+	if _knock.stream == null:
+		# Without the recording the knock counts as heard, so the door can still open.
+		push_error("The opening knock recording did not load: %s" % KNOCK_PATH)
+		_on_knock_finished()
+		return
 	_knock.play()
 
 

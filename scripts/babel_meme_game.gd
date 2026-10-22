@@ -20,7 +20,7 @@ const DialogScreenScript = preload("res://scripts/ui/dialog_screen.gd")
 const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
-const OpeningNarrationPanelScript = preload("res://scripts/ui/opening_narration_panel.gd")
+const OpeningNarrationScene = preload("res://scenes/ui/opening_narration.tscn")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
@@ -974,7 +974,7 @@ func _unmount_dialog_debug_panel() -> void:
 func install_prologue_screen() -> void:
 	_mount_in_run_scene()
 	_unmount_opening_narration()
-	_opening_narration_panel = OpeningNarrationPanelScript.new()
+	_opening_narration_panel = OpeningNarrationScene.instantiate() as OpeningNarrationPanel
 	_ui_root.add_child(_opening_narration_panel)
 	_ui_root.move_child(_opening_narration_panel, 0)
 	install_play_screen()
@@ -1406,7 +1406,7 @@ func _reality_door_opening() -> bool:
 
 
 func _advance_opening_narration() -> void:
-	if session_mode() != "prologue" or _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
+	if game == null or session_mode() != "prologue" or _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
 		return
 	if not game.advance_opening_narration():
 		return
@@ -1456,11 +1456,10 @@ func _open_reality_door() -> bool:
 func _update_door_fade(delta: float) -> void:
 	if _ui_root == null or not is_instance_valid(_ui_root):
 		return
-	var outcome: Dictionary = _reality_scene_adapter.interaction_outcome() if _reality_scene_adapter != null else {}
 	var target := 0.0
-	var opening := str(outcome.get("kind", "none")) == "door"
+	var opening := _reality_door_opening()
 	if opening:
-		target = smoothstep(0.7, 1.0, float(outcome.get("progress", 0.0)))
+		target = smoothstep(0.7, 1.0, float(_reality_scene_adapter.interaction_outcome().get("progress", 0.0)))
 	if _door_was_opening and not opening:
 		# The next stage is built: the phone and the prompt come back.
 		_door_was_opening = false

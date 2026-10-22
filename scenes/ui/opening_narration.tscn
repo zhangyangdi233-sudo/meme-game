@@ -1,0 +1,64 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/opening_narration_panel.gd" id="1_root"]
+
+[node name="OpeningNarrationPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_root")
+
+[node name="OpeningBlack" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="OpeningNarrationColumn" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -540.0
+offset_top = -230.0
+offset_right = 540.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="OpeningNarrationLine" type="Label" parent="OpeningNarrationColumn"]
+custom_minimum_size = Vector2(0, 108)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0.019607844, 0.02745098, 0.019607844, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 30
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+metadata/skip_localization = true
+metadata/on_dark = true
+
+[node name="OpeningNarrationHint" type="Label" parent="OpeningNarrationColumn"]
+modulate = Color(1, 1, 1, 0.62)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0.019607844, 0.02745098, 0.019607844, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+autowrap_mode = 3
+metadata/on_dark = true

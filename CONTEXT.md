@@ -35,7 +35,7 @@ Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_pro
 _Avoid_: the panel or the stage writing the progress, a knock replayed after it was heard, inferring the basement from the world
 
 **Opening narration**:
-Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time after two seconds of black by `OpeningNarrationPanel` while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
+Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time after two seconds of black by `OpeningNarrationPanel` (Layout scene `scenes/ui/opening_narration.tscn`) while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
 _Avoid_: prologue (the retired transmission overlay), a timer that advances lines, the UI catalog for the lines themselves
 
 **Floor look**:

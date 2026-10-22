@@ -44,6 +44,8 @@ func _run() -> void:
 	await _test_the_knock_plays_on_its_line_once_and_pauses()
 	await _test_opening_the_door_walks_through_into_the_basement()
 	await _test_the_basement_is_a_room_to_walk_in()
+	await _test_a_pose_saved_in_another_stage_starts_on_the_spawn()
+	await _test_a_missing_knock_recording_does_not_lock_the_door()
 	await _test_the_tower_street_still_builds_without_chapter_progress()
 
 
@@ -170,6 +172,28 @@ func _test_the_basement_is_a_room_to_walk_in() -> void:
 	var walked: Vector3 = adapter.pose().get("player_position")
 	_assert_true(walked.distance_to(settled) > 0.5, "the player should walk in the basement: %s -> %s" % [str(settled), str(walked)])
 	_assert_true(adapter.chapter_contains(walked), "walking should stay inside the basement: %s" % str(walked))
+	await _free(adapter)
+
+
+## A save made while the white door opened is already in the basement but holds a pose from the opening.
+func _test_a_pose_saved_in_another_stage_starts_on_the_spawn() -> void:
+	var basement := ProgressScript.open_door(ProgressScript.complete_knock(_read_to_end(_at_line(ProgressScript.KNOCK_LINE_INDEX))))
+	var adapter = await _adapter(basement)
+	var spawn: Vector3 = adapter.pose().get("player_position")
+	adapter.restore_world_pose({"player_position": Vector3(0.0, 0.04, -17.6), "yaw": 0.0, "pitch": 0.0})
+	var restored: Vector3 = adapter.pose().get("player_position")
+	_assert_true(restored.distance_to(spawn) < 0.01, "a pose outside the basement should start on its spawn: %s" % str(restored))
+	await _free(adapter)
+
+
+func _test_a_missing_knock_recording_does_not_lock_the_door() -> void:
+	var due := _at_line(ProgressScript.KNOCK_LINE_INDEX)
+	var adapter = await _adapter(due)
+	var knock := adapter.get_parent().find_child("OpeningKnock", true, false) as AudioStreamPlayer3D
+	knock.stream = null
+	var heard_before := _knocks_heard
+	adapter.ensure_floor_current(_deps(due))
+	_assert_eq(_knocks_heard, heard_before + 1, "a knock with no recording should count as heard so the door can open")
 	await _free(adapter)
 
 

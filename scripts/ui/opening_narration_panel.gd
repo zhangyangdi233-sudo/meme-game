@@ -1,6 +1,7 @@
 class_name OpeningNarrationPanel
 extends Control
 ## Chapter one's opening narration over the world: two seconds of true black, then the current line, one at a time.
+## It mounts the Layout scene `scenes/ui/opening_narration.tscn`.
 ## While in the tree it watches the chapter progress, the language and whether settings is open, and repaints itself.
 ## The line uses the language's formal font. A click on a shown line raises OPENING_NARRATION_ADVANCED for the host;
 ## during the black, while settings is open, or once the narration is read, a click raises nothing.
@@ -13,13 +14,8 @@ const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const BLACK_SECONDS := 2.0
-const LINE_FONT_SIZE := 30
-const HINT_FONT_SIZE := 16
 const HINT_TEXT := "点击鼠标或触摸板继续"
 
-var _black: ColorRect
-var _line: Label
-var _hint: Label
 var _black_left := BLACK_SECONDS
 var _progress: Dictionary = ChapterOneProgressScript.initial()
 var _locale := PropertyKeysScript.DEFAULT_LOCALE
@@ -29,42 +25,14 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.LOCALE: _on_locale,
 	PropertyKeysScript.SETTINGS_OPEN: _on_settings_open,
 })
+@onready var _black := $OpeningBlack as ColorRect
+@onready var _line := $OpeningNarrationColumn/OpeningNarrationLine as Label
+@onready var _hint := $OpeningNarrationColumn/OpeningNarrationHint as Label
 
 
-func _init() -> void:
-	name = "OpeningNarrationPanel"
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	_black = ColorRect.new()
-	_black.name = "OpeningBlack"
-	_black.color = UiPalette.VOID
-	_black.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_black.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_black)
-	var column := VBoxContainer.new()
-	column.name = "OpeningNarrationColumn"
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	column.offset_left = -540.0
-	column.offset_right = 540.0
-	column.offset_top = -230.0
-	column.offset_bottom = -48.0
-	column.add_theme_constant_override("separation", 20)
-	add_child(column)
-	_line = _make_label("OpeningNarrationLine", LINE_FONT_SIZE)
-	_line.custom_minimum_size.y = 108.0
-	_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	column.add_child(_line)
-	_hint = _make_label("OpeningNarrationHint", HINT_FONT_SIZE)
-	# The hint is UI chrome and goes through the UI catalog.
-	_hint.remove_meta("skip_localization")
-	_hint.modulate.a = 0.62
-	column.add_child(_hint)
-	_repaint()
-
-
-func _enter_tree() -> void:
+func _ready() -> void:
 	_watch.start()
+	_repaint()
 
 
 func _process(delta: float) -> void:
@@ -105,6 +73,8 @@ func _on_settings_open(value: Variant) -> void:
 
 
 func _repaint() -> void:
+	if not is_node_ready():
+		return
 	_black.visible = _black_left > 0.0
 	var shown := is_line_shown()
 	_line.visible = shown
@@ -124,18 +94,3 @@ func _repaint() -> void:
 		for label in [_line, _hint]:
 			(label as Label).add_theme_color_override("font_color", theme.theme_color("surface"))
 
-
-func _make_label(node_name: String, font_size: int) -> Label:
-	var label := Label.new()
-	label.name = node_name
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# The line is language material from the narrative catalog; the theme walk must not translate or restyle it.
-	label.set_meta("skip_localization", true)
-	label.set_meta("on_dark", true)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_shadow_color", UiPalette.OUTLINE)
-	label.add_theme_constant_override("shadow_offset_x", 1)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	return label
