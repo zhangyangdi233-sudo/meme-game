@@ -3,7 +3,8 @@ class_name RealitySceneAdapter
 ## 3D reality floor, player locomotion, and proximity interaction for the main scene adapter.
 ## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
 ## Chapter one's opening and basement are a chapter stage built here instead of a tower floor; the tower street is
-## built when the deps carry no chapter progress or a tower one.
+## built when the deps carry no chapter progress or a tower one. The basement's CRT is a `terminal` outcome: entering
+## it pushes the view in to its glass (`view_position` on the look pose) and leaving gives the look back.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
@@ -25,6 +26,11 @@ const DOOR_SWING_SECONDS := 1.6
 const DOOR_TRANSITION_SECONDS := 2.4
 ## Where the walk through the white door ends, past the door center.
 const DOOR_WALK_THROUGH := Vector3(0.0, 0.0, -0.8)
+## How close the player stands to the CRT's reach point for it to answer.
+const TERMINAL_REACH := 0.9
+## The pushed-in view fills this share of the main camera's height with the CRT's glass.
+const TERMINAL_VIEW_FILL := 0.72
+const TERMINAL_VIEW_FOV := 58.0
 
 signal nearby_targets_changed()
 
@@ -46,6 +52,8 @@ var _chapter_stage: ChapterOneStage
 ## The chapter phase the stage was built for; empty while the tower street is built.
 var _built_stage := ""
 var _nearby_door := false
+var _nearby_terminal := false
+var _terminal_active := false
 ## Seconds into opening the white door, or a negative value when no door is opening.
 var _door_time := -1.0
 var _door_from := Vector3.ZERO
@@ -98,6 +106,7 @@ func clear_nearby_targets() -> void:
 	nearby_actor = null
 	nearby_item = null
 	_nearby_door = false
+	_nearby_terminal = false
 
 
 func rebuild_floor(deps: Dictionary) -> void:
@@ -208,7 +217,7 @@ func update_player(delta: float, deps: Dictionary) -> void:
 	if _should_recover_player():
 		_recover_player()
 		return
-	var can_walk: bool = str(deps.get("view_state", "")) == "npc_up" and not _interaction_active
+	var can_walk: bool = str(deps.get("view_state", "")) == "npc_up" and not _interaction_active and not _terminal_active
 	var input_vector := Vector2.ZERO
 	if can_walk:
 		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
@@ -241,6 +250,34 @@ func set_paused(paused: bool) -> void:
 		_chapter_stage.set_paused(paused)
 
 
+## Where the player stands to use the basement CRT; zero when no stage has one.
+func chapter_terminal_position() -> Vector3:
+	if _chapter_stage == null:
+		return Vector3.ZERO
+	return _chapter_stage.crt_reach_position()
+
+
+## Where a world-space ray meets the CRT's glass, as a 0..1 UV from the top left; (-1, -1) when it does not.
+func terminal_screen_uv(origin: Vector3, direction: Vector3) -> Vector2:
+	var screen := _crt_screen()
+	if screen == null:
+		return CrtScreen.MISS
+	return screen.uv_at(origin, direction)
+
+
+## Shows the terminal's display on the CRT's glass, with or without its own VHS look.
+func show_terminal_display(texture: Texture2D, vhs_enabled: bool) -> void:
+	var screen := _crt_screen()
+	if screen != null:
+		screen.show_display(texture, vhs_enabled)
+
+
+func _crt_screen() -> CrtScreen:
+	if _chapter_stage == null or not is_instance_valid(_chapter_stage):
+		return null
+	return _chapter_stage.crt_screen()
+
+
 ## The white door's center on the ground; zero when no stage has a door.
 func chapter_door_position() -> Vector3:
 	if _chapter_stage == null or not _chapter_stage.has_door():
@@ -262,20 +299,23 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_actor := nearby_actor
 	var previous_item := nearby_item
 	var previous_door := _nearby_door
+	var previous_terminal := _nearby_terminal
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
 		or _interaction_active
+		or _terminal_active
 		or _door_time >= 0.0
 		or floor == null
 		or player == null
 	):
 		clear_nearby_targets()
-		if previous_actor != null or previous_item != null or previous_door:
+		if previous_actor != null or previous_item != null or previous_door or previous_terminal:
 			nearby_targets_changed.emit()
 		return
 	if _chapter_stage != null:
 		_nearby_door = _door_in_reach(deps)
-		if previous_door != _nearby_door:
+		_nearby_terminal = _terminal_in_reach()
+		if previous_door != _nearby_door or previous_terminal != _nearby_terminal:
 			nearby_targets_changed.emit()
 		return
 	var nearest: Area3D = null
@@ -308,6 +348,11 @@ func nearby_outcome() -> Dictionary:
 		return {
 			"kind": "door",
 			"action": "open_door",
+		}
+	if _nearby_terminal:
+		return {
+			"kind": "terminal",
+			"action": "enter_terminal",
 		}
 	if nearby_item != null:
 		return {
@@ -346,6 +391,12 @@ func interaction_outcome() -> Dictionary:
 			"interaction_active": true,
 			"progress": clampf(_door_time / DOOR_TRANSITION_SECONDS, 0.0, 1.0),
 		}
+	if _terminal_active:
+		return {
+			"kind": "terminal",
+			"action": "enter_terminal",
+			"interaction_active": true,
+		}
 	if not _interaction_active:
 		return {
 			"kind": "none",
@@ -369,6 +420,15 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 			_nearby_door = false
 			_door_time = 0.0
 			_door_from = player.position
+			player.velocity = Vector3.ZERO
+			nearby_targets_changed.emit()
+		return interaction_outcome()
+	if action == "enter_terminal":
+		if _nearby_terminal and player != null and _crt_screen() != null:
+			_gaze_before_interaction = {"yaw": yaw, "pitch": pitch}
+			_face_terminal()
+			_nearby_terminal = false
+			_terminal_active = true
 			player.velocity = Vector3.ZERO
 			nearby_targets_changed.emit()
 		return interaction_outcome()
@@ -401,6 +461,7 @@ func _drop_interaction(restore_gaze: bool) -> Dictionary:
 	_gaze_before_interaction = {}
 	clear_active_actor()
 	_interaction_active = false
+	_terminal_active = false
 	return {
 		"kind": "none",
 		"action": "end",
@@ -577,6 +638,28 @@ func _clear_chapter_stage() -> void:
 	_built_stage = ""
 
 
+func _terminal_in_reach() -> bool:
+	if _crt_screen() == null:
+		return false
+	var offset: Vector3 = _chapter_stage.crt_reach_position() - player.position
+	offset.y = 0.0
+	return offset.length() <= TERMINAL_REACH
+
+
+## Turns the look to the CRT's glass from the pushed-in view.
+func _face_terminal() -> void:
+	var direction := _crt_screen().center() - _terminal_view_position()
+	yaw = rad_to_deg(atan2(-direction.x, -direction.z))
+	pitch = rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0)))
+
+
+## Where the view pushes in to: in front of the glass, far enough that the glass fills most of the frame.
+func _terminal_view_position() -> Vector3:
+	var screen := _crt_screen()
+	var distance := screen.height() / (2.0 * tan(deg_to_rad(TERMINAL_VIEW_FOV * 0.5)) * TERMINAL_VIEW_FILL)
+	return screen.center() + screen.forward() * distance
+
+
 func _door_in_reach(deps: Dictionary) -> bool:
 	if not _chapter_stage.has_door() or not ChapterOneProgressScript.door_ready(_chapter_progress(deps)):
 		return false
@@ -644,12 +727,15 @@ func set_street_shown(shown: bool) -> void:
 
 
 func pose() -> Dictionary:
-	return {
+	var look_pose := {
 		"player_position": player.position if player != null else Vector3.ZERO,
 		"yaw": yaw,
 		"pitch": pitch,
 		"has_player": player != null,
 	}
+	if _terminal_active and _crt_screen() != null:
+		look_pose["view_position"] = _terminal_view_position()
+	return look_pose
 
 
 func restore_world_pose(world_data: Dictionary) -> void:

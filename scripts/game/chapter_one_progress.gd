@@ -63,6 +63,13 @@ static func phase_of(progress: Dictionary) -> String:
 	return str(progress.get("phase", PHASE_OPENING))
 
 
+## The basement round being played, or zero outside the basement (the opening and the tower).
+static func round_of(progress: Dictionary) -> int:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return 0
+	return int(progress.get("round", 0))
+
+
 ## The opening narration is on screen: movement, look and the phone stay locked.
 static func is_reading_narration(progress: Dictionary) -> bool:
 	return phase_of(progress) == PHASE_OPENING and not bool(progress.get("narration_complete", false))

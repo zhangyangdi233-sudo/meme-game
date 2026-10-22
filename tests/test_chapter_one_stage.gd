@@ -45,6 +45,9 @@ func _run() -> void:
 	await _test_opening_the_door_walks_through_into_the_basement()
 	await _test_the_basement_is_a_room_to_walk_in()
 	await _test_a_pose_saved_in_another_stage_starts_on_the_spawn()
+	await _test_the_crt_answers_in_reach_in_the_basement_only()
+	await _test_the_terminal_frames_the_screen_and_leaving_restores_the_look()
+	await _test_the_terminal_display_shows_on_the_crt()
 	await _test_a_missing_knock_recording_does_not_lock_the_door()
 	await _test_the_tower_street_still_builds_without_chapter_progress()
 
@@ -186,6 +189,73 @@ func _test_a_pose_saved_in_another_stage_starts_on_the_spawn() -> void:
 	await _free(adapter)
 
 
+func _test_the_crt_answers_in_reach_in_the_basement_only() -> void:
+	var adapter = await _adapter(_basement())
+	_stand_at_terminal(adapter)
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	var outcome: Dictionary = adapter.nearby_outcome()
+	_assert_eq(str(outcome.get("kind")), "terminal", "the CRT should answer in reach in the basement")
+	_assert_eq(str(outcome.get("action")), "enter_terminal", "the CRT's action should be to enter it")
+	_assert_true(adapter.chapter_contains(adapter.chapter_terminal_position()), "the CRT's reach should stand inside the room")
+	adapter.player.position = adapter.chapter_terminal_position() + Vector3(0.0, 0.0, -3.0)
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "the CRT should not answer from across the room")
+	await _free(adapter)
+	var opening = await _adapter(ProgressScript.initial())
+	_assert_eq(opening.chapter_terminal_position(), Vector3.ZERO, "the opening should have no CRT")
+	_assert_eq(opening.terminal_screen_uv(Vector3.ZERO, Vector3.FORWARD), Vector2(-1, -1), "the opening should have no screen to point at")
+	await _free(opening)
+
+
+func _test_the_terminal_frames_the_screen_and_leaving_restores_the_look() -> void:
+	var adapter = await _adapter(_basement())
+	_stand_at_terminal(adapter)
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	adapter.yaw = 37.0
+	adapter.pitch = -10.0
+	var entered: Dictionary = adapter.apply_interaction({"action": "enter_terminal"})
+	_assert_eq(str(entered.get("kind")), "terminal", "entering should report a terminal outcome")
+	_assert_true(bool(entered.get("interaction_active")), "the terminal should hold the player")
+	var pose: Dictionary = adapter.pose()
+	_assert_true(pose.has("view_position"), "the terminal should name where the view pushes in to")
+	var view: Vector3 = pose.get("view_position", Vector3.ZERO)
+	var centre: Vector2 = adapter.terminal_screen_uv(view, _look_direction(pose))
+	_assert_true(centre.distance_to(Vector2(0.5, 0.5)) < 0.1, "the pushed-in view should look at the screen's middle: %s" % str(centre))
+	_assert_true(view.distance_to(adapter.chapter_terminal_position()) < 2.0, "the pushed-in view should stay at the CRT")
+	_assert_eq(adapter.terminal_screen_uv(view, -_look_direction(pose)), Vector2(-1, -1), "a ray away from the screen should miss it")
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "nothing else should answer while in the terminal")
+	var left: Dictionary = adapter.apply_interaction({"action": "end"})
+	_assert_eq(str(left.get("kind")), "none", "leaving should end the terminal")
+	_assert_near(float(adapter.pose().get("yaw")), 37.0, 0.001, "leaving should restore the yaw")
+	_assert_near(float(adapter.pose().get("pitch")), -10.0, 0.001, "leaving should restore the pitch")
+	_assert_true(not adapter.pose().has("view_position"), "leaving should hand the view back to the player")
+	adapter.player.position = adapter.chapter_terminal_position() + Vector3(0.0, 0.0, -3.0)
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	adapter.apply_interaction({"action": "enter_terminal"})
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "the terminal should not open from afar")
+	await _free(adapter)
+
+
+func _test_the_terminal_display_shows_on_the_crt() -> void:
+	var adapter = await _adapter(_basement())
+	var texture := ImageTexture.create_from_image(Image.create(4, 4, false, Image.FORMAT_RGB8))
+	adapter.show_terminal_display(texture, false)
+	var screen := adapter.get_parent().find_child("*Screen_Video", true, false) as MeshInstance3D
+	_assert_true(screen != null, "the basement should carry the CRT's screen")
+	if screen == null:
+		await _free(adapter)
+		return
+	var material := screen.get_surface_override_material(0) as ShaderMaterial
+	_assert_true(material != null, "the screen should show the terminal display")
+	if material != null:
+		_assert_eq(material.get_shader_parameter("content_texture"), texture, "the screen should show the given display")
+		_assert_eq(material.get_shader_parameter("vhs_enabled"), false, "the screen's VHS should follow its own setting")
+		adapter.show_terminal_display(texture, true)
+		_assert_eq(material.get_shader_parameter("vhs_enabled"), true, "turning the terminal VHS on should reach the screen")
+	await _free(adapter)
+
+
 func _test_a_missing_knock_recording_does_not_lock_the_door() -> void:
 	var due := _at_line(ProgressScript.KNOCK_LINE_INDEX)
 	var adapter = await _adapter(due)
@@ -233,6 +303,20 @@ func _deps(progress: Dictionary) -> Dictionary:
 func _stand_at_door(adapter) -> void:
 	var door: Vector3 = adapter.chapter_door_position()
 	adapter.player.position = Vector3(door.x, adapter.player.position.y, door.z + 0.9)
+
+
+func _stand_at_terminal(adapter) -> void:
+	var reach: Vector3 = adapter.chapter_terminal_position()
+	adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+
+
+func _basement() -> Dictionary:
+	return ProgressScript.open_door(ProgressScript.complete_knock(_read_to_end(_at_line(ProgressScript.KNOCK_LINE_INDEX))))
+
+
+func _look_direction(pose: Dictionary) -> Vector3:
+	var look := Basis.from_euler(Vector3(deg_to_rad(float(pose.get("pitch"))), deg_to_rad(float(pose.get("yaw"))), 0.0))
+	return look * Vector3.FORWARD
 
 
 func _free(adapter) -> void:

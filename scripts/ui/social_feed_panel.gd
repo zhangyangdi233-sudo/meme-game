@@ -7,7 +7,8 @@ extends Node
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
-## Its windows' drag handles go to the window manager bound in the service registry.
+## Its windows' drag handles go to the window manager bound in the service registry. Mounted outside the phone (the
+## basement CRT terminal) it has no window to drag or close.
 
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -50,6 +51,7 @@ var _publish: SocialPublishPanel
 var _screen := DEFAULT_SCREEN
 var _channel := DEFAULT_CHANNEL
 var _rendered := false
+var _windowed := true
 var _app_shown := false
 var _followed: Array = []
 var _liked: Array = []
@@ -76,7 +78,9 @@ func _init() -> void:
 	add_child(_publish)
 
 
-func mount(parent: Control) -> void:
+## `windowed` is false where the feed is not a phone window: its handles are not dragged and it has no close button.
+func mount(parent: Control, windowed: bool = true) -> void:
+	_windowed = windowed
 	_resolve_source()
 	_build_social_app_window(parent)
 	_build_social_detail_window(parent)
@@ -266,21 +270,22 @@ func render_app() -> void:
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_bar.add_child(top_spacer)
-	var drag_grip := ColorRect.new()
-	drag_grip.name = "SocialStatusDragGrip"
-	drag_grip.color = _theme().theme_color("accent")
-	drag_grip.modulate.a = 0.45
-	drag_grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	drag_grip.custom_minimum_size = Vector2(36, 3)
-	drag_grip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	status_bar.add_child(drag_grip)
-	var close_social := Button.new()
-	close_social.name = "SocialAppInlineCloseButton"
-	close_social.text = "X"
-	close_social.set_meta("window_close_button", true)
-	close_social.custom_minimum_size = Vector2(48, 48)
-	close_social.pressed.connect(_on_close_pressed)
-	status_bar.add_child(close_social)
+	if _windowed:
+		var drag_grip := ColorRect.new()
+		drag_grip.name = "SocialStatusDragGrip"
+		drag_grip.color = _theme().theme_color("accent")
+		drag_grip.modulate.a = 0.45
+		drag_grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		drag_grip.custom_minimum_size = Vector2(36, 3)
+		drag_grip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		status_bar.add_child(drag_grip)
+		var close_social := Button.new()
+		close_social.name = "SocialAppInlineCloseButton"
+		close_social.text = "X"
+		close_social.set_meta("window_close_button", true)
+		close_social.custom_minimum_size = Vector2(48, 48)
+		close_social.pressed.connect(_on_close_pressed)
+		status_bar.add_child(close_social)
 
 	var channel_tabs := HBoxContainer.new()
 	channel_tabs.name = "SocialChannelTabs"
@@ -1060,6 +1065,6 @@ func _theme() -> GameUiTheme:
 
 ## Hands a window's title handle to the bound window manager, so the player can drag that window.
 func _register_drag_handle(window: Control, window_id: String, handle: Control) -> void:
-	if not ServiceRegistryScript.has(ServiceKeysScript.WINDOW_MANAGER):
+	if not _windowed or not ServiceRegistryScript.has(ServiceKeysScript.WINDOW_MANAGER):
 		return
 	(ServiceRegistryScript.resolve(ServiceKeysScript.WINDOW_MANAGER) as DraggableWindowManager).register(window, window_id, handle)

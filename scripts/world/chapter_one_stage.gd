@@ -1,11 +1,13 @@
 class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
-## the knock behind it) or the basement (an empty room for now), each from its imported model. The models bring
-## their own walls and ground colliders; this stage adds the spawn, the playable bounds, the light and the door.
+## the knock behind it) or the basement (a room with the CRT terminal), each from its imported model. The models bring
+## their own walls and ground colliders; this stage adds the spawn, the playable bounds, the light, the door and the
+## CRT's glass.
 ## The adapter drives it; the knock finishing is raised as a game event for the state to record.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 
@@ -30,6 +32,10 @@ const BASEMENT_LIGHTS := {
 	"BasementRearLight": {"position": Vector3(0.0, 2.5, -3.4), "energy": 0.62, "range": 4.5},
 }
 const BASEMENT_LIGHT_COLOR := Color(1.0, 0.82, 0.62)
+## The basement model's CRT glass: the mesh whose name ends with this.
+const CRT_SCREEN_NODE := "*Screen_Video"
+## Where the player stands to use the CRT: this far out from its glass, on the floor.
+const CRT_REACH_DISTANCE := 0.9
 
 var phase := ""
 var _model: Node3D
@@ -37,6 +43,7 @@ var _bounds := AABB()
 var _spawn := Vector3.ZERO
 var _spawn_yaw := 0.0
 var _door_pivot: Node3D
+var _crt_screen: CrtScreen
 var _knock: AudioStreamPlayer3D
 var _knock_started := false
 var _knock_reported := false
@@ -64,6 +71,20 @@ func start_yaw_degrees() -> float:
 
 func has_door() -> bool:
 	return _door_pivot != null
+
+
+## The basement CRT's glass, or null when this stage has none.
+func crt_screen() -> CrtScreen:
+	return _crt_screen
+
+
+## Where the player stands to use the CRT, on the floor in front of its glass; zero when there is no CRT.
+func crt_reach_position() -> Vector3:
+	if _crt_screen == null:
+		return Vector3.ZERO
+	var reach := _crt_screen.center() + _crt_screen.forward() * CRT_REACH_DISTANCE
+	reach.y = 0.0
+	return reach
 
 
 ## The white door's center on the ground.
@@ -160,6 +181,12 @@ func _build_basement() -> bool:
 		light.position = spec["position"]
 		add_child(light)
 	_build_environment(BASEMENT_LIGHT_COLOR.darkened(0.7), 0.35)
+	var glass := _model.find_child(CRT_SCREEN_NODE, true, false) as MeshInstance3D
+	var screen := CrtScreenScript.new()
+	if screen.bind(glass):
+		_crt_screen = screen
+	else:
+		push_error("The basement model has no CRT glass (%s)" % CRT_SCREEN_NODE)
 	return true
 
 

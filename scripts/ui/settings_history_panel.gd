@@ -36,6 +36,7 @@ var _settings_language_option: OptionButton
 var _settings_save_status: Label
 var _volume_slider: HSlider
 var _vhs_toggle: CheckButton
+var _terminal_vhs_toggle: CheckButton
 var _always_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SETTINGS_OPEN: _on_settings_open,
 	PropertyKeysScript.POLLUTION: _on_pollution,
@@ -43,6 +44,7 @@ var _always_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
 	PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
+	PropertyKeysScript.TERMINAL_VHS_ENABLED: _on_terminal_vhs,
 	PropertyKeysScript.LOCALE: _on_locale,
 	PropertyKeysScript.SAVE_STATUS: _on_save_status,
 })
@@ -131,6 +133,11 @@ func close() -> void:
 func _on_master_volume(value: Variant) -> void:
 	if _volume_slider != null:
 		_volume_slider.set_value_no_signal(float(value))
+
+
+func _on_terminal_vhs(value: Variant) -> void:
+	if _terminal_vhs_toggle != null:
+		_terminal_vhs_toggle.set_pressed_no_signal(bool(value))
 
 
 func _on_autoplay(value: Variant) -> void:
@@ -311,6 +318,13 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_vhs_toggle.toggled.connect(_on_vhs_toggle_changed)
 	_settings_content.add_child(_vhs_toggle)
 
+	_terminal_vhs_toggle = CheckButton.new()
+	_terminal_vhs_toggle.name = "SettingsTerminalVHSToggle"
+	_terminal_vhs_toggle.text = "终端屏幕 VHS 质感"
+	_terminal_vhs_toggle.custom_minimum_size.y = 48
+	_terminal_vhs_toggle.toggled.connect(_on_terminal_vhs_toggle_changed)
+	_settings_content.add_child(_terminal_vhs_toggle)
+
 	_settings_camera_slot = VBoxContainer.new()
 	_settings_camera_slot.name = "SettingsCameraSlot"
 	_settings_camera_slot.add_theme_constant_override("separation", 8)
@@ -439,6 +453,10 @@ func _on_volume_slider_changed(value: float) -> void:
 
 func _on_vhs_toggle_changed(value: bool) -> void:
 	GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
+
+
+func _on_terminal_vhs_toggle_changed(value: bool) -> void:
+	GameEventBus.raise(UiIntentsScript.TERMINAL_VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
 
 
 func _on_autoplay_toggle_changed(value: bool) -> void:

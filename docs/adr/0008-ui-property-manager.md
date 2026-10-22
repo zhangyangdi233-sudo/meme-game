@@ -43,3 +43,5 @@ Editing the free sentence or picking up a word no longer makes the host redraw t
 Amended (#108): the action economy models (`money`, `actions_remaining`, `max_actions_per_day`, `needs_day_settlement`, `day_ended_reason`), `fusion_slots`, `last_publish_result`, `selected_meme` and `selected_language_token` are removed, and with them the action pips and `DaySettlementFeedback`. The save version is 6; an older save is refused and the host starts a new run.
 
 Amended (#109): the tutorial progress model (`tutorial_progress`) is removed, and with it the doll guide window, the playtest panel and the tower app that watched it or the floor facts. A save that still carries `tutorial_progress` loads and drops it; a save on the tower app comes back on the social app.
+
+Amended (#111): the basement CRT terminal's VHS look is a preference model (`terminal_vhs_enabled`, saved under `visual` in the preferences file). The settings window and the host watch it; the full-screen VHS is still the host's own value.

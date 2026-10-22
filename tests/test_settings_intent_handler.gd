@@ -21,6 +21,7 @@ var _results: Array = []
 func _init() -> void:
 	_test_it_claims_every_settings_intent_and_nothing_else()
 	_test_volume_and_autoplay_are_written_to_their_models()
+	_test_the_terminal_vhs_is_written_to_its_model_and_saved()
 	_test_the_settings_intent_leaves_the_open_model_to_the_panel()
 	_test_an_exit_request_marks_the_prompt_seen()
 	_test_window_and_flow_intents_name_their_presentation()
@@ -67,6 +68,7 @@ func _test_it_claims_every_settings_intent_and_nothing_else() -> void:
 		UiIntentsScript.VOLUME_CHANGED,
 		UiIntentsScript.AUTOPLAY_TOGGLED,
 		UiIntentsScript.VHS_TOGGLED,
+		UiIntentsScript.TERMINAL_VHS_TOGGLED,
 		UiIntentsScript.MANUAL_SAVE_PRESSED,
 		UiIntentsScript.RETURN_MAIN_MENU_PRESSED,
 		UiIntentsScript.EXIT_GAME_REQUESTED,
@@ -93,6 +95,15 @@ func _test_volume_and_autoplay_are_written_to_their_models() -> void:
 	_assert_presents(autoplay, IntentResultScript.NONE, "an autoplay toggle")
 	_raise(UiIntentsScript.AUTOPLAY_TOGGLED, {UiIntentsScript.KEY_VALUE: false})
 	_assert_eq(bool(_model(PropertyKeysScript.AUTOPLAY_ENABLED).read()), false, "a second autoplay intent should write the model again")
+
+
+func _test_the_terminal_vhs_is_written_to_its_model_and_saved() -> void:
+	_boot()
+	var result := _raise(UiIntentsScript.TERMINAL_VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: false})
+	_assert_eq(bool(_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).read()), false, "a terminal VHS intent should write its model")
+	_assert_presents(result, SettingsIntentHandlerScript.PREFERENCES_CHANGED, "a terminal VHS toggle")
+	_raise(UiIntentsScript.TERMINAL_VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
+	_assert_eq(bool(_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).read()), true, "a second terminal VHS intent should write the model again")
 
 
 ## The settings panel owns the open model and only toggles it once it is built, so the host presents the toggle.

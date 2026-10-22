@@ -1,0 +1,70 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/palette_scene_root.gd" id="1_root"]
+
+[node name="CrtTerminalScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_root")
+
+[node name="TerminalBackdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+metadata/palette_role = "ink"
+
+[node name="TerminalToolbar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 64.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="TerminalTitle" type="Label" parent="TerminalToolbar"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.94509804, 0.7882353, 1)
+theme_override_font_sizes/font_size = 27
+text = "地下室终端"
+vertical_alignment = 1
+metadata/palette_role = "surface"
+
+[node name="TerminalAppSocial" type="Button" parent="TerminalToolbar"]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+toggle_mode = true
+text = "信号瀑布"
+
+[node name="TerminalAppNotebook" type="Button" parent="TerminalToolbar"]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+toggle_mode = true
+text = "笔记本"
+
+[node name="TerminalToolbarSpacer" type="Control" parent="TerminalToolbar"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="TerminalExit" type="Button" parent="TerminalToolbar"]
+custom_minimum_size = Vector2(190, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "离开屏幕 (Tab)"

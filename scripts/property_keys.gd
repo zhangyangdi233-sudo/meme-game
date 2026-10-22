@@ -13,6 +13,8 @@ const PENDING_FLOOR_TRANSITION := "pending_floor_transition"
 const AUTOPLAY_ENABLED := "autoplay_enabled"
 const LOCALE := "locale"
 const MASTER_VOLUME := "master_volume"
+## Whether the basement CRT terminal shows its own VHS look. A preference apart from the full-screen VHS.
+const TERMINAL_VHS_ENABLED := "terminal_vhs_enabled"
 const ENDING_LANGUAGE_CHOICE := "ending_language_choice"
 const PHONE_OPEN := "phone_open"
 const ACTIVE_APP := "active_app"
@@ -120,6 +122,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": CHAPTER_ONE_PROGRESS, "initial": ChapterOneProgressScript.INITIAL, "save": SAVED_WITH_RUN},
 	{"name": LOCALE, "initial": DEFAULT_LOCALE, "save": PREFERENCE},
 	{"name": MASTER_VOLUME, "initial": DEFAULT_MASTER_VOLUME, "min": 0.0, "max": 100.0, "save": PREFERENCE},
+	{"name": TERMINAL_VHS_ENABLED, "initial": true, "save": PREFERENCE},
 	{"name": HAS_SAVE, "initial": false, "save": NOT_SAVED},
 	{"name": SETTINGS_OPEN, "initial": false, "save": NOT_SAVED},
 	{"name": SAVE_STATUS, "initial": "", "save": NOT_SAVED},

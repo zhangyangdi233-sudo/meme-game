@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_every_preference_has_a_place_in_the_file()
 	_test_preferences_round_trip_through_the_models()
 	_test_missing_file_resets_language_and_keeps_volume()
+	_test_terminal_vhs_is_saved_apart_from_the_full_screen_vhs()
 	_test_unknown_saved_language_never_reaches_listeners()
 	_test_translator_follows_the_language_model()
 	_test_pinned_translator_leaves_the_language_alone()
@@ -61,6 +62,23 @@ func _test_preferences_round_trip_through_the_models() -> void:
 	_assert_true(not others.has("master_volume"), "volume should not come back as a loose value")
 	_assert_eq(others.get("vhs_enabled", true), false, "other preferences should still load")
 	_assert_eq(others.get("camera_source", ""), "phone", "camera source should still load")
+	DirAccess.remove_absolute(path)
+
+
+func _test_terminal_vhs_is_saved_apart_from_the_full_screen_vhs() -> void:
+	_boot()
+	_assert_eq(_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).read(), true, "the terminal VHS should start on")
+	var path := _fresh_path("terminal_vhs")
+	var writer = LocaleScript.new()
+	writer.preferences_path = path
+	_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).write(false)
+	_assert_true(writer.save_preferences(true), "saving preferences should succeed")
+	_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).write(true)
+	var reader = LocaleScript.new()
+	reader.preferences_path = path
+	var others: Dictionary = reader.load_preferences(false)
+	_assert_eq(_model(PropertyKeysScript.TERMINAL_VHS_ENABLED).read(), false, "loading should bring the terminal VHS back off")
+	_assert_eq(others.get("vhs_enabled", false), true, "the full-screen VHS should stay on while the terminal VHS is off")
 	DirAccess.remove_absolute(path)
 
 

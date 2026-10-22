@@ -50,6 +50,7 @@ const PHONE_CAMERA_DISABLE := "phone_camera_disable"
 const VOLUME_CHANGED := "volume_changed"
 const AUTOPLAY_TOGGLED := "autoplay_toggled"
 const VHS_TOGGLED := "vhs_toggled"
+const TERMINAL_VHS_TOGGLED := "terminal_vhs_toggled"
 const MANUAL_SAVE_PRESSED := "manual_save_pressed"
 const RETURN_MAIN_MENU_PRESSED := "return_main_menu_pressed"
 const EXIT_GAME_REQUESTED := "exit_game_requested"
@@ -64,6 +65,10 @@ const SETTINGS_PRESSED := "settings_pressed"
 const OPENING_NARRATION_ADVANCED := "opening_narration_advanced"
 const ENDING_LANGUAGE_SELECTED := "ending_language_selected"
 const RESTART_REQUESTED := "restart_requested"
+
+## The basement CRT terminal. Payload: {KEY_APP_ID: String} for an app tab, {} for the exit.
+const TERMINAL_APP_SELECTED := "terminal_app_selected"
+const TERMINAL_EXIT_REQUESTED := "terminal_exit_requested"
 
 ## Social feed. Payload: {KEY_CHANNEL: String} for a channel tab, {KEY_SCREEN: String} for a page change,
 ## {KEY_POST_INDEX: int} for a card, {KEY_POST_ID: String} for a like, {KEY_AUTHOR_ID: String} for a follow,

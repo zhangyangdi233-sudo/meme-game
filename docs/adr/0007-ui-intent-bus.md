@@ -57,3 +57,7 @@ Daily actions, funds, the day settlement and its transition, meme fusion, the ol
 ## Amended (#109): no guide, tutorial or tower app
 
 The doll guide window, the tutorial flow, the playtest panel and TEST markers, and the phone's tower app are gone. Nothing watches tutorial progress any more; the phone offers only the social app and the notebook. The sentences above that mention the guide and playtest windows describe the history.
+
+## Amended (#111): the basement CRT terminal
+
+The CRT terminal's tabs raise `TERMINAL_APP_SELECTED {KEY_APP_ID}` and its exit raises `TERMINAL_EXIT_REQUESTED`; the panel switches its own app first, the host leaves the terminal on the exit. Its social feed and notebook are second instances of the phone's panels and raise the phone's intents, so the existing handlers change the one run. The settings window's terminal VHS raises `TERMINAL_VHS_TOGGLED {KEY_VALUE}`; the settings handler writes the model and asks the host to write the preferences file (`PREFERENCES_CHANGED`).

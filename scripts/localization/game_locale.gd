@@ -27,6 +27,7 @@ const LEVEL_DISPLAY_SOURCE_PATTERNS := [
 const PREFERENCE_FILE_KEYS := {
 	PropertyKeysScript.LOCALE: ["language", "locale"],
 	PropertyKeysScript.MASTER_VOLUME: ["audio", "master_volume"],
+	PropertyKeysScript.TERMINAL_VHS_ENABLED: ["visual", "terminal_vhs_enabled"],
 }
 
 ## The game language is the locale model. A pinned translator keeps its own language

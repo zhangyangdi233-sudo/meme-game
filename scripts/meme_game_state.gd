@@ -1588,6 +1588,17 @@ func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
 	return result
 
 
+## Whether a post was made in the basement round being played. Outside the basement there is no round to ask about.
+func has_posted_this_round() -> bool:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	if current_round <= 0:
+		return false
+	for record in published_memes:
+		if record is Dictionary and str(record.get("kind", "")) == "free_sentence" and int(record.get("round", 0)) == current_round:
+			return true
+	return false
+
+
 func _submit_free_sentence(locale_code: String) -> Dictionary:
 	var result := {
 		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
@@ -1614,6 +1625,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		"negated": bool(parsed.get("negated", false)),
 		"floor": tower_floor,
 		"published_day": day,
+		"round": ChapterOneProgressScript.round_of(chapter_one_progress),
 		"pollution_gain": pollution_gain,
 		"content_locale": locale_code,
 	}

@@ -54,6 +54,11 @@ const EN: Dictionary = {
 	"把这句话发布出去。被看见的词会记住你。": "Post the sentence. Words that get seen will remember you.",
 	"放下手机，去和医生说同一句话。听听它到了那里还剩什么。": "Put the phone down and say the same sentence to the doctor. Hear what is left of it there.",
 	"开启 VHS 质感": "Enable VHS Effect",
+	"终端屏幕 VHS 质感": "Terminal Screen VHS Effect",
+	"地下室终端": "Basement Terminal",
+	"信号瀑布": "Signal Waterfall",
+	"笔记本": "Notebook",
+	"离开屏幕 (Tab)": "Leave Screen (Tab)",
 	"摄像头与 X-RAY": "CAMERA & X-RAY",
 	"用双手指尖框出一块区域，区域内会显示手机层。视频只在本机用于关键点计算，不写入存档。": "Frame an area with both hands. The phone layer will appear inside it. Video is processed locally for landmarks and is never saved.",
 	"用双手拇指与食指的四个指尖框出矩形区域，区域内会显示手机层。视频只在本机用于关键点计算，不写入存档。": "Use the four fingertips of both thumbs and index fingers to frame a rectangle. The phone layer appears inside. Video is processed locally for landmarks and is never saved.",
@@ -128,6 +133,7 @@ const EN: Dictionary = {
 	"交谈": "Talk",
 	"F  %s · %s": "F  %s · %s",
 	"F  开门": "F  OPEN THE DOOR",
+	"F  使用终端": "F  USE THE TERMINAL",
 	"点击鼠标或触摸板继续": "Click or tap to continue",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.
@@ -563,6 +569,11 @@ const JA: Dictionary = {
 	"把这句话发布出去。被看见的词会记住你。": "その文を投稿して。見られた言葉はあなたを覚えている。",
 	"放下手机，去和医生说同一句话。听听它到了那里还剩什么。": "スマホを置いて、同じ文を医者に言ってみて。そこで何が残るか聞いて。",
 	"开启 VHS 质感": "VHS風表示",
+	"终端屏幕 VHS 质感": "端末画面のVHS風表示",
+	"地下室终端": "地下室の端末",
+	"信号瀑布": "シグナルの滝",
+	"笔记本": "ノート",
+	"离开屏幕 (Tab)": "画面から離れる (Tab)",
 	"摄像头与 X-RAY": "カメラとX-RAY",
 	"用双手指尖框出一块区域，区域内会显示手机层。视频只在本机用于关键点计算，不写入存档。": "両手の指先で範囲を囲むと、その中にスマホ層が現れる。映像は端末内でキーポイント計算にのみ使い、保存しない。",
 	"用双手拇指与食指的四个指尖框出矩形区域，区域内会显示手机层。视频只在本机用于关键点计算，不写入存档。": "両手の親指と人差し指、合計4本の指先で長方形を作る。その内側にスマホ層が現れる。映像は端末内のキーポイント計算だけに使い、保存しない。",
@@ -637,6 +648,7 @@ const JA: Dictionary = {
 	"交谈": "話す",
 	"F  %s · %s": "F  %s · %s",
 	"F  开门": "F  ドアを開ける",
+	"F  使用终端": "F  端末を使う",
 	"点击鼠标或触摸板继续": "クリックで次へ",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.

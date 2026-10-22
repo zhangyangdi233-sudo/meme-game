@@ -17,6 +17,7 @@ var _failures: Array[String] = []
 var _registered: Array = []
 var _volume_events: Array = []
 var _vhs_events: Array = []
+var _terminal_vhs_events: Array = []
 var _autoplay_events: Array = []
 var _language_events: Array = []
 var _save_events: Array = []
@@ -49,6 +50,8 @@ func _on_intent(intent_name: String, payload: Dictionary) -> void:
 			_volume_events.append(payload.get(UiIntentsScript.KEY_VALUE))
 		UiIntentsScript.VHS_TOGGLED:
 			_vhs_events.append(payload.get(UiIntentsScript.KEY_VALUE))
+		UiIntentsScript.TERMINAL_VHS_TOGGLED:
+			_terminal_vhs_events.append(payload.get(UiIntentsScript.KEY_VALUE))
 		UiIntentsScript.AUTOPLAY_TOGGLED:
 			_autoplay_events.append(payload.get(UiIntentsScript.KEY_VALUE))
 		UiIntentsScript.LANGUAGE_SELECTED:
@@ -196,6 +199,7 @@ func _run() -> void:
 
 	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
 	_test_history_window_follows_the_model(panel, host)
+	_test_the_terminal_vhs_toggle_is_its_own_setting(panel, settings)
 
 	_test_labels_follow_pollution(panel, volume_label, autoplay_button, volume_slider)
 	_test_save_status_follows_the_model(panel, settings)
@@ -245,6 +249,25 @@ func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_s
 	panel.close_settings()
 	autoplay.write(false)
 	locale.write("zh")
+
+
+func _test_the_terminal_vhs_toggle_is_its_own_setting(panel: SettingsHistoryPanel, settings: Control) -> void:
+	var toggle := _find_node_by_name(settings, "SettingsTerminalVHSToggle") as CheckButton
+	_assert_true(toggle != null, "settings should offer the terminal VHS beside the full-screen VHS")
+	if toggle == null:
+		return
+	var model := _model(PropertyKeysScript.TERMINAL_VHS_ENABLED)
+	model.write(false)
+	panel.set_settings_open(true)
+	_assert_true(not toggle.button_pressed, "opening settings should sync the terminal VHS model")
+	model.write(true)
+	_assert_true(toggle.button_pressed, "open settings should follow the terminal VHS model")
+	_assert_eq(_terminal_vhs_events, [], "syncing from the model should not echo an intent back")
+	var full_screen_before := _vhs_events.duplicate()
+	toggle.toggled.emit(false)
+	_assert_eq(_terminal_vhs_events, [false], "the terminal VHS toggle should raise its own intent")
+	_assert_eq(_vhs_events, full_screen_before, "the terminal VHS toggle should leave the full-screen VHS alone")
+	panel.close_settings()
 
 
 func _test_labels_follow_pollution(panel: SettingsHistoryPanel, volume_label: Label, autoplay_button: CheckButton, volume_slider: HSlider) -> void:

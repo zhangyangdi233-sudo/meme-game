@@ -27,11 +27,15 @@ Framework module that builds walkable space, collision, and generic geometry fro
 _Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
 
 **Chapter stage**:
-Game module (`scripts/world/chapter_one_stage.gd`) the Reality scene adapter builds instead of a tower floor while chapter one is in its opening or basement: the black water with the white door 29.5 m ahead and the knock behind it, or the basement room. Each comes from an imported model (`assets/chapter1/*.glb`, Git LFS) that brings its own ground and wall colliders; the stage adds the spawn, the playable bounds, the light and the door. The host still talks only to the adapter: the door is a `door` interaction outcome, and the knock finishing is the `OPENING_KNOCK_FINISHED` game event.
+Game module (`scripts/world/chapter_one_stage.gd`) the Reality scene adapter builds instead of a tower floor while chapter one is in its opening or basement: the black water with the white door 29.5 m ahead and the knock behind it, or the basement room with its CRT. Each comes from an imported model (`assets/chapter1/*.glb`, Git LFS) that brings its own ground and wall colliders; the stage adds the spawn, the playable bounds, the light, the door and the CRT's glass (`CrtScreen`). The host still talks only to the adapter: the door is a `door` interaction outcome, and the knock finishing is the `OPENING_KNOCK_FINISHED` game event.
 _Avoid_: the host reaching the stage or its door, a second host-facing adapter, rebuilding the opening while its door is still opening
 
+**CRT terminal**:
+The basement CRT entered with F: the view pushes in to its glass and the player browses the social feed and the notebook on it, one at a time; Tab, F, Escape or the screen's exit give the look from before back. `CrtTerminalPanel` (chrome: Layout scene `scenes/ui/crt_terminal.tscn`) owns a display of its own with its own social feed and notebook panels, which watch the same models and raise the same intents as the phone, so held words, the sentence and the world rules are one copy. The host hands the display to the Reality scene adapter, which shows it on the glass, and routes the mouse to the panel as a UV on the glass. Its VHS look is the `terminal_vhs_enabled` preference, apart from the full-screen VHS. While it is entered the phone is set aside.
+_Avoid_: reparenting the phone's app windows onto the CRT, a second copy of held words or sentences, the host reaching the stage's mesh, a terminal VHS that follows the full-screen one
+
 **Chapter one progress**:
-Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_progress` run model: the phase (opening, basement, or tower for a run past chapter one or a save made before it), the opening line read so far, whether the narration is read and the knock heard, and the basement round. The narration advances one line per click; the knock is due on its line and heard once; the door opens into basement round one only after both. A save keeps the line and the knock; a broken or unearned value falls back to what was earned.
+Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_progress` run model: the phase (opening, basement, or tower for a run past chapter one or a save made before it), the opening line read so far, whether the narration is read and the knock heard, and the basement round. The narration advances one line per click; the knock is due on its line and heard once; the door opens into basement round one only after both. A save keeps the line and the knock; a broken or unearned value falls back to what was earned. A post records the basement round it was made in (zero outside the basement), so the state can tell whether this round already has one.
 _Avoid_: the panel or the stage writing the progress, a knock replayed after it was heard, inferring the basement from the world
 
 **Opening narration**:
@@ -47,7 +51,7 @@ Game module that assembles one tower floor from catalogs and snapshots: who stan
 _Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models
 
 **Interaction outcome**:
-The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built). Host and Reality HUD read this instead of live world objects.
+The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built) and the basement CRT (`terminal`: in reach in front of its glass, then entered until the player leaves). Host and Reality HUD read this instead of live world objects.
 _Avoid_: publish outcome (pollution gain), live actor/item, treating the whole nearby crowd as the API
 
 **Valid interaction**:
@@ -59,7 +63,7 @@ What one valid interaction reports back from the state: whether it counted, whet
 _Avoid_: host re-checking the floor itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
 
 **Look pose**:
-The Reality scene adapter's player position and first-person yaw/pitch.
+The Reality scene adapter's player position and first-person yaw/pitch; inside the CRT terminal also `view_position`, where the view pushes in to.
 _Avoid_: reading adapter fields as the host API, camera node as the look contract
 
 **Session mode**:

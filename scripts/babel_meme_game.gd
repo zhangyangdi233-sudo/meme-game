@@ -27,6 +27,7 @@ const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
+const CrtTerminalPanelScript = preload("res://scripts/ui/crt_terminal_panel.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
@@ -157,6 +158,8 @@ var _settings_intent_handler: SettingsIntentHandler = SettingsIntentHandlerScrip
 var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _settings_intent_handler]
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
+## The basement CRT's screen; the adapter shows its display on the CRT's glass while the terminal is entered.
+var _crt_terminal_panel: CrtTerminalPanel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: VhsOverlayScript
@@ -345,6 +348,9 @@ func _enter_tree() -> void:
 	var settings_open := _value_model(PropertyKeysScript.SETTINGS_OPEN)
 	if settings_open != null:
 		settings_open.register(_on_settings_open_changed)
+	var terminal_vhs := _value_model(PropertyKeysScript.TERMINAL_VHS_ENABLED)
+	if terminal_vhs != null:
+		terminal_vhs.register(_on_terminal_vhs_changed)
 
 
 func _exit_tree() -> void:
@@ -367,6 +373,9 @@ func _exit_tree() -> void:
 		var settings_open := _value_model(PropertyKeysScript.SETTINGS_OPEN)
 		if settings_open != null:
 			settings_open.unregister(_on_settings_open_changed)
+		var terminal_vhs := _value_model(PropertyKeysScript.TERMINAL_VHS_ENABLED)
+		if terminal_vhs != null:
+			terminal_vhs.unregister(_on_terminal_vhs_changed)
 
 
 func _physics_process(delta: float) -> void:
@@ -440,6 +449,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func handle_gameplay_unhandled_input(event: InputEvent) -> void:
+	if _terminal_is_open():
+		_handle_terminal_input(event)
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _reality_interaction_is_active() and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
 			if _advance_typed_reality_character():
@@ -1037,6 +1049,64 @@ func _refresh_nearby_reality_actor() -> void:
 	_reality_scene_adapter.refresh_nearby_actor(_reality_scene_deps())
 
 
+## Inside the CRT's screen the mouse reaches the terminal through its glass; F, Tab and Escape leave it.
+func _handle_terminal_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.is_action_pressed("reality_phone") or event.is_action_pressed("reality_interact") or event.keycode == KEY_ESCAPE:
+			_exit_terminal()
+			get_viewport().set_input_as_handled()
+		return
+	var mouse := event as InputEventMouse
+	if mouse == null or _camera == null or _crt_terminal_panel == null:
+		return
+	var uv: Vector2 = _reality_scene_adapter.terminal_screen_uv(
+		_camera.project_ray_origin(mouse.position),
+		_camera.project_ray_normal(mouse.position)
+	)
+	_crt_terminal_panel.push_pointer(mouse, uv)
+	get_viewport().set_input_as_handled()
+
+
+func _terminal_is_open() -> bool:
+	if _reality_scene_adapter == null:
+		return false
+	return str(_reality_scene_adapter.interaction_outcome().get("kind", "none")) == "terminal"
+
+
+func _enter_terminal() -> bool:
+	var entered: Dictionary = _reality_scene_adapter.apply_interaction({"action": "enter_terminal"})
+	if str(entered.get("kind", "none")) != "terminal":
+		return false
+	_set_reality_mouse_look(false)
+	_show_terminal_display()
+	_update_world_for_phone_view()
+	_refresh_reality_hud()
+	return true
+
+
+## Leaving the screen gives the look from before back; nothing about the run changes.
+func _exit_terminal() -> void:
+	if not _terminal_is_open():
+		return
+	_reality_scene_adapter.apply_interaction({"action": "end"})
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
+		_set_reality_mouse_look(true)
+	_update_world_for_phone_view()
+	_refresh_reality_hud()
+
+
+func _show_terminal_display() -> void:
+	if _crt_terminal_panel == null or _reality_scene_adapter == null:
+		return
+	_reality_scene_adapter.show_terminal_display(_crt_terminal_panel.display_texture(), _model_is_on(PropertyKeysScript.TERMINAL_VHS_ENABLED))
+
+
+func _on_terminal_vhs_changed(_value: Variant) -> void:
+	# Registering in _enter_tree delivers the current value before the world exists.
+	if is_node_ready() and _terminal_is_open():
+		_show_terminal_display()
+
+
 func _try_reality_interaction() -> bool:
 	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		return false
@@ -1055,6 +1125,8 @@ func _try_reality_interaction() -> bool:
 			return _begin_reality_actor_interaction(outcome)
 		"open_door":
 			return _open_reality_door()
+		"enter_terminal":
+			return _enter_terminal()
 	return false
 
 
@@ -1109,6 +1181,9 @@ func _collect_nearby_reality_item(item_data: Dictionary = {}) -> bool:
 ## Leaving a conversation the player spoke in completes an interaction; the state checks progress and the host
 ## presents a new floor or the ending.
 func _exit_reality_interaction(should_render: bool = true) -> void:
+	if _terminal_is_open():
+		_exit_terminal()
+		return
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 	var outcome: ActionOutcomeScript = game.end_typed_reality_conversation()
@@ -1353,6 +1428,7 @@ func _build_ui() -> void:
 	_app_titles["notebook"] = _phone_launcher_panel.get_app_title("notebook")
 	_app_bodies["notebook"] = _phone_launcher_panel.get_app_body("notebook")
 	_ensure_notebook_app_panel()
+	_ensure_crt_terminal_panel()
 
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
@@ -1396,7 +1472,7 @@ func _reading_opening_narration() -> bool:
 
 ## The narration locks the phone until it is read, and a door that is opening keeps it down.
 func _phone_locked() -> bool:
-	return _reading_opening_narration() or _reality_door_opening()
+	return _reading_opening_narration() or _reality_door_opening() or _terminal_is_open()
 
 
 func _reality_door_opening() -> bool:
@@ -1796,6 +1872,9 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_on_reality_choice_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
 		UiIntentsScript.CONVERSATION_CONTINUE_PRESSED:
 			_on_reality_continue_pressed()
+		UiIntentsScript.TERMINAL_EXIT_REQUESTED:
+			# The exit button is pressed while the terminal's display is still dispatching that click.
+			_exit_terminal.call_deferred()
 
 
 func _ensure_language_selection_panel() -> void:
@@ -1979,6 +2058,15 @@ func _ensure_notebook_app_panel() -> void:
 	_notebook_app_panel.name = "NotebookAppPanel"
 	add_child(_notebook_app_panel)
 	_notebook_app_panel.configure(_notebook_mount_deps())
+
+
+func _ensure_crt_terminal_panel() -> void:
+	if _crt_terminal_panel != null and is_instance_valid(_crt_terminal_panel):
+		return
+	_crt_terminal_panel = CrtTerminalPanelScript.new()
+	_crt_terminal_panel.name = "CrtTerminalPanel"
+	add_child(_crt_terminal_panel)
+	_crt_terminal_panel.mount(_notebook_mount_deps())
 
 
 func _notebook_mount_deps() -> Dictionary:
@@ -2331,6 +2419,8 @@ func _render_world_prompt() -> void:
 				_world_prompt.text = "F  交谈 · %s" % str(nearby.get("actor_label", "对方"))
 			"door":
 				_world_prompt.text = "F  开门"
+			"terminal":
+				_world_prompt.text = "F  使用终端"
 			_:
 				_world_prompt.text = ""
 
@@ -2397,6 +2487,8 @@ func _present_intent_result(result: IntentResult) -> void:
 			_presenter().present_place(bool(result.value), result.unit, get_viewport().get_mouse_position())
 		SettingsIntentHandlerScript.VHS_TOGGLED:
 			_present_vhs(bool(result.value))
+		SettingsIntentHandlerScript.PREFERENCES_CHANGED:
+			_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 		SettingsIntentHandlerScript.SAVE_REQUESTED:
 			_on_manual_save_pressed()
 		SettingsIntentHandlerScript.MAIN_MENU_REQUESTED:
@@ -2521,6 +2613,8 @@ func _update_reality_hud_visibility() -> void:
 			_world_prompt.visible = false
 		if _reality_conversation_panel != null:
 			_reality_conversation_panel.set_shown(false)
+		if _crt_terminal_panel != null:
+			_crt_terminal_panel.set_shown(false)
 		return
 	var hud := _reality_hud_snapshot()
 	var in_phone := str(hud.get("view_state", "phone_down")) == "phone_down"
@@ -2528,9 +2622,12 @@ func _update_reality_hud_visibility() -> void:
 	if _world_prompt != null:
 		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
 		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
-	var interaction_visible := (not in_phone) and interaction_active and not _reality_door_opening()
+	var terminal_open := _terminal_is_open()
+	var interaction_visible := (not in_phone) and interaction_active and not _reality_door_opening() and not terminal_open
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.set_shown(interaction_visible)
+	if _crt_terminal_panel != null:
+		_crt_terminal_panel.set_shown(terminal_open)
 
 
 func _app_window_is_open(app_id: String) -> bool:
@@ -2592,6 +2689,9 @@ func _animate_world(delta: float) -> void:
 	var look_pose: Dictionary = _reality_scene_adapter.pose() if _reality_scene_adapter != null else {}
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
 		camera_target_pos = (look_pose.get("player_position", Vector3.ZERO) as Vector3) + Vector3(0.0, 1.56, 0.0)
+		# Inside the CRT's screen the view pushes in to its glass.
+		if look_pose.has("view_position"):
+			camera_target_pos = look_pose["view_position"]
 		camera_target_rot = Vector3(float(look_pose.get("pitch", 0.0)), float(look_pose.get("yaw", 0.0)), 0.0)
 	var camera_lerp := minf(1.0, delta * (7.0 if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" else 5.0))
 	_camera.position = _camera.position.lerp(camera_target_pos, camera_lerp)

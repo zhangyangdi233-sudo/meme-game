@@ -10,6 +10,8 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 ## The VHS setting changed to `value`; the host keeps it for the preferences and shows or hides the overlay.
 const VHS_TOGGLED := "settings_vhs_toggled"
+## A preference model changed; the host writes the preferences file.
+const PREFERENCES_CHANGED := "settings_preferences_changed"
 ## The host saves the progress and the preferences and writes the save status.
 const SAVE_REQUESTED := "settings_save_requested"
 ## The host returns to the main menu.
@@ -27,6 +29,7 @@ const INTENTS: Array[String] = [
 	UiIntentsScript.VOLUME_CHANGED,
 	UiIntentsScript.AUTOPLAY_TOGGLED,
 	UiIntentsScript.VHS_TOGGLED,
+	UiIntentsScript.TERMINAL_VHS_TOGGLED,
 	UiIntentsScript.MANUAL_SAVE_PRESSED,
 	UiIntentsScript.RETURN_MAIN_MENU_PRESSED,
 	UiIntentsScript.EXIT_GAME_REQUESTED,
@@ -57,6 +60,9 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			var vhs := IntentResultScript.present(VHS_TOGGLED)
 			vhs.value = bool(payload.get(UiIntentsScript.KEY_VALUE, false))
 			return vhs
+		UiIntentsScript.TERMINAL_VHS_TOGGLED:
+			GameModelsScript.value(PropertyKeysScript.TERMINAL_VHS_ENABLED).write(bool(payload.get(UiIntentsScript.KEY_VALUE, true)))
+			return IntentResultScript.present(PREFERENCES_CHANGED)
 		UiIntentsScript.MANUAL_SAVE_PRESSED:
 			return IntentResultScript.present(SAVE_REQUESTED)
 		UiIntentsScript.RETURN_MAIN_MENU_PRESSED:
