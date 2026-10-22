@@ -26,8 +26,8 @@ const DOOR_SWING_SECONDS := 1.6
 const DOOR_TRANSITION_SECONDS := 2.4
 ## Where the walk through the white door ends, past the door center.
 const DOOR_WALK_THROUGH := Vector3(0.0, 0.0, -0.8)
-## How close the player stands to the CRT's reach point for it to answer.
-const TERMINAL_REACH := 0.9
+## How far from the CRT's reach point the player may stand for it to answer.
+const TERMINAL_REACH_RADIUS := 0.9
 ## The pushed-in view fills this share of the main camera's height with the CRT's glass.
 const TERMINAL_VIEW_FILL := 0.72
 const TERMINAL_VIEW_FOV := 58.0
@@ -643,7 +643,7 @@ func _terminal_in_reach() -> bool:
 		return false
 	var offset: Vector3 = _chapter_stage.crt_reach_position() - player.position
 	offset.y = 0.0
-	return offset.length() <= TERMINAL_REACH
+	return offset.length() <= TERMINAL_REACH_RADIUS
 
 
 ## Turns the look to the CRT's glass from the pushed-in view.
@@ -653,11 +653,8 @@ func _face_terminal() -> void:
 	pitch = rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0)))
 
 
-## Where the view pushes in to: in front of the glass, far enough that the glass fills most of the frame.
 func _terminal_view_position() -> Vector3:
-	var screen := _crt_screen()
-	var distance := screen.height() / (2.0 * tan(deg_to_rad(TERMINAL_VIEW_FOV * 0.5)) * TERMINAL_VIEW_FILL)
-	return screen.center() + screen.forward() * distance
+	return _crt_screen().view_position(TERMINAL_VIEW_FOV, TERMINAL_VIEW_FILL)
 
 
 func _door_in_reach(deps: Dictionary) -> bool:

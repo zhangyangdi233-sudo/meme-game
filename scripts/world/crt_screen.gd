@@ -41,6 +41,13 @@ func height() -> float:
 	return (_mesh.global_transform * _mesh.get_aabb()).size.y
 
 
+## Where a camera with this vertical field of view stands in front of the glass so the glass fills `fill` of its
+## height.
+func view_position(fov_degrees: float, fill: float) -> Vector3:
+	var distance := height() / (2.0 * tan(deg_to_rad(fov_degrees * 0.5)) * fill)
+	return center() + forward() * distance
+
+
 ## Shows `texture` on the glass with or without the VHS look.
 func show_display(texture: Texture2D, vhs_enabled: bool) -> void:
 	if _material == null:

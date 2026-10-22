@@ -234,6 +234,12 @@ func _test_the_terminal_frames_the_screen_and_leaving_restores_the_look() -> voi
 	adapter.refresh_nearby_actor(_deps(_basement()))
 	adapter.apply_interaction({"action": "enter_terminal"})
 	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "the terminal should not open from afar")
+	_stand_at_terminal(adapter)
+	adapter.refresh_nearby_actor(_deps(_basement()))
+	adapter.apply_interaction({"action": "enter_terminal"})
+	adapter.rebuild_floor({"day_progress": {"tower_floor": 1, "day": 1}, "chapter_one_progress": ProgressScript.tower(), "view_state": "npc_up"})
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "a stage rebuilt away from the CRT should end the terminal")
+	_assert_true(not adapter.pose().has("view_position"), "a rebuilt stage should hand the view back")
 	await _free(adapter)
 
 

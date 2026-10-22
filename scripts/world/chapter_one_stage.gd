@@ -34,8 +34,8 @@ const BASEMENT_LIGHTS := {
 const BASEMENT_LIGHT_COLOR := Color(1.0, 0.82, 0.62)
 ## The basement model's CRT glass: the mesh whose name ends with this.
 const CRT_SCREEN_NODE := "*Screen_Video"
-## Where the player stands to use the CRT: this far out from its glass, on the floor.
-const CRT_REACH_DISTANCE := 0.9
+## The CRT's reach point (where the player stands to use it): this far out from its glass, on the floor.
+const CRT_REACH_OFFSET := 0.9
 
 var phase := ""
 var _model: Node3D
@@ -82,7 +82,7 @@ func crt_screen() -> CrtScreen:
 func crt_reach_position() -> Vector3:
 	if _crt_screen == null:
 		return Vector3.ZERO
-	var reach := _crt_screen.center() + _crt_screen.forward() * CRT_REACH_DISTANCE
+	var reach := _crt_screen.center() + _crt_screen.forward() * CRT_REACH_OFFSET
 	reach.y = 0.0
 	return reach
 
