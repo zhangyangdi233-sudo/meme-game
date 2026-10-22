@@ -27,6 +27,7 @@ func _run() -> void:
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_opening_and_closing_the_phone_updates_the_popup()
 	_test_choosing_an_app_raises_its_window()
+	_test_only_social_and_notebook_are_offered()
 	_test_hiding_unregisters_and_later_writes_are_ignored()
 	_test_mounting_again_while_shown_keeps_one_registration()
 	_test_a_freed_panel_unregisters()
@@ -79,17 +80,30 @@ func _test_choosing_an_app_raises_its_window() -> void:
 	var window: ValuePropertyModel = mounted["window"]
 	var host := mounted["host"] as Control
 	panel.set_shown(true)
-	var babel := panel.get_app_window("babel")
 	var notebook := panel.get_app_window("notebook")
-	_assert_eq(host.get_child(host.get_child_count() - 1), notebook, "the notebook window should be last before any raise")
+	var other := Control.new()
+	host.add_child(other)
+	_assert_eq(host.get_child(host.get_child_count() - 1), other, "another window should be last before any raise")
 
-	window.write("babel")
-	_assert_eq(host.get_child(host.get_child_count() - 1), babel, "choosing babel should raise its window by itself")
 	window.write("notebook")
 	_assert_eq(host.get_child(host.get_child_count() - 1), notebook, "choosing notebook should raise its window by itself")
 	window.write("")
 	window.write("social")
 	_assert_eq(host.get_child(host.get_child_count() - 1), notebook, "an app the launcher does not own should not move its windows")
+	_dispose(mounted)
+
+
+## The phone offers the social app and the notebook; the tower app is gone.
+func _test_only_social_and_notebook_are_offered() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as PhoneLauncherPanel
+	var host := mounted["host"] as Control
+	var icons: Array[String] = []
+	for node in host.find_children("PhoneAppIcon*", "Button", true, false):
+		icons.append(str(node.name))
+	_assert_eq(icons, ["PhoneAppIconSocial", "PhoneAppIconNotebook"], "the launcher should offer only social media and the notebook")
+	_assert_true(panel.get_app_window("babel") == null, "the launcher should build no tower app window")
+	_assert_true(host.find_child("BabelAppWindow", true, false) == null, "no tower app window should be in the tree")
 	_dispose(mounted)
 
 

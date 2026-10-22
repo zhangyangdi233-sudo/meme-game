@@ -197,51 +197,9 @@ func _test_ui_flow() -> void:
 	game_root.new_game()
 	await process_frame
 
-	# 玩偶引导:常驻、可拖、可折叠、文本非空。
-	var doll_panel := _find_node_by_name(game_root, "DollGuideOverlay") as PanelContainer
-	_assert_true(doll_panel != null and doll_panel.visible, "the doll guide should stay in view from the start")
-	var doll_line := _find_node_by_name(game_root, "DollGuideLine") as Label
-	_assert_true(doll_line != null and not doll_line.text.is_empty(), "the doll should always have a guide line")
 	game_root._skip_prologue()
 	await process_frame
-	_assert_true(game_root._move_window_for_test("doll_guide", Vector2(12, -8)), "the doll guide should be draggable")
-	var doll_body := _find_node_by_name(game_root, "DollGuideBody") as Container
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and not doll_body.visible, "collapsing should hide the doll body")
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and doll_body.visible, "unfolding should restore the doll body")
-	var doll_close := _find_node_by_name(game_root, "DollGuideCloseButton")
-	_assert_true(doll_close == null, "the doll guide must not have a close button")
-
-	# 玩偶合并进左下角引导小窗:3D 跟随体不再存在,交互时整体隐身。
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
-	_assert_true(_is_bottom_left_docked(doll_panel), "the guide should dock to the bottom-left corner")
-	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
-	var guide_actor_id := ""
-	var reality_floor := game_root.get_node_or_null("RealityFloor")
-	if reality_floor != null and reality_floor.has_method("get_interactable_actors"):
-		var street_actors: Array = reality_floor.get_interactable_actors()
-		if not street_actors.is_empty():
-			guide_actor_id = str((street_actors[0] as Node).get_meta("actor_id", ""))
-	game_root._reality_scene_adapter.apply_interaction({
-		"action": "converse",
-		"actor_id": guide_actor_id,
-		"accepted": true,
-	})
-	game_root._update_doll_guide()
-	_assert_true(not doll_panel.visible, "the guide should vanish during NPC interactions")
-	game_root._reality_scene_adapter.apply_interaction({"action": "end"})
-	game_root._update_doll_guide()
-	_assert_true(doll_panel.visible, "the guide should return after the interaction ends")
-
-	# 一步一步教:多次数步骤显示进度计数。
-	game_root.game.replay_tutorial()
-	game_root.game.notify_tutorial("guide_found")
-	game_root.game.notify_tutorial("social_opened")
-	game_root.game.notify_tutorial("post_opened")
-	game_root.game.notify_tutorial("collect_word")
-	var progress_line: String = doll_line.text
-	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
 
 	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。
 	game_root.game.set_active_app("notebook")
@@ -350,15 +308,6 @@ func _test_ui_flow() -> void:
 
 	game_root.queue_free()
 	await process_frame
-
-
-func _is_bottom_left_docked(control: Control) -> bool:
-	return (
-		is_equal_approx(control.anchor_left, 0.0)
-		and is_equal_approx(control.anchor_top, 1.0)
-		and is_equal_approx(control.anchor_right, 0.0)
-		and is_equal_approx(control.anchor_bottom, 1.0)
-	)
 
 
 func _canvas_tile_is_ghost(canvas: Node, unit: String) -> bool:

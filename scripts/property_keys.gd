@@ -34,7 +34,6 @@ const CONVERSATION_CAN_CONTINUE := "conversation_can_continue"
 const CONVERSATION_FEEDBACK := "conversation_feedback"
 const CONVERSATION_REVEAL_INDEX := "conversation_reveal_index"
 const CONVERSATION_REVEALED_UNITS := "conversation_revealed_units"
-const TUTORIAL_PROGRESS := "tutorial_progress"
 const ENDING_UNLOCKED := "ending_unlocked"
 const ENDING_ROUTE := "ending_route"
 const FORMAL_FLOOR_THREE_COMPLETE := "formal_floor_three_complete"
@@ -102,7 +101,6 @@ const FACTS: Array[Dictionary] = [
 	{"name": CONVERSATION_FEEDBACK, "initial": "", "save": RESET_WITH_RUN},
 	{"name": CONVERSATION_REVEAL_INDEX, "initial": 0, "save": RESET_WITH_RUN},
 	{"name": CONVERSATION_REVEALED_UNITS, "initial": [], "save": RESET_WITH_RUN},
-	{"name": TUTORIAL_PROGRESS, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": ENDING_UNLOCKED, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": ENDING_ROUTE, "initial": "", "save": SAVED_WITH_RUN},
 	{"name": FORMAL_FLOOR_THREE_COMPLETE, "initial": false, "save": SAVED_WITH_RUN},

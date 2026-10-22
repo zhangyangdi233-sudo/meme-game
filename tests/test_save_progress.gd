@@ -5,6 +5,7 @@ extends SceneTree
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 
 var _failures: Array[String] = []
 var _warnings := WarningLog.new()
@@ -103,6 +104,9 @@ func _run() -> void:
 	_assert_true(is_equal_approx(float(restored_pose.get("yaw", 0.0)), 38.0) and is_equal_approx(float(restored_pose.get("pitch", 0.0)), -12.0), "Continue should restore camera orientation")
 	var prologue := _find_node_by_name(game_root, "PrologueOverlay") as Control
 	_assert_true(prologue == null, "Continue should not replay the prologue")
+	game_root._render()
+	_assert_eq(Harness.guidance_leftovers(game_root), [], "a loaded save should show no guide, test aid or tower app")
+	_assert_true(not (game_root.game.to_save_data().get("state", {}) as Dictionary).has("tutorial_progress"), "a loaded run should save no tutorial progress")
 	await _test_holding_start_and_yes_starts_a_new_game(game_root)
 	await _test_start_without_a_save_starts_a_new_game(game_root)
 	await _test_start_with_a_broken_save_starts_a_new_game(game_root)

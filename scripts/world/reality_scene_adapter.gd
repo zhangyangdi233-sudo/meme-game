@@ -112,7 +112,6 @@ func rebuild_floor(deps: Dictionary) -> void:
 		composed.get("events", []),
 		composed.get("layout", {}),
 	)
-	floor.set_playtest_assist_enabled(bool(deps.get("playtest_assist_enabled", false)))
 	sync_world_state(deps)
 	floor.sync_collected_items(_string_ids(deps.get("collected_world_item_ids", [])))
 	_built_floor = tower_floor

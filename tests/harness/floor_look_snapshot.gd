@@ -12,12 +12,11 @@ const EVERY_EVENT := [
 ]
 
 
-## Builds `floor_number` from the composer's day-2 floor with every event, blank portraits, the
-## playtest markers on and every doll claimed.
+## Builds `floor_number` from the composer's day-2 floor with every event, blank portraits and
+## every doll claimed.
 static func build(floor_root: RealityFloorGenerator, floor_number: int, palette: Dictionary) -> void:
 	var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 2}})
 	var portrait := ImageTexture.create_from_image(Image.create(4, 8, false, Image.FORMAT_RGBA8))
-	floor_root.set_playtest_assist_enabled(true)
 	floor_root.rebuild(
 		floor_number,
 		palette,

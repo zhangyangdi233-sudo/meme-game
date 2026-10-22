@@ -27,6 +27,23 @@ static func find_node_by_name(node: Node, wanted_name: String) -> Node:
 	return null
 
 
+## Names every retired guide or test aid still found under `game_root`: the doll guide window, the
+## playtest panel, the tower app, TEST floating words in the 3D street or TEST text in the UI.
+static func guidance_leftovers(game_root: Node) -> Array[String]:
+	var found: Array[String] = []
+	for retired_name in ["DollGuideOverlay", "DollGuidePanel", "PlaytestAssistPanel", "PlaytestAssistPanelHost",
+			"BabelAppWindow", "BabelAppPanel", "PhoneAppIconBabel"]:
+		if find_node_by_name(game_root, retired_name) != null:
+			found.append(retired_name)
+	for node in game_root.find_children("*", "Label3D", true, false):
+		var label := node as Label3D
+		if label.name == "PlaytestMarker" or label.text.contains("TEST"):
+			found.append("%s (%s)" % [label.name, label.text])
+	if collect_control_text(game_root).contains("TEST"):
+		found.append("TEST text in the UI")
+	return found
+
+
 ## The open Dialog's buttons from left to right, skipping ones already queued for deletion.
 static func dialog_buttons(screen: Node) -> Array[Button]:
 	var found: Array[Button] = []

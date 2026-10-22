@@ -46,10 +46,7 @@ func handles(intent_name: String) -> bool:
 
 func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 	match intent_name:
-		UiIntentsScript.SOCIAL_CHANNEL_PRESSED, UiIntentsScript.SOCIAL_SCREEN_REQUESTED:
-			return IntentResultScript.present(PAGE_CHANGED)
-		UiIntentsScript.SOCIAL_CARD_CLICKED:
-			_game.notify_tutorial("post_opened", {"post_index": int(payload.get(UiIntentsScript.KEY_POST_INDEX, -1))})
+		UiIntentsScript.SOCIAL_CHANNEL_PRESSED, UiIntentsScript.SOCIAL_SCREEN_REQUESTED, UiIntentsScript.SOCIAL_CARD_CLICKED:
 			return IntentResultScript.present(PAGE_CHANGED)
 		UiIntentsScript.SOCIAL_LIKE_PRESSED:
 			var liked := _game.toggle_social_like(str(payload.get(UiIntentsScript.KEY_POST_ID, "")))

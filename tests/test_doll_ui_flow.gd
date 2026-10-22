@@ -39,16 +39,15 @@ func _run_async() -> void:
 			_assert_true(game_root._try_reality_interaction(), "the physical doll should open its authored conversation")
 			_assert_eq(game_root.game.conversation_actor_type, "doll", "doll interaction should enter the doll conversation branch")
 			var choices: Array = game_root.game.get_typed_reality_choices()
-			_assert_eq(choices.size(), 3, "the guide should offer three authored tutorial responses")
+			_assert_eq(choices.size(), 3, "the doll should offer three authored responses")
 			if not choices.is_empty():
 				game_root._on_reality_choice_selected(str(choices[0].get("id", "")))
 				for _step in 256:
 					if game_root.game.conversation_phase != "typing":
 						break
 					game_root._advance_typed_reality_character()
-				_assert_true(bool(game_root.game.conversation_reward.get("guided", false)), "finishing the doll reply should advance the tutorial")
+				_assert_true(bool(game_root.game.conversation_reward.get("guided", false)), "finishing the doll reply should report its guidance")
 				_assert_eq(game_root.game.owned_meme_frames, 0, "the guide should no longer grant an obsolete meme frame")
-				_assert_eq(str(game_root.game.get_tutorial_step().get("id", "")), "open_social", "guide discovery should advance the tutorial to the phone")
 				_assert_true(bool(doll.get_meta("claimed", false)), "the world doll should remember that its first guidance was heard")
 
 		game_root.queue_free()

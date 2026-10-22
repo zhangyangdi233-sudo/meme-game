@@ -74,6 +74,8 @@ func _test_light_colors_match_every_floor_before_the_move() -> void:
 
 func _test_tints_match_before_the_move() -> void:
 	var tints: Dictionary = _before["tints"]
+	if FloorLookScript.TINTS.has("playtest_marker"):
+		_failures.append("Floor look should keep no tint for the removed playtest marker")
 	for use in tints:
 		var name := str(use)
 		if name.begins_with("grass_blade_"):

@@ -1,13 +1,13 @@
 class_name MemeGameState
 extends RefCounted
 
-const PHONE_APP_FALLBACK_ORDER := ["social", "babel", "notebook"]
+## The phone's apps, in the order a closed foreground window falls back to.
+const PHONE_APP_FALLBACK_ORDER := ["social", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
-const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
@@ -164,13 +164,6 @@ var history_entries: Array:
 		return _read_run_array(PropertyKeysScript.HISTORY_ENTRIES)
 
 var sentence_records: Array = []
-var tutorial_progress: Dictionary:
-	get:
-		return _read_run_map(PropertyKeysScript.TUTORIAL_PROGRESS)
-	set(value):
-		var model: MapPropertyModel = _run_model(PropertyKeysScript.TUTORIAL_PROGRESS) as MapPropertyModel
-		if model != null:
-			model.replace_all(value)
 var collected_char_units: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
@@ -298,7 +291,6 @@ func new_run() -> void:
 	collected_prerequisite_item_ids = []
 	key_clue_progress = {}
 	sentence_records = []
-	tutorial_progress = TutorialDirectorScript.initial_progress()
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
 	npc_understanding = 100
@@ -433,23 +425,6 @@ func _run_model(property_name: String) -> PropertyModel:
 	return manager.model(property_name)
 
 
-func notify_tutorial(event_id: String, payload: Dictionary = {}) -> Dictionary:
-	tutorial_progress = TutorialDirectorScript.notify(tutorial_progress, StringName(event_id), payload)
-	return get_tutorial_step()
-
-
-func get_tutorial_step() -> Dictionary:
-	return TutorialDirectorScript.current_step(tutorial_progress)
-
-
-func skip_tutorial() -> void:
-	tutorial_progress = TutorialDirectorScript.skip(tutorial_progress)
-
-
-func replay_tutorial() -> void:
-	tutorial_progress = TutorialDirectorScript.replay(tutorial_progress)
-
-
 func to_save_data() -> Dictionary:
 	var state_data := {}
 	for field_name in _save_field_names():
@@ -494,7 +469,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 	cover_watcher_seen_floors = normalized_watcher_floors
 	_normalize_doll_state()
 	_normalize_notebook_tokens()
-	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
+	_drop_retired_apps()
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	if view_state == "npc_up":
@@ -587,6 +562,17 @@ func set_view_state(value: String) -> bool:
 
 func get_phone_shell_snapshot() -> Dictionary:
 	return {"view_state": view_state}
+
+
+## A save may still name an app the phone no longer has (the tower app); the phone comes back on one it has.
+func _drop_retired_apps() -> void:
+	for app_id in open_app_windows:
+		if str(app_id) not in PHONE_APP_FALLBACK_ORDER:
+			close_app_window(str(app_id))
+	if active_app not in PHONE_APP_FALLBACK_ORDER:
+		active_app = PropertyKeysScript.DEFAULT_APP
+	if not active_app_window.is_empty() and active_app_window not in PHONE_APP_FALLBACK_ORDER:
+		active_app_window = active_app
 
 
 func is_app_window_open(app_id: String) -> bool:
@@ -1286,7 +1272,7 @@ func _resolve_doll_choice_attempt() -> Dictionary:
 	var encounter: Dictionary = LanguageCorruptionContentScript.get_doll_encounter_by_id(conversation_actor_id)
 	var choice: Dictionary = _doll_choice_by_id(encounter, conversation_selected_choice_id)
 	var reward := {
-		"kind": "guide_tutorial",
+		"kind": "doll_guidance",
 		"doll_id": conversation_actor_id,
 		"choice_id": conversation_selected_choice_id,
 		"guided": false,
@@ -1315,7 +1301,6 @@ func _resolve_doll_choice_attempt() -> Dictionary:
 	reward["guided"] = true
 	reward["feedback"] = str(choice.get("guide_feedback", "它让你先照做，理由可以晚一点再问。"))
 	record_event("缝线布偶指向了下一步。")
-	notify_tutorial("guide_found", {"doll_id": conversation_actor_id})
 	return reward
 
 
@@ -1409,7 +1394,6 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 		if existing.get("id", "") == note["id"]:
 			return false
 	_run_list(PropertyKeysScript.NOTEBOOK_TOKENS).add(note)
-	notify_tutorial("collect_word", {"token_id": str(note.get("id", ""))})
 	return true
 
 
@@ -1465,7 +1449,6 @@ func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Di
 		"day": day,
 	})
 	result["picked"] = true
-	notify_tutorial("collect_word", {"token_id": "char-%s-%s" % [locale_code, normalized_unit]})
 	return result
 
 
@@ -1608,8 +1591,6 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
 	change_pollution(pollution_gain)
 	free_sentence_units = []
-	notify_tutorial("sentence_composed", {"sentence": sentence})
-	notify_tutorial("sentence_published", {"sentence": sentence})
 	result["submitted"] = true
 	result["tier"] = tier
 	result["rule_key"] = str(parsed.get("rule_key", ""))
@@ -1838,7 +1819,6 @@ func confirm_craft() -> bool:
 	}
 	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
 	draft_slots = {}
-	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
 	return true
 
 

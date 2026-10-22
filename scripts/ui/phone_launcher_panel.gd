@@ -1,6 +1,6 @@
 class_name PhoneLauncherPanel
 extends Node
-## Game-side phone launcher shell: popup chrome, app grid, and babel/notebook app windows.
+## Game-side phone launcher shell: popup chrome, app grid, and the notebook app window.
 ## While shown, it watches whether the phone is open and which app is in front, and updates itself.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -10,19 +10,10 @@ const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 const LAUNCHER_APPS := [
-	{"id": "babel", "label": "塔\n楼层档案"},
 	{"id": "social", "label": "帖\n信号瀑布"},
 	{"id": "notebook", "label": "本\n语言工坊"},
 ]
 
-const BABEL_WINDOW_LAYOUT := {
-	"title": "巴别塔 App",
-	"node_name": "BabelAppWindow",
-	"left": -1032.0,
-	"top": 96.0,
-	"right": -592.0,
-	"bottom": 676.0,
-}
 const NOTEBOOK_WINDOW_LAYOUT := {
 	"title": "笔记本 App",
 	"node_name": "NotebookAppWindow",
@@ -62,7 +53,6 @@ func mount(parent: Control, deps: Dictionary) -> void:
 	var keep_shown := _shown
 	_watch.stop()
 	_build_phone_popup(parent)
-	_build_app_window("babel", BABEL_WINDOW_LAYOUT)
 	_build_app_window("notebook", NOTEBOOK_WINDOW_LAYOUT)
 	if keep_shown:
 		set_shown(true)
@@ -144,7 +134,7 @@ func layout_app_window(app_id: String) -> void:
 	var window := get_app_window(app_id)
 	if window == null:
 		return
-	var layout: Dictionary = BABEL_WINDOW_LAYOUT if app_id == "babel" else NOTEBOOK_WINDOW_LAYOUT
+	var layout: Dictionary = NOTEBOOK_WINDOW_LAYOUT
 	_apply_app_window_layout(
 		window,
 		app_id,

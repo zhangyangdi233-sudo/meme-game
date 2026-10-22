@@ -24,7 +24,6 @@ var _results: Array = []
 func _init() -> void:
 	_test_it_claims_every_social_intent_and_nothing_else()
 	_test_page_changes_ask_the_host_to_re_theme()
-	_test_a_card_counts_the_opened_post_for_the_tutorial()
 	_test_like_and_follow_write_the_state_and_the_feedback()
 	_test_closing_the_window_and_the_detail()
 	_test_pickup_and_composer_intents_build_and_post_a_sentence()
@@ -100,14 +99,8 @@ func _test_page_changes_ask_the_host_to_re_theme() -> void:
 	_assert_presents(channel, SocialIntentHandlerScript.PAGE_CHANGED, "a channel tab")
 	var screen := _raise(UiIntentsScript.SOCIAL_SCREEN_REQUESTED, {UiIntentsScript.KEY_SCREEN: "profile"})
 	_assert_presents(screen, SocialIntentHandlerScript.PAGE_CHANGED, "a nav button")
-
-
-func _test_a_card_counts_the_opened_post_for_the_tutorial() -> void:
-	_boot()
-	_game.tutorial_progress = {"current_step_id": "open_post", "completed_step_ids": ["find_guide", "open_social"]}
-	var result := _raise(UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: 2})
-	_assert_presents(result, SocialIntentHandlerScript.PAGE_CHANGED, "a card")
-	_assert_eq(str(_game.tutorial_progress.get("current_step_id", "")), "collect_words", "opening a post should finish the tutorial step")
+	var card := _raise(UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: 2})
+	_assert_presents(card, SocialIntentHandlerScript.PAGE_CHANGED, "a card")
 
 
 func _test_like_and_follow_write_the_state_and_the_feedback() -> void:

@@ -40,7 +40,6 @@ var _fallback_actor_name_fn: Callable
 var _last_spoken_sentence_fn: Callable
 var _npc_understanding_fn: Callable
 var _choice_preview_fn: Callable
-var _playtest_assist_fn: Callable
 var _typed_bbcode_fn: Callable
 var _typing_unit_count_fn: Callable
 
@@ -142,7 +141,6 @@ func _paint() -> void:
 	_typing_progress.visible = typing
 	_intent_preview.visible = choosing and not _hover_choice_id.is_empty()
 	if choosing:
-		var playtest_assist_enabled := bool(_call(_playtest_assist_fn, false))
 		var viewport_size: Vector2 = _viewport_size_fn.call()
 		var compact: bool = viewport_size.x < 760.0
 		for choice_value in _values.get(PropertyKeysScript.CONVERSATION_CHOICES, []):
@@ -151,8 +149,6 @@ func _paint() -> void:
 			var button := Button.new()
 			button.name = "RealityChoice%s" % choice_id.to_pascal_case()
 			button.text = str(choice.get("summary", "回应"))
-			if playtest_assist_enabled and actor_type == "key_npc" and bool(choice.get("correct", false)):
-				button.text = "✓ TEST  %s" % button.text
 			button.custom_minimum_size = Vector2(96 if compact else 164, 56)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.clip_text = true
@@ -254,7 +250,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_last_spoken_sentence_fn = deps.get("last_spoken_sentence", Callable())
 	_npc_understanding_fn = deps.get("npc_understanding", Callable())
 	_choice_preview_fn = deps.get("choice_preview", Callable())
-	_playtest_assist_fn = deps.get("playtest_assist_enabled", Callable())
 	_typed_bbcode_fn = deps.get("typed_bbcode", Callable())
 	_typing_unit_count_fn = deps.get("typing_unit_count", Callable())
 

@@ -68,11 +68,11 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	_press(host, "PhoneHomeCloseButton")
 	_assert_eq(_heard, [[UiIntentsScript.PHONE_CLOSE_REQUESTED, {}]], "the phone close button should raise an empty intent")
 	_heard.clear()
-	var close := panel.get_app_window("babel").find_child("*CloseButton", true, false) as Button
-	_assert_true(close != null, "the babel window should have a close button")
+	var close := panel.get_app_window("notebook").find_child("*CloseButton", true, false) as Button
+	_assert_true(close != null, "the notebook window should have a close button")
 	if close != null:
 		close.pressed.emit()
-	_assert_eq(_heard, [[UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {UiIntentsScript.KEY_APP_ID: "babel"}]], "a window close should raise the app id")
+	_assert_eq(_heard, [[UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED, {UiIntentsScript.KEY_APP_ID: "notebook"}]], "a window close should raise the app id")
 
 	panel.free()
 	host.free()

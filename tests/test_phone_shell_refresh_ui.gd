@@ -120,15 +120,15 @@ func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> vo
 	game_root.game.pick_social_char("floor_13", "门", "zh")
 	game_root._social_feed_panel.show_screen("publish")
 	await process_frame
-	var babel_body := game_root._app_bodies.get("babel") as VBoxContainer
-	_assert_true(babel_body != null, "the phone shell should keep a babel app body")
-	if babel_body == null:
+	var notebook_body := game_root._app_bodies.get("notebook") as VBoxContainer
+	_assert_true(notebook_body != null, "the phone shell should keep a notebook app body")
+	if notebook_body == null:
 		game_root.queue_free()
 		await process_frame
 		return
 	var sentinel := Label.new()
-	sentinel.name = "BabelRedrawSentinel"
-	babel_body.add_child(sentinel)
+	sentinel.name = "NotebookRedrawSentinel"
+	notebook_body.add_child(sentinel)
 
 	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
 	await process_frame
@@ -158,13 +158,13 @@ func _test_opening_app_refreshes_phone_shell_not_hud() -> void:
 	await process_frame
 
 	var hud := _stamp_hud(game_root)
-	game_root._on_app_pressed("babel")
+	game_root._on_app_pressed("notebook")
 	await process_frame
 
-	var babel := Harness.find_node_by_name(game_root, "BabelAppWindow") as Control
-	var heading := Harness.find_node_by_name(game_root, "BabelFloorHeading") as Label
-	_assert_true(babel != null and babel.visible, "opening babel should show its phone-shell window")
-	_assert_true(heading != null, "phone shell should paint babel content")
+	var notebook := Harness.find_node_by_name(game_root, "NotebookAppWindow") as Control
+	var canvas := Harness.find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(notebook != null and notebook.visible, "opening the notebook should show its phone-shell window")
+	_assert_true(canvas != null, "phone shell should paint notebook content")
 	_assert_hud_untouched(hud, "opening a phone app")
 
 	game_root.queue_free()

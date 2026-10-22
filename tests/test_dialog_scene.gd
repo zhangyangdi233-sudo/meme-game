@@ -55,7 +55,6 @@ func _test_boot_binds_the_dialog_manager(game_root: Node) -> void:
 func _test_the_title_debug_panel_opens_sample_dialogs(game_root: Node) -> void:
 	var panel := _find(game_root, "DialogDebugPanel") as Control
 	_assert_true(panel != null and panel.is_visible_in_tree(), "a debug build should show the dialog debug panel on the title")
-	_assert_true(_find(game_root, "PlaytestAssistPanel") == null, "the dialog debug panel should stand apart from the playtest assist panel")
 	if panel == null:
 		return
 	var log := _find(panel, "DialogDebugLog") as Label
@@ -146,12 +145,12 @@ func _live(node: Node, wanted: String) -> Node:
 
 
 func _test_the_debug_panel_needs_a_debug_build(game_root: Node) -> void:
-	game_root.set("_playtest_assist_enabled", false)
+	game_root.set("_dialog_debug_enabled", false)
 	game_root.uninstall_title_screen()
 	game_root.install_title_screen()
 	var panel := _find(game_root, "DialogDebugPanel")
 	_assert_true(panel == null or panel.is_queued_for_deletion(), "a release build should not show the dialog debug panel")
-	game_root.set("_playtest_assist_enabled", true)
+	game_root.set("_dialog_debug_enabled", true)
 
 
 func _test_an_open_dialog_sits_above_every_game_ui(game_root: Node) -> void:

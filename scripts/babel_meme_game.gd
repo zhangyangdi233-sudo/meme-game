@@ -26,10 +26,7 @@ const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
-const BabelAppPanelScript = preload("res://scripts/ui/babel_app_panel.gd")
-const DollGuidePanelScript = preload("res://scripts/ui/doll_guide_panel.gd")
 const EndingScreenPanelScript = preload("res://scripts/ui/ending_screen_panel.gd")
-const PlaytestAssistPanelScript = preload("res://scripts/ui/playtest_assist_panel.gd")
 const AppleHudPanelScript = preload("res://scripts/ui/apple_hud_panel.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
@@ -156,7 +153,6 @@ var _settings_intent_handler: SettingsIntentHandler = SettingsIntentHandlerScrip
 var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _settings_intent_handler]
 var _phone_launcher_panel
 var _notebook_app_panel: NotebookAppPanel
-var _babel_app_panel: BabelAppPanel
 var _language_overlay: Control
 var _view_toggle_button: Button
 var _vhs_overlay: VhsOverlayScript
@@ -168,11 +164,10 @@ var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
 var _reality_conversation_panel
-var _playtest_assist_panel
-var _playtest_assist_enabled := OS.is_debug_build() or OS.get_environment("BABEL_PLAYTEST_ASSIST") == "1"
+## The title-corner dialog debug panel shows only in debug builds.
+var _dialog_debug_enabled := OS.is_debug_build()
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
-var _doll_guide_panel
 var _ending_screen_panel
 var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
@@ -769,7 +764,6 @@ func _reality_scene_deps() -> Dictionary:
 		"load_texture": _load_runtime_texture,
 		"npc_character_paths": NPC_CHARACTER_PATHS,
 		"guide_doll_path": GUIDE_DOLL_CHARACTER_PATH,
-		"playtest_assist_enabled": _playtest_assist_enabled,
 		"view_state": str(_phone_shell_snapshot().get("view_state", "")) if game != null else "",
 		"locale": locale_code,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
@@ -936,11 +930,10 @@ func uninstall_title_screen() -> void:
 	_unmount_dialog_debug_panel()
 
 
-## Debug builds only (same switch as the playtest assist): a title-corner panel that opens sample dialogs
-## and simulates the save for START.
+## Debug builds only: a title-corner panel that opens sample dialogs and simulates the save for START.
 func _mount_dialog_debug_panel() -> void:
 	_unmount_dialog_debug_panel()
-	if not _playtest_assist_enabled or _ui_root == null:
+	if not _dialog_debug_enabled or _ui_root == null:
 		return
 	var panel := DialogDebugPanelScene.instantiate() as DialogDebugPanel
 	panel.configure(_save_slot())
@@ -1047,8 +1040,6 @@ func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
 		if started:
 			game.reset_typed_reality_conversation()
 		return false
-	if actor_type == "doll":
-		game.notify_tutorial("guide_found", {"actor_id": actor_id})
 	_localize_active_conversation()
 	_set_reality_mouse_look(false)
 	_write_feedback_text("你停在%s面前。" % _active_actor_display_name())
@@ -1323,12 +1314,11 @@ func _build_ui() -> void:
 	_app_windows["social"] = _social_feed_panel.get_app_window()
 	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
 	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
-	for app_id in ["babel", "notebook"]:
+	for app_id in ["notebook"]:
 		_app_windows[app_id] = _phone_launcher_panel.get_app_window(app_id)
 		_app_titles[app_id] = _phone_launcher_panel.get_app_title(app_id)
 		_app_bodies[app_id] = _phone_launcher_panel.get_app_body(app_id)
 	_ensure_notebook_app_panel()
-	_ensure_babel_app_panel()
 
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
@@ -1356,34 +1346,14 @@ func _build_ui() -> void:
 	_desk_log.offset_bottom = -112
 	_desk_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_ui_root.add_child(_desk_log)
-	_build_playtest_assist_panel()
 
 	_bind_narrative_director()
 	_build_settings_window()
 	_build_phone_camera_connection_overlay()
 	_build_history_window()
 	_build_pickup_flight_layer()
-	_build_doll_guide_overlay()
 	_narrative_director.build_flashback_overlay()
 	_apply_responsive_layouts_if_needed(true)
-
-
-func _build_playtest_assist_panel() -> void:
-	_ensure_playtest_assist_panel()
-	_playtest_assist_panel.mount(_ui_root, _playtest_assist_mount_deps())
-
-
-func _ensure_playtest_assist_panel() -> void:
-	if _playtest_assist_panel != null and is_instance_valid(_playtest_assist_panel):
-		return
-	_playtest_assist_panel = PlaytestAssistPanelScript.new()
-	_playtest_assist_panel.name = "PlaytestAssistPanelHost"
-	add_child(_playtest_assist_panel)
-
-
-func _playtest_assist_mount_deps() -> Dictionary:
-	return {
-	}
 
 
 func _build_prologue_overlay() -> void:
@@ -1914,26 +1884,8 @@ func _reality_conversation_mount_deps() -> Dictionary:
 		"last_spoken_sentence": func() -> String: return game.last_polluted_sentence,
 		"npc_understanding": func() -> int: return game.npc_understanding,
 		"choice_preview": func(choice_id: String) -> String: return game.preview_typed_reality_choice(choice_id),
-		"playtest_assist_enabled": func() -> bool: return _playtest_assist_enabled,
 		"typed_bbcode": _typed_reality_bbcode,
 		"typing_unit_count": func() -> int: return game.get_typed_reality_unit_count(),
-	}
-
-
-func _ensure_babel_app_panel() -> void:
-	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
-		return
-	_babel_app_panel = BabelAppPanelScript.new()
-	_babel_app_panel.name = "BabelAppPanel"
-	add_child(_babel_app_panel)
-	_babel_app_panel.configure(_babel_mount_deps())
-
-
-func _babel_mount_deps() -> Dictionary:
-	return {
-		"clear_children": _clear,
-		"level_display_name": func(floor_number: int) -> String:
-			return _locale.level_display_name(floor_number),
 	}
 
 
@@ -2240,7 +2192,6 @@ func _apply_phone_shell_theme() -> void:
 	var targets: Array[Node] = []
 	if _phone_launcher_panel != null:
 		targets.append(_phone_launcher_panel.get_phone_panel())
-		targets.append(_phone_launcher_panel.get_app_window("babel"))
 		targets.append(_phone_launcher_panel.get_app_window("notebook"))
 	if _social_feed_panel != null:
 		targets.append(_social_feed_panel.get_app_window())
@@ -2266,38 +2217,8 @@ func _render() -> void:
 
 
 func _render_status() -> void:
-	_render_playtest_assist()
-	_update_doll_guide()
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.sync_ultimate_task_props(_reality_scene_deps())
-
-
-func _render_playtest_assist() -> void:
-	if _playtest_assist_panel == null or not is_instance_valid(_playtest_assist_panel):
-		_playtest_assist_panel = null
-		return
-	_playtest_assist_panel.render(_playtest_assist_snapshot())
-
-
-func _playtest_assist_snapshot() -> Dictionary:
-	# 引导台词由常驻玩偶小窗承担;本面板只在纯测试辅助开启时出现,不再双显同一句。
-	var visible := _session_shows_play_chrome() and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and _playtest_assist_enabled
-	var lines: Array[String] = []
-	if not visible or not _playtest_assist_enabled or game == null:
-		return {"visible": visible, "lines": lines}
-	var floor_number := game.tower_floor
-	if floor_number <= 3:
-		var progress: Dictionary = game.get_key_clue_progress(floor_number)
-		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
-		var item_id := str(item.get("id", ""))
-		var clue_state := "已答对" if bool(progress.get("solved", false)) else "未完成"
-		var item_state := "已拾取" if item_id in game.collected_prerequisite_item_ids else ("已显形" if item_id in game.revealed_prerequisite_item_ids else "未显形")
-		lines.append("本层测试：关键 NPC %s / 前置物 %s" % [clue_state, item_state])
-		if bool(progress.get("solved", false)) and item_id not in game.collected_prerequisite_item_ids:
-			lines.append("目标：%s。%s" % [str(item.get("label", "前置物")), str(item.get("location_hint", "跟随荧光测试标记。"))])
-	var collected_count := game.collected_prerequisite_item_ids.size()
-	lines.append("隐藏层测试：前置物 %d/3 · 污染 %d/80 · 第三层结束检查" % [collected_count, game.pollution])
-	return {"visible": visible, "lines": lines}
 
 
 func _render_world_prompt() -> void:
@@ -2326,15 +2247,12 @@ func _render_world_prompt() -> void:
 
 
 func _render_app() -> void:
-	for app_id in ["social", "babel", "notebook"]:
+	for app_id in ["social", "notebook"]:
 		if not _app_bodies.has(app_id):
 			continue
 		_app_body = _app_bodies[app_id] as VBoxContainer
 		_app_title = _app_titles[app_id] as Label
 		match app_id:
-			"babel":
-				_app_title.text = "巴别塔 App"
-				_render_babel_app()
 			"notebook":
 				_app_title.text = "笔记本 App"
 				_render_notebook_app()
@@ -2348,12 +2266,6 @@ func _render_social_app() -> void:
 		return
 	_social_feed_panel.render_app()
 	_social_feed_panel.render_companion()
-
-
-func _render_babel_app() -> void:
-	if _babel_app_panel == null:
-		return
-	_babel_app_panel.render(_app_body)
 
 
 ## The social panel already repainted its new page; only the shell around it needs the theme and visibility.
@@ -2505,10 +2417,6 @@ func _update_visibility() -> void:
 	if _apple_hud_panel != null:
 		_apple_hud_panel.set_shown(show_play)
 	_update_reality_hud_visibility()
-	# 可见性判定与 _render_playtest_assist 保持同一公式:引导台词由玩偶小窗独占,
-	# 本面板只在测试辅助开启时出现。
-	_render_playtest_assist()
-	_update_doll_guide()
 	_layout_hud_rail()
 
 
@@ -2561,8 +2469,6 @@ func _update_phone_shell_visibility() -> void:
 		_social_feed_panel.update_visibility(show_phone_home, _app_window_is_open("social"))
 	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
 		_notebook_app_panel.set_shown(show_phone_home and _app_window_is_open("notebook"))
-	if _babel_app_panel != null and is_instance_valid(_babel_app_panel):
-		_babel_app_panel.set_shown(show_phone_home and _app_window_is_open("babel"))
 	if _phone_down_backdrop_image != null:
 		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
 	if _hand_phone_image != null:
@@ -2871,53 +2777,12 @@ func _on_app_pressed(app_id: String) -> void:
 	_set_reality_mouse_look(false)
 	game.set_active_app(app_id)
 	if app_id == "social":
-		game.notify_tutorial("social_opened")
-	elif app_id == "notebook":
-		game.notify_tutorial("notebook_opened")
-	if app_id == "social":
 		var social_window := _app_windows.get("social") as Control
 		if social_window != null:
 			social_window.move_to_front()
 	_write_feedback_text("打开 %s。" % app_id)
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
-
-
-## ============ 玩偶全程引导(常驻小窗,承担教程与楼层任务提示)============
-
-func _build_doll_guide_overlay() -> void:
-	_ensure_doll_guide_panel()
-	_doll_guide_panel.mount(_ui_root, _doll_guide_mount_deps())
-
-
-func _ensure_doll_guide_panel() -> void:
-	if _doll_guide_panel != null and is_instance_valid(_doll_guide_panel):
-		return
-	_doll_guide_panel = DollGuidePanelScript.new()
-	_doll_guide_panel.name = "DollGuidePanel"
-	add_child(_doll_guide_panel)
-
-
-func _doll_guide_mount_deps() -> Dictionary:
-	return {
-		"load_texture": _load_runtime_texture,
-		"register_draggable": _make_draggable_window,
-		"portrait_path": GUIDE_DOLL_CHARACTER_PATH,
-	}
-
-
-func _toggle_doll_guide_collapsed() -> void:
-	if _doll_guide_panel != null:
-		_doll_guide_panel.toggle_collapsed()
-
-
-func _update_doll_guide() -> void:
-	if _doll_guide_panel == null or not is_instance_valid(_doll_guide_panel):
-		_doll_guide_panel = null
-		return
-	# 派蒙式退避:玩家与 NPC 对话/交互时,玩偶(连同气泡窗)一起隐身,不抢戏。
-	var should_show := _session_shows_play_chrome() and game != null and not _reality_interaction_is_active()
-	_doll_guide_panel.set_shown(should_show)
 
 
 ## ============ 自由造句台(多邻国式:tap 入句、tap 撤回、随时投稿)============

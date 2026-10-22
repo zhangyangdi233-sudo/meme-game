@@ -1,7 +1,7 @@
 extends SceneTree
 ## The Floor generator asks UiPalette for every palette color: a complete palette builds and repaints
 ## every floor without a report, and a palette with a gap is reported and painted from palette 1.
-## The playtest marker and EXIT sign outlines stay UiPalette.OUTLINE after the repaint to pollution palette 5.
+## The EXIT sign outline stays UiPalette.OUTLINE after the repaint to pollution palette 5; no floor floats a TEST marker.
 ## Every floor shows the colors it showed before they moved into Floor look (tests/fixtures/floor_look_before.json),
 ## and the generator source decides no color of its own.
 
@@ -41,7 +41,7 @@ func _test_complete_palettes_build_and_repaint_every_floor_without_reports() -> 
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
 	await process_frame
-	floor_root.set_playtest_assist_enabled(true)
+	_assert_true(not floor_root.has_method("set_playtest_assist_enabled"), "the generator should have no playtest switch")
 	var outlined := {}
 	for floor_number in [1, 2, 3, 4]:
 		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 2}})
@@ -60,10 +60,10 @@ func _test_complete_palettes_build_and_repaint_every_floor_without_reports() -> 
 		floor_root.apply_palette(UiPalette.POLLUTION_PALETTE_5)
 		_assert_eq(_errors.take(), [], "floor %d should build and repaint from complete palettes without a report" % floor_number)
 		for label in floor_root.find_children("*", "Label3D", true, false):
-			if label.name == "PlaytestMarker" or label.name == "DeadSignLabel":
+			_assert_true(label.name != "PlaytestMarker" and not (label as Label3D).text.contains("TEST"), "floor %d should float no TEST marker, found %s" % [floor_number, label.name])
+			if label.name == "DeadSignLabel":
 				outlined[str(label.name)] = true
 				_assert_eq((label as Label3D).outline_modulate, NEAR_BLACK_OUTLINE, "floor %d %s outline should stay near black under pollution palette 5" % [floor_number, label.name])
-	_assert_true(outlined.has("PlaytestMarker"), "some floor should build a playtest marker")
 	_assert_true(outlined.has("DeadSignLabel"), "some floor should build the EXIT sign")
 	floor_root.free()
 

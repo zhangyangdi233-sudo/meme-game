@@ -524,7 +524,7 @@ func _test_the_tower_base_channel_opens_the_first_post() -> void:
 	_press(mounted, "SocialChannelTabtower_base")
 	_assert_true(panel.is_detail_open(), "the tower base channel should open the first post")
 	_assert_true(_underline_shown(mounted, "tower_base"), "the tower base channel should stay selected while its post is open")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: "tower_base"}]], "the tower base channel is not the player opening a post, so the tutorial should hear only of the channel change")
+	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_CHANNEL_PRESSED, {UiIntentsScript.KEY_CHANNEL: "tower_base"}]], "the tower base channel is not the player opening a post, so the host should hear only of the channel change")
 	_press(mounted, "SocialDetailWindowCloseButton")
 	_assert_true(_underline_shown(mounted, "discover"), "shutting the tower base post should go back to discover")
 	_dispose(mounted)

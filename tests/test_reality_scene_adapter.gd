@@ -155,7 +155,6 @@ func _test_rebuild_uses_intent_snapshot_not_live_game() -> void:
 		"load_texture": func(_path: String) -> Texture2D: return null,
 		"npc_character_paths": [],
 		"guide_doll_path": "",
-		"playtest_assist_enabled": false,
 		"locale": "zh",
 		"cover_watcher_seen": true,
 		"collected_world_item_ids": ["floor1_key"],

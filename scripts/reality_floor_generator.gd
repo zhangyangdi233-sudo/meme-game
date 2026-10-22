@@ -106,7 +106,6 @@ var _authored_event_day := 1
 var _cover_watcher_root: Node3D
 var _cover_watcher_sprite: Sprite3D
 var _cover_watcher_state: Dictionary = {}
-var _playtest_assist_enabled := false
 var _layout_shape := "shared_street"
 
 
@@ -258,7 +257,6 @@ func rebuild(
 	_build_architecture(palette)
 	_build_prerequisite_items(items, display_names, palette)
 	_build_actors(actor_textures, people, display_names)
-	_refresh_playtest_markers()
 	configure_authored_events(day_number, palette, events)
 	_build_cover_watcher_event(palette, not _events_include_kind(events, "cover_watcher"))
 	set_meta("useful_item_count", useful_item_count)
@@ -303,65 +301,6 @@ func sync_prerequisite_items(revealed_ids: Array[String], collected_ids: Array[S
 		item.visible = revealed and not collected
 		item.monitoring = revealed and not collected
 		item.monitorable = revealed and not collected
-	_refresh_playtest_markers()
-
-
-func set_playtest_assist_enabled(value: bool) -> void:
-	_playtest_assist_enabled = value
-	_refresh_playtest_markers()
-
-
-func _refresh_playtest_markers() -> void:
-	for actor in _actors:
-		if not is_instance_valid(actor):
-			continue
-		var actor_type := str(actor.get_meta("actor_type", "npc"))
-		var marker_text := ""
-		match actor_type:
-			"doll":
-				marker_text = "TEST  教程引导"
-			"key_npc":
-				marker_text = "TEST  隐藏路线关键 NPC"
-		var existing_actor_marker := actor.get_node_or_null("PlaytestMarker") as Label3D
-		if marker_text.is_empty() or not _playtest_assist_enabled:
-			if existing_actor_marker != null:
-				existing_actor_marker.visible = false
-			continue
-		if existing_actor_marker == null:
-			existing_actor_marker = _make_playtest_marker(marker_text, 2.55 if actor_type != "doll" else 1.35)
-			actor.add_child(existing_actor_marker)
-		existing_actor_marker.text = marker_text
-		existing_actor_marker.visible = true
-
-	for item in _items:
-		if not is_instance_valid(item) or not bool(item.get_meta("prerequisite_item", false)):
-			continue
-		var existing_item_marker := item.get_node_or_null("PlaytestMarker") as Label3D
-		if not _playtest_assist_enabled:
-			if existing_item_marker != null:
-				existing_item_marker.visible = false
-			continue
-		if existing_item_marker == null:
-			existing_item_marker = _make_playtest_marker("TEST  前置物：%s" % str(item.get_meta("display_name", "未登记物")), 1.75)
-			item.add_child(existing_item_marker)
-		existing_item_marker.visible = bool(item.get_meta("revealed", false)) and not bool(item.get_meta("collected", false))
-
-
-func _make_playtest_marker(marker_text: String, height: float) -> Label3D:
-	var marker := Label3D.new()
-	marker.name = "PlaytestMarker"
-	marker.text = marker_text
-	marker.position = Vector3(0.0, height, 0.0)
-	marker.font_size = 14
-	marker.pixel_size = 0.0024
-	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	marker.fixed_size = true
-	marker.modulate = FloorLookScript.tint("playtest_marker")
-	marker.outline_modulate = UiPalette.OUTLINE
-	marker.outline_size = 3
-	marker.no_depth_test = true
-	marker.render_priority = 20
-	return marker
 
 
 func sync_claimed_dolls(claimed_ids: Array[String]) -> void:

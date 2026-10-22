@@ -40,6 +40,7 @@ func _run() -> void:
 	_test_hiding_unregisters_and_later_writes_are_ignored()
 	_test_a_freed_panel_unregisters()
 	_test_rendering_repaints_what_the_models_cannot_tell()
+	_test_the_right_answer_is_not_marked()
 
 
 func _test_showing_registers_and_syncs_the_current_progress() -> void:
@@ -209,7 +210,26 @@ func _test_rendering_repaints_what_the_models_cannot_tell() -> void:
 	_dispose(mounted)
 
 
-func _mount() -> Dictionary:
+## The key NPC's correct choice reads like any other, even when a caller still hands the retired playtest switch.
+func _test_the_right_answer_is_not_marked() -> void:
+	var mounted := _mount({"playtest_assist_enabled": func() -> bool: return true})
+	var panel: RealityConversationPanel = mounted["panel"]
+	_model(PropertyKeysScript.CONVERSATION_ACTOR_TYPE).write("key_npc")
+	(_model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel).replace_all([
+		{"id": "right", "summary": "Right", "correct": true},
+		{"id": "wrong", "summary": "Wrong"},
+	])
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("choosing")
+	panel.set_shown(true)
+	var row := _node(mounted, "RealityResponseChoices")
+	var texts: Array[String] = []
+	for child in row.get_children():
+		texts.append((child as Button).text)
+	_assert_eq(texts, ["Right", "Wrong"], "the correct answer should carry no TEST mark")
+	_dispose(mounted)
+
+
+func _mount(extra_deps: Dictionary = {}) -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
 	var bus: GameEventBus = GameEventBusScript.new()
@@ -224,7 +244,7 @@ func _mount() -> Dictionary:
 	root.add_child(panel)
 	var state := {"day_line": "day line"}
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
-	panel.mount(host, {
+	var deps := {
 		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
 		"install_rich_text_effect": func(_label_node: RichTextLabel, _effect: String) -> void: pass,
 		"set_dialogue_text": func(label_node: RichTextLabel, value: String) -> void: label_node.text = value,
@@ -235,10 +255,11 @@ func _mount() -> Dictionary:
 		"last_spoken_sentence": func() -> String: return "",
 		"npc_understanding": func() -> int: return 100,
 		"choice_preview": func(choice_id: String) -> String: return "preview of %s" % choice_id,
-		"playtest_assist_enabled": func() -> bool: return false,
 		"typed_bbcode": func() -> String: return "typed",
 		"typing_unit_count": func() -> int: return 9,
-	})
+	}
+	deps.merge(extra_deps, true)
+	panel.mount(host, deps)
 	return {"host": host, "panel": panel, "state": state}
 
 

@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
 var _failures: Array[String] = []
 
 
@@ -30,7 +32,7 @@ func _run_async() -> void:
 	_test_social_feed(game_root)
 	_test_physical_doll_entry(game_root)
 	_test_phone_hides_street(game_root)
-	_test_language_and_playtest_contract(game_root)
+	_test_no_guidance_or_test_aids(game_root)
 	_test_world_prompt_and_bars_ignore_pollution(game_root)
 
 	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
@@ -87,7 +89,6 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "MemeBankPopup") == null, "retired meme ring popup must not hang into the adapter")
 	_assert_true(not FileAccess.file_exists("res://scripts/ui/meme_bank_panel.gd"), "retired meme bank panel source must not remain as a dead file")
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "retired 3D companion body must not exist")
-	_assert_true(_find_node_by_name(game_root, "DollGuideOverlay") is Control, "the DollGuide window must remain")
 	var backdrop := _find_node_by_name(game_root, "PhoneDownBackdropImage") as TextureRect
 	_assert_true(backdrop != null, "phone-down backdrop should remain")
 	if backdrop != null:
@@ -174,21 +175,20 @@ func _test_compact_hud_and_settings(game_root: Node) -> void:
 
 
 func _test_phone_apps(game_root: Node) -> void:
-	_assert_true(_find_node_by_name(game_root, "PhoneAppIconBabel") is Button, "phone should expose the tower archive")
+	var app_icons: Array[String] = []
+	for node in game_root.find_children("PhoneAppIcon*", "Button", true, false):
+		app_icons.append(str(node.name))
+	app_icons.sort()
+	_assert_eq(app_icons, ["PhoneAppIconNotebook", "PhoneAppIconSocial"], "the phone should offer only social media and the notebook")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconSocial") is Button, "phone should expose social media")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconNotebook") is Button, "phone should expose the notebook")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone should not expose the removed shop")
-	_assert_true(_find_node_by_name(game_root, "BabelAppWindow") is Control, "tower app should own a separate window")
+	_assert_true(_find_node_by_name(game_root, "BabelAppWindow") == null, "the removed tower app should have no window")
 	_assert_true(_find_node_by_name(game_root, "SocialAppWindow") is Control, "social app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "NotebookAppWindow") is Control, "notebook app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "ShopAppWindow") == null, "removed shop window should not be constructed")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceHeader") is Control, "notebook should explain complete sentence composition")
 	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "notebook should expose the free word canvas")
-	game_root.game.set_active_app("babel")
-	game_root._render()
-	_assert_true(_find_node_by_name(game_root, "BabelFloorHeading") is Label, "tower app should show the floor heading")
-	_assert_true(_find_node_by_name(game_root, "BabelFloorDangerLabel") is Label, "tower app should show the danger card line")
-	_assert_true(_find_node_by_name(game_root, "BabelFloorHintLabel") is Label, "tower app should show the hint card line")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
 	game_root._social_feed_panel.show_screen("publish")
@@ -260,22 +260,20 @@ func _test_phone_hides_street(game_root: Node) -> void:
 	_assert_true(not main_source.contains("_reality_scene_adapter.player.visible"), "the host should not set character node visibility")
 
 
-func _test_language_and_playtest_contract(game_root: Node) -> void:
+## Only the game is on screen, also in a debug build: no doll guide window, no playtest panel or
+## TEST markers, no tower app. The doll stays in the street as a character.
+func _test_no_guidance_or_test_aids(game_root: Node) -> void:
 	# 医生复述机制已退役:世界里不再生成医生,拼句面板也不该再被触发。
 	var doctor := _find_actor_by_type(game_root, "doctor")
 	_assert_true(doctor == null, "the retired doctor actor must not spawn any more")
-	var assist_panel := _find_node_by_name(game_root, "PlaytestAssistPanel") as Control
-	var assist_label := _find_node_by_name(game_root, "PlaytestAssistLabel") as Label
-	_assert_true(assist_panel != null and assist_label != null, "debug builds should expose the explicit playtest route panel")
-	if assist_label != null:
-		_assert_true(assist_label.text.contains("测试提示"), "playtest panel should state the current tutorial action plainly")
-	var guide := _find_actor_by_type(game_root, "doll")
-	var key_npc := _find_actor_by_type(game_root, "key_npc")
-	_assert_true(guide != null and guide.get_node_or_null("PlaytestMarker") is Label3D, "guide should have a debug-only world marker")
-	_assert_true(key_npc != null and key_npc.get_node_or_null("PlaytestMarker") is Label3D, "key NPC should have a debug-only world marker")
-	if guide != null:
-		var marker := guide.get_node_or_null("PlaytestMarker") as Label3D
-		_assert_true(marker != null and marker.font_size <= 16, "playtest labels should remain compact enough to reveal the world and actor")
+	_assert_true(OS.is_debug_build(), "the test should run in a debug build, where the test aids used to show")
+	game_root._render()
+	_assert_eq(Harness.guidance_leftovers(game_root), [], "a new game should show no guide, test aid or tower app")
+	_assert_true(_find_actor_by_type(game_root, "doll") != null, "the doll should stay in the street as a character")
+	_assert_true(_find_actor_by_type(game_root, "key_npc") != null, "the key NPC should stay in the street")
+	for retired_path in ["res://scripts/tutorial/tutorial_director.gd", "res://scripts/tutorial/guide_line.gd",
+			"res://scripts/ui/doll_guide_panel.gd", "res://scripts/ui/playtest_assist_panel.gd", "res://scripts/ui/babel_app_panel.gd"]:
+		_assert_true(not FileAccess.file_exists(retired_path), "%s should be removed" % retired_path)
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:

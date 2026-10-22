@@ -46,6 +46,8 @@ func _run() -> void:
 	_test_conversation_progress_lives_only_in_the_run_models()
 	_test_social_engagement_lives_only_in_the_run_models()
 	_test_progression_lives_only_in_the_run_models()
+	_test_there_is_no_tutorial_progress()
+	_test_a_save_on_the_tower_app_returns_to_social()
 	_test_event_log_and_history_live_only_in_the_run_models()
 	_test_holdings_and_posting_live_only_in_the_run_models()
 	_test_registering_a_listener_does_not_open_a_screen()
@@ -347,19 +349,19 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 	_assert_true(not source.get_phone_shell_snapshot().has("phone_open"), "the phone snapshot should not carry a second copy")
 
 	source.set_phone_open(true)
-	source.set_active_app("babel")
+	source.set_active_app("social")
 	var state_data: Dictionary = source.to_save_data().get("state", {})
 	_assert_eq(state_data.get("phone_open", null), true, "the run save should store the phone model")
-	_assert_eq(state_data.get("active_app_window", null), "babel", "the run save should store the foreground model")
+	_assert_eq(state_data.get("active_app_window", null), "social", "the run save should store the foreground model")
 	_assert_true(not state_data.has("phone_visible"), "the run save should not store a second copy of the phone")
 	open.write(false)
-	app.write("social")
+	app.write("notebook")
 	window.write("")
 	var restored = StateScript.new()
 	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
 	_assert_eq(open.read(), true, "loading should write the phone back through the model")
-	_assert_eq(app.read(), "babel", "loading should write the current app back through the model")
-	_assert_eq(window.read(), "babel", "loading should write the foreground back through the model")
+	_assert_eq(app.read(), "social", "loading should write the current app back through the model")
+	_assert_eq(window.read(), "social", "loading should write the foreground back through the model")
 	restored.new_run()
 	_assert_eq(window.read(), PropertyKeysScript.DEFAULT_APP, "a new run should reset the foreground on the same model")
 	open.write(false)
@@ -624,13 +626,12 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	RegistryScript.clear()
 	BootScript.install()
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var keys := [PropertyKeysScript.TUTORIAL_PROGRESS, PropertyKeysScript.ENDING_UNLOCKED, PropertyKeysScript.ENDING_ROUTE,
+	var keys := [PropertyKeysScript.ENDING_UNLOCKED, PropertyKeysScript.ENDING_ROUTE,
 		PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, PropertyKeysScript.FLOOR3_TASK_COMPLETE, PropertyKeysScript.FLOOR4_TASK_COMPLETE]
 	for key in keys:
 		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
 		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
 		_assert_true(manager.model(key) != null, "%s should have a model" % key)
-	var progress: MapPropertyModel = manager.model(PropertyKeysScript.TUTORIAL_PROGRESS) as MapPropertyModel
 	var unlocked: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_UNLOCKED) as ValuePropertyModel
 	var route: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_ROUTE) as ValuePropertyModel
 	var formal: ValuePropertyModel = manager.model(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE) as ValuePropertyModel
@@ -639,15 +640,6 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 
 	var source = StateScript.new()
 	source.new_run()
-	_assert_eq(str(progress.read().get("current_step_id", "")), "find_guide", "a new run should start the tutorial on the model")
-	_assert_eq(str(source.get_tutorial_step().get("id", "")), "find_guide", "the state should read the tutorial from the model")
-	var heard: Array = []
-	progress.register(func(value: Variant) -> void:
-		heard.append(str((value as Dictionary).get("current_step_id", "")))
-	)
-	source.notify_tutorial("guide_found")
-	_assert_eq(heard, ["find_guide", "open_social"], "a tutorial event should write the progress model once")
-	_assert_eq(str(progress.read().get("current_step_id", "")), "open_social", "the progress model should hold the new step")
 
 	source.ending_unlocked = true
 	source.ending_route = "hidden"
@@ -666,7 +658,6 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	var state_data: Dictionary = source.to_save_data().get("state", {})
 	_assert_eq(state_data.get("ending_route", ""), "hidden", "the run save should store the ending route")
 	_assert_eq(state_data.get("floor3_task_complete", false), true, "the run save should store the floor three task")
-	_assert_eq(str((state_data.get("tutorial_progress", {}) as Dictionary).get("current_step_id", "")), "open_social", "the run save should store the tutorial")
 	for key in keys:
 		(manager.model(key) as PropertyModel).reset()
 	var restored = StateScript.new()
@@ -676,7 +667,6 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	_assert_eq(formal.read(), true, "loading should write floor three completion back")
 	_assert_eq(floor3.read(), true, "loading should write the floor three task back")
 	_assert_eq(floor4.read(), true, "loading should write the floor four task back")
-	_assert_eq(str(progress.read().get("current_step_id", "")), "open_social", "loading should write the tutorial back")
 
 	restored.new_run()
 	_assert_eq(unlocked.read(), false, "a new run should clear the ending flag on the same model")
@@ -684,7 +674,45 @@ func _test_progression_lives_only_in_the_run_models() -> void:
 	_assert_eq(formal.read(), false, "a new run should clear floor three completion")
 	_assert_eq(floor3.read(), false, "a new run should clear the floor three task")
 	_assert_eq(floor4.read(), false, "a new run should clear the floor four task")
-	_assert_eq(str(progress.read().get("current_step_id", "")), "find_guide", "a new run should restart the tutorial")
+	RegistryScript.clear()
+
+
+## The tutorial is gone: no property, no model, no state field and no save field. An older save that
+## still carries tutorial progress loads and drops it.
+func _test_there_is_no_tutorial_progress() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	_assert_true(not (PropertyKeysScript as Script).get_script_constant_map().has("TUTORIAL_PROGRESS"), "the property keys should name no tutorial progress")
+	_assert_true(not PropertyKeysScript.run_names().has("tutorial_progress"), "the run should have no tutorial progress model")
+	var source = StateScript.new()
+	source.new_run()
+	for retired in ["notify_tutorial", "get_tutorial_step", "skip_tutorial", "replay_tutorial"]:
+		_assert_true(not source.has_method(retired), "the state should have no %s" % retired)
+	_assert_true(not "tutorial_progress" in source, "the state should hold no tutorial progress")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_true(not state_data.has("tutorial_progress"), "a new run should save no tutorial progress")
+	state_data["tutorial_progress"] = {"current_step_id": "open_social"}
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save that still carries tutorial progress should load")
+	_assert_true(not (restored.to_save_data().get("state", {}) as Dictionary).has("tutorial_progress"), "saving again should drop the tutorial progress")
+	RegistryScript.clear()
+
+
+## A save made with the removed tower app in front comes back on the social app, and the tower window stays closed.
+func _test_a_save_on_the_tower_app_returns_to_social() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var source = StateScript.new()
+	source.new_run()
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	state_data["active_app"] = "babel"
+	state_data["active_app_window"] = "babel"
+	state_data["open_app_windows"] = ["social", "babel"]
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save on the tower app should load")
+	_assert_eq(restored.active_app, "social", "the current app should fall back to social")
+	_assert_eq(restored.active_app_window, "social", "the foreground window should fall back to social")
+	_assert_true(not restored.is_app_window_open("babel"), "the tower window should not stay open")
 	RegistryScript.clear()
 
 

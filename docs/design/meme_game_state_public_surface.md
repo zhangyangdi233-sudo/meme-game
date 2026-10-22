@@ -74,7 +74,7 @@ Most other adapter usage is **read-only** field access (`game.view_state`, `game
 
 There are no daily actions, funds or day settlement (#108). `day` stays 1 and only seeds ids and rolls. A valid interaction (a post, a spoken conversation the player leaves, a pickup) runs the progress check when it completes; see "Valid interaction" in `CONTEXT.md`.
 
-`event_log` (newest first) is read from the `EVENT_LOG` run model as a copy; add a line with `record_event()`. The babel app watches it.
+`event_log` (newest first) is read from the `EVENT_LOG` run model as a copy; add a line with `record_event()`.
 
 ### Ending / tower progression
 
@@ -120,10 +120,6 @@ The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conv
 
 `new_run()`, `to_save_data()`, `load_save_data()`
 
-### Tutorial
-
-`notify_tutorial()`, `get_tutorial_step()`, `skip_tutorial()`, `replay_tutorial()`
-
 ### Phone / view — **slice 2A seam**
 
 | Kind | API |
@@ -156,7 +152,7 @@ Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new 
 | Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
 | Intent | `change_pollution(amount)`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
 
-The progress check runs inside the state when a valid interaction completes; the adapter presents its outcome (`_present_interaction_outcome`, `_present_progress`). The left HUD and the babel app watch the models themselves while shown.
+The progress check runs inside the state when a valid interaction completes; the adapter presents its outcome (`_present_interaction_outcome`, `_present_progress`). The left HUD watches the models itself while shown.
 
 ### Pollution / tower (legacy listing)
 
@@ -180,7 +176,7 @@ The progress check runs inside the state when a valid interaction completes; the
 | Intent | `choose_ending_language()`, `complete_floor_three()` |
 | Query | `get_ending_language_choices()`, `get_ending_language_output()` |
 
-The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. `ending_unlocked`, `ending_route`, `formal_floor_three_complete`, `floor3_task_complete`, `floor4_task_complete` and `tutorial_progress` live only in run property models (saved with the run, reset with a new run); the state's fields of the same names read and write the models.
+The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. `ending_unlocked`, `ending_route`, `formal_floor_three_complete`, `floor3_task_complete`, and `floor4_task_complete` live only in run property models (saved with the run, reset with a new run); the state's fields of the same names read and write the models.
 
 ### Ending (legacy listing)
 
@@ -378,7 +374,7 @@ The six day-progress facts moved into run property models. `day_progress_changed
 
 ## Slice 7 contract (progression / ending) — signal retired
 
-The six progression facts moved into run property models (`PropertyKeys.TUTORIAL_PROGRESS`, `ENDING_UNLOCKED`, `ENDING_ROUTE`, `FORMAL_FLOOR_THREE_COMPLETE`, `FLOOR3_TASK_COMPLETE`, `FLOOR4_TASK_COMPLETE`). `progression_changed` is gone; `get_progression_snapshot()` stays as a read of the models:
+The progression facts moved into run property models (`PropertyKeys.ENDING_UNLOCKED`, `ENDING_ROUTE`, `FORMAL_FLOOR_THREE_COMPLETE`, `FLOOR3_TASK_COMPLETE`, `FLOOR4_TASK_COMPLETE`). `progression_changed` is gone; `get_progression_snapshot()` stays as a read of the models:
 
 ```gdscript
 {
@@ -390,6 +386,6 @@ The six progression facts moved into run property models (`PropertyKeys.TUTORIAL
 }
 ```
 
-**Screens:** the doll guide and the playtest panel watch `TUTORIAL_PROGRESS` (the doll guide also watches the tower floor and the two floor tasks) and word their own lines through `GuideLine`, a pure function of those facts. The tutorial step query stays `TutorialDirector.current_step(progress)`.
+**Tutorial removed (#109):** the tutorial progress model, `TutorialDirector`, `GuideLine`, the doll guide window and the playtest panel are gone. A save that still carries `tutorial_progress` loads and drops it.
 
 **Host:** after a day settles, `_present_ending_if_unlocked()` asks whether the ending opened; `_render()` still moves to the ending screen when `ending_unlocked` is true.

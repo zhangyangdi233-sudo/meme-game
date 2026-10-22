@@ -129,9 +129,8 @@ const LIGHTS := {
 }
 
 
-## Fixed tints that no palette changes: markers, sprites, the disc path glow and the face scribble ink.
+## Fixed tints that no palette changes: sprites, the disc path glow and the face scribble ink.
 const TINTS := {
-	"playtest_marker": Color("D8FF66"),
 	"claimed_doll": Color(0.82, 0.90, 0.82, 1.0),
 	"cover_watcher": Color(0.76, 0.86, 0.58, 0.92),
 	"distant_mirage": Color(0.82, 0.92, 0.64, 1.0),

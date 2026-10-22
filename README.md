@@ -52,7 +52,7 @@ The notebook now hosts a Duolingo-style free composer: collected units sit in a 
 
 Rules are how the ultimate tasks resolve: floor 3 ends only after 门可以打开 (or its ja/en equivalent) holds — the sealed door prop retires and an open frame appears — and the hidden floor 4 ending unlocks only after 出口存在 makes the exit frame exist. Rules written early are redeemed on arrival; achieved tasks stay latched even if the rule is later negated. Finishing floor 3 without every prerequisite object enters the normal ending, even at 80% pollution. Reaching 80% after collecting all three revealed objects enters the hidden fourth floor and its special ending route. Neither route displays a hidden-condition checklist to the player.
 
-The stitched guide doll now also lives in a persistent draggable overlay (fold-only, never closable) that carries the tutorial lines and floor-task hints from the first frame to the last.
+The stitched doll stays in the street as a character to talk to. There is no guide overlay, tutorial flow or playtest marker: the screen shows only the game, in debug builds too.
 
 ## Localization and Saves
 
@@ -127,7 +127,7 @@ Run the localization audit with `res://tests/test_localization.gd`. It verifies 
 
 Run `res://tests/test_pickup_char_flow.gd` for the social pickup system: per-locale pool integrity (every unit seeded in a post, subject/verb/object words ≥2, rule-engine coverage), daily first-pickup action pricing, save round-trips, in-post highlight/gray states, comment sections, the notebook character bank, and the deterministic pickup flight layer.
 
-Run `res://tests/test_rule_engine.gd` for the sentence rule engine: dictionary merge, the three response tiers, free word order, negation polarity, and an exhaustive enumeration of every ≤3-word player sentence in all three locales proving the reachable rule set equals the supported table. Run `res://tests/test_sentence_composer.gd` for the composer state machine, posting economy, ultimate-task latching (including early rules redeemed on arrival and negation never revoking an achieved task), save round-trips, the doll guide overlay, and the floor 3/4 door and exit props.
+Run `res://tests/test_rule_engine.gd` for the sentence rule engine: dictionary merge, the three response tiers, free word order, negation polarity, and an exhaustive enumeration of every ≤3-word player sentence in all three locales proving the reachable rule set equals the supported table. Run `res://tests/test_sentence_composer.gd` for the composer state machine, posting economy, ultimate-task latching (including early rules redeemed on arrival and negation never revoking an achieved task), save round-trips, and the floor 3/4 door and exit props.
 
 Run `res://tests/test_reality_world.gd` for continuous architecture, authored NPC population, suspense lighting, walkable clearance, and zero jump-scare trigger volumes.
 

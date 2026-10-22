@@ -12,7 +12,7 @@ func _init() -> void:
 	_content_script = load("res://scripts/narrative/language_corruption_content.gd") as Script
 	_assert_true(_state_script != null and _content_script != null, "doll system dependencies should load")
 	if _state_script != null and _content_script != null:
-		test_three_authored_doll_appearances_offer_tutorial_responses()
+		test_three_authored_doll_appearances_offer_responses()
 		test_doll_choice_guides_once()
 		test_pollution_locked_doll_choice_stays_unavailable_until_ready()
 		test_ordinary_npc_never_grants_a_meme_frame()
@@ -27,7 +27,7 @@ func _init() -> void:
 		quit(1)
 
 
-func test_three_authored_doll_appearances_offer_tutorial_responses() -> void:
+func test_three_authored_doll_appearances_offer_responses() -> void:
 	var doll_ids: Array[String] = []
 	for floor_number in [1, 2, 3]:
 		var encounter: Dictionary = _content_script.get_doll_encounter_for_floor(floor_number)
@@ -40,7 +40,7 @@ func test_three_authored_doll_appearances_offer_tutorial_responses() -> void:
 		if turns.is_empty():
 			continue
 		var choices: Array = (turns[0] as Dictionary).get("choices", [])
-		_assert_eq(choices.size(), 3, "each guide appearance should offer three authored tutorial responses")
+		_assert_eq(choices.size(), 3, "each doll appearance should offer three authored responses")
 		for choice: Dictionary in choices:
 			_assert_true(not str(choice.get("guide_feedback", "")).is_empty(), "every guide response should explain the next step")
 			_assert_true(not choice.has("frame_id") and not choice.has("frame_label"), "guide responses must not retain obsolete frame rewards")
@@ -60,12 +60,11 @@ func test_doll_choice_guides_once() -> void:
 	_assert_true(doll_id in game.claimed_doll_ids, "the doll should remember that its first guidance was heard")
 	_assert_eq(str((game.doll_choice_results.get(doll_id, {}) as Dictionary).get("choice_id", "")), choice_id, "the selected intention should persist")
 	_assert_true(bool(game.conversation_reward.get("guided", false)), "the result surface should expose successful guidance")
-	_assert_eq(str(game.get_tutorial_step().get("id", "")), "open_social", "first guidance should advance onboarding to the phone")
 
 	_assert_true(game.start_typed_reality_conversation(doll_id, "doll", "缝线布偶"), "a claimed guide doll should still be speakable")
 	_finish_typed_turn(game, str(game.get_typed_reality_choices()[1].get("id", "")))
 	_assert_eq(game.owned_meme_frames, 0, "repeated guidance must not create frame stock")
-	_assert_true(bool(game.conversation_reward.get("duplicate", false)), "repeat dialogue should be identified without replaying tutorial progress")
+	_assert_true(bool(game.conversation_reward.get("duplicate", false)), "repeat dialogue should be identified as a duplicate")
 
 
 func test_pollution_locked_doll_choice_stays_unavailable_until_ready() -> void:
