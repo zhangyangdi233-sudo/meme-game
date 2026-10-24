@@ -9,6 +9,7 @@ const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
@@ -115,7 +116,7 @@ func _paint() -> void:
 		_hover_choice_id = ""
 	var typing := phase == "typing"
 	var result := phase == "result"
-	var linear := str(_values.get(PropertyKeysScript.CONVERSATION_MODE, "")) == PropertyKeysScript.LINEAR_CONVERSATION_MODE
+	var linear := str(_values.get(PropertyKeysScript.CONVERSATION_MODE, "")) == ChapterOneProgressScript.LINEAR_CONVERSATION_MODE
 	if linear:
 		choosing = false
 	var actor_label := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))

@@ -18,6 +18,9 @@ const OPENING_LINE_COUNT := 29
 ## The line shown when the knock sounds: the one right after the manuscript's knock stage direction.
 const KNOCK_LINE_INDEX := 26
 const BASEMENT_ROUND_COUNT := 5
+## A basement round's NPC, and the one-route conversation it holds (no choices, no button).
+const BASEMENT_NPC_ACTOR_TYPE := "basement_npc"
+const LINEAR_CONVERSATION_MODE := "linear"
 
 ## A new run's progress. `PropertyKeys` uses it as the model's initial value.
 const INITIAL := {

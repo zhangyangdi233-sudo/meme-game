@@ -11,7 +11,6 @@ const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progres
 const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
-const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 
 const OPENING_MODEL_PATH := "res://assets/chapter1/Opening_WhiteDoor_v2.glb"
@@ -302,7 +301,7 @@ func _build_npc(npc_texture: Texture2D) -> void:
 	_npc.collision_layer = 2
 	_npc.collision_mask = 0
 	_npc.set_meta("actor_id", "basement_npc_%d" % _round)
-	_npc.set_meta("actor_type", PropertyKeysScript.BASEMENT_NPC_ACTOR_TYPE)
+	_npc.set_meta("actor_type", ChapterOneProgressScript.BASEMENT_NPC_ACTOR_TYPE)
 	_npc.set_meta("display_name", str(route.get("actor_label", "")))
 	var collision := CollisionShape3D.new()
 	collision.name = "InteractionShape"
