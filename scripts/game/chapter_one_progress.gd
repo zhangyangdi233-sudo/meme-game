@@ -172,9 +172,9 @@ static func app_unlocked_by_delivery(progress: Dictionary) -> String:
 ## The apps the deliveries so far have unlocked, in unlock order; on the tower every app.
 static func earned_apps(progress: Dictionary) -> Array[String]:
 	var apps: Array[String] = []
+	var current := round_of(progress)
 	for app_id in APP_UNLOCK_ROUNDS:
 		var unlock_round := int(APP_UNLOCK_ROUNDS[app_id])
-		var current := round_of(progress)
 		if phase_of(progress) == PHASE_TOWER or unlock_round < current or (unlock_round == current and exit_open(progress)):
 			apps.append(str(app_id))
 	return apps

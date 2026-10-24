@@ -458,7 +458,6 @@ func _on_unlocked_apps(value: Variant) -> void:
 			continue
 		var locked := not _unlocked_apps.has(app_id)
 		icon.disabled = locked
-		icon.set_meta("locked", locked)
 		icon.modulate.a = 0.45 if locked else 1.0
 		icon.tooltip_text = "尚未解锁" if locked else ""
 

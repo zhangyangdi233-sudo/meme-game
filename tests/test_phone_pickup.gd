@@ -22,6 +22,7 @@ func _init() -> void:
 	test_a_save_keeps_the_phone_and_the_unlocked_apps_apart()
 	test_a_save_without_the_phone_loads_with_it_put_away()
 	test_broken_saved_apps_are_dropped()
+	test_a_locked_app_is_never_in_front()
 	test_an_older_save_gets_what_its_progress_earned()
 	test_skipping_chapter_one_hands_over_the_phone_and_every_app()
 	test_jumping_to_a_round_hands_over_what_earlier_rounds_earned()
@@ -137,6 +138,19 @@ func test_broken_saved_apps_are_dropped() -> void:
 	var restored := StateScript.new()
 	_assert_true(restored.load_save_data(save), "the save should load")
 	_assert_eq(restored.unlocked_apps, ["social"], "unknown, repeated or broken apps should be dropped")
+
+
+func test_a_locked_app_is_never_in_front() -> void:
+	var game: MemeGameState = _basement_game(1)
+	game.pick_up_phone()
+	game.set_view_state("phone_down")
+	var save := game.to_save_data()
+	(save["state"] as Dictionary)[PropertyKeysScript.ACTIVE_APP_WINDOW] = "social"
+	var restored := StateScript.new()
+	_assert_true(restored.load_save_data(save), "the save should load")
+	_assert_eq(restored.view_state, "phone_down", "the owned phone should come back raised")
+	_assert_eq(restored.active_app_window, "", "a locked app should not come back in front")
+	_assert_true(not restored.is_app_window_open("social"), "a locked app's window should stay closed")
 
 
 func test_an_older_save_gets_what_its_progress_earned() -> void:

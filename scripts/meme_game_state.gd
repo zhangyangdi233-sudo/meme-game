@@ -504,7 +504,8 @@ func load_save_data(save_data: Dictionary) -> bool:
 	if view_state == "npc_up":
 		phone_open = false
 		active_app_window = ""
-	open_app_window(active_app_window)
+	else:
+		_bring_active_app_forward()
 	reset_typed_reality_conversation()
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
@@ -601,9 +602,7 @@ func set_view_state(value: String) -> bool:
 	view_state = value
 	if view_state == "phone_down":
 		phone_open = true
-		if active_app_window.is_empty() and is_app_unlocked(active_app):
-			active_app_window = active_app
-		open_app_window(active_app_window)
+		_bring_active_app_forward()
 	else:
 		phone_open = false
 		active_app_window = ""
@@ -682,9 +681,16 @@ func _hand_over_earned_phone() -> void:
 	if not phone_owned:
 		set_view_state("npc_up")
 	elif view_state == "phone_down":
-		if active_app_window.is_empty() and is_app_unlocked(active_app):
-			active_app_window = active_app
-		open_app_window(active_app_window)
+		_bring_active_app_forward()
+
+
+## A raised phone brings the last chosen app to the front once it is unlocked; a locked app is never in front.
+func _bring_active_app_forward() -> void:
+	if not active_app_window.is_empty() and not is_app_unlocked(active_app_window):
+		active_app_window = ""
+	if active_app_window.is_empty() and is_app_unlocked(active_app):
+		active_app_window = active_app
+	open_app_window(active_app_window)
 
 
 func _step_chapter_one(next: Dictionary) -> bool:

@@ -59,7 +59,7 @@ Game module that assembles one tower floor from catalogs and snapshots: who stan
 _Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models
 
 **Interaction outcome**:
-The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built) the basement CRT (`terminal`: in reach in front of its glass, then entered until the player leaves) and the phone on the basement's table (`phone`: in reach while it lies there; picking it up takes it off the table). The basement round's NPC is an ordinary actor outcome (`actor_type` `basement_npc`). Host and Reality HUD read this instead of live world objects.
+The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built), the basement CRT (`terminal`: in reach in front of its glass, then entered until the player leaves) and the phone on the basement's table (`phone`: in reach while it lies there; picking it up takes it off the table). The basement round's NPC is an ordinary actor outcome (`actor_type` `basement_npc`). Host and Reality HUD read this instead of live world objects.
 _Avoid_: publish outcome (pollution gain), live actor/item, treating the whole nearby crowd as the API
 
 **Valid interaction**:

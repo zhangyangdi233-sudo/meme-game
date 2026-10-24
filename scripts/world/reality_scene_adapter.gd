@@ -722,7 +722,6 @@ func _terminal_in_reach() -> bool:
 	return offset.length() <= TERMINAL_REACH_RADIUS
 
 
-## Turns the look to the CRT's glass from the pushed-in view.
 func _phone_in_reach() -> bool:
 	var phone := _chapter_stage.phone_position()
 	if phone == Vector3.ZERO:
@@ -732,6 +731,7 @@ func _phone_in_reach() -> bool:
 	return offset.length() <= PHONE_REACH_RADIUS
 
 
+## Turns the look to the CRT's glass from the pushed-in view.
 func _face_terminal() -> void:
 	var direction := _crt_screen().center() - _terminal_view_position()
 	yaw = rad_to_deg(atan2(-direction.x, -direction.z))
