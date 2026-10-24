@@ -21,6 +21,8 @@ const BASEMENT_ROUND_COUNT := 5
 ## A basement round's NPC, and the one-route conversation it holds (no choices, no button).
 const BASEMENT_NPC_ACTOR_TYPE := "basement_npc"
 const LINEAR_CONVERSATION_MODE := "linear"
+## The phone's apps and the basement round whose delivery unlocks each, in unlock order. The tower has them all.
+const APP_UNLOCK_ROUNDS := {"social": 1, "notebook": 3}
 
 ## A new run's progress. `PropertyKeys` uses it as the model's initial value.
 const INITIAL := {
@@ -155,6 +157,33 @@ static func leave_round(progress: Dictionary) -> Dictionary:
 	next["round"] = round_of(progress) + 1
 	next["delivered"] = false
 	return next
+
+
+## The app this round's delivery unlocks, or empty when it unlocks none (or the round is not delivered).
+static func app_unlocked_by_delivery(progress: Dictionary) -> String:
+	if not exit_open(progress):
+		return ""
+	for app_id in APP_UNLOCK_ROUNDS:
+		if int(APP_UNLOCK_ROUNDS[app_id]) == round_of(progress):
+			return str(app_id)
+	return ""
+
+
+## The apps the deliveries so far have unlocked, in unlock order; on the tower every app.
+static func earned_apps(progress: Dictionary) -> Array[String]:
+	var apps: Array[String] = []
+	for app_id in APP_UNLOCK_ROUNDS:
+		var unlock_round := int(APP_UNLOCK_ROUNDS[app_id])
+		var current := round_of(progress)
+		if phase_of(progress) == PHASE_TOWER or unlock_round < current or (unlock_round == current and exit_open(progress)):
+			apps.append(str(app_id))
+	return apps
+
+
+## Whether a run that got this far must already carry the phone: it lies on the basement's table in round one, so
+## any later round or the tower has it. Used where nobody saw it picked up (a jump, a save made before it existed).
+static func phone_earned(progress: Dictionary) -> bool:
+	return phase_of(progress) == PHASE_TOWER or round_of(progress) > 1
 
 
 ## Development seam: starts a basement round fresh, as if the opening had been played. Out-of-range rounds are refused.

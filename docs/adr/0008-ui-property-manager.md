@@ -45,3 +45,5 @@ Amended (#108): the action economy models (`money`, `actions_remaining`, `max_ac
 Amended (#109): the tutorial progress model (`tutorial_progress`) is removed, and with it the doll guide window, the playtest panel and the tower app that watched it or the floor facts. A save that still carries `tutorial_progress` loads and drops it; a save on the tower app comes back on the social app.
 
 Amended (#111): the basement CRT terminal's VHS look is a preference model (`terminal_vhs_enabled`, saved under `visual` in the preferences file). The settings window and the host watch it; the full-screen VHS is still the host's own value.
+
+Amended (#113): owning the phone (`phone_owned`) and the unlocked phone apps (`unlocked_apps`) are two run models saved with the run, apart from each other. The phone launcher watches the unlocked apps and disables a locked icon; the state refuses to raise a phone that is not owned and to open a locked app's window.

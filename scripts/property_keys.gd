@@ -54,6 +54,10 @@ const WORLD_RULES := "world_rules"
 const CHAPTER_ONE_PROGRESS := "chapter_one_progress"
 ## Whether the player already typed a whole conversation line, so the first-time typing hint stays hidden.
 const TYPING_HINT_SEEN := "typing_hint_seen"
+## Whether the player picked up the phone from the basement's table. Saved apart from which apps are unlocked.
+const PHONE_OWNED := "phone_owned"
+## The phone apps a basement NPC's delivery unlocked, in unlock order. Until then an app's icon does nothing.
+const UNLOCKED_APPS := "unlocked_apps"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
@@ -123,6 +127,8 @@ const FACTS: Array[Dictionary] = [
 	{"name": WORLD_RULES, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": CHAPTER_ONE_PROGRESS, "initial": ChapterOneProgressScript.INITIAL, "save": SAVED_WITH_RUN},
 	{"name": TYPING_HINT_SEEN, "initial": false, "save": SAVED_WITH_RUN},
+	{"name": PHONE_OWNED, "initial": false, "save": SAVED_WITH_RUN},
+	{"name": UNLOCKED_APPS, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": LOCALE, "initial": DEFAULT_LOCALE, "save": PREFERENCE},
 	{"name": MASTER_VOLUME, "initial": DEFAULT_MASTER_VOLUME, "min": 0.0, "max": 100.0, "save": PREFERENCE},
 	{"name": TERMINAL_VHS_ENABLED, "initial": true, "save": PREFERENCE},

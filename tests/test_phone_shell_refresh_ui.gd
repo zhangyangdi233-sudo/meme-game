@@ -182,12 +182,15 @@ func _test_phone_popup_follows_the_phone_model() -> void:
 	_assert_eq(open.changed.get_connections().size(), 1, "the shown phone should listen to the phone model once")
 
 	open.write(false)
+	# The phone slides out before it hides.
+	game_root._phone_launcher_panel._process(1.0)
 	_assert_true(popup != null and not popup.visible, "writing the phone model closed should hide the popup without a refresh")
 	open.write(true)
 	_assert_true(popup != null and popup.visible, "writing the phone model open should show the popup without a refresh")
 
 	game_root.set_view_state("npc_up")
 	await process_frame
+	game_root._phone_launcher_panel._process(1.0)
 	_assert_true(popup != null and not popup.visible, "putting the phone down should hide the popup")
 	_assert_eq(open.changed.get_connections().size(), 1, "putting the phone down should keep one registration while the play chrome is shown")
 	game_root.set_view_state("phone_down")

@@ -3,7 +3,8 @@ extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
 ## the knock behind it) or one basement round (a room with the CRT terminal, the round's NPC and an exit), each from
 ## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
-## bounds, the light, the doors and their colliders, the NPC and the CRT's glass.
+## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
+## until the player owns it.
 ## The adapter drives it; the knock finishing and the player walking out through the basement's open exit are raised
 ## as game events for the state to record.
 
@@ -56,6 +57,15 @@ const EXIT_WALKED_OUT_X := -3.45
 ## The round's NPC stands at the model's NPC anchor, behind the partition, facing the room.
 const BASEMENT_NPC_POSITION := Vector3(0.0, 0.02, -3.7)
 const BASEMENT_NPC_HEIGHT := 1.75
+## The small table against the east wall, between the stairs and the CRT: its center on the floor and its size. The
+## model has none, so it is built from boxes.
+const TABLE_POSITION := Vector3(2.55, 0.0, 0.6)
+const TABLE_SIZE := Vector3(0.5, 0.72, 0.5)
+const TABLE_COLOR := Color(0.24, 0.15, 0.09)
+## The phone lying on the table: a dark slab with a faintly lit screen.
+const PHONE_SIZE := Vector3(0.075, 0.012, 0.155)
+const PHONE_COLOR := Color(0.05, 0.05, 0.06)
+const PHONE_SCREEN_GLOW := Color(0.32, 0.42, 0.5)
 
 var phase := ""
 var _model: Node3D
@@ -78,17 +88,18 @@ var _entry_target := 1.0
 var _exit_ratio := 0.0
 var _exit_target := 0.0
 var _exit_reported := false
+var _phone: MeshInstance3D
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING` or `PHASE_BASEMENT`); a basement is
-## built for its round, with that round's NPC shown by `npc_texture`.
-func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null) -> bool:
+## built for its round, with that round's NPC shown by `npc_texture` and the phone on the table while nobody owns it.
+func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null, phone_on_table: bool = false) -> bool:
 	phase = stage_phase
 	_round = round_number
 	if phase == ChapterOneProgressScript.PHASE_OPENING:
 		return _build_opening()
 	if phase == ChapterOneProgressScript.PHASE_BASEMENT:
-		return _build_basement(npc_texture)
+		return _build_basement(npc_texture, phone_on_table)
 	push_error("ChapterOneStage has no stage for phase '%s'" % phase)
 	return false
 
@@ -130,6 +141,20 @@ func interactable_actors() -> Array[Area3D]:
 	if _npc != null:
 		actors.append(_npc)
 	return actors
+
+
+## Where the phone lies on the table; zero when no phone is there.
+func phone_position() -> Vector3:
+	return _phone.position if _phone != null else Vector3.ZERO
+
+
+## The player picked the phone up: it leaves the table.
+func take_phone() -> void:
+	if _phone == null:
+		return
+	_phone.get_parent().remove_child(_phone)
+	_phone.queue_free()
+	_phone = null
 
 
 ## Where the basement exit's doorway meets the floor; zero when there is no exit.
@@ -236,7 +261,7 @@ func _process(delta: float) -> void:
 		_swing(_exit_door, _exit_ratio)
 
 
-func _build_basement(npc_texture: Texture2D) -> bool:
+func _build_basement(npc_texture: Texture2D, phone_on_table: bool) -> bool:
 	if not _instance_model(BASEMENT_MODEL_PATH, "BasementRoom"):
 		return false
 	_entry_door = _bind_basement_door(ENTRY_DOOR_PIVOT)
@@ -244,6 +269,7 @@ func _build_basement(npc_texture: Texture2D) -> bool:
 	_swing(_entry_door, _entry_ratio)
 	_swing(_exit_door, _exit_ratio)
 	_build_npc(npc_texture)
+	_build_table(phone_on_table)
 	_bounds = BASEMENT_BOUNDS
 	_spawn = BASEMENT_SPAWN
 	_spawn_yaw = BASEMENT_SPAWN_YAW
@@ -323,6 +349,58 @@ func _build_npc(npc_texture: Texture2D) -> void:
 	sprite.double_sided = true
 	_npc.add_child(sprite)
 	add_child(_npc)
+
+
+func _build_table(phone_on_table: bool) -> void:
+	var table := StaticBody3D.new()
+	table.name = "BasementTable"
+	table.position = TABLE_POSITION
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = TABLE_SIZE
+	shape.shape = box
+	shape.position.y = TABLE_SIZE.y * 0.5
+	table.add_child(shape)
+	var top := MeshInstance3D.new()
+	top.name = "Top"
+	var top_mesh := BoxMesh.new()
+	top_mesh.size = Vector3(TABLE_SIZE.x, 0.04, TABLE_SIZE.z)
+	top.mesh = top_mesh
+	top.position.y = TABLE_SIZE.y - 0.02
+	top.material_override = _flat_material(TABLE_COLOR)
+	table.add_child(top)
+	var leg_height := TABLE_SIZE.y - 0.04
+	for corner in [Vector2(-1, -1), Vector2(-1, 1), Vector2(1, -1), Vector2(1, 1)]:
+		var leg := MeshInstance3D.new()
+		var leg_mesh := BoxMesh.new()
+		leg_mesh.size = Vector3(0.04, leg_height, 0.04)
+		leg.mesh = leg_mesh
+		leg.position = Vector3(corner.x * (TABLE_SIZE.x * 0.5 - 0.03), leg_height * 0.5, corner.y * (TABLE_SIZE.z * 0.5 - 0.03))
+		leg.material_override = top.material_override
+		table.add_child(leg)
+	add_child(table)
+	if not phone_on_table:
+		return
+	_phone = MeshInstance3D.new()
+	_phone.name = "BasementPhone"
+	var phone_mesh := BoxMesh.new()
+	phone_mesh.size = PHONE_SIZE
+	_phone.mesh = phone_mesh
+	_phone.position = TABLE_POSITION + Vector3(0.0, TABLE_SIZE.y + PHONE_SIZE.y * 0.5, 0.0)
+	_phone.rotation_degrees.y = 18.0
+	var phone_material := _flat_material(PHONE_COLOR)
+	phone_material.emission_enabled = true
+	phone_material.emission = PHONE_SCREEN_GLOW
+	phone_material.emission_energy_multiplier = 0.35
+	_phone.material_override = phone_material
+	add_child(_phone)
+
+
+func _flat_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.8
+	return material
 
 
 func _instance_model(path: String, node_name: String) -> bool:

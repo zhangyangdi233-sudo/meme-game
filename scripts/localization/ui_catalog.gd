@@ -134,6 +134,10 @@ const EN: Dictionary = {
 	"F  %s · %s": "F  %s · %s",
 	"F  开门": "F  OPEN THE DOOR",
 	"F  使用终端": "F  USE THE TERMINAL",
+	"F  拾取手机": "F  PICK UP THE PHONE",
+	"你拿起桌上的手机。屏幕右侧留着一道可以拉开的边。": "You pick up the phone from the table. An edge you can pull out stays on the right of the screen.",
+	"收起手机": "Put the phone away",
+	"拿出手机": "Take the phone out",
 	"点击鼠标或触摸板继续": "Click or tap to continue",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.
@@ -650,6 +654,10 @@ const JA: Dictionary = {
 	"F  %s · %s": "F  %s · %s",
 	"F  开门": "F  ドアを開ける",
 	"F  使用终端": "F  端末を使う",
+	"F  拾取手机": "F  携帯を拾う",
+	"你拿起桌上的手机。屏幕右侧留着一道可以拉开的边。": "机の上の携帯を手に取った。画面の右端に引き出せる縁が残っている。",
+	"收起手机": "携帯をしまう",
+	"拿出手机": "携帯を出す",
 	"点击鼠标或触摸板继续": "クリックで次へ",
 
 	# Language menu, floor cards, prerequisite objects, and dialogue receipts.

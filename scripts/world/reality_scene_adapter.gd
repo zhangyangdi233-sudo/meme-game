@@ -4,7 +4,8 @@ class_name RealitySceneAdapter
 ## Crosses the host seam with nearby / interaction outcomes and pose. Host sends snapshot intents.
 ## Chapter one's opening and basement are a chapter stage built here instead of a tower floor; the tower street is
 ## built when the deps carry no chapter progress or a tower one. The basement's CRT is a `terminal` outcome: entering
-## it pushes the view in to its glass (`view_position` on the look pose) and leaving gives the look back.
+## it pushes the view in to its glass (`view_position` on the look pose) and leaving gives the look back. The phone
+## lying on the basement's table while nobody owns it is a `phone` outcome; picking it up takes it off the table.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
@@ -31,6 +32,8 @@ const TERMINAL_REACH_RADIUS := 0.9
 ## The pushed-in view fills this share of the main camera's height with the CRT's glass.
 const TERMINAL_VIEW_FILL := 0.72
 const TERMINAL_VIEW_FOV := 58.0
+## How far from the phone on the table the player may stand for it to answer.
+const PHONE_REACH_RADIUS := 1.1
 
 signal nearby_targets_changed()
 
@@ -55,6 +58,7 @@ var _built_stage := ""
 var _built_round := 0
 var _nearby_door := false
 var _nearby_terminal := false
+var _nearby_phone := false
 var _terminal_active := false
 ## Seconds into opening the white door, or a negative value when no door is opening.
 var _door_time := -1.0
@@ -109,6 +113,7 @@ func clear_nearby_targets() -> void:
 	nearby_item = null
 	_nearby_door = false
 	_nearby_terminal = false
+	_nearby_phone = false
 
 
 func rebuild_floor(deps: Dictionary) -> void:
@@ -297,6 +302,13 @@ func chapter_npc_position() -> Vector3:
 	return _chapter_stage.interactable_actors()[0].global_position
 
 
+## Where the phone lies on the basement's table; zero when no phone is there.
+func chapter_phone_position() -> Vector3:
+	if _chapter_stage == null:
+		return Vector3.ZERO
+	return _chapter_stage.phone_position()
+
+
 ## Where the basement exit's doorway meets the floor; zero when no stage has one.
 func chapter_exit_position() -> Vector3:
 	if _chapter_stage == null:
@@ -319,6 +331,7 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_item := nearby_item
 	var previous_door := _nearby_door
 	var previous_terminal := _nearby_terminal
+	var previous_phone := _nearby_phone
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
 		or _interaction_active
@@ -328,14 +341,20 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 		or player == null
 	):
 		clear_nearby_targets()
-		if previous_actor != null or previous_item != null or previous_door or previous_terminal:
+		if previous_actor != null or previous_item != null or previous_door or previous_terminal or previous_phone:
 			nearby_targets_changed.emit()
 		return
 	if _chapter_stage != null:
 		_nearby_door = _door_in_reach(deps)
 		_nearby_terminal = _terminal_in_reach()
+		_nearby_phone = _phone_in_reach()
 		nearby_actor = _nearest_actor(_chapter_stage.interactable_actors())
-		if previous_door != _nearby_door or previous_terminal != _nearby_terminal or previous_actor != nearby_actor:
+		if (
+			previous_door != _nearby_door
+			or previous_terminal != _nearby_terminal
+			or previous_phone != _nearby_phone
+			or previous_actor != nearby_actor
+		):
 			nearby_targets_changed.emit()
 		return
 	var nearest: Area3D = null
@@ -385,6 +404,11 @@ func nearby_outcome() -> Dictionary:
 		return {
 			"kind": "terminal",
 			"action": "enter_terminal",
+		}
+	if _nearby_phone:
+		return {
+			"kind": "phone",
+			"action": "pick_up_phone",
 		}
 	if nearby_item != null:
 		return {
@@ -462,6 +486,13 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 			_nearby_terminal = false
 			_terminal_active = true
 			player.velocity = Vector3.ZERO
+			nearby_targets_changed.emit()
+		return interaction_outcome()
+	if action == "pick_up_phone":
+		if _chapter_stage != null:
+			_chapter_stage.take_phone()
+		if _nearby_phone:
+			_nearby_phone = false
 			nearby_targets_changed.emit()
 		return interaction_outcome()
 	if action == "end":
@@ -648,7 +679,9 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	_chapter_stage = ChapterOneStageScript.new()
 	_chapter_stage.name = "ChapterOneStage"
 	_host.add_child(_chapter_stage)
-	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number))
+	# Deps that do not say the phone is missing (the tower, older callers) lay no phone on the table.
+	var phone_on_table := not bool(deps.get("phone_owned", true))
+	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table)
 	_chapter_stage.set_paused(_paused)
 	_chapter_stage.visible = _street_shown()
 	_built_stage = stage_phase
@@ -690,6 +723,15 @@ func _terminal_in_reach() -> bool:
 
 
 ## Turns the look to the CRT's glass from the pushed-in view.
+func _phone_in_reach() -> bool:
+	var phone := _chapter_stage.phone_position()
+	if phone == Vector3.ZERO:
+		return false
+	var offset: Vector3 = phone - player.position
+	offset.y = 0.0
+	return offset.length() <= PHONE_REACH_RADIUS
+
+
 func _face_terminal() -> void:
 	var direction := _crt_screen().center() - _terminal_view_position()
 	yaw = rad_to_deg(atan2(-direction.x, -direction.z))

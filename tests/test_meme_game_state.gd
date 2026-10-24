@@ -93,6 +93,8 @@ func test_social_engagement_lives_in_the_models() -> void:
 func test_phone_shell_state_lives_in_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	# The tower street is played with the phone and every app.
+	game.skip_chapter_one()
 
 	var initial: Dictionary = game.get_phone_shell_snapshot()
 	_assert_eq(str(initial.get("view_state", "")), "phone_down", "new run should start phone-down")

@@ -66,6 +66,8 @@ const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 
 const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
+## The narrow tab on the right edge that slides the phone in and out.
+const PHONE_EDGE_TAB_SIZE := Vector2(24.0, 112.0)
 const GUIDE_DOLL_CHARACTER_PATH := "res://assets/generated/characters/guide_doll.png"
 const NPC_CHARACTER_PATHS := [
 	"res://assets/generated/characters/npc_late_arrival.png",
@@ -835,6 +837,7 @@ func _reality_scene_deps() -> Dictionary:
 		"floor3_task_complete": game.floor3_task_complete if game != null else false,
 		"floor4_task_complete": game.floor4_task_complete if game != null else false,
 		"chapter_one_progress": game.chapter_one_progress if game != null else ChapterOneProgressScript.tower(),
+		"phone_owned": game.phone_owned if game != null else true,
 	}
 
 
@@ -1156,7 +1159,20 @@ func _try_reality_interaction() -> bool:
 			return _open_reality_door()
 		"enter_terminal":
 			return _enter_terminal()
+		"pick_up_phone":
+			return _pick_up_phone()
 	return false
+
+
+## Picking up the phone from the basement's table: the state owns it, the adapter takes it off the table, and the
+## edge tab and Tab can raise it from now on.
+func _pick_up_phone() -> bool:
+	if not game.pick_up_phone():
+		return false
+	_reality_scene_adapter.apply_interaction({"action": "pick_up_phone"})
+	_write_feedback_text("你拿起桌上的手机。屏幕右侧留着一道可以拉开的边。")
+	_refresh_play_surfaces()
+	return true
 
 
 func _begin_reality_actor_interaction(outcome: Dictionary) -> bool:
@@ -1460,14 +1476,10 @@ func _build_ui() -> void:
 	_ensure_notebook_app_panel()
 	_ensure_crt_terminal_panel()
 
+	# The tab sticking out of the right edge once the phone is owned: it slides the phone in and out like Tab.
 	_view_toggle_button = Button.new()
 	_view_toggle_button.name = "PhoneViewToggleButton"
-	_view_toggle_button.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_view_toggle_button.offset_left = 470
-	_view_toggle_button.offset_top = -92
-	_view_toggle_button.offset_right = 596
-	_view_toggle_button.offset_bottom = -36
-	_view_toggle_button.custom_minimum_size = Vector2(126, 56)
+	_view_toggle_button.custom_minimum_size = PHONE_EDGE_TAB_SIZE
 	_view_toggle_button.z_index = 42
 	_view_toggle_button.pressed.connect(_toggle_view_state)
 	_ui_root.add_child(_view_toggle_button)
@@ -1500,8 +1512,11 @@ func _reading_opening_narration() -> bool:
 	return game != null and ChapterOneProgressScript.is_reading_narration(game.chapter_one_progress)
 
 
-## The narration locks the phone until it is read, and a door that is opening keeps it down.
+## The phone cannot be raised before it is picked up; the narration locks it until it is read, and a door that is
+## opening keeps it down.
 func _phone_locked() -> bool:
+	if game != null and not game.phone_owned:
+		return true
 	return _reading_opening_narration() or _reality_door_opening() or _terminal_is_open()
 
 
@@ -2324,29 +2339,18 @@ func _apply_reality_layout() -> void:
 		_reality_conversation_panel.layout(hud_right)
 
 
+## The edge tab sits on the right edge, halfway down, at every window size.
 func _apply_view_toggle_layout() -> void:
 	if _view_toggle_button == null:
 		return
-	var viewport_size := _viewport_size()
-	_view_toggle_button.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	if viewport_size.x >= 760.0:
-		_view_toggle_button.offset_left = 470.0
-		_view_toggle_button.offset_top = -92.0
-		_view_toggle_button.offset_right = 596.0
-		_view_toggle_button.offset_bottom = -36.0
-		return
-	var safe_left := 12.0
-	var hud_rail := _hud_rail()
-	if hud_rail != null:
-		safe_left = hud_rail.offset_right + 12.0
-	var safe_right := viewport_size.x - 12.0
-	var available_width := maxf(126.0, safe_right - safe_left)
-	var button_width := minf(220.0, available_width)
-	var button_left := safe_left + (available_width - button_width) * 0.5
-	_view_toggle_button.offset_left = button_left
-	_view_toggle_button.offset_top = -76.0
-	_view_toggle_button.offset_right = button_left + button_width
-	_view_toggle_button.offset_bottom = -20.0
+	_view_toggle_button.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	# A wider label grows the tab into the screen, never past the edge.
+	_view_toggle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_view_toggle_button.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_view_toggle_button.offset_left = -PHONE_EDGE_TAB_SIZE.x
+	_view_toggle_button.offset_right = 0.0
+	_view_toggle_button.offset_top = -PHONE_EDGE_TAB_SIZE.y * 0.5
+	_view_toggle_button.offset_bottom = PHONE_EDGE_TAB_SIZE.y * 0.5
 
 
 func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
@@ -2477,6 +2481,8 @@ func _render_world_prompt() -> void:
 				_world_prompt.text = "F  开门"
 			"terminal":
 				_world_prompt.text = "F  使用终端"
+			"phone":
+				_world_prompt.text = "F  拾取手机"
 			_:
 				_world_prompt.text = ""
 
@@ -2758,7 +2764,8 @@ func _update_world_for_phone_view() -> void:
 			and not _phone_locked()
 			and (in_phone or not _reality_interaction_is_active())
 		)
-		_view_toggle_button.text = "放下手机" if in_phone else "拿起手机"
+		_view_toggle_button.text = ">" if in_phone else "<"
+		_view_toggle_button.tooltip_text = "收起手机" if in_phone else "拿出手机"
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.set_street_shown(not in_phone)
 	if _cinematic_bars != null:
@@ -3054,7 +3061,10 @@ func _on_ending_language_selected(choice_id: String) -> void:
 	game.choose_ending_language(choice_id)
 
 
+## A locked app's icon does nothing until a basement delivery unlocks it.
 func _on_app_pressed(app_id: String) -> void:
+	if not game.is_app_unlocked(app_id):
+		return
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	game.set_active_app(app_id)

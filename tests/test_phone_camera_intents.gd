@@ -2,6 +2,7 @@ extends SceneTree
 ## Phone launcher, camera consent, and phone-camera connection raise their actions on the event bus.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -61,6 +62,9 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
 	})
 	panel.set_shown(true)
+	# A locked app's icon raises nothing; the social feed is unlocked here.
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	(manager.model(PropertyKeysScript.UNLOCKED_APPS) as ListPropertyModel).add("social")
 
 	_press(host, "PhoneAppIconSocial")
 	_assert_eq(_heard, [[UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "social"}]], "an app icon should raise its id")

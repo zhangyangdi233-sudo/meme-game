@@ -1,7 +1,9 @@
 class_name PhoneLauncherPanel
 extends Node
 ## Game-side phone launcher shell: popup chrome, app grid, and the notebook app window.
-## While shown, it watches whether the phone is open and which app is in front, and updates itself.
+## While shown, it watches whether the phone is open, which app is in front and which apps are unlocked, and updates
+## itself: the phone slides in from the right edge when it opens and back out before it hides, and a locked app's icon
+## is disabled and raises nothing.
 
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -13,6 +15,11 @@ const LAUNCHER_APPS := [
 	{"id": "social", "label": "帖\n信号瀑布"},
 	{"id": "notebook", "label": "本\n语言工坊"},
 ]
+
+## How long the phone takes to slide in from the right edge or back out.
+const SLIDE_SECONDS := 0.22
+## How far past the right edge the phone rests once it slid out.
+const SLIDE_MARGIN := 40.0
 
 const NOTEBOOK_WINDOW_LAYOUT := {
 	"title": "笔记本 App",
@@ -41,9 +48,17 @@ var _no_signal_icon_path := ""
 var _ui_parent: Control
 var _shown := false
 var _phone_open := true
+var _app_icons: Dictionary = {}
+var _unlocked_apps: Array = []
+## How far the phone has slid out: 0 rests on screen, 1 is past the right edge. The resting offsets come from the layout.
+var _slide := 0.0
+var _slide_target := 0.0
+var _rest_left := 0.0
+var _rest_right := 0.0
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.PHONE_OPEN: _on_phone_open,
 	PropertyKeysScript.ACTIVE_APP_WINDOW: _on_active_app_window,
+	PropertyKeysScript.UNLOCKED_APPS: _on_unlocked_apps,
 })
 
 
@@ -128,6 +143,33 @@ func layout_popup(expanded: bool) -> void:
 		_phone_panel.offset_left = -112
 		_phone_panel.offset_right = -12
 		_phone_panel.offset_bottom = -94
+	_rest_left = _phone_panel.offset_left
+	_rest_right = _phone_panel.offset_right
+	_apply_slide()
+
+
+## Moves the phone toward where it is sliding; once it slid out it folds and hides.
+func _process(delta: float) -> void:
+	if is_equal_approx(_slide, _slide_target):
+		return
+	_slide = move_toward(_slide, _slide_target, maxf(delta, 0.0) / SLIDE_SECONDS)
+	if _slide >= 1.0 and not _phone_open:
+		layout_popup(false)
+		_set_popup_visible(false)
+		return
+	_apply_slide()
+
+
+func _apply_slide() -> void:
+	if _phone_panel == null or not is_instance_valid(_phone_panel):
+		return
+	var shift := _slide * (_rest_right - _rest_left + SLIDE_MARGIN)
+	_phone_panel.offset_left = _rest_left + shift
+	_phone_panel.offset_right = _rest_right + shift
+	# A phone on its way in or out takes no clicks, so it never catches one meant for the edge tab it slides past.
+	_phone_panel.mouse_behavior_recursive = (
+		Control.MOUSE_BEHAVIOR_DISABLED if _slide > 0.0 else Control.MOUSE_BEHAVIOR_INHERITED
+	)
 
 
 func layout_app_window(app_id: String) -> void:
@@ -272,6 +314,7 @@ func _build_phone_popup(parent: Control) -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_app_icon_pressed.bind(str(app["id"])))
 		app_grid.add_child(button)
+		_app_icons[str(app["id"])] = button
 	var launcher_note := _theme().label("每个 App 会在手机旁打开独立窗口。", 13, _theme().theme_color("surface")) as Label
 	launcher_note.name = "PhoneLauncherNote"
 	launcher_note.set_meta("on_dark", true)
@@ -393,10 +436,31 @@ func _apply_app_window_layout(window: Control, app_id: String, left: float, top:
 	window.offset_bottom = viewport_size.y - 8.0
 
 
+## Showing the launcher places the phone at once; a later open slides it in, a later close slides it out first.
 func _on_phone_open(value: Variant) -> void:
 	_phone_open = bool(value)
-	layout_popup(_phone_open)
-	_apply_phone_open()
+	_slide_target = 0.0 if _phone_open else 1.0
+	if _watch.is_syncing():
+		_slide = _slide_target
+		layout_popup(_phone_open)
+		_apply_phone_open()
+		return
+	if _phone_open:
+		layout_popup(true)
+		_apply_phone_open()
+
+
+func _on_unlocked_apps(value: Variant) -> void:
+	_unlocked_apps = (value as Array).duplicate() if value is Array else []
+	for app_id in _app_icons:
+		var icon := _app_icons[app_id] as Button
+		if icon == null or not is_instance_valid(icon):
+			continue
+		var locked := not _unlocked_apps.has(app_id)
+		icon.disabled = locked
+		icon.set_meta("locked", locked)
+		icon.modulate.a = 0.45 if locked else 1.0
+		icon.tooltip_text = "尚未解锁" if locked else ""
 
 
 func _on_active_app_window(value: Variant) -> void:
@@ -417,6 +481,8 @@ func _set_popup_visible(popup_visible: bool) -> void:
 
 
 func _on_app_icon_pressed(app_id: String) -> void:
+	if not _unlocked_apps.has(app_id):
+		return
 	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: app_id})
 
 

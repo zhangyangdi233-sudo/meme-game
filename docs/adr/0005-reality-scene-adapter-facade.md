@@ -11,3 +11,7 @@ The basement CRT is one more interaction outcome (`terminal`) and its pushed-in 
 ## Amended (#112): the basement rounds
 
 Each basement round's NPC is an ordinary actor outcome, so the host starts its conversation the way it starts any other. Walking out through the round's open exit is not an outcome the host asks for: the stage raises it once as the `BASEMENT_EXIT_CROSSED` game event, as it already raises the knock, and the host's listener records it in the state; the adapter then builds the next round (or the crossroads) on its next ensure. The host still reaches neither the stage nor its doors.
+
+## Amended (#113): the phone on the basement's table
+
+The phone lying on the basement's table is one more interaction outcome (`phone`, action `pick_up_phone`). The host tells the adapter whether the phone is owned through its deps (`phone_owned`), so a rebuilt or loaded round lays no second phone; picking it up is an `apply_interaction` that takes it off the table. The host still reaches neither the stage nor its table.

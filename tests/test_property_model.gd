@@ -339,6 +339,7 @@ func _test_phone_state_lives_only_in_the_run_models() -> void:
 
 	var source = StateScript.new()
 	source.new_run()
+	source.skip_chapter_one()
 	source.set_active_app("notebook")
 	_assert_eq(app.read(), "notebook", "choosing an app should write the current app model")
 	_assert_eq(window.read(), "notebook", "choosing an app should write the foreground model")
@@ -386,7 +387,9 @@ func _test_open_windows_and_view_state_live_only_in_the_run_models() -> void:
 
 	var source = StateScript.new()
 	source.new_run()
-	_assert_eq(windows.read(), ["social"], "a new run should open the foreground app window")
+	_assert_eq(windows.read(), [], "a new run should open no window while its apps are locked")
+	source.skip_chapter_one()
+	_assert_eq(windows.read(), ["social"], "the tower street should open the foreground app window")
 	source.set_active_app("notebook")
 	_assert_eq(windows.read(), ["social", "notebook"], "choosing an app should open its window through the model")
 	source.set_active_app("notebook")
@@ -406,7 +409,7 @@ func _test_open_windows_and_view_state_live_only_in_the_run_models() -> void:
 	_assert_eq(view.read(), "npc_up", "loading should write the view back through the model")
 	restored.new_run()
 	_assert_eq(view.read(), "phone_down", "a new run should reset the view on the same model")
-	_assert_eq(windows.read(), ["social"], "a new run should reset the open windows on the same model")
+	_assert_eq(windows.read(), [], "a new run should reset the open windows on the same model")
 
 
 func _test_list_and_map_can_insert_or_replace_everything_once() -> void:
@@ -704,6 +707,7 @@ func _test_a_save_on_the_tower_app_returns_to_social() -> void:
 	BootScript.install()
 	var source = StateScript.new()
 	source.new_run()
+	source.skip_chapter_one()
 	var state_data: Dictionary = source.to_save_data().get("state", {})
 	state_data["active_app"] = "babel"
 	state_data["active_app_window"] = "babel"

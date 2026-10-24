@@ -6,6 +6,8 @@ const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _failures: Array[String] = []
 
@@ -32,6 +34,8 @@ func _run() -> void:
 	_test_mounting_again_while_shown_keeps_one_registration()
 	_test_a_freed_panel_unregisters()
 	_test_a_mounted_panel_is_not_opened_by_a_write()
+	_test_locked_apps_do_nothing_until_unlocked()
+	_test_the_phone_slides_in_and_out_from_the_right()
 
 
 func _test_showing_registers_once_and_syncs_both_models() -> void:
@@ -63,11 +67,13 @@ func _test_opening_and_closing_the_phone_updates_the_popup() -> void:
 
 	var open_top: float = panel.get_phone_panel().offset_top
 	open.write(false)
+	panel._process(1.0)
 	_assert_true(not panel.get_phone_panel().visible, "closing the phone should hide the popup by itself")
 	_assert_true(not panel.get_phone_content().visible, "closing the phone should hide the popup content by itself")
 	_assert_true(not is_equal_approx(panel.get_phone_panel().offset_top, open_top), "closing the phone should fold the popup")
 
 	open.write(true)
+	panel._process(1.0)
 	_assert_true(panel.get_phone_panel().visible, "opening the phone should show the popup by itself")
 	_assert_true(panel.get_phone_content().visible, "opening the phone should show the popup content by itself")
 	_assert_true(is_equal_approx(panel.get_phone_panel().offset_top, open_top), "opening the phone should unfold the popup")
@@ -140,6 +146,7 @@ func _test_mounting_again_while_shown_keeps_one_registration() -> void:
 	_assert_eq(_listener_count(window), 1, "mounting again while shown should keep one foreground registration")
 	_assert_true(panel.get_phone_panel().visible, "a rebuilt popup should sync the open phone at once")
 	open.write(false)
+	panel._process(1.0)
 	_assert_true(not panel.get_phone_panel().visible, "a rebuilt popup should follow the model")
 	_dispose(mounted)
 
@@ -168,6 +175,69 @@ func _test_a_mounted_panel_is_not_opened_by_a_write() -> void:
 	_dispose(mounted)
 
 
+## Every app starts locked: its icon is disabled and a press raises nothing until a delivery unlocks it.
+func _test_locked_apps_do_nothing_until_unlocked() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as PhoneLauncherPanel
+	var host := mounted["host"] as Control
+	var unlocked: ListPropertyModel = mounted["unlocked"]
+	var heard: Array = []
+	var listener := func(intent: String, payload: Dictionary) -> void: heard.append([intent, payload])
+	var bus := GameEventBusScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
+	bus.intent_emitted.connect(listener)
+	panel.set_shown(true)
+	var social := host.find_child("PhoneAppIconSocial", true, false) as Button
+	var notebook := host.find_child("PhoneAppIconNotebook", true, false) as Button
+	_assert_true(social.disabled and notebook.disabled, "both icons should start locked")
+	social.pressed.emit()
+	notebook.pressed.emit()
+	_assert_eq(heard, [], "a locked icon should raise nothing")
+	unlocked.add("social")
+	_assert_true(not social.disabled, "the unlocked social feed's icon should be pressable")
+	_assert_true(notebook.disabled, "the notebook should stay locked")
+	social.pressed.emit()
+	notebook.pressed.emit()
+	_assert_eq(heard, [[UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "social"}]], "only the unlocked icon should raise its app")
+	unlocked.add("notebook")
+	_assert_true(not notebook.disabled, "the unlocked notebook's icon should be pressable")
+	panel.set_shown(false)
+	unlocked.replace_all([])
+	_assert_true(not notebook.disabled, "a hidden launcher should not follow the model")
+	panel.set_shown(true)
+	_assert_true(social.disabled and notebook.disabled, "showing again should sync the locks")
+	_dispose(mounted)
+
+
+## The phone slides in from the right edge when it opens and slides back out before it hides; showing the launcher
+## places it at once.
+func _test_the_phone_slides_in_and_out_from_the_right() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as PhoneLauncherPanel
+	var open: ValuePropertyModel = mounted["open"]
+	panel.set_shown(true)
+	var popup := panel.get_phone_panel()
+	var rest_left := popup.offset_left
+	var rest_right := popup.offset_right
+	open.write(false)
+	_assert_true(popup.visible, "a closing phone should stay on screen while it slides out")
+	panel._process(0.1)
+	_assert_true(popup.offset_left > rest_left and popup.visible, "a closing phone should move toward the right edge")
+	panel._process(1.0)
+	_assert_true(not popup.visible, "a phone that slid out should hide")
+	open.write(true)
+	_assert_true(popup.visible, "an opening phone should show at once")
+	_assert_true(popup.offset_left >= rest_right, "an opening phone should start off the right edge")
+	panel._process(0.1)
+	_assert_true(popup.offset_left > rest_left and popup.offset_left < rest_right, "an opening phone should slide in")
+	_assert_eq(popup.mouse_behavior_recursive, Control.MOUSE_BEHAVIOR_DISABLED, "a sliding phone should take no clicks")
+	panel._process(1.0)
+	_assert_true(is_equal_approx(popup.offset_left, rest_left), "an opened phone should rest where it was")
+	_assert_true(is_equal_approx(popup.offset_right, rest_right), "an opened phone should rest at its right margin")
+	_assert_eq(popup.mouse_behavior_recursive, Control.MOUSE_BEHAVIOR_INHERITED, "a resting phone should take clicks again")
+	_dispose(mounted)
+
+
 func _mount() -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
@@ -190,6 +260,7 @@ func _mount() -> Dictionary:
 		"panel": panel,
 		"open": manager.model(PropertyKeysScript.PHONE_OPEN),
 		"window": manager.model(PropertyKeysScript.ACTIVE_APP_WINDOW),
+		"unlocked": manager.model(PropertyKeysScript.UNLOCKED_APPS),
 	}
 
 

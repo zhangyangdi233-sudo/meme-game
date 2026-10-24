@@ -197,6 +197,16 @@ var typing_hint_seen: bool:
 		return _read_run_bool(PropertyKeysScript.TYPING_HINT_SEEN)
 	set(value):
 		_write_run_field(PropertyKeysScript.TYPING_HINT_SEEN, value)
+## The player picked up the phone from the basement's table; until then it cannot be raised.
+var phone_owned: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
+	set(value):
+		_write_run_field(PropertyKeysScript.PHONE_OWNED, value)
+## The phone apps a basement delivery unlocked, in unlock order. A read is a copy.
+var unlocked_apps: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.UNLOCKED_APPS)
 var floor3_task_complete: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
@@ -488,6 +498,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 	_normalize_doll_state()
 	_normalize_notebook_tokens()
 	_drop_retired_apps()
+	_normalize_phone(state_data)
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	if view_state == "npc_up":
@@ -498,6 +509,25 @@ func load_save_data(save_data: Dictionary) -> bool:
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
 	return true
+
+
+## Keeps only known apps, once each; the tower has the phone and every app. A save made before the phone was a thing
+## to pick up gets what its chapter progress earned. A run without the phone looks at the room.
+func _normalize_phone(state_data: Dictionary) -> void:
+	var progress := chapter_one_progress
+	var on_tower := ChapterOneProgressScript.phase_of(progress) == ChapterOneProgressScript.PHASE_TOWER
+	if on_tower or not state_data.has(PropertyKeysScript.PHONE_OWNED):
+		phone_owned = phone_owned or ChapterOneProgressScript.phone_earned(progress)
+	var saved_apps: Array = unlocked_apps
+	if on_tower or not state_data.has(PropertyKeysScript.UNLOCKED_APPS):
+		saved_apps.append_array(ChapterOneProgressScript.earned_apps(progress))
+	var apps: Array[String] = []
+	for app_id in saved_apps:
+		if app_id is String and app_id in PHONE_APPS and app_id not in apps:
+			apps.append(app_id)
+	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, apps)
+	if not phone_owned:
+		view_state = "npc_up"
 
 
 func _normalize_notebook_tokens() -> void:
@@ -560,15 +590,18 @@ func set_phone_open(value: bool) -> void:
 		active_app_window = ""
 
 
+## Raising the phone needs the phone; it brings the last app to the front only once that app is unlocked.
 func set_view_state(value: String) -> bool:
 	if value != "phone_down" and value != "npc_up":
+		return false
+	if value == "phone_down" and not phone_owned:
 		return false
 	if view_state == value:
 		return true
 	view_state = value
 	if view_state == "phone_down":
 		phone_open = true
-		if active_app_window.is_empty():
+		if active_app_window.is_empty() and is_app_unlocked(active_app):
 			active_app_window = active_app
 		open_app_window(active_app_window)
 	else:
@@ -593,19 +626,65 @@ func open_opening_door() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
 
 
-## The player walked out through the basement's open exit: the next round, or after the fifth the crossroads.
+## The player walked out through the basement's open exit: the next round, or after the fifth the crossroads, which
+## is played with the phone and every app.
 func leave_basement_round() -> bool:
-	return _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress))
+	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress)):
+		return false
+	if ChapterOneProgressScript.phase_of(chapter_one_progress) == ChapterOneProgressScript.PHASE_TOWER:
+		_hand_over_earned_phone()
+	return true
 
 
-## Development seam: starts basement round `round_number` fresh. False for a round that does not exist.
+## Development seam: starts basement round `round_number` fresh, with the phone and the apps earlier rounds earned.
+## False for a round that does not exist.
 func jump_to_basement_round(round_number: int) -> bool:
-	return _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number))
+	if not _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number)):
+		return false
+	_hand_over_earned_phone()
+	return true
 
 
-## Development and test seam: leaves chapter one for the tower street.
+## Development and test seam: leaves chapter one for the tower street, with the phone and every app.
 func skip_chapter_one() -> void:
 	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
+	_hand_over_earned_phone()
+
+
+## Picks up the phone from the basement's table. False outside the basement or once it is owned.
+func pick_up_phone() -> bool:
+	if phone_owned or ChapterOneProgressScript.phase_of(chapter_one_progress) != ChapterOneProgressScript.PHASE_BASEMENT:
+		return false
+	phone_owned = true
+	return true
+
+
+func is_app_unlocked(app_id: String) -> bool:
+	return unlocked_apps.has(app_id)
+
+
+func _unlock_app(app_id: String) -> void:
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.UNLOCKED_APPS)
+	if app_id.is_empty() or model == null or is_app_unlocked(app_id):
+		return
+	model.add(app_id)
+
+
+## Sets the phone and the apps to what the chapter progress earned; a run without the phone puts it away, a raised
+## phone brings its last app back once it is unlocked.
+func _hand_over_earned_phone() -> void:
+	var progress := chapter_one_progress
+	phone_owned = ChapterOneProgressScript.phone_earned(progress)
+	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, ChapterOneProgressScript.earned_apps(progress))
+	for app_id in open_app_windows:
+		if not is_app_unlocked(str(app_id)):
+			close_app_window(str(app_id))
+	if not phone_owned:
+		set_view_state("npc_up")
+	elif view_state == "phone_down":
+		if active_app_window.is_empty() and is_app_unlocked(active_app):
+			active_app_window = active_app
+		open_app_window(active_app_window)
 
 
 func _step_chapter_one(next: Dictionary) -> bool:
@@ -634,10 +713,11 @@ func is_app_window_open(app_id: String) -> bool:
 	return open_app_windows.has(app_id)
 
 
+## A locked app's window does not open.
 func open_app_window(app_id: String) -> void:
 	var normalized := app_id.strip_edges()
 	var model: ListPropertyModel = _run_list(PropertyKeysScript.OPEN_APP_WINDOWS)
-	if normalized.is_empty() or model == null or is_app_window_open(normalized):
+	if normalized.is_empty() or model == null or is_app_window_open(normalized) or not is_app_unlocked(normalized):
 		return
 	model.add(normalized)
 
@@ -819,7 +899,10 @@ func get_ending_language_output(locale_code: String = "zh") -> String:
 	return str(NarrativeSessionCatalogScript.ending_language_choice(ending_language_choice, locale_code).get("output", ""))
 
 
+## A locked app cannot be chosen.
 func set_active_app(app_id: String) -> void:
+	if not is_app_unlocked(app_id):
+		return
 	active_app = app_id
 	if view_state == "phone_down":
 		active_app_window = app_id
@@ -1283,6 +1366,7 @@ func advance_typed_reality_character() -> Dictionary:
 ## without one the NPC sends the player back to the computer.
 func _deliver_basement_round() -> void:
 	if _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, has_posted_this_round())):
+		_unlock_app(ChapterOneProgressScript.app_unlocked_by_delivery(chapter_one_progress))
 		return
 	if ChapterOneProgressScript.exit_open(chapter_one_progress):
 		return

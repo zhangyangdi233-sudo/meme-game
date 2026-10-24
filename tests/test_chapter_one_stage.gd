@@ -57,6 +57,8 @@ func _run() -> void:
 	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
 	await _test_a_new_round_starts_again_at_the_top_of_the_stairs()
 	await _test_the_fifth_exit_leads_to_an_empty_crossroads()
+	await _test_the_phone_lies_on_the_table_until_it_is_picked_up()
+	await _test_an_owned_phone_is_not_laid_on_the_table_again()
 
 
 func _test_the_opening_starts_far_from_the_white_door() -> void:
@@ -378,6 +380,52 @@ func _test_the_fifth_exit_leads_to_an_empty_crossroads() -> void:
 
 
 ## Stands the player in front of the exit and walks west into it.
+func _test_the_phone_lies_on_the_table_until_it_is_picked_up() -> void:
+	var progress := _basement()
+	var deps := _deps(progress)
+	deps["phone_owned"] = false
+	var adapter = await _adapter_with(deps)
+	var host: Node = adapter.get_parent()
+	_assert_true(host.find_child("BasementTable", true, false) != null, "round one should stand a small table in the room")
+	var phone: Vector3 = adapter.chapter_phone_position()
+	_assert_true(phone != Vector3.ZERO, "the phone should lie on the table while nobody owns it")
+	_assert_true(adapter.chapter_contains(phone), "the table should stand inside the room")
+	_assert_true(phone.y > 0.5, "the phone should lie on the table, not on the floor: %s" % str(phone))
+	adapter.refresh_nearby_actor(deps)
+	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "the phone should be out of reach from the stairs")
+	adapter.player.position = Vector3(phone.x, adapter.player.position.y, phone.z + 0.8)
+	adapter.refresh_nearby_actor(deps)
+	var nearby: Dictionary = adapter.nearby_outcome()
+	_assert_eq(str(nearby.get("kind")), "phone", "the phone should answer in reach")
+	_assert_eq(str(nearby.get("action")), "pick_up_phone", "the phone's action should be to pick it up")
+	var picked: Dictionary = adapter.apply_interaction({"action": "pick_up_phone"})
+	_assert_true(not bool(picked.get("interaction_active")), "picking up the phone should not hold the player")
+	_assert_eq(adapter.chapter_phone_position(), Vector3.ZERO, "the picked-up phone should leave the table")
+	_assert_true(host.find_child("BasementPhone", true, false) == null, "the picked-up phone should be gone from the room")
+	deps["phone_owned"] = true
+	adapter.refresh_nearby_actor(deps)
+	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "nothing should be left to pick up")
+	_assert_true(host.find_child("BasementTable", true, false) != null, "the table should stay")
+	await _free(adapter)
+
+
+func _test_an_owned_phone_is_not_laid_on_the_table_again() -> void:
+	var deps := _deps(_basement())
+	deps["phone_owned"] = true
+	var adapter = await _adapter_with(deps)
+	_assert_eq(adapter.chapter_phone_position(), Vector3.ZERO, "an owned phone should not lie on the table again")
+	_assert_true(adapter.get_parent().find_child("BasementPhone", true, false) == null, "a rebuilt round should build no second phone")
+	await _free(adapter)
+	var unknown = await _adapter(_basement())
+	_assert_eq(unknown.chapter_phone_position(), Vector3.ZERO, "deps that do not say the phone is missing should build no phone")
+	await _free(unknown)
+	var opening_deps := _deps(ProgressScript.initial())
+	opening_deps["phone_owned"] = false
+	var opening = await _adapter_with(opening_deps)
+	_assert_eq(opening.chapter_phone_position(), Vector3.ZERO, "the opening should have no phone")
+	await _free(opening)
+
+
 func _walk_out(adapter, exit: Vector3, progress: Dictionary) -> void:
 	adapter.player.position = Vector3(exit.x + 0.7, 0.1, exit.z)
 	adapter.player.velocity = Vector3.ZERO
@@ -390,13 +438,17 @@ func _walk_out(adapter, exit: Vector3, progress: Dictionary) -> void:
 
 
 func _adapter(progress: Dictionary):
+	return await _adapter_with(_deps(progress))
+
+
+func _adapter_with(deps: Dictionary):
 	var host := Node3D.new()
 	host.name = "ChapterStageHost"
 	root.add_child(host)
 	var adapter = RealitySceneAdapterScript.new()
 	adapter.attach_to(host)
 	adapter.build_world_nodes()
-	adapter.rebuild_floor(_deps(progress))
+	adapter.rebuild_floor(deps)
 	await process_frame
 	return adapter
 
