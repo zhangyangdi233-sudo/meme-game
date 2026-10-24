@@ -35,7 +35,8 @@ func _run() -> void:
 	for floor_number in range(2, 5):
 		var growth: int = RealitySceneAdapterScript.room_count_for_floor(floor_number) - RealitySceneAdapterScript.room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
-	var expected_npc_counts := [4, 3, 2, 0]
+	# Floor one is the empty crossroads chapter one ends on; the cast shrinks from floor two up.
+	var expected_npc_counts := [0, 3, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
 		_assert_eq(
@@ -43,7 +44,7 @@ func _run() -> void:
 			expected_npc_counts[floor_index],
 			"ordinary NPC population should follow the reduced floor sequence"
 		)
-		if floor_index > 0:
+		if floor_index > 1:
 			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
 	_test_nearby_actor_returns_converse_outcome()
 	_test_nearby_item_returns_collect_outcome()

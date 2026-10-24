@@ -16,7 +16,8 @@ func _run() -> void:
 	var texture := load("res://assets/generated/characters/npc_late_arrival.png") as Texture2D
 	var doll_texture := load("res://assets/generated/characters/guide_doll.png") as Texture2D
 	_assert_true(doll_texture != null, "the user's guide doll artwork should import as a Godot texture")
-	for floor_number in [1, 2, 3]:
+	# The first floor is the empty crossroads; its old residents moved into the basement.
+	for floor_number in [2, 3]:
 		var state := MemeGameStateScript.new()
 		state.new_run()
 		state.tower_floor = floor_number

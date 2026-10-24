@@ -61,18 +61,7 @@ func _run() -> void:
 			_assert_near(camera_attributes.dof_blur_amount, 0.08, 0.001, "far blur should obscure silhouettes without erasing navigation")
 		_assert_eq(str(camera.get_meta("fixed_focus_profile", "")), "near_clear_far_soft", "camera should expose its fixed-focus art direction")
 		_assert_near(camera.fov, 58.0, 0.01, "the shared first-person camera should start at the fixed authored FOV")
-		var street_actors: Array = game_root._reality_scene_adapter.floor.get_interactable_actors()
-		_assert_true(not street_actors.is_empty(), "the street should have someone to talk to")
-		if not street_actors.is_empty():
-			var actor_id := str((street_actors[0] as Node).get_meta("actor_id", ""))
-			game_root._reality_scene_adapter.apply_interaction({
-				"action": "converse",
-				"actor_id": actor_id,
-				"accepted": true,
-			})
-			game_root._animate_world(0.5)
-			_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
-			game_root._reality_scene_adapter.apply_interaction({"action": "end"})
+		_assert_true(game_root._reality_scene_adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads chapter one ends on")
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
 		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
@@ -87,14 +76,15 @@ func _run() -> void:
 	for floor_number in range(2, 5):
 		var growth: int = RealitySceneAdapterScript.room_count_for_floor(floor_number) - RealitySceneAdapterScript.room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
-	var expected_npc_counts := [4, 3, 2, 0]
+	# Floor one is the empty crossroads chapter one ends on; the cast shrinks from floor two up.
+	var expected_npc_counts := [0, 3, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
 		_assert_eq(RealitySceneAdapterScript.npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
-		if floor_index > 0:
+		if floor_index > 1:
 			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 4, "generated first floor should match the room formula")
-	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 4, "first floor should contain four ordinary NPCs")
+	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 0, "the first-floor crossroads should stand no ordinary NPCs")
 	_assert_eq(str(floor_root.get_meta("district_style", "")), "sunlit_brick_street", "first floor should use the sunlit brick-road reference grammar")
 	var map_width := float(floor_root.get_meta("map_width", 0.0))
 	var map_length := float(floor_root.get_meta("map_length", 0.0))
@@ -106,12 +96,7 @@ func _run() -> void:
 	_assert_true(first_reference_portal != null and str(first_reference_portal.get_meta("reference_texture", "")).contains("sunlit_brick_street"), "sunlit district should extend its geometry with the supplied reference image")
 	if first_reference_portal != null and first_reference_portal.mesh is QuadMesh:
 		_assert_true((first_reference_portal.mesh as QuadMesh).size.x >= 12.0, "sunlit reference continuation should fill the road horizon rather than appear as a small poster")
-	_assert_eq(int(floor_root.get_meta("useful_item_count", 0)), 1, "each normal floor should reserve one physical hidden-route prerequisite")
-	var hidden_prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor1") as Area3D
-	_assert_true(hidden_prerequisite != null and not hidden_prerequisite.visible, "the prerequisite should exist in reachable geometry but remain hidden before its NPC clue")
-	if hidden_prerequisite != null:
-		_assert_true(not hidden_prerequisite.monitoring and not hidden_prerequisite.monitorable, "an unrevealed prerequisite must not intercept interaction")
-		_assert_eq(str(hidden_prerequisite.get_meta("item_effect", "")), "prerequisite", "physical route proof should not carry an obsolete stat bonus")
+	_assert_eq(int(floor_root.get_meta("useful_item_count", 0)), 0, "the crossroads should place no hidden-route prerequisite")
 	_assert_eq(str(floor_root.get_meta("layout_mode", "")), "shared_street", "reality floor should be one shared open street instead of isolated NPC boxes")
 	_assert_true(map_width >= 32.0 and map_length >= 230.0, "first floor should be five times longer than the original forty-six-metre street")
 	_assert_eq(float(floor_root.get_meta("world_length_scale", 0.0)), 5.0, "generated floors should expose the requested five-times world scale")
@@ -163,33 +148,8 @@ func _run() -> void:
 	var clamped_corner: Vector3 = floor_root.call("clamp_to_playable_position", outside_corner)
 	_assert_true(bool(floor_root.call("contains_playable_position", clamped_corner)), "clamping should choose the nearest valid arm or trunk instead of a bounding rectangle")
 
-	var doll := _find_actor(floor_root, "doll")
-	var ordinary_npcs := _count_actors(floor_root, "npc")
-	var doctors := _count_actors(floor_root, "doctor")
-	_assert_true(doll != null, "each normal floor should contain one discoverable stitched doll")
-	_assert_true(_find_actor(floor_root, "merchant") == null, "removed merchant actor must not return")
-	_assert_eq(ordinary_npcs + doctors, 4, "first floor should preserve its four-character population")
-	_assert_eq(doctors, 0, "the retired doctor actor must not spawn")
-	var npc_z_positions: Array[float] = []
-	_collect_actor_z_positions(floor_root, "npc", npc_z_positions)
-	_collect_actor_z_positions(floor_root, "doctor", npc_z_positions)
-	npc_z_positions.sort()
-	for index in range(1, npc_z_positions.size()):
-		_assert_true(npc_z_positions[index] - npc_z_positions[index - 1] >= 25.0, "ordinary NPCs should be spaced across the five-times-long street")
-	if doll != null:
-		var doll_billboard := doll.get_node_or_null("Billboard") as Sprite3D
-		_assert_true(doll_billboard != null and doll_billboard.texture != null, "doll should use the player's stitched guide artwork")
-		if doll_billboard != null:
-			_assert_eq(doll_billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "the physical doll should always face the camera")
-		_assert_true(doll.get_node_or_null("FaceScribbleOverlay") == null, "the guide doll artwork should never receive the NPC face veil")
-		_assert_true(bool(doll.get_meta("guide_character", false)), "the world doll should retain its guide role")
-	var sample_npc := _find_actor(floor_root, "npc")
-	if sample_npc != null:
-		var sample_npc_billboard := sample_npc.get_node_or_null("Billboard") as Sprite3D
-		_assert_actor_face_veil(sample_npc, sample_npc_billboard, "ordinary NPC")
-	var npc_texture_ids: Dictionary = {}
-	_collect_actor_texture_ids(floor_root, "npc", npc_texture_ids)
-	_assert_eq(npc_texture_ids.size(), 3, "ordinary NPCs should rotate through all three protagonist-style character artworks")
+	_assert_true(_find_actor(floor_root, "doll") == null, "no doll should wait at the crossroads")
+	_assert_eq(_count_actors(floor_root, "npc") + _count_actors(floor_root, "key_npc"), 0, "no resident should wait at the crossroads")
 
 	for action_name in ["reality_forward", "reality_back", "reality_left", "reality_right", "reality_sprint", "reality_interact"]:
 		_assert_true(InputMap.has_action(action_name), "reality movement should register input action %s" % action_name)
@@ -316,6 +276,42 @@ func _run() -> void:
 		player.velocity = Vector3(0.0, -12.0, 0.0)
 		game_root._update_reality_player(0.016)
 		_assert_true(player.position.y >= 0.0, "falling below the street should recover the player onto a safe spawn")
+	# The street's cast now starts on the second floor: the crossroads below it is empty.
+	game_root.game.tower_floor = 2
+	game_root._refresh_play_surfaces()
+	floor_root = game_root.get_node_or_null("RealityFloor") as Node3D
+	await physics_frame
+	var doll := _find_actor(floor_root, "doll")
+	_assert_true(doll != null, "each normal floor should contain one discoverable stitched doll")
+	_assert_true(_find_actor(floor_root, "merchant") == null, "removed merchant actor must not return")
+	_assert_eq(_count_actors(floor_root, "doctor"), 0, "the retired doctor actor must not spawn")
+	if doll != null:
+		var doll_billboard := doll.get_node_or_null("Billboard") as Sprite3D
+		_assert_true(doll_billboard != null and doll_billboard.texture != null, "doll should use the player's stitched guide artwork")
+		if doll_billboard != null:
+			_assert_eq(doll_billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "the physical doll should always face the camera")
+		_assert_true(doll.get_node_or_null("FaceScribbleOverlay") == null, "the guide doll artwork should never receive the NPC face veil")
+		_assert_true(bool(doll.get_meta("guide_character", false)), "the world doll should retain its guide role")
+	var sample_npc := _find_actor(floor_root, "npc")
+	if sample_npc != null:
+		var sample_npc_billboard := sample_npc.get_node_or_null("Billboard") as Sprite3D
+		_assert_actor_face_veil(sample_npc, sample_npc_billboard, "ordinary NPC")
+		game_root._reality_scene_adapter.apply_interaction({
+			"action": "converse",
+			"actor_id": str(sample_npc.get_meta("actor_id", "")),
+			"accepted": true,
+		})
+		game_root._animate_world(0.5)
+		_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
+		game_root._reality_scene_adapter.apply_interaction({"action": "end"})
+	var npc_texture_ids: Dictionary = {}
+	_collect_actor_texture_ids(floor_root, "npc", npc_texture_ids)
+	_assert_eq(npc_texture_ids.size(), 3, "ordinary NPCs should rotate through all three protagonist-style character artworks")
+	var hidden_prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor2") as Area3D
+	_assert_true(hidden_prerequisite != null and not hidden_prerequisite.visible, "the prerequisite should exist in reachable geometry but remain hidden before its NPC clue")
+	if hidden_prerequisite != null:
+		_assert_true(not hidden_prerequisite.monitoring and not hidden_prerequisite.monitorable, "an unrevealed prerequisite must not intercept interaction")
+		_assert_eq(str(hidden_prerequisite.get_meta("item_effect", "")), "prerequisite", "physical route proof should not carry an obsolete stat bonus")
 	if player != null and doll != null:
 		var pitch_before_dialogue := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)

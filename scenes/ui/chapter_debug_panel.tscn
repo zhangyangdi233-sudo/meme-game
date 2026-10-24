@@ -1,0 +1,99 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/chapter_debug_panel.gd" id="1_root"]
+[ext_resource type="FontFile" uid="uid://cqyei842slvok" path="res://assets/fonts/BoutiqueBitmap9x9.ttf" id="2_font"]
+
+[sub_resource type="Theme" id="Theme_debug"]
+default_font = ExtResource("2_font")
+default_font_size = 18
+
+[node name="ChapterDebugPanel" type="Control"]
+z_index = 40
+layout_mode = 3
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 324.0
+offset_bottom = 184.0
+mouse_filter = 2
+theme = SubResource("Theme_debug")
+script = ExtResource("1_root")
+
+[node name="ChapterDebugSurface" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0.94509804, 0.7882353, 0.92)
+metadata/palette_role = "surface"
+
+[node name="ChapterDebugStack" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 9
+
+[node name="ChapterDebugTitle" type="Label" parent="ChapterDebugStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "第一章（debug，F9 收起）"
+metadata/palette_role = "ink"
+
+[node name="ChapterDebugStatus" type="Label" parent="ChapterDebugStack"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "开场"
+metadata/palette_role = "ink"
+
+[node name="ChapterDebugJumpTitle" type="Label" parent="ChapterDebugStack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.0627451, 0.078431375, 0.05882353, 1)
+text = "跳到地下室第几轮"
+metadata/palette_role = "ink"
+
+[node name="ChapterDebugRoundRow" type="HBoxContainer" parent="ChapterDebugStack"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="ChapterDebugRound1Button" type="Button" parent="ChapterDebugStack/ChapterDebugRoundRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "1"
+
+[node name="ChapterDebugRound2Button" type="Button" parent="ChapterDebugStack/ChapterDebugRoundRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "2"
+
+[node name="ChapterDebugRound3Button" type="Button" parent="ChapterDebugStack/ChapterDebugRoundRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "3"
+
+[node name="ChapterDebugRound4Button" type="Button" parent="ChapterDebugStack/ChapterDebugRoundRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "4"
+
+[node name="ChapterDebugRound5Button" type="Button" parent="ChapterDebugStack/ChapterDebugRoundRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "5"

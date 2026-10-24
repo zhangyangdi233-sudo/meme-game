@@ -52,6 +52,8 @@ const FREE_SENTENCE_UNITS := "free_sentence_units"
 const WORLD_RULES := "world_rules"
 ## Chapter one's progress dictionary (`ChapterOneProgress`): the opening narration line, the knock, the basement round.
 const CHAPTER_ONE_PROGRESS := "chapter_one_progress"
+## Whether the player already typed a whole conversation line, so the first-time typing hint stays hidden.
+const TYPING_HINT_SEEN := "typing_hint_seen"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
@@ -120,6 +122,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": FREE_SENTENCE_UNITS, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": WORLD_RULES, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": CHAPTER_ONE_PROGRESS, "initial": ChapterOneProgressScript.INITIAL, "save": SAVED_WITH_RUN},
+	{"name": TYPING_HINT_SEEN, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": LOCALE, "initial": DEFAULT_LOCALE, "save": PREFERENCE},
 	{"name": MASTER_VOLUME, "initial": DEFAULT_MASTER_VOLUME, "min": 0.0, "max": 100.0, "save": PREFERENCE},
 	{"name": TERMINAL_VHS_ENABLED, "initial": true, "save": PREFERENCE},

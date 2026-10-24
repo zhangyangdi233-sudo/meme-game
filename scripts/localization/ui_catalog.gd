@@ -395,7 +395,8 @@ const EN: Dictionary = {
 	# Reality UI and generated floor names.
 	"离开": "Leave",
 	"回应": "Respond",
-	"任意键  %d / %d": "ANY KEY  %d / %d",
+	"按任意文字键，把这句话说出来。": "Press any letter key to say this line.",
+	"去电脑上拾字并投稿一句话，再回来告诉我。": "Go to the computer, pick up words and post a sentence, then come back and tell me.",
 	"放下手机": "Lower Phone",
 	"拿起手机": "Raise Phone",
 	"街区遗物": "Street Relic",
@@ -910,7 +911,8 @@ const JA: Dictionary = {
 	# Reality UI and generated floor names.
 	"离开": "離れる",
 	"回应": "応答",
-	"任意键  %d / %d": "何かキーを押す  %d / %d",
+	"按任意文字键，把这句话说出来。": "文字キーを押して、このせりふを口にする。",
+	"去电脑上拾字并投稿一句话，再回来告诉我。": "コンピューターで言葉を拾って一文投稿してから、戻ってきて教えて。",
 	"放下手机": "スマートフォンを下ろす",
 	"拿起手机": "スマートフォンを持ち上げる",
 	"街区遗物": "街区の遺物",

@@ -35,6 +35,9 @@ func _run() -> void:
 	if game_root.has_method("new_game"):
 		game_root.new_game()
 		game_root._skip_chapter_one()
+		# The street's cast starts on the second floor; the first is the empty crossroads.
+		game_root.game.tower_floor = 2
+		game_root._refresh_play_surfaces()
 	game_root._render()
 	await process_frame
 	await process_frame

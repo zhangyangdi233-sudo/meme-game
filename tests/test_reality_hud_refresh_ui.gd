@@ -130,6 +130,9 @@ func _boot_street() -> Node:
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
 	game_root._skip_chapter_one()
+	# The street's cast starts on the second floor; the first is the empty crossroads.
+	game_root.game.tower_floor = 2
+	game_root._refresh_play_surfaces()
 	game_root._on_app_pressed("social")
 	game_root.set_view_state("npc_up")
 	await process_frame

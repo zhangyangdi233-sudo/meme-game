@@ -33,6 +33,8 @@ const LANGUAGE_RECIPE_SLOTS := [
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
 ## Version 6 dropped daily actions, funds and the day settlement. An older save is refused and the host starts a new run.
+## What a basement NPC says when the player finished the conversation without posting this round.
+const BASEMENT_NO_POST_LINE := "去电脑上拾字并投稿一句话，再回来告诉我。"
 const SAVE_DATA_VERSION := 6
 ## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
@@ -189,6 +191,12 @@ var world_rules: Dictionary:
 var chapter_one_progress: Dictionary:
 	get:
 		return ChapterOneProgressScript.normalize(_read_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS))
+## The first-time typing hint was seen: the player typed a whole conversation line once.
+var typing_hint_seen: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.TYPING_HINT_SEEN)
+	set(value):
+		_write_run_field(PropertyKeysScript.TYPING_HINT_SEEN, value)
 var floor3_task_complete: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
@@ -585,6 +593,16 @@ func open_opening_door() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
 
 
+## The player walked out through the basement's open exit: the next round, or after the fifth the crossroads.
+func leave_basement_round() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress))
+
+
+## Development seam: starts basement round `round_number` fresh. False for a round that does not exist.
+func jump_to_basement_round(round_number: int) -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number))
+
+
 ## Development and test seam: leaves chapter one for the tower street.
 func skip_chapter_one() -> void:
 	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
@@ -907,31 +925,52 @@ func reset_reality_phase() -> void:
 
 func start_typed_reality_conversation(actor_id: String, actor_type: String, actor_label: String) -> bool:
 	conversation_actor_id = actor_id
-	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll"] else "npc"
+	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", "basement_npc"] else "npc"
 	conversation_actor_label = actor_label
-	conversation_mode = "authored"
 	conversation_world = "reality"
-	var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
-	conversation_turns = [{
-		"line": str(dialogue.get("line", "你打算说什么？")),
-		"result": str(dialogue.get("result", "%s移开了视线。" % actor_label)),
-		"choices": (dialogue.get("choices", []) as Array).duplicate(true),
-	}]
-	for followup in dialogue.get("continuation_turns", []):
-		conversation_turns.append((followup as Dictionary).duplicate(true))
+	conversation_interrupt_line = ""
+	if conversation_actor_type == "basement_npc":
+		var route: Dictionary = LanguageCorruptionContentScript.get_basement_route(ChapterOneProgressScript.round_of(chapter_one_progress))
+		if route.is_empty():
+			reset_typed_reality_conversation()
+			return false
+		conversation_mode = "linear"
+		conversation_turns = (route.get("turns", []) as Array).duplicate(true)
+	else:
+		conversation_mode = "authored"
+		var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
+		conversation_turns = [{
+			"line": str(dialogue.get("line", "你打算说什么？")),
+			"result": str(dialogue.get("result", "%s移开了视线。" % actor_label)),
+			"choices": (dialogue.get("choices", []) as Array).duplicate(true),
+		}]
+		for followup in dialogue.get("continuation_turns", []):
+			conversation_turns.append((followup as Dictionary).duplicate(true))
+		conversation_interrupt_line = str(dialogue.get("interrupt", ""))
 	conversation_turn_index = 0
 	conversation_history = []
 	conversation_can_continue = false
 	conversation_completed = false
 	conversation_interrupted = false
-	conversation_interrupt_line = str(dialogue.get("interrupt", ""))
 	conversation_counted = false
 	conversation_reward = {}
 	conversation_attempts = 0
 	conversation_locale = "zh"
 	_load_typed_reality_turn(0)
 	conversation_phase = "choosing"
+	_begin_linear_turn()
 	return true
+
+
+## A linear conversation offers no choice: the player's turn starts at once on the turn's authored line.
+func _begin_linear_turn() -> void:
+	if conversation_mode != "linear" or conversation_phase != "choosing":
+		return
+	var turn: Dictionary = conversation_turns[conversation_turn_index]
+	conversation_selected_choice_id = "turn_%d" % conversation_turn_index
+	conversation_clean_sentence = str(turn.get("sentence", "")).strip_edges()
+	conversation_clean_units = _conversation_units(conversation_clean_sentence)
+	conversation_phase = "typing"
 
 
 ## The player leaves the conversation. One in which they spoke at least once was a valid interaction, so the
@@ -1022,6 +1061,7 @@ func continue_typed_reality_conversation() -> bool:
 	conversation_can_continue = false
 	_load_typed_reality_turn(next_turn)
 	conversation_phase = "choosing"
+	_begin_linear_turn()
 	return true
 
 
@@ -1176,6 +1216,7 @@ func advance_typed_reality_character() -> Dictionary:
 		return result
 
 	result["completed"] = true
+	typing_hint_seen = true
 	var is_key_npc_final_turn := conversation_actor_type == "key_npc" and conversation_turn_index + 1 >= conversation_turns.size()
 	var is_claimed_doll_repeat := conversation_actor_type == "doll" and is_doll_claimed(conversation_actor_id)
 	var should_count_now := conversation_actor_type != "doll" and (conversation_actor_type != "key_npc" or is_key_npc_final_turn) and not is_claimed_doll_repeat
@@ -1186,7 +1227,8 @@ func advance_typed_reality_character() -> Dictionary:
 	last_clean_sentence = conversation_clean_sentence
 	last_polluted_sentence = get_typed_reality_spoken_sentence()
 	var understood := true
-	if conversation_actor_type in ["key_npc", "doll"]:
+	# Key residents, dolls and the basement NPCs always understand: pollution garbles the line, never the turn.
+	if conversation_actor_type in ["key_npc", "doll", "basement_npc"]:
 		conversation_understanding_rolls = []
 		npc_understanding = 100
 	else:
@@ -1232,7 +1274,19 @@ func advance_typed_reality_character() -> Dictionary:
 		conversation_reward = _resolve_doll_choice_attempt()
 		result["reward"] = conversation_reward.duplicate(true)
 		conversation_feedback += "\n" + str(conversation_reward.get("feedback", ""))
+	elif conversation_actor_type == "basement_npc":
+		_deliver_basement_round()
 	return result
+
+
+## The basement NPC's conversation was finished: with this round's post the round is delivered and its exit opens;
+## without one the NPC sends the player back to the computer.
+func _deliver_basement_round() -> void:
+	if _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, has_posted_this_round())):
+		return
+	if ChapterOneProgressScript.exit_open(chapter_one_progress):
+		return
+	conversation_feedback += "\n" + GameLocaleScript.for_locale(conversation_locale).translate(BASEMENT_NO_POST_LINE)
 
 
 func _resolve_key_npc_clue_attempt() -> Dictionary:
@@ -1355,10 +1409,6 @@ func get_typed_reality_unrevealed_suffix() -> String:
 	for index in range(conversation_reveal_index, conversation_clean_units.size()):
 		suffix += conversation_clean_units[index]
 	return suffix
-
-
-func get_typed_reality_unit_count() -> int:
-	return conversation_clean_units.size()
 
 
 func _conversation_units(sentence: String) -> Array[String]:
@@ -1930,6 +1980,9 @@ func _find_token_rarity(token_id: String) -> int:
 
 ## The progress check after a valid interaction: the pollution floor step, the floor-three finish and the hidden ending.
 func _resolve_tower_step(may_unlock_hidden_ending: bool = true) -> void:
+	# Chapter one is not on the tower yet: its posts and conversations climb nothing until the crossroads.
+	if ChapterOneProgressScript.phase_of(chapter_one_progress) != ChapterOneProgressScript.PHASE_TOWER:
+		return
 	resolve_floor_transition_at_boundary()
 	if tower_floor == 3 and pollution >= int(POLLUTION_FLOOR_THRESHOLDS[3]) and not formal_floor_three_complete:
 		complete_floor_three()

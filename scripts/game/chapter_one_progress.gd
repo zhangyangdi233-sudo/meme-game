@@ -2,6 +2,9 @@ class_name ChapterOneProgress
 extends RefCounted
 ## Chapter one's progress rules on one progress dictionary: the opening narration is read one line at a time, the
 ## knock sounds on its line, and the door opens into the basement only once the narration is read and the knock heard.
+## The basement is played in five rounds: a round is delivered when its NPC's conversation is finished with a post
+## made in that round, which opens its exit; leaving through it starts the next round, and the fifth exit leaves
+## chapter one for the crossroads (the tower's first floor).
 ## Every rule returns the next progress; a refused step returns the progress unchanged. `MemeGameState` keeps the
 ## dictionary in the `chapter_one_progress` model and saves it with the run.
 
@@ -23,6 +26,7 @@ const INITIAL := {
 	"narration_complete": false,
 	"knock_complete": false,
 	"round": 0,
+	"delivered": false,
 }
 
 
@@ -56,6 +60,7 @@ static func normalize(raw: Variant) -> Dictionary:
 	if phase == PHASE_BASEMENT and door_ready(progress):
 		progress["phase"] = PHASE_BASEMENT
 		progress["round"] = clampi(_integer_or(source.get("round", 1), 1), 1, BASEMENT_ROUND_COUNT)
+		progress["delivered"] = _is_true(source.get("delivered", false))
 	return progress
 
 
@@ -119,6 +124,46 @@ static func open_door(progress: Dictionary) -> Dictionary:
 	var next := progress.duplicate(true)
 	next["phase"] = PHASE_BASEMENT
 	next["round"] = 1
+	return next
+
+
+## This round's NPC conversation was finished. It counts only with a post made in this round; a post from an earlier
+## round does not carry over.
+static func deliver(progress: Dictionary, posted_this_round: bool) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT or bool(progress.get("delivered", false)) or not posted_this_round:
+		return progress
+	var next := progress.duplicate(true)
+	next["delivered"] = true
+	return next
+
+
+## The basement exit is open once this round is delivered.
+static func exit_open(progress: Dictionary) -> bool:
+	return phase_of(progress) == PHASE_BASEMENT and bool(progress.get("delivered", false))
+
+
+## The player walked out through the open exit: the next round begins, or after the fifth the crossroads.
+static func leave_round(progress: Dictionary) -> Dictionary:
+	if not exit_open(progress):
+		return progress
+	if round_of(progress) >= BASEMENT_ROUND_COUNT:
+		return tower()
+	var next := progress.duplicate(true)
+	next["round"] = round_of(progress) + 1
+	next["delivered"] = false
+	return next
+
+
+## Development seam: starts a basement round fresh, as if the opening had been played. Out-of-range rounds are refused.
+static func jump_to_round(progress: Dictionary, round_number: int) -> Dictionary:
+	if round_number < 1 or round_number > BASEMENT_ROUND_COUNT:
+		return progress
+	var next := initial()
+	next["line_index"] = OPENING_LINE_COUNT - 1
+	next["narration_complete"] = true
+	next["knock_complete"] = true
+	next["phase"] = PHASE_BASEMENT
+	next["round"] = round_number
 	return next
 
 

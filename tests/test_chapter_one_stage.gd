@@ -14,6 +14,7 @@ const OPENING_WALK_DISTANCE := 29.5
 
 var _failures: Array[String] = []
 var _knocks_heard := 0
+var _exits_crossed := 0
 
 
 func _init() -> void:
@@ -39,6 +40,7 @@ func _run() -> void:
 	var bus := GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, func(_payload: Dictionary) -> void: _knocks_heard += 1)
+	bus.subscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, func(_payload: Dictionary) -> void: _exits_crossed += 1)
 	await _test_the_opening_starts_far_from_the_white_door()
 	await _test_the_door_waits_for_the_narration_and_the_knock()
 	await _test_the_knock_plays_on_its_line_once_and_pauses()
@@ -50,6 +52,11 @@ func _run() -> void:
 	await _test_the_terminal_display_shows_on_the_crt()
 	await _test_a_missing_knock_recording_does_not_lock_the_door()
 	await _test_the_tower_street_still_builds_without_chapter_progress()
+	await _test_each_round_stands_its_npc_in_reach()
+	await _test_the_entry_door_shuts_behind_the_player()
+	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
+	await _test_a_new_round_starts_again_at_the_top_of_the_stairs()
+	await _test_the_fifth_exit_leads_to_an_empty_crossroads()
 
 
 func _test_the_opening_starts_far_from_the_white_door() -> void:
@@ -284,6 +291,102 @@ func _test_the_tower_street_still_builds_without_chapter_progress() -> void:
 	_assert_true(adapter.floor.room_count > 0, "deps without chapter progress should build the tower street")
 	host.queue_free()
 	await process_frame
+
+
+func _test_each_round_stands_its_npc_in_reach() -> void:
+	var labels := ["护灯人", "迟到者", "回声住户", "抄写员", "无名信徒"]
+	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var progress := ProgressScript.jump_to_round(ProgressScript.initial(), round_number)
+		var adapter = await _adapter(progress)
+		adapter.refresh_nearby_actor(_deps(progress))
+		_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "round %d's NPC should be out of reach from the stairs" % round_number)
+		var npc: Vector3 = adapter.chapter_npc_position()
+		adapter.player.position = Vector3(npc.x, adapter.player.position.y, npc.z + 1.2)
+		adapter.refresh_nearby_actor(_deps(progress))
+		var nearby: Dictionary = adapter.nearby_outcome()
+		_assert_eq(str(nearby.get("action")), "converse", "round %d's NPC should answer in reach" % round_number)
+		_assert_eq(str(nearby.get("actor_type")), "basement_npc", "round %d's NPC should be the basement NPC" % round_number)
+		_assert_eq(str(nearby.get("actor_label")), labels[round_number - 1], "round %d should stand its own NPC" % round_number)
+		var talking: Dictionary = adapter.apply_interaction({"action": "converse", "actor_id": str(nearby.get("actor_id")), "accepted": true})
+		_assert_true(bool(talking.get("interaction_active")), "round %d's NPC should start a conversation" % round_number)
+		await _free(adapter)
+
+
+func _test_the_entry_door_shuts_behind_the_player() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var adapter = await _adapter(progress)
+	var entry := adapter.get_parent().find_child("EntryDoorPivot", true, false) as Node3D
+	_assert_true(entry != null and absf(entry.rotation_degrees.y) > 45.0, "the entry door should stand open when the round starts")
+	Input.action_press("reality_forward")
+	for frame in 150:
+		adapter.update_player(1.0 / 60.0, _deps(progress))
+		await physics_frame
+	Input.action_release("reality_forward")
+	for frame in 90:
+		await process_frame
+	_assert_true(entry != null and absf(entry.rotation_degrees.y) < 1.0, "the entry door should shut once the player goes down the stairs")
+	await _free(adapter)
+
+
+func _test_the_exit_opens_once_delivered_and_walking_out_is_reported() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	var adapter = await _adapter(progress)
+	_exits_crossed = 0
+	var exit: Vector3 = adapter.chapter_exit_position()
+	await _walk_out(adapter, exit, progress)
+	_assert_eq(_exits_crossed, 0, "a shut exit should not be walked through")
+	var walked: Vector3 = adapter.pose().get("player_position")
+	_assert_true(walked.x > exit.x, "a shut exit should hold the player inside: %s" % str(walked))
+	var delivered := ProgressScript.deliver(progress, true)
+	adapter.ensure_floor_current(_deps(delivered))
+	for frame in 150:
+		await process_frame
+	await _walk_out(adapter, exit, delivered)
+	_assert_eq(_exits_crossed, 1, "walking out through the open exit should be reported once")
+	await _free(adapter)
+
+
+func _test_a_new_round_starts_again_at_the_top_of_the_stairs() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var adapter = await _adapter(progress)
+	var spawn: Vector3 = adapter.pose().get("player_position")
+	adapter.player.position = Vector3(0.0, 0.1, 0.0)
+	var next := ProgressScript.leave_round(ProgressScript.deliver(progress, true))
+	adapter.ensure_floor_current(_deps(next))
+	await process_frame
+	var restarted: Vector3 = adapter.pose().get("player_position")
+	_assert_true(restarted.distance_to(spawn) < 0.01, "the next round should start at the top of the stairs: %s" % str(restarted))
+	var npc: Vector3 = adapter.chapter_npc_position()
+	adapter.player.position = Vector3(npc.x, adapter.player.position.y, npc.z + 1.2)
+	adapter.refresh_nearby_actor(_deps(next))
+	_assert_eq(str(adapter.nearby_outcome().get("actor_label")), "迟到者", "the next round should stand the next NPC")
+	var entry := adapter.get_parent().find_child("EntryDoorPivot", true, false) as Node3D
+	_assert_true(entry != null and absf(entry.rotation_degrees.y) > 45.0, "the next round's entry should stand open again")
+	await _free(adapter)
+
+
+func _test_the_fifth_exit_leads_to_an_empty_crossroads() -> void:
+	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true)
+	var adapter = await _adapter(fifth)
+	adapter.ensure_floor_current(_deps(ProgressScript.leave_round(fifth)))
+	await process_frame
+	_assert_true(adapter.get_parent().find_child("ChapterOneStage", true, false) == null, "the crossroads should replace the basement")
+	_assert_true(adapter.floor.visible, "the crossroads should be the tower's street")
+	_assert_true(adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads")
+	_assert_true(adapter.floor.get_interactable_items().is_empty(), "nothing should lie at the crossroads")
+	await _free(adapter)
+
+
+## Stands the player in front of the exit and walks west into it.
+func _walk_out(adapter, exit: Vector3, progress: Dictionary) -> void:
+	adapter.player.position = Vector3(exit.x + 0.7, 0.1, exit.z)
+	adapter.player.velocity = Vector3.ZERO
+	adapter.yaw = 90.0
+	Input.action_press("reality_forward")
+	for frame in 120:
+		adapter.update_player(1.0 / 60.0, _deps(progress))
+		await physics_frame
+	Input.action_release("reality_forward")
 
 
 func _adapter(progress: Dictionary):

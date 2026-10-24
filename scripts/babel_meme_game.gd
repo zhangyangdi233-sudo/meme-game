@@ -22,6 +22,9 @@ const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const OpeningNarrationScene = preload("res://scenes/ui/opening_narration.tscn")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const ChapterDebugPanelScene = preload("res://scenes/ui/chapter_debug_panel.tscn")
+const TypingKeysScript = preload("res://scripts/game/typing_keys.gd")
+const ConversationReplyClockScript = preload("res://scripts/game/conversation_reply_clock.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
 const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
@@ -142,6 +145,10 @@ var _language_selection_panel: LanguageSelectionPanel
 var _opening_narration_panel: OpeningNarrationPanel
 ## Black cover over the white door opening; it darkens as the door finishes and lifts in the next stage.
 var _door_fade: ColorRect
+## Debug builds only: the chapter panel F9 shows and hides during a run.
+var _chapter_debug_panel: ChapterDebugPanel
+## How long the NPC's reply in a linear conversation stays before the conversation moves on.
+var _reply_clock: ConversationReplyClockScript = ConversationReplyClockScript.new()
 var _door_was_opening := false
 var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
@@ -331,6 +338,7 @@ func _process(delta: float) -> void:
 			_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
 		_update_door_fade(delta)
+		_advance_linear_reply(delta)
 		_apply_responsive_layouts_if_needed()
 		if _edge_drawer != null:
 			_edge_drawer.tick(delta)
@@ -342,6 +350,7 @@ func _enter_tree() -> void:
 	_cover_watcher_sightings.configure(game)
 	_cover_watcher_sightings.attach(_ui_event_bus)
 	_ui_event_bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
+	_ui_event_bus.subscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -361,6 +370,7 @@ func _exit_tree() -> void:
 	_cover_watcher_sightings.detach()
 	if _ui_event_bus != null:
 		_ui_event_bus.unsubscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
+		_ui_event_bus.unsubscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -444,19 +454,38 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _handle_chapter_debug_key(event):
+		return
 	if _flow != null:
 		_flow.handle_input(event)
+
+
+## F9 in a debug build shows or hides the chapter debug panel while a run is on.
+func _handle_chapter_debug_key(event: InputEvent) -> bool:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_F9:
+		return false
+	get_viewport().set_input_as_handled()
+	if not _dialog_debug_enabled or not _session_is_in_run() or _ui_root == null:
+		return true
+	if _chapter_debug_panel == null or not is_instance_valid(_chapter_debug_panel) or _chapter_debug_panel.get_parent() != _ui_root:
+		_chapter_debug_panel = ChapterDebugPanelScene.instantiate() as ChapterDebugPanel
+		_ui_root.add_child(_chapter_debug_panel)
+	else:
+		_chapter_debug_panel.visible = not _chapter_debug_panel.visible
+	return true
 
 
 func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 	if _terminal_is_open():
 		_handle_terminal_input(event)
 		return
+	if _conversation_takes_keys(event):
+		if event.pressed and _conversation_phase() == "typing" and TypingKeysScript.types_a_unit(event):
+			_advance_typed_reality_character()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if _reality_interaction_is_active() and str(_reality_conversation_snapshot().get("phase", "")) == "typing" and event.keycode != KEY_ESCAPE:
-			if _advance_typed_reality_character():
-				get_viewport().set_input_as_handled()
-				return
 		if event.is_action_pressed("reality_interact"):
 			_try_reality_interaction()
 			get_viewport().set_input_as_handled()
@@ -1184,6 +1213,7 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 	if _terminal_is_open():
 		_exit_terminal()
 		return
+	_reply_clock.cancel()
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 	var outcome: ActionOutcomeScript = game.end_typed_reality_conversation()
@@ -1504,6 +1534,31 @@ func _finish_opening_narration() -> void:
 func _on_opening_knock_finished(_payload: Dictionary) -> void:
 	if game != null:
 		game.complete_opening_knock()
+
+
+## The player walked out through the basement's open exit; the adapter builds the next round or the crossroads.
+func _on_basement_exit_crossed(_payload: Dictionary) -> void:
+	if game == null or not game.leave_basement_round():
+		return
+	_rebuild_reality_floor()
+	_refresh_play_surfaces()
+	_sync_audio_state(false)
+
+
+## Debug builds only (the F9 panel): starts a basement round fresh with the phone down.
+func _jump_to_basement_round(round_number: int) -> void:
+	if not _dialog_debug_enabled or game == null or not _session_is_in_run():
+		return
+	_exit_reality_interaction(false)
+	game.jump_to_basement_round(round_number)
+	if ChapterOneProgressScript.round_of(game.chapter_one_progress) != round_number:
+		return
+	game.set_view_state("npc_up")
+	if session_mode() == "prologue":
+		_finish_opening_narration()
+	_rebuild_reality_floor()
+	_render()
+	_sync_audio_state(true)
 
 
 ## Development and test seam: leaves chapter one for the tower street with the phone up, as a run used to begin.
@@ -1875,6 +1930,8 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 		UiIntentsScript.TERMINAL_EXIT_REQUESTED:
 			# The exit button is pressed while the terminal's display is still dispatching that click.
 			_exit_terminal.call_deferred()
+		UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED:
+			_jump_to_basement_round(int(payload.get(UiIntentsScript.KEY_INDEX, 0)))
 
 
 func _ensure_language_selection_panel() -> void:
@@ -2047,7 +2104,6 @@ func _reality_conversation_mount_deps() -> Dictionary:
 		"npc_understanding": func() -> int: return game.npc_understanding,
 		"choice_preview": func(choice_id: String) -> String: return game.preview_typed_reality_choice(choice_id),
 		"typed_bbcode": _typed_reality_bbcode,
-		"typing_unit_count": func() -> int: return game.get_typed_reality_unit_count(),
 	}
 
 
@@ -2569,12 +2625,44 @@ func _on_reality_continue_pressed() -> void:
 	_exit_reality_interaction()
 
 
+## While the player types a line, and for a whole linear conversation, every key but Escape stays in the
+## conversation, so typing F or Tab neither leaves it nor raises the phone.
+func _conversation_takes_keys(event: InputEvent) -> bool:
+	if not event is InputEventKey or (event as InputEventKey).keycode == KEY_ESCAPE or not _reality_interaction_is_active():
+		return false
+	return _conversation_phase() == "typing" or str(_reality_conversation_snapshot().get("mode", "")) == "linear"
+
+
+func _conversation_phase() -> String:
+	return str(_reality_conversation_snapshot().get("phase", ""))
+
+
+## A linear conversation's reply plays out by itself: once it was read the next turn follows, and after the last
+## one the conversation ends. Open settings holds it.
+func _advance_linear_reply(delta: float) -> void:
+	if not _reply_clock.is_running():
+		return
+	if not _reality_interaction_is_active() or _conversation_phase() != "result":
+		_reply_clock.cancel()
+		return
+	if not _reply_clock.advance(delta, _model_is_on(PropertyKeysScript.SETTINGS_OPEN)):
+		return
+	if game.continue_typed_reality_conversation():
+		_localize_active_conversation()
+		_refresh_reality_hud_in_run()
+		_sync_audio_state(false)
+	else:
+		_exit_reality_interaction()
+
+
 func _advance_typed_reality_character() -> bool:
 	if not _reality_interaction_is_active():
 		return false
 	var result: Dictionary = game.advance_typed_reality_character()
 	if not bool(result.get("advanced", false)):
 		return false
+	if bool(result.get("completed", false)) and game.conversation_mode == "linear":
+		_reply_clock.begin(game.conversation_feedback)
 	_refresh_reality_hud_in_run()
 	_sync_audio_state(false)
 	if str(_reality_conversation_snapshot().get("actor_type", "")) == "doll" and _reality_scene_adapter != null:

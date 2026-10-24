@@ -19,6 +19,9 @@ func _run_async() -> void:
 		game_root._locale.set_locale("zh")
 		game_root.new_game()
 		game_root._skip_chapter_one()
+		# The street's cast starts on the second floor; the first is the empty crossroads.
+		game_root.game.tower_floor = 2
+		game_root._refresh_play_surfaces()
 		await process_frame
 
 		_assert_true(Harness.find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone launcher must not retain the removed shop")

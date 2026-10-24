@@ -9,7 +9,9 @@ class_name FloorComposer
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 
-const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
+## The tower floor chapter one ends on: the empty crossroads.
+const CROSSROADS_FLOOR := 1
+const ORDINARY_NPC_COUNTS := [0, 3, 2, 0]
 const PEDESTRIAN_LABELS := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
 const DISTANT_MIRAGE_DAYS := [4, 9]
 const FLOOR_LAYOUTS := {
@@ -61,6 +63,10 @@ static func ordinary_npc_count(floor_number: int) -> int:
 static func compose(snapshot: Dictionary) -> Dictionary:
 	var progress: Dictionary = snapshot.get("day_progress", {})
 	var floor_number := clampi(int(progress.get("tower_floor", 1)), 1, 4)
+	# The first floor is the crossroads chapter one ends on: nobody stands there and nothing is placed or played.
+	# Its old residents now meet the player in the basement rounds.
+	if floor_number == CROSSROADS_FLOOR:
+		return {"people": [], "display_names": {}, "items": [], "events": [], "layout": _layout_for(floor_number)}
 	var people: Array = []
 	var display_names := {}
 	if floor_number <= 3:

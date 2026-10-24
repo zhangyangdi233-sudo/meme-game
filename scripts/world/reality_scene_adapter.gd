@@ -51,6 +51,8 @@ var _gaze_before_interaction: Dictionary = {}
 var _chapter_stage: ChapterOneStage
 ## The chapter phase the stage was built for; empty while the tower street is built.
 var _built_stage := ""
+## The basement round the stage was built for; zero outside the basement.
+var _built_round := 0
 var _nearby_door := false
 var _nearby_terminal := false
 var _terminal_active := false
@@ -114,7 +116,7 @@ func rebuild_floor(deps: Dictionary) -> void:
 		return
 	var stage_phase := _chapter_stage_phase(deps)
 	if not stage_phase.is_empty():
-		_build_chapter_stage(stage_phase)
+		_build_chapter_stage(stage_phase, deps)
 		return
 	if _chapter_stage != null:
 		_clear_chapter_stage()
@@ -171,7 +173,8 @@ func ensure_floor_current(deps: Dictionary) -> void:
 	if _door_time >= 0.0:
 		return
 	var stage_phase := _chapter_stage_phase(deps)
-	if stage_phase != _built_stage:
+	# Each basement round is built afresh: walking out of one starts the next at the top of the stairs.
+	if stage_phase != _built_stage or ChapterOneProgressScript.round_of(_chapter_progress(deps)) != _built_round:
 		rebuild_floor(deps)
 	if not stage_phase.is_empty():
 		if _chapter_stage != null:
@@ -241,6 +244,8 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		_recover_player()
 	elif player.is_on_floor() and _contains_playable(player.position, _safe_inset()):
 		_last_safe_position = player.position
+	if _chapter_stage != null:
+		_chapter_stage.track_player(player.position)
 
 
 ## Opening settings holds the knock and a door that is opening.
@@ -285,6 +290,20 @@ func chapter_door_position() -> Vector3:
 	return _chapter_stage.door_position()
 
 
+## Where the basement round's NPC stands; zero when no stage has one.
+func chapter_npc_position() -> Vector3:
+	if _chapter_stage == null or _chapter_stage.interactable_actors().is_empty():
+		return Vector3.ZERO
+	return _chapter_stage.interactable_actors()[0].global_position
+
+
+## Where the basement exit's doorway meets the floor; zero when no stage has one.
+func chapter_exit_position() -> Vector3:
+	if _chapter_stage == null:
+		return Vector3.ZERO
+	return _chapter_stage.exit_position()
+
+
 ## Whether a position is inside the chapter stage's playable bounds; false while the tower street is built.
 func chapter_contains(position: Vector3) -> bool:
 	return _chapter_stage != null and _chapter_stage.contains_playable_position(position)
@@ -315,7 +334,8 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	if _chapter_stage != null:
 		_nearby_door = _door_in_reach(deps)
 		_nearby_terminal = _terminal_in_reach()
-		if previous_door != _nearby_door or previous_terminal != _nearby_terminal:
+		nearby_actor = _nearest_actor(_chapter_stage.interactable_actors())
+		if previous_door != _nearby_door or previous_terminal != _nearby_terminal or previous_actor != nearby_actor:
 			nearby_targets_changed.emit()
 		return
 	var nearest: Area3D = null
@@ -341,6 +361,18 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	nearby_item = nearest if nearest_kind == "item" else null
 	if previous_actor != nearby_actor or previous_item != nearby_item:
 		nearby_targets_changed.emit()
+
+
+func _nearest_actor(actors: Array[Area3D]) -> Area3D:
+	var nearest: Area3D = null
+	var nearest_distance := INTERACTION_DISTANCE
+	for actor in actors:
+		var offset: Vector3 = actor.global_position - player.global_position
+		offset.y = 0.0
+		if offset.length() <= nearest_distance:
+			nearest = actor
+			nearest_distance = offset.length()
+	return nearest
 
 
 func nearby_outcome() -> Dictionary:
@@ -609,16 +641,18 @@ func _chapter_stage_phase(deps: Dictionary) -> String:
 	return "" if stage_phase == ChapterOneProgressScript.PHASE_TOWER else stage_phase
 
 
-func _build_chapter_stage(stage_phase: String) -> void:
+func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	_clear_chapter_stage()
 	floor.visible = false
+	var round_number := ChapterOneProgressScript.round_of(_chapter_progress(deps))
 	_chapter_stage = ChapterOneStageScript.new()
 	_chapter_stage.name = "ChapterOneStage"
 	_host.add_child(_chapter_stage)
-	_chapter_stage.build(stage_phase)
+	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number))
 	_chapter_stage.set_paused(_paused)
 	_chapter_stage.visible = _street_shown()
 	_built_stage = stage_phase
+	_built_round = round_number
 	clear_nearby_targets()
 	_drop_interaction(false)
 	_door_time = -1.0
@@ -636,6 +670,15 @@ func _clear_chapter_stage() -> void:
 		_chapter_stage.queue_free()
 	_chapter_stage = null
 	_built_stage = ""
+	_built_round = 0
+
+
+## The round's NPC is drawn with the street's NPC portraits, one after another.
+func _basement_npc_texture(deps: Dictionary, round_number: int) -> Texture2D:
+	var paths: Array = deps.get("npc_character_paths", [])
+	if round_number <= 0 or paths.is_empty():
+		return null
+	return _load_texture(deps.get("load_texture", Callable()), str(paths[(round_number - 1) % paths.size()]))
 
 
 func _terminal_in_reach() -> bool:
@@ -826,9 +869,12 @@ func _find_actor(actor_id: String) -> Area3D:
 		return nearby_actor
 	if active_actor != null and is_instance_valid(active_actor) and str(active_actor.get_meta("actor_id", "")) == actor_id:
 		return active_actor
-	if floor == null:
-		return null
-	for actor in floor.get_interactable_actors():
+	var actors: Array[Area3D] = []
+	if _chapter_stage != null:
+		actors = _chapter_stage.interactable_actors()
+	elif floor != null:
+		actors = floor.get_interactable_actors()
+	for actor in actors:
 		if str(actor.get_meta("actor_id", "")) == actor_id:
 			return actor
 	return null

@@ -41,6 +41,8 @@ func _run() -> void:
 	_test_a_freed_panel_unregisters()
 	_test_rendering_repaints_what_the_models_cannot_tell()
 	_test_the_right_answer_is_not_marked()
+	_test_the_typing_hint_shows_until_a_line_was_typed()
+	_test_a_linear_conversation_shows_no_choices_or_buttons()
 
 
 func _test_showing_registers_and_syncs_the_current_progress() -> void:
@@ -76,8 +78,6 @@ func _test_changing_a_value_repaints_the_panel() -> void:
 	_model(PropertyKeysScript.CONVERSATION_PHASE).write("typing")
 	_assert_true(_node(mounted, "RealityTypingLine").visible, "typing should show the typing line")
 	_assert_true(not _node(mounted, "RealityResponseChoices").visible, "typing should hide the choice row")
-	_model(PropertyKeysScript.CONVERSATION_REVEAL_INDEX).write(3)
-	_assert_true((_node(mounted, "RealityTypingProgress") as Label).text.contains("3 / 9"), "the reveal index should repaint the progress")
 
 	_model(PropertyKeysScript.CONVERSATION_FEEDBACK).write("well said")
 	_model(PropertyKeysScript.CONVERSATION_CAN_CONTINUE).write(true)
@@ -229,6 +229,38 @@ func _test_the_right_answer_is_not_marked() -> void:
 	_dispose(mounted)
 
 
+func _test_the_typing_hint_shows_until_a_line_was_typed() -> void:
+	var mounted := _mount()
+	var panel: RealityConversationPanel = mounted["panel"]
+	_model(PropertyKeysScript.TYPING_HINT_SEEN).write(false)
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("typing")
+	panel.set_shown(true)
+	var hint := _node(mounted, "RealityTypingProgress") as Label
+	_assert_true(hint.visible and hint.text == RealityConversationPanel.TYPING_HINT, "the first typed line should show how to type: '%s'" % hint.text)
+	_model(PropertyKeysScript.CONVERSATION_REVEAL_INDEX).write(3)
+	_assert_eq(hint.text, RealityConversationPanel.TYPING_HINT, "typing should not count the units")
+	_model(PropertyKeysScript.TYPING_HINT_SEEN).write(true)
+	_assert_true(not hint.visible, "a seen hint should not show again")
+	_dispose(mounted)
+
+
+func _test_a_linear_conversation_shows_no_choices_or_buttons() -> void:
+	var mounted := _mount()
+	var panel: RealityConversationPanel = mounted["panel"]
+	(_model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel).replace_all([{"id": "first", "summary": "First"}])
+	_model(PropertyKeysScript.CONVERSATION_MODE).write("linear")
+	_model(PropertyKeysScript.CONVERSATION_PHASE).write("typing")
+	panel.set_shown(true)
+	for phase in ["choosing", "typing", "result"]:
+		_model(PropertyKeysScript.CONVERSATION_PHASE).write(phase)
+		_assert_true(not _node(mounted, "RealityResponseChoices").visible, "a linear conversation should show no choices while %s" % phase)
+		_assert_true(not _node(mounted, "RealityConversationContinue").visible, "a linear conversation should show no button while %s" % phase)
+		_assert_true(_node(mounted, "RealitySubtitlePanel").visible, "a linear conversation should still show the subtitle while %s" % phase)
+	_model(PropertyKeysScript.CONVERSATION_MODE).write("authored")
+	_assert_true(_node(mounted, "RealityConversationContinue").visible, "an authored conversation should keep its button")
+	_dispose(mounted)
+
+
 func _mount(extra_deps: Dictionary = {}) -> Dictionary:
 	RegistryScript.clear()
 	BootScript.install()
@@ -256,7 +288,6 @@ func _mount(extra_deps: Dictionary = {}) -> Dictionary:
 		"npc_understanding": func() -> int: return 100,
 		"choice_preview": func(choice_id: String) -> String: return "preview of %s" % choice_id,
 		"typed_bbcode": func() -> String: return "typed",
-		"typing_unit_count": func() -> int: return 9,
 	}
 	deps.merge(extra_deps, true)
 	panel.mount(host, deps)

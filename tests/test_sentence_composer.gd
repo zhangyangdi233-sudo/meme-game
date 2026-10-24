@@ -43,6 +43,7 @@ func _collect_door_sentence_units(game) -> void:
 func _test_composer_state() -> void:
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_assert_true(not game.free_sentence_place("门", "zh"), "uncollected units must not enter the sentence")
 	_collect_door_sentence_units(game)
 	_assert_true(game.free_sentence_place("门", "zh"), "collected units should be placeable")
@@ -78,6 +79,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 第三层:门规则即终极任务;未完成前任何结局都被门挡住。
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 3
 	game.pollution = 80
 	_assert_eq_text(game.complete_floor_three(), "floor-three-task-incomplete", "floor three must refuse to end before the door rule")
@@ -90,6 +92,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 提前写规则:第一层写下门规则,到第三层时兑现。
 	var early = StateScript.new()
 	early.new_run()
+	early.skip_chapter_one()
 	early.free_sentence_units = ["门", "可", "以", "打", "开"]
 	early.submit_free_sentence("zh")
 	_assert_true(not early.floor3_task_complete, "the door rule cannot complete a task before floor three")
@@ -107,6 +110,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 否定不解锁;之后的正例解锁;解锁后再否定不收回(任务锁存)。
 	var negated = StateScript.new()
 	negated.new_run()
+	negated.skip_chapter_one()
 	negated.tower_floor = 3
 	negated.free_sentence_units = ["门", "不", "可", "以", "打", "开"]
 	negated.submit_free_sentence("zh")
@@ -122,6 +126,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 第四层:出口存在 = 终极任务完成,但隐藏结局只在日结边界解锁(先看见出口出现)。
 	var hidden = StateScript.new()
 	hidden.new_run()
+	hidden.skip_chapter_one()
 	hidden.tower_floor = 4
 	hidden.ending_route = "hidden"
 	_assert_true(not hidden.ending_unlocked, "the hidden floor should start without an unlocked ending")
@@ -136,6 +141,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 重复投稿同一规则不得再次报告任务完成。
 	var repeat = StateScript.new()
 	repeat.new_run()
+	repeat.skip_chapter_one()
 	repeat.tower_floor = 3
 	repeat.free_sentence_units = ["门", "可", "以", "打", "开"]
 	var first_submit: Dictionary = repeat.submit_free_sentence("zh")
@@ -147,16 +153,19 @@ func _test_rule_application_and_tasks() -> void:
 	# 英文与日文的提交路径同样命中规则表。
 	var english = StateScript.new()
 	english.new_run()
+	english.skip_chapter_one()
 	english.free_sentence_units = ["the", "door", "can", "be", "opened"]
 	_assert_eq_text(str(english.submit_free_sentence("en").get("rule_key", "")), "door|can_open", "the English door sentence should post as a rule")
 	var japanese = StateScript.new()
 	japanese.new_run()
+	japanese.skip_chapter_one()
 	japanese.free_sentence_units = ["ドア", "ひらく"]
 	_assert_eq_text(str(japanese.submit_free_sentence("ja").get("rule_key", "")), "door|can_open", "the Japanese door sentence should post as a rule")
 
 	# 拖拽 API:插入位置与重排。
 	var dragger = StateScript.new()
 	dragger.new_run()
+	dragger.skip_chapter_one()
 	dragger.pick_social_char("floor_13", "门", "zh")
 	dragger.pick_social_char("floor_13", "开", "zh")
 	dragger.pick_social_char("floor_13", "打", "zh")
@@ -172,6 +181,7 @@ func _test_rule_application_and_tasks() -> void:
 func _test_save_round_trip() -> void:
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_collect_door_sentence_units(game)
 	game.free_sentence_place("门", "zh")
 	game.free_sentence_place("开", "zh")

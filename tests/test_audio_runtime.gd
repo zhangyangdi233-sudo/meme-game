@@ -79,7 +79,9 @@ func _run() -> void:
 			var floor_stream := phone.stream as AudioStreamWAV
 			_assert_true(floor_stream != null and floor_stream.loop_end == 2_116_800, "every floor score should preserve the 96-second seamless loop contract")
 		_assert_eq(floor_paths.size(), 4, "three formal floors and the hidden floor should use distinct phone music")
-		game_root.game.tower_floor = 1
+		# The street's cast starts on the second floor; the first is the empty crossroads.
+		game_root.game.tower_floor = 2
+		game_root._refresh_play_surfaces()
 		game_root._sync_audio_state(true)
 	_validate_score_metadata()
 

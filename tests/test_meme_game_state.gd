@@ -382,6 +382,7 @@ func test_progression_snapshot_and_models() -> void:
 	_assert_eq(game.ending_language_choice, "blank", "the chosen language should read back from the model")
 
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 4
 	game.ending_route = "hidden"
 	game.floor4_task_complete = true

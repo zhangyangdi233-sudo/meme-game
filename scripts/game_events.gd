@@ -21,6 +21,9 @@ const FLASHBACK_FINISHED := "flashback_finished"
 ## The knock at chapter one's white door played to its end. Payload: {}.
 const OPENING_KNOCK_FINISHED := "opening_knock_finished"
 
+## The player walked out through the basement's open exit. Payload: {}.
+const BASEMENT_EXIT_CROSSED := "basement_exit_crossed"
+
 ## Sound cues carried by SFX_REQUESTED.
 const CUE_PICKUP_PRESS := "pickup_press"
 const CUE_PICKUP_LAND := "pickup_land"

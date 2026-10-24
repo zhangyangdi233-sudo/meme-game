@@ -6,7 +6,6 @@ const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 
 const DEFAULT_PROPS := {
-	1: {"id": "artifact_named_lamp_tag", "marker": "OldNameplate"},
 	2: {"id": "artifact_reversed_tape", "marker": "CassetteBody"},
 	3: {"id": "artifact_missing_subject_page", "marker": "MissingSubjectPage"},
 }
@@ -21,7 +20,8 @@ func _init() -> void:
 func _run() -> void:
 	var floor_root := RealityFloorGeneratorScript.new()
 	root.add_child(floor_root)
-	for floor_number in [1, 2, 3]:
+	# The first floor is the empty crossroads; it lists no prop of its own.
+	for floor_number in [2, 3]:
 		var expected: Dictionary = DEFAULT_PROPS[floor_number]
 		var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number, "day": 1}})
 		floor_root.rebuild(

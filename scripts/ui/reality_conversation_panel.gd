@@ -1,7 +1,9 @@
 class_name RealityConversationPanel
 extends Node
 ## Reality subtitle, choice row, typing line, and continue button chrome.
-## While shown, it watches the conversation progress models and repaints itself.
+## While shown, it watches the conversation progress models and repaints itself. A linear conversation (the basement
+## NPCs' one route) shows no choices and no button: it moves on by itself. Until the player has typed a whole line
+## once, the typing line carries a hint on how to type.
 
 const RicherTextLabelScript = preload("res://addons/richtext2/richer_text_label.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -10,8 +12,13 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
+## Shown under the typing line until the player has typed a whole line once.
+const TYPING_HINT := "按任意文字键，把这句话说出来。"
+const LINEAR_MODE := "linear"
 const WATCHED: Array[String] = [
 	PropertyKeysScript.CONVERSATION_PHASE,
+	PropertyKeysScript.CONVERSATION_MODE,
+	PropertyKeysScript.TYPING_HINT_SEEN,
 	PropertyKeysScript.CONVERSATION_ACTOR_TYPE,
 	PropertyKeysScript.CONVERSATION_ACTOR_LABEL,
 	PropertyKeysScript.CONVERSATION_PROMPT,
@@ -41,7 +48,6 @@ var _last_spoken_sentence_fn: Callable
 var _npc_understanding_fn: Callable
 var _choice_preview_fn: Callable
 var _typed_bbcode_fn: Callable
-var _typing_unit_count_fn: Callable
 
 var _shown := false
 var _hover_choice_id := ""
@@ -110,6 +116,9 @@ func _paint() -> void:
 		_hover_choice_id = ""
 	var typing := phase == "typing"
 	var result := phase == "result"
+	var linear := str(_values.get(PropertyKeysScript.CONVERSATION_MODE, "")) == LINEAR_MODE
+	if linear:
+		choosing = false
 	var actor_label := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))
 	var actor_type := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, ""))
 	var actor_name: String = actor_label if not actor_label.is_empty() else str(_call(_fallback_actor_name_fn, ""))
@@ -134,11 +143,12 @@ func _paint() -> void:
 			last_spoken,
 			int(_call(_npc_understanding_fn, 0)),
 		])
+	var hint_seen := bool(_values.get(PropertyKeysScript.TYPING_HINT_SEEN, false))
 	_subtitle_panel.visible = true
-	_continue_button.visible = true
+	_continue_button.visible = not linear
 	_choice_row.visible = choosing
 	_typing_line.visible = typing
-	_typing_progress.visible = typing
+	_typing_progress.visible = typing and not hint_seen
 	_intent_preview.visible = choosing and not _hover_choice_id.is_empty()
 	if choosing:
 		var viewport_size: Vector2 = _viewport_size_fn.call()
@@ -170,10 +180,7 @@ func _paint() -> void:
 			_set_dialogue_text_fn.call(_intent_preview, _choice_preview(_hover_choice_id))
 	if typing:
 		_set_richer_bbcode_fn.call(_typing_line, str(_call(_typed_bbcode_fn, "")))
-		_typing_progress.text = "任意键  %d / %d" % [
-			int(_values.get(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, 0)),
-			int(_call(_typing_unit_count_fn, 0)),
-		]
+		_typing_progress.text = TYPING_HINT if not hint_seen else ""
 	else:
 		_set_richer_bbcode_fn.call(_typing_line, "")
 		_typing_progress.text = ""
@@ -251,7 +258,6 @@ func _apply_mount_deps(deps: Dictionary) -> void:
 	_npc_understanding_fn = deps.get("npc_understanding", Callable())
 	_choice_preview_fn = deps.get("choice_preview", Callable())
 	_typed_bbcode_fn = deps.get("typed_bbcode", Callable())
-	_typing_unit_count_fn = deps.get("typing_unit_count", Callable())
 
 
 func _build_chrome(parent: Control) -> void:

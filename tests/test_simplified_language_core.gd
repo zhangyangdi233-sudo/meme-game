@@ -26,6 +26,7 @@ func _run() -> void:
 func test_pollution_is_the_only_gameplay_metric() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_assert_true(not game.has_method("get_gameplay_metrics"), "no metric besides pollution should be exposed")
 	var property_names: Array[String] = []
 	for property: Dictionary in game.get_property_list():
@@ -39,6 +40,7 @@ func test_pollution_is_the_only_gameplay_metric() -> void:
 func test_hidden_floor_requires_eighty_and_complete_route_at_the_next_interaction() -> void:
 	var incomplete: RefCounted = _state_script.new()
 	incomplete.new_run()
+	incomplete.skip_chapter_one()
 	incomplete.tower_floor = 3
 	incomplete.pollution = 80
 	incomplete.floor3_task_complete = true
@@ -48,6 +50,7 @@ func test_hidden_floor_requires_eighty_and_complete_route_at_the_next_interactio
 
 	var complete: RefCounted = _state_script.new()
 	complete.new_run()
+	complete.skip_chapter_one()
 	complete.tower_floor = 3
 	complete.pollution = 80
 	complete.floor3_task_complete = true

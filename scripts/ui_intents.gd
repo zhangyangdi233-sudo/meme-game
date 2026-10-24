@@ -70,6 +70,9 @@ const RESTART_REQUESTED := "restart_requested"
 const TERMINAL_APP_SELECTED := "terminal_app_selected"
 const TERMINAL_EXIT_REQUESTED := "terminal_exit_requested"
 
+## The F9 chapter debug panel (debug builds only). Payload: {KEY_INDEX: int}, the basement round to jump to.
+const CHAPTER_ROUND_JUMP_REQUESTED := "chapter_round_jump_requested"
+
 ## Social feed. Payload: {KEY_CHANNEL: String} for a channel tab, {KEY_SCREEN: String} for a page change,
 ## {KEY_POST_INDEX: int} for a card, {KEY_POST_ID: String} for a like, {KEY_AUTHOR_ID: String} for a follow,
 ## {KEY_META: Variant, KEY_POST_ID: String} for a pickup unit, {KEY_DATA: Dictionary} for a drop on the sentence area,

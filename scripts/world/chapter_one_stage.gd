@@ -1,15 +1,17 @@
 class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
-## the knock behind it) or the basement (a room with the CRT terminal), each from its imported model. The models bring
-## their own walls and ground colliders; this stage adds the spawn, the playable bounds, the light, the door and the
-## CRT's glass.
-## The adapter drives it; the knock finishing is raised as a game event for the state to record.
+## the knock behind it) or one basement round (a room with the CRT terminal, the round's NPC and an exit), each from
+## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
+## bounds, the light, the doors and their colliders, the NPC and the CRT's glass.
+## The adapter drives it; the knock finishing and the player walking out through the basement's open exit are raised
+## as game events for the state to record.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
+const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 
 const OPENING_MODEL_PATH := "res://assets/chapter1/Opening_WhiteDoor_v2.glb"
 const BASEMENT_MODEL_PATH := "res://assets/chapter1/Basement_Loop_v2.glb"
@@ -36,6 +38,24 @@ const BASEMENT_LIGHT_COLOR := Color(1.0, 0.82, 0.62)
 const CRT_SCREEN_NODE := "*Screen_Video"
 ## The CRT's reach point (where the player stands to use it): this far out from its glass, on the floor.
 const CRT_REACH_OFFSET := 0.9
+## The basement model's two doors: the entry at the top of the stairs (open when a round starts, shut once the player
+## goes down) and the exit behind the NPC (open once the round is delivered). Both swing out, away from the room.
+const ENTRY_DOOR_PIVOT := "EntryDoorPivot"
+const EXIT_DOOR_PIVOT := "ExitDoorPivot"
+## A door leaf's size and its center from its hinge pivot, in Godot space.
+const DOOR_LEAF_SIZE := Vector3(0.055, 2.2, 1.06)
+const DOOR_LEAF_CENTER := Vector3(0.0, 1.1, -0.53)
+const BASEMENT_DOOR_OPEN_DEGREES := 90.0
+const BASEMENT_DOOR_SECONDS := 1.2
+## The entry shuts once the player is past this depth down the stairs (the model's EntrySealTrigger).
+const ENTRY_SEAL_Z := -1.22
+## The exit's doorway on the floor, and how far past the wall the player has walked out.
+const EXIT_DOORWAY := Vector3(-3.2, 0.0, -3.43)
+const EXIT_DOORWAY_HALF_WIDTH := 0.53
+const EXIT_WALKED_OUT_X := -3.45
+## The round's NPC stands at the model's NPC anchor, behind the partition, facing the room.
+const BASEMENT_NPC_POSITION := Vector3(0.0, 0.02, -3.7)
+const BASEMENT_NPC_HEIGHT := 1.75
 
 var phase := ""
 var _model: Node3D
@@ -48,15 +68,27 @@ var _knock: AudioStreamPlayer3D
 var _knock_started := false
 var _knock_reported := false
 var _paused := false
+var _round := 0
+var _npc: Area3D
+var _entry_door: Node3D
+var _exit_door: Node3D
+## Door open ratios (0 shut, 1 open) and where each is swinging to.
+var _entry_ratio := 1.0
+var _entry_target := 1.0
+var _exit_ratio := 0.0
+var _exit_target := 0.0
+var _exit_reported := false
 
 
-## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING` or `PHASE_BASEMENT`).
-func build(stage_phase: String) -> bool:
+## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING` or `PHASE_BASEMENT`); a basement is
+## built for its round, with that round's NPC shown by `npc_texture`.
+func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null) -> bool:
 	phase = stage_phase
+	_round = round_number
 	if phase == ChapterOneProgressScript.PHASE_OPENING:
 		return _build_opening()
 	if phase == ChapterOneProgressScript.PHASE_BASEMENT:
-		return _build_basement()
+		return _build_basement(npc_texture)
 	push_error("ChapterOneStage has no stage for phase '%s'" % phase)
 	return false
 
@@ -92,6 +124,31 @@ func door_position() -> Vector3:
 	return OPENING_DOOR_CENTER
 
 
+## The basement round's NPC, or none outside the basement.
+func interactable_actors() -> Array[Area3D]:
+	var actors: Array[Area3D] = []
+	if _npc != null:
+		actors.append(_npc)
+	return actors
+
+
+## Where the basement exit's doorway meets the floor; zero when there is no exit.
+func exit_position() -> Vector3:
+	return EXIT_DOORWAY if _exit_door != null else Vector3.ZERO
+
+
+## Follows the player through a basement round: going down the stairs shuts the entry behind them, and walking out
+## through the open exit is reported once.
+func track_player(position: Vector3) -> void:
+	if _entry_door != null and position.z > ENTRY_SEAL_Z:
+		_entry_target = 0.0
+	if _exit_door == null or _exit_reported or _exit_ratio < 0.5:
+		return
+	if position.x < EXIT_WALKED_OUT_X and absf(position.z - EXIT_DOORWAY.z) <= EXIT_DOORWAY_HALF_WIDTH:
+		_exit_reported = true
+		GameEventBusScript.raise_event(GameEventsScript.BASEMENT_EXIT_CROSSED)
+
+
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 	var box := _bounds.grow(-inset)
 	return (
@@ -112,6 +169,8 @@ func clamp_to_playable_position(position: Vector3, inset: float = 0.0) -> Vector
 
 ## Starts the knock once its line is reached; a knock already heard, or already started in this stage, is not replayed.
 func sync_progress(progress: Dictionary) -> void:
+	if _exit_door != null and ChapterOneProgressScript.exit_open(progress):
+		_exit_target = 1.0
 	if _knock == null or _paused or _knock_started:
 		return
 	if not ChapterOneProgressScript.knock_due(progress):
@@ -164,9 +223,27 @@ func _build_opening() -> bool:
 	return true
 
 
-func _build_basement() -> bool:
+## Swings the basement doors toward where they are going; open settings holds them.
+func _process(delta: float) -> void:
+	if _paused:
+		return
+	var step := maxf(delta, 0.0) / BASEMENT_DOOR_SECONDS
+	if _entry_door != null and _entry_ratio != _entry_target:
+		_entry_ratio = move_toward(_entry_ratio, _entry_target, step)
+		_swing(_entry_door, _entry_ratio)
+	if _exit_door != null and _exit_ratio != _exit_target:
+		_exit_ratio = move_toward(_exit_ratio, _exit_target, step)
+		_swing(_exit_door, _exit_ratio)
+
+
+func _build_basement(npc_texture: Texture2D) -> bool:
 	if not _instance_model(BASEMENT_MODEL_PATH, "BasementRoom"):
 		return false
+	_entry_door = _bind_basement_door(ENTRY_DOOR_PIVOT)
+	_exit_door = _bind_basement_door(EXIT_DOOR_PIVOT)
+	_swing(_entry_door, _entry_ratio)
+	_swing(_exit_door, _exit_ratio)
+	_build_npc(npc_texture)
 	_bounds = BASEMENT_BOUNDS
 	_spawn = BASEMENT_SPAWN
 	_spawn_yaw = BASEMENT_SPAWN_YAW
@@ -188,6 +265,64 @@ func _build_basement() -> bool:
 	else:
 		push_error("The basement model has no CRT glass (%s)" % CRT_SCREEN_NODE)
 	return true
+
+
+## Gives a door leaf the collider the model leaves out, so it swings with the door and holds the doorway shut.
+func _bind_basement_door(pivot_name: String) -> Node3D:
+	var pivot := _model.find_child(pivot_name, true, false) as Node3D
+	if pivot == null:
+		push_error("The basement model has no %s" % pivot_name)
+		return null
+	var body := StaticBody3D.new()
+	body.name = "LeafCollider"
+	body.position = DOOR_LEAF_CENTER
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = DOOR_LEAF_SIZE
+	shape.shape = box
+	body.add_child(shape)
+	pivot.add_child(body)
+	return pivot
+
+
+func _swing(door: Node3D, ratio: float) -> void:
+	if door != null:
+		door.rotation_degrees.y = BASEMENT_DOOR_OPEN_DEGREES * clampf(ratio, 0.0, 1.0)
+
+
+func _build_npc(npc_texture: Texture2D) -> void:
+	var route: Dictionary = LanguageCorruptionContentScript.get_basement_route(_round)
+	if route.is_empty():
+		push_error("Basement round %d has no NPC" % _round)
+		return
+	_npc = Area3D.new()
+	_npc.name = "BasementNPC"
+	_npc.position = BASEMENT_NPC_POSITION
+	_npc.collision_layer = 2
+	_npc.collision_mask = 0
+	_npc.set_meta("actor_id", "basement_npc_%d" % _round)
+	_npc.set_meta("actor_type", "basement_npc")
+	_npc.set_meta("display_name", str(route.get("actor_label", "")))
+	var collision := CollisionShape3D.new()
+	collision.name = "InteractionShape"
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.5
+	capsule.height = BASEMENT_NPC_HEIGHT
+	collision.shape = capsule
+	collision.position.y = BASEMENT_NPC_HEIGHT * 0.5
+	_npc.add_child(collision)
+	var sprite := Sprite3D.new()
+	sprite.name = "Billboard"
+	sprite.texture = npc_texture
+	if npc_texture != null:
+		sprite.pixel_size = BASEMENT_NPC_HEIGHT / maxf(1.0, float(npc_texture.get_height()))
+	sprite.position.y = BASEMENT_NPC_HEIGHT * 0.5
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.double_sided = true
+	_npc.add_child(sprite)
+	add_child(_npc)
 
 
 func _instance_model(path: String, node_name: String) -> bool:

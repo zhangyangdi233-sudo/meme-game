@@ -25,6 +25,9 @@ func _run_async() -> void:
 
 	game_root.new_game()
 	game_root._skip_chapter_one()
+	# The street's cast starts on the second floor; the first is the empty crossroads.
+	game_root.game.tower_floor = 2
+	game_root._refresh_play_surfaces()
 	await process_frame
 	_test_scene_contract(game_root)
 	_test_compact_hud_and_settings(game_root)

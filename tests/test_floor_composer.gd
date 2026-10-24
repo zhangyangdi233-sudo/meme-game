@@ -8,7 +8,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
-	_test_floor_one_matches_previous_cast()
+	_test_the_crossroads_floor_is_empty()
 	_test_higher_floors_shrink_the_cast()
 	_test_roster_entries_hold_only_id_and_kind()
 	_test_display_names_sit_beside_the_roster()
@@ -30,21 +30,15 @@ func _init() -> void:
 		quit(1)
 
 
-func _test_floor_one_matches_previous_cast() -> void:
-	var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": 1, "day": 1}})
-	var people: Array = composed.get("people", [])
-	_assert_eq(people.size(), 6, "floor one should keep the key resident, the doll, and four pedestrians")
-	_assert_person(people, 0, "key_npc_1_keynpc", "key_npc")
-	_assert_person(people, 1, "doll_small_moon", "doll")
-	_assert_person(people, 2, "npc_1_npc0", "npc")
-	_assert_person(people, 3, "npc_1_npc1", "npc")
-	_assert_person(people, 4, "npc_1_npc2", "npc")
-	_assert_person(people, 5, "npc_1_npc3", "npc")
-	var names: Dictionary = composed.get("display_names", {})
-	_assert_eq(str(names.get("key_npc_1_keynpc", "")), "护灯人", "key resident name should come from the content catalog")
-	_assert_eq(str(names.get("doll_small_moon", "")), "缝线布偶", "doll name should come from the content catalog")
-	_assert_eq(str(names.get("npc_1_npc0", "")), "迟到者", "first pedestrian should keep the existing label")
-	_assert_eq(str(names.get("npc_1_npc3", "")), "无名信徒", "fourth pedestrian should keep the existing label")
+## Chapter one ends on the first floor's crossroads; its old residents moved into the basement rounds.
+func _test_the_crossroads_floor_is_empty() -> void:
+	for day_number in [1, 4]:
+		var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": 1, "day": day_number}, "cover_watcher_seen": false})
+		_assert_eq((composed.get("people", []) as Array).size(), 0, "nobody should stand at the crossroads on day %d" % day_number)
+		_assert_eq((composed.get("display_names", {}) as Dictionary).size(), 0, "the crossroads should name nobody")
+		_assert_eq((composed.get("items", []) as Array).size(), 0, "nothing should lie at the crossroads")
+		_assert_eq((composed.get("events", []) as Array).size(), 0, "nothing should play at the crossroads, not even the cover watcher")
+	_assert_eq(FloorComposerScript.ordinary_npc_count(1), 0, "the crossroads should count no pedestrians")
 
 
 func _test_higher_floors_shrink_the_cast() -> void:
@@ -59,7 +53,7 @@ func _test_higher_floors_shrink_the_cast() -> void:
 
 
 func _test_roster_entries_hold_only_id_and_kind() -> void:
-	var people: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 1}}).get("people", [])
+	var people: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 2}}).get("people", [])
 	for person in people:
 		var entry: Dictionary = person
 		var keys: Array = entry.keys()
@@ -81,21 +75,19 @@ func _test_display_names_sit_beside_the_roster() -> void:
 
 
 func _test_prerequisite_item_is_one_id_and_kind() -> void:
-	var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": 1}, "locale": "zh"})
+	var composed := FloorComposerScript.compose({"day_progress": {"tower_floor": 2}, "locale": "zh"})
 	var items: Array = composed.get("items", [])
-	_assert_eq(items.size(), 1, "floor one should list one prerequisite item")
+	_assert_eq(items.size(), 1, "floor two should list one prerequisite item")
 	var entry: Dictionary = items[0]
 	var keys: Array = entry.keys()
 	keys.sort()
 	_assert_eq(keys, ["id", "kind"], "an item entry should hold only id and kind")
-	_assert_eq(str(entry.get("id", "")), "artifact_named_lamp_tag", "floor one item id should come from the catalog")
+	_assert_eq(str(entry.get("id", "")), "artifact_reversed_tape", "floor two item id should come from the catalog")
 	_assert_eq(str(entry.get("kind", "")), "prerequisite", "the pickup should be a prerequisite")
 	_assert_true(not entry.has("label"), "the display name should not live inside the item list")
 	_assert_true(not entry.has("texture"), "images should not live inside the item list")
 	var names: Dictionary = composed.get("display_names", {})
-	_assert_eq(str(names.get("artifact_named_lamp_tag", "")), "写着“小月亮”的旧名牌", "the item label should sit beside the list")
-	var floor_two: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 2}, "locale": "en"}).get("items", [])
-	_assert_eq(str((floor_two[0] as Dictionary).get("id", "")), "artifact_reversed_tape", "floor two should keep its catalog item")
+	_assert_true(not str(names.get("artifact_reversed_tape", "")).is_empty(), "the item label should sit beside the list")
 	var floor_three: Array = FloorComposerScript.compose({"day_progress": {"tower_floor": 3}}).get("items", [])
 	_assert_eq(str((floor_three[0] as Dictionary).get("id", "")), "artifact_missing_subject_page", "floor three should keep its catalog item")
 
@@ -198,12 +190,9 @@ func _test_plan_carries_neutral_layout() -> void:
 		_assert_true(not layout.has("tower_floor"), "layout should not name the tower floor")
 		var people: Array = composed.get("people", [])
 		var items: Array = composed.get("items", [])
-		if floor_number == 1:
-			_assert_eq(people.size(), 6, "floor one cast should stay beside the new layout")
-			_assert_eq(items.size(), 1, "floor one prerequisite should stay beside the new layout")
-		elif floor_number == 4:
-			_assert_eq(people.size(), 0, "hidden floor four should still place nobody")
-			_assert_eq(items.size(), 0, "hidden floor four should still place no prerequisite")
+		if floor_number == 1 or floor_number == 4:
+			_assert_eq(people.size(), 0, "floor %d should still place nobody" % floor_number)
+			_assert_eq(items.size(), 0, "floor %d should still place no prerequisite" % floor_number)
 
 
 func _entries_of_kind(events: Array, kind: String) -> Array:
@@ -237,15 +226,6 @@ func _ids_of_kind(people: Array, kind: String) -> Array:
 		if str((person as Dictionary).get("kind", "")) == kind:
 			ids.append(str((person as Dictionary).get("id", "")))
 	return ids
-
-
-func _assert_person(people: Array, index: int, id: String, kind: String) -> void:
-	if index >= people.size():
-		_failures.append("missing person %s" % id)
-		return
-	var entry: Dictionary = people[index]
-	_assert_eq(str(entry.get("id", "")), id, "person %d id" % index)
-	_assert_eq(str(entry.get("kind", "")), kind, "person %d kind" % index)
 
 
 func _assert_true(condition: bool, message: String) -> void:

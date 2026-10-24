@@ -31,6 +31,7 @@ func _init() -> void:
 func test_pollution_alone_controls_first_floor_threshold() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.pollution = 24
 	game.pick_social_char("floor_13", "门", "zh")
 	_assert_eq(game.tower_floor, 1, "24% pollution must not bypass the first threshold")
@@ -43,6 +44,7 @@ func test_pollution_alone_controls_first_floor_threshold() -> void:
 func test_sixty_percent_advances_only_from_a_safe_boundary() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 2
 	game.pollution = 59
 	game.pick_social_char("floor_13", "门", "zh")
@@ -57,6 +59,7 @@ func test_sixty_percent_advances_only_from_a_safe_boundary() -> void:
 func test_each_prerequisite_requires_a_clue_before_collection() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_assert_eq(game.get_prerequisite_item_ids().size(), 3, "the hidden route should contain one physical prerequisite per normal floor")
 	for floor_number in [1, 2, 3]:
 		var item: Dictionary = game.get_prerequisite_item_for_floor(floor_number)
@@ -72,6 +75,7 @@ func test_each_prerequisite_requires_a_clue_before_collection() -> void:
 func test_clues_without_physical_items_do_not_unlock_the_hidden_floor() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	for floor_number in [1, 2, 3]:
 		_assert_true(game.reveal_prerequisite_item_for_floor(floor_number), "each clue should be revealable once")
 	_assert_true(not game.is_hidden_layer_unlocked(), "three spoken clues must not substitute for finding the three actual items")
@@ -80,6 +84,7 @@ func test_clues_without_physical_items_do_not_unlock_the_hidden_floor() -> void:
 func test_floor_three_without_hidden_route_enters_normal_ending() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 3
 	game.pollution = 80
 	_assert_true(game.has_method("complete_floor_three"), "state should expose the formal floor-three ending boundary")
@@ -98,6 +103,7 @@ func test_floor_three_without_hidden_route_enters_normal_ending() -> void:
 func test_floor_three_with_hidden_route_enters_unregistered_floor_four() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 3
 	game.pollution = 80
 	for floor_number in [1, 2, 3]:
@@ -114,6 +120,7 @@ func test_floor_three_with_hidden_route_enters_unregistered_floor_four() -> void
 func test_v6_save_round_trip_preserves_hidden_language_state() -> void:
 	var source: RefCounted = _state_script.new()
 	source.new_run()
+	source.skip_chapter_one()
 	source.pollution = 73
 	source.reveal_prerequisite_item_for_floor(1)
 	source.collect_prerequisite_item("artifact_named_lamp_tag")
@@ -130,6 +137,7 @@ func test_v6_save_round_trip_preserves_hidden_language_state() -> void:
 func test_random_dialogue_garble_is_capped_and_preserves_punctuation() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.pollution = 100
 	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "an existing NPC conversation should start")
 	var choice_id := str(game.conversation_choices[0].get("id", ""))
@@ -147,6 +155,7 @@ func test_random_dialogue_garble_is_capped_and_preserves_punctuation() -> void:
 func test_floor_transition_request_waits_for_an_explicit_boundary() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.pollution = 25
 	_assert_true(game.has_method("request_floor_transition_for_pollution"), "state should separate threshold detection from scene changes")
 	_assert_true(game.has_method("resolve_floor_transition_at_boundary"), "state should expose an explicit safe-boundary transition")
@@ -162,6 +171,7 @@ func test_floor_transition_request_waits_for_an_explicit_boundary() -> void:
 func test_a_post_crossing_a_threshold_advances_when_it_completes() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.pollution = 24
 	game.free_sentence_units = ["屏", "幕"]
 	_assert_true(bool(game.submit_free_sentence("zh").get("submitted", false)), "posting should go through")
@@ -173,6 +183,7 @@ func test_a_post_crossing_a_threshold_advances_when_it_completes() -> void:
 func test_history_is_view_only_authored_data_and_survives_save() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_assert_true(game.has_method("record_history_line"), "state should accept authored view-only history lines")
 	_assert_true(game.has_method("get_history_entries"), "state should expose history as a read-only copy")
 	if not game.has_method("record_history_line") or not game.has_method("get_history_entries"):

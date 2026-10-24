@@ -44,7 +44,7 @@ func _run() -> void:
 
 
 func test_a_run_holds_no_funds_actions_or_day_settlement() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	var saved: Dictionary = game.to_save_data().get("state", {})
 	for field_name in REMOVED_FIELDS:
 		_assert_true(game.get(field_name) == null, "the state should not hold %s" % field_name)
@@ -55,7 +55,7 @@ func test_a_run_holds_no_funds_actions_or_day_settlement() -> void:
 
 
 func test_posts_are_not_limited() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	for attempt in 12:
 		game.pollution = 0
 		game.free_sentence_units = ["灯"]
@@ -65,7 +65,7 @@ func test_posts_are_not_limited() -> void:
 
 
 func test_pickups_are_not_limited() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	var picked := 0
 	for post_id in PickupCharPoolScript.get_post_ids():
 		for unit in PickupCharPoolScript.get_post_units(str(post_id), "zh"):
@@ -78,7 +78,7 @@ func test_pickups_are_not_limited() -> void:
 
 
 func test_conversations_are_not_limited() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	for attempt in 8:
 		_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "conversation %d should start" % (attempt + 1))
 		_speak_first_choice(game)
@@ -87,13 +87,13 @@ func test_conversations_are_not_limited() -> void:
 
 
 func test_reaching_a_threshold_waits_for_the_next_interaction() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 25
 	_assert_eq(game.tower_floor, 1, "raising pollution alone should not move the player")
 
 
 func test_a_pickup_advances_the_floor_once_the_threshold_is_reached() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 25
 	var result: Dictionary = game.pick_social_char("floor_13", "门", "zh")
 	var outcome: ActionOutcomeScript = result.get("outcome")
@@ -107,7 +107,7 @@ func test_a_pickup_advances_the_floor_once_the_threshold_is_reached() -> void:
 
 
 func test_a_post_that_crosses_the_threshold_advances_when_it_completes() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 24
 	game.free_sentence_units = ["灯"]
 	var result: Dictionary = game.submit_free_sentence("zh")
@@ -122,7 +122,7 @@ func test_a_post_that_crosses_the_threshold_advances_when_it_completes() -> void
 
 
 func test_a_finished_conversation_advances_the_floor() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 25
 	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "the conversation should start")
 	_speak_first_choice(game)
@@ -134,7 +134,7 @@ func test_a_finished_conversation_advances_the_floor() -> void:
 
 
 func test_leaving_a_conversation_unspoken_checks_nothing() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 25
 	_assert_true(game.start_typed_reality_conversation("floor1npc0", "npc", "迟到者"), "the conversation should start")
 	var outcome: ActionOutcomeScript = game.end_typed_reality_conversation()
@@ -144,7 +144,7 @@ func test_leaving_a_conversation_unspoken_checks_nothing() -> void:
 
 
 func test_a_world_item_pickup_checks_progress() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	var item: Dictionary = game.get_prerequisite_item_for_floor(1)
 	game.reveal_prerequisite_item_for_floor(1)
 	game.pollution = 25
@@ -153,7 +153,7 @@ func test_a_world_item_pickup_checks_progress() -> void:
 
 
 func test_floor_three_ends_the_tower_at_the_next_interaction() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.tower_floor = 3
 	game.pollution = 80
 	game.floor3_task_complete = true
@@ -165,7 +165,7 @@ func test_floor_three_ends_the_tower_at_the_next_interaction() -> void:
 
 
 func test_floor_three_with_every_item_enters_the_hidden_floor() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	for floor_number in [1, 2, 3]:
 		game.reveal_prerequisite_item_for_floor(floor_number)
 		game.collect_prerequisite_item(str(game.get_prerequisite_item_for_floor(floor_number).get("id", "")))
@@ -180,7 +180,7 @@ func test_floor_three_with_every_item_enters_the_hidden_floor() -> void:
 
 
 func test_floor_four_unlocks_the_hidden_ending_at_the_next_interaction() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.tower_floor = 4
 	game.ending_route = "hidden"
 	game.free_sentence_units = ["出口", "存在"]
@@ -192,7 +192,7 @@ func test_floor_four_unlocks_the_hidden_ending_at_the_next_interaction() -> void
 
 
 func test_crossing_sixty_plays_the_flashback_and_the_run_goes_on() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.tower_floor = 3
 	game.pollution = StateScript.POLLUTION_FLASHBACK_THRESHOLD - 1
 	game.free_sentence_units = ["灯"]
@@ -210,7 +210,7 @@ func test_crossing_sixty_plays_the_flashback_and_the_run_goes_on() -> void:
 
 
 func test_saves_carry_the_new_version() -> void:
-	var game := Harness.new_state()
+	var game := _tower_state()
 	game.pollution = 41
 	var save_data: Dictionary = game.to_save_data()
 	_assert_eq(int(save_data.get("version", 0)), 6, "saves should use version six")
@@ -231,6 +231,13 @@ func _speak_first_choice(game: RefCounted) -> void:
 	game.select_typed_reality_choice(choice_id)
 	while game.conversation_phase == "typing":
 		game.advance_typed_reality_character()
+
+
+## The progress check climbs the tower only once chapter one is behind the run.
+func _tower_state() -> MemeGameState:
+	var game: MemeGameState = Harness.new_state()
+	game.skip_chapter_one()
+	return game
 
 
 func _assert_true(condition: bool, message: String) -> void:

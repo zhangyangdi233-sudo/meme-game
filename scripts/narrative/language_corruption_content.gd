@@ -651,6 +651,60 @@ static func get_followups_for_archetype(archetype_index: int) -> Dictionary:
 	return entry.duplicate(true)
 
 
+## The five basement rounds' NPCs, in order: the old first floor's lamp keeper, then its four pedestrians. Each route
+## reuses that NPC's first-floor lines; the player's line is the key resident's right answer or the pedestrian's first
+## reply.
+const BASEMENT_ROUND_SPEAKERS := [
+	{"key_npc_floor": 1},
+	{"street_floor": 1, "npc_index": 0},
+	{"street_floor": 1, "npc_index": 1},
+	{"street_floor": 1, "npc_index": 2},
+	{"street_floor": 1, "npc_index": 3},
+]
+
+
+## One basement round's fixed conversation: {actor_label, turns: [{line, sentence, result}]}; empty for no such round.
+static func get_basement_route(round_number: int) -> Dictionary:
+	if round_number < 1 or round_number > BASEMENT_ROUND_SPEAKERS.size():
+		return {}
+	var speaker: Dictionary = BASEMENT_ROUND_SPEAKERS[round_number - 1]
+	var turns: Array = []
+	var actor_label := ""
+	if speaker.has("key_npc_floor"):
+		var key_dialogue: Dictionary = KEY_NPC_DIALOGUES_BY_FLOOR.get(int(speaker["key_npc_floor"]), {})
+		actor_label = str(key_dialogue.get("actor_label", ""))
+		for turn: Dictionary in key_dialogue.get("turns", []):
+			turns.append(_basement_turn(turn, _correct_choice(turn)))
+	else:
+		var npc_index := int(speaker["npc_index"])
+		var opening: Dictionary = (REALITY_DIALOGUES_BY_FLOOR.get(int(speaker["street_floor"]), []) as Array)[npc_index]
+		actor_label = str(opening.get("speaker", ""))
+		turns.append(_basement_turn(opening, _first_choice(opening)))
+		for turn: Dictionary in (REALITY_FOLLOWUPS_BY_NPC_INDEX.get(npc_index, {}) as Dictionary).get("turns", []):
+			turns.append(_basement_turn(turn, _first_choice(turn)))
+	return {"actor_label": actor_label, "turns": turns}
+
+
+static func _basement_turn(turn: Dictionary, choice: Dictionary) -> Dictionary:
+	return {
+		"line": str(turn.get("line", "")),
+		"sentence": str(choice.get("sentence", "")),
+		"result": str(turn.get("result", "")),
+	}
+
+
+static func _correct_choice(turn: Dictionary) -> Dictionary:
+	for choice: Dictionary in turn.get("choices", []):
+		if bool(choice.get("correct", false)):
+			return choice
+	return _first_choice(turn)
+
+
+static func _first_choice(turn: Dictionary) -> Dictionary:
+	var choices: Array = turn.get("choices", [])
+	return choices[0] if not choices.is_empty() else {}
+
+
 static func get_language_persona_scenes() -> Array:
 	return LANGUAGE_PERSONA_SCENES.duplicate(true)
 
