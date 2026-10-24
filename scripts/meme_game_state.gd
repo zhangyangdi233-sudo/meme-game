@@ -925,16 +925,16 @@ func reset_reality_phase() -> void:
 
 func start_typed_reality_conversation(actor_id: String, actor_type: String, actor_label: String) -> bool:
 	conversation_actor_id = actor_id
-	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", "basement_npc"] else "npc"
+	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", PropertyKeysScript.BASEMENT_NPC_ACTOR_TYPE] else "npc"
 	conversation_actor_label = actor_label
 	conversation_world = "reality"
 	conversation_interrupt_line = ""
-	if conversation_actor_type == "basement_npc":
+	if conversation_actor_type == PropertyKeysScript.BASEMENT_NPC_ACTOR_TYPE:
 		var route: Dictionary = LanguageCorruptionContentScript.get_basement_route(ChapterOneProgressScript.round_of(chapter_one_progress))
 		if route.is_empty():
 			reset_typed_reality_conversation()
 			return false
-		conversation_mode = "linear"
+		conversation_mode = PropertyKeysScript.LINEAR_CONVERSATION_MODE
 		conversation_turns = (route.get("turns", []) as Array).duplicate(true)
 	else:
 		conversation_mode = "authored"
@@ -964,7 +964,7 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 
 ## A linear conversation offers no choice: the player's turn starts at once on the turn's authored line.
 func _begin_linear_turn() -> void:
-	if conversation_mode != "linear" or conversation_phase != "choosing":
+	if conversation_mode != PropertyKeysScript.LINEAR_CONVERSATION_MODE or conversation_phase != "choosing":
 		return
 	var turn: Dictionary = conversation_turns[conversation_turn_index]
 	conversation_selected_choice_id = "turn_%d" % conversation_turn_index
@@ -1228,7 +1228,7 @@ func advance_typed_reality_character() -> Dictionary:
 	last_polluted_sentence = get_typed_reality_spoken_sentence()
 	var understood := true
 	# Key residents, dolls and the basement NPCs always understand: pollution garbles the line, never the turn.
-	if conversation_actor_type in ["key_npc", "doll", "basement_npc"]:
+	if conversation_actor_type in ["key_npc", "doll", PropertyKeysScript.BASEMENT_NPC_ACTOR_TYPE]:
 		conversation_understanding_rolls = []
 		npc_understanding = 100
 	else:
@@ -1274,7 +1274,7 @@ func advance_typed_reality_character() -> Dictionary:
 		conversation_reward = _resolve_doll_choice_attempt()
 		result["reward"] = conversation_reward.duplicate(true)
 		conversation_feedback += "\n" + str(conversation_reward.get("feedback", ""))
-	elif conversation_actor_type == "basement_npc":
+	elif conversation_actor_type == PropertyKeysScript.BASEMENT_NPC_ACTOR_TYPE:
 		_deliver_basement_round()
 	return result
 

@@ -69,6 +69,9 @@ const DEFAULT_VIEW_STATE := "phone_down"
 const DEFAULT_CONVERSATION_PHASE := "idle"
 const DEFAULT_CONVERSATION_MODE := "authored"
 const DEFAULT_CONVERSATION_ACTOR_TYPE := "npc"
+## A basement round's NPC, and the one-route conversation it holds (no choices, no button).
+const BASEMENT_NPC_ACTOR_TYPE := "basement_npc"
+const LINEAR_CONVERSATION_MODE := "linear"
 
 ## Saved with the run; a new run resets it.
 const SAVED_WITH_RUN := "saved_with_run"

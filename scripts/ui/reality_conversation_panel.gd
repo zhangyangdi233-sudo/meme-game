@@ -14,7 +14,6 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 ## Shown under the typing line until the player has typed a whole line once.
 const TYPING_HINT := "按任意文字键，把这句话说出来。"
-const LINEAR_MODE := "linear"
 const WATCHED: Array[String] = [
 	PropertyKeysScript.CONVERSATION_PHASE,
 	PropertyKeysScript.CONVERSATION_MODE,
@@ -116,7 +115,7 @@ func _paint() -> void:
 		_hover_choice_id = ""
 	var typing := phase == "typing"
 	var result := phase == "result"
-	var linear := str(_values.get(PropertyKeysScript.CONVERSATION_MODE, "")) == LINEAR_MODE
+	var linear := str(_values.get(PropertyKeysScript.CONVERSATION_MODE, "")) == PropertyKeysScript.LINEAR_CONVERSATION_MODE
 	if linear:
 		choosing = false
 	var actor_label := str(_values.get(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, ""))

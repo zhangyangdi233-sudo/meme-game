@@ -2630,7 +2630,7 @@ func _on_reality_continue_pressed() -> void:
 func _conversation_takes_keys(event: InputEvent) -> bool:
 	if not event is InputEventKey or (event as InputEventKey).keycode == KEY_ESCAPE or not _reality_interaction_is_active():
 		return false
-	return _conversation_phase() == "typing" or str(_reality_conversation_snapshot().get("mode", "")) == "linear"
+	return _conversation_phase() == "typing" or str(_reality_conversation_snapshot().get("mode", "")) == PropertyKeysScript.LINEAR_CONVERSATION_MODE
 
 
 func _conversation_phase() -> String:
@@ -2661,7 +2661,7 @@ func _advance_typed_reality_character() -> bool:
 	var result: Dictionary = game.advance_typed_reality_character()
 	if not bool(result.get("advanced", false)):
 		return false
-	if bool(result.get("completed", false)) and game.conversation_mode == "linear":
+	if bool(result.get("completed", false)) and game.conversation_mode == PropertyKeysScript.LINEAR_CONVERSATION_MODE:
 		_reply_clock.begin(game.conversation_feedback)
 	_refresh_reality_hud_in_run()
 	_sync_audio_state(false)
