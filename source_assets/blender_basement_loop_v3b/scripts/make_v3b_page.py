@@ -23,13 +23,14 @@ VIEWS = [
     ('View_Basement_Entrance', '楼梯顶俯视', '下楼第一眼：薄雾里的一盏灯。'),
     ('V3B_View_Low_CRT', '低机位看 CRT', '梦核式空房间：地毯、一盏灯、一台电视。'),
     ('V3B_View_Globe', '仰视主灯', '体积雾里的灯球与天花颗粒。'),
-    ('V3B_View_Stair_Nook', '楼梯下的封条门', '三张纸封条：X 形封住锁边，一条封住门头；把手保留但不可用。'),
+    ('V3B_View_Stair_Nook', '楼梯下的胶带门', '平门扇，38 条交叠的胶带封死四边并贯穿门扇（灰色布基胶带为主，少量棕色封箱胶带）；把手保留但不可用。'),
 ]
 CLOSEUPS = [
     ('V3B_Closeup_Wallpaper', '墙纸与画框（曝光 +1.7 档，只为看材质）'),
     ('V3B_Closeup_Stairs', '踏步圆角、栏杆、楼梯侧板（曝光 +1.7 档）'),
     ('V3B_Closeup_Ceiling', '天花颗粒与灯球（曝光 +1.7 档）'),
 ]
+DOOR_CLOSEUP = ('V3B_Closeup_Door', '胶带门近景（曝光 +1.7 档）')
 GAME_SHOTS = [
     ('furniture', '第 1 轮 · 书桌与楼梯'), ('crt', '第 1 轮 · CRT 角'), ('rear', '第 1 轮 · NPC 区'),
     ('visit3_furniture', '第 3 轮 · 停电'), ('visit5_crt', '第 5 轮 · CRT 事件'), ('visit5_xray_crt', '第 5 轮 · X-ray 层'),
@@ -96,8 +97,8 @@ ol.q li span { color: var(--muted); font-size: 14.5px }
 <header>
   <div class="eyebrow">Aphasia · 第一章地下室 · 质感版 v3b · 待确认</div>
   <h1>同一个地下室，只改材质、微几何和灯光</h1>
-  <p class="lede">这版没有新增任何陈设。物件还是原来的：楼梯、书桌、两把椅子、电视柜与 CRT、边桌、画框、箱子。改的是三层："质感"（2K 烘焙法线/粗糙度、按米铺贴的 UV）、"边角"（倒角、楼梯侧板、楼梯井开口修正）和"光"（一盏偏绿的昏灯、薄雾、低曝光）。唯一的新物件是你要的那扇封条门。下面每一行都是同一台相机的三种状态，便于分辨哪一部分效果来自灯光、哪一部分来自材质。</p>
-  <div class="facts"><span>源文件 <b>Basement_Loop_v2.blend</b> → <b>Basement_Loop_v3b.blend</b></span><span>Blender <b>5.2.3</b> Cycles/OptiX，128 采样</span><span>新增物件 <b>1</b>（封条门）</span><span>仓库 <b>未改动</b></span></div>
+  <p class="lede">这版没有新增任何陈设。物件还是原来的：楼梯、书桌、两把椅子、电视柜与 CRT、边桌、画框、箱子。改的是三层："质感"（2K 烘焙法线/粗糙度、按米铺贴的 UV）、"边角"（倒角、楼梯侧板、楼梯井开口修正）和"光"（一盏偏绿的昏灯、薄雾、低曝光）。唯一的新物件是你要的那扇用胶带封死的门。下面每一行都是同一台相机的三种状态，便于分辨哪一部分效果来自灯光、哪一部分来自材质。</p>
+  <div class="facts"><span>源文件 <b>Basement_Loop_v2.blend</b> → <b>Basement_Loop_v3b.blend</b></span><span>Blender <b>5.2.3</b> Cycles/OptiX，128 采样</span><span>新增物件 <b>1</b>（胶带门）</span><span>仓库 <b>未改动</b></span></div>
 </header>
 
 <section>
@@ -137,6 +138,16 @@ P('''  </div>
 </section>
 
 <section>
+  <h2>胶带门</h2>
+  <p class="note">唯一的新物件。门扇是平板，没有凸起的门板；38 条胶带把锁边、铰链边、门头和门底封死，再加五条贯穿门扇的长斜条。第 4 轮走近时门内砸门，第 5 轮几条胶带被撕开卷边。</p>
+  <div class="cols">
+    <figure><div class="tag hi">近景（曝光 +1.7 档）</div><img src="{{W:v3b_V3B_Closeup_Door}}" alt="胶带门近景"></figure>
+    <figure><div class="tag hi">房间内正常亮度</div><img src="{{W:v3b_V3B_View_Stair_Nook}}" alt="胶带门"></figure>
+    <figure><div class="tag">从电视区看</div><img src="{{W:v3b_View_TV_Stairs}}" alt="从电视区看胶带门"></figure>
+  </div>
+</section>
+
+<section>
   <h2>现在游戏里的样子（用项目截图工具抓取，Forward+，无 VHS）</h2>
   <p class="note">这是当前仓库分支真实运行时的画面：运行时用 256×256 程序贴图覆盖了墙纸和地毯，灯光均匀，没有雾和环境光遮蔽。这也是为什么 v3b 的关键不在建模而在"让运行时别再覆盖材质 + 调灯光"。</p>
   <div class="game">
@@ -154,7 +165,7 @@ P('''  </div>
       <tr><td>材质</td><td>以原有绿色墙纸、苔绿地毯、赭色天花为底色，叠加周期性 4D 噪声烘焙出无缝 2K 法线 + 1K 粗糙度：纸纹、地毯圈绒、天花颗粒、哑光漆橘皮纹；导出后 Godot 直接读图。</td></tr>
       <tr><td>UV</td><td>房壳、天花、地毯件、楼梯、踢脚线、门套改为按米投影（墙纸 1.6 m、地毯/天花 1 m、油漆 0.5 m），不再依赖运行时 triplanar。</td></tr>
       <tr><td>微几何</td><td>踏步前缘 12 mm 圆角；踢脚线/门套/门板 4–5 mm 倒角；栏杆、扶手、灯球平滑；楼梯侧板封住阶梯侧面与平台下空洞；楼梯井开口东边 −1.69 → −1.48 m（原由运行时现场重箱）并加开口饰边。</td></tr>
-      <tr><td>封条门</td><td>平台下的门：三块门板、黄铜把手、三张纸封条，无交互；锚点 StairClosetDoorAnchor 供砸门事件。</td></tr>
+      <tr><td>胶带门</td><td>平台下的门：平门扇、黄铜把手、38 条交叠胶带，无交互；锚点 StairClosetDoorAnchor 供砸门事件。</td></tr>
       <tr><td>预览灯光</td><td>主灯 28 W、后灯 7 W、CRT 3.5 W；关闭所有补光；黑色世界 + 体积雾 0.010；AgX 中高对比，曝光 −0.1。</td></tr>
       <tr><td>没有动</td><td>平面布局、门轴、锚点、X-ray 标记、CRT 屏幕、全部现有家具；没有纸条、涂鸦、污渍、杂物。</td></tr>
     </table></div>
@@ -163,7 +174,7 @@ P('''  </div>
     <h2>请你定</h2>
     <ol class="q">
       <li><b>亮度档位</b><span>右列这个亮度（主灯 28 W 档）合适，还是回到更暗一档（15 W 档）？</span></li>
-      <li><b>封条门</b><span>样式（纸封条 X 形 + 门头一条）可以吗？砸门放在第 4 轮、走近 2.6 m 触发，第 5 轮撕断一条封条。</span></li>
+      <li><b>胶带门</b><span>胶带的密度和配色可以吗？砸门放在第 4 轮、走近 2.6 m 触发，第 5 轮几条胶带被撕开。</span></li>
       <li><b>运行时杂物</b><span>进游戏时是否同步去掉运行时生成的堆箱、油漆罐、散书、桌面纸笔杯和墙面磨损，让房间更空？</span></li>
       <li><b>下一步</b><span>确认后我把 v3b 导出进游戏并改运行时与灯光参数，再用截图工具出五轮对照。</span></li>
     </ol>

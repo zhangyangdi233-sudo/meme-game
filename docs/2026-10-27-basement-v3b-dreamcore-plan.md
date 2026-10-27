@@ -6,7 +6,7 @@
 
 - 地下室不再加物件。质感靠三件事：**材质（2K 烘焙的法线/粗糙度 + 米制 UV）、微几何（倒角、楼梯侧板、楼梯井开口修正）、灯光（一盏昏黄绿灯 + 薄雾 + 低曝光）**。这些已在 `Basement_Loop_v3b.blend` 做完，渲染图见对照页。
 - 进游戏最关键的一步不是建模，而是让运行时**不再用 256px 的程序贴图覆盖墙纸和地毯**（`basement_atmosphere.gd` 的 `_apply_surface_materials`），否则 Blender 里做的质感到游戏里全部被盖掉。
-- 楼梯下的门保留，改成**封条封死、不可交互**；第 4 轮玩家走近时从门内砸门（音效用 CC0 素材，候选清单另附）。
+- 楼梯下的门保留，改成**用大量胶带封死、不可交互**；第 4 轮玩家走近时从门内砸门（音效用 CC0 素材，候选清单另附）。
 - 小红书视频的效果（高斯泼溅传送门）在 Godot 里**部分可行**：推荐先做"手框视窗看到另一版地下室"（复用现有 X-ray 视口，零新依赖），再做"可走穿的门洞"，最后才考虑 3DGS 窗口（gdgs 插件，MIT）。整屏 3DGS 世界不建议。
 
 ## 1. 质感版 v3b 做了什么（不新增物件）
@@ -16,7 +16,7 @@
 | 材质 | 以你原有的绿色墙纸、苔绿地毯、赭色天花贴图为底色，叠加**周期性 4D 噪声**烘焙出无缝的 2K 法线 + 1K 粗糙度（纸纹、地毯圈绒、天花颗粒、哑光漆橘皮纹），导出后 Godot 直接读图 | `V3B_Wallpaper`、`V3B_Carpet`、`V3B_PopcornCeiling`、`V3B_PaintSatin`；贴图在 `outputs/basement_v3b_20261027/textures/` |
 | UV | 房壳、天花、地毯、楼梯、踢脚线、门套全部改成**按米投影**（墙纸 1.6 m 一铺、地毯/天花 1 m、油漆 0.5 m），不同尺寸的墙块不再拉伸，也不再依赖运行时 triplanar | 21 面墙、6 块天花、34 块地毯件、89 个油漆件 |
 | 微几何 | 楼梯踏步前缘 12 mm 圆角，油漆踢脚/门套/门板 4–5 mm 倒角，栏杆与扶手平滑；**楼梯侧板**沿踏步前缘线封住阶梯侧面与平台下的空洞；**楼梯井开口**东边从 x=−1.69 改到 −1.48（原来由运行时 `_repair_stairwell` 现场重箱），并补一条开口饰边 | `Stair_Stringer_East`（+碰撞）、`Stair_OpeningFascia`、130 个对象的倒角/平滑 |
-| 封条门 | 平台下的门：三块门板、黄铜把手、**三张纸封条**（X 形封住锁边 + 一条封住门头），无交互；留一个锚点给砸门事件 | `StairCloset_Door`、`StairCloset_Knob`、`StairCloset_Seals`、`StairClosetDoorAnchor` |
+| 胶带门 | 平台下的门：平门扇、黄铜把手、**38 条交叠的胶带**（灰色布基胶带为主、少量棕色封箱胶带，密封四边并贯穿门扇），无交互；留一个锚点给砸门事件 | `StairCloset_Door`、`StairCloset_Knob`、`StairCloset_Tape`、`StairClosetDoorAnchor` |
 | 标记 | 新增空物体 `AssetVersion_v3b`（extras：`material_override=skip`、`stairwell_repair=baked`），运行时据此跳过旧补丁 | 在 `80_Game_Anchors` 集合 |
 | 预览灯光 | 主灯 28 W、后灯 7 W、CRT 3.5 W，关掉所有补光，黑色世界 + 体积雾 0.010，AgX 中高对比，曝光 −0.1 | 仅 Blender 预览；游戏灯光见 §2 |
 
@@ -26,7 +26,7 @@
 
 ### 2.1 导出与资产
 
-1. `Basement_Loop_v3b.blend` 放入 `source_assets/blender_basement_loop_v3b/`，用与 v2 相同参数导出 `assets/chapter1/Basement_Loop_v3b.glb`。已试导出并校验：合同节点、运行时依赖的节点名、`AssetVersion_v3b` 标记、封条门与楼梯侧板碰撞全部在；54k 三角形。目前 41.7 MB，其中 38.8 MB 是贴图（三张 2K 法线 PNG 各 8.7 MB）。进仓库前二选一：法线降到 1K PNG（约 20 MB），或 2K 法线改 JPEG 质量 92（约 16 MB，Godot 导入后都会做 VRAM 压缩，显存占用一样）；另可清掉仍被少数对象引用的 v2 旧地毯贴图（6 MB）。
+1. `Basement_Loop_v3b.blend` 放入 `source_assets/blender_basement_loop_v3b/`，用与 v2 相同参数导出 `assets/chapter1/Basement_Loop_v3b.glb`。已试导出并校验：合同节点、运行时依赖的节点名、`AssetVersion_v3b` 标记、胶带门与楼梯侧板碰撞全部在；54k 三角形。目前 41.7 MB，其中 38.8 MB 是贴图（三张 2K 法线 PNG 各 8.7 MB）。进仓库前二选一：法线降到 1K PNG（约 20 MB），或 2K 法线改 JPEG 质量 92（约 16 MB，Godot 导入后都会做 VRAM 压缩，显存占用一样）；另可清掉仍被少数对象引用的 v2 旧地毯贴图（6 MB）。
 2. `asset_contract.json` 的 `game_model` 指向 v3b；`chapter_world.gd` 的 `MODEL_PATHS.basement` 同步。
 3. Godot 导入设置：贴图 VRAM 压缩 + mipmaps（法线图勾选 normal map），各向异性 4×。
 
@@ -66,17 +66,17 @@
 3. `outputs/ingame_loops_20261027/capture_loops.gd`（修正版截图工具，已能抓到五轮）对比抓图：第 1、3、5 轮各 5 个机位 + X-ray。
 4. 真机 10 分钟游玩：开关、CRT、手机、出口门、五轮循环。
 
-## 3. 五轮变化与封条门事件
+## 3. 五轮变化与胶带门事件
 
-现有五轮（不动）：1 正常 → 2 耳语 + 闪灯 → 3 停电找开关 → 4 钟墙 → 5 半钟 + X-ray 数字 + CRT 红屏。在这个骨架上，封条门与"少而准"的静态差异建议如下：
+现有五轮（不动）：1 正常 → 2 耳语 + 闪灯 → 3 停电找开关 → 4 钟墙 → 5 半钟 + X-ray 数字 + CRT 红屏。在这个骨架上，胶带门与"少而准"的静态差异建议如下：
 
-| 轮 | 封条门 | 建议的静态差异（每轮只改一处） | 声音 |
+| 轮 | 胶带门 | 建议的静态差异（每轮只改一处） | 声音 |
 | --- | --- | --- | --- |
-| 1 | 封条完好，无事 | 基准房间 | 现有 |
+| 1 | 胶带完好，无事 | 基准房间 | 现有 |
 | 2 | 无事 | 闪灯结束后主灯只恢复到 85% 亮度（房间从此一直更暗一点） | 现有耳语 |
 | 3 | 无事（黑暗中不可见） | 停电恢复后，隔墙上的画框消失，只剩挂钩的影子 | 现有 |
 | 4 | **砸门**：玩家走到距门锚点 2.6 m 内（或正视门 2 秒）触发；门内传出 4 下闷响（0.42 s 间隔，第 4 下更弱、延后 1.1 s），门板每下抖 1.5 cm；播完存档 `basement_door_knock_played`，不重播 | 钟墙（现有）；钟声可在砸门后全部停摆 2 秒 | 新增 CC0 砸门音效，AudioStreamPlayer3D 挂在锚点，低通 900 Hz 模拟门后 |
-| 5 | 一张封条撕断垂下（静态网格切换）；**X-ray 框内**门缝是黑的、比普通画面开 3 cm | 半钟（现有）+ CRT 事件（现有） | CRT 事件（现有） |
+| 5 | 几条胶带被撕开、卷边垂下（静态网格切换）；**X-ray 框内**门缝是黑的、比普通画面开 3 cm | 半钟（现有）+ CRT 事件（现有） | CRT 事件（现有） |
 
 音效候选（已下载到 `D:phasia\参考61027-sealed-door-knock-sfx\`，全部 Freesound **CC0 1.0**，页面许可已逐一核对，无需署名；文件为官方 HQ MP3 预览，许可清单与 SHA256 见该目录 `sources-manifest.json`、`README.md`）：
 
@@ -86,7 +86,7 @@
 | `shelbyshark-444701-series-of-door-pounding-hq.mp3` | 6.98 s | 近距离连续砸门，剪 3–6 下、加低通做"门内" |
 | `mrh4hn-426618-heavy-door-pounding-hq.mp3` | 2.28 s | 重击单声，可叠在第一下上 |
 | `sumixiv-848072-door-rattle-wood-hq.mp3`、`castironcarousel-216875-locked-doorknob-rattle-hq.mp3` | 2–3 s | 砸门后门把被拧动的余响（可选） |
-| `perspektywa_tn-844081-door-creak-dry-hq.mp3` | 6.55 s | 第 5 轮封条撕断时的慢吱呀（可选） |
+| `perspektywa_tn-844081-door-creak-dry-hq.mp3` | 6.55 s | 第 5 轮胶带撕开时的慢吱呀（可选） |
 
 Pixabay 的候选页面被 Cloudflare 拦截，无法核对许可，未采用。
 
@@ -111,7 +111,7 @@ Pixabay 的候选页面被 Cloudflare 拦截，无法核对许可，未采用。
 ### 4.3 推荐路线与阶段
 
 **阶段 A：手框"视窗"看到另一版地下室（1–2 天，零新依赖）**
-- `chapter_xray_view.gd` 已经是"复制主相机 + 改 cull_mask 的 SubViewport"。加一个 `ViewMode.LAYER_SWAP`：子相机位姿不变，只把 cull_mask 换成"陈设 B"的渲染层集合。于是手框里看到的是同一个房间的**另一版**：例如封条门是开的、椅子朝墙、钟全停。所有"另一版"只是同一场景里多放的几个 mesh，用 render layer 区分，没有传送、没有第二世界。
+- `chapter_xray_view.gd` 已经是"复制主相机 + 改 cull_mask 的 SubViewport"。加一个 `ViewMode.LAYER_SWAP`：子相机位姿不变，只把 cull_mask 换成"陈设 B"的渲染层集合。于是手框里看到的是同一个房间的**另一版**：例如胶带门是开的、椅子朝墙、钟全停。所有"另一版"只是同一场景里多放的几个 mesh，用 render layer 区分，没有传送、没有第二世界。
 - 这正好接在第 5 轮已有的"X-ray 才能看到的数字"之上，叙事上把手势框变成"看见被污染之前/之后的房间"。
 
 **阶段 B：隔墙通道做成可走穿的门洞（3–4 天）**
@@ -139,6 +139,6 @@ Pixabay 的候选页面被 Cloudflare 拦截，无法核对许可，未采用。
 ## 7. 现在需要你定的事
 
 1. 质感版 v3b 的方向（对照页里的"材质+灯光"列）是否 OK；灯光亮度是偏暗一档还是再暗。
-2. 封条门事件放第 4 轮、走近触发，是否同意；第 5 轮撕断封条 + X-ray 门缝是否要。
+2. 胶带门事件放第 4 轮、走近触发，是否同意；第 5 轮撕开胶带 + X-ray 门缝是否要。
 3. 运行时杂物（堆箱、油漆罐、散书、桌面纸笔杯、墙面磨损）是否按"梦核"精简。
 4. 传送门先做阶段 A（手框视窗）还是直接做阶段 B（可走穿门洞）。

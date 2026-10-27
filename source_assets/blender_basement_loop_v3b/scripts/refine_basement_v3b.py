@@ -11,7 +11,7 @@ What it does (all switchable):
 
 blender.exe --background Basement_Loop_v2.blend --python refine_basement_v3b.py -- --out <dir> [...]
 """
-import bpy, bmesh, math, json, os, sys, time
+import bpy, bmesh, math, json, os, sys, time, random
 from mathutils import Vector, Matrix, Euler
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -735,9 +735,8 @@ def stringer_and_sealed_door():
     # sealed door on the panel under the landing (faces +x)
     bm = bmesh.new()
     xf = -1.846
-    _box(bm, (0.030, 0.70, 1.90), (xf + 0.015, 2.01, 0.97), mat_index=0)            # leaf
-    for z in (0.45, 1.15, 1.62):
-        _box(bm, (0.010, 0.42, 0.30), (xf + 0.034, 2.01, z), mat_index=0)            # raised panels
+    _box(bm, (0.030, 0.70, 1.90), (xf + 0.015, 2.01, 0.97), mat_index=0)            # plain leaf
+    # (no raised panels: the user wants a plain leaf under the tape)
     _box(bm, (0.018, 0.06, 2.00), (xf + 0.009 + 0.012, 1.63, 1.00), mat_index=0)    # casing
     _box(bm, (0.018, 0.06, 2.00), (xf + 0.009 + 0.012, 2.39, 1.00), mat_index=0)
     _box(bm, (0.018, 0.82, 0.06), (xf + 0.009 + 0.012, 2.01, 1.98), mat_index=0)
@@ -751,12 +750,50 @@ def stringer_and_sealed_door():
         for f in v.link_faces:
             f.smooth = True
     knob = _finish_mesh(bm, 'StairCloset_Knob', [brass] if brass else [paint], coll)
-    # paper seals: an X across the latch edge and one strip across the top edge
+    # tape: the door is sealed shut with many overlapping strips (mostly grey duct tape, some brown packing tape)
+    rng = random.Random(20261027)
     bm = bmesh.new()
-    for (cy, cz, rot) in ((2.33, 1.05, math.radians(35)), (2.33, 1.05, math.radians(-35)), (2.02, 1.92, 0.0)):
-        _box(bm, (0.004, 0.065, 0.50), (xf + 0.047, cy, cz), rot=(rot, 0, 0), mat_index=0)
-        _box(bm, (0.002, 0.045, 0.045), (xf + 0.050, cy, cz), rot=(rot, 0, 0), mat_index=1)
-    seals = _finish_mesh(bm, 'StairCloset_Seals', [paper, stamp], coll)
+    face_x = xf + 0.030 + 0.0012
+    def strip(cy, cz, length, angle, mat_index, layer):
+        _box(bm, (0.0012, 0.048 + rng.uniform(-0.004, 0.004), length), (face_x + layer * 0.0007, cy, cz),
+             rot=(angle + rng.uniform(-0.06, 0.06), 0, 0), mat_index=mat_index)
+    specs = []
+    # latch edge (y≈2.36) and hinge edge (y≈1.66): near-horizontal strips straddling the gap
+    for i in range(10):
+        cz = 0.10 + i * 0.20 + rng.uniform(-0.04, 0.04)
+        if 0.88 < cz < 1.16:
+            cz += 0.22  # keep the knob clear
+        specs.append((2.33 + rng.uniform(-0.03, 0.03), cz, rng.uniform(0.26, 0.40), math.pi / 2 + rng.uniform(-0.22, 0.22)))
+    for i in range(9):
+        cz = 0.14 + i * 0.22 + rng.uniform(-0.04, 0.04)
+        specs.append((1.69 + rng.uniform(-0.03, 0.03), cz, rng.uniform(0.24, 0.38), math.pi / 2 + rng.uniform(-0.22, 0.22)))
+    # top edge (z≈1.95) and bottom edge (z≈0.05): near-vertical strips
+    for i in range(6):
+        specs.append((1.66 + i * 0.14 + rng.uniform(-0.03, 0.03), 1.93, rng.uniform(0.22, 0.34), rng.uniform(-0.25, 0.25)))
+    for i in range(4):
+        specs.append((1.72 + i * 0.19 + rng.uniform(-0.03, 0.03), 0.09, rng.uniform(0.18, 0.28), rng.uniform(-0.25, 0.25)))
+    # long diagonals across the whole leaf
+    for ang in (0.62, -0.58, 0.78, -0.80, 0.45):
+        specs.append((2.01 + rng.uniform(-0.05, 0.05), 0.97 + rng.uniform(-0.12, 0.12), rng.uniform(0.95, 1.30), ang))
+    # a few extra random short pieces
+    for i in range(4):
+        specs.append((rng.uniform(1.75, 2.27), rng.uniform(0.3, 1.75), rng.uniform(0.18, 0.30), rng.uniform(-1.4, 1.4)))
+    for n, (cy, cz, length, ang) in enumerate(specs):
+        mat_index = 0 if rng.random() < 0.7 else 1
+        strip(cy, cz, length, ang, mat_index, n % 6)
+    tape_grey = bpy.data.materials.get('V3B_DuctTape') or new_material('V3B_DuctTape')
+    pg = principled(tape_grey)
+    pg.inputs['Base Color'].default_value = (0.40, 0.41, 0.40, 1.0)
+    pg.inputs['Roughness'].default_value = 0.42
+    pg.inputs['Metallic'].default_value = 0.08
+    tape_grey.diffuse_color = (0.40, 0.41, 0.40, 1.0)
+    tape_brown = bpy.data.materials.get('V3B_PackingTape') or new_material('V3B_PackingTape')
+    pb = principled(tape_brown)
+    pb.inputs['Base Color'].default_value = (0.55, 0.42, 0.26, 1.0)
+    pb.inputs['Roughness'].default_value = 0.25
+    tape_brown.diffuse_color = (0.55, 0.42, 0.26, 1.0)
+    seals = _finish_mesh(bm, 'StairCloset_Tape', [tape_grey, tape_brown], coll)
+    log('sealed door taped shut with %d strips' % len(specs))
     # game anchor for the knocking event / audio emitter
     anchors = bpy.data.collections.get('80_Game_Anchors') or coll
     anc = bpy.data.objects.new('StairClosetDoorAnchor', None)
@@ -766,7 +803,7 @@ def stringer_and_sealed_door():
     anc['event'] = 'sealed_door_knock'
     anc['interaction'] = 'none'
     anchors.objects.link(anc)
-    log('added Stair_Stringer_East (+collision), sealed StairCloset_Door with knob, 3 paper seals, StairClosetDoorAnchor')
+    log('added Stair_Stringer_East (+collision), sealed StairCloset_Door with knob, tape, StairClosetDoorAnchor')
 
 
 # ----------------------------------------------------------------------------- lighting pass (preview)
@@ -862,6 +899,7 @@ VIEWS = [
     ('V3B_Closeup_Wallpaper', (-0.55, 1.35, 1.45), (-0.45, 2.42, 1.35)),
     ('V3B_Closeup_Stairs', (-1.25, -2.35, 0.95), (-2.45, -1.95, 0.45)),
     ('V3B_Closeup_Ceiling', (0.9, -0.9, 1.5), (0.3, -1.5, 2.6)),
+    ('V3B_Closeup_Door', (-0.25, 2.05, 1.15), (-1.82, 2.0, 1.0)),
 ]
 CLOSEUP_BOOST = 1.7
 

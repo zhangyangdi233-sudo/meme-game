@@ -30,7 +30,7 @@
   "Stair_OpeningFascia",
   "StairCloset_Door",
   "StairCloset_Knob",
-  "StairCloset_Seals",
+  "StairCloset_Tape",
   "StairClosetDoorAnchor",
   "AssetVersion_v3b"
  ],
@@ -44,43 +44,43 @@
  "files": [
   {
    "file": "Basement_Loop_v3b.blend",
-   "bytes": 65638462,
-   "sha256": "cd4f96d4dd54bb32d7733dccb380aafae2d3f85c9ff8ed3700af97a55e66a666"
+   "bytes": 65644528,
+   "sha256": "e57f331907a28c8437a363ad55df0835ca8a3c538b76e7072f57edea4673dfa4"
   },
   {
    "file": "export/Basement_Loop_v3b.glb",
-   "bytes": 41726824,
-   "sha256": "3902e0a220c5b3516aa3e667c910ab6960f750040108d22a5b216a2634c30b83"
+   "bytes": 41745256,
+   "sha256": "44c6f14e33c8acf826b8449813b0a65c5599309d1271be4260ee6d808d33d031"
   },
   {
    "file": "textures/V3B_carpet_base.png",
-   "bytes": 1462460,
-   "sha256": "6ed8dea1fee18004b3229def1a8a5e0577ce86d1dd8bc35652a772c0d421000f"
+   "bytes": 1462458,
+   "sha256": "e056b078663155d1dd5ef3680db7d8524b19284f9e2d82e1cfe18a8ffabbc00b"
   },
   {
    "file": "textures/V3B_carpet_normal.png",
-   "bytes": 8707734,
-   "sha256": "393e8a5a536d5fa230b2d92fc9cd7a22a309d9af00963b490ad148aa93eb1feb"
+   "bytes": 8707729,
+   "sha256": "7a207515ce97bfd6bb9b8cd4b12c469d40eaf3a5fbbc28a866e1d181b2db8a84"
   },
   {
    "file": "textures/V3B_carpet_rough.png",
-   "bytes": 524723,
-   "sha256": "3db4f83b303b598a48ec4463a76e3cc0a2e758366cb2efce6d1fc32b312258de"
+   "bytes": 524695,
+   "sha256": "02e86b9ead589cf15e2f6893ac8b6ded137c1dfda349aca8ca705d65f98a888c"
   },
   {
    "file": "textures/V3B_ceiling_base.png",
-   "bytes": 1100860,
-   "sha256": "cf02c0801b83cd094a0c40861f8504036360d73b7d1197bb6bbc34c81c1ddbd4"
+   "bytes": 1101034,
+   "sha256": "aae9b91804c3f787c568313d93a4383f79e85795305a2a50b2ec6d16ac24c8b2"
   },
   {
    "file": "textures/V3B_ceiling_normal.png",
-   "bytes": 8619622,
-   "sha256": "6fd7ccb8b9828b53c4a747c28691860d05fbcad224e834e6bcf7a16e1b372bae"
+   "bytes": 8619630,
+   "sha256": "b6636bcf8343b794a403ce55c06ef2cd50b98bbc91fc070a7d150078fce0f11a"
   },
   {
    "file": "textures/V3B_ceiling_rough.png",
-   "bytes": 607165,
-   "sha256": "22ea0da7d6a1c5294940356baaecbeb6da04791bcaa07b4615544d07948cc5e0"
+   "bytes": 607192,
+   "sha256": "2e686edfab961aa19a7cec28b9b817072a2a2cd37b30ef7a30ac305ff3236994"
   },
   {
    "file": "textures/V3B_paint_normal.png",
@@ -89,23 +89,31 @@
   },
   {
    "file": "textures/V3B_paint_rough.png",
-   "bytes": 434167,
-   "sha256": "b1c6e787b2d80f2955720a43d3c0943d8976a5494a2464a26c49a35855e1909a"
+   "bytes": 434164,
+   "sha256": "943c0e12071959f8025b694c56ee49c47174661a46bced54887a992f9b5b52bb"
   },
   {
    "file": "textures/V3B_wallpaper_base.png",
-   "bytes": 664242,
-   "sha256": "3232dad48eeae1c90957dbdba888228d81601393bf8f71516e608e6d77f048ab"
+   "bytes": 664226,
+   "sha256": "702db7eb1504353cfd5d74a0d1fe25983ea466e03fa19cf40cd4be194e7d4e6d"
   },
   {
    "file": "textures/V3B_wallpaper_normal.png",
-   "bytes": 8729800,
-   "sha256": "4947bd644cc03c22915f0a6a5f9feb06bf7fc927dc3c5463ce91e449824d3e59"
+   "bytes": 8729799,
+   "sha256": "eb0caee904be1baf862e7961a27ca1fc350e20f39cfdcfa163ab2083ed422a02"
   },
   {
    "file": "textures/V3B_wallpaper_rough.png",
-   "bytes": 498348,
-   "sha256": "89c2387b963a40a5e789d9ef9887ee724483d80c4292b0796b83bc9a0c4d33cd"
+   "bytes": 498333,
+   "sha256": "99eb6932af9e3142f8a38c431e88f3ad8dda10cb55270579fc505ebdfe28731b"
   }
- ]
+ ],
+ "sealed_door": {
+  "tape_strips": 38,
+  "raised_panels": false,
+  "materials": [
+   "V3B_DuctTape",
+   "V3B_PackingTape"
+  ]
+ }
 }
