@@ -15,6 +15,8 @@ func _run() -> void:
 	var director = load("res://scripts/progression/basement_loop_director.gd")
 	var progress: Dictionary = director.initial_progress()
 	progress = director.dispatch(progress, "opening_knock_completed", {"sequence_id": "chapter1_opening"}).progress
+	# The 2026-10-13 opening requires the narration to finish before the door opens.
+	progress = director.dispatch(progress, "narration_completed", {"sequence_id": "chapter1_opening"}).progress
 	progress = director.dispatch(progress, "opening_door_opened").progress
 	var visit := 0
 	var xray := false

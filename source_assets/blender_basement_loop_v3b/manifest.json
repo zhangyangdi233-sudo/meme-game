@@ -1,0 +1,111 @@
+{
+ "date": "2026-10-27",
+ "blender": "5.2.3 LTS",
+ "source": "../blender_basement_loop_v2/Basement_Loop_v2.blend",
+ "scene": "Aphasia_Basement_Loop_v2",
+ "status": "source and trial export delivered; not wired into the game",
+ "bake": {
+  "normal_px": 2048,
+  "base_px": 1024,
+  "rough_px": 1024,
+  "tiles_m": {
+   "wallpaper": 1.6,
+   "carpet": 1.0,
+   "ceiling": 1.0,
+   "paint": 0.5
+  }
+ },
+ "preview_lighting": {
+  "main_w": 28,
+  "rear_w": 7,
+  "crt_w": 3.5,
+  "haze_density": 0.01,
+  "exposure": -0.1,
+  "view_transform": "AgX",
+  "look": "AgX - Medium High Contrast"
+ },
+ "new_nodes": [
+  "Stair_Stringer_East",
+  "Stair_Stringer_East-colonly",
+  "Stair_OpeningFascia",
+  "StairCloset_Door",
+  "StairCloset_Knob",
+  "StairCloset_Seals",
+  "StairClosetDoorAnchor",
+  "AssetVersion_v3b"
+ ],
+ "glb_check": {
+  "nodes": 556,
+  "triangles": 54178,
+  "contract_missing": [],
+  "images": 18,
+  "image_bytes_total": 38800000
+ },
+ "files": [
+  {
+   "file": "Basement_Loop_v3b.blend",
+   "bytes": 65638462,
+   "sha256": "cd4f96d4dd54bb32d7733dccb380aafae2d3f85c9ff8ed3700af97a55e66a666"
+  },
+  {
+   "file": "export/Basement_Loop_v3b.glb",
+   "bytes": 41726824,
+   "sha256": "3902e0a220c5b3516aa3e667c910ab6960f750040108d22a5b216a2634c30b83"
+  },
+  {
+   "file": "textures/V3B_carpet_base.png",
+   "bytes": 1462460,
+   "sha256": "6ed8dea1fee18004b3229def1a8a5e0577ce86d1dd8bc35652a772c0d421000f"
+  },
+  {
+   "file": "textures/V3B_carpet_normal.png",
+   "bytes": 8707734,
+   "sha256": "393e8a5a536d5fa230b2d92fc9cd7a22a309d9af00963b490ad148aa93eb1feb"
+  },
+  {
+   "file": "textures/V3B_carpet_rough.png",
+   "bytes": 524723,
+   "sha256": "3db4f83b303b598a48ec4463a76e3cc0a2e758366cb2efce6d1fc32b312258de"
+  },
+  {
+   "file": "textures/V3B_ceiling_base.png",
+   "bytes": 1100860,
+   "sha256": "cf02c0801b83cd094a0c40861f8504036360d73b7d1197bb6bbc34c81c1ddbd4"
+  },
+  {
+   "file": "textures/V3B_ceiling_normal.png",
+   "bytes": 8619622,
+   "sha256": "6fd7ccb8b9828b53c4a747c28691860d05fbcad224e834e6bcf7a16e1b372bae"
+  },
+  {
+   "file": "textures/V3B_ceiling_rough.png",
+   "bytes": 607165,
+   "sha256": "22ea0da7d6a1c5294940356baaecbeb6da04791bcaa07b4615544d07948cc5e0"
+  },
+  {
+   "file": "textures/V3B_paint_normal.png",
+   "bytes": 270274,
+   "sha256": "0aebbbb596d6d3c2dd1054864daad9bb87aabce9840a36e256ab0839ef7bb331"
+  },
+  {
+   "file": "textures/V3B_paint_rough.png",
+   "bytes": 434167,
+   "sha256": "b1c6e787b2d80f2955720a43d3c0943d8976a5494a2464a26c49a35855e1909a"
+  },
+  {
+   "file": "textures/V3B_wallpaper_base.png",
+   "bytes": 664242,
+   "sha256": "3232dad48eeae1c90957dbdba888228d81601393bf8f71516e608e6d77f048ab"
+  },
+  {
+   "file": "textures/V3B_wallpaper_normal.png",
+   "bytes": 8729800,
+   "sha256": "4947bd644cc03c22915f0a6a5f9feb06bf7fc927dc3c5463ce91e449824d3e59"
+  },
+  {
+   "file": "textures/V3B_wallpaper_rough.png",
+   "bytes": 498348,
+   "sha256": "89c2387b963a40a5e789d9ef9887ee724483d80c4292b0796b83bc9a0c4d33cd"
+  }
+ ]
+}
