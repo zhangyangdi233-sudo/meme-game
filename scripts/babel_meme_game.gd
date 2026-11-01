@@ -1613,6 +1613,7 @@ func _open_reality_door() -> bool:
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.apply_interaction({"action": "open_door"})
 	_door_was_opening = true
+	_door_light = false
 	_update_visibility()
 	_refresh_reality_hud()
 	return true

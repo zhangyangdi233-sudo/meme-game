@@ -10,7 +10,11 @@ The basement CRT is one more interaction outcome (`terminal`) and its pushed-in 
 
 ## Amended (#112): the basement rounds
 
-Each basement round's NPC is an ordinary actor outcome, so the host starts its conversation the way it starts any other. Walking out through the round's open exit is not an outcome the host asks for: the stage raises it once as the `BASEMENT_EXIT_CROSSED` game event, as it already raises the knock, and the host's listener records it in the state; the adapter then builds the next round (or the crossroads) on its next ensure. The host still reaches neither the stage nor its doors.
+Each basement round's NPC is an ordinary actor outcome, so the host starts its conversation the way it starts any other. Walking out through the round's open exit is not an outcome the host asks for: the stage raises it once as the `BASEMENT_EXIT_CROSSED` game event, as it already raises the knock, and the host's listener records it in the state; the adapter then builds the next round (or, since #121, the white door passage) on its next ensure. The host still reaches neither the stage nor its doors.
+
+## Amended (#121): the white door passage
+
+The passage's door is not an outcome the host asks for either: the stage raises walking into its light once as the `PASSAGE_DOOR_ENTERED` game event, and the host then asks for `enter_passage`, which reports the walk in as the same `door` outcome the white door uses. The demo's end stands on the passage's stage behind its screen, so it builds no tower street.
 
 ## Amended (#113): the phone on the basement's table
 

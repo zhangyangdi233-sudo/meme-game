@@ -230,6 +230,13 @@ func _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root) -> vo
 	_assert_true(game_root._save_progress(), "the walk through the light should save")
 	await _reload(game_root)
 	_assert_eq(game_root.session_mode(), "ending", "a save in the light should come back on the end screen")
+	game_root.new_game()
+	await process_frame
+	while game_root.game.advance_opening_narration():
+		pass
+	game_root.game.complete_opening_knock()
+	_assert_true(game_root._open_reality_door(), "a new run's white door should open")
+	_assert_eq(game_root._door_fade_color(), UiPalette.VOID, "the light left behind should not whiten a new run's door")
 
 
 func _reload(game_root) -> void:

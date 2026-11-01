@@ -17,7 +17,8 @@ const PHASE_DEMO_END := "demo_end"
 ## A run that skipped chapter one, or a save made before chapter one existed: the tower street.
 const PHASE_TOWER := "tower"
 const PHASES := [PHASE_OPENING, PHASE_BASEMENT, PHASE_PASSAGE, PHASE_DEMO_END, PHASE_TOWER]
-## The order the levels are played in. A level added here is reached through the white door passage.
+## The order the levels are played in, the only place that says which level follows which. A new level also brings its
+## own phase and stage; the white door passage leads to it from here.
 const LEVEL_ORDER := [PHASE_OPENING, PHASE_BASEMENT, PHASE_DEMO_END]
 ## Spoken lines in the opening narration (the catalog's `opening` list).
 const OPENING_LINE_COUNT := 29
@@ -77,7 +78,8 @@ static func normalize(raw: Variant) -> Dictionary:
 		progress["delivered"] = _is_true(source.get("delivered", false))
 	elif phase == PHASE_PASSAGE:
 		var passage_to: Variant = source.get("passage_to", "")
-		progress["passage_to"] = passage_to if passage_to in LEVEL_ORDER else next_level(PHASE_BASEMENT)
+		var ahead := LEVEL_ORDER.find(passage_to) > LEVEL_ORDER.find(PHASE_BASEMENT)
+		progress["passage_to"] = passage_to if ahead else next_level(PHASE_BASEMENT)
 	return progress
 
 

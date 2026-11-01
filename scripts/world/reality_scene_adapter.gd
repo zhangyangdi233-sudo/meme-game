@@ -474,17 +474,11 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 	if action == "open_door":
 		if _nearby_door and player != null:
 			_nearby_door = false
-			_door_time = 0.0
-			_door_from = player.position
-			player.velocity = Vector3.ZERO
-			nearby_targets_changed.emit()
+			_start_door_walk()
 		return interaction_outcome()
 	if action == "enter_passage":
 		if player != null and _chapter_stage != null and _chapter_stage.has_door():
-			_door_time = 0.0
-			_door_from = player.position
-			player.velocity = Vector3.ZERO
-			nearby_targets_changed.emit()
+			_start_door_walk()
 		return interaction_outcome()
 	if action == "enter_terminal":
 		if _nearby_terminal and player != null and _crt_screen() != null:
@@ -758,6 +752,13 @@ func _door_in_reach(deps: Dictionary) -> bool:
 	var offset: Vector3 = _chapter_stage.door_position() - player.position
 	offset.y = 0.0
 	return offset.length() <= INTERACTION_DISTANCE
+
+
+func _start_door_walk() -> void:
+	_door_time = 0.0
+	_door_from = player.position
+	player.velocity = Vector3.ZERO
+	nearby_targets_changed.emit()
 
 
 ## Swings the door and walks the player through it; when the walk ends the next ensure builds the next stage.

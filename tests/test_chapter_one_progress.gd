@@ -257,6 +257,8 @@ func test_the_passage_and_the_demo_end_survive_a_save() -> void:
 	_assert_eq(ProgressScript.normalize(ended), ended, "a save at the demo's end should come back there")
 	var broken := ProgressScript.normalize(_with(passage, "passage_to", "moon"))
 	_assert_eq(broken.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a broken destination should fall back to the level order")
+	var backward := ProgressScript.normalize(_with(passage, "passage_to", ProgressScript.PHASE_BASEMENT))
+	_assert_eq(backward.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a passage should not lead back to a level already played")
 	var claimed := ProgressScript.normalize({"phase": ProgressScript.PHASE_DEMO_END, "line_index": 4})
 	_assert_eq(claimed.get("phase"), ProgressScript.PHASE_OPENING, "a demo end without the door should go back to the opening")
 	var claimed_passage := ProgressScript.normalize({"phase": ProgressScript.PHASE_PASSAGE, "line_index": 4})
