@@ -80,7 +80,7 @@ static func _check_room(checked: Dictionary, label: String, policy: Dictionary, 
 	for rule: Variant in checked["rules"]:
 		_check_rule(rule, label, problems)
 		_check_writable(rule, checked, label, problems)
-		if rule is Dictionary and rule.get("subject") in policy.get("barred_subjects", []):
+		if rule is Dictionary and PollutionPolicyScript.is_barred(rule.get("subject"), policy):
 			problems.append("%s rule %s has a barred subject, so it could never hold" % [label, rule.get("id", "")])
 	_check_escapes(checked, label, problems)
 	var event_ids: Array[String] = []

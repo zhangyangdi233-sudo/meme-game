@@ -198,6 +198,10 @@ func _test_a_polluted_word_shows_as_red_garble() -> void:
 	_assert_eq((polluted.get_node("TileLabel") as Label).get_theme_color("font_color"), theme.theme_color("error"), "and red")
 	_assert_eq(polluted.get_meta("word_unit"), "灯", "the tile should still carry the word")
 	_assert_eq((clean.get_node("TileLabel") as Label).text, "亮", "a clean word should stay readable")
+	(manager.model(PropertyKeysScript.WORLD_RULES) as MapPropertyModel).add("light|lit", {"round": 0, "source_text": "灯亮"})
+	await process_frame
+	var rules_text := Harness.collect_control_text(mounted["body"])
+	_assert_true(PolicyScript.garbled("灯") in rules_text and "灯亮" not in rules_text, "the rules list should garble the word too: %s" % rules_text)
 	_dispose(mounted)
 
 

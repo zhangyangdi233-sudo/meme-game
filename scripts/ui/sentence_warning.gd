@@ -10,7 +10,7 @@ const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const LINE := "这句话已被污染，发布后不会生效"
 
 
-static func dirty_units(polluted: Dictionary, progress: Dictionary, locale_code: String) -> Array:
+static func polluted_units(polluted: Dictionary, progress: Dictionary, locale_code: String) -> Array:
 	return PollutionPolicyScript.polluted_units(polluted, locale_code, _room(progress), PollutionPolicyScript.settings())
 
 

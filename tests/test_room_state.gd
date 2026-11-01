@@ -124,8 +124,9 @@ func test_a_rule_escape_opens_the_exit() -> void:
 
 func test_the_exit_stays_open_when_the_rule_is_taken_back() -> void:
 	var game := _rule_escape_basement()
+	game.pollution_policy = PolicyScript.settings().merged({"subject_voids_rule": false}, true)
 	_post(game, ["门", "可", "以", "打", "开"])
-	_post(game, ["门", "不", "可", "以", "打", "开"])
+	_assert_eq(_post(game, ["门", "不", "可", "以", "打", "开"]).get("tier"), "rule", "the rule should really be taken back")
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "an opened exit should not trap the player again")
 
 

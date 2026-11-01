@@ -146,8 +146,8 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		placeholder.name = "ComposerAnswerPlaceholder"
 		answer_flow.add_child(placeholder)
 	var locale := _source().current_locale()
-	var dirty_units := SentenceWarningScript.dirty_units(_painted_polluted, _progress(), locale)
-	var shown_units := PollutionPolicyScript.shown_units(placed_units, dirty_units)
+	var polluted_units := SentenceWarningScript.polluted_units(_painted_polluted, _progress(), locale)
+	var shown_units := PollutionPolicyScript.shown_units(placed_units, polluted_units)
 	for unit_index in placed_units.size():
 		var placed_tile := ComposerAnswerTileScript.new()
 		placed_tile.name = "ComposerAnswerTile%d" % unit_index
@@ -161,7 +161,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		if _theme() != null:
 			_theme().apply_composer_tile_theme(placed_tile, false)
 			placed_tile.drag_preview_color = _theme().theme_color("accent")
-			if placed_units[unit_index] in dirty_units:
+			if placed_units[unit_index] in polluted_units:
 				_theme().set_font_role(placed_tile, "error")
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()

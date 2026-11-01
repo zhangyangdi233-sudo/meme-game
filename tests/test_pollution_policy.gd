@@ -166,14 +166,13 @@ func test_a_polluted_word_can_still_go_in_a_sentence() -> void:
 
 func test_the_sentence_preview_says_it_will_be_void() -> void:
 	var game := _rooms()
-	_assert_true(not game.free_sentence_voids("zh"), "an empty sentence should not warn")
-	game.free_sentence_units = ["灯", "亮"]
-	_assert_true(not game.free_sentence_voids("zh"), "a clean rule should not warn")
+	var room: Dictionary = RoomContentScript.room(1, POLICY_ROOMS)
+	var voids := func(units: Array) -> bool: return PolicyScript.sentence_voids(units, "zh", room, game.polluted_words, game.pollution_policy)
+	_assert_true(not voids.call([]), "an empty sentence should not warn")
+	_assert_true(not voids.call(["灯", "亮"]), "a clean rule should not warn")
 	_post(game, ["灯", "亮"])
-	game.free_sentence_units = ["灯", "亮"]
-	_assert_true(game.free_sentence_voids("zh"), "a polluted rule should warn before it is posted")
-	game.free_sentence_units = ["灯"]
-	_assert_true(not game.free_sentence_voids("zh"), "a sentence that is no rule has nothing to lose")
+	_assert_true(voids.call(["灯", "亮"]), "a polluted rule should warn before it is posted")
+	_assert_true(not voids.call(["灯"]), "a sentence that is no rule has nothing to lose")
 
 
 func test_a_void_post_keeps_its_garbled_wording() -> void:

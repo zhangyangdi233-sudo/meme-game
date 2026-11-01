@@ -1706,11 +1706,6 @@ func get_polluted_units(locale_code: String = "zh") -> Array:
 	return PollutionPolicyScript.polluted_units(polluted_words, locale_code, _current_room(), pollution_policy)
 
 
-## Whether the sentence being composed hits a rule that pollution voids.
-func free_sentence_voids(locale_code: String = "zh") -> bool:
-	return PollutionPolicyScript.sentence_voids(free_sentence_units, locale_code, _current_room(), polluted_words, pollution_policy)
-
-
 func get_free_sentence_text(locale_code: String = "zh") -> String:
 	return sentence_text(free_sentence_units, locale_code)
 
@@ -1851,7 +1846,7 @@ func _judge_sentence(units: Array, locale_code: String) -> Dictionary:
 		return RuleEngineScript.parse(units, locale_code)
 	var judged := RoomRulesScript.judge(units, locale_code, _current_room())
 	if PollutionPolicyScript.voids(judged, units, locale_code, _current_room(), polluted_words, pollution_policy):
-		judged.merge({"tier": "misread", "rule_key": "", "rule_id": "", "voided": true}, true)
+		return PollutionPolicyScript.voided(judged)
 	return judged
 
 

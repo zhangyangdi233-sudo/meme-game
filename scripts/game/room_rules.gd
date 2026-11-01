@@ -24,7 +24,7 @@ static func judge(units: Array, locale: String, room: Dictionary) -> Dictionary:
 	result["rule_id"] = ""
 	var rule := _exact_rule(room, result)
 	if rule.is_empty():
-		rule = _loose_rule(room, units, locale, bool(result["negated"]), subjects, predicates)
+		rule = _loose_rule(room, units, locale, bool(result["negated"]), predicates)
 	if rule.is_empty():
 		return result
 	result["tier"] = "rule"
@@ -90,8 +90,8 @@ static func _exact_rule(room: Dictionary, reading: Dictionary) -> Dictionary:
 	return {}
 
 
-static func _loose_rule(room: Dictionary, units: Array, locale: String, negated: bool, subjects: Dictionary, predicates: Dictionary) -> Dictionary:
-	var all_subjects: Dictionary = (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(subjects, true)
+static func _loose_rule(room: Dictionary, units: Array, locale: String, negated: bool, predicates: Dictionary) -> Dictionary:
+	var all_subjects := _all_subjects(locale, room)
 	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(predicates, true)
 	for rule: Dictionary in room.get("rules", []):
 		if bool(rule.get("negated", false)) != negated:
@@ -103,14 +103,14 @@ static func _loose_rule(room: Dictionary, units: Array, locale: String, negated:
 
 ## Whether a sentence of `listed` units can say the rule. `RoomContent.validate` asks, so an unwritable rule fails a test.
 static func can_be_written(rule: Dictionary, listed: Array, locale: String, room: Dictionary) -> bool:
-	var all_subjects: Dictionary = (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "subjects", locale), true)
+	var all_subjects := _all_subjects(locale, room)
 	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
 	return _names_lie_in(all_subjects, rule.get("subject"), listed, locale) and _names_lie_in(all_predicates, rule.get("predicate"), listed, locale)
 
 
 ## The units of every word that means `subject` in a language: one list per word of the synonym group.
 static func subject_word_units(subject: String, locale: String, room: Dictionary) -> Array:
-	var all_subjects: Dictionary = (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "subjects", locale), true)
+	var all_subjects := _all_subjects(locale, room)
 	var result: Array = []
 	for word: String in all_subjects:
 		if all_subjects[word] == subject:
@@ -124,6 +124,10 @@ static func _names_lie_in(canon: Dictionary, meaning: Variant, units: Array, loc
 		if canon[word] == meaning and RuleEngineScript.word_units(word, locale).all(func(unit: String) -> bool: return unit in units):
 			return true
 	return false
+
+
+static func _all_subjects(locale: String, room: Dictionary) -> Dictionary:
+	return (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "subjects", locale), true)
 
 
 static func _vocabulary(room: Dictionary, part: String, locale: String) -> Dictionary:

@@ -153,10 +153,10 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 		empty_hint.name = "NotebookCharEmptyHint"
 		empty_hint.position = Vector2(10.0, 10.0)
 		canvas.add_child(empty_hint)
-	var dirty_units := SentenceWarningScript.dirty_units(_painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), locale_code)
+	var polluted_units := SentenceWarningScript.polluted_units(_painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), locale_code)
 	for unit in collected_units:
 		var is_ghost := str(unit) in placed_units
-		var is_polluted := unit in dirty_units
+		var is_polluted := unit in polluted_units
 		var tile_style: StyleBox = _theme().composer_tile_style("ghost" if is_ghost else "normal") if _theme() != null else null
 		var tile_position: Vector2 = _char_canvas_position_fn.call(str(unit), locale_code) if _char_canvas_position_fn.is_valid() else Vector2.ZERO
 		canvas.add_tile(
@@ -178,7 +178,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 		rules_box.add_theme_constant_override("separation", 3)
 		notebook_content.add_child(rules_box)
 		for rule in active_rules:
-			var rule_label := _theme().label("· %s" % _rule_text(rule, locale_code), 14, _theme().theme_color("accent")) as Label
+			var rule_label := _theme().label("· %s" % PollutionPolicyScript.shown_text(_rule_text(rule, locale_code), polluted_units), 14, _theme().theme_color("accent")) as Label
 			rule_label.set_meta("skip_localization", true)
 			rules_box.add_child(rule_label)
 

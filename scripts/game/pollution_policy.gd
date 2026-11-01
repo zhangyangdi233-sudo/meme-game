@@ -23,13 +23,13 @@ static func may_pollute(exit_was_open: bool, policy: Dictionary) -> bool:
 
 ## `polluted` after a red post of `units` on `subject`. A subject of skeleton words alone pollutes nothing.
 static func pollute(polluted: Dictionary, units: Array, subject: String, locale: String, room: Dictionary, policy: Dictionary) -> Dictionary:
-	var clean_units := _pollutable(_subject_units_in(units, subject, locale, room), locale, policy)
-	if clean_units.is_empty():
+	var pollutable := _pollutable(_subject_units_in(units, subject, locale, room), locale, policy)
+	if pollutable.is_empty():
 		return polluted
 	var next := polluted.duplicate(true)
 	var by_locale: Dictionary = next.get_or_add("units", {})
 	var listed: Array = by_locale.get_or_add(locale, [])
-	for unit: String in clean_units:
+	for unit: String in pollutable:
 		if unit not in listed:
 			listed.append(unit)
 	if bool(policy.get("pollute_synonyms", false)):
@@ -56,13 +56,23 @@ static func voids(judged: Dictionary, units: Array, locale: String, room: Dictio
 	if str(judged.get("tier", "")) != "rule":
 		return false
 	var subject := str(judged.get("subject", ""))
-	if subject in policy.get("barred_subjects", []):
+	if is_barred(subject, policy):
 		return true
-	var dirty := polluted_units(polluted, locale, room, policy)
+	var polluted_now := polluted_units(polluted, locale, room, policy)
 	if bool(policy.get("subject_voids_rule", false)):
-		return subject in polluted.get("subjects", []) or _subject_units_in(units, subject, locale, room).any(func(unit: String) -> bool: return unit in dirty)
-	var dirty_count := units.filter(func(unit: Variant) -> bool: return unit in dirty).size()
-	return float(dirty_count) / float(units.size()) > float(policy.get("void_ratio", 1.0))
+		return subject in polluted.get("subjects", []) or _subject_units_in(units, subject, locale, room).any(func(unit: String) -> bool: return unit in polluted_now)
+	var polluted_count := units.filter(func(unit: Variant) -> bool: return unit in polluted_now).size()
+	return float(polluted_count) / float(units.size()) > float(policy.get("void_ratio", 1.0))
+
+
+## Whether no rule can hold on this subject.
+static func is_barred(subject: Variant, policy: Dictionary) -> bool:
+	return subject in policy.get("barred_subjects", [])
+
+
+## A judgement pollution voided: a green post that says why.
+static func voided(judged: Dictionary) -> Dictionary:
+	return judged.merged({"tier": "misread", "rule_key": "", "rule_id": "", "voided": true}, true)
 
 
 ## Whether posting `units` in this room would hit a rule that pollution voids.
@@ -71,8 +81,15 @@ static func sentence_voids(units: Array, locale: String, room: Dictionary, pollu
 
 
 ## The sentence as the player sees it: polluted units are garbled, what the sentence says stays.
-static func shown_units(units: Array, dirty: Array) -> Array:
-	return units.map(func(unit: Variant) -> String: return garbled(str(unit)) if unit in dirty else str(unit))
+static func shown_units(units: Array, polluted_list: Array) -> Array:
+	return units.map(func(unit: Variant) -> String: return garbled(str(unit)) if unit in polluted_list else str(unit))
+
+
+## Authored wording with its polluted units garbled.
+static func shown_text(text: String, polluted_list: Array) -> String:
+	for unit: String in polluted_list:
+		text = text.replace(unit, garbled(unit))
+	return text
 
 
 ## One glyph per character, always the same for the same word.
