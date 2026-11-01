@@ -1379,11 +1379,12 @@ func advance_typed_reality_character() -> Dictionary:
 	return result
 
 
-## The basement NPC's conversation was finished: an escape of the room may hold now; if not the NPC sends the player
-## back to the computer.
+## The basement NPC's conversation was finished: an escape of the room may hold now. Without this round's post and
+## with the exit shut the NPC sends the player back to the computer.
 func _deliver_basement_round() -> void:
-	_open_exit_if_escaped(has_posted_this_round())
-	if ChapterOneProgressScript.exit_open(chapter_one_progress):
+	var posted := has_posted_this_round()
+	_open_exit_if_escaped(posted)
+	if posted or ChapterOneProgressScript.exit_open(chapter_one_progress):
 		return
 	conversation_feedback += "\n" + GameLocaleScript.for_locale(conversation_locale).translate(BASEMENT_NO_POST_LINE)
 

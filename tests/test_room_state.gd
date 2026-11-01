@@ -3,6 +3,7 @@ extends SceneTree
 ## a green one leaves it alone, the next round starts over, and the exit still asks for a post and the NPC.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
@@ -26,6 +27,7 @@ func _init() -> void:
 	test_the_other_escape_still_works_in_a_room_with_two()
 	test_a_rule_escape_survives_a_save()
 	test_an_escape_holds_in_its_own_round_only()
+	test_the_npc_asks_for_a_post_only_without_one()
 	test_only_the_rooms_words_can_be_picked_up()
 	test_the_tower_keeps_its_rules()
 	if _failures.is_empty():
@@ -151,6 +153,18 @@ func test_an_escape_holds_in_its_own_round_only() -> void:
 	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post and the NPC should not open a rule-only room")
 	_post(game, ["出", "口", "存", "在"])
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "round two should need its own sentence")
+
+
+func test_the_npc_asks_for_a_post_only_without_one() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["出", "口", "存", "在"])
+	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	var no_post_line: String = GameLocaleScript.for_locale("zh").translate(StateScript.BASEMENT_NO_POST_LINE)
+	_finish_conversation_with(game, 2)
+	_assert_true(no_post_line in game.conversation_feedback, "without a post the NPC should send the player to the computer")
+	_post(game, ["灯", "亮"])
+	_finish_conversation_with(game, 2)
+	_assert_true(no_post_line not in game.conversation_feedback, "after a post the NPC should not ask for one")
 
 
 func test_only_the_rooms_words_can_be_picked_up() -> void:

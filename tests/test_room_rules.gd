@@ -3,6 +3,7 @@ extends SceneTree
 ## the rule engine and looks it up in the room, `RoomContent` loads and checks the authored rooms.
 
 const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
+const ContentJsonScript = preload("res://framework/content_json.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 
@@ -36,6 +37,7 @@ func _init() -> void:
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
 	test_every_round_one_word_can_be_picked_up()
+	test_the_rule_escape_fixture_is_valid()
 	test_a_room_can_carry_state_and_one_shot_events()
 	test_validation_names_broken_rooms()
 	if _failures.is_empty():
@@ -169,6 +171,11 @@ func test_every_round_one_word_can_be_picked_up() -> void:
 		_assert_true(word in seeded, "%s should lie in some post" % word)
 	_assert_eq(RoomContentScript.words(1, "ja"), PoolScript.get_unit_pool("ja"), "an unwritten language should keep the whole pool")
 	_assert_eq(RoomContentScript.words(2, "zh"), PoolScript.get_unit_pool("zh"), "a room without its words should keep the whole pool")
+
+
+func test_the_rule_escape_fixture_is_valid() -> void:
+	var catalog: Dictionary = ContentJsonScript.load_dictionary_cached("res://tests/fixtures/rooms_rule_escape.json", "test_room_rules")
+	_assert_eq(RoomContentScript.problems_in(catalog, 2), [] as Array[String], "the test rooms should follow the authored rooms' shape")
 
 
 func test_a_room_can_carry_state_and_one_shot_events() -> void:
