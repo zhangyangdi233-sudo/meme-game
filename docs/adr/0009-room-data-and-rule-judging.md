@@ -8,7 +8,7 @@ Judging has two steps with a fixed boundary. `RuleEngine.read_sentence` answers 
 
 **Rule keys stay `subject|predicate`.** `灯亮` and `灯不亮` are two rules of a room but one key, so the newest post decides, as it already did on the tower.
 
-**No second copy of what the world looks like.** A red post writes the `world_rules` map, with the round it was made in. `RoomRules.world_state` derives the room from its data and the rules in force, so the save needs no field of its own, and a rule from another round cannot leak in. Leaving a round forgets its rules (#119 Q2-3: a rule holds in its own room). The tower's rules carry no round and stay.
+**No second copy of what the world looks like.** A red post writes the `world_rules` map, with the round it was made in. `RoomRules.world_state` derives the room from its data and the rules in force, so the save needs no field of its own, and a rule from another round cannot leak in. Leaving a round forgets its rules, because the next room starts from its own data. This is not #119 Q2-3's mechanism: there a rule stops working in the next room because its subject word is polluted (#117), and nothing records used rules. The two agree for now. The tower's rules carry no round and stay.
 
 **The stage only displays.** The host hands the derived state to the Reality scene adapter as `room_state`, and `ChapterOneStage` turns it into lights and objects. A room can name only the objects in `RoomContent.OBJECTS`, each of which the stage builds. A new kind of object needs code; a new use of one does not.
 

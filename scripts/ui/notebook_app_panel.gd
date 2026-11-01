@@ -32,6 +32,7 @@ var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.WORLD_RULES: _on_model_changed,
 	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
+	PropertyKeysScript.CHAPTER_ONE_PROGRESS: _on_model_changed,
 })
 
 
@@ -191,7 +192,6 @@ func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	var action_box := VBoxContainer.new()
 	action_box.add_theme_constant_override("separation", 6)
 	action_bar.add_child(action_box)
-	PostSlipScript.add_to(action_box, _painted_post, _theme())
 	var craft := Button.new()
 	craft.name = "NotebookCraftButton"
 	craft.text = "投稿这句话"
@@ -199,6 +199,7 @@ func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	craft.disabled = _painted_units.is_empty()
 	craft.pressed.connect(_on_craft_pressed)
 	action_box.add_child(craft)
+	PostSlipScript.add_to(action_box, _painted_post, _theme())
 
 
 func _on_model_changed(_value: Variant) -> void:
@@ -236,7 +237,7 @@ func _flush_paint() -> void:
 
 
 func _last_post() -> Dictionary:
-	return PostSlipScript.latest(_read_list(PropertyKeysScript.PUBLISHED_MEMES))
+	return PostSlipScript.latest(_read_list(PropertyKeysScript.PUBLISHED_MEMES), _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS))
 
 
 func _read_list(property_name: String) -> Array:

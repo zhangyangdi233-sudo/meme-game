@@ -6,6 +6,7 @@ extends RefCounted
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ContentJsonScript = preload("res://framework/content_json.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
 
 const ROOMS_PATH := "res://content/basement_rooms.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
@@ -71,9 +72,13 @@ static func _check_room(checked: Dictionary, label: String, problems: Array[Stri
 	for field_name: String in ["brightness", "hum"]:
 		if not (state.get(field_name) is float or state.get(field_name) is int):
 			problems.append("%s has no %s" % [label, field_name])
+	if not state.get("objects") is Dictionary:
+		problems.append("%s has no objects" % label)
+		return
 	_check_objects(state, label, problems)
 	for rule: Variant in checked["rules"]:
 		_check_rule(rule, label, problems)
+		_check_writable(rule, checked, label, problems)
 	var event_ids: Array[String] = []
 	for event: Variant in checked["events"]:
 		if not event is Dictionary or str(event.get("id", "")).is_empty() or str(event.get("trigger", "")).is_empty():
@@ -95,6 +100,16 @@ static func _check_rule(rule: Variant, label: String, problems: Array[String]) -
 		problems.append("%s rule %s needs text and state" % [label, rule.get("id", "")])
 		return
 	_check_objects(rule["state"], "%s rule %s" % [label, rule.get("id", "")], problems)
+
+
+## A rule the room's own words cannot say would silently never fire. A language without a word list has the whole pool.
+static func _check_writable(rule: Variant, checked: Dictionary, label: String, problems: Array[String]) -> void:
+	if not rule is Dictionary:
+		return
+	for locale_code: String in SUPPORTED_LOCALES:
+		var listed: Array = (checked["words"] as Dictionary).get(locale_code, [])
+		if not listed.is_empty() and not RoomRulesScript.can_be_written(rule, listed, locale_code, checked):
+			problems.append("%s rule %s cannot be written with its %s words" % [label, rule.get("id", ""), locale_code])
 
 
 static func _check_objects(state: Dictionary, label: String, problems: Array[String]) -> void:

@@ -163,6 +163,10 @@ func test_validation_names_broken_rooms() -> void:
 		func(room: Dictionary) -> void: room["rules"] = [{"id": "x", "subject": "light", "text": {}, "state": {}}],
 		func(room: Dictionary) -> void: room["rules"] = [{"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {"objects": {"piano": true}}}],
 		func(room: Dictionary) -> void: room["events"] = [{"id": "x"}],
+		func(room: Dictionary) -> void: room["state"].erase("objects"),
+		func(room: Dictionary) -> void:
+			room["words"]["zh"] = ["灯"]
+			room["rules"] = [{"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {}}],
 	]:
 		var broken := good.duplicate(true)
 		breakage.call(broken["rooms"]["1"])

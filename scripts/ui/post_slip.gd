@@ -3,13 +3,17 @@ extends RefCounted
 ## The slip under a post button: the player's last post, red when the world obeyed it and green when it did not. A
 ## filled or hollow mark says the same without the color.
 
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+
 const TIER_RULE := "rule"
 
 
-## The newest sentence post among `published` (newest first), or empty.
-static func latest(published: Array) -> Dictionary:
+## The newest sentence post of this basement round among `published` (newest first), or empty. A new round's room
+## starts over, so an earlier round's post no longer shows. Outside the basement the round is zero.
+static func latest(published: Array, progress: Dictionary) -> Dictionary:
+	var current_round := ChapterOneProgressScript.round_of(progress)
 	for record in published:
-		if record is Dictionary and str(record.get("kind", "")) == "free_sentence":
+		if record is Dictionary and str(record.get("kind", "")) == "free_sentence" and int(record.get("round", 0)) == current_round:
 			return record
 	return {}
 

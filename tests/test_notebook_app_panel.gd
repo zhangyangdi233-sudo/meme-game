@@ -6,6 +6,7 @@ const BootScript = preload("res://scripts/game/property_boot.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
@@ -167,6 +168,12 @@ func _test_the_last_post_shows_red_or_green() -> void:
 	slip = Harness.find_node_by_name(mounted["body"], "LastPostSlip") as Label
 	_assert_true(slip.text.contains("灯亮"), "the newest post should show")
 	_assert_eq(slip.get_theme_color("font_color"), theme.theme_color("error"), "a post the world obeyed should be red")
+	var craft := Harness.find_node_by_name(mounted["body"], "NotebookCraftButton")
+	_assert_true(slip.get_index() > craft.get_index(), "the slip should sit under the post button")
+	var progress: MapPropertyModel = (RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager).model(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
+	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
+	await process_frame
+	_assert_true(not _has(mounted, "LastPostSlip"), "a new round should not show an earlier round's post")
 	_dispose(mounted)
 
 

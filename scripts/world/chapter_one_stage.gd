@@ -231,7 +231,8 @@ func sync_progress(progress: Dictionary) -> void:
 
 ## Shows the room as its data and the rules in force say: the lights follow its brightness, its objects come and go.
 func apply_room_state(state: Dictionary) -> void:
-	if phase != ChapterOneProgressScript.PHASE_BASEMENT or state == _room_state:
+	# A basement whose model did not load has no lights to follow.
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or _environment == null or state == _room_state:
 		return
 	_room_state = state
 	var brightness := float(state.get("brightness", 1.0))

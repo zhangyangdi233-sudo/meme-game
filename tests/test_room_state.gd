@@ -111,7 +111,7 @@ func test_the_tower_keeps_its_rules() -> void:
 	_assert_true("家" in game.get_pickup_unit_pool("zh"), "the tower should keep the whole word pool")
 
 
-func _basement() -> RefCounted:
+func _basement() -> MemeGameState:
 	var game := Harness.new_state()
 	while game.advance_opening_narration():
 		pass
@@ -121,12 +121,12 @@ func _basement() -> RefCounted:
 	return game
 
 
-func _post(game: RefCounted, units: Array) -> Dictionary:
+func _post(game: MemeGameState, units: Array) -> Dictionary:
 	game.free_sentence_units = units
 	return game.submit_free_sentence("zh")
 
 
-func _finish_conversation(game: RefCounted) -> void:
+func _finish_conversation(game: MemeGameState) -> void:
 	_assert_true(game.start_typed_reality_conversation("basement_npc_1", "basement_npc", "护灯人"), "the NPC should talk")
 	while true:
 		while game.conversation_phase == "typing":

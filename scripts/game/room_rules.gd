@@ -74,6 +74,13 @@ static func _loose_rule(room: Dictionary, units: Array, locale: String, negated:
 	return {}
 
 
+## Whether a sentence of `listed` units can say the rule. `RoomContent.validate` asks, so an unwritable rule fails a test.
+static func can_be_written(rule: Dictionary, listed: Array, locale: String, room: Dictionary) -> bool:
+	var all_subjects: Dictionary = (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "subjects", locale), true)
+	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
+	return _names_lie_in(all_subjects, rule.get("subject"), listed, locale) and _names_lie_in(all_predicates, rule.get("predicate"), listed, locale)
+
+
 ## Whether every unit of some word meaning `meaning` is in the sentence, in any order.
 static func _names_lie_in(canon: Dictionary, meaning: Variant, units: Array, locale: String) -> bool:
 	for word: String in canon:

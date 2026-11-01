@@ -23,6 +23,7 @@ var _painted_post: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
+	PropertyKeysScript.CHAPTER_ONE_PROGRESS: _on_model_changed,
 })
 
 
@@ -225,8 +226,9 @@ func _sentence_units() -> Array:
 
 
 func _last_post() -> Dictionary:
-	var value: Variant = _watch.read(PropertyKeysScript.PUBLISHED_MEMES)
-	return PostSlipScript.latest(value as Array if value is Array else [])
+	var published: Variant = _watch.read(PropertyKeysScript.PUBLISHED_MEMES)
+	var progress: Variant = _watch.read(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
+	return PostSlipScript.latest(published as Array if published is Array else [], progress as Dictionary if progress is Dictionary else {})
 
 
 func _source() -> SocialFeedSource:
