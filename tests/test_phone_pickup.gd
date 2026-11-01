@@ -26,9 +26,9 @@ func _init() -> void:
 	test_a_saved_phone_has_its_apps_whatever_the_save_names()
 	test_a_saved_locked_app_is_never_in_front()
 	test_an_older_save_gets_what_its_progress_earned()
-	test_skipping_chapter_one_hands_over_the_phone_and_every_app()
+	test_skipping_chapter_one_hands_over_the_phone_and_its_apps()
 	test_jumping_to_a_round_hands_over_what_earlier_rounds_earned()
-	test_the_fifth_exit_hands_over_the_phone_and_every_app()
+	test_the_fifth_exit_hands_over_the_phone_and_its_apps()
 	if _failures.is_empty():
 		print("phone pickup tests passed")
 		quit(0)
@@ -189,20 +189,20 @@ func test_an_older_save_gets_what_its_progress_earned() -> void:
 		var restored := StateScript.new()
 		_assert_true(restored.load_save_data(save), "an older round %d save should load" % case["round"])
 		_assert_eq(restored.phone_owned, case["owned"], "an older round %d save should own what it earned" % case["round"])
-		_assert_eq(restored.unlocked_apps, case["apps"], "an older round %d save should unlock what it earned" % case["round"])
+		_assert_eq(restored.unlocked_apps, case["apps"], "an older round %d save should have the apps of its phone" % case["round"])
 	var tower: MemeGameState = Harness.new_state()
 	tower.skip_chapter_one()
 	var restored_tower := StateScript.new()
 	restored_tower.load_save_data(_without_phone_fields(tower.to_save_data()))
 	_assert_true(restored_tower.phone_owned, "an older tower save should own the phone")
-	_assert_eq(restored_tower.unlocked_apps, StateScript.PHONE_APPS, "an older tower save should unlock every app")
+	_assert_eq(restored_tower.unlocked_apps, StateScript.PHONE_APPS, "an older tower save should have the phone's apps")
 
 
-func test_skipping_chapter_one_hands_over_the_phone_and_every_app() -> void:
+func test_skipping_chapter_one_hands_over_the_phone_and_its_apps() -> void:
 	var game: MemeGameState = Harness.new_state()
 	game.skip_chapter_one()
 	_assert_true(game.phone_owned, "the tower street should be played with the phone")
-	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the tower street should unlock every app")
+	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the tower street should have the phone's apps")
 	_assert_true(game.set_view_state("phone_down"), "the phone should be raised on the tower street")
 	_assert_true(game.is_app_window_open("social"), "the social feed should open on the tower street")
 
@@ -211,7 +211,7 @@ func test_jumping_to_a_round_hands_over_what_earlier_rounds_earned() -> void:
 	var game: MemeGameState = Harness.new_state()
 	game.jump_to_basement_round(1)
 	_assert_true(not game.phone_owned, "round one should start with the phone on the table")
-	_assert_eq(game.unlocked_apps, [], "round one should start with every app locked")
+	_assert_eq(game.unlocked_apps, [], "round one should start with its apps locked")
 	game.jump_to_basement_round(2)
 	_assert_true(game.phone_owned, "round two should start with the phone")
 	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "round two should start with the phone's apps")
@@ -220,7 +220,7 @@ func test_jumping_to_a_round_hands_over_what_earlier_rounds_earned() -> void:
 	_assert_eq(game.unlocked_apps, [], "jumping back to round one should lock the apps again")
 
 
-func test_the_fifth_exit_hands_over_the_phone_and_every_app() -> void:
+func test_the_fifth_exit_hands_over_the_phone_and_its_apps() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.jump_to_basement_round(5)
 	_deliver(game)
@@ -228,15 +228,15 @@ func test_the_fifth_exit_hands_over_the_phone_and_every_app() -> void:
 	game.phone_owned = false
 	_assert_true(game.leave_basement_round(), "the fifth exit should be left through")
 	_assert_true(game.phone_owned, "the passage should be walked with the phone")
-	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the passage should have every app")
+	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the passage should have the phone's apps")
 	var restored := StateScript.new()
 	_assert_true(restored.load_save_data(game.to_save_data()), "a save in the passage should load")
 	_assert_true(restored.phone_owned, "a save in the passage should keep the phone")
-	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save in the passage should keep every app")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save in the passage should keep the phone's apps")
 	_assert_true(game.cross_passage(), "the passage should be crossed")
 	restored = StateScript.new()
 	_assert_true(restored.load_save_data(game.to_save_data()), "a save at the demo's end should load")
-	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save at the demo's end should keep every app")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save at the demo's end should keep the phone's apps")
 
 
 func _deliver(game: MemeGameState) -> void:

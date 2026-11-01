@@ -639,7 +639,7 @@ func cross_passage() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.cross_passage(chapter_one_progress))
 
 
-## Development seam: starts basement round `round_number` fresh, with the phone and the apps earlier rounds earned.
+## Development seam: starts basement round `round_number` fresh, with the phone if an earlier round earned it.
 ## False for a round that does not exist.
 func jump_to_basement_round(round_number: int) -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number)):
@@ -687,7 +687,7 @@ func _hand_over_earned_phone() -> void:
 		_bring_active_app_forward()
 
 
-## A raised phone brings the last chosen app to the front once it is unlocked; a locked app is never in front.
+## A raised phone brings the last chosen app to the front; a locked app is never in front.
 func _bring_active_app_forward() -> void:
 	if not active_app_window.is_empty() and not is_app_unlocked(active_app_window):
 		active_app_window = ""

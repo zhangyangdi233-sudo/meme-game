@@ -91,6 +91,11 @@ func _run() -> void:
 	_assert_true(phone_content != null and phone_content.visible, "small-view phone home should expose app icons")
 	if phone_social_icon != null:
 		_assert_true(_inside_rect(phone_social_icon, viewport_rect), "small-view phone app icons should stay reachable")
+	var phone_map_icon := _find_node_by_name(game_root, "PhoneAppIconMap") as Button
+	_assert_true(phone_map_icon != null and _inside_rect(phone_map_icon, viewport_rect), "small-view phone home should fit the map's row of icons")
+	var phone_note := _find_node_by_name(game_root, "PhoneLauncherNote") as Control
+	if phone_note != null and phone_home != null:
+		_assert_true(phone_note.get_global_rect().end.y <= phone_home.get_global_rect().end.y, "small-view phone home should not clip what follows the icons")
 	if game_root.has_method("set_view_state"):
 		game_root.set_view_state("npc_up")
 	await process_frame

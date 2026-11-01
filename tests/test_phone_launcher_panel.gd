@@ -29,7 +29,7 @@ func _run() -> void:
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_opening_and_closing_the_phone_updates_the_popup()
 	_test_choosing_an_app_raises_its_window()
-	_test_only_social_and_notebook_are_offered()
+	_test_social_notebook_and_map_are_offered()
 	_test_hiding_unregisters_and_later_writes_are_ignored()
 	_test_mounting_again_while_shown_keeps_one_registration()
 	_test_a_freed_panel_unregisters()
@@ -100,7 +100,7 @@ func _test_choosing_an_app_raises_its_window() -> void:
 
 
 ## The phone offers the social app and the notebook; the tower app is gone.
-func _test_only_social_and_notebook_are_offered() -> void:
+func _test_social_notebook_and_map_are_offered() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as PhoneLauncherPanel
 	var host := mounted["host"] as Control

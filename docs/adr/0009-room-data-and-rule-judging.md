@@ -16,7 +16,7 @@ Judging has two steps with a fixed boundary. `RuleEngine.read_sentence` answers 
 
 **The exit is room data too.** A room lists its `escapes`, and any one that holds delivers the round (`RoomRules.escaped`). `delivery` is this round's post plus the NPC's conversation; `rule` names one of the room's rules in force. A rule changes the room either way; it opens the exit only where the room declares it. All five rooms start on `delivery`, so #120's answer changes the data, not the code. A later way out (the NPC behind the door, the X-ray) adds a kind and the fact that decides it.
 
-**Opening is remembered, not derived.** The room's look follows the rules in force, but the exit stays open once earned: `delivered` in the chapter progress is saved, and taking the rule back does not shut it. A player who wrote their way out is never trapped by their next post. The saved field keeps its name, so older saves load unchanged. Whatever opens the exit earns what a delivery earns, because a round left by a rule must not leave its app locked.
+**Opening is remembered, not derived.** The room's look follows the rules in force, but the exit stays open once earned: `delivered` in the chapter progress is saved, and taking the rule back does not shut it. A player who wrote their way out is never trapped by their next post. The saved field keeps its name, so older saves load unchanged.
 
 The tower still uses `RuleEngine.parse` with `SUPPORTED_RULES`. It is out of the demo's path (`LEVEL_ORDER`), and rewriting it would serve nothing.
 

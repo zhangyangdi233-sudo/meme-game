@@ -23,7 +23,7 @@ func _init() -> void:
 	test_a_rule_alone_does_not_open_the_exit()
 	test_a_rule_escape_opens_the_exit()
 	test_the_exit_stays_open_when_the_rule_is_taken_back()
-	test_a_rule_escape_earns_what_a_delivery_earns()
+	test_the_npc_after_a_rule_escape_changes_nothing()
 	test_the_other_escape_still_works_in_a_room_with_two()
 	test_a_rule_escape_survives_a_save()
 	test_an_escape_holds_in_its_own_round_only()
@@ -118,10 +118,9 @@ func test_the_exit_stays_open_when_the_rule_is_taken_back() -> void:
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "an opened exit should not trap the player again")
 
 
-func test_a_rule_escape_earns_what_a_delivery_earns() -> void:
+func test_the_npc_after_a_rule_escape_changes_nothing() -> void:
 	var game := _rule_escape_basement()
 	_post(game, ["出", "口", "存", "在"])
-	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the rule alone should open the exit")
 	_finish_conversation(game)
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the NPC afterwards should change nothing")
 
