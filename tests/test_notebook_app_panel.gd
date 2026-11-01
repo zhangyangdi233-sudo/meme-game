@@ -44,6 +44,8 @@ func _run() -> void:
 	_test_canvas_tiles_carry_their_answers()
 	await _test_a_placed_word_ghosts_its_tile_and_enables_posting()
 	await _test_a_new_world_rule_appears_by_itself()
+	await _test_the_last_post_shows_red_or_green()
+	_test_a_room_rule_shows_its_authored_wording()
 	_test_hiding_unregisters_from_the_sentence_and_rules()
 
 
@@ -144,6 +146,40 @@ func _test_a_new_world_rule_appears_by_itself() -> void:
 	await process_frame
 	var list := Harness.find_node_by_name(mounted["body"], "ComposerRulesList")
 	_assert_true(list != null and list.get_child_count() == 1, "a new rule should appear in the shown notebook by itself")
+	_dispose(mounted)
+
+
+func _test_the_last_post_shows_red_or_green() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var published: ListPropertyModel = (RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager).model(PropertyKeysScript.PUBLISHED_MEMES)
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	_assert_true(not _has(mounted, "LastPostSlip"), "no post should show no slip")
+	published.insert_at(0, {"kind": "free_sentence", "text": "我想回家", "tier": "misread"})
+	await process_frame
+	var slip := Harness.find_node_by_name(mounted["body"], "LastPostSlip") as Label
+	_assert_true(slip != null and slip.text.contains("我想回家"), "a post should show by itself")
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	_assert_eq(slip.get_theme_color("font_color"), theme.theme_color("accent"), "a post that changed nothing should be green")
+	published.insert_at(0, {"kind": "free_sentence", "text": "灯亮", "tier": "rule"})
+	await process_frame
+	slip = Harness.find_node_by_name(mounted["body"], "LastPostSlip") as Label
+	_assert_true(slip.text.contains("灯亮"), "the newest post should show")
+	_assert_eq(slip.get_theme_color("font_color"), theme.theme_color("error"), "a post the world obeyed should be red")
+	_dispose(mounted)
+
+
+func _test_a_room_rule_shows_its_authored_wording() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var rules: MapPropertyModel = mounted["rules"]
+	rules.add("light|lit", {"negated": true, "source_text": "不灯亮", "locale": "zh", "day": 1, "floor": 1, "round": 1})
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	var list := Harness.find_node_by_name(mounted["body"], "ComposerRulesList")
+	var label := list.get_child(0) as Label
+	_assert_eq(label.text, "· 灯不亮", "a room's rule should read as its room words it")
 	_dispose(mounted)
 
 

@@ -37,12 +37,14 @@ const NEGATION_WORDS := {
 
 
 ## 词典最大匹配合词:把单位序列(中文单字/日文词/英文词)合并成词典词。
-## 未能合词的单位以原样进入结果(unknown 词)。
-static func segment_units(units: Array, locale: String) -> Array[String]:
+## 未能合词的单位以原样进入结果(unknown 词)。`extra_words` 是房间资料另外加的词。
+static func segment_units(units: Array, locale: String, extra_words: Array = []) -> Array[String]:
 	var dictionary: Dictionary = PickupCharPool.get_word_dictionary(locale)
 	var word_unit_lists: Array = []
 	for word in dictionary.keys():
 		word_unit_lists.append({"word": str(word), "units": (dictionary[word] as Dictionary).get("units", [])})
+	for word in extra_words:
+		word_unit_lists.append({"word": str(word), "units": word_units(str(word), locale)})
 	word_unit_lists.sort_custom(func(left, right): return (left["units"] as Array).size() > (right["units"] as Array).size())
 
 	var words: Array[String] = []
@@ -72,23 +74,49 @@ static func segment_units(units: Array, locale: String) -> Array[String]:
 	return words
 
 
+## 一个词的拾取单位:词典里有就照词典;中文新词一字一单位,日文、英文整词一单位。
+static func word_units(word: String, locale: String) -> Array:
+	var dictionary: Dictionary = PickupCharPool.get_word_dictionary(locale)
+	if dictionary.has(word):
+		return ((dictionary[word] as Dictionary).get("units", []) as Array).duplicate()
+	if locale != "zh":
+		return [word]
+	var units: Array = []
+	for index in word.length():
+		units.append(word[index])
+	return units
+
+
 ## 解析:返回 {tier: "rule"|"misread"|"noise", subject, predicate, negated, rule_key, words}。
-## 语序宽容:主语与谓语在句中任意位置均可;否定词出现在句中任何位置即视为否定。
+## 只认 SUPPORTED_RULES;地下室的房间资料走 RoomRules。
 static func parse(units: Array, locale: String) -> Dictionary:
-	var result := {
-		"tier": "noise",
-		"subject": "",
-		"predicate": "",
-		"negated": false,
-		"rule_key": "",
-		"words": [] as Array[String],
-	}
+	var result := read_sentence(units, locale)
+	result["tier"] = "noise"
+	result["rule_key"] = ""
+	var subject := str(result["subject"])
+	var predicate := str(result["predicate"])
+	if subject.is_empty() and predicate.is_empty():
+		return result
+	var rule_key := "%s|%s" % [subject, predicate]
+	if not subject.is_empty() and not predicate.is_empty() and SUPPORTED_RULES.has(rule_key):
+		result["tier"] = "rule"
+		result["rule_key"] = rule_key
+	else:
+		result["tier"] = "misread"
+	return result
+
+
+## 读出句子的主语、谓语与极性,不判定它是不是规则。返回 {subject, predicate, negated, words}。
+## 语序宽容:主语与谓语在句中任意位置均可;否定词出现在句中任何位置即视为否定。
+## `extra_subjects`、`extra_predicates` 是房间资料加的同义词(词 → 规范名)。
+static func read_sentence(units: Array, locale: String, extra_subjects: Dictionary = {}, extra_predicates: Dictionary = {}) -> Dictionary:
+	var result := {"subject": "", "predicate": "", "negated": false, "words": [] as Array[String]}
 	if units.is_empty():
 		return result
-	var words := segment_units(units, locale)
+	var words := segment_units(units, locale, extra_subjects.keys() + extra_predicates.keys())
 	result["words"] = words
-	var subject_map: Dictionary = SUBJECT_CANON.get(locale, {})
-	var predicate_map: Dictionary = PREDICATE_CANON.get(locale, {})
+	var subject_map: Dictionary = (SUBJECT_CANON.get(locale, {}) as Dictionary).merged(extra_subjects, true)
+	var predicate_map: Dictionary = (PREDICATE_CANON.get(locale, {}) as Dictionary).merged(extra_predicates, true)
 	var negation_list: Array = NEGATION_WORDS.get(locale, [])
 
 	var subject := ""
@@ -108,15 +136,6 @@ static func parse(units: Array, locale: String) -> Dictionary:
 	result["subject"] = subject
 	result["predicate"] = predicate
 	result["negated"] = negated
-	if subject.is_empty() or predicate.is_empty():
-		result["tier"] = "misread"
-		return result
-	var rule_key := "%s|%s" % [subject, predicate]
-	if SUPPORTED_RULES.has(rule_key):
-		result["tier"] = "rule"
-		result["rule_key"] = rule_key
-	else:
-		result["tier"] = "misread"
 	return result
 
 

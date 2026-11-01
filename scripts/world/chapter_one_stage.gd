@@ -6,6 +6,7 @@ extends Node3D
 ## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
 ## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
 ## until the player owns it.
+## A basement's lights and room objects follow the round's room state.
 ## The adapter drives it; the knock finishing, the player walking out through the basement's open exit and the player
 ## walking into the passage's light are raised as game events for the state to record.
 
@@ -38,6 +39,11 @@ const BASEMENT_LIGHTS := {
 	"BasementRearLight": {"position": Vector3(0.0, 2.5, -3.4), "energy": 0.62, "range": 4.5},
 }
 const BASEMENT_LIGHT_COLOR := Color(1.0, 0.82, 0.62)
+const BASEMENT_AMBIENT_ENERGY := 0.35
+## The lamp a room can light above the exit, just inside the wall over its doorway.
+const EXIT_LAMP_POSITION := Vector3(-3.13, 2.38, -3.43)
+const EXIT_LAMP_SIZE := Vector3(0.06, 0.1, 0.4)
+const EXIT_LAMP_COLOR := Color(0.25, 1.0, 0.45)
 ## The basement model's CRT glass: the mesh whose name ends with this.
 const CRT_SCREEN_NODE := "*Screen_Video"
 ## The CRT's reach point (where the player stands to use it): this far out from its glass, on the floor.
@@ -93,6 +99,10 @@ var _exit_target := 0.0
 var _exit_reported := false
 var _passage_reported := false
 var _phone: MeshInstance3D
+var _environment: Environment
+var _room_state: Dictionary = {}
+## Room object names (`RoomContent.OBJECTS`) to what shows them.
+var _room_objects: Dictionary = {}
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
@@ -219,6 +229,20 @@ func sync_progress(progress: Dictionary) -> void:
 	_knock.play()
 
 
+## Shows the room as its data and the rules in force say: the lights follow its brightness, its objects come and go.
+func apply_room_state(state: Dictionary) -> void:
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or state == _room_state:
+		return
+	_room_state = state
+	var brightness := float(state.get("brightness", 1.0))
+	for light_name in BASEMENT_LIGHTS:
+		(get_node(light_name) as OmniLight3D).light_energy = float(BASEMENT_LIGHTS[light_name]["energy"]) * brightness
+	_environment.ambient_light_energy = BASEMENT_AMBIENT_ENERGY * brightness
+	var objects: Dictionary = state.get("objects", {})
+	for object_name in _room_objects:
+		(_room_objects[object_name] as Node3D).visible = bool(objects.get(object_name, false))
+
+
 ## Opening settings holds the knock where it is.
 func set_paused(paused: bool) -> void:
 	_paused = paused
@@ -301,7 +325,8 @@ func _build_basement(npc_texture: Texture2D, phone_on_table: bool) -> bool:
 		light.shadow_enabled = true
 		light.position = spec["position"]
 		add_child(light)
-	_build_environment(BASEMENT_LIGHT_COLOR.darkened(0.7), 0.35)
+	_build_environment(BASEMENT_LIGHT_COLOR.darkened(0.7), BASEMENT_AMBIENT_ENERGY)
+	_build_exit_lamp()
 	var glass := _model.find_child(CRT_SCREEN_NODE, true, false) as MeshInstance3D
 	var screen := CrtScreenScript.new()
 	if screen.bind(glass):
@@ -414,6 +439,29 @@ func _build_table(phone_on_table: bool) -> void:
 	add_child(_phone)
 
 
+func _build_exit_lamp() -> void:
+	var lamp := MeshInstance3D.new()
+	lamp.name = "ExitLamp"
+	var mesh := BoxMesh.new()
+	mesh.size = EXIT_LAMP_SIZE
+	lamp.mesh = mesh
+	lamp.position = EXIT_LAMP_POSITION
+	var material := _flat_material(EXIT_LAMP_COLOR)
+	material.emission_enabled = true
+	material.emission = EXIT_LAMP_COLOR
+	material.emission_energy_multiplier = 2.5
+	lamp.material_override = material
+	var glow := OmniLight3D.new()
+	glow.name = "Glow"
+	glow.light_color = EXIT_LAMP_COLOR
+	glow.light_energy = 0.6
+	glow.omni_range = 2.5
+	lamp.add_child(glow)
+	lamp.visible = false
+	add_child(lamp)
+	_room_objects["exit_lamp"] = lamp
+
+
 func _flat_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
@@ -447,6 +495,7 @@ func _build_environment(ambient: Color, ambient_energy: float) -> void:
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world_environment.environment = environment
+	_environment = environment
 	add_child(world_environment)
 
 

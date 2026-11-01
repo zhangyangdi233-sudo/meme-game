@@ -35,6 +35,7 @@ func _run() -> void:
 	_test_rendering_paints_the_page_into_the_host()
 	_test_a_placed_word_can_always_be_posted()
 	_test_the_shown_page_follows_the_sentence()
+	_test_the_page_shows_the_last_post()
 	_test_the_page_has_no_old_meme_route()
 	_test_showing_registers_once_and_hiding_lets_go()
 	_test_a_released_page_is_not_repainted()
@@ -79,6 +80,19 @@ func _test_the_shown_page_follows_the_sentence() -> void:
 	units.replace_all([])
 	_assert_eq(_post_button_text(mounted), "先放入一个字", "posting should empty the page by itself")
 	_dispose(mounted)
+
+
+func _test_the_page_shows_the_last_post() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialPublishPanel
+	panel.render(mounted["host"])
+	panel.set_shown(true)
+	_assert_true(_find(mounted, "LastPostSlip") == null, "no post should show no slip")
+	var published: ListPropertyModel = (RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager).model(PropertyKeysScript.PUBLISHED_MEMES)
+	published.insert_at(0, {"kind": "free_sentence", "text": "灯亮", "tier": "rule"})
+	var slip := _find(mounted, "LastPostSlip") as Label
+	_assert_true(slip != null and slip.text.contains("灯亮"), "a post should show on the page by itself")
+	panel.set_shown(false)
 
 
 func _test_the_page_has_no_old_meme_route() -> void:

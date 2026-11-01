@@ -987,7 +987,8 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 			source_text,
 			locale,
 			MemeGameStateScript.char_units_for_locale(_held_chars, locale),
-			_theme().theme_color("flash_text").to_html(false)
+			_theme().theme_color("flash_text").to_html(false),
+			_source.language_material().offered_units(locale)
 		)
 	rich.text = bbcode
 	rich.meta_clicked.connect(_on_pickup_meta_clicked.bind(post_id))

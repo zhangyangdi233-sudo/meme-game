@@ -10,6 +10,8 @@ const LanguageCorruptionContentScript = preload("res://scripts/narrative/languag
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
+const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
 const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
@@ -630,6 +632,7 @@ func open_opening_door() -> bool:
 func leave_basement_round() -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress)):
 		return false
+	_forget_room_rules()
 	if ChapterOneProgressScript.past_basement(chapter_one_progress):
 		_hand_over_earned_phone()
 	return true
@@ -645,6 +648,7 @@ func cross_passage() -> bool:
 func jump_to_basement_round(round_number: int) -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number)):
 		return false
+	_forget_room_rules()
 	_hand_over_earned_phone()
 	return true
 
@@ -1580,7 +1584,7 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 
 
 func get_pickup_unit_pool(locale_code: String = "zh") -> Array:
-	return PickupCharPoolScript.get_unit_pool(locale_code)
+	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code)
 
 
 func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
@@ -1615,7 +1619,7 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Dictionary:
 	var result := {"picked": false, "reason": ""}
 	var normalized_unit := unit.strip_edges()
-	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
+	if normalized_unit.is_empty() or normalized_unit not in get_pickup_unit_pool(locale_code):
 		result["reason"] = "not-in-pool"
 		return result
 	if not PickupCharPoolScript.is_unit_seeded_in_post(post_id, normalized_unit, locale_code):
@@ -1711,6 +1715,23 @@ func get_world_rules() -> Array:
 	return world_rule_list(world_rules)
 
 
+## The basement room as its rules in force left it: brightness, hum and objects. Empty outside the basement.
+func room_world_state() -> Dictionary:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	return RoomRulesScript.world_state(RoomContentScript.room(current_round), world_rules, current_round)
+
+
+## A room's rules hold in that room only. The tower's rules carry no round and stay.
+func _forget_room_rules() -> void:
+	var kept := {}
+	var rules := world_rules
+	for rule_key in rules:
+		var rule: Variant = rules[rule_key]
+		if not rule is Dictionary or int(rule.get("round", 0)) == 0:
+			kept[rule_key] = rule
+	world_rules = kept
+
+
 ## The rules map as a list, each rule carrying its own key.
 static func world_rule_list(rules: Dictionary) -> Array:
 	var result: Array = []
@@ -1755,7 +1776,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		result["reason"] = "empty"
 		return result
 	var sentence := sentence_text(units, locale_code)
-	var parsed: Dictionary = RuleEngineScript.parse(units, locale_code)
+	var parsed := _judge_sentence(units, locale_code)
 	var unit_count := units.size()
 	var tier := str(parsed.get("tier", "noise"))
 	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
@@ -1794,6 +1815,14 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 	return result
 
 
+## In a basement round the round's room judges the sentence; elsewhere the rule engine's own table does.
+func _judge_sentence(units: Array, locale_code: String) -> Dictionary:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	if current_round <= 0:
+		return RuleEngineScript.parse(units, locale_code)
+	return RoomRulesScript.judge(units, locale_code, RoomContentScript.room(current_round))
+
+
 func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String) -> void:
 	var rule_key := str(parsed.get("rule_key", ""))
 	if rule_key.is_empty():
@@ -1805,6 +1834,7 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 		"locale": locale_code,
 		"day": day,
 		"floor": tower_floor,
+		"round": ChapterOneProgressScript.round_of(chapter_one_progress),
 	})
 	if not bool(parsed.get("negated", false)):
 		match rule_key:

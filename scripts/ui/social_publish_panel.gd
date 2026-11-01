@@ -1,14 +1,15 @@
 class_name SocialPublishPanel
 extends Node
 ## Game-side publish page of the social app: the sentence composer and its post button. Posting is never limited.
-## The social panel hands it the page host to paint into; while shown it watches the sentence being composed and
-## repaints its own page.
+## The social panel hands it the page host to paint into; while shown it watches the sentence being composed and the
+## posts, and repaints its own page.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
 ## Every player action is raised on the event bus (ADR 0007).
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const PostSlipScript = preload("res://scripts/ui/post_slip.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -18,8 +19,10 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 var _host: Control
 var _page: Control
 var _painted_sentence_units: Array = []
+var _painted_post: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
+	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
 })
 
 
@@ -52,6 +55,7 @@ func _paint() -> void:
 		_host.remove_child(_page)
 		_page.queue_free()
 	_painted_sentence_units = _sentence_units()
+	_painted_post = _last_post()
 	_render_publish_page(_host)
 
 
@@ -176,6 +180,7 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		post_button.add_theme_color_override("font_color", _theme().theme_color("surface"))
 	post_button.pressed.connect(_on_composer_submit_pressed)
 	composer_box.add_child(post_button)
+	PostSlipScript.add_to(composer_box, _painted_post, _theme())
 
 
 func _on_composer_area_dropped(data: Dictionary) -> void:
@@ -207,7 +212,7 @@ func _repaint_unless_syncing() -> void:
 func _repaint_if_stale() -> void:
 	if _host == null:
 		return
-	if _sentence_units() == _painted_sentence_units:
+	if _sentence_units() == _painted_sentence_units and _last_post() == _painted_post:
 		return
 	_paint()
 	_theme().apply_ui_theme(_page)
@@ -217,6 +222,11 @@ func _repaint_if_stale() -> void:
 func _sentence_units() -> Array:
 	var value: Variant = _watch.read(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	return value as Array if value is Array else []
+
+
+func _last_post() -> Dictionary:
+	var value: Variant = _watch.read(PropertyKeysScript.PUBLISHED_MEMES)
+	return PostSlipScript.latest(value as Array if value is Array else [])
 
 
 func _source() -> SocialFeedSource:

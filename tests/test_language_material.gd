@@ -53,6 +53,8 @@ func _test_bbcode_marking() -> void:
 		"[lb]b[rb]x[lb]/b[rb]",
 		"bbcode escaping must not cascade"
 	)
+	var offered: String = LanguageMaterialScript.pickup_bbcode("门灯", "zh", [], pickable, ["灯"])
+	_assert_true(offered.contains("[url=灯]") and not offered.contains("[url=门]"), "only the offered words should be pickable: %s" % offered)
 	var bracketed: String = LanguageMaterialScript.pickup_bbcode("[b]", "zh", [], pickable)
 	_assert_true(not bracketed.contains("[b]"), "literal brackets in source text must be escaped")
 	_assert_true(bracketed.contains("[lb]"), "escaped left brackets should use [lb]")

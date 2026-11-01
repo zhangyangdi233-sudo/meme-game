@@ -1,0 +1,67 @@
+{
+  "rooms": {
+    "1": {
+      "words": {
+        "zh": ["门", "可", "以", "打", "开", "出", "口", "存", "在", "不", "没", "灯", "亮", "我", "你"],
+        "ja": [],
+        "en": []
+      },
+      "vocabulary": {
+        "subjects": {"zh": {}, "ja": {}, "en": {}},
+        "predicates": {"zh": {}, "ja": {}, "en": {}}
+      },
+      "rules": [
+        {
+          "id": "light_on",
+          "subject": "light",
+          "predicate": "lit",
+          "text": {"zh": "灯亮", "ja": "", "en": ""},
+          "state": {"brightness": 1.6}
+        },
+        {
+          "id": "light_off",
+          "subject": "light",
+          "predicate": "lit",
+          "negated": true,
+          "text": {"zh": "灯不亮", "ja": "", "en": ""},
+          "state": {"brightness": 0.3}
+        },
+        {
+          "id": "exit_shown",
+          "subject": "exit",
+          "predicate": "exists",
+          "text": {"zh": "出口存在", "ja": "", "en": ""},
+          "state": {"objects": {"exit_lamp": true}}
+        }
+      ],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    },
+    "2": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": [],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": [
+        {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
+      ]
+    },
+    "3": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": [],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    },
+    "4": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": [],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    },
+    "5": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": [],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    }
+  }
+}

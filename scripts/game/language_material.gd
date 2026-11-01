@@ -118,6 +118,11 @@ static func submit_feedback(submit_result: Dictionary) -> String:
 	return line
 
 
+## The words a post offers right now: the basement room's, or the whole pool.
+func offered_units(locale_code: String) -> Array:
+	return _game.get_pickup_unit_pool(locale_code) if _game != null else []
+
+
 static func pickup_line(post_id: String, locale_code: String) -> String:
 	return PickupCharPoolScript.get_pickup_line(post_id, locale_code)
 
@@ -131,8 +136,9 @@ static func escape_bbcode(value: String) -> String:
 	return value.replace("[", sentinel).replace("]", "[rb]").replace(sentinel, "[lb]")
 
 
-static func pickup_bbcode(source_text: String, locale_code: String, collected: Array, pickable_color: String) -> String:
-	var units: Array = PickupCharPoolScript.get_unit_pool(locale_code)
+## Marks the pickable words of a line. `offered` limits them to a room's words; empty offers the whole pool.
+static func pickup_bbcode(source_text: String, locale_code: String, collected: Array, pickable_color: String, offered: Array = []) -> String:
+	var units: Array = offered.duplicate() if not offered.is_empty() else PickupCharPoolScript.get_unit_pool(locale_code)
 	units.sort_custom(func(left, right): return str(left).length() > str(right).length())
 	var collected_units: Array[String] = []
 	for unit_value in collected:

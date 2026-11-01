@@ -48,6 +48,7 @@ func _run() -> void:
 	await _test_the_knock_plays_on_its_line_once_and_pauses()
 	await _test_opening_the_door_walks_through_into_the_basement()
 	await _test_the_basement_is_a_room_to_walk_in()
+	await _test_the_room_state_changes_the_basement()
 	await _test_a_pose_saved_in_another_stage_starts_on_the_spawn()
 	await _test_the_crt_answers_in_reach_in_the_basement_only()
 	await _test_the_terminal_frames_the_screen_and_leaving_restores_the_look()
@@ -331,6 +332,31 @@ func _test_the_entry_door_shuts_behind_the_player() -> void:
 		await process_frame
 	_assert_true(entry != null and absf(entry.rotation_degrees.y) < 1.0, "the entry door should shut once the player goes down the stairs")
 	await _free(adapter)
+
+
+func _test_the_room_state_changes_the_basement() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var deps := _deps(progress)
+	deps["room_state"] = {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}}
+	var adapter = await _adapter_with(deps)
+	adapter.ensure_floor_current(deps)
+	var stage: Node = root.find_child("ChapterOneStage", true, false)
+	var light := stage.get_node("BasementMainLight") as OmniLight3D
+	var ambient := (stage.get_node("ChapterOneEnvironment") as WorldEnvironment).environment
+	var lamp := stage.get_node("ExitLamp") as Node3D
+	var plain_light := light.light_energy
+	var plain_ambient := ambient.ambient_light_energy
+	_assert_true(not lamp.visible, "the exit lamp should stay away until the room has it")
+	deps["room_state"] = {"brightness": 1.5, "hum": 0.0, "objects": {"exit_lamp": true}}
+	adapter.ensure_floor_current(deps)
+	_assert_true(is_equal_approx(light.light_energy, plain_light * 1.5), "the brightness should scale the lights")
+	_assert_true(is_equal_approx(ambient.ambient_light_energy, plain_ambient * 1.5), "the brightness should scale the ambient light")
+	_assert_true(lamp.visible, "the room's object should appear")
+	await _free(adapter)
+	var saved = await _adapter_with(deps)
+	stage = root.find_child("ChapterOneStage", true, false)
+	_assert_true((stage.get_node("ExitLamp") as Node3D).visible, "a stage built from a changed room should show it at once")
+	await _free(saved)
 
 
 func _test_the_exit_opens_once_delivered_and_walking_out_is_reported() -> void:

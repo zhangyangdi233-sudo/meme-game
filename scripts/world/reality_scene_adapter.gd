@@ -184,6 +184,7 @@ func ensure_floor_current(deps: Dictionary) -> void:
 	if not stage_phase.is_empty():
 		if _chapter_stage != null:
 			_chapter_stage.sync_progress(_chapter_progress(deps))
+			_chapter_stage.apply_room_state(deps.get("room_state", {}))
 		return
 	var progress: Dictionary = deps.get("day_progress", {})
 	var tower_floor := int(progress.get("tower_floor", 1))
@@ -686,6 +687,7 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	# Deps that do not say the phone is missing (the tower, older callers) lay no phone on the table.
 	var phone_on_table := not bool(deps.get("phone_owned", true))
 	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table)
+	_chapter_stage.apply_room_state(deps.get("room_state", {}))
 	_chapter_stage.set_paused(_paused)
 	_chapter_stage.visible = _street_shown()
 	_built_stage = stage_phase

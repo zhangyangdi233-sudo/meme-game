@@ -206,7 +206,7 @@ The open social app registers on both models and repaints itself, so there is no
 
 ### World rules
 
-`is_world_rule_active()`, `get_world_rules()`
+`is_world_rule_active()`, `get_world_rules()`, `room_world_state()` — the basement room as its rules in force left it, empty outside the basement
 
 ### Notebook craft / publish — **slice 6 seam (inventory)**
 

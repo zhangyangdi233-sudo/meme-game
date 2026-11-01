@@ -597,8 +597,8 @@ func _test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go() ->
 	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "a mounted panel should not listen to %s before it is shown" % key)
 	panel.update_visibility(true, true)
-	for key in ["units", "published"]:
-		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s once" % key)
+	_assert_eq(_listener_count(mounted["units"]), 1, "showing should register on the sentence once")
+	_assert_eq(_listener_count(mounted["published"]), 2, "showing should register the post echo and the publish page's slip once each")
 	panel.update_visibility(true, false)
 	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)

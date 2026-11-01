@@ -50,6 +50,7 @@ func _run() -> void:
 	await _test_a_save_comes_back_on_the_same_round(game_root)
 	await _test_the_fifth_exit_leads_through_the_light_to_the_demo_end(game_root)
 	await _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root)
+	await _test_a_red_post_changes_the_room_and_stays_in_the_save(game_root)
 	game_root.queue_free()
 	await process_frame
 
@@ -237,6 +238,29 @@ func _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root) -> vo
 	game_root.game.complete_opening_knock()
 	_assert_true(game_root._open_reality_door(), "a new run's white door should open")
 	_assert_eq(game_root._door_fade_color(), UiPalette.VOID, "the light left behind should not whiten a new run's door")
+
+
+func _test_a_red_post_changes_the_room_and_stays_in_the_save(game_root) -> void:
+	game_root.game.jump_to_basement_round(1)
+	await process_frame
+	await process_frame
+	var plain: float = _room_light(game_root).light_energy
+	game_root.game.free_sentence_units = ["我", "想"]
+	game_root.game.submit_free_sentence("zh")
+	await process_frame
+	_assert_eq(_room_light(game_root).light_energy, plain, "a green post should leave the room as it was")
+	game_root.game.free_sentence_units = ["灯", "亮"]
+	game_root.game.submit_free_sentence("zh")
+	await process_frame
+	var lit: float = _room_light(game_root).light_energy
+	_assert_true(lit > plain, "a red post should brighten the room without a rebuild")
+	_assert_true(game_root._save_progress(), "the changed room should save")
+	await _reload(game_root)
+	_assert_eq(_room_light(game_root).light_energy, lit, "the changed room should come back from the save")
+
+
+func _room_light(game_root) -> OmniLight3D:
+	return Harness.find_node_by_name(game_root, "BasementMainLight") as OmniLight3D
 
 
 func _reload(game_root) -> void:

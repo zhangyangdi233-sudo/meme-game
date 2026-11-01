@@ -1,7 +1,7 @@
 class_name NotebookAppPanel
 extends Node
 ## Game-side notebook app body: sentence header, word canvas, rules list, and the post button.
-## While shown, it watches the held words, the sentence and the world rules, and repaints itself.
+## While shown, it watches the held words, the sentence, the world rules and the posts, and repaints itself.
 ## Tile positions stay on the canvas; they leave in one batch before a redraw, a hide, or a save.
 ## Every player action leaves as a UI intent on the event bus.
 
@@ -9,6 +9,8 @@ const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const PostSlipScript = preload("res://scripts/ui/post_slip.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
@@ -24,10 +26,12 @@ var _paint_queued := false
 var _painted_chars: Array = []
 var _painted_units: Array = []
 var _painted_rules: Dictionary = {}
+var _painted_post: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_model_changed,
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.WORLD_RULES: _on_model_changed,
+	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
 })
 
 
@@ -71,6 +75,7 @@ func _paint() -> void:
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
 	_painted_units = _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	_painted_rules = _read_map(PropertyKeysScript.WORLD_RULES)
+	_painted_post = _last_post()
 	commit_canvas_positions()
 	_word_canvas = null
 	_clear_fn.call(app_body)
@@ -162,10 +167,20 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 		rules_box.add_theme_constant_override("separation", 3)
 		notebook_content.add_child(rules_box)
 		for rule in active_rules:
-			var rule_text := RuleEngineScript.rule_display_text(str(rule.get("key", "")), bool(rule.get("negated", false)), locale_code)
-			var rule_label := _theme().label("· %s" % rule_text, 14, _theme().theme_color("accent")) as Label
+			var rule_label := _theme().label("· %s" % _rule_text(rule, locale_code), 14, _theme().theme_color("accent")) as Label
 			rule_label.set_meta("skip_localization", true)
 			rules_box.add_child(rule_label)
+
+
+## A room's rule reads as its room words it, or as the player wrote it until that language is authored.
+func _rule_text(rule: Dictionary, locale_code: String) -> String:
+	var rule_key := str(rule.get("key", ""))
+	var negated := bool(rule.get("negated", false))
+	var round_number := int(rule.get("round", 0))
+	if round_number == 0:
+		return RuleEngineScript.rule_display_text(rule_key, negated, locale_code)
+	var authored := RoomContentScript.rule_text(round_number, rule_key, negated, locale_code)
+	return authored if not authored.is_empty() else str(rule.get("source_text", ""))
 
 
 func _render_action_bar(notebook_page: VBoxContainer) -> void:
@@ -176,6 +191,7 @@ func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	var action_box := VBoxContainer.new()
 	action_box.add_theme_constant_override("separation", 6)
 	action_bar.add_child(action_box)
+	PostSlipScript.add_to(action_box, _painted_post, _theme())
 	var craft := Button.new()
 	craft.name = "NotebookCraftButton"
 	craft.text = "投稿这句话"
@@ -195,7 +211,8 @@ func _is_stale() -> bool:
 	if _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS) != _painted_chars:
 		return true
 	return _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS) != _painted_units \
-		or _read_map(PropertyKeysScript.WORLD_RULES) != _painted_rules
+		or _read_map(PropertyKeysScript.WORLD_RULES) != _painted_rules \
+		or _last_post() != _painted_post
 
 
 ## Showing syncs at once. A later change repaints at the end of the frame, so a host redraw
@@ -216,6 +233,10 @@ func _flush_paint() -> void:
 		return
 	if _is_stale():
 		_paint()
+
+
+func _last_post() -> Dictionary:
+	return PostSlipScript.latest(_read_list(PropertyKeysScript.PUBLISHED_MEMES))
 
 
 func _read_list(property_name: String) -> Array:
