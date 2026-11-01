@@ -50,6 +50,8 @@ const OWNED_MEME_FRAMES := "owned_meme_frames"
 const PUBLISHED_MEMES := "published_memes"
 const FREE_SENTENCE_UNITS := "free_sentence_units"
 const WORLD_RULES := "world_rules"
+## What red posts polluted (`PollutionPolicy`): the units per language and the used-up synonym groups.
+const POLLUTED_WORDS := "polluted_words"
 ## Chapter one's progress dictionary (`ChapterOneProgress`): the opening narration line, the knock, the basement round.
 const CHAPTER_ONE_PROGRESS := "chapter_one_progress"
 ## Whether the player already typed a whole conversation line, so the first-time typing hint stays hidden.
@@ -125,6 +127,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": PUBLISHED_MEMES, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": FREE_SENTENCE_UNITS, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": WORLD_RULES, "initial": {}, "save": SAVED_WITH_RUN},
+	{"name": POLLUTED_WORDS, "initial": {}, "save": SAVED_WITH_RUN},
 	{"name": CHAPTER_ONE_PROGRESS, "initial": ChapterOneProgressScript.INITIAL, "save": SAVED_WITH_RUN},
 	{"name": TYPING_HINT_SEEN, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": PHONE_OWNED, "initial": false, "save": SAVED_WITH_RUN},

@@ -38,6 +38,7 @@ const EN: Dictionary = {
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "Free Composition",
 	"投稿这句话": "Post This Sentence",
+	"这句话已被污染，发布后不会生效": "This sentence is polluted. Posting it will change nothing.",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "Tap a glowing unit to add it. Submit any time — the sentence becomes a rule in the other world.",
 	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "Tap or drag a glowing unit into the sentence. Posting costs one action, and the sentence becomes a rule in the other world.",
 	"……(句子还空着)": "... (the sentence is still empty)",
@@ -560,6 +561,7 @@ const JA: Dictionary = {
 	# Free-sentence composer, active rules, and the stitched-doll guide.
 	"自由造句": "自由作文",
 	"投稿这句话": "この文を投稿する",
+	"这句话已被污染，发布后不会生效": "この文は汚染されている。投稿しても何も変わらない。",
 	"点亮的字点一下入句;句子随时可以投稿,它会在另一个世界成为规则。": "光る文字を押して文に入れる。いつでも投稿でき、文はもう一つの世界のルールになる。",
 	"发亮的字点一下或拖进句子;投稿消耗一次行动,句子会在另一个世界成为规则。": "光る文字を押すか、文へドラッグ。投稿は行動を1つ使い、文はもう一つの世界のルールになる。",
 	"……(句子还空着)": "……(文はまだ空)",

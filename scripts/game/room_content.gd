@@ -6,6 +6,7 @@ extends RefCounted
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ContentJsonScript = preload("res://framework/content_json.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
 
 const ROOMS_PATH := "res://content/basement_rooms.json"
@@ -45,18 +46,18 @@ static func validate(path: String = ROOMS_PATH) -> Dictionary:
 
 
 ## Names everything wrong with a rooms catalog, so an authoring slip fails a test instead of a playthrough.
-static func problems_in(catalog: Dictionary, room_count: int = ChapterOneProgressScript.BASEMENT_ROUND_COUNT) -> Array[String]:
+static func problems_in(catalog: Dictionary, room_count: int = ChapterOneProgressScript.BASEMENT_ROUND_COUNT, policy: Dictionary = PollutionPolicyScript.settings()) -> Array[String]:
 	var problems: Array[String] = []
 	var rooms: Dictionary = catalog.get("rooms", {})
 	for round_number in range(1, room_count + 1):
 		if not rooms.get(str(round_number)) is Dictionary:
 			problems.append("round %d has no room" % round_number)
 			continue
-		_check_room(rooms[str(round_number)], "round %d" % round_number, problems)
+		_check_room(rooms[str(round_number)], "round %d" % round_number, policy, problems)
 	return problems
 
 
-static func _check_room(checked: Dictionary, label: String, problems: Array[String]) -> void:
+static func _check_room(checked: Dictionary, label: String, policy: Dictionary, problems: Array[String]) -> void:
 	for field_name: String in ["words", "state"]:
 		if not checked.get(field_name) is Dictionary:
 			problems.append("%s has no %s" % [label, field_name])
@@ -79,6 +80,8 @@ static func _check_room(checked: Dictionary, label: String, problems: Array[Stri
 	for rule: Variant in checked["rules"]:
 		_check_rule(rule, label, problems)
 		_check_writable(rule, checked, label, problems)
+		if rule is Dictionary and rule.get("subject") in policy.get("barred_subjects", []):
+			problems.append("%s rule %s has a barred subject, so it could never hold" % [label, rule.get("id", "")])
 	_check_escapes(checked, label, problems)
 	var event_ids: Array[String] = []
 	for event: Variant in checked["events"]:

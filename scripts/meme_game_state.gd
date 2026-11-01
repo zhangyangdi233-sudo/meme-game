@@ -6,6 +6,7 @@ extends RefCounted
 const PHONE_APPS := ["social", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
+const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
@@ -172,6 +173,8 @@ var history_entries: Array:
 var sentence_records: Array = []
 ## Where the basement's rooms are read from. Test seam: the authored rooms unless a test hands in its own.
 var room_data_path: String = RoomContentScript.ROOMS_PATH
+## Read once per state; a test replaces it to change one setting.
+var pollution_policy: Dictionary = PollutionPolicyScript.settings()
 var collected_char_units: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
@@ -192,6 +195,12 @@ var world_rules: Dictionary:
 		return _read_run_map(PropertyKeysScript.WORLD_RULES)
 	set(value):
 		_write_run_map(PropertyKeysScript.WORLD_RULES, value)
+## What red posts polluted (`PollutionPolicy`). A read is a copy.
+var polluted_words: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.POLLUTED_WORDS)
+	set(value):
+		_write_run_map(PropertyKeysScript.POLLUTED_WORDS, value)
 ## Chapter one's progress (`ChapterOneProgress`): the opening narration, the knock, the basement round. A read is a copy.
 var chapter_one_progress: Dictionary:
 	get:
@@ -645,6 +654,7 @@ func jump_to_basement_round(round_number: int) -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number)):
 		return false
 	_forget_room_rules()
+	polluted_words = {}
 	_hand_over_earned_phone()
 	return true
 
@@ -1691,6 +1701,16 @@ func free_sentence_clear() -> void:
 	free_sentence_units = []
 
 
+## The units of a language that show as red garble here.
+func get_polluted_units(locale_code: String = "zh") -> Array:
+	return PollutionPolicyScript.polluted_units(polluted_words, locale_code, _current_room(), pollution_policy)
+
+
+## Whether the sentence being composed hits a rule that pollution voids.
+func free_sentence_voids(locale_code: String = "zh") -> bool:
+	return PollutionPolicyScript.sentence_voids(free_sentence_units, locale_code, _current_room(), polluted_words, pollution_policy)
+
+
 func get_free_sentence_text(locale_code: String = "zh") -> String:
 	return sentence_text(free_sentence_units, locale_code)
 
@@ -1774,7 +1794,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 	var result := {
 		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
 		"sentence": "", "pollution_gain": 0,
-		"floor3_task_completed": false, "floor4_task_completed": false,
+		"floor3_task_completed": false, "floor4_task_completed": false, "voided": false,
 	}
 	var units := free_sentence_units
 	if units.is_empty():
@@ -1790,6 +1810,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		"kind": "free_sentence",
 		"title": "投稿「%s」" % sentence,
 		"text": sentence,
+		"shown_text": sentence_text(PollutionPolicyScript.shown_units(units, get_polluted_units(locale_code)), locale_code),
 		"units": units,
 		"tier": tier,
 		"rule_key": str(parsed.get("rule_key", "")),
@@ -1807,6 +1828,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		var floor3_before := floor3_task_complete
 		var floor4_before := floor4_task_complete
 		_apply_world_rule(parsed, sentence, locale_code)
+		_pollute_subject(parsed, units, locale_code)
 		_open_exit_if_escaped()
 		result["floor3_task_completed"] = floor3_task_complete and not floor3_before
 		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
@@ -1816,6 +1838,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 	result["tier"] = tier
 	result["rule_key"] = str(parsed.get("rule_key", ""))
 	result["negated"] = bool(parsed.get("negated", false))
+	result["voided"] = bool(parsed.get("voided", false))
 	result["sentence"] = sentence
 	result["pollution_gain"] = pollution_gain
 	return result
@@ -1826,7 +1849,19 @@ func _judge_sentence(units: Array, locale_code: String) -> Dictionary:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
 	if current_round <= 0:
 		return RuleEngineScript.parse(units, locale_code)
-	return RoomRulesScript.judge(units, locale_code, _current_room())
+	var judged := RoomRulesScript.judge(units, locale_code, _current_room())
+	if PollutionPolicyScript.voids(judged, units, locale_code, _current_room(), polluted_words, pollution_policy):
+		judged.merge({"tier": "misread", "rule_key": "", "rule_id": "", "voided": true}, true)
+	return judged
+
+
+## A red post of a basement round uses up its subject, unless this round's exit already stands open. The tower pollutes no word.
+func _pollute_subject(parsed: Dictionary, units: Array, locale_code: String) -> void:
+	var progress := chapter_one_progress
+	if ChapterOneProgressScript.round_of(progress) <= 0:
+		return
+	if PollutionPolicyScript.may_pollute(ChapterOneProgressScript.exit_open(progress), pollution_policy):
+		polluted_words = PollutionPolicyScript.pollute(polluted_words, units, str(parsed.get("subject", "")), locale_code, _current_room(), pollution_policy)
 
 
 func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String) -> void:

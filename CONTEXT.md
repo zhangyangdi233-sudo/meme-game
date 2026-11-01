@@ -50,6 +50,14 @@ _Avoid_: an exit condition in code, a round number that decides how it opens, an
 A sentence that hit a rule of the current room (tier `rule`): `RoomRules.judge` reads it with the rule engine, any word order, the room's synonyms and a loose match, and the room changes. Anything else is a **green post** (`misread` or `noise`) and nothing changes. A rule is written into `world_rules` with its round; the room's look (`room_world_state`) is derived from the room and those rules, so it needs no save of its own, and leaving the round forgets them. The slip under the post button shows the last post in its color. The exit follows from a red post only when the room declares that rule as an Escape.
 _Avoid_: a saved copy of the room's look, a rule carrying over to the next round, a green post changing anything
 
+**Word pollution**:
+What a red post of a basement round costs: its subject's words are polluted for the rest of the run (`polluted_words`, saved). A polluted word shows as red garble in the notebook and the sentence, can still be placed, and never recovers. A sentence that hits a rule whose subject is polluted is void: it turns green, changes nothing, and the composer warns above its post button before it is posted. The word is polluted at once, so the same round cannot take its rule back either. Overall pollution is a separate number and keeps its own sum. The tower pollutes no word.
+_Avoid_: recording used rules, reusing overall pollution for this, a red word that cannot be placed
+
+**Pollution policy**:
+`PollutionPolicy`, the one place that says what a red post pollutes and when pollution voids a sentence, read from `content/pollution_policy.json`: whether a polluted subject voids its rule (otherwise a sentence over `void_ratio` polluted units is void), whether pollution counts by synonym group across languages, which subjects are barred (`exit`, so one sentence cannot escape every round; a room authoring one fails `RoomContent.validate`), whether pollution goes on once this round's exit stands open, and the skeleton words that are never polluted. See ADR 0009.
+_Avoid_: a pollution rule outside this module, a code change to adjust one
+
 **Level order**:
 `ChapterOneProgress.LEVEL_ORDER`, the one table that says which level follows which: opening, basement, demo end. A new level goes on it and brings its own phase and stage. The old tower is not on it: its code stays, and only the skip seam and old saves reach it.
 _Avoid_: a level naming its successor, a passage that always leads to the same place

@@ -1,0 +1,12 @@
+{
+  "subject_voids_rule": true,
+  "void_ratio": 0.5,
+  "pollute_synonyms": true,
+  "barred_subjects": ["exit"],
+  "pollute_after_exit_opens": false,
+  "skeleton_words": {
+    "zh": ["出口", "是", "不", "可以"],
+    "ja": ["でぐち", "です", "ない", "できる"],
+    "en": ["exit", "is", "not", "can"]
+  }
+}

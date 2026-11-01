@@ -4,8 +4,8 @@
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [
         {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
-        {"id": "exit_shown", "subject": "exit", "predicate": "exists", "text": {"zh": "出口存在"}, "state": {"objects": {"exit_lamp": true}}},
-        {"id": "exit_gone", "subject": "exit", "predicate": "exists", "negated": true, "text": {"zh": "出口不存在"}, "state": {"objects": {"exit_lamp": false}}}
+        {"id": "exit_shown", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {"objects": {"exit_lamp": true}}},
+        {"id": "exit_gone", "subject": "door", "predicate": "can_open", "negated": true, "text": {"zh": "门不可以打开"}, "state": {"objects": {"exit_lamp": false}}}
       ],
       "escapes": [{"kind": "delivery"}, {"kind": "rule", "rule": "exit_shown"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
@@ -14,7 +14,7 @@
     "2": {
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [
-        {"id": "exit_shown", "subject": "exit", "predicate": "exists", "text": {"zh": "出口存在"}, "state": {"objects": {"exit_lamp": true}}}
+        {"id": "exit_shown", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {"objects": {"exit_lamp": true}}}
       ],
       "escapes": [{"kind": "rule", "rule": "exit_shown"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},

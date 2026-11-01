@@ -275,12 +275,26 @@ func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage = n
 	tile.add_theme_stylebox_override("pressed", composer_tile_style("pressed", stage))
 
 
+## Text that keeps a palette role of its own (red garble, a post's slip) through the theme walk.
+func set_font_role(control: Control, role: String) -> void:
+	control.set_meta("font_role", role)
+	_paint_font_role(control, null)
+
+
+func _paint_font_role(control: Control, pollution_stage) -> void:
+	var color := theme_color(str(control.get_meta("font_role")), _stage(pollution_stage))
+	for color_name: String in ["font_color", "font_hover_color", "font_pressed_color"]:
+		control.add_theme_color_override(color_name, color)
+
+
 func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 	if node == null or node is PaletteSceneRootScript:
 		return
 	pollution_stage = _stage(pollution_stage)
 	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
-		if node.has_meta("hud_action_label"):
+		if node.has_meta("font_role"):
+			_paint_font_role(node as Control, pollution_stage)
+		elif node.has_meta("hud_action_label"):
 			(node as Label).add_theme_color_override("font_color", theme_color("muted", pollution_stage))
 		elif node.has_meta("on_dark"):
 			(node as Label).add_theme_color_override("font_color", theme_color("surface", pollution_stage))
@@ -334,6 +348,8 @@ func apply_ui_theme(node: Node, pollution_stage = null) -> void:
 			button.add_theme_stylebox_override("pressed", flat_button_state_style(pressed_tint(pollution_stage)))
 		else:
 			UiPaletteScript.apply_button_style(button, active_palette(pollution_stage))
+		if button.has_meta("font_role"):
+			_paint_font_role(button, pollution_stage)
 	elif node is PanelContainer:
 		if node.has_meta("phone_shell"):
 			(node as PanelContainer).add_theme_stylebox_override("panel", phone_shell_style(pollution_stage))

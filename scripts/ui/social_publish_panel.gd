@@ -9,9 +9,11 @@ extends Node
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const PostSlipScript = preload("res://scripts/ui/post_slip.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const SentenceWarningScript = preload("res://scripts/ui/sentence_warning.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -20,9 +22,11 @@ var _host: Control
 var _page: Control
 var _painted_sentence_units: Array = []
 var _painted_post: Dictionary = {}
+var _painted_polluted: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
+	PropertyKeysScript.POLLUTED_WORDS: _on_model_changed,
 	PropertyKeysScript.CHAPTER_ONE_PROGRESS: _on_model_changed,
 })
 
@@ -57,6 +61,7 @@ func _paint() -> void:
 		_page.queue_free()
 	_painted_sentence_units = _sentence_units()
 	_painted_post = _last_post()
+	_painted_polluted = _polluted()
 	_render_publish_page(_host)
 
 
@@ -140,19 +145,24 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 		var placeholder := _theme().label("……(句子还空着)", 14, _theme().theme_color("muted")) as Label
 		placeholder.name = "ComposerAnswerPlaceholder"
 		answer_flow.add_child(placeholder)
+	var locale := _source().current_locale()
+	var dirty_units := SentenceWarningScript.dirty_units(_painted_polluted, _progress(), locale)
+	var shown_units := PollutionPolicyScript.shown_units(placed_units, dirty_units)
 	for unit_index in placed_units.size():
 		var placed_tile := ComposerAnswerTileScript.new()
 		placed_tile.name = "ComposerAnswerTile%d" % unit_index
-		placed_tile.text = str(placed_units[unit_index])
+		placed_tile.text = str(shown_units[unit_index])
 		placed_tile.focus_mode = Control.FOCUS_NONE
 		placed_tile.custom_minimum_size = Vector2(44, 42)
 		placed_tile.set_meta("skip_localization", true)
-		placed_tile.configure_answer_tile(unit_index, str(placed_units[unit_index]))
+		placed_tile.configure_answer_tile(unit_index, str(shown_units[unit_index]))
 		placed_tile.pressed.connect(_on_composer_answer_pressed.bind(unit_index))
 		placed_tile.unit_dropped_before.connect(_on_composer_tile_dropped)
 		if _theme() != null:
 			_theme().apply_composer_tile_theme(placed_tile, false)
 			placed_tile.drag_preview_color = _theme().theme_color("accent")
+			if placed_units[unit_index] in dirty_units:
+				_theme().set_font_role(placed_tile, "error")
 		answer_flow.add_child(placed_tile)
 	var answer_rule := ColorRect.new()
 	answer_rule.name = "ComposerAnswerUnderline"
@@ -160,13 +170,15 @@ func _render_publish_sentence_area(composer_box: VBoxContainer, placed_units: Ar
 	answer_rule.custom_minimum_size.y = 2.0
 	answer_box.add_child(answer_rule)
 
-	var locale := _source().current_locale()
-	var preview_text := MemeGameStateScript.sentence_text(placed_units, locale)
+	var preview_text := MemeGameStateScript.sentence_text(shown_units, locale)
 	var preview_label := _theme().label(preview_text, 15, _theme().theme_color("ink")) as Label
 	preview_label.name = "ComposerPreviewLabel"
 	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_label.set_meta("skip_localization", true)
+	if shown_units != placed_units:
+		_theme().set_font_role(preview_label, "error")
 	composer_box.add_child(preview_label)
+	SentenceWarningScript.add_to(composer_box, placed_units, _painted_polluted, _progress(), locale, _theme())
 
 	var post_button := Button.new()
 	post_button.name = "SocialPublishPostButton"
@@ -213,7 +225,7 @@ func _repaint_unless_syncing() -> void:
 func _repaint_if_stale() -> void:
 	if _host == null:
 		return
-	if _sentence_units() == _painted_sentence_units and _last_post() == _painted_post:
+	if _sentence_units() == _painted_sentence_units and _last_post() == _painted_post and _polluted() == _painted_polluted:
 		return
 	_paint()
 	_theme().apply_ui_theme(_page)
@@ -227,8 +239,17 @@ func _sentence_units() -> Array:
 
 func _last_post() -> Dictionary:
 	var published: Variant = _watch.read(PropertyKeysScript.PUBLISHED_MEMES)
+	return PostSlipScript.latest(published as Array if published is Array else [], _progress())
+
+
+func _progress() -> Dictionary:
 	var progress: Variant = _watch.read(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
-	return PostSlipScript.latest(published as Array if published is Array else [], progress as Dictionary if progress is Dictionary else {})
+	return progress as Dictionary if progress is Dictionary else {}
+
+
+func _polluted() -> Dictionary:
+	var polluted: Variant = _watch.read(PropertyKeysScript.POLLUTED_WORDS)
+	return polluted as Dictionary if polluted is Dictionary else {}
 
 
 func _source() -> SocialFeedSource:

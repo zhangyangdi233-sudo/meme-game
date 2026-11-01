@@ -22,9 +22,10 @@ static func add_to(parent: Control, post: Dictionary, theme: GameUiTheme) -> voi
 	if post.is_empty():
 		return
 	var is_red := str(post.get("tier", "")) == TIER_RULE
-	var text := "%s %s" % ["■" if is_red else "□", post.get("text", "")]
-	var slip := theme.label(text, 15, theme.theme_color("error" if is_red else "accent")) as Label
+	var text := "%s %s" % ["■" if is_red else "□", post.get("shown_text", post.get("text", ""))]
+	var slip := theme.label(text, 15, theme.theme_color("ink")) as Label
 	slip.name = "LastPostSlip"
+	theme.set_font_role(slip, "error" if is_red else "accent")
 	slip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	slip.set_meta("skip_localization", true)
 	parent.add_child(slip)

@@ -266,7 +266,7 @@ func _test_a_rule_escape_opens_the_standing_room(game_root) -> void:
 	await process_frame
 	game_root.game.room_data_path = "res://tests/fixtures/rooms_rule_escape.json"
 	var room_before: Node = Harness.find_node_by_name(game_root, "BasementRoom")
-	game_root.game.free_sentence_units = ["出", "口", "存", "在"]
+	game_root.game.free_sentence_units = ["门", "可", "以", "打", "开"]
 	game_root.game.submit_free_sentence("zh")
 	for frame in 90:
 		await process_frame

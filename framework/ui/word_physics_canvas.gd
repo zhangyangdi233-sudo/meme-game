@@ -76,8 +76,8 @@ func clear_tiles() -> void:
 	_dragging_body = null
 
 
-## 放入一个字:给定初始位置(通常是存档里记下的落点),之后交给物理。
-func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool) -> void:
+## 放入一个字:给定初始位置(通常是存档里记下的落点),之后交给物理。`shown_text` 是瓦片上显示的字,留空就显示 unit。
+func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool, shown_text: String = "") -> void:
 	if _bodies.has(unit):
 		return
 	var body := RigidBody2D.new()
@@ -111,7 +111,7 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 
 	var label := Label.new()
 	label.name = "TileLabel"
-	label.text = unit
+	label.text = shown_text if not shown_text.is_empty() else unit
 	label.size = TILE_SIZE
 	label.position = -TILE_SIZE * 0.5
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -126,6 +126,12 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 
 	_physics_root.add_child(body)
 	_bodies[unit] = body
+
+
+## 瓦片上显示文字的 Label,没有这个字时回 null。
+func tile_label(unit: String) -> Label:
+	var body: RigidBody2D = _bodies.get(unit)
+	return body.get_node("TileLabel") as Label if body != null else null
 
 
 func get_tile_position(unit: String) -> Vector2:

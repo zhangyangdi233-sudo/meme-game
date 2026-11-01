@@ -6,6 +6,8 @@ extends SceneTree
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
+const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -36,6 +38,7 @@ func _run() -> void:
 	_test_a_placed_word_can_always_be_posted()
 	_test_the_shown_page_follows_the_sentence()
 	_test_the_page_shows_the_last_post()
+	_test_a_polluted_word_shows_as_red_garble_and_warns()
 	_test_the_page_has_no_old_meme_route()
 	_test_showing_registers_once_and_hiding_lets_go()
 	_test_a_released_page_is_not_repainted()
@@ -93,6 +96,31 @@ func _test_the_page_shows_the_last_post() -> void:
 	var slip := _find(mounted, "LastPostSlip") as Label
 	_assert_true(slip != null and slip.text.contains("灯亮"), "a post should show on the page by itself")
 	panel.set_shown(false)
+
+
+func _test_a_polluted_word_shows_as_red_garble_and_warns() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialPublishPanel
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+	(mounted["units"] as ListPropertyModel).replace_all(["灯", "亮"])
+	panel.render(mounted["host"])
+	panel.set_shown(true)
+	_assert_true(_find(mounted, "SentenceVoidWarning") == null, "a clean rule should not warn")
+	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["light"], "units": {"zh": ["灯"]}})
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	theme.apply_ui_theme(mounted["host"])
+	var polluted := _find(mounted, "ComposerAnswerTile0") as Button
+	var clean := _find(mounted, "ComposerAnswerTile1") as Button
+	_assert_eq(polluted.text, PolicyScript.garbled("灯"), "the polluted word should show garbled by itself")
+	_assert_eq(polluted.get_theme_color("font_color"), theme.theme_color("error"), "and red")
+	_assert_eq(clean.text, "亮", "a clean word should stay readable")
+	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "%s亮" % PolicyScript.garbled("灯"), "the preview should read the same")
+	var warning := _find(mounted, "SentenceVoidWarning") as Label
+	_assert_true(warning != null, "a void sentence should warn")
+	_assert_eq(warning.get_theme_color("font_color"), theme.theme_color("error"), "the warning should stay red through the theme walk")
+	_assert_true(not (_find(mounted, "SocialPublishPostButton") as Button).disabled, "it can still be posted")
+	_dispose(mounted)
 
 
 func _test_the_page_has_no_old_meme_route() -> void:

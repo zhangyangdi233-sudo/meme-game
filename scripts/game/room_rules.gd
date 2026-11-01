@@ -108,6 +108,16 @@ static func can_be_written(rule: Dictionary, listed: Array, locale: String, room
 	return _names_lie_in(all_subjects, rule.get("subject"), listed, locale) and _names_lie_in(all_predicates, rule.get("predicate"), listed, locale)
 
 
+## The units of every word that means `subject` in a language: one list per word of the synonym group.
+static func subject_word_units(subject: String, locale: String, room: Dictionary) -> Array:
+	var all_subjects: Dictionary = (RuleEngineScript.SUBJECT_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "subjects", locale), true)
+	var result: Array = []
+	for word: String in all_subjects:
+		if all_subjects[word] == subject:
+			result.append(RuleEngineScript.word_units(word, locale))
+	return result
+
+
 ## Whether every unit of some word meaning `meaning` is in the sentence, in any order.
 static func _names_lie_in(canon: Dictionary, meaning: Variant, units: Array, locale: String) -> bool:
 	for word: String in canon:

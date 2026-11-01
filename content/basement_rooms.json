@@ -25,13 +25,6 @@
           "negated": true,
           "text": {"zh": "灯不亮", "ja": "", "en": ""},
           "state": {"brightness": 0.3}
-        },
-        {
-          "id": "exit_shown",
-          "subject": "exit",
-          "predicate": "exists",
-          "text": {"zh": "出口存在", "ja": "", "en": ""},
-          "state": {"objects": {"exit_lamp": true}}
         }
       ],
       "escapes": [{"kind": "delivery"}],

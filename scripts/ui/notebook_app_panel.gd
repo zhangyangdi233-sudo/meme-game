@@ -9,9 +9,11 @@ const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
+const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const PostSlipScript = preload("res://scripts/ui/post_slip.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const SentenceWarningScript = preload("res://scripts/ui/sentence_warning.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -26,11 +28,13 @@ var _paint_queued := false
 var _painted_chars: Array = []
 var _painted_units: Array = []
 var _painted_rules: Dictionary = {}
+var _painted_polluted: Dictionary = {}
 var _painted_post: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_model_changed,
 	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_model_changed,
 	PropertyKeysScript.WORLD_RULES: _on_model_changed,
+	PropertyKeysScript.POLLUTED_WORDS: _on_model_changed,
 	PropertyKeysScript.PUBLISHED_MEMES: _on_model_changed,
 	PropertyKeysScript.CHAPTER_ONE_PROGRESS: _on_model_changed,
 })
@@ -76,6 +80,7 @@ func _paint() -> void:
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
 	_painted_units = _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	_painted_rules = _read_map(PropertyKeysScript.WORLD_RULES)
+	_painted_polluted = _read_map(PropertyKeysScript.POLLUTED_WORDS)
 	_painted_post = _last_post()
 	commit_canvas_positions()
 	_word_canvas = null
@@ -140,7 +145,7 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 	canvas.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
 	canvas.tile_tapped.connect(_on_composer_bank_tapped)
 
-	var locale_code: String = _current_locale_fn.call() if _current_locale_fn.is_valid() else "zh"
+	var locale_code := _locale()
 	var collected_units: Array[String] = MemeGameStateScript.char_units_for_locale(_painted_chars, locale_code)
 	var placed_units := _painted_units
 	if collected_units.is_empty():
@@ -148,8 +153,10 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 		empty_hint.name = "NotebookCharEmptyHint"
 		empty_hint.position = Vector2(10.0, 10.0)
 		canvas.add_child(empty_hint)
+	var dirty_units := SentenceWarningScript.dirty_units(_painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), locale_code)
 	for unit in collected_units:
 		var is_ghost := str(unit) in placed_units
+		var is_polluted := unit in dirty_units
 		var tile_style: StyleBox = _theme().composer_tile_style("ghost" if is_ghost else "normal") if _theme() != null else null
 		var tile_position: Vector2 = _char_canvas_position_fn.call(str(unit), locale_code) if _char_canvas_position_fn.is_valid() else Vector2.ZERO
 		canvas.add_tile(
@@ -157,8 +164,11 @@ func _render_frame_tab(notebook_content: VBoxContainer) -> void:
 			tile_position,
 			_theme().theme_color("ink"),
 			tile_style,
-			is_ghost
+			is_ghost,
+			PollutionPolicyScript.garbled(unit) if is_polluted else ""
 		)
+		if is_polluted:
+			_theme().set_font_role(canvas.tile_label(str(unit)), "error")
 
 	var active_rules: Array = MemeGameStateScript.world_rule_list(_painted_rules)
 	if not active_rules.is_empty():
@@ -198,6 +208,7 @@ func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	craft.custom_minimum_size.y = 56
 	craft.disabled = _painted_units.is_empty()
 	craft.pressed.connect(_on_craft_pressed)
+	SentenceWarningScript.add_to(action_box, _painted_units, _painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), _locale(), _theme())
 	action_box.add_child(craft)
 	PostSlipScript.add_to(action_box, _painted_post, _theme())
 
@@ -213,6 +224,7 @@ func _is_stale() -> bool:
 		return true
 	return _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS) != _painted_units \
 		or _read_map(PropertyKeysScript.WORLD_RULES) != _painted_rules \
+		or _read_map(PropertyKeysScript.POLLUTED_WORDS) != _painted_polluted \
 		or _last_post() != _painted_post
 
 
@@ -234,6 +246,10 @@ func _flush_paint() -> void:
 		return
 	if _is_stale():
 		_paint()
+
+
+func _locale() -> String:
+	return _current_locale_fn.call() if _current_locale_fn.is_valid() else "zh"
 
 
 func _last_post() -> Dictionary:

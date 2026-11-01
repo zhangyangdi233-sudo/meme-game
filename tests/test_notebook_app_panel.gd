@@ -6,6 +6,7 @@ const BootScript = preload("res://scripts/game/property_boot.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -46,6 +47,8 @@ func _run() -> void:
 	await _test_a_placed_word_ghosts_its_tile_and_enables_posting()
 	await _test_a_new_world_rule_appears_by_itself()
 	await _test_the_last_post_shows_red_or_green()
+	await _test_a_polluted_word_shows_as_red_garble()
+	await _test_a_void_sentence_warns_above_the_post_button()
 	_test_a_room_rule_shows_its_authored_wording()
 	_test_hiding_unregisters_from_the_sentence_and_rules()
 
@@ -174,6 +177,45 @@ func _test_the_last_post_shows_red_or_green() -> void:
 	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
 	await process_frame
 	_assert_true(not _has(mounted, "LastPostSlip"), "a new round should not show an earlier round's post")
+	_dispose(mounted)
+
+
+func _test_a_polluted_word_shows_as_red_garble() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	(manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS) as ListPropertyModel).add({"unit": "灯", "locale": "zh"})
+	(manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS) as ListPropertyModel).add({"unit": "亮", "locale": "zh"})
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"units": {"zh": ["灯"]}})
+	await process_frame
+	var polluted := Harness.find_node_by_name(mounted["body"], "WordBody_灯")
+	var clean := Harness.find_node_by_name(mounted["body"], "WordBody_亮")
+	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+	theme.apply_ui_theme(mounted["body"])
+	_assert_eq((polluted.get_node("TileLabel") as Label).text, PolicyScript.garbled("灯"), "the polluted word should show garbled by itself")
+	_assert_eq((polluted.get_node("TileLabel") as Label).get_theme_color("font_color"), theme.theme_color("error"), "and red")
+	_assert_eq(polluted.get_meta("word_unit"), "灯", "the tile should still carry the word")
+	_assert_eq((clean.get_node("TileLabel") as Label).text, "亮", "a clean word should stay readable")
+	_dispose(mounted)
+
+
+func _test_a_void_sentence_warns_above_the_post_button() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+	(manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel).replace_all(["灯", "亮"])
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	_assert_true(not _has(mounted, "SentenceVoidWarning"), "a clean rule should not warn")
+	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["light"], "units": {"zh": ["灯"]}})
+	await process_frame
+	var warning := Harness.find_node_by_name(mounted["body"], "SentenceVoidWarning")
+	var craft := Harness.find_node_by_name(mounted["body"], "NotebookCraftButton") as Button
+	_assert_true(warning != null and warning.get_index() < craft.get_index(), "a void sentence should warn above the post button")
+	_assert_true(not craft.disabled, "it can still be posted")
 	_dispose(mounted)
 
 
