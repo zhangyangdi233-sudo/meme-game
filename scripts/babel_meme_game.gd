@@ -21,6 +21,7 @@ const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const OpeningNarrationScene = preload("res://scenes/ui/opening_narration.tscn")
+const DemoEndScene = preload("res://scenes/ui/demo_end.tscn")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ChapterDebugPanelScene = preload("res://scenes/ui/chapter_debug_panel.tscn")
 const TypingKeysScript = preload("res://scripts/game/typing_keys.gd")
@@ -152,6 +153,8 @@ var _chapter_debug_panel: ChapterDebugPanel
 ## How long the NPC's reply in a linear conversation stays before the conversation moves on.
 var _reply_clock: ConversationReplyClockScript = ConversationReplyClockScript.new()
 var _door_was_opening := false
+## The door being crossed is the passage's: the screen fills with its white light, not with black.
+var _door_light := false
 var _camera_consent_panel: CameraConsentPanel
 var _settings_window: PanelContainer
 var _settings_history_panel: SettingsHistoryPanel
@@ -185,6 +188,7 @@ var _dialog_debug_enabled := OS.is_debug_build()
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _ending_screen_panel
+var _demo_end_panel: DemoEndPanel
 var _window_manager: DraggableWindowManager
 var _last_responsive_layout_size := Vector2.ZERO
 var _game_started := false
@@ -353,6 +357,7 @@ func _enter_tree() -> void:
 	_cover_watcher_sightings.attach(_ui_event_bus)
 	_ui_event_bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 	_ui_event_bus.subscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
+	_ui_event_bus.subscribe(GameEventsScript.PASSAGE_DOOR_ENTERED, _on_passage_door_entered)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -373,6 +378,7 @@ func _exit_tree() -> void:
 	if _ui_event_bus != null:
 		_ui_event_bus.unsubscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 		_ui_event_bus.unsubscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
+		_ui_event_bus.unsubscribe(GameEventsScript.PASSAGE_DOOR_ENTERED, _on_passage_door_entered)
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -1049,6 +1055,7 @@ func uninstall_ending_screen() -> void:
 	_ending_screen_installed = false
 	if _ending_screen_panel != null and is_instance_valid(_ending_screen_panel):
 		_ending_screen_panel.unmount()
+	_unmount_demo_end()
 
 
 func _set_key_action(action_name: StringName, keycodes: Array) -> void:
@@ -1551,13 +1558,26 @@ func _on_opening_knock_finished(_payload: Dictionary) -> void:
 		game.complete_opening_knock()
 
 
-## The player walked out through the basement's open exit; the adapter builds the next round or the crossroads.
+## The player walked out through the basement's open exit; the adapter builds the next round or the passage.
 func _on_basement_exit_crossed(_payload: Dictionary) -> void:
 	if game == null or not game.leave_basement_round():
 		return
 	_rebuild_reality_floor()
 	_refresh_play_surfaces()
 	_sync_audio_state(false)
+
+
+## The player walked into the passage's light: the state moves on to the next level and the adapter walks the player
+## through before it follows.
+func _on_passage_door_entered(_payload: Dictionary) -> void:
+	if game == null or not game.cross_passage():
+		return
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.apply_interaction({"action": "enter_passage"})
+	_door_was_opening = true
+	_door_light = true
+	_update_visibility()
+	_refresh_reality_hud()
 
 
 ## Debug builds only (the F9 panel): starts a basement round fresh with the phone down.
@@ -1569,7 +1589,7 @@ func _jump_to_basement_round(round_number: int) -> void:
 	if ChapterOneProgressScript.round_of(game.chapter_one_progress) != round_number:
 		return
 	game.set_view_state("npc_up")
-	if session_mode() == "prologue":
+	if session_mode() in ["prologue", "ending"]:
 		_finish_opening_narration()
 	_rebuild_reality_floor()
 	_render()
@@ -1598,7 +1618,8 @@ func _open_reality_door() -> bool:
 	return true
 
 
-## Darkens the screen as the door finishes opening, then lifts it once the next stage is built.
+## Darkens the screen as the door finishes opening, or whitens it in the passage, then lifts it once the next stage is
+## built or the end screen shows.
 func _update_door_fade(delta: float) -> void:
 	if _ui_root == null or not is_instance_valid(_ui_root):
 		return
@@ -1611,20 +1632,26 @@ func _update_door_fade(delta: float) -> void:
 		_door_was_opening = false
 		_update_visibility()
 		_refresh_reality_hud()
+		_present_ending_if_unlocked()
 	if _door_fade == null or not is_instance_valid(_door_fade):
 		if target <= 0.0:
 			return
 		_door_fade = ColorRect.new()
 		_door_fade.name = "DoorFade"
-		_door_fade.color = Color(UiPalette.VOID, 0.0)
+		_door_fade.color = Color(_door_fade_color(), 0.0)
 		_door_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_door_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_ui_root.add_child(_door_fade)
 	var alpha := target if target > 0.0 else move_toward(_door_fade.color.a, 0.0, delta * 2.0)
-	_door_fade.color = Color(UiPalette.VOID, alpha)
+	_door_fade.color = Color(_door_fade_color(), alpha)
 	if alpha <= 0.0:
 		_door_fade.queue_free()
 		_door_fade = null
+		_door_light = false
+
+
+func _door_fade_color() -> Color:
+	return Color.WHITE if _door_light else UiPalette.VOID
 
 
 func _build_apple_hud() -> void:
@@ -2998,8 +3025,13 @@ func _request_session_mode(id: String) -> bool:
 	return changed
 
 
+## The tower's ending, or the demo's end once the light has covered the screen.
 func _ending_is_unlocked() -> bool:
-	return game != null and game.ending_unlocked
+	return game != null and (game.ending_unlocked or (_demo_ended() and not _reality_door_opening()))
+
+
+func _demo_ended() -> bool:
+	return game != null and ChapterOneProgressScript.demo_ended(game.chapter_one_progress)
 
 
 ## The progress check after a valid interaction can unlock the ending; the host asks right after it ran.
@@ -3031,9 +3063,28 @@ func _complete_narrative_beat(exit_mode: String) -> void:
 func _render_ending() -> void:
 	if _canvas == null:
 		_build_world(not _ending_is_unlocked())
+	if _demo_ended():
+		_mount_demo_end()
+		return
 	_ensure_ending_screen_panel()
 	_ending_screen_panel.mount(_ui_root, _ending_screen_mount_deps())
 	_ending_screen_panel.render()
+
+
+func _mount_demo_end() -> void:
+	if _demo_end_panel != null and is_instance_valid(_demo_end_panel) and _demo_end_panel.get_parent() == _ui_root:
+		return
+	_unmount_demo_end()
+	_set_reality_mouse_look(false)
+	_demo_end_panel = DemoEndScene.instantiate() as DemoEndPanel
+	_ui_root.add_child(_demo_end_panel)
+
+
+func _unmount_demo_end() -> void:
+	if _demo_end_panel != null and is_instance_valid(_demo_end_panel):
+		_demo_end_panel.get_parent().remove_child(_demo_end_panel)
+		_demo_end_panel.queue_free()
+	_demo_end_panel = null
 
 
 func _ensure_ending_screen_panel() -> void:

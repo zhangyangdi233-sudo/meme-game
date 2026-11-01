@@ -1,6 +1,6 @@
 class_name NarrativeSessionCatalog
 extends RefCounted
-## Loads authored session narrative (chapter one's opening, epilogue, doctor, prerequisites, ending)
+## Loads authored session narrative (chapter one's opening, the demo's end, epilogue, doctor, prerequisites, ending)
 ## from JSON. Callers look up by id and locale; JSON is read only through ContentJson.
 
 const ContentJsonScript = preload("res://framework/content_json.gd")
@@ -17,6 +17,7 @@ static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
 		return {
 			"_path": path,
 			"opening": [],
+			"demo_end": {},
 			"epilogue": [],
 			"doctor": [],
 			"prerequisite_items": [],
@@ -41,6 +42,11 @@ static func opening_knock_line_index(path: String = CATALOG_PATH) -> int:
 		if entry is Dictionary and str((entry as Dictionary).get("cue", "")) == KNOCK_CUE:
 			return index
 	return -1
+
+
+## The demo end screen's line.
+static func demo_end_text(locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
+	return _text(load_catalog(path).get("demo_end", {}), locale_code)
 
 
 static func epilogue_lines(locale_code: String = "zh", path: String = CATALOG_PATH) -> Array:

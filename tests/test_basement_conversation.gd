@@ -171,8 +171,10 @@ func test_leaving_through_the_open_exit_starts_the_next_round() -> void:
 	_start(game)
 	_finish_conversation(game)
 	_assert_true(game.leave_basement_round(), "the fifth round's open exit should be left through")
-	_assert_eq(str(game.chapter_one_progress.get("phase")), ProgressScript.PHASE_TOWER, "the fifth exit should lead to the crossroads")
-	_assert_eq(game.tower_floor, 1, "the crossroads is the tower's first floor")
+	_assert_eq(str(game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "the fifth exit should lead to the white door passage")
+	_assert_true(game.cross_passage(), "the passage should be crossed once")
+	_assert_true(not game.cross_passage(), "the passage should not be crossed twice")
+	_assert_eq(str(game.chapter_one_progress.get("phase")), ProgressScript.PHASE_DEMO_END, "the passage should reach the demo's end")
 
 
 func test_basement_posts_do_not_move_the_tower_floor() -> void:

@@ -512,15 +512,15 @@ func load_save_data(save_data: Dictionary) -> bool:
 	return true
 
 
-## Keeps only known apps, once each; the tower has the phone and every app. A save made before the phone was a thing
+## Keeps only known apps, once each; past the basement the run has the phone and every app. A save made before the phone was a thing
 ## to pick up gets what its chapter progress earned. A run without the phone looks at the room.
 func _normalize_phone(state_data: Dictionary) -> void:
 	var progress := chapter_one_progress
-	var on_tower := ChapterOneProgressScript.phase_of(progress) == ChapterOneProgressScript.PHASE_TOWER
-	if on_tower or not state_data.has(PropertyKeysScript.PHONE_OWNED):
+	var past_basement := ChapterOneProgressScript.past_basement(progress)
+	if past_basement or not state_data.has(PropertyKeysScript.PHONE_OWNED):
 		phone_owned = phone_owned or ChapterOneProgressScript.phone_earned(progress)
 	var saved_apps: Array = unlocked_apps
-	if on_tower or not state_data.has(PropertyKeysScript.UNLOCKED_APPS):
+	if past_basement or not state_data.has(PropertyKeysScript.UNLOCKED_APPS):
 		saved_apps.append_array(ChapterOneProgressScript.earned_apps(progress))
 	var apps: Array[String] = []
 	for app_id in saved_apps:
@@ -625,14 +625,19 @@ func open_opening_door() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
 
 
-## The player walked out through the basement's open exit: the next round, or after the fifth the crossroads, which
-## is played with the phone and every app.
+## The player walked out through the basement's open exit: the next round, or after the fifth the white door passage,
+## which is walked with the phone and every app.
 func leave_basement_round() -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress)):
 		return false
-	if ChapterOneProgressScript.phase_of(chapter_one_progress) == ChapterOneProgressScript.PHASE_TOWER:
+	if ChapterOneProgressScript.past_basement(chapter_one_progress):
 		_hand_over_earned_phone()
 	return true
+
+
+## The player walked into the white door's light: the next level begins. False outside the passage.
+func cross_passage() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.cross_passage(chapter_one_progress))
 
 
 ## Development seam: starts basement round `round_number` fresh, with the phone and the apps earlier rounds earned.

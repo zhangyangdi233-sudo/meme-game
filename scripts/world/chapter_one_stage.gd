@@ -1,12 +1,13 @@
 class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
-## the knock behind it) or one basement round (a room with the CRT terminal, the round's NPC and an exit), each from
+## the knock behind it), the passage between levels (the same water and door, no knock, walked into) or one basement
+## round (a room with the CRT terminal, the round's NPC and an exit), each from
 ## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
 ## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
 ## until the player owns it.
-## The adapter drives it; the knock finishing and the player walking out through the basement's open exit are raised
-## as game events for the state to record.
+## The adapter drives it; the knock finishing, the player walking out through the basement's open exit and the player
+## walking into the passage's light are raised as game events for the state to record.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
@@ -24,6 +25,8 @@ const OPENING_DOOR_PIVOT := "OpeningDoorPivot"
 const OPENING_DOOR_LIGHT_PLANE := "OpeningDoor_LightPlane"
 const OPENING_DOOR_CENTER := Vector3(0.0, 0.0, -18.0)
 const OPENING_DOOR_OPEN_DEGREES := 90.0
+## How near the door's center the player has walked into its light in the passage.
+const PASSAGE_ENTER_DISTANCE := 1.2
 ## The opening model's 80 m ground, less a margin.
 const OPENING_BOUNDS := AABB(Vector3(-39.5, -0.3, -51.5), Vector3(79.0, 4.0, 79.0))
 ## The basement model's room and stairwell (Blender (x, y, z) -> Godot (x, z, -y)); the spawn is on the stair landing.
@@ -88,16 +91,19 @@ var _entry_target := 1.0
 var _exit_ratio := 0.0
 var _exit_target := 0.0
 var _exit_reported := false
+var _passage_reported := false
 var _phone: MeshInstance3D
 
 
-## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING` or `PHASE_BASEMENT`); a basement is
+## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
 ## built for its round, with that round's NPC shown by `npc_texture` and the phone on the table while nobody owns it.
 func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null, phone_on_table: bool = false) -> bool:
 	phase = stage_phase
 	_round = round_number
 	if phase == ChapterOneProgressScript.PHASE_OPENING:
 		return _build_opening()
+	if phase == ChapterOneProgressScript.PHASE_PASSAGE:
+		return _build_door_world()
 	if phase == ChapterOneProgressScript.PHASE_BASEMENT:
 		return _build_basement(npc_texture, phone_on_table)
 	push_error("ChapterOneStage has no stage for phase '%s'" % phase)
@@ -162,9 +168,13 @@ func exit_position() -> Vector3:
 	return EXIT_DOORWAY if _exit_door != null else Vector3.ZERO
 
 
-## Follows the player through a basement round: going down the stairs shuts the entry behind them, and walking out
-## through the open exit is reported once.
+## Follows the player: going down the basement's stairs shuts the entry behind them, and walking out through its open
+## exit or into the passage's light is reported once.
 func track_player(position: Vector3) -> void:
+	if phase == ChapterOneProgressScript.PHASE_PASSAGE and not _passage_reported:
+		if Vector2(position.x - OPENING_DOOR_CENTER.x, position.z - OPENING_DOOR_CENTER.z).length() <= PASSAGE_ENTER_DISTANCE:
+			_passage_reported = true
+			GameEventBusScript.raise_event(GameEventsScript.PASSAGE_DOOR_ENTERED)
 	if _entry_door != null and position.z > ENTRY_SEAL_Z:
 		_entry_target = 0.0
 	if _exit_door == null or _exit_reported or _exit_ratio < 0.5:
@@ -217,8 +227,9 @@ func set_paused(paused: bool) -> void:
 
 
 ## Swings the white door open: 0 is closed, 1 fully open away from the player. Its glow plane hides once it moves.
+## The passage's door stays shut and full of light: the player walks into it.
 func set_door_open_ratio(ratio: float) -> void:
-	if _door_pivot == null:
+	if _door_pivot == null or phase == ChapterOneProgressScript.PHASE_PASSAGE:
 		return
 	_door_pivot.rotation_degrees.y = OPENING_DOOR_OPEN_DEGREES * clampf(ratio, 0.0, 1.0)
 	var light_plane := _model.find_child(OPENING_DOOR_LIGHT_PLANE, true, false) as Node3D
@@ -227,6 +238,21 @@ func set_door_open_ratio(ratio: float) -> void:
 
 
 func _build_opening() -> bool:
+	if not _build_door_world():
+		return false
+	_knock = AudioStreamPlayer3D.new()
+	_knock.name = "OpeningKnock"
+	_knock.stream = load(KNOCK_PATH) as AudioStream
+	_knock.unit_size = 18.0
+	_knock.volume_db = -3.0
+	_knock.position = OPENING_DOOR_CENTER + Vector3(0.0, 1.1, 0.0)
+	_knock.finished.connect(_on_knock_finished)
+	add_child(_knock)
+	return true
+
+
+## The black water and the white door, shared by the opening and the passage.
+func _build_door_world() -> bool:
 	if not _instance_model(OPENING_MODEL_PATH, "OpeningWorld"):
 		return false
 	_door_pivot = _model.find_child(OPENING_DOOR_PIVOT, true, false) as Node3D
@@ -236,14 +262,6 @@ func _build_opening() -> bool:
 	_bounds = OPENING_BOUNDS
 	_spawn = OPENING_DOOR_CENTER + Vector3(0.0, 0.04, OPENING_WALK_DISTANCE)
 	_spawn_yaw = 0.0
-	_knock = AudioStreamPlayer3D.new()
-	_knock.name = "OpeningKnock"
-	_knock.stream = load(KNOCK_PATH) as AudioStream
-	_knock.unit_size = 18.0
-	_knock.volume_db = -3.0
-	_knock.position = OPENING_DOOR_CENTER + Vector3(0.0, 1.1, 0.0)
-	_knock.finished.connect(_on_knock_finished)
-	add_child(_knock)
 	_build_environment(Color.BLACK, 0.0)
 	return true
 

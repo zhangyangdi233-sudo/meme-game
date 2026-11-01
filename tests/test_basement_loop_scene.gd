@@ -2,7 +2,8 @@ extends SceneTree
 ## In the main scene the basement is played in five rounds: F at the round's NPC starts its one route, text keys type
 ## the player's line (arrows and held repeats do not), each reply plays out by itself and the last ends the
 ## conversation. With this round's post the exit opens and walking out starts the next round at the top of the
-## stairs; the fifth exit leads to the empty crossroads. A save comes back on the same round and delivery, and the
+## stairs; the fifth exit leads to the white door passage, and walking into the light ends on the demo's end screen in
+## the chosen language. A save comes back on the same round and delivery, in the passage or on the end screen, and the
 ## F9 debug panel jumps between rounds.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -47,7 +48,8 @@ func _run() -> void:
 	await _test_without_a_post_the_exit_stays_shut(game_root)
 	await _test_with_this_rounds_post_the_exit_leads_to_the_next_round(game_root)
 	await _test_a_save_comes_back_on_the_same_round(game_root)
-	await _test_the_fifth_exit_leads_to_the_empty_crossroads(game_root)
+	await _test_the_fifth_exit_leads_through_the_light_to_the_demo_end(game_root)
+	await _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root)
 	game_root.queue_free()
 	await process_frame
 
@@ -149,7 +151,7 @@ func _test_a_save_comes_back_on_the_same_round(game_root) -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") != null, "the save should come back in the basement")
 
 
-func _test_the_fifth_exit_leads_to_the_empty_crossroads(game_root) -> void:
+func _test_the_fifth_exit_leads_through_the_light_to_the_demo_end(game_root) -> void:
 	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 5})
 	await process_frame
 	await process_frame
@@ -161,10 +163,101 @@ func _test_the_fifth_exit_leads_to_the_empty_crossroads(game_root) -> void:
 		await process_frame
 	await _walk_out(game_root)
 	await process_frame
-	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_TOWER, "the fifth exit should leave chapter one")
-	_assert_eq(game_root.game.tower_floor, 1, "the crossroads should be the tower's first floor")
-	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") == null, "the crossroads should replace the basement")
-	_assert_true(game_root._reality_scene_adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads")
+	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "the fifth exit should lead to the passage")
+	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") == null, "the passage should replace the basement")
+	_assert_true(Harness.find_node_by_name(game_root, "OpeningWorld") != null, "the passage should be the black water with the white door")
+	_assert_true(not game_root._reality_scene_adapter.floor.visible, "the tower's street should stay out of reach")
+	await _walk_into_the_light(game_root)
+	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_DEMO_END, "walking into the light should end the demo")
+	_assert_eq(game_root.session_mode(), "gameplay", "the end screen should wait for the light to cover the screen")
+	_assert_true(game_root._phone_locked(), "the phone should stay down in the light")
+	var fade: ColorRect = null
+	for frame in 400:
+		await process_frame
+		fade = Harness.find_node_by_name(game_root, "DoorFade") as ColorRect
+		if fade != null and fade.color.a > 0.5:
+			break
+	_assert_true(fade != null and fade.color.r > 0.99 and fade.color.g > 0.99 and fade.color.b > 0.99, "the screen should fill with white, not black")
+	for frame in 400:
+		await process_frame
+		if game_root.session_mode() == "ending":
+			break
+	_assert_eq(game_root.session_mode(), "ending", "the light should turn into the end screen")
+	var text := Harness.find_node_by_name(game_root, "DemoEndText") as Label
+	_assert_true(text != null and text.is_visible_in_tree(), "the demo end text should show")
+	_assert_eq(text.text if text != null else "", "Demo 到此结束", "the end screen should use the chosen language")
+	_assert_true(Harness.find_node_by_name(game_root, "EndingScreen") == null, "the tower's ending should stay out of the demo")
+	_assert_eq(game_root.game.tower_floor, 1, "the tower should not have been climbed")
+
+
+func _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root) -> void:
+	_assert_true(game_root._save_progress(), "the end screen should save")
+	await _reload(game_root)
+	_assert_eq(game_root.session_mode(), "ending", "a save at the demo's end should come back on its screen")
+	_assert_true(Harness.find_node_by_name(game_root, "DemoEndText") != null, "the demo end text should come back")
+	var menu_button := Harness.find_node_by_name(game_root, "DemoEndMenuButton") as Button
+	_assert_true(menu_button != null, "the end screen should offer the way back to the menu")
+	if menu_button != null:
+		menu_button.pressed.emit()
+	await process_frame
+	await process_frame
+	_assert_eq(game_root.session_mode(), "main_menu", "the end screen's button should leave for the main menu")
+	_assert_true(Harness.find_node_by_name(game_root, "DemoEndText") == null, "the end screen should go away with the run")
+	await _continue(game_root)
+	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 5})
+	await process_frame
+	await process_frame
+	_assert_eq(game_root.session_mode(), "gameplay", "a debug jump should leave the end screen")
+	_post(game_root)
+	await _talk_to_the_npc(game_root)
+	await _play_out(game_root)
+	for frame in 90:
+		await process_frame
+	await _walk_out(game_root)
+	await process_frame
+	var adapter = game_root._reality_scene_adapter
+	var door: Vector3 = adapter.chapter_door_position()
+	adapter.player.position = Vector3(door.x, adapter.player.position.y, door.z + 10.0)
+	var saved_at: Vector3 = adapter.player.position
+	_assert_true(game_root._save_progress(), "the passage should save")
+	await _reload(game_root)
+	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "a save in the passage should come back in it")
+	_assert_eq(game_root.session_mode(), "gameplay", "a save in the passage should be played on")
+	_assert_true(Harness.find_node_by_name(game_root, "OpeningWorld") != null, "a save in the passage should stand on the black water")
+	var restored: Vector3 = game_root._reality_scene_adapter.player.position
+	_assert_true(Vector2(restored.x, restored.z).distance_to(Vector2(saved_at.x, saved_at.z)) < 0.2, "a save in the passage should come back where it was: %s" % str(restored))
+	await _walk_into_the_light(game_root)
+	_assert_true(game_root._save_progress(), "the walk through the light should save")
+	await _reload(game_root)
+	_assert_eq(game_root.session_mode(), "ending", "a save in the light should come back on the end screen")
+
+
+func _reload(game_root) -> void:
+	game_root.show_main_menu()
+	await process_frame
+	await _continue(game_root)
+
+
+func _continue(game_root) -> void:
+	game_root.continue_game()
+	await process_frame
+	await process_frame
+
+
+func _walk_into_the_light(game_root) -> void:
+	var adapter = game_root._reality_scene_adapter
+	var door: Vector3 = adapter.chapter_door_position()
+	adapter.player.position = Vector3(door.x, adapter.player.position.y, door.z + 2.0)
+	adapter.player.velocity = Vector3.ZERO
+	adapter.yaw = 0.0
+	var before: Dictionary = game_root.game.chapter_one_progress
+	Input.action_press("reality_forward")
+	for frame in 180:
+		await physics_frame
+		if game_root.game.chapter_one_progress != before:
+			break
+	Input.action_release("reality_forward")
+	await process_frame
 
 
 func _talk_to_the_npc(game_root) -> void:

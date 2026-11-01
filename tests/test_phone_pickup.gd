@@ -203,9 +203,18 @@ func test_the_fifth_exit_hands_over_the_phone_and_every_app() -> void:
 	game.jump_to_basement_round(5)
 	_deliver(game)
 	game.end_typed_reality_conversation()
+	game.phone_owned = false
 	_assert_true(game.leave_basement_round(), "the fifth exit should be left through")
-	_assert_true(game.phone_owned, "the crossroads should be played with the phone")
-	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the crossroads should unlock every app")
+	_assert_true(game.phone_owned, "the passage should be walked with the phone")
+	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the passage should have every app")
+	var restored := StateScript.new()
+	_assert_true(restored.load_save_data(game.to_save_data()), "a save in the passage should load")
+	_assert_true(restored.phone_owned, "a save in the passage should keep the phone")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save in the passage should keep every app")
+	_assert_true(game.cross_passage(), "the passage should be crossed")
+	restored = StateScript.new()
+	_assert_true(restored.load_save_data(game.to_save_data()), "a save at the demo's end should load")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save at the demo's end should keep every app")
 
 
 func _deliver(game: MemeGameState) -> void:

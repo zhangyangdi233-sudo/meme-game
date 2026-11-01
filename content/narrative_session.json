@@ -176,6 +176,11 @@
       "en": "Emida…"
     }
   ],
+  "demo_end": {
+    "zh": "Demo 到此结束",
+    "ja": "demoはここまでです",
+    "en": "The demo ends here."
+  },
   "epilogue": [
     {
       "id": "epilogue_01",

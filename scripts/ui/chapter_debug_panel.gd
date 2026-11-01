@@ -41,6 +41,10 @@ func _on_progress(value: Variant) -> void:
 	match ChapterOneProgressScript.phase_of(progress):
 		ChapterOneProgressScript.PHASE_OPENING:
 			status.text = "开场"
+		ChapterOneProgressScript.PHASE_PASSAGE:
+			status.text = "白光门（通往 %s）" % str(progress.get("passage_to", ""))
+		ChapterOneProgressScript.PHASE_DEMO_END:
+			status.text = "Demo 结束"
 		ChapterOneProgressScript.PHASE_TOWER:
 			status.text = "十字路口（第一章之后）"
 		_:

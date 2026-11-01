@@ -30,7 +30,10 @@ func _run() -> void:
 	test_skipping_chapter_one_lands_on_the_tower()
 	test_the_exit_opens_only_after_a_delivery_with_this_rounds_post()
 	test_leaving_through_the_exit_starts_the_next_round()
-	test_the_fifth_exit_leads_to_the_crossroads()
+	test_the_fifth_exit_leads_to_the_white_door_passage()
+	test_crossing_the_passage_reaches_the_next_level()
+	test_the_level_order_table_decides_the_next_level()
+	test_the_passage_and_the_demo_end_survive_a_save()
 	test_a_saved_delivery_is_kept_only_in_the_basement()
 	test_the_debug_jump_lands_on_a_fresh_round()
 	if _failures.is_empty():
@@ -211,15 +214,58 @@ func test_leaving_through_the_exit_starts_the_next_round() -> void:
 	_assert_true(not ProgressScript.exit_open(next), "the next round's exit should be shut again")
 
 
-func test_the_fifth_exit_leads_to_the_crossroads() -> void:
-	var progress := ProgressScript.open_door(_ready_door())
-	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT):
-		progress = ProgressScript.leave_round(ProgressScript.deliver(progress, true))
-		_assert_eq(ProgressScript.round_of(progress), round_number + 1, "each exit should start the following round")
+func test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
 	_assert_eq(ProgressScript.leave_round(progress), progress, "the fifth round's shut exit should hold")
-	var crossroads := ProgressScript.leave_round(ProgressScript.deliver(progress, true))
-	_assert_eq(crossroads.get("phase"), ProgressScript.PHASE_TOWER, "the fifth exit should leave chapter one for the crossroads")
-	_assert_eq(ProgressScript.round_of(crossroads), 0, "the crossroads has no basement round")
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(progress, true))
+	_assert_eq(passage.get("phase"), ProgressScript.PHASE_PASSAGE, "the fifth exit should lead to the white door passage, not the crossroads")
+	_assert_eq(passage.get("passage_to"), ProgressScript.PHASE_DEMO_END, "the passage should lead where the level order says")
+	_assert_eq(ProgressScript.round_of(passage), 0, "the passage has no basement round")
+	_assert_true(not ProgressScript.is_reading_narration(passage), "the passage should have no narration")
+	_assert_true(not ProgressScript.knock_due(passage), "the passage should have no knock")
+	_assert_true(not ProgressScript.door_ready(passage), "the passage door is walked into, not opened with F")
+
+
+func test_crossing_the_passage_reaches_the_next_level() -> void:
+	var passage := _passage()
+	var ended := ProgressScript.cross_passage(passage)
+	_assert_eq(ended.get("phase"), ProgressScript.PHASE_DEMO_END, "crossing should reach the level the passage leads to")
+	_assert_true(ProgressScript.demo_ended(ended), "the demo should have ended")
+	_assert_true(not ProgressScript.demo_ended(passage), "the demo should not end before the crossing")
+	_assert_eq(ProgressScript.cross_passage(ended), ended, "there is nothing left to cross at the demo's end")
+	var basement := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	_assert_eq(ProgressScript.cross_passage(basement), basement, "the basement has no passage to cross")
+
+
+func test_the_level_order_table_decides_the_next_level() -> void:
+	_assert_eq(ProgressScript.LEVEL_ORDER, [ProgressScript.PHASE_OPENING, ProgressScript.PHASE_BASEMENT, ProgressScript.PHASE_DEMO_END], "the demo's levels end on the demo end; the tower is not one of them")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_OPENING), ProgressScript.PHASE_BASEMENT, "the basement follows the opening")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_BASEMENT), ProgressScript.PHASE_DEMO_END, "the demo end follows the basement")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_DEMO_END), "", "nothing follows the last level")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_TOWER), "", "a level off the table has no next level")
+	var longer := [ProgressScript.PHASE_BASEMENT, "floor_two", ProgressScript.PHASE_DEMO_END]
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_BASEMENT, longer), "floor_two", "a level added to the table should come next")
+	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT), true)
+	_assert_eq(ProgressScript.leave_round(fifth, longer).get("passage_to"), "floor_two", "the fifth exit should follow the table, not a fixed level")
+	_assert_eq(ProgressScript.leave_round(fifth, [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the exit should hold")
+
+
+func test_the_passage_and_the_demo_end_survive_a_save() -> void:
+	var passage := _passage()
+	_assert_eq(ProgressScript.normalize(passage), passage, "a save in the passage should come back in it")
+	var ended := ProgressScript.cross_passage(passage)
+	_assert_eq(ProgressScript.normalize(ended), ended, "a save at the demo's end should come back there")
+	var broken := ProgressScript.normalize(_with(passage, "passage_to", "moon"))
+	_assert_eq(broken.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a broken destination should fall back to the level order")
+	var claimed := ProgressScript.normalize({"phase": ProgressScript.PHASE_DEMO_END, "line_index": 4})
+	_assert_eq(claimed.get("phase"), ProgressScript.PHASE_OPENING, "a demo end without the door should go back to the opening")
+	var claimed_passage := ProgressScript.normalize({"phase": ProgressScript.PHASE_PASSAGE, "line_index": 4})
+	_assert_eq(claimed_passage.get("phase"), ProgressScript.PHASE_OPENING, "a passage without the door should go back to the opening")
+
+
+func _passage() -> Dictionary:
+	var fifth := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
+	return ProgressScript.leave_round(ProgressScript.deliver(fifth, true))
 
 
 func test_a_saved_delivery_is_kept_only_in_the_basement() -> void:

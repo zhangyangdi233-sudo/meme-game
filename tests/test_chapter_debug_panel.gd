@@ -60,6 +60,11 @@ func _test_the_status_follows_the_chapter_progress(panel: Control) -> void:
 	_assert_true(status != null and status.text.contains("3 / 5"), "the status should show round three: %s" % (status.text if status != null else "missing"))
 	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 3), true))
 	_assert_true(status != null and status.text.contains("出口：开"), "the status should show the open exit: %s" % (status.text if status != null else "missing"))
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true))
+	progress.replace_all(passage)
+	_assert_true(status != null and status.text.contains("白光门"), "the status should show the white door passage: %s" % (status.text if status != null else "missing"))
+	progress.replace_all(ProgressScript.cross_passage(passage))
+	_assert_true(status != null and status.text.contains("Demo"), "the status should show the demo's end: %s" % (status.text if status != null else "missing"))
 	progress.replace_all(ProgressScript.tower())
 	_assert_true(status != null and status.text.contains("十字路口"), "the status should show the crossroads past chapter one: %s" % (status.text if status != null else "missing"))
 

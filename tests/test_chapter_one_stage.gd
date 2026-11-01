@@ -15,6 +15,7 @@ const OPENING_WALK_DISTANCE := 29.5
 var _failures: Array[String] = []
 var _knocks_heard := 0
 var _exits_crossed := 0
+var _passages_entered := 0
 
 
 func _init() -> void:
@@ -41,6 +42,7 @@ func _run() -> void:
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, func(_payload: Dictionary) -> void: _knocks_heard += 1)
 	bus.subscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, func(_payload: Dictionary) -> void: _exits_crossed += 1)
+	bus.subscribe(GameEventsScript.PASSAGE_DOOR_ENTERED, func(_payload: Dictionary) -> void: _passages_entered += 1)
 	await _test_the_opening_starts_far_from_the_white_door()
 	await _test_the_door_waits_for_the_narration_and_the_knock()
 	await _test_the_knock_plays_on_its_line_once_and_pauses()
@@ -56,7 +58,8 @@ func _run() -> void:
 	await _test_the_entry_door_shuts_behind_the_player()
 	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
 	await _test_a_new_round_starts_again_at_the_top_of_the_stairs()
-	await _test_the_fifth_exit_leads_to_an_empty_crossroads()
+	await _test_the_fifth_exit_leads_to_the_white_door_passage()
+	await _test_walking_into_the_light_is_reported_once_and_walks_the_player_through()
 	await _test_the_phone_lies_on_the_table_until_it_is_picked_up()
 	await _test_an_owned_phone_is_not_laid_on_the_table_again()
 
@@ -367,15 +370,54 @@ func _test_a_new_round_starts_again_at_the_top_of_the_stairs() -> void:
 	await _free(adapter)
 
 
-func _test_the_fifth_exit_leads_to_an_empty_crossroads() -> void:
+func _test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
 	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true)
 	var adapter = await _adapter(fifth)
-	adapter.ensure_floor_current(_deps(ProgressScript.leave_round(fifth)))
+	var passage := ProgressScript.leave_round(fifth)
+	adapter.ensure_floor_current(_deps(passage))
 	await process_frame
-	_assert_true(adapter.get_parent().find_child("ChapterOneStage", true, false) == null, "the crossroads should replace the basement")
-	_assert_true(adapter.floor.visible, "the crossroads should be the tower's street")
-	_assert_true(adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads")
-	_assert_true(adapter.floor.get_interactable_items().is_empty(), "nothing should lie at the crossroads")
+	var parent: Node = adapter.get_parent()
+	_assert_true(parent.find_child("OpeningWorld", true, false) != null, "the passage should reuse the opening's world")
+	_assert_true(parent.find_child("BasementRoom", true, false) == null, "the passage should replace the basement")
+	_assert_true(not adapter.floor.visible, "the passage should not show the tower's street")
+	_assert_true(parent.find_child("OpeningKnock", true, false) == null, "the passage should have no knock")
+	var door: Vector3 = adapter.chapter_door_position()
+	var spawn: Vector3 = adapter.pose().get("player_position")
+	_assert_true(absf(Vector2(spawn.x - door.x, spawn.z - door.z).length() - ChapterOneStage.OPENING_WALK_DISTANCE) < 0.1, "the passage should start as far from the door as the opening")
+	var light := parent.find_child(ChapterOneStage.OPENING_DOOR_LIGHT_PLANE, true, false) as Node3D
+	_assert_true(light != null and light.visible, "the white light should show in the doorway")
+	adapter.player.position = Vector3(door.x, adapter.player.position.y, door.z + 1.0)
+	adapter.refresh_nearby_actor(_deps(passage))
+	_assert_eq(str(adapter.nearby_outcome().get("kind", "none")), "none", "the passage door is walked into and offers no F")
+	await _free(adapter)
+
+
+func _test_walking_into_the_light_is_reported_once_and_walks_the_player_through() -> void:
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true))
+	var adapter = await _adapter(passage)
+	var door: Vector3 = adapter.chapter_door_position()
+	var parent: Node = adapter.get_parent()
+	var light := parent.find_child(ChapterOneStage.OPENING_DOOR_LIGHT_PLANE, true, false) as Node3D
+	var pivot := parent.find_child(ChapterOneStage.OPENING_DOOR_PIVOT, true, false) as Node3D
+	var height: float = adapter.player.position.y
+	adapter.player.position = Vector3(door.x, height, door.z + 6.0)
+	adapter.update_player(0.016, _deps(passage))
+	_assert_eq(_passages_entered, 0, "the door should wait for the player to walk in")
+	adapter.player.position = Vector3(door.x, height, door.z + 0.9)
+	adapter.update_player(0.016, _deps(passage))
+	adapter.update_player(0.016, _deps(passage))
+	_assert_eq(_passages_entered, 1, "walking in should be reported once")
+	adapter.apply_interaction({"action": "enter_passage"})
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "door", "the walk through should be a door outcome")
+	var ended := ProgressScript.cross_passage(passage)
+	adapter.update_player(1.0, _deps(ended))
+	_assert_true(light.visible and absf(pivot.rotation_degrees.y) < 0.01, "the door should stay shut and full of light during the walk")
+	adapter.update_player(2.0, _deps(ended))
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "the walk through should end")
+	adapter.ensure_floor_current(_deps(ended))
+	await process_frame
+	_assert_true(parent.find_child("OpeningWorld", true, false) != null, "the demo's end should stay on the passage behind its screen")
+	_assert_true(not adapter.floor.visible, "the demo's end should not build the tower's street")
 	await _free(adapter)
 
 

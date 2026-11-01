@@ -479,6 +479,13 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 			player.velocity = Vector3.ZERO
 			nearby_targets_changed.emit()
 		return interaction_outcome()
+	if action == "enter_passage":
+		if player != null and _chapter_stage != null and _chapter_stage.has_door():
+			_door_time = 0.0
+			_door_from = player.position
+			player.velocity = Vector3.ZERO
+			nearby_targets_changed.emit()
+		return interaction_outcome()
 	if action == "enter_terminal":
 		if _nearby_terminal and player != null and _crt_screen() != null:
 			_gaze_before_interaction = {"yaw": yaw, "pitch": pitch}
@@ -666,9 +673,12 @@ func _chapter_progress(deps: Dictionary) -> Dictionary:
 	return ChapterOneProgressScript.normalize(deps.get("chapter_one_progress"))
 
 
-## The chapter phase the deps ask a stage for, or empty for the tower street.
+## The chapter phase the deps ask a stage for, or empty for the tower street. The demo's end screen stands on the
+## passage it was reached through.
 func _chapter_stage_phase(deps: Dictionary) -> String:
 	var stage_phase := ChapterOneProgressScript.phase_of(_chapter_progress(deps))
+	if stage_phase == ChapterOneProgressScript.PHASE_DEMO_END:
+		return ChapterOneProgressScript.PHASE_PASSAGE
 	return "" if stage_phase == ChapterOneProgressScript.PHASE_TOWER else stage_phase
 
 

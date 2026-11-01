@@ -12,6 +12,7 @@ func _init() -> void:
 	test_epilogue_locales()
 	test_doctor_and_prerequisite_lookup()
 	test_ending_choices_and_unknown_locale_fallback()
+	test_demo_end_text_by_language()
 	test_defensive_copies()
 	test_moved_copy_leaves_meme_game_state()
 	if _failures.is_empty():
@@ -65,6 +66,13 @@ func test_ending_choices_and_unknown_locale_fallback() -> void:
 	_assert_eq(str((choices[0] as Dictionary).get("label", "")), "Blank", "ending labels should resolve from the content catalog")
 	var fallback: Dictionary = CatalogScript.ending_language_choice("silence", "fr")
 	_assert_eq(str(fallback.get("output", "")), "……", "unknown locales should fall back to zh")
+
+
+func test_demo_end_text_by_language() -> void:
+	_assert_eq(CatalogScript.demo_end_text("zh"), "Demo 到此结束", "zh demo end")
+	_assert_eq(CatalogScript.demo_end_text("ja"), "demoはここまでです", "ja demo end")
+	_assert_eq(CatalogScript.demo_end_text("en"), "The demo ends here.", "en demo end")
+	_assert_eq(CatalogScript.demo_end_text("fr"), "Demo 到此结束", "unknown locales should fall back to zh")
 
 
 func test_defensive_copies() -> void:
