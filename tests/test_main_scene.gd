@@ -182,7 +182,7 @@ func _test_phone_apps(game_root: Node) -> void:
 	for node in game_root.find_children("PhoneAppIcon*", "Button", true, false):
 		app_icons.append(str(node.name))
 	app_icons.sort()
-	_assert_eq(app_icons, ["PhoneAppIconNotebook", "PhoneAppIconSocial"], "the phone should offer only social media and the notebook")
+	_assert_eq(app_icons, ["PhoneAppIconMap", "PhoneAppIconNotebook", "PhoneAppIconSocial"], "the phone should offer social media, the notebook and the map")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconSocial") is Button, "phone should expose social media")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconNotebook") is Button, "phone should expose the notebook")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone should not expose the removed shop")

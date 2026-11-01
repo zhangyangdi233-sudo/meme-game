@@ -93,7 +93,7 @@ func test_social_engagement_lives_in_the_models() -> void:
 func test_phone_shell_state_lives_in_models() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
-	# The tower street is played with the phone and every app.
+	# The tower street is played with the phone and its apps.
 	game.skip_chapter_one()
 
 	var initial: Dictionary = game.get_phone_shell_snapshot()

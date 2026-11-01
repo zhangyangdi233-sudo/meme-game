@@ -1,7 +1,7 @@
 extends SceneTree
 ## The phone is a thing found in the basement: a new run has none and cannot raise one, picking it up in the basement
-## gives it once, and its apps stay locked until a round's NPC delivery unlocks them (round one the social feed, round
-## three the notebook). Owning the phone and the unlocked apps are saved apart; a save keeps both.
+## gives it once, and with it the social feed and the notebook. The map stays locked and no delivery unlocks anything.
+## Owning the phone and the unlocked apps are saved apart; a save keeps both.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
@@ -17,12 +17,14 @@ func _init() -> void:
 	test_a_new_run_has_no_phone_and_no_apps()
 	test_the_phone_cannot_be_raised_before_it_is_picked_up()
 	test_the_phone_is_picked_up_once_in_the_basement()
-	test_locked_apps_open_no_window()
-	test_round_one_unlocks_the_social_feed_and_round_three_the_notebook()
+	test_apps_open_no_window_before_the_phone_is_picked_up()
+	test_picking_up_the_phone_gives_the_social_feed_and_the_notebook()
+	test_the_map_stays_locked_and_never_comes_to_the_front()
+	test_a_delivery_unlocks_nothing()
 	test_a_save_keeps_the_phone_and_the_unlocked_apps_apart()
 	test_a_save_without_the_phone_loads_with_it_put_away()
-	test_broken_saved_apps_are_dropped()
-	test_a_locked_app_is_never_in_front()
+	test_a_saved_phone_has_its_apps_whatever_the_save_names()
+	test_a_saved_locked_app_is_never_in_front()
 	test_an_older_save_gets_what_its_progress_earned()
 	test_skipping_chapter_one_hands_over_the_phone_and_every_app()
 	test_jumping_to_a_round_hands_over_what_earlier_rounds_earned()
@@ -66,52 +68,66 @@ func test_the_phone_is_picked_up_once_in_the_basement() -> void:
 	_assert_eq(game.view_state, "phone_down", "the raised phone should show")
 
 
-func test_locked_apps_open_no_window() -> void:
+func test_apps_open_no_window_before_the_phone_is_picked_up() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.set_view_state("npc_up")
-	game.pick_up_phone()
-	game.set_view_state("phone_down")
-	_assert_eq(game.open_app_windows, [], "raising the phone should open no locked app")
-	_assert_eq(game.active_app_window, "", "a locked app should not come to the front")
 	game.set_active_app("social")
 	game.open_app_window("notebook")
-	_assert_true(not game.is_app_window_open("social"), "choosing a locked app should open nothing")
-	_assert_true(not game.is_app_window_open("notebook"), "a locked app's window should not open")
-	_assert_eq(game.active_app_window, "", "a locked app should not be in front")
+	_assert_eq(game.open_app_windows, [], "no app should open before the phone is picked up")
+	_assert_eq(game.active_app_window, "", "no app should be in front before the phone is picked up")
 
 
-func test_round_one_unlocks_the_social_feed_and_round_three_the_notebook() -> void:
+func test_picking_up_the_phone_gives_the_social_feed_and_the_notebook() -> void:
+	var game: MemeGameState = _basement_game(1)
+	game.set_view_state("npc_up")
+	_assert_true(game.pick_up_phone(), "the phone should be picked up")
+	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the phone should come with its apps")
+	game.set_view_state("phone_down")
+	_assert_true(game.is_app_window_open("social"), "the raised phone should open the social feed")
+	game.set_active_app("notebook")
+	_assert_true(game.is_app_window_open("notebook"), "the notebook should open")
+	_assert_eq(game.active_app_window, "notebook", "the chosen app should be in front")
+
+
+func test_the_map_stays_locked_and_never_comes_to_the_front() -> void:
+	var game: MemeGameState = _basement_game(1)
+	game.set_view_state("npc_up")
+	game.pick_up_phone()
+	game.set_view_state("phone_down")
+	_assert_true(not game.is_app_unlocked("map"), "the map should stay locked with the phone in hand")
+	game.set_active_app("map")
+	game.open_app_window("map")
+	_assert_true(not game.is_app_window_open("map"), "the locked map should open no window")
+	_assert_true(game.active_app != "map", "the locked map should not be chosen")
+	_assert_true(game.active_app_window != "map", "the locked map should not be in front")
+
+
+func test_a_delivery_unlocks_nothing() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.pick_up_phone()
-	_assert_true(not game.is_app_unlocked("social"), "the social feed should be locked before round one is delivered")
-	_deliver(game)
-	_assert_true(game.is_app_unlocked("social"), "delivering round one should unlock the social feed")
-	_assert_true(not game.is_app_unlocked("notebook"), "round one should not unlock the notebook")
-	game.set_view_state("phone_down")
-	game.set_active_app("social")
-	_assert_true(game.is_app_window_open("social"), "the unlocked social feed should open")
-	game.set_view_state("npc_up")
-	for round_number in [2, 3]:
-		game.end_typed_reality_conversation()
-		_assert_true(game.leave_basement_round(), "round %d should follow" % round_number)
-		_assert_true(not game.is_app_unlocked("notebook"), "the notebook should be locked before round three is delivered")
+	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_deliver(game)
-	_assert_true(game.is_app_unlocked("notebook"), "delivering round three should unlock the notebook")
-	_assert_eq(game.unlocked_apps, ["social", "notebook"], "each app should be unlocked once, in delivery order")
+		_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "delivering round %d should leave the apps as they were" % round_number)
+		game.end_typed_reality_conversation()
+		game.set_view_state("npc_up")
+		if round_number < ProgressScript.BASEMENT_ROUND_COUNT:
+			_assert_true(game.leave_basement_round(), "round %d should follow" % (round_number + 1))
+	var without_phone: MemeGameState = _basement_game(1)
+	_deliver(without_phone)
+	_assert_eq(without_phone.unlocked_apps, [], "a delivery should not hand out apps to a run without the phone")
 
 
 func test_a_save_keeps_the_phone_and_the_unlocked_apps_apart() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.pick_up_phone()
-	_deliver(game)
 	var save := game.to_save_data()
 	var state_data: Dictionary = save["state"]
 	_assert_eq(state_data.get(PropertyKeysScript.PHONE_OWNED), true, "the save should record owning the phone")
-	_assert_eq(state_data.get(PropertyKeysScript.UNLOCKED_APPS), ["social"], "the save should record the unlocked apps apart")
+	_assert_eq(state_data.get(PropertyKeysScript.UNLOCKED_APPS), StateScript.PHONE_APPS, "the save should record the unlocked apps apart")
 	var restored := StateScript.new()
 	_assert_true(restored.load_save_data(save), "the save should load")
 	_assert_true(restored.phone_owned, "loading should keep the phone")
-	_assert_eq(restored.unlocked_apps, ["social"], "loading should keep the unlocked apps")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "loading should keep the unlocked apps")
 	_assert_true(not restored.pick_up_phone(), "a loaded phone should not be picked up again")
 	restored.new_run()
 	_assert_true(not restored.phone_owned, "a new run should take the phone away")
@@ -127,37 +143,45 @@ func test_a_save_without_the_phone_loads_with_it_put_away() -> void:
 	_assert_true(restored.load_save_data(save), "the save should load")
 	_assert_true(not restored.phone_owned, "a phone left on the table should stay there")
 	_assert_eq(restored.view_state, "npc_up", "a run without the phone should look at the room")
+	_assert_eq(restored.unlocked_apps, [], "a phone left on the table should leave its apps locked")
 	_assert_true(restored.pick_up_phone(), "the phone left on the table should still be picked up")
+	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "picking it up after loading should give its apps")
 
 
-func test_broken_saved_apps_are_dropped() -> void:
+## A run saved while the deliveries unlocked the apps may name only some of them; unknown names and the locked map go.
+func test_a_saved_phone_has_its_apps_whatever_the_save_names() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.pick_up_phone()
-	var save := game.to_save_data()
-	(save["state"] as Dictionary)[PropertyKeysScript.UNLOCKED_APPS] = ["babel", 3, "social", "social"]
-	var restored := StateScript.new()
-	_assert_true(restored.load_save_data(save), "the save should load")
-	_assert_eq(restored.unlocked_apps, ["social"], "unknown, repeated or broken apps should be dropped")
+	for saved_apps in [[], ["social"], ["babel", 3, "map", "social", "social"]]:
+		var save := game.to_save_data()
+		(save["state"] as Dictionary)[PropertyKeysScript.UNLOCKED_APPS] = saved_apps
+		var restored := StateScript.new()
+		_assert_true(restored.load_save_data(save), "the save should load")
+		_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a saved phone should have its apps with %s saved" % str(saved_apps))
 
 
-func test_a_locked_app_is_never_in_front() -> void:
+func test_a_saved_locked_app_is_never_in_front() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.pick_up_phone()
 	game.set_view_state("phone_down")
 	var save := game.to_save_data()
-	(save["state"] as Dictionary)[PropertyKeysScript.ACTIVE_APP_WINDOW] = "social"
+	var state_data: Dictionary = save["state"]
+	state_data[PropertyKeysScript.ACTIVE_APP] = "map"
+	state_data[PropertyKeysScript.ACTIVE_APP_WINDOW] = "map"
+	state_data[PropertyKeysScript.OPEN_APP_WINDOWS] = ["map"]
 	var restored := StateScript.new()
 	_assert_true(restored.load_save_data(save), "the save should load")
 	_assert_eq(restored.view_state, "phone_down", "the owned phone should come back raised")
-	_assert_eq(restored.active_app_window, "", "a locked app should not come back in front")
-	_assert_true(not restored.is_app_window_open("social"), "a locked app's window should stay closed")
+	_assert_true(restored.active_app != "map", "the locked map should not come back chosen")
+	_assert_true(restored.active_app_window != "map", "the locked map should not come back in front")
+	_assert_true(not restored.is_app_window_open("map"), "the locked map's window should stay closed")
 
 
 func test_an_older_save_gets_what_its_progress_earned() -> void:
 	var cases := [
 		{"round": 1, "owned": false, "apps": []},
-		{"round": 2, "owned": true, "apps": ["social"]},
-		{"round": 4, "owned": true, "apps": ["social", "notebook"]},
+		{"round": 2, "owned": true, "apps": StateScript.PHONE_APPS},
+		{"round": 4, "owned": true, "apps": StateScript.PHONE_APPS},
 	]
 	for case: Dictionary in cases:
 		var game: MemeGameState = _basement_game(int(case["round"]))
@@ -190,9 +214,7 @@ func test_jumping_to_a_round_hands_over_what_earlier_rounds_earned() -> void:
 	_assert_eq(game.unlocked_apps, [], "round one should start with every app locked")
 	game.jump_to_basement_round(2)
 	_assert_true(game.phone_owned, "round two should start with the phone")
-	_assert_eq(game.unlocked_apps, ["social"], "round two should start with the social feed")
-	game.jump_to_basement_round(4)
-	_assert_eq(game.unlocked_apps, ["social", "notebook"], "round four should start with both apps")
+	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "round two should start with the phone's apps")
 	game.jump_to_basement_round(1)
 	_assert_true(not game.phone_owned, "jumping back to round one should put the phone back on the table")
 	_assert_eq(game.unlocked_apps, [], "jumping back to round one should lock the apps again")

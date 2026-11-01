@@ -1,8 +1,8 @@
 extends SceneTree
 ## In the main scene the phone lies on the basement's table: before it is picked up Tab raises nothing and no edge tab
-## shows; F at the table picks it up, and then Tab or the tab on the right edge slide the phone in and out. Its apps
-## stay locked until round one's delivery unlocks the social feed and round three's the notebook. A save keeps the
-## phone and its apps and lays no second phone on the table.
+## shows; F at the table picks it up, and then Tab or the tab on the right edge slide the phone in and out. The social
+## feed and the notebook open from then on, the map stays locked and a delivery changes nothing. A save keeps the phone
+## and its apps and lays no second phone on the table.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
@@ -46,7 +46,7 @@ func _run() -> void:
 	await _test_a_save_before_the_pickup_leaves_the_phone_on_the_table(game_root)
 	await _test_f_at_the_table_picks_up_the_phone(game_root)
 	await _test_tab_and_the_edge_tab_slide_the_phone_in_and_out(game_root)
-	await _test_apps_unlock_with_round_one_and_round_three(game_root)
+	await _test_the_phone_opens_its_apps_and_keeps_the_map_locked(game_root)
 	await _test_a_save_keeps_the_phone_and_its_apps_without_a_second_phone(game_root)
 	game_root.queue_free()
 	await process_frame
@@ -118,43 +118,31 @@ func _test_tab_and_the_edge_tab_slide_the_phone_in_and_out(game_root) -> void:
 	_assert_eq(str(game_root.game.view_state), "npc_up", "clicking the edge tab again should put the phone away")
 
 
-func _test_apps_unlock_with_round_one_and_round_three(game_root) -> void:
+func _test_the_phone_opens_its_apps_and_keeps_the_map_locked(game_root) -> void:
 	game_root.set_view_state("phone_down")
 	await process_frame
 	var social_icon := Harness.find_node_by_name(game_root, "PhoneAppIconSocial") as Button
 	var notebook_icon := Harness.find_node_by_name(game_root, "PhoneAppIconNotebook") as Button
-	_assert_true(social_icon != null and social_icon.disabled, "the social feed should start locked")
-	_assert_true(notebook_icon != null and notebook_icon.disabled, "the notebook should start locked")
-	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "social"})
-	await process_frame
-	_assert_true(not game_root.game.is_app_window_open("social"), "a locked social feed should not open")
-	var social_window := Harness.find_node_by_name(game_root, "SocialAppWindow") as Control
-	_assert_true(social_window == null or not social_window.is_visible_in_tree(), "no social window should show while it is locked")
-	game_root.set_view_state("npc_up")
-	await _deliver(game_root)
-	_assert_true(game_root.game.is_app_unlocked("social"), "round one's delivery should unlock the social feed")
-	game_root.set_view_state("phone_down")
-	await process_frame
-	_assert_true(not social_icon.disabled, "the unlocked social feed's icon should be pressable")
-	_assert_true(notebook_icon.disabled, "the notebook should stay locked after round one")
+	var map_icon := Harness.find_node_by_name(game_root, "PhoneAppIconMap") as Button
+	_assert_true(social_icon != null and not social_icon.disabled, "the social feed's icon should be pressable with the phone")
+	_assert_true(notebook_icon != null and not notebook_icon.disabled, "the notebook's icon should be pressable with the phone")
+	_assert_true(map_icon != null and map_icon.disabled, "the map's icon should show locked")
 	social_icon.pressed.emit()
 	await process_frame
-	social_window = Harness.find_node_by_name(game_root, "SocialAppWindow") as Control
-	_assert_true(social_window != null and social_window.is_visible_in_tree(), "the unlocked social feed should open")
-	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "notebook"})
-	await process_frame
-	_assert_true(not game_root.game.is_app_window_open("notebook"), "a locked notebook should not open")
-	await _jump_to_round(game_root, 3)
-	await _deliver(game_root)
-	_assert_true(game_root.game.is_app_unlocked("notebook"), "round three's delivery should unlock the notebook")
-	game_root.set_view_state("phone_down")
-	await process_frame
-	notebook_icon = Harness.find_node_by_name(game_root, "PhoneAppIconNotebook") as Button
-	_assert_true(not notebook_icon.disabled, "the unlocked notebook's icon should be pressable")
+	var social_window := Harness.find_node_by_name(game_root, "SocialAppWindow") as Control
+	_assert_true(social_window != null and social_window.is_visible_in_tree(), "the social feed should open")
 	notebook_icon.pressed.emit()
 	await process_frame
-	_assert_true(game_root.game.is_app_window_open("notebook"), "the unlocked notebook should open")
+	_assert_true(game_root.game.is_app_window_open("notebook"), "the notebook should open")
+	var front: String = game_root.game.active_app_window
+	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "map"})
+	await process_frame
+	_assert_true(not game_root.game.is_app_window_open("map"), "the locked map should not open")
+	_assert_eq(game_root.game.active_app_window, front, "pressing the locked map should leave the front app in front")
 	game_root.set_view_state("npc_up")
+	var apps_before: Array = game_root.game.unlocked_apps
+	await _deliver(game_root)
+	_assert_eq(game_root.game.unlocked_apps, apps_before, "a delivery should unlock nothing")
 
 
 func _test_a_save_keeps_the_phone_and_its_apps_without_a_second_phone(game_root) -> void:

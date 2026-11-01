@@ -28,8 +28,6 @@ const BASEMENT_ROUND_COUNT := 5
 ## A basement round's NPC, and the one-route conversation it holds (no choices, no button).
 const BASEMENT_NPC_ACTOR_TYPE := "basement_npc"
 const LINEAR_CONVERSATION_MODE := "linear"
-## The phone's apps and the basement round whose delivery unlocks each, in unlock order. The tower has them all.
-const APP_UNLOCK_ROUNDS := {"social": 1, "notebook": 3}
 
 ## A new run's progress. `PropertyKeys` uses it as the model's initial value.
 const INITIAL := {
@@ -199,27 +197,6 @@ static func cross_passage(progress: Dictionary) -> Dictionary:
 	if phase_of(progress) != PHASE_PASSAGE:
 		return progress
 	return _enter_level(progress, str(progress.get("passage_to", "")))
-
-
-## The app this round's delivery unlocks, or empty when it unlocks none (or the round is not delivered).
-static func app_unlocked_by_delivery(progress: Dictionary) -> String:
-	if not exit_open(progress):
-		return ""
-	for app_id in APP_UNLOCK_ROUNDS:
-		if int(APP_UNLOCK_ROUNDS[app_id]) == round_of(progress):
-			return str(app_id)
-	return ""
-
-
-## The apps the deliveries so far have unlocked, in unlock order; past the basement every app.
-static func earned_apps(progress: Dictionary) -> Array[String]:
-	var apps: Array[String] = []
-	var current := round_of(progress)
-	for app_id in APP_UNLOCK_ROUNDS:
-		var unlock_round := int(APP_UNLOCK_ROUNDS[app_id])
-		if past_basement(progress) or unlock_round < current or (unlock_round == current and exit_open(progress)):
-			apps.append(str(app_id))
-	return apps
 
 
 ## Whether a run that got this far must already carry the phone: it lies on the basement's table in round one, so

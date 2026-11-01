@@ -56,7 +56,7 @@ const CHAPTER_ONE_PROGRESS := "chapter_one_progress"
 const TYPING_HINT_SEEN := "typing_hint_seen"
 ## Whether the player picked up the phone from the basement's table. Saved apart from which apps are unlocked.
 const PHONE_OWNED := "phone_owned"
-## The phone apps a basement NPC's delivery unlocked, in unlock order. Until then an app's icon does nothing.
+## The phone apps this run can open; the phone comes with them. Any other app's icon does nothing.
 const UNLOCKED_APPS := "unlocked_apps"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"

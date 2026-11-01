@@ -121,7 +121,7 @@ func test_the_exit_stays_open_when_the_rule_is_taken_back() -> void:
 func test_a_rule_escape_earns_what_a_delivery_earns() -> void:
 	var game := _rule_escape_basement()
 	_post(game, ["出", "口", "存", "在"])
-	_assert_true(game.is_app_unlocked("social"), "round one's way out should unlock the social feed however it was found")
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the rule alone should open the exit")
 	_finish_conversation(game)
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the NPC afterwards should change nothing")
 

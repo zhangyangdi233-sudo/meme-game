@@ -107,7 +107,7 @@ func _test_only_social_and_notebook_are_offered() -> void:
 	var icons: Array[String] = []
 	for node in host.find_children("PhoneAppIcon*", "Button", true, false):
 		icons.append(str(node.name))
-	_assert_eq(icons, ["PhoneAppIconSocial", "PhoneAppIconNotebook"], "the launcher should offer only social media and the notebook")
+	_assert_eq(icons, ["PhoneAppIconSocial", "PhoneAppIconNotebook", "PhoneAppIconMap"], "the launcher should offer social media, the notebook and the map")
 	_assert_true(panel.get_app_window("babel") == null, "the launcher should build no tower app window")
 	_assert_true(host.find_child("BabelAppWindow", true, false) == null, "no tower app window should be in the tree")
 	_dispose(mounted)
@@ -175,7 +175,7 @@ func _test_a_mounted_panel_is_not_opened_by_a_write() -> void:
 	_dispose(mounted)
 
 
-## Every app starts locked: its icon is disabled and a press raises nothing until a delivery unlocks it.
+## A locked app's icon is disabled and a press raises nothing; the models unlock it. The map's icon shows locked too.
 func _test_locked_apps_do_nothing_until_unlocked() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as PhoneLauncherPanel
@@ -189,9 +189,13 @@ func _test_locked_apps_do_nothing_until_unlocked() -> void:
 	panel.set_shown(true)
 	var social := host.find_child("PhoneAppIconSocial", true, false) as Button
 	var notebook := host.find_child("PhoneAppIconNotebook", true, false) as Button
+	var map := host.find_child("PhoneAppIconMap", true, false) as Button
 	_assert_true(social.disabled and notebook.disabled, "both icons should start locked")
+	_assert_true(map != null and map.disabled, "the map's icon should show locked")
 	social.pressed.emit()
 	notebook.pressed.emit()
+	if map != null:
+		map.pressed.emit()
 	_assert_eq(heard, [], "a locked icon should raise nothing")
 	unlocked.add("social")
 	_assert_true(not social.disabled, "the unlocked social feed's icon should be pressable")

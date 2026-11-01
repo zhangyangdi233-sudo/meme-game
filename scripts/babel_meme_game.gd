@@ -3114,7 +3114,7 @@ func _on_ending_language_selected(choice_id: String) -> void:
 	game.choose_ending_language(choice_id)
 
 
-## A locked app's icon does nothing until a basement delivery unlocks it.
+## A locked app's icon does nothing.
 func _on_app_pressed(app_id: String) -> void:
 	if not game.is_app_unlocked(app_id):
 		return

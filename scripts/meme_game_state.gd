@@ -2,6 +2,7 @@ class_name MemeGameState
 extends RefCounted
 
 ## The phone's apps, in the order a closed foreground window falls back to.
+## The apps that come with the phone. The map is not one of them: its icon shows on the phone, locked, and nothing in the demo unlocks it.
 const PHONE_APPS := ["social", "notebook"]
 
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
@@ -207,7 +208,7 @@ var phone_owned: bool:
 		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
 	set(value):
 		_write_run_field(PropertyKeysScript.PHONE_OWNED, value)
-## The phone apps a basement delivery unlocked, in unlock order. A read is a copy.
+## The phone apps this run can open: the ones that came with the phone. A read is a copy.
 var unlocked_apps: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.UNLOCKED_APPS)
@@ -516,21 +517,14 @@ func load_save_data(save_data: Dictionary) -> bool:
 	return true
 
 
-## Keeps only known apps, once each; past the basement the run has the phone and every app. A save made before the phone was a thing
-## to pick up gets what its chapter progress earned. A run without the phone looks at the room.
+## Past the basement the run has the phone. A save made before the phone was a thing to pick up gets what its chapter
+## progress earned, and whatever apps a save names the phone comes with its own. A run without the phone looks at the room.
 func _normalize_phone(state_data: Dictionary) -> void:
 	var progress := chapter_one_progress
 	var past_basement := ChapterOneProgressScript.past_basement(progress)
 	if past_basement or not state_data.has(PropertyKeysScript.PHONE_OWNED):
 		phone_owned = phone_owned or ChapterOneProgressScript.phone_earned(progress)
-	var saved_apps: Array = unlocked_apps
-	if past_basement or not state_data.has(PropertyKeysScript.UNLOCKED_APPS):
-		saved_apps.append_array(ChapterOneProgressScript.earned_apps(progress))
-	var apps: Array[String] = []
-	for app_id in saved_apps:
-		if app_id is String and app_id in PHONE_APPS and app_id not in apps:
-			apps.append(app_id)
-	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, apps)
+	_grant_phone_apps()
 	if not phone_owned:
 		view_state = "npc_up"
 
@@ -630,7 +624,7 @@ func open_opening_door() -> bool:
 
 
 ## The player walked out through the basement's open exit: the next round, or after the fifth the white door passage,
-## which is walked with the phone and every app.
+## which is walked with the phone and its apps.
 func leave_basement_round() -> bool:
 	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress)):
 		return false
@@ -655,7 +649,7 @@ func jump_to_basement_round(round_number: int) -> bool:
 	return true
 
 
-## Development and test seam: leaves chapter one for the tower street, with the phone and every app.
+## Development and test seam: leaves chapter one for the tower street, with the phone and its apps.
 func skip_chapter_one() -> void:
 	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
 	_hand_over_earned_phone()
@@ -666,6 +660,7 @@ func pick_up_phone() -> bool:
 	if phone_owned or ChapterOneProgressScript.phase_of(chapter_one_progress) != ChapterOneProgressScript.PHASE_BASEMENT:
 		return false
 	phone_owned = true
+	_grant_phone_apps()
 	return true
 
 
@@ -673,19 +668,16 @@ func is_app_unlocked(app_id: String) -> bool:
 	return unlocked_apps.has(app_id)
 
 
-func _unlock_app(app_id: String) -> void:
-	var model: ListPropertyModel = _run_list(PropertyKeysScript.UNLOCKED_APPS)
-	if app_id.is_empty() or model == null or is_app_unlocked(app_id):
-		return
-	model.add(app_id)
+## The apps follow the phone: it comes with them and a run without it has none.
+func _grant_phone_apps() -> void:
+	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, PHONE_APPS.duplicate() if phone_owned else [])
 
 
-## Sets the phone and the apps to what the chapter progress earned; a run without the phone puts it away, a raised
-## phone brings its last app back once it is unlocked.
+## Sets the phone to what the chapter progress earned; a run without the phone puts it away, a raised phone brings its
+## last app back.
 func _hand_over_earned_phone() -> void:
-	var progress := chapter_one_progress
-	phone_owned = ChapterOneProgressScript.phone_earned(progress)
-	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, ChapterOneProgressScript.earned_apps(progress))
+	phone_owned = ChapterOneProgressScript.phone_earned(chapter_one_progress)
+	_grant_phone_apps()
 	for app_id in open_app_windows:
 		if not is_app_unlocked(str(app_id)):
 			close_app_window(str(app_id))
@@ -1393,8 +1385,7 @@ func _deliver_basement_round() -> void:
 func _open_exit_if_escaped(talked_with_post: bool = false) -> void:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
 	var escaped := RoomRulesScript.escaped(_current_room(), world_rules, current_round, talked_with_post)
-	if _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, escaped)):
-		_unlock_app(ChapterOneProgressScript.app_unlocked_by_delivery(chapter_one_progress))
+	_step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, escaped))
 
 
 func _resolve_key_npc_clue_attempt() -> Dictionary:

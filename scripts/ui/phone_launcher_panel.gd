@@ -14,6 +14,7 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const LAUNCHER_APPS := [
 	{"id": "social", "label": "帖\n信号瀑布"},
 	{"id": "notebook", "label": "本\n语言工坊"},
+	{"id": "map", "label": "图\n地图"},
 ]
 
 ## How long the phone takes to slide in from the right edge or back out.
