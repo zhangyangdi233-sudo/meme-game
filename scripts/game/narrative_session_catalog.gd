@@ -16,6 +16,7 @@ static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
 	if catalog.is_empty():
 		return {
 			"_path": path,
+			"opening_speaker": {},
 			"opening": [],
 			"demo_end": {},
 			"epilogue": [],
@@ -25,6 +26,11 @@ static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
 		}
 	catalog["_path"] = path
 	return catalog
+
+
+## The speaker tag shown in front of every opening line, with its separator.
+static func opening_speaker(locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
+	return _text(load_catalog(path).get("opening_speaker", {}), locale_code)
 
 
 ## Chapter one's opening narration, one spoken line per entry, in reading order.
@@ -129,6 +135,7 @@ static func has_ending_language_choice(choice_id: String, path: String = CATALOG
 static func validate(path: String = CATALOG_PATH) -> Dictionary:
 	var problems: Array[String] = []
 	var catalog := load_catalog(path)
+	_validate_localized_field(catalog.get("opening_speaker", {}), "opening speaker", problems)
 	_validate_line_list(catalog.get("opening", []), "opening", ChapterOneProgressScript.OPENING_LINE_COUNT, problems)
 	if opening_knock_line_index(path) != ChapterOneProgressScript.KNOCK_LINE_INDEX:
 		problems.append("opening knock cue should sit on line %d" % ChapterOneProgressScript.KNOCK_LINE_INDEX)

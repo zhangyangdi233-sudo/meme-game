@@ -65,7 +65,7 @@ func _test_a_new_run_opens_on_black_water_and_the_narration(game_root) -> void:
 	panel._process(2.1)
 	var line := Harness.find_node_by_name(panel, "OpeningNarrationLine") as Label
 	_assert_true(line != null and line.visible, "the first line should follow the black")
-	_assert_eq(line.text, "你好", "the first line should be the manuscript's first line")
+	_assert_eq(line.text, "？？？：你好", "the first line should be the manuscript's first line behind the speaker tag")
 
 
 func _test_the_narration_locks_movement_look_and_the_phone(game_root) -> void:
@@ -110,7 +110,7 @@ func _test_a_click_reads_the_next_line(game_root) -> void:
 	await _click(game_root, Vector2(800, 450))
 	_assert_eq(int(game_root.game.chapter_one_progress.get("line_index")), 1, "a click on the narration should read the next line")
 	var line := Harness.find_node_by_name(game_root, "OpeningNarrationLine") as Label
-	_assert_eq(line.text, "看来你又一次遗忘了我……", "the panel should show the next line")
+	_assert_eq(line.text, "？？？：看来你又一次遗忘了我……", "the panel should show the next line behind the speaker tag")
 
 
 func _test_the_knock_sounds_on_its_line_and_settings_pauses_it(game_root) -> void:

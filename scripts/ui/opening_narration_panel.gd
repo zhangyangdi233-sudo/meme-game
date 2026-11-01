@@ -1,6 +1,7 @@
 class_name OpeningNarrationPanel
 extends Control
-## Chapter one's opening narration over the world: two seconds of true black, then the current line, one at a time.
+## Chapter one's opening narration over the world: two seconds of true black, then the current line behind its speaker
+## tag, one at a time.
 ## It mounts the Layout scene `scenes/ui/opening_narration.tscn`.
 ## While in the tree it watches the chapter progress, the language and whether settings is open, and repaints itself.
 ## The line uses the language's formal font. A click on a shown line raises OPENING_NARRATION_ADVANCED for the host;
@@ -83,7 +84,8 @@ func _repaint() -> void:
 		return
 	var lines: Array = NarrativeSessionCatalogScript.opening_lines(_locale)
 	var line_index := int(_progress.get("line_index", 0))
-	_line.text = str(lines[line_index]) if line_index < lines.size() else ""
+	var speaker := NarrativeSessionCatalogScript.opening_speaker(_locale)
+	_line.text = speaker + str(lines[line_index]) if line_index < lines.size() else ""
 	var font := LocaleFont.font(_locale)
 	_line.add_theme_font_override("font", font)
 	_hint.add_theme_font_override("font", font)

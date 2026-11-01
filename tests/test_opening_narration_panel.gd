@@ -1,6 +1,6 @@
 extends SceneTree
-## The opening narration panel: two seconds of true black, then the current line of chapter one's opening in the
-## chosen language and its formal font. It repaints from the chapter progress model, holds while settings is open,
+## The opening narration panel: two seconds of true black, then the current line of chapter one's opening behind its
+## speaker tag, in the chosen language and its formal font. It repaints from the chapter progress model, holds while settings is open,
 ## and a click raises the advance intent only while a line is shown.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -44,6 +44,7 @@ func _run() -> void:
 	await _test_settings_holds_the_black_and_the_clicks()
 	await _test_a_click_advances_only_while_a_line_is_shown()
 	await _test_a_complete_narration_shows_no_line()
+	await _test_every_language_reads_from_first_line_to_last()
 
 
 func _test_black_for_two_seconds_then_the_first_line() -> void:
@@ -61,7 +62,7 @@ func _test_black_for_two_seconds_then_the_first_line() -> void:
 	panel._process(0.6)
 	_assert_true(not black.visible, "the black should lift after two seconds")
 	_assert_true(line.visible, "the first line should show after the black")
-	_assert_eq(line.text, str(CatalogScript.opening_lines("zh")[0]), "the first line should come from the catalog")
+	_assert_eq(line.text, _spoken("zh", 0), "the first line should come from the catalog behind the speaker tag")
 	var hint := Harness.find_node_by_name(panel, "OpeningNarrationHint") as Label
 	_assert_true(hint != null and hint.visible and not hint.text.is_empty(), "a hint should say how to continue")
 	await _unmount(panel)
@@ -74,12 +75,12 @@ func _test_the_line_follows_the_progress_and_the_language() -> void:
 	panel._process(2.1)
 	var line := Harness.find_node_by_name(panel, "OpeningNarrationLine") as Label
 	_write_progress(ProgressScript.advance_narration(ProgressScript.initial()))
-	_assert_eq(line.text, str(CatalogScript.opening_lines("zh")[1]), "advancing the progress should repaint the next line")
+	_assert_eq(line.text, _spoken("zh", 1), "advancing the progress should repaint the next line")
 	_write(PropertyKeysScript.LOCALE, "ja")
-	_assert_eq(line.text, str(CatalogScript.opening_lines("ja")[1]), "switching to Japanese should repaint the line")
+	_assert_eq(line.text, _spoken("ja", 1), "switching to Japanese should repaint the line")
 	_assert_eq(line.get_theme_font("font"), LocaleFont.font("ja"), "the Japanese line should use the Japanese formal font")
 	_write(PropertyKeysScript.LOCALE, "en")
-	_assert_eq(line.text, str(CatalogScript.opening_lines("en")[1]), "switching to English should repaint the line")
+	_assert_eq(line.text, _spoken("en", 1), "switching to English should repaint the line")
 	_assert_eq(line.get_theme_font("font"), LocaleFont.font("en"), "the English line should use the English formal font")
 	_write(PropertyKeysScript.LOCALE, "zh")
 	await _unmount(panel)
@@ -136,6 +137,31 @@ func _test_a_complete_narration_shows_no_line() -> void:
 	panel._gui_input(_click())
 	_assert_eq(_heard, [], "a complete narration should not raise the advance intent")
 	await _unmount(panel)
+
+
+func _test_every_language_reads_from_first_line_to_last() -> void:
+	for locale_code in ["zh", "ja", "en"]:
+		_write_progress(ProgressScript.initial())
+		_write(PropertyKeysScript.LOCALE, locale_code)
+		var panel := await _mount()
+		panel._process(2.1)
+		var line := Harness.find_node_by_name(panel, "OpeningNarrationLine") as Label
+		var read := ProgressScript.initial()
+		var shown := 0
+		while ProgressScript.is_reading_narration(read):
+			_assert_true(line.visible, "%s line %d should be on screen" % [locale_code, shown])
+			_assert_eq(line.text, _spoken(locale_code, shown), "%s should show line %d behind the speaker tag" % [locale_code, shown])
+			read = ProgressScript.advance_narration(read)
+			_write_progress(read)
+			shown += 1
+		_assert_eq(shown, ProgressScript.OPENING_LINE_COUNT, "%s should read every line" % locale_code)
+		_assert_true(not line.visible, "%s should end after its last line" % locale_code)
+		await _unmount(panel)
+	_write(PropertyKeysScript.LOCALE, "zh")
+
+
+func _spoken(locale_code: String, line_index: int) -> String:
+	return CatalogScript.opening_speaker(locale_code) + str(CatalogScript.opening_lines(locale_code)[line_index])
 
 
 func _mount() -> Control:

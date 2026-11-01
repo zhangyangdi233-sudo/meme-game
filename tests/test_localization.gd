@@ -277,7 +277,7 @@ func _test_language_selection_and_settings_ui() -> void:
 		narration._process(2.1)
 		var narration_line := _find_ui_node(game_root, "OpeningNarrationLine") as Label
 		var narration_hint := _find_ui_node(game_root, "OpeningNarrationHint") as Label
-		_assert_eq(narration_line.text, "Hello.", "the English opening should read the English narration")
+		_assert_eq(narration_line.text, "???: Hello.", "the English opening should read the English narration")
 		_assert_eq(narration_hint.text, "Click or tap to continue", "the opening hint should use the UI catalog")
 	var language_option := _find_ui_node(game_root, "SettingsLanguageOption") as OptionButton
 	var manual_save := _find_ui_node(game_root, "SettingsManualSaveButton") as Button

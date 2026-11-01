@@ -1,4 +1,9 @@
 {
+  "opening_speaker": {
+    "zh": "？？？：",
+    "ja": "？？？：",
+    "en": "???: "
+  },
   "opening": [
     {
       "id": "opening_01",

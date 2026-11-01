@@ -59,7 +59,7 @@ The basement NPCs' one route (`conversation_mode` `linear`, routes from `Languag
 _Avoid_: choice buttons or a continue button in the basement, a key that types several units, an understanding roll that cuts the route short
 
 **Opening narration**:
-Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time after two seconds of black by `OpeningNarrationPanel` (Layout scene `scenes/ui/opening_narration.tscn`) while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
+Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time behind the speaker tag (`opening_speaker`: `？？？：`, `???: ` in English) after two seconds of black by `OpeningNarrationPanel` (Layout scene `scenes/ui/opening_narration.tscn`) while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
 _Avoid_: prologue (the retired transmission overlay), a timer that advances lines, the UI catalog for the lines themselves
 
 **Floor look**:
