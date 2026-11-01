@@ -25,6 +25,8 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 		return
 	_watch.stop()
 	if _language_overlay != null and is_instance_valid(_language_overlay):
+		# Leave the tree now: a sibling waiting to be freed would make the new overlay lose its name.
+		_language_overlay.get_parent().remove_child(_language_overlay)
 		_language_overlay.queue_free()
 	_choice_buttons.clear()
 	_language_overlay_first_run = first_run

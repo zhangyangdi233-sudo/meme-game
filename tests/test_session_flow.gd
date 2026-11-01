@@ -5,6 +5,7 @@ var _failures: Array[String] = []
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
+const TEST_PREFERENCES_PATH := "user://test_session_flow_preferences.cfg"
 const SESSION_IDS := ["main_menu", "prologue", "gameplay", "narrative", "ending"]
 
 
@@ -33,6 +34,7 @@ func _run() -> void:
 		return
 	var game_root = scene.instantiate()
 	game_root._save_path = TEST_SAVE_PATH
+	game_root._locale.preferences_path = TEST_PREFERENCES_PATH
 	root.add_child(game_root)
 	await process_frame
 	game_root._locale.set_locale("zh")
@@ -616,9 +618,9 @@ func _key_event(keycode: int) -> InputEventKey:
 
 
 func _remove_test_save() -> void:
-	var absolute_path := ProjectSettings.globalize_path(TEST_SAVE_PATH)
-	if FileAccess.file_exists(TEST_SAVE_PATH):
-		DirAccess.remove_absolute(absolute_path)
+	for path in [TEST_SAVE_PATH, TEST_PREFERENCES_PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _assert_true(condition: bool, message: String) -> void:
