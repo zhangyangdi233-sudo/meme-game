@@ -34,12 +34,14 @@
           "state": {"objects": {"exit_lamp": true}}
         }
       ],
+      "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "2": {
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [],
+      "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": [
         {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
@@ -48,18 +50,21 @@
     "3": {
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [],
+      "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "4": {
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [],
+      "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "5": {
       "words": {"zh": [], "ja": [], "en": []},
       "rules": [],
+      "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     }

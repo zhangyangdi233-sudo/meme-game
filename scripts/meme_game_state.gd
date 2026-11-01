@@ -169,6 +169,8 @@ var history_entries: Array:
 		return _read_run_array(PropertyKeysScript.HISTORY_ENTRIES)
 
 var sentence_records: Array = []
+## Where the basement's rooms are read from. Test seam: the authored rooms unless a test hands in its own.
+var room_data_path: String = RoomContentScript.ROOMS_PATH
 var collected_char_units: Array:
 	get:
 		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
@@ -1377,15 +1379,21 @@ func advance_typed_reality_character() -> Dictionary:
 	return result
 
 
-## The basement NPC's conversation was finished: with this round's post the round is delivered and its exit opens;
-## without one the NPC sends the player back to the computer.
+## The basement NPC's conversation was finished: an escape of the room may hold now; if not the NPC sends the player
+## back to the computer.
 func _deliver_basement_round() -> void:
-	if _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, has_posted_this_round())):
-		_unlock_app(ChapterOneProgressScript.app_unlocked_by_delivery(chapter_one_progress))
-		return
+	_open_exit_if_escaped(has_posted_this_round())
 	if ChapterOneProgressScript.exit_open(chapter_one_progress):
 		return
 	conversation_feedback += "\n" + GameLocaleScript.for_locale(conversation_locale).translate(BASEMENT_NO_POST_LINE)
+
+
+## Delivers the round when one of its room's escapes holds. Once open the exit stays open, whatever is posted later.
+func _open_exit_if_escaped(talked_with_post: bool = false) -> void:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	var escaped := RoomRulesScript.escaped(_current_room(), world_rules, current_round, talked_with_post)
+	if _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, escaped)):
+		_unlock_app(ChapterOneProgressScript.app_unlocked_by_delivery(chapter_one_progress))
 
 
 func _resolve_key_npc_clue_attempt() -> Dictionary:
@@ -1584,7 +1592,7 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 
 
 func get_pickup_unit_pool(locale_code: String = "zh") -> Array:
-	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code)
+	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code, room_data_path)
 
 
 func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
@@ -1718,7 +1726,12 @@ func get_world_rules() -> Array:
 ## The basement room as its rules in force left it: brightness, hum and objects. Empty outside the basement.
 func room_world_state() -> Dictionary:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
-	return RoomRulesScript.world_state(RoomContentScript.room(current_round), world_rules, current_round)
+	return RoomRulesScript.world_state(_current_room(), world_rules, current_round)
+
+
+## The room of the basement round being played, or empty outside the basement.
+func _current_room() -> Dictionary:
+	return RoomContentScript.room(ChapterOneProgressScript.round_of(chapter_one_progress), room_data_path)
 
 
 ## A room's rules hold in that room only. The tower's rules carry no round and stay.
@@ -1802,6 +1815,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		var floor3_before := floor3_task_complete
 		var floor4_before := floor4_task_complete
 		_apply_world_rule(parsed, sentence, locale_code)
+		_open_exit_if_escaped()
 		result["floor3_task_completed"] = floor3_task_complete and not floor3_before
 		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
 	change_pollution(pollution_gain)
@@ -1820,7 +1834,7 @@ func _judge_sentence(units: Array, locale_code: String) -> Dictionary:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
 	if current_round <= 0:
 		return RuleEngineScript.parse(units, locale_code)
-	return RoomRulesScript.judge(units, locale_code, RoomContentScript.room(current_round))
+	return RoomRulesScript.judge(units, locale_code, _current_room())
 
 
 func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String) -> void:

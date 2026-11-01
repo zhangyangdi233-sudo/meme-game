@@ -7,6 +7,8 @@ const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 
+const RULE_ESCAPE_ROOMS := "res://tests/fixtures/rooms_rule_escape.json"
+
 var _failures: Array[String] = []
 
 
@@ -18,6 +20,12 @@ func _init() -> void:
 	test_the_next_round_starts_from_its_own_room()
 	test_a_debug_jump_forgets_the_rooms_rules()
 	test_a_rule_alone_does_not_open_the_exit()
+	test_a_rule_escape_opens_the_exit()
+	test_the_exit_stays_open_when_the_rule_is_taken_back()
+	test_a_rule_escape_earns_what_a_delivery_earns()
+	test_the_other_escape_still_works_in_a_room_with_two()
+	test_a_rule_escape_survives_a_save()
+	test_an_escape_holds_in_its_own_round_only()
 	test_only_the_rooms_words_can_be_picked_up()
 	test_the_tower_keeps_its_rules()
 	if _failures.is_empty():
@@ -91,6 +99,60 @@ func test_a_rule_alone_does_not_open_the_exit() -> void:
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should still open it")
 
 
+func test_a_rule_escape_opens_the_exit() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["我", "想", "回", "家"])
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a green post should open nothing")
+	_post(game, ["灯", "亮"])
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "another rule should open nothing")
+	_post(game, ["出", "口", "存", "在"])
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the rule should open the exit without the NPC")
+
+
+func test_the_exit_stays_open_when_the_rule_is_taken_back() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["出", "口", "存", "在"])
+	_post(game, ["出", "口", "不", "存", "在"])
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "an opened exit should not trap the player again")
+
+
+func test_a_rule_escape_earns_what_a_delivery_earns() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["出", "口", "存", "在"])
+	_assert_true(game.is_app_unlocked("social"), "round one's way out should unlock the social feed however it was found")
+	_finish_conversation(game)
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the NPC afterwards should change nothing")
+
+
+func test_the_other_escape_still_works_in_a_room_with_two() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["灯", "亮"])
+	_finish_conversation(game)
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should open the same room")
+
+
+func test_a_rule_escape_survives_a_save() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["出", "口", "存", "在"])
+	var loaded := StateScript.new()
+	loaded.room_data_path = RULE_ESCAPE_ROOMS
+	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
+	_assert_true(ProgressScript.exit_open(loaded.chapter_one_progress), "the opened exit should come back from the save")
+	_assert_true(loaded.leave_basement_round(), "the loaded exit should lead on")
+
+
+func test_an_escape_holds_in_its_own_round_only() -> void:
+	var game := _rule_escape_basement()
+	_post(game, ["出", "口", "存", "在"])
+	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "round two should start shut")
+	_post(game, ["灯", "亮"])
+	_finish_conversation_with(game, 2)
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post and the NPC should not open a rule-only room")
+	_post(game, ["出", "口", "存", "在"])
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "round two should need its own sentence")
+
+
 func test_only_the_rooms_words_can_be_picked_up() -> void:
 	var game := _basement()
 	_assert_true("灯" in game.get_pickup_unit_pool("zh"), "a room word should be on offer")
@@ -121,13 +183,23 @@ func _basement() -> MemeGameState:
 	return game
 
 
+func _rule_escape_basement() -> MemeGameState:
+	var game := _basement()
+	game.room_data_path = RULE_ESCAPE_ROOMS
+	return game
+
+
 func _post(game: MemeGameState, units: Array) -> Dictionary:
 	game.free_sentence_units = units
 	return game.submit_free_sentence("zh")
 
 
 func _finish_conversation(game: MemeGameState) -> void:
-	_assert_true(game.start_typed_reality_conversation("basement_npc_1", "basement_npc", "护灯人"), "the NPC should talk")
+	_finish_conversation_with(game, 1)
+
+
+func _finish_conversation_with(game: MemeGameState, round_number: int) -> void:
+	_assert_true(game.start_typed_reality_conversation("basement_npc_%d" % round_number, "basement_npc", "护灯人"), "the NPC should talk")
 	while true:
 		while game.conversation_phase == "typing":
 			game.advance_typed_reality_character()

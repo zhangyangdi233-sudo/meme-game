@@ -2,8 +2,8 @@ class_name ChapterOneProgress
 extends RefCounted
 ## Chapter one's progress rules on one progress dictionary: the opening narration is read one line at a time, the
 ## knock sounds on its line, and the door opens into the basement only once the narration is read and the knock heard.
-## The basement is played in five rounds: a round is delivered when its NPC's conversation is finished with a post
-## made in that round, which opens its exit; leaving through it starts the next round, and the fifth exit leads to the
+## The basement is played in five rounds: a round is delivered when one of its room's escapes holds (`RoomRules.escaped`),
+## which opens its exit; leaving through it starts the next round, and the fifth exit leads to the
 ## white door passage. Walking into its light reaches the next level of `LEVEL_ORDER`.
 ## Every rule returns the next progress; a refused step returns the progress unchanged. `MemeGameState` keeps the
 ## dictionary in the `chapter_one_progress` model and saves it with the run.
@@ -161,10 +161,9 @@ static func open_door(progress: Dictionary) -> Dictionary:
 	return _enter_level(progress, next_level(PHASE_OPENING))
 
 
-## This round's NPC conversation was finished. It counts only with a post made in this round; a post from an earlier
-## round does not carry over.
-static func deliver(progress: Dictionary, posted_this_round: bool) -> Dictionary:
-	if phase_of(progress) != PHASE_BASEMENT or bool(progress.get("delivered", false)) or not posted_this_round:
+## One of the round's escapes held: the round is delivered and stays so until the player leaves it.
+static func deliver(progress: Dictionary, escaped: bool) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT or bool(progress.get("delivered", false)) or not escaped:
 		return progress
 	var next := progress.duplicate(true)
 	next["delivered"] = true

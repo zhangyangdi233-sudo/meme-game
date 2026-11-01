@@ -1,7 +1,7 @@
 class_name RoomContent
 extends RefCounted
-## Loads the basement's room data from JSON: one room per round, with its words, its rules, its state and its one-shot
-## events. See ADR 0009. Rooms are read-only; `RoomRules` judges against them.
+## Loads the basement's room data from JSON: one room per round, with its words, its rules, its escapes, its state and
+## its one-shot events. See ADR 0009. Rooms are read-only; `RoomRules` judges against them.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ContentJsonScript = preload("res://framework/content_json.gd")
@@ -61,7 +61,7 @@ static func _check_room(checked: Dictionary, label: String, problems: Array[Stri
 		if not checked.get(field_name) is Dictionary:
 			problems.append("%s has no %s" % [label, field_name])
 			return
-	for field_name: String in ["rules", "events"]:
+	for field_name: String in ["rules", "escapes", "events"]:
 		if not checked.get(field_name) is Array:
 			problems.append("%s has no %s" % [label, field_name])
 			return
@@ -79,6 +79,7 @@ static func _check_room(checked: Dictionary, label: String, problems: Array[Stri
 	for rule: Variant in checked["rules"]:
 		_check_rule(rule, label, problems)
 		_check_writable(rule, checked, label, problems)
+	_check_escapes(checked, label, problems)
 	var event_ids: Array[String] = []
 	for event: Variant in checked["events"]:
 		if not event is Dictionary or str(event.get("id", "")).is_empty() or str(event.get("trigger", "")).is_empty():
@@ -87,6 +88,21 @@ static func _check_room(checked: Dictionary, label: String, problems: Array[Stri
 			problems.append("%s repeats the event %s" % [label, event["id"]])
 		else:
 			event_ids.append(str(event["id"]))
+
+
+## A room nobody can leave would stop the run, and a rule escape naming no rule of its room would never open.
+static func _check_escapes(checked: Dictionary, label: String, problems: Array[String]) -> void:
+	if (checked["escapes"] as Array).is_empty():
+		problems.append("%s has no escape" % label)
+	var rule_ids: Array = []
+	for rule: Variant in checked["rules"]:
+		if rule is Dictionary:
+			rule_ids.append(rule.get("id"))
+	for escape: Variant in checked["escapes"]:
+		if not escape is Dictionary or escape.get("kind") not in RoomRulesScript.ESCAPE_KINDS:
+			problems.append("%s has an unknown escape %s" % [label, escape])
+		elif escape["kind"] == RoomRulesScript.ESCAPE_RULE and escape.get("rule") not in rule_ids:
+			problems.append("%s has an escape naming no rule of its room: %s" % [label, escape.get("rule")])
 
 
 static func _check_rule(rule: Variant, label: String, problems: Array[String]) -> void:

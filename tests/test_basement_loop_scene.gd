@@ -51,6 +51,7 @@ func _run() -> void:
 	await _test_the_fifth_exit_leads_through_the_light_to_the_demo_end(game_root)
 	await _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root)
 	await _test_a_red_post_changes_the_room_and_stays_in_the_save(game_root)
+	await _test_a_rule_escape_opens_the_standing_room(game_root)
 	game_root.queue_free()
 	await process_frame
 
@@ -257,6 +258,21 @@ func _test_a_red_post_changes_the_room_and_stays_in_the_save(game_root) -> void:
 	_assert_true(game_root._save_progress(), "the changed room should save")
 	await _reload(game_root)
 	_assert_eq(_room_light(game_root).light_energy, lit, "the changed room should come back from the save")
+
+
+func _test_a_rule_escape_opens_the_standing_room(game_root) -> void:
+	game_root.game.jump_to_basement_round(1)
+	await process_frame
+	await process_frame
+	game_root.game.room_data_path = "res://tests/fixtures/rooms_rule_escape.json"
+	var room_before: Node = Harness.find_node_by_name(game_root, "BasementRoom")
+	game_root.game.free_sentence_units = ["出", "口", "存", "在"]
+	game_root.game.submit_free_sentence("zh")
+	for frame in 90:
+		await process_frame
+	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") == room_before, "the rule should open the exit without a rebuild")
+	await _walk_out(game_root)
+	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 2, "the exit the rule opened should let the player out")
 
 
 func _room_light(game_root) -> OmniLight3D:

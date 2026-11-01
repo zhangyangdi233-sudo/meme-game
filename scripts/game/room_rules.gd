@@ -1,9 +1,15 @@
 class_name RoomRules
 extends RefCounted
 ## Pure rules over a room's data (ADR 0009): `judge` reads a sentence with the rule engine and looks it up in the room,
-## and `world_state` lays the rules in force over the room's own state. A red post is a sentence that hit a rule.
+## `world_state` lays the rules in force over the room's own state, and `escaped` answers whether one of the room's
+## escapes holds. A red post is a sentence that hit a rule.
 
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+
+## The ways out a room can declare: this round's post and the NPC's conversation, or one of its rules in force.
+const ESCAPE_DELIVERY := "delivery"
+const ESCAPE_RULE := "rule"
+const ESCAPE_KINDS := [ESCAPE_DELIVERY, ESCAPE_RULE]
 
 
 ## Answers the same fields as `RuleEngine.parse`, plus the room's `rule_id`. The tier is `rule` (a red post) only for a
@@ -29,19 +35,40 @@ static func judge(units: Array, locale: String, room: Dictionary) -> Dictionary:
 	return result
 
 
-## The room's state with the rules in force laid over it, in the room's rule order. `rules` is the world rules map; only
-## rules made in `round_number` count, at their newest polarity. Empty for no room.
+## The room's state with the rules in force laid over it, in the room's rule order. Empty for no room.
 static func world_state(room: Dictionary, rules: Dictionary, round_number: int) -> Dictionary:
 	if room.is_empty():
 		return {}
 	var state: Dictionary = (room.get("state", {}) as Dictionary).duplicate(true)
+	for rule: Dictionary in _rules_in_force(room, rules, round_number):
+		_lay_over(state, rule.get("state", {}))
+	return state
+
+
+## Whether any of the room's escapes holds. `talked_with_post` says the NPC's conversation was just finished with a
+## post made in this round.
+static func escaped(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> bool:
+	var rule_ids: Array = _rules_in_force(room, rules, round_number).map(func(rule: Dictionary) -> Variant: return rule.get("id"))
+	for escape: Dictionary in room.get("escapes", []):
+		match escape.get("kind"):
+			ESCAPE_DELIVERY:
+				if talked_with_post:
+					return true
+			ESCAPE_RULE:
+				if escape.get("rule") in rule_ids:
+					return true
+	return false
+
+
+## The room's rules that hold now, in the room's order: `rules` is the world rules map, and only rules made in
+## `round_number` count, at their newest polarity.
+static func _rules_in_force(room: Dictionary, rules: Dictionary, round_number: int) -> Array[Dictionary]:
+	var in_force: Array[Dictionary] = []
 	for rule: Dictionary in room.get("rules", []):
 		var entry: Variant = rules.get("%s|%s" % [rule.get("subject", ""), rule.get("predicate", "")])
-		if not entry is Dictionary or int(entry.get("round", 0)) != round_number:
-			continue
-		if bool(entry.get("negated", false)) == bool(rule.get("negated", false)):
-			_lay_over(state, rule.get("state", {}))
-	return state
+		if entry is Dictionary and int(entry.get("round", 0)) == round_number and bool(entry.get("negated", false)) == bool(rule.get("negated", false)):
+			in_force.append(rule)
+	return in_force
 
 
 static func _lay_over(state: Dictionary, change: Dictionary) -> void:

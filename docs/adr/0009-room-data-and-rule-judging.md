@@ -2,7 +2,7 @@
 
 Status: accepted
 
-Each basement round has one room in `content/basement_rooms.json`, read through Framework `ContentJson` by `RoomContent`. A room lists its words per language, its optional vocabulary, its rules, its state (`brightness`, `hum`, `objects`) and its one-shot events. A planner changes a room by editing that file; `RoomContent.validate` fails a test on an authoring slip.
+Each basement round has one room in `content/basement_rooms.json`, read through Framework `ContentJson` by `RoomContent`. A room lists its words per language, its optional vocabulary, its rules, its escapes, its state (`brightness`, `hum`, `objects`) and its one-shot events. A planner changes a room by editing that file; `RoomContent.validate` fails a test on an authoring slip.
 
 Judging has two steps with a fixed boundary. `RuleEngine.read_sentence` answers what the sentence says: subject, predicate and polarity, in any word order, through the engine's word tables plus the room's vocabulary. `RoomRules.judge` answers whether that is a rule here: it looks the reading up in the room, then falls back to a loose match that accepts a rule whose words all lie somewhere in the sentence. A hit is tier `rule`, a red post. Everything else stays `misread` or `noise`, a green post, and changes nothing.
 
@@ -14,7 +14,9 @@ Judging has two steps with a fixed boundary. `RuleEngine.read_sentence` answers 
 
 **Words and rules in other languages.** The file keeps `zh`, `ja` and `en` fields from the start. An empty word list keeps the whole pool, and a rule already reads in every language through the engine's word tables, so a room is playable before its translation exists.
 
-**The exit is not part of this.** Rules change the room and never open the exit. #124 moves the exit conditions into room data.
+**The exit is room data too.** A room lists its `escapes`, and any one that holds delivers the round (`RoomRules.escaped`). `delivery` is this round's post plus the NPC's conversation; `rule` names one of the room's rules in force. A rule changes the room either way; it opens the exit only where the room declares it. All five rooms start on `delivery`, so #120's answer changes the data, not the code. A later way out (the NPC behind the door, the X-ray) adds a kind and the fact that decides it.
+
+**Opening is remembered, not derived.** The room's look follows the rules in force, but the exit stays open once earned: `delivered` in the chapter progress is saved, and taking the rule back does not shut it. A player who wrote their way out is never trapped by their next post. The saved field keeps its name, so older saves load unchanged. Whatever opens the exit earns what a delivery earns, because a round left by a rule must not leave its app locked.
 
 The tower still uses `RuleEngine.parse` with `SUPPORTED_RULES`. It is out of the demo's path (`LEVEL_ORDER`), and rewriting it would serve nothing.
 

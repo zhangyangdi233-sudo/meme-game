@@ -30,6 +30,9 @@ func _init() -> void:
 	test_a_negated_sentence_is_its_own_rule()
 	test_rules_change_the_rooms_state()
 	test_only_this_rounds_rules_count()
+	test_any_of_a_rooms_escapes_opens_the_exit()
+	test_a_rule_escape_asks_for_its_rule_in_force()
+	test_every_authored_round_keeps_the_post_and_the_npc()
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
 	test_every_round_one_word_can_be_picked_up()
@@ -103,6 +106,39 @@ func test_only_this_rounds_rules_count() -> void:
 	_assert_eq(RoomRulesScript.world_state({}, {}, 0), {}, "no room should have no state")
 
 
+func test_any_of_a_rooms_escapes_opens_the_exit() -> void:
+	var room := ROOM.duplicate(true)
+	room["escapes"] = [{"kind": "delivery"}, {"kind": "rule", "rule": "exit_shown"}]
+	var exit_rule := {"exit|exists": {"negated": false, "round": 1}}
+	_assert_true(not RoomRulesScript.escaped(room, {}, 1, false), "nothing done should open nothing")
+	_assert_true(RoomRulesScript.escaped(room, {}, 1, true), "the post and the NPC alone should open a room with both escapes")
+	_assert_true(RoomRulesScript.escaped(room, exit_rule, 1, false), "the rule alone should open a room with both escapes")
+	var talk_only := ROOM.duplicate(true)
+	talk_only["escapes"] = [{"kind": "delivery"}]
+	_assert_true(not RoomRulesScript.escaped(talk_only, exit_rule, 1, false), "a rule should open only a room that declares it")
+	var rule_only := ROOM.duplicate(true)
+	rule_only["escapes"] = [{"kind": "rule", "rule": "exit_shown"}]
+	_assert_true(not RoomRulesScript.escaped(rule_only, {}, 1, true), "the NPC should open only a room that declares it")
+	_assert_true(not RoomRulesScript.escaped({}, exit_rule, 0, true), "no room should have no escape")
+
+
+func test_a_rule_escape_asks_for_its_rule_in_force() -> void:
+	var room := ROOM.duplicate(true)
+	room["escapes"] = [{"kind": "rule", "rule": "light_off"}]
+	_assert_true(RoomRulesScript.escaped(room, {"light|lit": {"negated": true, "round": 1}}, 1, false), "a negated rule can be the way out")
+	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": {"negated": false, "round": 1}}, 1, false), "the other polarity is another rule")
+	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": {"negated": true, "round": 2}}, 1, false), "another round's rule should not open this exit")
+	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": "broken"}, 1, false), "a broken saved rule should open nothing")
+
+
+func test_every_authored_round_keeps_the_post_and_the_npc() -> void:
+	for round_number in range(1, 6):
+		var room: Dictionary = RoomContentScript.room(round_number)
+		_assert_eq(room.get("escapes"), [{"kind": "delivery"}], "round %d should open by the post and the NPC" % round_number)
+		_assert_true(RoomRulesScript.escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
+		_assert_true(not RoomRulesScript.escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)
+
+
 func test_the_authored_rooms_are_valid() -> void:
 	var report: Dictionary = RoomContentScript.validate()
 	_assert_true(bool(report.get("ok", false)), "the authored rooms should be valid: %s" % [report.get("problems")])
@@ -139,6 +175,7 @@ func test_a_room_can_carry_state_and_one_shot_events() -> void:
 	var rooms := {"rooms": {"1": {
 		"words": {"zh": [], "ja": [], "en": []},
 		"rules": [],
+		"escapes": [{"kind": "delivery"}],
 		"state": {"brightness": 0.0, "hum": 0.8, "objects": {"exit_lamp": false}},
 		"events": [{"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}],
 	}}}
@@ -154,7 +191,7 @@ func test_a_room_can_carry_state_and_one_shot_events() -> void:
 
 func test_validation_names_broken_rooms() -> void:
 	_assert_true(not RoomContentScript.problems_in({}, 1).is_empty(), "no rooms should be a problem")
-	var good := {"rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
+	var good := {"rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "escapes": [{"kind": "delivery"}], "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
 	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a plain room should be valid")
 	for breakage in [
 		func(room: Dictionary) -> void: room.erase("state"),
@@ -164,6 +201,12 @@ func test_validation_names_broken_rooms() -> void:
 		func(room: Dictionary) -> void: room["rules"] = [{"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {"objects": {"piano": true}}}],
 		func(room: Dictionary) -> void: room["events"] = [{"id": "x"}],
 		func(room: Dictionary) -> void: room["state"].erase("objects"),
+		func(room: Dictionary) -> void: room.erase("escapes"),
+		func(room: Dictionary) -> void: room["escapes"] = [],
+		func(room: Dictionary) -> void: room["escapes"] = ["delivery"],
+		func(room: Dictionary) -> void: room["escapes"] = [{"kind": "wish"}],
+		func(room: Dictionary) -> void: room["escapes"] = [{"kind": "rule"}],
+		func(room: Dictionary) -> void: room["escapes"] = [{"kind": "rule", "rule": "no_such_rule"}],
 		func(room: Dictionary) -> void:
 			room["words"]["zh"] = ["灯"]
 			room["rules"] = [{"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {}}],
