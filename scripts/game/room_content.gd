@@ -43,8 +43,8 @@ static func events(round_number: int, path: String = ROOMS_PATH) -> Array:
 	return ContentJsonScript.duplicate_array(room(round_number, path).get("events", []))
 
 
-static func validate(path: String = ROOMS_PATH) -> Dictionary:
-	var problems := problems_in(ContentJsonScript.load_dictionary_cached(path, "RoomContent"))
+static func validate(path: String = ROOMS_PATH, room_count: int = ChapterOneProgressScript.BASEMENT_ROUND_COUNT) -> Dictionary:
+	var problems := problems_in(ContentJsonScript.load_dictionary_cached(path, "RoomContent"), room_count)
 	return {"ok": problems.is_empty(), "problems": problems}
 
 
@@ -94,9 +94,10 @@ static func _check_rule_box(catalog: Dictionary, policy: Dictionary, problems: A
 		_check_rule(rule, "the rule box", problems)
 		if not rule is Dictionary:
 			continue
-		if str(rule.get("id", "")) in ids:
-			problems.append("the rule box repeats the rule %s" % rule["id"])
-		ids.append(str(rule.get("id", "")))
+		var rule_id := str(rule.get("id", ""))
+		if not rule_id.is_empty() and rule_id in ids:
+			problems.append("the rule box repeats the rule %s" % rule_id)
+		ids.append(rule_id)
 		if PollutionPolicyScript.is_barred(rule.get("subject"), policy):
 			problems.append("the rule box rule %s has a barred subject, so it could never hold" % rule.get("id", ""))
 

@@ -3,6 +3,7 @@ extends SceneTree
 ## the rule engine and looks it up in the room, `RoomContent` loads and checks the authored rooms.
 
 const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ContentJsonScript = preload("res://framework/content_json.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
@@ -231,6 +232,7 @@ func test_a_floor_shares_one_rule_box() -> void:
 	var path := "res://tests/fixtures/floor_two_rooms.json"
 	var catalog: Dictionary = ContentJsonScript.load_dictionary_cached(path, "test_room_rules")
 	_assert_eq(RoomContentScript.problems_in(catalog, 3), [] as Array[String], "a floor other than the basement should validate")
+	_assert_true(RoomContentScript.validate(path, 3).get("ok"), "a floor should validate with its own room count: %s" % [RoomContentScript.validate(path, 3).get("problems")])
 	var first: Dictionary = RoomContentScript.room(1, path)
 	var second: Dictionary = RoomContentScript.room(2, path)
 	_assert_eq((first["rules"] as Array).map(func(rule: Dictionary) -> String: return rule["id"]), ["light_on", "door_opens"], "a room should offer its rules in its own order")
@@ -248,7 +250,7 @@ func test_every_authored_round_draws_from_the_rule_box() -> void:
 	var catalog: Dictionary = ContentJsonScript.load_dictionary_cached(RoomContentScript.ROOMS_PATH, "test_room_rules")
 	var ids: Array = (catalog.get("rule_box", []) as Array).map(func(rule: Dictionary) -> Variant: return rule.get("id"))
 	_assert_true(not ids.is_empty(), "the basement should have a rule box")
-	for round_number in range(1, 6):
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		for listed: Variant in catalog["rooms"][str(round_number)]["rules"]:
 			_assert_true(listed is String and listed in ids, "round %d should name a rule of the box, not %s" % [round_number, listed])
 	_assert_eq((RoomContentScript.room(1)["rules"] as Array).map(func(rule: Dictionary) -> String: return rule["id"]), ["light_on", "light_off"], "round one should offer the light rules")
@@ -266,6 +268,7 @@ func test_validation_names_broken_rule_boxes() -> void:
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["rules"] = [catalog["rule_box"][0].duplicate()],
 		func(catalog: Dictionary) -> void: catalog.erase("rule_box"),
 		func(catalog: Dictionary) -> void: (catalog["rule_box"] as Array).append(catalog["rule_box"][0].duplicate()),
+		func(catalog: Dictionary) -> void: catalog["rule_box"].append_array([{"subject": "light", "predicate": "lit", "text": {}, "state": {}}, {"subject": "door", "predicate": "can_open", "text": {}, "state": {}}]),
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["rules"] = [],
 	]:
 		var broken := good.duplicate(true)
