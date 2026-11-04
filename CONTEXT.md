@@ -39,15 +39,19 @@ Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_pro
 _Avoid_: the panel or the stage writing the progress, a knock replayed after it was heard, inferring the basement from the world, an earlier round's post counting for this one
 
 **Room data**:
-One room per basement round in `content/basement_rooms.json`, read through `RoomContent`: the words it offers per language, its vocabulary, its rules, its escapes, its state (brightness, hum, objects) and its one-shot events. Editing the file changes a room without touching code; `RoomContent.validate` reports a broken one. Words a language has not written keep the whole pool. See ADR 0009.
-_Avoid_: a rule table per round in code, a planner editing GDScript to change a room
+One room per basement round in `content/basement_rooms.json`, read through `RoomContent`: the words it offers per language, its vocabulary, the rules of the Rule box it offers (by id), its escapes, its state (brightness, hum, objects) and its one-shot events. Editing the file changes a room without touching code; `RoomContent.validate` reports a broken one, including a room naming a rule the box lacks. Words a language has not written keep the whole pool. See ADR 0009.
+_Avoid_: a rule table per round in code, a planner editing GDScript to change a room, a room writing out a rule of its own
+
+**Rule box**:
+The `rule_box` of a floor's room file: every rule of the floor written once (id, subject, predicate, polarity, wording, the state it lays over). Each room names the ones it offers; `RoomContent.room` hands callers the room with those rules filled in, so a rule two rounds offer is one rule. The shape names no floor: a later floor is another file of the same shape. See ADR 0009.
+_Avoid_: a rule box per round, a basement-only rule box, copying a rule into the rooms that use it
 
 **Escape**:
 A way out of a basement round that its room declares under `escapes`: `delivery` (the NPC's conversation finished with a post made in this round) or `rule` (a named rule of the room in force). Any one of them delivers the round (`RoomRules.escaped`), checked when the conversation ends and when a red post lands. Once open the exit stays open until the player leaves, even if the rule is taken back. A room with no escape, an unknown kind or a rule it lacks fails `RoomContent.validate`. See ADR 0009.
 _Avoid_: an exit condition in code, a round number that decides how it opens, an exit that closes again
 
 **Red post**:
-A sentence that hit a rule of the current room (tier `rule`): `RoomRules.judge` reads it with the rule engine, any word order, the room's synonyms and a loose match, and the room changes. Anything else is a **green post** (`misread` or `noise`) and nothing changes. A rule is written into `world_rules` with its round; the room's look (`room_world_state`) is derived from the room and those rules, so it needs no save of its own, and leaving the round forgets them. The slip under the post button shows the last post in its color. The exit follows from a red post only when the room declares that rule as an Escape.
+A sentence that hit a rule the current room offers from its Rule box (tier `rule`): `RoomRules.judge` reads it with the rule engine, any word order, the room's synonyms and a loose match, and the room changes. Anything else is a **green post** (`misread` or `noise`) and nothing changes. A rule is written into `world_rules` with its round; the room's look (`room_world_state`) is derived from the room and those rules, so it needs no save of its own, and leaving the round forgets them. The slip under the post button shows the last post in its color. The exit follows from a red post only when the room declares that rule as an Escape.
 _Avoid_: a saved copy of the room's look, a rule carrying over to the next round, a green post changing anything
 
 **Word pollution**:

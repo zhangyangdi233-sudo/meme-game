@@ -1,0 +1,30 @@
+{
+  "rule_box": [
+    {"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {"objects": {"exit_lamp": true}}},
+    {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
+    {"id": "place_exists", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {"hum": 0.5}}
+  ],
+  "rooms": {
+    "1": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": ["light_on", "door_opens"],
+      "escapes": [{"kind": "rule", "rule": "door_opens"}],
+      "state": {"brightness": 0.5, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    },
+    "2": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": ["door_opens", "place_exists"],
+      "escapes": [{"kind": "delivery"}, {"kind": "rule", "rule": "place_exists"}],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    },
+    "3": {
+      "words": {"zh": [], "ja": [], "en": []},
+      "rules": [],
+      "escapes": [{"kind": "delivery"}],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "events": []
+    }
+  }
+}

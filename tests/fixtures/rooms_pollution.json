@@ -1,4 +1,12 @@
 {
+  "rule_box": [
+    {"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {}},
+    {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
+    {"id": "light_off", "subject": "light", "predicate": "lit", "negated": true, "text": {"zh": "灯不亮"}, "state": {"brightness": 0.3}},
+    {"id": "place_exists", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {}},
+    {"id": "exit_exists", "subject": "exit", "predicate": "exists", "text": {"zh": "出口存在"}, "state": {}},
+    {"id": "cola_exists", "subject": "cola", "predicate": "exists", "text": {"zh": "可乐存在"}, "state": {}}
+  ],
   "rooms": {
     "1": {
       "words": {"zh": [], "ja": [], "en": []},
@@ -6,14 +14,7 @@
         "subjects": {"zh": {"房门": "door", "可乐": "cola"}, "ja": {}, "en": {}},
         "predicates": {"zh": {}, "ja": {}, "en": {}}
       },
-      "rules": [
-        {"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {}},
-        {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
-        {"id": "light_off", "subject": "light", "predicate": "lit", "negated": true, "text": {"zh": "灯不亮"}, "state": {"brightness": 0.3}},
-        {"id": "place_exists", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {}},
-        {"id": "exit_exists", "subject": "exit", "predicate": "exists", "text": {"zh": "出口存在"}, "state": {}},
-        {"id": "cola_exists", "subject": "cola", "predicate": "exists", "text": {"zh": "可乐存在"}, "state": {}}
-      ],
+      "rules": ["door_opens", "light_on", "light_off", "place_exists", "exit_exists", "cola_exists"],
       "escapes": [{"kind": "delivery"}, {"kind": "rule", "rule": "door_opens"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
@@ -24,10 +25,7 @@
         "subjects": {"zh": {"烛": "light"}, "ja": {}, "en": {}},
         "predicates": {"zh": {}, "ja": {}, "en": {}}
       },
-      "rules": [
-        {"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {}},
-        {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}}
-      ],
+      "rules": ["door_opens", "light_on"],
       "escapes": [{"kind": "rule", "rule": "door_opens"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []

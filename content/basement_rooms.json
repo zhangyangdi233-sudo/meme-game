@@ -1,4 +1,21 @@
 {
+  "rule_box": [
+    {
+      "id": "light_on",
+      "subject": "light",
+      "predicate": "lit",
+      "text": {"zh": "灯亮", "ja": "", "en": ""},
+      "state": {"brightness": 1.6}
+    },
+    {
+      "id": "light_off",
+      "subject": "light",
+      "predicate": "lit",
+      "negated": true,
+      "text": {"zh": "灯不亮", "ja": "", "en": ""},
+      "state": {"brightness": 0.3}
+    }
+  ],
   "rooms": {
     "1": {
       "words": {
@@ -10,23 +27,7 @@
         "subjects": {"zh": {}, "ja": {}, "en": {}},
         "predicates": {"zh": {}, "ja": {}, "en": {}}
       },
-      "rules": [
-        {
-          "id": "light_on",
-          "subject": "light",
-          "predicate": "lit",
-          "text": {"zh": "灯亮", "ja": "", "en": ""},
-          "state": {"brightness": 1.6}
-        },
-        {
-          "id": "light_off",
-          "subject": "light",
-          "predicate": "lit",
-          "negated": true,
-          "text": {"zh": "灯不亮", "ja": "", "en": ""},
-          "state": {"brightness": 0.3}
-        }
-      ],
+      "rules": ["light_on", "light_off"],
       "escapes": [{"kind": "delivery"}],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
