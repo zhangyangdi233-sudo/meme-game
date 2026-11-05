@@ -125,10 +125,10 @@ func test_the_tower_keeps_the_whole_pool() -> void:
 func test_the_guarantee_comes_from_the_floor_data() -> void:
 	var room: Dictionary = RoomContentScript.room(1)
 	_assert_eq(room.get("guaranteed_exit_rules"), GUARANTEED, "the floor should say how many exit rules a round drops")
-	_assert_eq(WordDropScript.exit_rules(room, "zh", {}, PolicyScript.settings()).size(), GUARANTEED, "a clean round should drop that many")
+	_assert_eq(WordDropScript.dropped_exit_rules(room, "zh", {}, PolicyScript.settings()).size(), GUARANTEED, "a clean round should drop that many")
 	var fewer := room.duplicate(true)
 	fewer["guaranteed_exit_rules"] = 1
-	_assert_eq(WordDropScript.exit_rules(fewer, "zh", {}, PolicyScript.settings()).size(), 1, "changing the number in the data should change the drop")
+	_assert_eq(WordDropScript.dropped_exit_rules(fewer, "zh", {}, PolicyScript.settings()).size(), 1, "changing the number in the data should change the drop")
 	var none := room.duplicate(true)
 	none["guaranteed_exit_rules"] = 0
 	_assert_eq(WordDropScript.units(none, "zh", {}, PolicyScript.settings()), (room["words"] as Dictionary)["zh"], "without a guarantee a round drops its own words only")

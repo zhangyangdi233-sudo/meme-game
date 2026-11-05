@@ -17,7 +17,7 @@ static func units(room: Dictionary, locale: String, polluted: Dictionary, policy
 	if listed.is_empty():
 		return PickupCharPoolScript.get_unit_pool(locale)
 	var result: Array = listed.duplicate()
-	for rule: Dictionary in exit_rules(room, locale, polluted, policy):
+	for rule: Dictionary in dropped_exit_rules(room, locale, polluted, policy):
 		for unit: String in sentence_units(rule, locale, room):
 			if unit not in result:
 				result.append(unit)
@@ -25,7 +25,7 @@ static func units(room: Dictionary, locale: String, polluted: Dictionary, policy
 
 
 ## The exit rules a round drops the words of: the first ones in the room's order that pollution has not used up.
-static func exit_rules(room: Dictionary, locale: String, polluted: Dictionary, policy: Dictionary) -> Array[Dictionary]:
+static func dropped_exit_rules(room: Dictionary, locale: String, polluted: Dictionary, policy: Dictionary) -> Array[Dictionary]:
 	var wanted := int(room.get("guaranteed_exit_rules", 0))
 	var result: Array[Dictionary] = []
 	for rule: Dictionary in RoomRulesScript.exit_rules(room):

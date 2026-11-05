@@ -179,7 +179,9 @@ func test_every_round_one_word_can_be_picked_up() -> void:
 	for word in words:
 		_assert_true(word in seeded, "%s should lie in some post" % word)
 	_assert_eq(RoomContentScript.words(1, "ja"), PoolScript.get_unit_pool("ja"), "an unwritten language should keep the whole pool")
-	_assert_eq(RoomContentScript.words(2, "zh"), PoolScript.get_unit_pool("zh"), "a room without its words should keep the whole pool")
+	_assert_eq(RoomContentScript.words(1, "zh", "res://tests/fixtures/floor_two_rooms.json"), PoolScript.get_unit_pool("zh"), "a room without its words should keep the whole pool")
+	for round_number in range(2, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		_assert_true(RoomContentScript.words(round_number, "zh") != PoolScript.get_unit_pool("zh"), "round %d should drop its own words, not the whole pool" % round_number)
 
 
 func test_the_rule_escape_fixture_is_valid() -> void:
@@ -306,7 +308,8 @@ func test_validation_holds_the_drop_guarantee() -> void:
 	_assert_true(_names(RoomContentScript.problems_in(authored, ChapterOneProgressScript.BASEMENT_ROUND_COUNT, bare_skeleton), "can drop only"), "桌子 and 椅子 sharing a polluted 子 should break the guarantee")
 	var unasked := few_exits.duplicate(true)
 	unasked.erase("guaranteed_exit_rules")
-	unasked["rooms"]["1"]["words"]["zh"] = []
+	for listed: Dictionary in (unasked["rooms"] as Dictionary).values():
+		listed["words"]["zh"] = []
 	_assert_eq(RoomContentScript.problems_in(unasked), [] as Array[String], "a floor that asks for no guarantee should not be held to one")
 
 

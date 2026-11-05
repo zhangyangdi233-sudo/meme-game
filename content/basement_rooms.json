@@ -33,7 +33,7 @@
       "events": []
     },
     "2": {
-      "words": {"zh": [], "ja": [], "en": []},
+      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
       "escapes": [
         {"kind": "delivery"},
@@ -51,7 +51,7 @@
       ]
     },
     "3": {
-      "words": {"zh": [], "ja": [], "en": []},
+      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit"],
       "escapes": [
         {"kind": "delivery"},
@@ -67,7 +67,7 @@
       "events": []
     },
     "4": {
-      "words": {"zh": [], "ja": [], "en": []},
+      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
       "escapes": [
         {"kind": "delivery"},
@@ -83,7 +83,7 @@
       "events": []
     },
     "5": {
-      "words": {"zh": [], "ja": [], "en": []},
+      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
       "escapes": [
         {"kind": "delivery"},

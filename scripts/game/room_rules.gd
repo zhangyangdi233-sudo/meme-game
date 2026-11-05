@@ -117,7 +117,7 @@ static func _loose_rule(room: Dictionary, units: Array, locale: String, negated:
 ## Whether a sentence of `listed` units can say the rule. `RoomContent.validate` asks, so an unwritable rule fails a test.
 static func can_be_written(rule: Dictionary, listed: Array, locale: String, room: Dictionary) -> bool:
 	var all_subjects := _all_subjects(locale, room)
-	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
+	var all_predicates := _all_predicates(locale, room)
 	return _names_lie_in(all_subjects, rule.get("subject"), listed, locale) and _names_lie_in(all_predicates, rule.get("predicate"), listed, locale)
 
 
@@ -133,7 +133,7 @@ static func subject_word_units(subject: String, locale: String, room: Dictionary
 
 ## The units of every word that means `predicate` in a language: one list per word.
 static func predicate_word_units(predicate: String, locale: String, room: Dictionary) -> Array:
-	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
+	var all_predicates := _all_predicates(locale, room)
 	var result: Array = []
 	for word: String in all_predicates:
 		if all_predicates[word] == predicate:
@@ -147,6 +147,10 @@ static func _names_lie_in(canon: Dictionary, meaning: Variant, units: Array, loc
 		if canon[word] == meaning and RuleEngineScript.word_units(word, locale).all(func(unit: String) -> bool: return unit in units):
 			return true
 	return false
+
+
+static func _all_predicates(locale: String, room: Dictionary) -> Dictionary:
+	return (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
 
 
 static func _all_subjects(locale: String, room: Dictionary) -> Dictionary:

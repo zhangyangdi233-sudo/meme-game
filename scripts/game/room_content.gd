@@ -162,11 +162,10 @@ static func _check_room(checked: Dictionary, catalog: Dictionary, label: String,
 	_check_objects(state, label, problems)
 	_check_offered(checked, box, label, problems)
 	var resolved := _resolved(checked, catalog)
-	# With a guarantee, an exit rule's words come from the drop, which `_check_drop_guarantee` checks instead.
+	# With a guarantee an exit rule's words come from the drop, so it is checked with the words the drop would add.
 	var dropped: Array = RoomRulesScript.exit_rules(resolved) if int(resolved["guaranteed_exit_rules"]) > 0 else []
 	for rule: Dictionary in resolved["rules"]:
-		if rule not in dropped:
-			_check_writable(rule, resolved, label, problems)
+		_check_writable(rule, resolved, label, problems, rule in dropped)
 	_check_escapes(resolved, label, problems)
 	var event_ids: Array[String] = []
 	for event: Variant in checked["events"]:
@@ -244,12 +243,20 @@ static func _fewest_clean_exits(checked: Dictionary, locale_code: String, earlie
 			polluted = PollutionPolicyScript.pollute(polluted, WordDropScript.sentence_units(rule, locale_code, checked), str(rule.get("subject", "")), locale_code, checked, policy)
 		var drop := WordDropScript.units(checked, locale_code, polluted, policy)
 		var clean := 0
-		for rule: Dictionary in WordDropScript.exit_rules(checked, locale_code, polluted, policy):
+		for rule: Dictionary in WordDropScript.dropped_exit_rules(checked, locale_code, polluted, policy):
 			var said := WordDropScript.sentence_units(rule, locale_code, checked)
-			if said.all(func(unit: String) -> bool: return unit in drop and PickupCharPoolScript.is_unit_in_pool(unit, locale_code)) and RoomRulesScript.can_be_written(rule, drop, locale_code, checked):
+			if said.all(func(unit: String) -> bool: return _seeded_somewhere(unit, locale_code)) and RoomRulesScript.can_be_written(rule, drop, locale_code, checked):
 				clean += 1
 		fewest = clean if fewest < 0 else mini(fewest, clean)
 	return maxi(fewest, 0)
+
+
+## Whether some post carries the unit, so the player can pick it up once it drops.
+static func _seeded_somewhere(unit: String, locale_code: String) -> bool:
+	for post_id: Variant in PickupCharPoolScript.get_post_ids():
+		if PickupCharPoolScript.is_unit_seeded_in_post(str(post_id), unit, locale_code):
+			return true
+	return false
 
 
 ## Every way to choose `size` of `items`, in their order.
@@ -279,12 +286,17 @@ static func _check_rule(rule: Variant, label: String, problems: Array[String]) -
 
 
 ## A rule the room's own words cannot say would silently never fire. A language without a word list has the whole pool.
-static func _check_writable(rule: Variant, checked: Dictionary, label: String, problems: Array[String]) -> void:
+## `dropped` says the drop adds the rule's own words when it is one of the round's exit rules.
+static func _check_writable(rule: Variant, checked: Dictionary, label: String, problems: Array[String], dropped: bool = false) -> void:
 	if not rule is Dictionary:
 		return
 	for locale_code: String in SUPPORTED_LOCALES:
 		var listed: Array = (checked["words"] as Dictionary).get(locale_code, [])
-		if not listed.is_empty() and not RoomRulesScript.can_be_written(rule, listed, locale_code, checked):
+		if listed.is_empty():
+			continue
+		if dropped:
+			listed = listed + WordDropScript.sentence_units(rule, locale_code, checked)
+		if not RoomRulesScript.can_be_written(rule, listed, locale_code, checked):
 			problems.append("%s rule %s cannot be written with its %s words" % [label, rule.get("id", ""), locale_code])
 
 
