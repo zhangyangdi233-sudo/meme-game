@@ -45,7 +45,8 @@ func _test_pool_integrity() -> void:
 		_assert_true(int(counts.get("negation", 0)) >= 1, "%s pool should include a negation word (文字游戏-style operator)" % locale)
 
 	var zh_pool: Array = PoolScript.get_unit_pool("zh")
-	_assert_true(zh_pool.size() >= 20 and zh_pool.size() <= 30, "zh pool should hold 20-30 single characters, got %d" % zh_pool.size())
+	# The seven exit subjects (#140) need their own characters on top of the first thirty.
+	_assert_true(zh_pool.size() >= 20 and zh_pool.size() <= 40, "zh pool should hold 20-40 single characters, got %d" % zh_pool.size())
 	for required in ["门", "可", "以", "打", "开", "出", "口", "存", "在", "不", "没", "灯", "亮"]:
 		_assert_true(required in zh_pool, "zh pool must cover rule-engine unit %s" % required)
 	for unit_value in zh_pool:

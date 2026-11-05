@@ -5,7 +5,7 @@
   "barred_subjects": ["exit"],
   "pollute_after_exit_opens": false,
   "skeleton_words": {
-    "zh": ["出口", "是", "不", "可以"],
+    "zh": ["出口", "是", "不", "可以", "子"],
     "ja": ["でぐち", "です", "ない", "できる"],
     "en": ["exit", "is", "not", "can"]
   }

@@ -103,19 +103,19 @@ func _test_a_polluted_word_shows_as_red_garble_and_warns() -> void:
 	var panel := mounted["panel"] as SocialPublishPanel
 	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
-	(mounted["units"] as ListPropertyModel).replace_all(["灯", "亮"])
+	(mounted["units"] as ListPropertyModel).replace_all(["房", "间", "亮"])
 	panel.render(mounted["host"])
 	panel.set_shown(true)
 	_assert_true(_find(mounted, "SentenceVoidWarning") == null, "a clean rule should not warn")
-	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["light"], "units": {"zh": ["灯"]}})
+	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["room"], "units": {"zh": ["房", "间"]}})
 	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
 	theme.apply_ui_theme(mounted["host"])
 	var polluted := _find(mounted, "ComposerAnswerTile0") as Button
-	var clean := _find(mounted, "ComposerAnswerTile1") as Button
-	_assert_eq(polluted.text, PolicyScript.garbled("灯"), "the polluted word should show garbled by itself")
+	var clean := _find(mounted, "ComposerAnswerTile2") as Button
+	_assert_eq(polluted.text, PolicyScript.garbled("房"), "the polluted word should show garbled by itself")
 	_assert_eq(polluted.get_theme_color("font_color"), theme.theme_color("error"), "and red")
 	_assert_eq(clean.text, "亮", "a clean word should stay readable")
-	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "%s亮" % PolicyScript.garbled("灯"), "the preview should read the same")
+	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "%s%s亮" % [PolicyScript.garbled("房"), PolicyScript.garbled("间")], "the preview should read the same")
 	var warning := _find(mounted, "SentenceVoidWarning") as Label
 	_assert_true(warning != null, "a void sentence should warn")
 	_assert_eq(warning.get_theme_color("font_color"), theme.theme_color("error"), "the warning should stay red through the theme walk")

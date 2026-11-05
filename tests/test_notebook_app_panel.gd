@@ -210,11 +210,11 @@ func _test_a_void_sentence_warns_above_the_post_button() -> void:
 	var panel := mounted["panel"] as NotebookAppPanel
 	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
 	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
-	(manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel).replace_all(["灯", "亮"])
+	(manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel).replace_all(["房", "间", "亮"])
 	panel.render(mounted["body"])
 	panel.set_shown(true)
 	_assert_true(not _has(mounted, "SentenceVoidWarning"), "a clean rule should not warn")
-	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["light"], "units": {"zh": ["灯"]}})
+	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["room"], "units": {"zh": ["房", "间"]}})
 	await process_frame
 	var warning := Harness.find_node_by_name(mounted["body"], "SentenceVoidWarning")
 	var craft := Harness.find_node_by_name(mounted["body"], "NotebookCraftButton") as Button
@@ -227,12 +227,12 @@ func _test_a_room_rule_shows_its_authored_wording() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var rules: MapPropertyModel = mounted["rules"]
-	rules.add("light|lit", {"negated": true, "source_text": "不灯亮", "locale": "zh", "day": 1, "floor": 1, "round": 1})
+	rules.add("room|lit", {"negated": true, "source_text": "不房间亮", "locale": "zh", "day": 1, "floor": 1, "round": 1})
 	panel.render(mounted["body"])
 	panel.set_shown(true)
 	var list := Harness.find_node_by_name(mounted["body"], "ComposerRulesList")
 	var label := list.get_child(0) as Label
-	_assert_eq(label.text, "· 灯不亮", "a room's rule should read as its room words it")
+	_assert_eq(label.text, "· 房间不亮", "a room's rule should read as its room words it")
 	_dispose(mounted)
 
 

@@ -250,7 +250,7 @@ func _test_a_red_post_changes_the_room_and_stays_in_the_save(game_root) -> void:
 	game_root.game.submit_free_sentence("zh")
 	await process_frame
 	_assert_eq(_room_light(game_root).light_energy, plain, "a green post should leave the room as it was")
-	game_root.game.free_sentence_units = ["灯", "亮"]
+	game_root.game.free_sentence_units = ["房", "间", "亮"]
 	game_root.game.submit_free_sentence("zh")
 	await process_frame
 	var lit: float = _room_light(game_root).light_energy

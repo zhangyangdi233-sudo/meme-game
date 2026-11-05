@@ -44,8 +44,8 @@ func _init() -> void:
 func test_a_red_post_changes_the_room() -> void:
 	var game := _basement()
 	var before: float = game.room_world_state().get("brightness")
-	var result: Dictionary = _post(game, ["灯", "亮"])
-	_assert_eq(result.get("tier"), "rule", "灯亮 should be a rule in round one")
+	var result: Dictionary = _post(game, ["房", "间", "亮"])
+	_assert_eq(result.get("tier"), "rule", "房间亮 should be a rule in round one")
 	_assert_eq(game.published_memes[0].get("tier"), "rule", "the post should record that it was red")
 	_assert_true(float(game.room_world_state().get("brightness")) > before, "the room should be brighter")
 	_assert_eq(game.get_world_rules().size(), 1, "the rule should show among the active rules")
@@ -62,7 +62,7 @@ func test_a_green_post_leaves_the_room_alone() -> void:
 
 func test_the_change_survives_a_save() -> void:
 	var game := _basement()
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	var saved: Dictionary = game.room_world_state()
 	var loaded := StateScript.new()
 	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
@@ -73,24 +73,24 @@ func test_the_change_survives_a_save() -> void:
 func test_a_later_post_can_turn_the_change_around() -> void:
 	var game := _basement()
 	game.pollution_policy = PolicyScript.settings().merged({"subject_voids_rule": false}, true)
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	var lit: float = game.room_world_state().get("brightness")
-	_post(game, ["灯", "不", "亮"])
-	_assert_true(float(game.room_world_state().get("brightness")) < lit, "灯不亮 should darken the lit room")
+	_post(game, ["房", "间", "不", "亮"])
+	_assert_true(float(game.room_world_state().get("brightness")) < lit, "房间不亮 should darken the lit room")
 	_assert_eq(game.get_world_rules().size(), 1, "both sentences should be one rule at its newest polarity")
 
 
 func test_a_polluted_subject_cannot_turn_the_change_around() -> void:
 	var game := _basement()
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	var lit: float = game.room_world_state().get("brightness")
-	_assert_eq(_post(game, ["灯", "不", "亮"]).get("tier"), "misread", "the polluted subject should void 灯不亮")
+	_assert_eq(_post(game, ["房", "间", "不", "亮"]).get("tier"), "misread", "the polluted subject should void 房间不亮")
 	_assert_eq(game.room_world_state().get("brightness"), lit, "the room should stay as it was")
 
 
 func test_the_next_round_starts_from_its_own_room() -> void:
 	var game := _basement()
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	_finish_conversation(game)
 	_assert_true(game.leave_basement_round(), "the delivered round should lead on")
 	_assert_eq(game.room_world_state(), RoomContentScript.room(2).get("state"), "round two should stand in its own room")
@@ -99,14 +99,14 @@ func test_the_next_round_starts_from_its_own_room() -> void:
 
 func test_a_debug_jump_forgets_the_rooms_rules() -> void:
 	var game := _basement()
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	_assert_true(game.jump_to_basement_round(2), "the jump should start a round fresh")
 	_assert_eq(game.get_world_rules().size(), 0, "a fresh round should have no rules")
 
 
 func test_a_rule_alone_does_not_open_the_exit() -> void:
 	var game := _basement()
-	_post(game, ["灯", "亮"])
+	_post(game, ["房", "间", "亮"])
 	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a rule should not open the exit")
 	_finish_conversation(game)
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should still open it")
@@ -180,12 +180,12 @@ func test_the_npc_asks_for_a_post_only_without_one() -> void:
 
 func test_only_the_rooms_words_can_be_picked_up() -> void:
 	var game := _basement()
-	_assert_true("灯" in game.get_pickup_unit_pool("zh"), "a room word should be on offer")
+	_assert_true("房" in game.get_pickup_unit_pool("zh"), "a room word should be on offer")
 	_assert_true("家" not in game.get_pickup_unit_pool("zh"), "a word round one does not list should not be on offer")
 	var post_with_home := _post_holding("家")
 	var refused: Dictionary = game.pick_social_char(post_with_home, "家", "zh")
 	_assert_eq(refused.get("reason"), "not-in-pool", "a word off the room's list should stay in the post")
-	var picked: Dictionary = game.pick_social_char(_post_holding("灯"), "灯", "zh")
+	var picked: Dictionary = game.pick_social_char(_post_holding("房"), "房", "zh")
 	_assert_true(bool(picked.get("picked", false)), "a room word should be picked up")
 
 

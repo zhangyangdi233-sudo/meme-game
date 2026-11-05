@@ -1,8 +1,8 @@
 {
   "floor_13": {
-    "units": {"zh": ["门", "开", "出"], "ja": ["ドア", "ひらく"], "en": ["door", "open"]},
+    "units": {"zh": ["门", "开", "出", "楼", "梯"], "ja": ["ドア", "ひらく"], "en": ["door", "open"]},
     "line": {
-      "zh": "顶楼的门开着。没人出来。",
+      "zh": "顶楼的门开着。楼梯上没人出来。",
       "ja": "屋上のドアがひらく音。だれも出ない。",
       "en": "The top-floor door stands open. Nobody came out."
     },
@@ -65,7 +65,7 @@
           "ja": "停電の夜も、あそこだけつく。",
           "en": "The night of the blackout, one light stayed lit."
         },
-        "units": {"zh": ["亮"], "ja": ["つく"], "en": ["light", "lit"]}
+        "units": {"zh": ["亮", "电"], "ja": ["つく"], "en": ["light", "lit"]}
       },
       {
         "handle": {"zh": "顶楼安全员", "ja": "安全第一", "en": "safety_officer"},
@@ -131,11 +131,11 @@
         "handle": {"zh": "半个电工", "ja": "電気屋見習い", "en": "half_electrician"},
         "time": "04:20",
         "text": {
-          "zh": "那站的喇叭线,九八年就剪了。",
+          "zh": "那站的电视线,九八年就剪了。",
           "ja": "あの駅の配線は98年に切った。",
           "en": "They cut that station's wiring in '98."
         },
-        "units": {"zh": [], "ja": [], "en": []}
+        "units": {"zh": ["电", "视"], "ja": [], "en": []}
       },
       {
         "handle": {"zh": "重听三遍的人", "ja": "三回聞いた", "en": "listened_thrice"},
@@ -181,11 +181,11 @@
         "handle": {"zh": "夜班对面楼", "ja": "向かいのビル", "en": "across_street"},
         "time": "03:33",
         "text": {
-          "zh": "灯全关了他还在货架间走。",
+          "zh": "灯全关了,他还在房间里走。",
           "ja": "でんきを消しても歩いている。",
           "en": "Half the lights stay lit after closing. He keeps walking the aisles."
         },
-        "units": {"zh": ["灯"], "ja": ["でんき"], "en": ["lit"]}
+        "units": {"zh": ["灯", "房", "间"], "ja": ["でんき"], "en": ["lit"]}
       }
     ]
   },
@@ -221,11 +221,11 @@
         "handle": {"zh": "考古队散了", "ja": "過去ログ班", "en": "thread_digger"},
         "time": "23:59",
         "text": {
-          "zh": "楼主十年没上线。头像昨天换了。",
+          "zh": "楼主十年没上线。照片里他的桌子和椅子还摆着。",
           "ja": "主は十年不在。アイコンは昨日更新。",
           "en": "OP has been gone ten years. The avatar changed yesterday."
         },
-        "units": {"zh": [], "ja": [], "en": []}
+        "units": {"zh": ["桌", "子", "椅"], "ja": [], "en": []}
       }
     ]
   },
@@ -241,11 +241,11 @@
         "handle": {"zh": "住过那条街", "ja": "元住民", "en": "used_to_live_there"},
         "time": "21:18",
         "text": {
-          "zh": "导航说:您已到达。窗外是一堵墙。",
+          "zh": "导航说:您已到达。墙上的钟停在三点。",
           "ja": "「到着しました」。窓の外は壁。",
           "en": "Navigation said: you have arrived. Outside the window, a wall."
         },
-        "units": {"zh": [], "ja": [], "en": []}
+        "units": {"zh": ["钟"], "ja": [], "en": []}
       }
     ]
   },

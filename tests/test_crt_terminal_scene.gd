@@ -117,13 +117,13 @@ func _test_a_word_picked_on_either_side_is_one_notebook(game_root) -> void:
 		line.meta_clicked.emit("门")
 	await process_frame
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "a pickup on the terminal should collect the word")
-	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "开", UiIntentsScript.KEY_POST_ID: "floor_13"})
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "楼", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	await process_frame
 	(Harness.find_node_by_name(display, "TerminalAppNotebook") as Button).pressed.emit()
 	await process_frame
 	await process_frame
 	var terminal_canvas := Harness.find_node_by_name(display, "NotebookWordCanvas") as WordPhysicsCanvas
-	_assert_true(terminal_canvas != null and terminal_canvas.has_tile("开"), "a word picked off the terminal should show on the terminal's notebook")
+	_assert_true(terminal_canvas != null and terminal_canvas.has_tile("楼"), "a word picked off the terminal should show on the terminal's notebook")
 	_push_key(game_root, KEY_TAB)
 	await process_frame
 	game_root.set_view_state("phone_down")

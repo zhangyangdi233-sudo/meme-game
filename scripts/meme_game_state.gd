@@ -1593,8 +1593,9 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 	return true
 
 
+## The words the posts drop now: the round's room with the pollution so far (`WordDrop`), or the whole pool off the basement.
 func get_pickup_unit_pool(locale_code: String = "zh") -> Array:
-	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code, room_data_path)
+	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code, room_data_path, polluted_words, pollution_policy)
 
 
 func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:

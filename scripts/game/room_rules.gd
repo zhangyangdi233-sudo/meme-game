@@ -60,6 +60,19 @@ static func escaped(room: Dictionary, rules: Dictionary, round_number: int, talk
 	return false
 
 
+## The room's exit rules: the rules it offers that one of its `rule` escapes names, in the room's rule order.
+static func exit_rules(room: Dictionary) -> Array[Dictionary]:
+	var escape_ids: Array = []
+	for escape: Variant in room.get("escapes", []):
+		if escape is Dictionary and escape.get("kind") == ESCAPE_RULE:
+			escape_ids.append(escape.get("rule"))
+	var result: Array[Dictionary] = []
+	for rule: Dictionary in room.get("rules", []):
+		if rule.get("id") in escape_ids:
+			result.append(rule)
+	return result
+
+
 ## The room's rules that hold now, in the room's order: `rules` is the world rules map, and only rules made in
 ## `round_number` count, at their newest polarity.
 static func _rules_in_force(room: Dictionary, rules: Dictionary, round_number: int) -> Array[Dictionary]:
@@ -114,6 +127,16 @@ static func subject_word_units(subject: String, locale: String, room: Dictionary
 	var result: Array = []
 	for word: String in all_subjects:
 		if all_subjects[word] == subject:
+			result.append(RuleEngineScript.word_units(word, locale))
+	return result
+
+
+## The units of every word that means `predicate` in a language: one list per word.
+static func predicate_word_units(predicate: String, locale: String, room: Dictionary) -> Array:
+	var all_predicates: Dictionary = (RuleEngineScript.PREDICATE_CANON.get(locale, {}) as Dictionary).merged(_vocabulary(room, "predicates", locale), true)
+	var result: Array = []
+	for word: String in all_predicates:
+		if all_predicates[word] == predicate:
 			result.append(RuleEngineScript.word_units(word, locale))
 	return result
 

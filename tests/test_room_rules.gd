@@ -7,6 +7,7 @@ const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progres
 const ContentJsonScript = preload("res://framework/content_json.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
+const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 
 const ROOM := {
 	"vocabulary": {"subjects": {"zh": {"电灯": "light"}}, "predicates": {"zh": {"点亮": "lit"}}},
@@ -44,6 +45,7 @@ func _init() -> void:
 	test_a_floor_shares_one_rule_box()
 	test_every_authored_round_draws_from_the_rule_box()
 	test_validation_names_broken_rule_boxes()
+	test_validation_holds_the_drop_guarantee()
 	if _failures.is_empty():
 		print("room rules tests passed")
 		quit(0)
@@ -140,7 +142,8 @@ func test_a_rule_escape_asks_for_its_rule_in_force() -> void:
 func test_every_authored_round_keeps_the_post_and_the_npc() -> void:
 	for round_number in range(1, 6):
 		var room: Dictionary = RoomContentScript.room(round_number)
-		_assert_eq(room.get("escapes"), [{"kind": "delivery"}], "round %d should open by the post and the NPC" % round_number)
+		_assert_true({"kind": "delivery"} in room.get("escapes"), "round %d should still open by the post and the NPC" % round_number)
+		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
 		_assert_true(RoomRulesScript.escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
 		_assert_true(not RoomRulesScript.escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)
 
@@ -157,11 +160,13 @@ func test_the_authored_rooms_are_valid() -> void:
 func test_round_one_comes_from_its_data() -> void:
 	var room: Dictionary = RoomContentScript.room(1)
 	_assert_true(not (room.get("rules", []) as Array).is_empty(), "round one should have rules")
-	_assert_eq(RoomRulesScript.judge(["灯", "亮"], "zh", room).get("tier"), "rule", "灯亮 should be round one's rule")
-	_assert_eq(RoomRulesScript.judge(["でんき", "つく"], "ja", room).get("tier"), "rule", "a rule should already read in Japanese through the engine's words")
-	_assert_eq(RoomRulesScript.judge(["light", "lit"], "en", room).get("tier"), "rule", "a rule should already read in English through the engine's words")
-	_assert_eq(RoomContentScript.rule_text(1, "light|lit", false, "zh"), "灯亮", "a rule should have its authored wording")
-	_assert_eq(RoomContentScript.rule_text(1, "light|lit", false, "en"), "", "an unwritten language should have no wording yet")
+	_assert_eq(RoomRulesScript.judge(["房", "间", "亮"], "zh", room).get("tier"), "rule", "房间亮 should be round one's rule")
+	_assert_eq(RoomRulesScript.judge(["门", "是", "出", "口"], "zh", room).get("rule_id"), "door_exit", "门是出口 should be round one's exit rule")
+	_assert_eq(RoomRulesScript.judge(["楼", "梯", "是", "出", "口"], "zh", room).get("rule_id"), "stairs_exit", "the floor's vocabulary should reach every room")
+	_assert_eq(RoomRulesScript.judge(["ドア", "でぐち"], "ja", room).get("rule_id"), "door_exit", "an exit rule should already read in Japanese through the engine's words")
+	_assert_eq(RoomRulesScript.judge(["door", "is", "exit"], "en", room).get("rule_id"), "door_exit", "an exit rule should already read in English through the engine's words")
+	_assert_eq(RoomContentScript.rule_text(1, "room|lit", false, "zh"), "房间亮", "a rule should have its authored wording")
+	_assert_eq(RoomContentScript.rule_text(1, "room|lit", false, "en"), "", "an unwritten language should have no wording yet")
 	_assert_eq(RoomContentScript.rule_text(1, "door|lit", false, "zh"), "", "an unknown rule should have no wording")
 
 
@@ -253,7 +258,10 @@ func test_every_authored_round_draws_from_the_rule_box() -> void:
 	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		for listed: Variant in catalog["rooms"][str(round_number)]["rules"]:
 			_assert_true(listed is String and listed in ids, "round %d should name a rule of the box, not %s" % [round_number, listed])
-	_assert_eq((RoomContentScript.room(1)["rules"] as Array).map(func(rule: Dictionary) -> String: return rule["id"]), ["light_on", "light_off"], "round one should offer the light rules")
+	_assert_eq((RoomContentScript.room(1)["rules"] as Array).slice(0, 2).map(func(rule: Dictionary) -> String: return rule["id"]), ["light_on", "light_off"], "round one should offer the light rules")
+	var subjects: Array = RoomRulesScript.exit_rules(RoomContentScript.room(1)).map(func(rule: Dictionary) -> String: return rule["subject"])
+	subjects.sort()
+	_assert_eq(subjects, ["chair", "clock", "door", "light", "stairs", "table", "tv"], "the box should hold the seven exit subjects")
 
 
 func test_validation_names_broken_rule_boxes() -> void:
@@ -274,6 +282,36 @@ func test_validation_names_broken_rule_boxes() -> void:
 		var broken := good.duplicate(true)
 		breakage.call(broken)
 		_assert_true(not RoomContentScript.problems_in(broken, 1).is_empty(), "a broken rule box should be reported: %s" % [broken])
+
+
+## The content check plays the worst case: each earlier round used one exit up and every other rule was posted.
+func test_validation_holds_the_drop_guarantee() -> void:
+	var authored: Dictionary = ContentJsonScript.load_dictionary_cached(RoomContentScript.ROOMS_PATH, "test_room_rules")
+	_assert_eq(RoomContentScript.problems_in(authored), [] as Array[String], "the authored floor should keep the guarantee")
+	var policy: Dictionary = PolicyScript.settings()
+	var few_exits := authored.duplicate(true)
+	var round_five: Dictionary = few_exits["rooms"]["5"]
+	round_five["rules"] = (round_five["rules"] as Array).slice(0, 3)
+	round_five["escapes"] = (round_five["escapes"] as Array).filter(func(escape: Dictionary) -> bool: return escape["kind"] == "delivery" or escape["rule"] in round_five["rules"])
+	_assert_true(_names(RoomContentScript.problems_in(few_exits), "round 5 can drop only"), "a last round with three exit rules cannot keep three after four rounds")
+	var shared := authored.duplicate(true)
+	(shared["rule_box"] as Array).append({"id": "lamp_lit", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {}})
+	(shared["rooms"]["1"]["rules"] as Array).append("lamp_lit")
+	(shared["rooms"]["1"]["words"]["zh"] as Array).append("灯")
+	_assert_true(_names(RoomContentScript.problems_in(shared), "the subject light belongs to an exit rule and to another rule"), "another rule on an exit subject should be reported")
+	var lasting := policy.merged({"pollute_after_exit_opens": true}, true)
+	_assert_true(_names(RoomContentScript.problems_in(authored, ChapterOneProgressScript.BASEMENT_ROUND_COUNT, lasting), "can drop only"), "pollution after the exit opens should break the guarantee")
+	var bare_skeleton := policy.duplicate(true)
+	bare_skeleton["skeleton_words"]["zh"] = ["出口", "是", "不", "可以"]
+	_assert_true(_names(RoomContentScript.problems_in(authored, ChapterOneProgressScript.BASEMENT_ROUND_COUNT, bare_skeleton), "can drop only"), "桌子 and 椅子 sharing a polluted 子 should break the guarantee")
+	var unasked := few_exits.duplicate(true)
+	unasked.erase("guaranteed_exit_rules")
+	unasked["rooms"]["1"]["words"]["zh"] = []
+	_assert_eq(RoomContentScript.problems_in(unasked), [] as Array[String], "a floor that asks for no guarantee should not be held to one")
+
+
+func _names(problems: Array[String], part: String) -> bool:
+	return problems.any(func(problem: String) -> bool: return part in problem)
 
 
 ## Puts a rule in the box and has room one offer it.

@@ -1,41 +1,50 @@
 {
+  "guaranteed_exit_rules": 3,
+  "vocabulary": {
+    "subjects": {"zh": {"房间": "room", "楼梯": "stairs", "电视": "tv", "桌子": "table", "椅子": "chair", "钟": "clock"}, "ja": {}, "en": {}},
+    "predicates": {"zh": {"出口": "exit"}, "ja": {"でぐち": "exit"}, "en": {"exit": "exit"}}
+  },
   "rule_box": [
-    {
-      "id": "light_on",
-      "subject": "light",
-      "predicate": "lit",
-      "text": {"zh": "灯亮", "ja": "", "en": ""},
-      "state": {"brightness": 1.6}
-    },
-    {
-      "id": "light_off",
-      "subject": "light",
-      "predicate": "lit",
-      "negated": true,
-      "text": {"zh": "灯不亮", "ja": "", "en": ""},
-      "state": {"brightness": 0.3}
-    }
+    {"id": "light_on", "subject": "room", "predicate": "lit", "text": {"zh": "房间亮", "ja": "", "en": ""}, "state": {"brightness": 1.6}},
+    {"id": "light_off", "subject": "room", "predicate": "lit", "negated": true, "text": {"zh": "房间不亮", "ja": "", "en": ""}, "state": {"brightness": 0.3}},
+    {"id": "door_exit", "subject": "door", "predicate": "exit", "text": {"zh": "门是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "stairs_exit", "subject": "stairs", "predicate": "exit", "text": {"zh": "楼梯是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "tv_exit", "subject": "tv", "predicate": "exit", "text": {"zh": "电视是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "table_exit", "subject": "table", "predicate": "exit", "text": {"zh": "桌子是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "chair_exit", "subject": "chair", "predicate": "exit", "text": {"zh": "椅子是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "clock_exit", "subject": "clock", "predicate": "exit", "text": {"zh": "钟是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "light_exit", "subject": "light", "predicate": "exit", "text": {"zh": "灯是出口", "ja": "", "en": ""}, "state": {}}
   ],
   "rooms": {
     "1": {
-      "words": {
-        "zh": ["门", "可", "以", "打", "开", "出", "口", "存", "在", "不", "没", "灯", "亮", "我", "你"],
-        "ja": [],
-        "en": []
-      },
-      "vocabulary": {
-        "subjects": {"zh": {}, "ja": {}, "en": {}},
-        "predicates": {"zh": {}, "ja": {}, "en": {}}
-      },
-      "rules": ["light_on", "light_off"],
-      "escapes": [{"kind": "delivery"}],
+      "words": {"zh": ["房", "间", "亮", "不", "没", "是", "出", "口", "我", "你"], "ja": [], "en": []},
+      "rules": ["light_on", "light_off", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"}
+      ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "2": {
       "words": {"zh": [], "ja": [], "en": []},
-      "rules": [],
-      "escapes": [{"kind": "delivery"}],
+      "rules": ["table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"}
+      ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": [
         {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
@@ -43,22 +52,49 @@
     },
     "3": {
       "words": {"zh": [], "ja": [], "en": []},
-      "rules": [],
-      "escapes": [{"kind": "delivery"}],
+      "rules": ["light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"}
+      ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "4": {
       "words": {"zh": [], "ja": [], "en": []},
-      "rules": [],
-      "escapes": [{"kind": "delivery"}],
+      "rules": ["tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"}
+      ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },
     "5": {
       "words": {"zh": [], "ja": [], "en": []},
-      "rules": [],
-      "escapes": [{"kind": "delivery"}],
+      "rules": ["clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"}
+      ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     }
