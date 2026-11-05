@@ -844,7 +844,7 @@ func _reality_scene_deps() -> Dictionary:
 		"floor4_task_complete": game.floor4_task_complete if game != null else false,
 		"chapter_one_progress": game.chapter_one_progress if game != null else ChapterOneProgressScript.tower(),
 		"phone_owned": game.phone_owned if game != null else true,
-		"basement_npc": game.basement_npc_stands() if game != null else true,
+		"basement_npc_stands": game.basement_npc_stands() if game != null else true,
 		"room_state": game.room_world_state() if game != null else {},
 	}
 

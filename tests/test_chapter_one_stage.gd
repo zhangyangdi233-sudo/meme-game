@@ -323,7 +323,7 @@ func _test_each_round_stands_its_npc_in_reach() -> void:
 func _test_a_round_without_its_npc_stands_nobody() -> void:
 	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
 	var deps := _deps(progress)
-	deps["basement_npc"] = false
+	deps["basement_npc_stands"] = false
 	var adapter = await _adapter_with(deps)
 	_assert_true(adapter.get_parent().find_child("BasementNPC", true, false) == null, "a round without its NPC should build none")
 	_assert_true(adapter.get_parent().find_child("BasementRoom", true, false) != null, "the round should still build its room")
