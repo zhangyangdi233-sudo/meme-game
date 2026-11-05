@@ -60,6 +60,15 @@ static func escaped(room: Dictionary, rules: Dictionary, round_number: int, talk
 	return false
 
 
+## Whether the room stands an NPC to talk it open: it declares the `delivery` escape. A room that opens by its rules
+## alone (#120) has nobody to talk to.
+static func stands_npc(room: Dictionary) -> bool:
+	for escape: Variant in room.get("escapes", []):
+		if escape is Dictionary and escape.get("kind") == ESCAPE_DELIVERY:
+			return true
+	return false
+
+
 ## The room's exit rules: the rules it offers that one of its `rule` escapes names, in the room's rule order.
 static func exit_rules(room: Dictionary) -> Array[Dictionary]:
 	var escape_ids: Array = []

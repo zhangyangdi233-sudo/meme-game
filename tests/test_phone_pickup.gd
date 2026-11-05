@@ -239,10 +239,14 @@ func test_the_fifth_exit_hands_over_the_phone_and_its_apps() -> void:
 	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save at the demo's end should keep the phone's apps")
 
 
+## Delivers the round the way it opens: round one by an exit rule, the rounds that stand an NPC by a post and its talk.
 func _deliver(game: MemeGameState) -> void:
-	game.free_sentence_units = ["灯"]
-	_assert_true(bool(game.submit_free_sentence("zh").get("submitted")), "setup should post a sentence")
 	var round_number := ProgressScript.round_of(game.chapter_one_progress)
+	game.free_sentence_units = ["灯"] if game.basement_npc_stands() else ["门", "是", "出", "口"]
+	_assert_true(bool(game.submit_free_sentence("zh").get("submitted")), "setup should post a sentence")
+	if not game.basement_npc_stands():
+		_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "setup should deliver round %d" % round_number)
+		return
 	game.start_typed_reality_conversation("basement_npc_%d" % round_number, "basement_npc", BASEMENT_NPC_LABELS[round_number - 1])
 	while true:
 		while game.conversation_phase == "typing":

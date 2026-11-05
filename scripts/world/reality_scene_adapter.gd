@@ -686,7 +686,9 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	_host.add_child(_chapter_stage)
 	# Deps that do not say the phone is missing (the tower, older callers) lay no phone on the table.
 	var phone_on_table := not bool(deps.get("phone_owned", true))
-	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table)
+	# Deps that do not say the round stands no NPC stand one, as every round did before #125.
+	var npc_stands := bool(deps.get("basement_npc", true))
+	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table, npc_stands)
 	_chapter_stage.apply_room_state(deps.get("room_state", {}))
 	_chapter_stage.set_paused(_paused)
 	_chapter_stage.visible = _street_shown()

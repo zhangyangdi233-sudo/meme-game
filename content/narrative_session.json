@@ -181,6 +181,45 @@
       "en": "Emida…"
     }
   ],
+  "basement_guide": {
+    "1": {
+      "pick": {
+        "zh": "这里本来没有出口……除非你说有。先去信号瀑布，点那些发亮的字，把它们捡回来。",
+        "ja": "ここに出口はない……君がそう言わない限りは。シグナルの滝で光っている字をタップして、拾ってきて。",
+        "en": "There is no way out here… unless you say there is. Go to the signal waterfall and tap the glowing words to take them."
+      },
+      "compose": {
+        "zh": "字都在笔记本里。把它们排成一句话——什么东西，是出口？",
+        "ja": "字はノートの中にある。並べて一文にして。――何が出口なのか？",
+        "en": "The words are in your notebook. Put them into a sentence — what thing is the exit?"
+      },
+      "post": {
+        "zh": "排好了就发布。你说出口的话，这里会当真。",
+        "ja": "並べたら投稿して。君が口にしたことを、ここは本当にする。",
+        "en": "Post it when it's ready. What you say out loud, this place takes as true."
+      },
+      "missed": {
+        "zh": "没有东西回应。这里听不懂这句话，换一种说法再试。",
+        "ja": "何も応えない。ここにはその言葉が通じなかった。言い方を変えて。",
+        "en": "Nothing answered. This place didn't understand. Say it another way."
+      },
+      "voided": {
+        "zh": "那个字已经被你用坏了。换一样东西说。",
+        "ja": "その字はもう使い潰した。別のものを言って。",
+        "en": "You've already worn that word out. Name something else."
+      },
+      "heard": {
+        "zh": "它听见了，房间变了。可出口还没有出现。",
+        "ja": "聞こえたようだ。部屋が変わった。でも、出口はまだない。",
+        "en": "It heard you. The room changed. But there is still no way out."
+      },
+      "open": {
+        "zh": "出口开了。离开屏幕，走出去吧。",
+        "ja": "出口が開いた。画面から離れて、出ていこう。",
+        "en": "The way out is open. Leave the screen and walk out."
+      }
+    }
+  },
   "demo_end": {
     "zh": "Demo 到此结束",
     "ja": "demoはここまでです",

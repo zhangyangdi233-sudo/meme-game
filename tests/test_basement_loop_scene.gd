@@ -1,5 +1,6 @@
 extends SceneTree
-## In the main scene the basement is played in five rounds: F at the round's NPC starts its one route, text keys type
+## In the main scene the basement is played in five rounds. Round one stands no NPC; in the later rounds F at the
+## round's NPC starts its one route, text keys type
 ## the player's line (arrows and held repeats do not), each reply plays out by itself and the last ends the
 ## conversation. With this round's post the exit opens and walking out starts the next round at the top of the
 ## stairs; the fifth exit leads to the white door passage, and walking into the light ends on the demo's end screen in
@@ -80,6 +81,11 @@ func _test_f9_shows_the_debug_panel_and_jumps_to_a_round(game_root) -> void:
 	await process_frame
 	await process_frame
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 1, "a jump request should land on round one")
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "round one should stand no NPC (#120)")
+	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 2})
+	await process_frame
+	await process_frame
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "round two should still stand its NPC until #127")
 
 
 func _test_the_npc_conversation_types_and_plays_out_by_itself(game_root) -> void:
@@ -131,25 +137,25 @@ func _test_with_this_rounds_post_the_exit_leads_to_the_next_round(game_root) -> 
 	for frame in 90:
 		await process_frame
 	await _walk_out(game_root)
-	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 2, "walking out should start round two")
+	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 3, "walking out should start round three")
 	await process_frame
 	var start: Vector3 = game_root._reality_scene_adapter.pose().get("player_position")
-	_assert_true(start.y > 2.0, "round two should start at the top of the stairs: %s" % str(start))
-	_assert_true(not ProgressScript.exit_open(game_root.game.chapter_one_progress), "round two's exit should be shut")
+	_assert_true(start.y > 2.0, "round three should start at the top of the stairs: %s" % str(start))
+	_assert_true(not ProgressScript.exit_open(game_root.game.chapter_one_progress), "round three's exit should be shut")
 
 
 func _test_a_save_comes_back_on_the_same_round(game_root) -> void:
 	_post(game_root)
 	await _talk_to_the_npc(game_root)
 	await _play_out(game_root)
-	_assert_true(game_root._save_progress(), "the run should save in round two")
+	_assert_true(game_root._save_progress(), "the run should save in round three")
 	game_root.show_main_menu()
 	await process_frame
 	_assert_true(game_root.continue_game(), "the save should continue")
 	await process_frame
 	await process_frame
-	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 2, "the save should come back on round two")
-	_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "the save should keep round two delivered")
+	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 3, "the save should come back on round three")
+	_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "the save should keep round three delivered")
 	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") != null, "the save should come back in the basement")
 
 

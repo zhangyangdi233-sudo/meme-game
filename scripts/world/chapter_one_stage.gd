@@ -2,7 +2,7 @@ class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
 ## the knock behind it), the passage between levels (the same water and door, no knock, walked into) or one basement
-## round (a room with the CRT terminal, the round's NPC and an exit), each from
+## round (a room with the CRT terminal, the round's NPC when its room has one, and an exit), each from
 ## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
 ## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
 ## until the player owns it.
@@ -106,8 +106,9 @@ var _room_objects: Dictionary = {}
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
-## built for its round, with that round's NPC shown by `npc_texture` and the phone on the table while nobody owns it.
-func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null, phone_on_table: bool = false) -> bool:
+## built for its round, with that round's NPC shown by `npc_texture` unless `npc_stands` is false, and the phone on the
+## table while nobody owns it.
+func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null, phone_on_table: bool = false, npc_stands: bool = true) -> bool:
 	phase = stage_phase
 	_round = round_number
 	if phase == ChapterOneProgressScript.PHASE_OPENING:
@@ -115,7 +116,7 @@ func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = 
 	if phase == ChapterOneProgressScript.PHASE_PASSAGE:
 		return _build_door_world()
 	if phase == ChapterOneProgressScript.PHASE_BASEMENT:
-		return _build_basement(npc_texture, phone_on_table)
+		return _build_basement(npc_texture, phone_on_table, npc_stands)
 	push_error("ChapterOneStage has no stage for phase '%s'" % phase)
 	return false
 
@@ -304,14 +305,15 @@ func _process(delta: float) -> void:
 		_swing(_exit_door, _exit_ratio)
 
 
-func _build_basement(npc_texture: Texture2D, phone_on_table: bool) -> bool:
+func _build_basement(npc_texture: Texture2D, phone_on_table: bool, npc_stands: bool) -> bool:
 	if not _instance_model(BASEMENT_MODEL_PATH, "BasementRoom"):
 		return false
 	_entry_door = _bind_basement_door(ENTRY_DOOR_PIVOT)
 	_exit_door = _bind_basement_door(EXIT_DOOR_PIVOT)
 	_swing(_entry_door, _entry_ratio)
 	_swing(_exit_door, _exit_ratio)
-	_build_npc(npc_texture)
+	if npc_stands:
+		_build_npc(npc_texture)
 	_build_table(phone_on_table)
 	_bounds = BASEMENT_BOUNDS
 	_spawn = BASEMENT_SPAWN

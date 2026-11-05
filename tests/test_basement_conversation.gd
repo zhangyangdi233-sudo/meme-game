@@ -1,7 +1,7 @@
 extends SceneTree
 ## The basement NPC conversation is one fixed route: no choices, the player types the authored line one unit per key,
-## the NPC's reply follows, and the last reply ends it. Finishing it with this round's post delivers the round and
-## opens the exit; without one the NPC sends the player back to the computer. Pollution garbles the typed line but
+## the NPC's reply follows, and the last reply ends it. From round two on, finishing it with this round's post delivers
+## the round and opens the exit; without one the NPC sends the player back to the computer. Round one stands no NPC. Pollution garbles the typed line but
 ## never interrupts.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
@@ -97,7 +97,7 @@ func test_pollution_garbles_the_line_but_never_interrupts() -> void:
 
 
 func test_finishing_with_this_rounds_post_opens_the_exit() -> void:
-	var game: MemeGameState = _basement_game(1)
+	var game: MemeGameState = _basement_game(2)
 	_post(game)
 	_start(game)
 	_finish_conversation(game)
@@ -105,7 +105,7 @@ func test_finishing_with_this_rounds_post_opens_the_exit() -> void:
 
 
 func test_finishing_without_a_post_sends_the_player_back_to_the_computer() -> void:
-	var game: MemeGameState = _basement_game(1)
+	var game: MemeGameState = _basement_game(2)
 	_start(game)
 	_finish_conversation(game)
 	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "finishing without a post should keep the exit shut")
@@ -118,12 +118,12 @@ func test_finishing_without_a_post_sends_the_player_back_to_the_computer() -> vo
 
 
 func test_an_earlier_rounds_post_does_not_deliver_this_round() -> void:
-	var game: MemeGameState = _basement_game(1)
+	var game: MemeGameState = _basement_game(2)
 	_post(game)
-	game.jump_to_basement_round(2)
+	game.jump_to_basement_round(3)
 	_start(game)
 	_finish_conversation(game)
-	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "round one's post should not deliver round two")
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "round two's post should not deliver round three")
 
 
 func test_the_typing_hint_is_shown_until_a_first_line_is_typed() -> void:
@@ -158,14 +158,14 @@ func test_a_save_comes_back_on_the_same_round_and_delivery() -> void:
 
 
 func test_leaving_through_the_open_exit_starts_the_next_round() -> void:
-	var game: MemeGameState = _basement_game(1)
+	var game: MemeGameState = _basement_game(2)
 	_assert_true(not game.leave_basement_round(), "a shut exit should not be left through")
 	_post(game)
 	_start(game)
 	_finish_conversation(game)
 	game.end_typed_reality_conversation()
 	_assert_true(game.leave_basement_round(), "the open exit should be left through")
-	_assert_eq(ProgressScript.round_of(game.chapter_one_progress), 2, "leaving should start round two")
+	_assert_eq(ProgressScript.round_of(game.chapter_one_progress), 3, "leaving should start round three")
 	game.jump_to_basement_round(5)
 	_post(game)
 	_start(game)

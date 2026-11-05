@@ -15,6 +15,9 @@ const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const CrtTerminalPanelScript = preload("res://scripts/ui/crt_terminal_panel.gd")
+const GuideScript = preload("res://scripts/game/basement_guide.gd")
+const NarrativeCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 
 var _failures: Array[String] = []
 var _heard: Array = []
@@ -43,6 +46,8 @@ func _run() -> void:
 	await _test_a_word_held_anywhere_shows_in_the_terminal_notebook()
 	await _test_posting_from_the_terminal_raises_the_phone_intent()
 	await _test_a_hidden_terminal_lets_go_of_the_models()
+	await _test_the_narrator_walks_the_round_through()
+	await _test_outside_a_guided_round_the_narrator_is_silent()
 
 
 func _test_the_display_shows_the_social_feed_first() -> void:
@@ -120,6 +125,48 @@ func _test_a_hidden_terminal_lets_go_of_the_models() -> void:
 	canvas = _find(panel, "NotebookWordCanvas") as WordPhysicsCanvas
 	_assert_true(canvas != null and canvas.has_tile("开"), "showing the terminal again should catch up with the models")
 	await _dispose(panel)
+
+
+## #125: the CRT's narrator follows the round from the models: pick, compose, post, what the post did, the open exit.
+func _test_the_narrator_walks_the_round_through() -> void:
+	var panel = await _mount()
+	var progress := _model(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
+	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_PICK), "a fresh round should ask for words")
+	_model(PropertyKeysScript.COLLECTED_CHAR_UNITS).replace_all([{"unit": "门", "locale": "zh", "source_post_id": "floor_13", "day": 1}])
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_COMPOSE), "held words should ask for a sentence")
+	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all(["门"])
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_POST), "a sentence should ask to be posted")
+	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all([])
+	_model(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, {"kind": "free_sentence", "text": "门", "tier": "misread", "round": 1})
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_MISSED), "a green post should ask to try again")
+	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), true))
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_OPEN), "an open exit should send the player out")
+	await _dispose(panel)
+
+
+func _test_outside_a_guided_round_the_narrator_is_silent() -> void:
+	var panel = await _mount()
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
+	await process_frame
+	var guide := _find(panel, "TerminalGuide") as Label
+	_assert_true(guide != null and not guide.visible, "a round without lines should show no narrator")
+	await _dispose(panel)
+
+
+func _guide_text(panel) -> String:
+	var guide := _find(panel, "TerminalGuide") as Label
+	_assert_true(guide != null and guide.is_visible_in_tree(), "the narrator should show on the terminal")
+	return guide.text if guide != null else ""
+
+
+func _narrated(step: String) -> String:
+	return NarrativeCatalogScript.opening_speaker("zh") + NarrativeCatalogScript.basement_guide_line(1, step, "zh")
 
 
 func _mount():

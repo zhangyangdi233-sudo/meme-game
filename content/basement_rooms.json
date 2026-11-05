@@ -20,7 +20,6 @@
       "words": {"zh": ["房", "间", "亮", "不", "没", "是", "出", "口", "我", "你"], "ja": [], "en": []},
       "rules": ["light_on", "light_off", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"},
         {"kind": "rule", "rule": "tv_exit"},

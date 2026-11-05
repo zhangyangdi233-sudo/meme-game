@@ -68,3 +68,20 @@ custom_minimum_size = Vector2(190, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "离开屏幕 (Tab)"
+
+[node name="TerminalGuide" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 18.0
+offset_top = 70.0
+offset_right = -18.0
+offset_bottom = 120.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.6, 1, 0.66, 1)
+theme_override_font_sizes/font_size = 19
+vertical_alignment = 1
+autowrap_mode = 3
+metadata/palette_role = "accent"
+metadata/skip_localization = true

@@ -4,9 +4,15 @@ extends Node
 ## Layout scene `scenes/ui/crt_terminal.tscn` for its chrome, and its own social feed and notebook, one at a time.
 ## They watch the same models and raise the same intents as the phone, so the held words, the sentence and the world
 ## rules are one copy. Which app shows is this screen's own view. Its tabs and its exit raise their intents.
+## Above the apps the round's narrator (`BasementGuide`) says what to do next, read from the models while shown.
 ## The pointer arrives as a UV on the glass; the panel turns it into a point on its display.
 
 const LAYOUT_SCENE := preload("res://scenes/ui/crt_terminal.tscn")
+const BasementGuideScript = preload("res://scripts/game/basement_guide.gd")
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const PostSlipScript = preload("res://scripts/ui/post_slip.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
@@ -17,8 +23,8 @@ const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const DISPLAY_SIZE := Vector2i(960, 720)
 const APPS: Array[String] = ["social", "notebook"]
 const DEFAULT_APP := "social"
-## The feed and the open post sit side by side below the toolbar.
-const APP_TOP := 76.0
+## The feed and the open post sit side by side below the toolbar and the narrator's line.
+const APP_TOP := 124.0
 const APP_MARGIN := 12.0
 ## Where a pointer that left the glass is sent, so nothing on the display stays hovered.
 const OFF_DISPLAY := Vector2(-100, -100)
@@ -36,6 +42,14 @@ var _shown := false
 var _social_painted := false
 var _held_buttons: Array[MouseButton] = []
 var _last_point := OFF_DISPLAY
+var _guide: Label
+var _current_locale_fn := Callable()
+var _guide_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
+	PropertyKeysScript.COLLECTED_CHAR_UNITS: _on_guide_model_changed,
+	PropertyKeysScript.FREE_SENTENCE_UNITS: _on_guide_model_changed,
+	PropertyKeysScript.PUBLISHED_MEMES: _on_guide_model_changed,
+	PropertyKeysScript.CHAPTER_ONE_PROGRESS: _on_guide_model_changed,
+})
 
 
 ## Builds the display once. `notebook_deps` are the notebook's own (`NotebookAppPanel.configure`).
@@ -60,6 +74,8 @@ func mount(notebook_deps: Dictionary) -> void:
 	for app_id in _tabs:
 		(_tabs[app_id] as Button).pressed.connect(_on_tab_pressed.bind(app_id))
 	(_screen.find_child("TerminalExit", true, false) as Button).pressed.connect(_on_exit_pressed)
+	_guide = _screen.find_child("TerminalGuide", true, false) as Label
+	_current_locale_fn = notebook_deps.get("current_locale", Callable())
 
 	_apps = Control.new()
 	_apps.name = "TerminalApps"
@@ -107,7 +123,10 @@ func set_shown(shown: bool) -> void:
 	if shown:
 		# The chrome is worded in the current language each time the terminal is entered.
 		_theme().localize_control_tree(_screen)
+		_guide_watch.start()
+		_paint_guide()
 	else:
+		_guide_watch.stop()
 		_release_pointer()
 	_show_app()
 
@@ -171,6 +190,34 @@ func _show_app() -> void:
 	_notebook.set_shown(notebook_shown)
 	for app_id in _tabs:
 		(_tabs[app_id] as Button).set_pressed_no_signal(app_id == _app)
+
+
+## The narrator's line for where the round stands, behind the opening's speaker tag; hidden when the round has none.
+func _paint_guide() -> void:
+	if _guide == null:
+		return
+	var locale := str(_current_locale_fn.call()) if _current_locale_fn.is_valid() else "zh"
+	var progress := _guide_read(PropertyKeysScript.CHAPTER_ONE_PROGRESS, {}) as Dictionary
+	var published := _guide_read(PropertyKeysScript.PUBLISHED_MEMES, []) as Array
+	var line := BasementGuideScript.line(
+		progress,
+		_guide_read(PropertyKeysScript.COLLECTED_CHAR_UNITS, []),
+		_guide_read(PropertyKeysScript.FREE_SENTENCE_UNITS, []),
+		PostSlipScript.latest(published, progress),
+		locale
+	)
+	_guide.visible = not line.is_empty()
+	_guide.text = NarrativeSessionCatalogScript.opening_speaker(locale) + line if not line.is_empty() else ""
+
+
+func _guide_read(property_name: String, fallback: Variant) -> Variant:
+	var value: Variant = _guide_watch.read(property_name)
+	return value if typeof(value) == typeof(fallback) else fallback
+
+
+func _on_guide_model_changed(_value: Variant) -> void:
+	if not _guide_watch.is_syncing():
+		_paint_guide()
 
 
 func _on_tab_pressed(app_id: String) -> void:

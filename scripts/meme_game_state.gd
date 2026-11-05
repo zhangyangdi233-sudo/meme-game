@@ -1737,6 +1737,12 @@ func room_world_state() -> Dictionary:
 	return RoomRulesScript.world_state(_current_room(), world_rules, current_round)
 
 
+## Whether the basement round being played stands its NPC: only a room that opens by the NPC's conversation does.
+## False outside the basement.
+func basement_npc_stands() -> bool:
+	return RoomRulesScript.stands_npc(_current_room())
+
+
 ## The room of the basement round being played, or empty outside the basement.
 func _current_room() -> Dictionary:
 	return RoomContentScript.room(ChapterOneProgressScript.round_of(chapter_one_progress), room_data_path)
@@ -1811,6 +1817,7 @@ func _submit_free_sentence(locale_code: String) -> Dictionary:
 		"tier": tier,
 		"rule_key": str(parsed.get("rule_key", "")),
 		"negated": bool(parsed.get("negated", false)),
+		"voided": bool(parsed.get("voided", false)),
 		"floor": tower_floor,
 		"published_day": day,
 		"round": ChapterOneProgressScript.round_of(chapter_one_progress),

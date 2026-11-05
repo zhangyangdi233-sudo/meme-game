@@ -177,10 +177,15 @@ func _jump_to_round(game_root, round_number: int) -> void:
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), round_number, "setup should jump to round %d" % round_number)
 
 
-## Posts this round and plays the NPC's conversation out, which delivers the round.
+## Delivers the round the way it opens: round one by posting an exit rule; a round that stands an NPC by a post and
+## the NPC's conversation played out.
 func _deliver(game_root) -> void:
-	game_root.game.free_sentence_units = ["灯"]
+	var by_rule: bool = not game_root.game.basement_npc_stands()
+	game_root.game.free_sentence_units = ["门", "是", "出", "口"] if by_rule else ["灯"]
 	_assert_true(bool(game_root.game.submit_free_sentence("zh").get("submitted")), "setup should post a sentence")
+	if by_rule:
+		_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "setup should deliver the round")
+		return
 	var adapter = game_root._reality_scene_adapter
 	var npc: Vector3 = adapter.chapter_npc_position()
 	adapter.player.position = Vector3(npc.x, 0.1, npc.z + 1.2)

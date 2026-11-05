@@ -56,6 +56,7 @@ func _run() -> void:
 	await _test_a_missing_knock_recording_does_not_lock_the_door()
 	await _test_the_tower_street_still_builds_without_chapter_progress()
 	await _test_each_round_stands_its_npc_in_reach()
+	await _test_a_round_without_its_npc_stands_nobody()
 	await _test_the_entry_door_shuts_behind_the_player()
 	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
 	await _test_a_new_round_starts_again_at_the_top_of_the_stairs()
@@ -316,6 +317,20 @@ func _test_each_round_stands_its_npc_in_reach() -> void:
 		var talking: Dictionary = adapter.apply_interaction({"action": "converse", "actor_id": str(nearby.get("actor_id")), "accepted": true})
 		_assert_true(bool(talking.get("interaction_active")), "round %d's NPC should start a conversation" % round_number)
 		await _free(adapter)
+
+
+## A room that does not open by the NPC's conversation (#120) stands no NPC: nothing answers where it would stand.
+func _test_a_round_without_its_npc_stands_nobody() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var deps := _deps(progress)
+	deps["basement_npc"] = false
+	var adapter = await _adapter_with(deps)
+	_assert_true(adapter.get_parent().find_child("BasementNPC", true, false) == null, "a round without its NPC should build none")
+	_assert_true(adapter.get_parent().find_child("BasementRoom", true, false) != null, "the round should still build its room")
+	adapter.player.position = Vector3(0.0, adapter.player.position.y, -2.5)
+	adapter.refresh_nearby_actor(deps)
+	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "nothing should answer where the NPC would stand")
+	await _free(adapter)
 
 
 func _test_the_entry_door_shuts_behind_the_player() -> void:

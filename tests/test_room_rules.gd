@@ -35,7 +35,8 @@ func _init() -> void:
 	test_only_this_rounds_rules_count()
 	test_any_of_a_rooms_escapes_opens_the_exit()
 	test_a_rule_escape_asks_for_its_rule_in_force()
-	test_every_authored_round_keeps_the_post_and_the_npc()
+	test_round_one_opens_only_by_its_exit_rules()
+	test_the_later_rounds_keep_the_post_and_the_npc()
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
 	test_every_round_one_word_can_be_picked_up()
@@ -139,10 +140,19 @@ func test_a_rule_escape_asks_for_its_rule_in_force() -> void:
 	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": "broken"}, 1, false), "a broken saved rule should open nothing")
 
 
-func test_every_authored_round_keeps_the_post_and_the_npc() -> void:
-	for round_number in range(1, 6):
+func test_round_one_opens_only_by_its_exit_rules() -> void:
+	var room: Dictionary = RoomContentScript.room(1)
+	_assert_true({"kind": "delivery"} not in room.get("escapes"), "round one should not open by the post and the NPC (#120)")
+	_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round one should offer the seven exit rules")
+	_assert_true(not RoomRulesScript.escaped(room, {}, 1, true), "a finished conversation should not open round one")
+	_assert_true(RoomRulesScript.escaped(room, {"door|exit": {"negated": false, "round": 1}}, 1, false), "门是出口 should open round one")
+	_assert_true(not RoomRulesScript.escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
+
+
+func test_the_later_rounds_keep_the_post_and_the_npc() -> void:
+	for round_number in range(2, 6):
 		var room: Dictionary = RoomContentScript.room(round_number)
-		_assert_true({"kind": "delivery"} in room.get("escapes"), "round %d should still open by the post and the NPC" % round_number)
+		_assert_true({"kind": "delivery"} in room.get("escapes"), "round %d should still open by the post and the NPC until #127" % round_number)
 		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
 		_assert_true(RoomRulesScript.escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
 		_assert_true(not RoomRulesScript.escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)

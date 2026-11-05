@@ -1,6 +1,7 @@
 extends SceneTree
 ## In a basement round a post is judged against that round's room: a red post changes the room and stays in the save,
-## a green one leaves it alone, the next round starts over, and the exit still asks for a post and the NPC.
+## a green one leaves it alone, the next round starts over; round one opens by its exit rules alone, the later rounds
+## still by a post and the NPC.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
@@ -23,6 +24,7 @@ func _init() -> void:
 	test_the_next_round_starts_from_its_own_room()
 	test_a_debug_jump_forgets_the_rooms_rules()
 	test_a_rule_alone_does_not_open_the_exit()
+	test_round_one_opens_by_an_exit_rule_without_an_npc()
 	test_a_rule_escape_opens_the_exit()
 	test_the_exit_stays_open_when_the_rule_is_taken_back()
 	test_the_npc_after_a_rule_escape_changes_nothing()
@@ -86,12 +88,14 @@ func test_a_polluted_subject_cannot_turn_the_change_around() -> void:
 	var lit: float = game.room_world_state().get("brightness")
 	_assert_eq(_post(game, ["房", "间", "不", "亮"]).get("tier"), "misread", "the polluted subject should void 房间不亮")
 	_assert_eq(game.room_world_state().get("brightness"), lit, "the room should stay as it was")
+	_assert_eq(game.published_memes[0].get("voided"), true, "the post should remember that pollution voided it")
+	_assert_eq(game.published_memes[1].get("voided"), false, "a post that held should not say it was voided")
 
 
 func test_the_next_round_starts_from_its_own_room() -> void:
 	var game := _basement()
 	_post(game, ["房", "间", "亮"])
-	_finish_conversation(game)
+	_post(game, ["门", "是", "出", "口"])
 	_assert_true(game.leave_basement_round(), "the delivered round should lead on")
 	_assert_eq(game.room_world_state(), RoomContentScript.room(2).get("state"), "round two should stand in its own room")
 	_assert_eq(game.get_world_rules().size(), 0, "a rule should hold in its own room only")
@@ -106,10 +110,25 @@ func test_a_debug_jump_forgets_the_rooms_rules() -> void:
 
 func test_a_rule_alone_does_not_open_the_exit() -> void:
 	var game := _basement()
+	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
+	_post(game, ["灯", "亮"])
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post alone should not open the exit")
+	_finish_conversation_with(game, 2)
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should still open round two")
+
+
+## #120: round one opens only by its exit rules, and stands no NPC to talk it open.
+func test_round_one_opens_by_an_exit_rule_without_an_npc() -> void:
+	var game := _basement()
+	_assert_true(not game.basement_npc_stands(), "round one should stand no NPC")
 	_post(game, ["房", "间", "亮"])
-	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a rule should not open the exit")
-	_finish_conversation(game)
-	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should still open it")
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a rule that is no exit should leave round one shut")
+	_post(game, ["门", "是", "出", "口"])
+	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "门是出口 should open round one")
+	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	_assert_true(game.basement_npc_stands(), "round two should still stand its NPC until #127")
+	game.skip_chapter_one()
+	_assert_true(not game.basement_npc_stands(), "the tower stands no basement NPC")
 
 
 func test_a_rule_escape_opens_the_exit() -> void:

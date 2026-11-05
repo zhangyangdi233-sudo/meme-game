@@ -50,6 +50,16 @@ static func opening_knock_line_index(path: String = CATALOG_PATH) -> int:
 	return -1
 
 
+## The CRT narrator's line for one step of a basement round (`BasementGuide.STEPS`), or empty when the round has no
+## guide or no line for that step.
+static func basement_guide_line(round_number: int, step: String, locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
+	var rounds: Variant = load_catalog(path).get("basement_guide", {})
+	var steps: Variant = (rounds as Dictionary).get(str(round_number), {}) if rounds is Dictionary else {}
+	if not steps is Dictionary or not (steps as Dictionary).has(step):
+		return ""
+	return _text(steps[step], locale_code)
+
+
 ## The demo end screen's line.
 static func demo_end_text(locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
 	return _text(load_catalog(path).get("demo_end", {}), locale_code)
