@@ -113,7 +113,7 @@ func test_skeleton_words_are_never_polluted() -> void:
 func test_a_polluted_rule_is_void_in_the_next_round() -> void:
 	var game := _rooms()
 	_post(game, DOOR)
-	_assert_true(game.leave_basement_round(), "the exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the exit should lead on")
 	var result: Dictionary = _post(game, DOOR)
 	_assert_eq(result.get("tier"), "misread", "last round's rule should be green here")
 	_assert_true(bool(result.get("voided", false)), "the result should say pollution voided it")
@@ -140,7 +140,7 @@ func test_a_synonym_a_later_room_adds_is_void_and_polluted() -> void:
 	var game := _rooms()
 	_post(game, ["灯", "亮"])
 	_post(game, DOOR)
-	_assert_true(game.leave_basement_round(), "the exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the exit should lead on")
 	_assert_true("烛" in game.get_polluted_units("zh"), "a word this room adds to a polluted group should show polluted")
 	_assert_true(bool(_post(game, ["烛", "亮"]).get("voided", false)), "and its rule should be void")
 
@@ -148,7 +148,7 @@ func test_a_synonym_a_later_room_adds_is_void_and_polluted() -> void:
 func test_a_void_post_is_green_and_keeps_counting_as_a_post() -> void:
 	var game := _rooms()
 	_post(game, DOOR)
-	_assert_true(game.leave_basement_round(), "the exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the exit should lead on")
 	var pollution_before: int = game.pollution
 	_post(game, DOOR)
 	_assert_eq(game.published_memes[0].get("tier"), "misread", "the record should be green")
@@ -235,7 +235,7 @@ func test_the_save_keeps_the_pollution() -> void:
 	loaded.room_data_path = POLICY_ROOMS
 	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
 	_assert_eq(loaded.get_polluted_units("zh"), ["门", "房"], "the polluted word should come back")
-	_assert_true(loaded.leave_basement_round(), "the loaded exit should lead on")
+	_assert_true(loaded.leave_basement_round("door"), "the loaded exit should lead on")
 	loaded.free_sentence_units = DOOR
 	_assert_true(bool(loaded.submit_free_sentence("zh").get("voided", false)), "and the rule should stay void")
 	var older: Dictionary = game.to_save_data()

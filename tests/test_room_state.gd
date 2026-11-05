@@ -25,6 +25,7 @@ func _init() -> void:
 	test_a_debug_jump_forgets_the_rooms_rules()
 	test_a_rule_alone_does_not_open_the_exit()
 	test_round_one_opens_by_an_exit_rule_without_an_npc()
+	test_an_exit_rule_makes_its_object_the_way_out()
 	test_a_rule_escape_opens_the_exit()
 	test_the_exit_stays_open_when_the_rule_is_taken_back()
 	test_the_npc_after_a_rule_escape_changes_nothing()
@@ -96,7 +97,7 @@ func test_the_next_round_starts_from_its_own_room() -> void:
 	var game := _basement()
 	_post(game, ["房", "间", "亮"])
 	_post(game, ["门", "是", "出", "口"])
-	_assert_true(game.leave_basement_round(), "the delivered round should lead on")
+	_assert_true(game.leave_basement_round("door"), "the delivered round should lead on")
 	_assert_eq(game.room_world_state(), RoomContentScript.room(2).get("state"), "round two should stand in its own room")
 	_assert_eq(game.get_world_rules().size(), 0, "a rule should hold in its own room only")
 
@@ -125,10 +126,26 @@ func test_round_one_opens_by_an_exit_rule_without_an_npc() -> void:
 	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a rule that is no exit should leave round one shut")
 	_post(game, ["门", "是", "出", "口"])
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "门是出口 should open round one")
-	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
 	_assert_true(game.basement_npc_stands(), "round two should still stand its NPC until #127")
 	game.skip_chapter_one()
 	_assert_true(not game.basement_npc_stands(), "the tower stands no basement NPC")
+
+
+## #144: the object an exit rule names is the way out, and only that object.
+func test_an_exit_rule_makes_its_object_the_way_out() -> void:
+	var game := _basement()
+	_post(game, ["椅", "子", "是", "出", "口"])
+	_assert_eq(game.basement_exits(), ["chair"], "椅子是出口 should make the chair the exit")
+	_assert_true(not ProgressScript.door_open(game.chapter_one_progress), "the exit door should stay locked")
+	_assert_true(not game.leave_basement_round("door"), "the locked door should not lead on")
+	_assert_true(not game.leave_basement_round("table"), "an object that is no exit should not lead on")
+	var loaded := StateScript.new()
+	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
+	_assert_eq(loaded.basement_exits(), ["chair"], "the save should keep the chair as the exit")
+	_assert_true(loaded.leave_basement_round("chair"), "the loaded chair should still lead on")
+	_assert_eq(ProgressScript.round_of(loaded.chapter_one_progress), 2, "leaving by the chair should start round two")
+	_assert_eq(loaded.basement_exits(), [], "round two should start with no exit")
 
 
 func test_a_rule_escape_opens_the_exit() -> void:
@@ -170,13 +187,13 @@ func test_a_rule_escape_survives_a_save() -> void:
 	loaded.room_data_path = RULE_ESCAPE_ROOMS
 	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
 	_assert_true(ProgressScript.exit_open(loaded.chapter_one_progress), "the opened exit should come back from the save")
-	_assert_true(loaded.leave_basement_round(), "the loaded exit should lead on")
+	_assert_true(loaded.leave_basement_round("door"), "the loaded exit should lead on")
 
 
 func test_an_escape_holds_in_its_own_round_only() -> void:
 	var game := _rule_escape_basement()
 	_post(game, ["门", "可", "以", "打", "开"])
-	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
 	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "round two should start shut")
 	_post(game, ["灯", "亮"])
 	_finish_conversation_with(game, 2)
@@ -188,7 +205,7 @@ func test_an_escape_holds_in_its_own_round_only() -> void:
 func test_the_npc_asks_for_a_post_only_without_one() -> void:
 	var game := _rule_escape_basement()
 	_post(game, ["门", "可", "以", "打", "开"])
-	_assert_true(game.leave_basement_round(), "the opened exit should lead on")
+	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
 	var no_post_line: String = GameLocaleScript.for_locale("zh").translate(StateScript.BASEMENT_NO_POST_LINE)
 	_finish_conversation_with(game, 2)
 	_assert_true(no_post_line in game.conversation_feedback, "without a post the NPC should send the player to the computer")

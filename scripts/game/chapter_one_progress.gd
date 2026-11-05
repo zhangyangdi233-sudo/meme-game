@@ -2,9 +2,9 @@ class_name ChapterOneProgress
 extends RefCounted
 ## Chapter one's progress rules on one progress dictionary: the opening narration is read one line at a time, the
 ## knock sounds on its line, and the door opens into the basement only once the narration is read and the knock heard.
-## The basement is played in five rounds: a round is delivered when one of its room's escapes holds (`RoomRules.escaped`),
-## which opens its exit; leaving through it starts the next round, and the fifth exit leads to the
-## white door passage. Walking into its light reaches the next level of `LEVEL_ORDER`.
+## The basement is played in five rounds: a round is delivered when one of its room's escapes holds
+## (`RoomRules.open_exits`), which makes an object of the room its exit (`exits`); leaving by one starts the next round,
+## and the fifth round's exit leads to the white door passage. Walking into its light reaches the next level of `LEVEL_ORDER`.
 ## Every rule returns the next progress; a refused step returns the progress unchanged. `MemeGameState` keeps the
 ## dictionary in the `chapter_one_progress` model and saves it with the run.
 
@@ -37,8 +37,13 @@ const INITIAL := {
 	"knock_complete": false,
 	"round": 0,
 	"delivered": false,
+	"exits": [],
 	"passage_to": "",
 }
+## What a delivery saved before exit objects existed opened: the exit door.
+const LEGACY_EXIT := "door"
+## The exit door behind the NPC: one of the objects a round can make its exit.
+const DOOR_EXIT := "door"
 
 
 static func initial() -> Dictionary:
@@ -73,7 +78,10 @@ static func normalize(raw: Variant) -> Dictionary:
 	progress["phase"] = phase
 	if phase == PHASE_BASEMENT:
 		progress["round"] = clampi(_integer_or(source.get("round", 1), 1), 1, BASEMENT_ROUND_COUNT)
-		progress["delivered"] = _is_true(source.get("delivered", false))
+		progress["exits"] = _exit_names(source.get("exits", []))
+		if progress["exits"].is_empty() and _is_true(source.get("delivered", false)):
+			progress["exits"] = [LEGACY_EXIT]
+		progress["delivered"] = not progress["exits"].is_empty()
 	elif phase == PHASE_PASSAGE:
 		var passage_to: Variant = source.get("passage_to", "")
 		var ahead := LEVEL_ORDER.find(passage_to) > LEVEL_ORDER.find(PHASE_BASEMENT)
@@ -159,27 +167,48 @@ static func open_door(progress: Dictionary) -> Dictionary:
 	return _enter_level(progress, next_level(PHASE_OPENING))
 
 
-## One of the round's escapes held: the round is delivered and stays so until the player leaves it.
-static func deliver(progress: Dictionary, escaped: bool) -> Dictionary:
-	if phase_of(progress) != PHASE_BASEMENT or bool(progress.get("delivered", false)) or not escaped:
+## The room's escapes that hold made `objects` exits: the round is delivered, and each object stays an exit until the
+## player leaves the round. Objects already open are kept; nothing new to open changes nothing.
+static func deliver(progress: Dictionary, objects: Array) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return progress
+	var open := exits(progress)
+	for object_name: String in _exit_names(objects):
+		if object_name not in open:
+			open.append(object_name)
+	if open == exits(progress):
 		return progress
 	var next := progress.duplicate(true)
+	next["exits"] = open
 	next["delivered"] = true
 	return next
 
 
-## The basement exit is open once this round is delivered.
+## The room objects this round has made its exits, in the order they opened; empty outside the basement.
+static func exits(progress: Dictionary) -> Array:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return []
+	return _exit_names(progress.get("exits", []))
+
+
+## The basement has a way out once this round is delivered.
 static func exit_open(progress: Dictionary) -> bool:
-	return phase_of(progress) == PHASE_BASEMENT and bool(progress.get("delivered", false))
+	return not exits(progress).is_empty()
 
 
-## The player walked out through the open exit: the next round begins, or after the fifth the white door passage to
-## the level `order` puts after the basement. Without one the exit holds.
-static func leave_round(progress: Dictionary, order: Array = LEVEL_ORDER) -> Dictionary:
-	if not exit_open(progress):
+## The exit door is locked until the door is one of this round's exits.
+static func door_open(progress: Dictionary) -> bool:
+	return DOOR_EXIT in exits(progress)
+
+
+## The player left by `exit_object`, one of this round's exits: the next round begins, or after the fifth the white
+## door passage to the level `order` puts after the basement. Any other object, or no next level, holds.
+static func leave_round(progress: Dictionary, exit_object: String, order: Array = LEVEL_ORDER) -> Dictionary:
+	if exit_object not in exits(progress):
 		return progress
 	var next := progress.duplicate(true)
 	next["delivered"] = false
+	next["exits"] = []
 	if round_of(progress) < BASEMENT_ROUND_COUNT:
 		next["round"] = round_of(progress) + 1
 		return next
@@ -225,6 +254,7 @@ static func _enter_level(progress: Dictionary, level: String) -> Dictionary:
 	next["phase"] = level
 	next["round"] = 1 if level == PHASE_BASEMENT else 0
 	next["delivered"] = false
+	next["exits"] = []
 	next["passage_to"] = ""
 	return next
 
@@ -236,6 +266,15 @@ static func _integer_or(raw: Variant, fallback: int) -> int:
 	if raw is float and is_finite(raw) and raw == floorf(raw):
 		return int(raw)
 	return fallback
+
+
+## The distinct object names of a saved list, in order; anything that is not a name is dropped.
+static func _exit_names(raw: Variant) -> Array:
+	var names: Array = []
+	for entry: Variant in raw if raw is Array else []:
+		if entry is String and not entry.is_empty() and entry not in names:
+			names.append(entry)
+	return names
 
 
 static func _is_true(raw: Variant) -> bool:

@@ -14,8 +14,8 @@ const ROOM := {
 	"rules": [
 		{"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {"brightness": 0.5}},
 		{"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
-		{"id": "light_off", "subject": "light", "predicate": "lit", "negated": true, "text": {"zh": "灯不亮"}, "state": {"brightness": 0.2}},
-		{"id": "exit_shown", "subject": "exit", "predicate": "exists", "text": {"zh": "出口存在"}, "state": {"objects": {"exit_lamp": true}}},
+		{"id": "light_off", "subject": "light", "predicate": "lit", "negated": true, "object": "light", "text": {"zh": "灯不亮"}, "state": {"brightness": 0.2}},
+		{"id": "exit_shown", "subject": "exit", "predicate": "exists", "object": "table", "text": {"zh": "出口存在"}, "state": {"objects": {"exit_lamp": true}}},
 	],
 	"state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false}},
 	"events": [],
@@ -36,6 +36,8 @@ func _init() -> void:
 	test_any_of_a_rooms_escapes_opens_the_exit()
 	test_a_rule_escape_asks_for_its_rule_in_force()
 	test_round_one_opens_only_by_its_exit_rules()
+	test_an_escape_makes_its_object_the_exit()
+	test_each_exit_subject_names_its_own_object()
 	test_the_later_rounds_keep_the_post_and_the_npc()
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
@@ -140,6 +142,29 @@ func test_a_rule_escape_asks_for_its_rule_in_force() -> void:
 	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": "broken"}, 1, false), "a broken saved rule should open nothing")
 
 
+func test_an_escape_makes_its_object_the_exit() -> void:
+	var room := ROOM.duplicate(true)
+	room["escapes"] = [{"kind": "delivery"}, {"kind": "rule", "rule": "exit_shown"}, {"kind": "rule", "rule": "light_off"}]
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 1, false), [], "nothing done should make nothing an exit")
+	_assert_eq(RoomRulesScript.open_exits(room, {"exit|exists": {"negated": false, "round": 1}}, 1, false), ["table"], "a rule escape should make the rule's object the exit")
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 1, true), ["door"], "the NPC's help should open the exit door")
+	var both := {"exit|exists": {"negated": false, "round": 1}, "light|lit": {"negated": true, "round": 1}}
+	_assert_eq(RoomRulesScript.open_exits(room, both, 1, true), ["door", "table", "light"], "every escape that holds should name its object once, in the room's order")
+	_assert_eq(RoomRulesScript.open_exits(room, {"exit|exists": {"negated": false, "round": 2}}, 1, false), [], "another round's rule should make nothing an exit")
+
+
+func test_each_exit_subject_names_its_own_object() -> void:
+	var expected := {"door": "door", "stairs": "stairs", "tv": "tv", "table": "table", "chair": "chair", "clock": "clock", "light": "light"}
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var room: Dictionary = RoomContentScript.room(round_number)
+		for rule: Dictionary in RoomRulesScript.exit_rules(room):
+			var rules := {"%s|%s" % [rule["subject"], rule["predicate"]]: {"negated": false, "round": round_number}}
+			_assert_eq(RoomRulesScript.open_exits(room, rules, round_number, false), [expected[rule["subject"]]], "round %d's %s should make its own object the exit" % [round_number, rule["id"]])
+	var objects: Array = RoomContentScript.EXIT_OBJECTS.duplicate()
+	objects.sort()
+	_assert_eq(objects, ["chair", "clock", "door", "light", "stairs", "table", "tv"], "the stage should know the seven exit objects")
+
+
 func test_round_one_opens_only_by_its_exit_rules() -> void:
 	var room: Dictionary = RoomContentScript.room(1)
 	_assert_true({"kind": "delivery"} not in room.get("escapes"), "round one should not open by the post and the NPC (#120)")
@@ -236,6 +261,12 @@ func test_validation_names_broken_rooms() -> void:
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "rule"}],
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "rule", "rule": "no_such_rule"}],
 		func(catalog: Dictionary) -> void:
+			_offer(catalog, {"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {}})
+			catalog["rooms"]["1"]["escapes"] = [{"kind": "rule", "rule": "x"}],
+		func(catalog: Dictionary) -> void:
+			_offer(catalog, {"id": "x", "subject": "light", "predicate": "lit", "object": "piano", "text": {}, "state": {}})
+			catalog["rooms"]["1"]["escapes"] = [{"kind": "rule", "rule": "x"}],
+		func(catalog: Dictionary) -> void:
 			catalog["rooms"]["1"]["words"]["zh"] = ["灯"]
 			_offer(catalog, {"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {}}),
 	]:
@@ -277,7 +308,7 @@ func test_every_authored_round_draws_from_the_rule_box() -> void:
 
 
 func test_validation_names_broken_rule_boxes() -> void:
-	var good := {"rule_box": [{"id": "light_on", "subject": "light", "predicate": "lit", "text": {}, "state": {}}], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": ["light_on"], "escapes": [{"kind": "rule", "rule": "light_on"}], "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
+	var good := {"rule_box": [{"id": "light_on", "subject": "light", "predicate": "lit", "object": "light", "text": {}, "state": {}}], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": ["light_on"], "escapes": [{"kind": "rule", "rule": "light_on"}], "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
 	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a room offering a rule of the box should be valid")
 	var unknown := good.duplicate(true)
 	(unknown["rooms"]["1"]["rules"] as Array).append("light_off")

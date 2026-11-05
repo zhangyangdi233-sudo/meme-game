@@ -7,13 +7,13 @@
   "rule_box": [
     {"id": "light_on", "subject": "room", "predicate": "lit", "text": {"zh": "房间亮", "ja": "", "en": ""}, "state": {"brightness": 1.6}},
     {"id": "light_off", "subject": "room", "predicate": "lit", "negated": true, "text": {"zh": "房间不亮", "ja": "", "en": ""}, "state": {"brightness": 0.3}},
-    {"id": "door_exit", "subject": "door", "predicate": "exit", "text": {"zh": "门是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "stairs_exit", "subject": "stairs", "predicate": "exit", "text": {"zh": "楼梯是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "tv_exit", "subject": "tv", "predicate": "exit", "text": {"zh": "电视是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "table_exit", "subject": "table", "predicate": "exit", "text": {"zh": "桌子是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "chair_exit", "subject": "chair", "predicate": "exit", "text": {"zh": "椅子是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "clock_exit", "subject": "clock", "predicate": "exit", "text": {"zh": "钟是出口", "ja": "", "en": ""}, "state": {}},
-    {"id": "light_exit", "subject": "light", "predicate": "exit", "text": {"zh": "灯是出口", "ja": "", "en": ""}, "state": {}}
+    {"id": "door_exit", "subject": "door", "predicate": "exit", "object": "door", "text": {"zh": "门是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "stairs_exit", "subject": "stairs", "predicate": "exit", "object": "stairs", "text": {"zh": "楼梯是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "tv_exit", "subject": "tv", "predicate": "exit", "object": "tv", "text": {"zh": "电视是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "table_exit", "subject": "table", "predicate": "exit", "object": "table", "text": {"zh": "桌子是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "chair_exit", "subject": "chair", "predicate": "exit", "object": "chair", "text": {"zh": "椅子是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "clock_exit", "subject": "clock", "predicate": "exit", "object": "clock", "text": {"zh": "钟是出口", "ja": "", "en": ""}, "state": {}},
+    {"id": "light_exit", "subject": "light", "predicate": "exit", "object": "light", "text": {"zh": "灯是出口", "ja": "", "en": ""}, "state": {}}
   ],
   "rooms": {
     "1": {

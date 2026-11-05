@@ -214,9 +214,9 @@
         "en": "It heard you. The room changed. But there is still no way out."
       },
       "open": {
-        "zh": "出口开了。离开屏幕，走出去吧。",
-        "ja": "出口が開いた。画面から離れて、出ていこう。",
-        "en": "The way out is open. Leave the screen and walk out."
+        "zh": "出口有了。离开屏幕，走到你说的那样东西旁边，按 F。",
+        "ja": "出口ができた。画面から離れて、君が言ったものに近づいて F を押して。",
+        "en": "There is a way out now. Leave the screen, go to the thing you named and press F."
       }
     }
   },

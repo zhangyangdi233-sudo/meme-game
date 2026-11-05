@@ -111,7 +111,7 @@ func test_a_delivery_unlocks_nothing() -> void:
 		game.end_typed_reality_conversation()
 		game.set_view_state("npc_up")
 		if round_number < ProgressScript.BASEMENT_ROUND_COUNT:
-			_assert_true(game.leave_basement_round(), "round %d should follow" % (round_number + 1))
+			_assert_true(game.leave_basement_round("door"), "round %d should follow" % (round_number + 1))
 	var without_phone: MemeGameState = _basement_game(1)
 	_deliver(without_phone)
 	_assert_eq(without_phone.unlocked_apps, [], "a delivery should not hand out apps to a run without the phone")
@@ -226,7 +226,7 @@ func test_the_fifth_exit_hands_over_the_phone_and_its_apps() -> void:
 	_deliver(game)
 	game.end_typed_reality_conversation()
 	game.phone_owned = false
-	_assert_true(game.leave_basement_round(), "the fifth exit should be left through")
+	_assert_true(game.leave_basement_round("door"), "the fifth exit should be left through")
 	_assert_true(game.phone_owned, "the passage should be walked with the phone")
 	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the passage should have the phone's apps")
 	var restored := StateScript.new()

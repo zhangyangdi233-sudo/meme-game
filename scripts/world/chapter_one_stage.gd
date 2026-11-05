@@ -2,8 +2,9 @@ class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
 ## the knock behind it), the passage between levels (the same water and door, no knock, walked into) or one basement
-## round (a room with the CRT terminal, the round's NPC when its room has one, and an exit), each from
-## its imported model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
+## round (a room with the CRT terminal, the round's NPC when its room has one, and the seven things a rule can make the
+## way out: the exit door, the stairs, the TV, the tables, the chairs, the clock and the lamps), each from its imported
+## model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
 ## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
 ## until the player owns it.
 ## A basement's lights and room objects follow the round's room state.
@@ -75,6 +76,28 @@ const TABLE_COLOR := Color(0.24, 0.15, 0.09)
 const PHONE_SIZE := Vector3(0.075, 0.012, 0.155)
 const PHONE_COLOR := Color(0.05, 0.05, 0.06)
 const PHONE_SCREEN_GLOW := Color(0.32, 0.42, 0.5)
+## The wall clock on the east wall, facing the room. The model has none, so it is built from primitives.
+const CLOCK_POSITION := Vector3(3.17, 1.95, -1.6)
+const CLOCK_RADIUS := 0.17
+const CLOCK_FACE_COLOR := Color(0.86, 0.82, 0.7)
+const CLOCK_RIM_COLOR := Color(0.18, 0.12, 0.08)
+## Where on the floor the player stands to use each exit object, and the point the view pushes in to (#144). Model
+## props are found by node name; every one of a kind counts (any chair, any table, any lamp).
+const EXIT_PROP_NODES := {
+	"table": ["Prop_ChildTable", "Prop_RearSideTable"],
+	"chair": ["Prop_Windsor_A", "Prop_Windsor_B", "Prop_TealChair"],
+	"light": ["Main_OpalGlobe", "Rear_OpalGlobe"],
+}
+## How high above a prop's floor point the view pushes in to; a lamp is pushed in to where it hangs.
+const EXIT_PROP_FOCUS_HEIGHT := {"table": 0.6, "chair": 0.55, "light": 0.0}
+const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
+const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
+## The stairs, from the foot to the landing: any step counts.
+const EXIT_STAIRS := [
+	{"reach": Vector3(-2.5, 0.0, 2.9), "focus": Vector3(-2.5, 1.2, 1.2)},
+	{"reach": Vector3(-2.5, 0.0, 0.6), "focus": Vector3(-2.5, 2.4, -0.8)},
+	{"reach": Vector3(-2.5, 0.0, -1.7), "focus": Vector3(-2.5, 3.6, -2.1)},
+]
 
 var phase := ""
 var _model: Node3D
@@ -103,6 +126,8 @@ var _environment: Environment
 var _room_state: Dictionary = {}
 ## Room object names (`RoomContent.OBJECTS`) to what shows them.
 var _room_objects: Dictionary = {}
+## Exit object names (`RoomContent.EXIT_OBJECTS`) to their points: `reach` on the floor and `focus` to push in to.
+var _exit_points: Dictionary = {}
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
@@ -179,6 +204,12 @@ func exit_position() -> Vector3:
 	return EXIT_DOORWAY if _exit_door != null else Vector3.ZERO
 
 
+## Every place of an exit object (`RoomContent.EXIT_OBJECTS`) in this room: `reach`, where the player stands on the
+## floor to use it, and `focus`, where the view pushes in to when leaving by it. Empty for an object the room lacks.
+func exit_points(object_name: String) -> Array:
+	return (_exit_points.get(object_name, []) as Array).duplicate(true)
+
+
 ## Follows the player: going down the basement's stairs shuts the entry behind them, and walking out through its open
 ## exit or into the passage's light is reported once.
 func track_player(position: Vector3) -> void:
@@ -215,7 +246,8 @@ func clamp_to_playable_position(position: Vector3, inset: float = 0.0) -> Vector
 
 ## Starts the knock once its line is reached; a knock already heard, or already started in this stage, is not replayed.
 func sync_progress(progress: Dictionary) -> void:
-	if _exit_door != null and ChapterOneProgressScript.exit_open(progress):
+	# The exit door is locked until the door is one of the round's exits (the rule, or the NPC's help).
+	if _exit_door != null and ChapterOneProgressScript.door_open(progress):
 		_exit_target = 1.0
 	if _knock == null or _paused or _knock_started:
 		return
@@ -336,7 +368,64 @@ func _build_basement(npc_texture: Texture2D, phone_on_table: bool, npc_stands: b
 		_crt_screen = screen
 	else:
 		push_error("The basement model has no CRT glass (%s)" % CRT_SCREEN_NODE)
+	_build_clock()
+	_collect_exit_points()
 	return true
+
+
+## Finds every exit object of the room: the door, the stairs, the CRT, the tables (the phone's too), the chairs, the
+## clock and the lamps.
+func _collect_exit_points() -> void:
+	_exit_points = {"door": [{"reach": EXIT_DOOR_REACH, "focus": EXIT_DOOR_FOCUS}], "stairs": EXIT_STAIRS.duplicate(true)}
+	if _crt_screen != null:
+		_exit_points["tv"] = [{"reach": crt_reach_position(), "focus": _crt_screen.center()}]
+	_exit_points["table"] = [{"reach": TABLE_POSITION, "focus": TABLE_POSITION + Vector3(0.0, TABLE_SIZE.y, 0.0)}]
+	_exit_points["clock"] = [{"reach": Vector3(CLOCK_POSITION.x - 0.6, 0.0, CLOCK_POSITION.z), "focus": CLOCK_POSITION}]
+	for object_name: String in EXIT_PROP_NODES:
+		var points: Array = _exit_points.get_or_add(object_name, [])
+		for node_name: String in EXIT_PROP_NODES[object_name]:
+			var prop := _model.find_child(node_name, true, false) as Node3D
+			if prop == null:
+				push_error("The basement model has no %s" % node_name)
+				continue
+			var at := _model.transform * prop.position
+			points.append({"reach": Vector3(at.x, 0.0, at.z), "focus": Vector3(at.x, at.y + float(EXIT_PROP_FOCUS_HEIGHT[object_name]), at.z)})
+
+
+func _build_clock() -> void:
+	var clock := Node3D.new()
+	clock.name = "BasementClock"
+	clock.position = CLOCK_POSITION
+	clock.rotation_degrees.z = 90.0
+	var rim := MeshInstance3D.new()
+	rim.name = "Rim"
+	var rim_mesh := CylinderMesh.new()
+	rim_mesh.top_radius = CLOCK_RADIUS
+	rim_mesh.bottom_radius = CLOCK_RADIUS
+	rim_mesh.height = 0.05
+	rim.mesh = rim_mesh
+	rim.material_override = _flat_material(CLOCK_RIM_COLOR)
+	clock.add_child(rim)
+	var face := MeshInstance3D.new()
+	face.name = "Face"
+	var face_mesh := CylinderMesh.new()
+	face_mesh.top_radius = CLOCK_RADIUS * 0.88
+	face_mesh.bottom_radius = CLOCK_RADIUS * 0.88
+	face_mesh.height = 0.01
+	face.mesh = face_mesh
+	face.position.y = 0.026
+	face.material_override = _flat_material(CLOCK_FACE_COLOR)
+	clock.add_child(face)
+	for hand: Array in [[0.11, 0.0], [0.075, 125.0]]:
+		var mesh_instance := MeshInstance3D.new()
+		var hand_mesh := BoxMesh.new()
+		hand_mesh.size = Vector3(0.012, 0.004, float(hand[0]))
+		mesh_instance.mesh = hand_mesh
+		mesh_instance.rotation_degrees.y = float(hand[1])
+		mesh_instance.position = Vector3(0.0, 0.033, 0.0) + Basis(Vector3.UP, deg_to_rad(float(hand[1]))) * Vector3(0.0, 0.0, -float(hand[0]) * 0.5)
+		mesh_instance.material_override = _flat_material(CLOCK_RIM_COLOR)
+		clock.add_child(mesh_instance)
+	add_child(clock)
 
 
 ## Gives a door leaf the collider the model leaves out, so it swings with the door and holds the doorway shut.

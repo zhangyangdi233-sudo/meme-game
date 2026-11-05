@@ -152,7 +152,7 @@ var _door_fade: ColorRect
 var _chapter_debug_panel: ChapterDebugPanel
 ## How long the NPC's reply in a linear conversation stays before the conversation moves on.
 var _reply_clock: ConversationReplyClockScript = ConversationReplyClockScript.new()
-var _door_was_opening := false
+var _transition_was_playing := false
 ## The door being crossed is the passage's: the screen fills with its white light, not with black.
 var _door_light := false
 var _camera_consent_panel: CameraConsentPanel
@@ -505,7 +505,7 @@ func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			if _reality_interaction_is_active():
 				# The white door cannot be turned back once it is opening.
-				if not _reality_door_opening():
+				if not _reality_transition_playing():
 					_exit_reality_interaction()
 			else:
 				_set_reality_mouse_look(false)
@@ -1152,7 +1152,7 @@ func _try_reality_interaction() -> bool:
 	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		return false
 	# The white door cannot be turned back once it is opening.
-	if _reality_door_opening():
+	if _reality_transition_playing():
 		return true
 	if _reality_interaction_is_active():
 		_exit_reality_interaction()
@@ -1170,6 +1170,8 @@ func _try_reality_interaction() -> bool:
 			return _enter_terminal()
 		"pick_up_phone":
 			return _pick_up_phone()
+		"leave_by_exit":
+			return _leave_by_exit(str(outcome.get("object", "")))
 	return false
 
 
@@ -1526,13 +1528,14 @@ func _reading_opening_narration() -> bool:
 func _phone_locked() -> bool:
 	if game != null and not game.phone_owned:
 		return true
-	return _reading_opening_narration() or _reality_door_opening() or _terminal_is_open()
+	return _reading_opening_narration() or _reality_transition_playing() or _terminal_is_open()
 
 
-func _reality_door_opening() -> bool:
+## The white door opening, or the player leaving a basement round by an exit: neither can be turned back.
+func _reality_transition_playing() -> bool:
 	if _reality_scene_adapter == null:
 		return false
-	return str(_reality_scene_adapter.interaction_outcome().get("kind", "none")) == "door"
+	return str(_reality_scene_adapter.interaction_outcome().get("kind", "none")) in ["door", "exit"]
 
 
 func _advance_opening_narration() -> void:
@@ -1560,13 +1563,24 @@ func _on_opening_knock_finished(_payload: Dictionary) -> void:
 		game.complete_opening_knock()
 
 
-## The player walked out through the basement's open exit; the adapter builds the next round or the passage.
+## The player walked out through the basement's open exit door: the same as leaving by it with F.
 func _on_basement_exit_crossed(_payload: Dictionary) -> void:
-	if game == null or not game.leave_basement_round():
-		return
-	_rebuild_reality_floor()
+	_leave_by_exit(ChapterOneProgressScript.DOOR_EXIT)
+
+
+## Leaving a basement round by an object it made its exit (#144): the state moves on to the next round or the passage,
+## and the adapter plays the exit transition every object shares (the view pushes in while the screen darkens) before
+## it builds the next stage. False for an object that is no exit.
+func _leave_by_exit(exit_object: String) -> bool:
+	if game == null or not game.leave_basement_round(exit_object):
+		return false
+	_ensure_reality_scene_adapter()
+	_reality_scene_adapter.apply_interaction({"action": "leave_by_exit", "object": exit_object})
+	_transition_was_playing = true
+	_door_light = false
 	_refresh_play_surfaces()
 	_sync_audio_state(false)
+	return true
 
 
 ## The player walked into the passage's light: the state moves on to the next level and the adapter walks the player
@@ -1576,7 +1590,7 @@ func _on_passage_door_entered(_payload: Dictionary) -> void:
 		return
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.apply_interaction({"action": "enter_passage"})
-	_door_was_opening = true
+	_transition_was_playing = true
 	_door_light = true
 	_update_visibility()
 	_refresh_reality_hud()
@@ -1614,7 +1628,7 @@ func _open_reality_door() -> bool:
 		return false
 	_ensure_reality_scene_adapter()
 	_reality_scene_adapter.apply_interaction({"action": "open_door"})
-	_door_was_opening = true
+	_transition_was_playing = true
 	_door_light = false
 	_update_visibility()
 	_refresh_reality_hud()
@@ -1627,12 +1641,15 @@ func _update_door_fade(delta: float) -> void:
 	if _ui_root == null or not is_instance_valid(_ui_root):
 		return
 	var target := 0.0
-	var opening := _reality_door_opening()
+	var opening := _reality_transition_playing()
 	if opening:
-		target = smoothstep(0.7, 1.0, float(_reality_scene_adapter.interaction_outcome().get("progress", 0.0)))
-	if _door_was_opening and not opening:
+		var outcome: Dictionary = _reality_scene_adapter.interaction_outcome()
+		# An exit darkens over the second half of its push; the white door only as its walk ends.
+		var from := 0.45 if str(outcome.get("kind", "")) == "exit" else 0.7
+		target = smoothstep(from, 1.0, float(outcome.get("progress", 0.0)))
+	if _transition_was_playing and not opening:
 		# The next stage is built: the phone and the prompt come back.
-		_door_was_opening = false
+		_transition_was_playing = false
 		_update_visibility()
 		_refresh_reality_hud()
 		_present_ending_if_unlocked()
@@ -1647,7 +1664,9 @@ func _update_door_fade(delta: float) -> void:
 		_ui_root.add_child(_door_fade)
 	var alpha := target if target > 0.0 else move_toward(_door_fade.color.a, 0.0, delta * 2.0)
 	_door_fade.color = Color(_door_fade_color(), alpha)
-	if alpha <= 0.0:
+	# A fade still lifting when the next transition starts (the passage's light right after a round's exit) is handed
+	# on to it, so its color follows the new transition.
+	if alpha <= 0.0 and not opening:
 		_door_fade.queue_free()
 		_door_fade = null
 		_door_light = false
@@ -2491,7 +2510,7 @@ func _render_world_prompt() -> void:
 	var plan := _day_plan()
 	if str(hud.get("view_state", "")) == "phone_down":
 		_world_prompt.text = "%s\n路面在脚下滑动。手机 App 的窗口浮在屏幕旁边。" % plan["title"]
-	elif _reality_door_opening():
+	elif _reality_transition_playing():
 		_world_prompt.text = ""
 	elif bool(hud.get("interaction_active", false)):
 		var conversation: Dictionary = hud.get("conversation", {})
@@ -2513,6 +2532,8 @@ func _render_world_prompt() -> void:
 				_world_prompt.text = "F  使用终端"
 			"phone":
 				_world_prompt.text = "F  拾取手机"
+			"exit":
+				_world_prompt.text = "F  离开"
 			_:
 				_world_prompt.text = ""
 
@@ -2747,7 +2768,7 @@ func _update_reality_hud_visibility() -> void:
 		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
 		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
 	var terminal_open := _terminal_is_open()
-	var interaction_visible := (not in_phone) and interaction_active and not _reality_door_opening() and not terminal_open
+	var interaction_visible := (not in_phone) and interaction_active and not _reality_transition_playing() and not terminal_open
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.set_shown(interaction_visible)
 	if _crt_terminal_panel != null:
@@ -3030,7 +3051,7 @@ func _request_session_mode(id: String) -> bool:
 
 ## The tower's ending, or the demo's end once the light has covered the screen.
 func _ending_is_unlocked() -> bool:
-	return game != null and (game.ending_unlocked or (_demo_ended() and not _reality_door_opening()))
+	return game != null and (game.ending_unlocked or (_demo_ended() and not _reality_transition_playing()))
 
 
 func _demo_ended() -> bool:

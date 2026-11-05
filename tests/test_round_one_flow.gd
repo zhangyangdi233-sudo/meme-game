@@ -187,6 +187,11 @@ func _walk_out(game_root) -> void:
 		if game_root.game.chapter_one_progress != before:
 			break
 	Input.action_release("reality_forward")
+	# Walking out plays the exit transition every exit object shares before the next stage is built.
+	for frame in 900:
+		if str(adapter.interaction_outcome().get("kind")) != "exit":
+			break
+		await process_frame
 	await process_frame
 
 

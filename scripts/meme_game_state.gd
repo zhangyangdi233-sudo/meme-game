@@ -632,10 +632,10 @@ func open_opening_door() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
 
 
-## The player walked out through the basement's open exit: the next round, or after the fifth the white door passage,
-## which is walked with the phone and its apps.
-func leave_basement_round() -> bool:
-	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress)):
+## The player left the basement round by `exit_object`, one of the objects its escapes made the exit: the next round, or
+## after the fifth the white door passage, which is walked with the phone and its apps. False for any other object.
+func leave_basement_round(exit_object: String) -> bool:
+	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress, exit_object)):
 		return false
 	_forget_room_rules()
 	if ChapterOneProgressScript.past_basement(chapter_one_progress):
@@ -1391,11 +1391,11 @@ func _deliver_basement_round() -> void:
 	conversation_feedback += "\n" + GameLocaleScript.for_locale(conversation_locale).translate(BASEMENT_NO_POST_LINE)
 
 
-## Delivers the round when one of its room's escapes holds. Once open the exit stays open, whatever is posted later.
+## Makes the objects of the room's escapes that hold its exits. Once open an exit stays open, whatever is posted later.
 func _open_exit_if_escaped(talked_with_post: bool = false) -> void:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
-	var escaped := RoomRulesScript.escaped(_current_room(), world_rules, current_round, talked_with_post)
-	_step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, escaped))
+	var objects := RoomRulesScript.open_exits(_current_room(), world_rules, current_round, talked_with_post)
+	_step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, objects))
 
 
 func _resolve_key_npc_clue_attempt() -> Dictionary:
@@ -1735,6 +1735,11 @@ func get_world_rules() -> Array:
 func room_world_state() -> Dictionary:
 	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
 	return RoomRulesScript.world_state(_current_room(), world_rules, current_round)
+
+
+## The objects this basement round has made its exits (#144), in the order they opened; empty outside the basement.
+func basement_exits() -> Array:
+	return ChapterOneProgressScript.exits(chapter_one_progress)
 
 
 ## Whether the basement round being played stands its NPC: only a room that opens by the NPC's conversation does.

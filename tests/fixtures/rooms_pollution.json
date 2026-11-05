@@ -1,6 +1,6 @@
 {
   "rule_box": [
-    {"id": "door_opens", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {}},
+    {"id": "door_opens", "subject": "door", "predicate": "can_open", "object": "door", "text": {"zh": "门可以打开"}, "state": {}},
     {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
     {"id": "light_off", "subject": "light", "predicate": "lit", "negated": true, "text": {"zh": "灯不亮"}, "state": {"brightness": 0.3}},
     {"id": "place_exists", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {}},

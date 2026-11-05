@@ -10,6 +10,8 @@ const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 const ESCAPE_DELIVERY := "delivery"
 const ESCAPE_RULE := "rule"
 const ESCAPE_KINDS := [ESCAPE_DELIVERY, ESCAPE_RULE]
+## What the NPC's help opens: the exit door (#129).
+const DELIVERY_EXIT := "door"
 
 
 ## Answers the same fields as `RuleEngine.parse`, plus the room's `rule_id`. The tier is `rule` (a red post) only for a
@@ -48,16 +50,30 @@ static func world_state(room: Dictionary, rules: Dictionary, round_number: int) 
 ## Whether any of the room's escapes holds. `talked_with_post` says the NPC's conversation was just finished with a
 ## post made in this round.
 static func escaped(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> bool:
-	var rule_ids: Array = _rules_in_force(room, rules, round_number).map(func(rule: Dictionary) -> Variant: return rule.get("id"))
-	for escape: Dictionary in room.get("escapes", []):
+	return not open_exits(room, rules, round_number, talked_with_post).is_empty()
+
+
+## The room objects the escapes that hold make exits, once each, in the room's escape order: a `rule` escape makes its
+## rule's `object` the exit, and the NPC's help (`delivery`) opens the exit door. `talked_with_post` says the NPC's
+## conversation was just finished with a post made in this round.
+static func open_exits(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> Array:
+	var in_force := _rules_in_force(room, rules, round_number)
+	var objects: Array = []
+	for escape: Variant in room.get("escapes", []):
+		if not escape is Dictionary:
+			continue
+		var object_name := ""
 		match escape.get("kind"):
 			ESCAPE_DELIVERY:
 				if talked_with_post:
-					return true
+					object_name = DELIVERY_EXIT
 			ESCAPE_RULE:
-				if escape.get("rule") in rule_ids:
-					return true
-	return false
+				for rule: Dictionary in in_force:
+					if rule.get("id") == escape.get("rule"):
+						object_name = str(rule.get("object", ""))
+		if not object_name.is_empty() and object_name not in objects:
+			objects.append(object_name)
+	return objects
 
 
 ## Whether the room stands an NPC to talk it open: it declares the `delivery` escape. A room that opens by its rules

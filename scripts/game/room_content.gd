@@ -16,6 +16,9 @@ const ROOMS_PATH := "res://content/basement_rooms.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 ## The room objects the chapter stage can show or hide. A room can only name these.
 const OBJECTS := ["exit_lamp"]
+## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`, and the chapter
+## stage answers F at every one of them (any chair, any clock).
+const EXIT_OBJECTS := ["door", "stairs", "tv", "table", "chair", "clock", "light"]
 
 
 ## The room of a round, or empty when there is none, with the rules it offers taken from the floor's rule box, the
@@ -183,14 +186,20 @@ static func _check_escapes(checked: Dictionary, label: String, problems: Array[S
 	if (checked["escapes"] as Array).is_empty():
 		problems.append("%s has no escape" % label)
 	var rule_ids: Array = []
+	var objects := {}
 	for rule: Variant in checked["rules"]:
 		if rule is Dictionary:
 			rule_ids.append(rule.get("id"))
+			objects[rule.get("id")] = rule.get("object")
 	for escape: Variant in checked["escapes"]:
 		if not escape is Dictionary or escape.get("kind") not in RoomRulesScript.ESCAPE_KINDS:
 			problems.append("%s has an unknown escape %s" % [label, escape])
 		elif escape["kind"] == RoomRulesScript.ESCAPE_RULE and escape.get("rule") not in rule_ids:
 			problems.append("%s has an escape naming no rule of its room: %s" % [label, escape.get("rule")])
+		elif escape["kind"] == RoomRulesScript.ESCAPE_RULE:
+			var object_name: Variant = objects[escape["rule"]]
+			if object_name not in EXIT_OBJECTS:
+				problems.append("%s has an escape whose rule %s names no exit object: %s" % [label, escape["rule"], object_name])
 
 
 ## Every round must drop the words of `guaranteed_exit_rules` exit rules pollution has left clean, in every language

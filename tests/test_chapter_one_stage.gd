@@ -9,6 +9,7 @@ const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
 
 const OPENING_WALK_DISTANCE := 29.5
 
@@ -59,6 +60,11 @@ func _run() -> void:
 	await _test_a_round_without_its_npc_stands_nobody()
 	await _test_the_entry_door_shuts_behind_the_player()
 	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
+	await _test_the_exit_door_stays_locked_while_another_object_is_the_exit()
+	await _test_every_exit_object_stands_in_every_round()
+	await _test_an_object_answers_f_only_once_it_is_the_exit()
+	await _test_every_exit_object_leaves_through_one_shared_transition()
+	await _test_settings_hold_the_exit_transition()
 	await _test_a_new_round_starts_again_at_the_top_of_the_stairs()
 	await _test_the_fifth_exit_leads_to_the_white_door_passage()
 	await _test_walking_into_the_light_is_reported_once_and_walks_the_player_through()
@@ -383,7 +389,7 @@ func _test_the_exit_opens_once_delivered_and_walking_out_is_reported() -> void:
 	_assert_eq(_exits_crossed, 0, "a shut exit should not be walked through")
 	var walked: Vector3 = adapter.pose().get("player_position")
 	_assert_true(walked.x > exit.x, "a shut exit should hold the player inside: %s" % str(walked))
-	var delivered := ProgressScript.deliver(progress, true)
+	var delivered := ProgressScript.deliver(progress, ["door"])
 	adapter.ensure_floor_current(_deps(delivered))
 	for frame in 150:
 		await process_frame
@@ -392,12 +398,125 @@ func _test_the_exit_opens_once_delivered_and_walking_out_is_reported() -> void:
 	await _free(adapter)
 
 
+func _test_the_exit_door_stays_locked_while_another_object_is_the_exit() -> void:
+	var progress := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 2), ["chair"])
+	var adapter = await _adapter(progress)
+	_exits_crossed = 0
+	for frame in 150:
+		await process_frame
+	var pivot := adapter.get_parent().find_child("ExitDoorPivot", true, false) as Node3D
+	_assert_true(absf(pivot.rotation_degrees.y) < 0.01, "the exit door should stay locked while only the chair is the exit")
+	var exit: Vector3 = adapter.chapter_exit_position()
+	await _walk_out(adapter, exit, progress)
+	_assert_eq(_exits_crossed, 0, "the locked door should not be walked through")
+	adapter.player.position = Vector3(exit.x + 0.5, 0.1, exit.z)
+	adapter.refresh_nearby_actor(_deps(progress))
+	_assert_true(str(adapter.nearby_outcome().get("object", "")) != "door", "the locked door should offer no way out")
+	await _free(adapter)
+
+
+func _test_every_exit_object_stands_in_every_round() -> void:
+	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var adapter = await _adapter(ProgressScript.jump_to_round(ProgressScript.initial(), round_number))
+		for object_name: String in RoomContentScript.EXIT_OBJECTS:
+			var reaches: Array = adapter.chapter_exit_reaches(object_name)
+			_assert_true(not reaches.is_empty(), "round %d should stand the %s" % [round_number, object_name])
+			for reach: Vector3 in reaches:
+				_assert_true(adapter.chapter_contains(reach), "round %d's %s should be reachable inside the room: %s" % [round_number, object_name, reach])
+		_assert_true(adapter.chapter_exit_reaches("chair").size() >= 3, "every chair of the room should count")
+		_assert_true(adapter.chapter_exit_reaches("table").size() >= 2, "every table of the room should count")
+		_assert_true(adapter.chapter_exit_reaches("light").size() >= 2, "every lamp of the room should count")
+		_assert_eq(adapter.chapter_exit_reaches("piano"), [], "an object the room lacks should stand nowhere")
+		_assert_true(adapter.get_parent().find_child("BasementClock", true, false) != null, "round %d should hang a clock" % round_number)
+		await _free(adapter)
+
+
+func _test_an_object_answers_f_only_once_it_is_the_exit() -> void:
+	var fresh := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var adapter = await _adapter(fresh)
+	for object_name: String in RoomContentScript.EXIT_OBJECTS:
+		var open := ProgressScript.deliver(fresh, [object_name])
+		for reach: Vector3 in adapter.chapter_exit_reaches(object_name):
+			adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+			adapter.refresh_nearby_actor(_deps(fresh))
+			_assert_true(str(adapter.nearby_outcome().get("kind")) != "exit", "the %s should offer no way out before its rule holds" % object_name)
+			adapter.refresh_nearby_actor(_deps(open))
+			var nearby: Dictionary = adapter.nearby_outcome()
+			_assert_eq(str(nearby.get("kind")), "exit", "the %s at %s should answer F once it is the exit" % [object_name, reach])
+			_assert_eq(str(nearby.get("action")), "leave_by_exit", "the exit's action should be to leave by it")
+			_assert_eq(str(nearby.get("object")), object_name, "the exit should name its object")
+	var reach: Vector3 = adapter.chapter_exit_reaches("chair")[0]
+	adapter.player.position = Vector3(reach.x + 4.0, adapter.player.position.y, reach.z)
+	adapter.refresh_nearby_actor(_deps(ProgressScript.deliver(fresh, ["chair"])))
+	_assert_true(str(adapter.nearby_outcome().get("kind")) != "exit", "the chair should not answer from afar")
+	await _free(adapter)
+
+
+func _test_every_exit_object_leaves_through_one_shared_transition() -> void:
+	var fresh := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	var durations: Array = []
+	for object_name: String in RoomContentScript.EXIT_OBJECTS:
+		var open := ProgressScript.deliver(fresh, [object_name])
+		var adapter = await _adapter(open)
+		var room: Node = adapter.get_parent().find_child("BasementRoom", true, false)
+		var reach: Vector3 = adapter.chapter_exit_reaches(object_name)[0]
+		adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+		var eye: Vector3 = adapter.player.position + Vector3(0.0, 1.56, 0.0)
+		adapter.refresh_nearby_actor(_deps(open))
+		var leaving: Dictionary = adapter.apply_interaction({"action": "leave_by_exit", "object": object_name})
+		_assert_eq(str(leaving.get("kind")), "exit", "leaving by the %s should play the exit transition" % object_name)
+		_assert_true(bool(leaving.get("interaction_active")), "the transition should hold the player")
+		var next := ProgressScript.leave_round(open, object_name)
+		var elapsed := 0.0
+		var pushed := false
+		while str(adapter.interaction_outcome().get("kind")) == "exit":
+			adapter.update_player(0.1, _deps(next))
+			adapter.ensure_floor_current(_deps(next))
+			elapsed += 0.1
+			var pose: Dictionary = adapter.pose()
+			if pose.has("view_position") and (pose["view_position"] as Vector3).distance_to(eye) > 0.2:
+				pushed = true
+			if str(adapter.interaction_outcome().get("kind")) == "exit":
+				_assert_true(adapter.get_parent().find_child("BasementRoom", true, false) == room, "the %s's round should stay built while the view pushes in" % object_name)
+			if elapsed > 10.0:
+				break
+		_assert_true(pushed, "leaving by the %s should push the view in toward it" % object_name)
+		durations.append(snappedf(elapsed, 0.1))
+		adapter.ensure_floor_current(_deps(next))
+		await process_frame
+		var rebuilt: Node = adapter.get_parent().find_child("BasementRoom", true, false)
+		_assert_true(rebuilt != null and rebuilt != room, "the next round should be built once the transition ends")
+		var spawn: Vector3 = adapter.pose().get("player_position")
+		_assert_true(spawn.distance_to(ChapterOneStage.BASEMENT_SPAWN) < 0.01, "the %s should lead to the next round's start: %s" % [object_name, spawn])
+		_assert_true(not adapter.pose().has("view_position"), "the next round should give the view back")
+		await _free(adapter)
+	for duration in durations:
+		_assert_eq(duration, durations[0], "every exit object should share one transition: %s" % [durations])
+
+
+func _test_settings_hold_the_exit_transition() -> void:
+	var open := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["light"])
+	var adapter = await _adapter(open)
+	var reach: Vector3 = adapter.chapter_exit_reaches("light")[0]
+	adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+	adapter.apply_interaction({"action": "leave_by_exit", "object": "light"})
+	adapter.update_player(0.2, _deps(open))
+	var before := float(adapter.interaction_outcome().get("progress"))
+	adapter.set_paused(true)
+	adapter.update_player(5.0, _deps(open))
+	_assert_near(float(adapter.interaction_outcome().get("progress")), before, 0.001, "open settings should hold the transition")
+	adapter.set_paused(false)
+	adapter.update_player(0.2, _deps(open))
+	_assert_true(float(adapter.interaction_outcome().get("progress")) > before, "closing settings should let the transition go on")
+	await _free(adapter)
+
+
 func _test_a_new_round_starts_again_at_the_top_of_the_stairs() -> void:
 	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
 	var adapter = await _adapter(progress)
 	var spawn: Vector3 = adapter.pose().get("player_position")
 	adapter.player.position = Vector3(0.0, 0.1, 0.0)
-	var next := ProgressScript.leave_round(ProgressScript.deliver(progress, true))
+	var next := ProgressScript.leave_round(ProgressScript.deliver(progress, ["door"]), "door")
 	adapter.ensure_floor_current(_deps(next))
 	await process_frame
 	var restarted: Vector3 = adapter.pose().get("player_position")
@@ -412,9 +531,9 @@ func _test_a_new_round_starts_again_at_the_top_of_the_stairs() -> void:
 
 
 func _test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
-	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true)
+	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), ["door"])
 	var adapter = await _adapter(fifth)
-	var passage := ProgressScript.leave_round(fifth)
+	var passage := ProgressScript.leave_round(fifth, "door")
 	adapter.ensure_floor_current(_deps(passage))
 	await process_frame
 	var parent: Node = adapter.get_parent()
@@ -434,7 +553,7 @@ func _test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
 
 
 func _test_walking_into_the_light_is_reported_once_and_walks_the_player_through() -> void:
-	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true))
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), ["door"]), "door")
 	var adapter = await _adapter(passage)
 	var door: Vector3 = adapter.chapter_door_position()
 	var parent: Node = adapter.get_parent()

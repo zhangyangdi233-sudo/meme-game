@@ -1,9 +1,9 @@
 {
   "rule_box": [
     {"id": "light_on", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {"brightness": 1.6}},
-    {"id": "exit_shown", "subject": "door", "predicate": "can_open", "text": {"zh": "门可以打开"}, "state": {"objects": {"exit_lamp": true}}},
+    {"id": "exit_shown", "subject": "door", "predicate": "can_open", "object": "door", "text": {"zh": "门可以打开"}, "state": {"objects": {"exit_lamp": true}}},
     {"id": "exit_gone", "subject": "door", "predicate": "can_open", "negated": true, "text": {"zh": "门不可以打开"}, "state": {"objects": {"exit_lamp": false}}},
-    {"id": "place_shows_exit", "subject": "place", "predicate": "exists", "text": {"zh": "地方存在"}, "state": {"objects": {"exit_lamp": true}}}
+    {"id": "place_shows_exit", "subject": "place", "predicate": "exists", "object": "door", "text": {"zh": "地方存在"}, "state": {"objects": {"exit_lamp": true}}}
   ],
   "rooms": {
     "1": {

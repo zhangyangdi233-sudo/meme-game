@@ -58,9 +58,9 @@ func _test_the_status_follows_the_chapter_progress(panel: Control) -> void:
 	var progress := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel
 	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 3))
 	_assert_true(status != null and status.text.contains("3 / 5"), "the status should show round three: %s" % (status.text if status != null else "missing"))
-	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 3), true))
+	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 3), ["door"]))
 	_assert_true(status != null and status.text.contains("出口：开"), "the status should show the open exit: %s" % (status.text if status != null else "missing"))
-	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), true))
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 5), ["door"]), "door")
 	progress.replace_all(passage)
 	_assert_true(status != null and status.text.contains("白光门"), "the status should show the white door passage: %s" % (status.text if status != null else "missing"))
 	progress.replace_all(ProgressScript.cross_passage(passage))

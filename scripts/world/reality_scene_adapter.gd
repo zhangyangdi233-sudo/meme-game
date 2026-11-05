@@ -6,6 +6,9 @@ class_name RealitySceneAdapter
 ## built when the deps carry no chapter progress or a tower one. The basement's CRT is a `terminal` outcome: entering
 ## it pushes the view in to its glass (`view_position` on the look pose) and leaving gives the look back. The phone
 ## lying on the basement's table while nobody owns it is a `phone` outcome; picking it up takes it off the table.
+## An object a basement round has made its exit is an `exit` outcome in reach of any of its places; leaving by it plays
+## the one exit transition every object shares (the view pushes in to it while the host darkens the screen), and only
+## then is the next round built.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
@@ -34,6 +37,14 @@ const TERMINAL_VIEW_FILL := 0.72
 const TERMINAL_VIEW_FOV := 58.0
 ## How far from the phone on the table the player may stand for it to answer.
 const PHONE_REACH_RADIUS := 1.1
+## How far from one of an exit object's places the player may stand for it to answer.
+const EXIT_REACH_RADIUS := 1.0
+## Leaving by an exit: the view pushes in toward the object over the whole transition; the host darkens the screen as
+## it ends, then the next round is built.
+const EXIT_TRANSITION_SECONDS := 1.8
+## How much of the way from the eye to the object the view pushes in.
+const EXIT_PUSH_SHARE := 0.6
+const EYE_HEIGHT := 1.56
 
 signal nearby_targets_changed()
 
@@ -59,6 +70,14 @@ var _built_round := 0
 var _nearby_door := false
 var _nearby_terminal := false
 var _nearby_phone := false
+## The exit object in reach and the place of it nearest the player, or empty.
+var _nearby_exit := ""
+var _nearby_exit_focus := Vector3.ZERO
+## Seconds into leaving by an exit, or a negative value when no exit transition plays.
+var _exit_time := -1.0
+var _exit_object := ""
+var _exit_eye := Vector3.ZERO
+var _exit_focus := Vector3.ZERO
 var _terminal_active := false
 ## Seconds into opening the white door, or a negative value when no door is opening.
 var _door_time := -1.0
@@ -101,6 +120,7 @@ func reset_session_state() -> void:
 	_built_day = 0
 	_built_stage = ""
 	_door_time = -1.0
+	_exit_time = -1.0
 	if floor != null:
 		yaw = floor.start_yaw_degrees()
 	pitch = 0.0
@@ -114,6 +134,7 @@ func clear_nearby_targets() -> void:
 	_nearby_door = false
 	_nearby_terminal = false
 	_nearby_phone = false
+	_nearby_exit = ""
 
 
 func rebuild_floor(deps: Dictionary) -> void:
@@ -174,8 +195,9 @@ func rebuild_floor(deps: Dictionary) -> void:
 func ensure_floor_current(deps: Dictionary) -> void:
 	if floor == null:
 		return
-	# The opening stays built while its door opens; the next stage follows once the walk through has ended.
-	if _door_time >= 0.0:
+	# The opening stays built while its door opens, and a round while the player leaves it by an exit; the next stage
+	# follows once the walk through or the exit transition has ended.
+	if _door_time >= 0.0 or _exit_time >= 0.0:
 		return
 	var stage_phase := _chapter_stage_phase(deps)
 	# Each basement round is built afresh: walking out of one starts the next at the top of the stairs.
@@ -222,6 +244,9 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		return
 	if _door_time >= 0.0:
 		_advance_door_opening(delta)
+		return
+	if _exit_time >= 0.0:
+		_advance_exit_transition(delta)
 		return
 	if _should_recover_player():
 		_recover_player()
@@ -317,6 +342,13 @@ func chapter_exit_position() -> Vector3:
 	return _chapter_stage.exit_position()
 
 
+## Where the player stands to use each place of an exit object; empty when no stage has one.
+func chapter_exit_reaches(object_name: String) -> Array:
+	if _chapter_stage == null:
+		return []
+	return _chapter_stage.exit_points(object_name).map(func(point: Dictionary) -> Vector3: return point["reach"])
+
+
 ## Whether a position is inside the chapter stage's playable bounds; false while the tower street is built.
 func chapter_contains(position: Vector3) -> bool:
 	return _chapter_stage != null and _chapter_stage.contains_playable_position(position)
@@ -333,27 +365,31 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_door := _nearby_door
 	var previous_terminal := _nearby_terminal
 	var previous_phone := _nearby_phone
+	var previous_exit := _nearby_exit
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
 		or _interaction_active
 		or _terminal_active
 		or _door_time >= 0.0
+		or _exit_time >= 0.0
 		or floor == null
 		or player == null
 	):
 		clear_nearby_targets()
-		if previous_actor != null or previous_item != null or previous_door or previous_terminal or previous_phone:
+		if previous_actor != null or previous_item != null or previous_door or previous_terminal or previous_phone or not previous_exit.is_empty():
 			nearby_targets_changed.emit()
 		return
 	if _chapter_stage != null:
 		_nearby_door = _door_in_reach(deps)
 		_nearby_terminal = _terminal_in_reach()
 		_nearby_phone = _phone_in_reach()
+		_find_exit_in_reach(deps)
 		nearby_actor = _nearest_actor(_chapter_stage.interactable_actors())
 		if (
 			previous_door != _nearby_door
 			or previous_terminal != _nearby_terminal
 			or previous_phone != _nearby_phone
+			or previous_exit != _nearby_exit
 			or previous_actor != nearby_actor
 		):
 			nearby_targets_changed.emit()
@@ -401,15 +437,23 @@ func nearby_outcome() -> Dictionary:
 			"kind": "door",
 			"action": "open_door",
 		}
-	if _nearby_terminal:
-		return {
-			"kind": "terminal",
-			"action": "enter_terminal",
-		}
+	# The phone is picked up first, so leaving by the table under it never leaves it behind.
 	if _nearby_phone:
 		return {
 			"kind": "phone",
 			"action": "pick_up_phone",
+		}
+	# An object that is the exit answers before the CRT it may be.
+	if not _nearby_exit.is_empty():
+		return {
+			"kind": "exit",
+			"action": "leave_by_exit",
+			"object": _nearby_exit,
+		}
+	if _nearby_terminal:
+		return {
+			"kind": "terminal",
+			"action": "enter_terminal",
 		}
 	if nearby_item != null:
 		return {
@@ -448,6 +492,14 @@ func interaction_outcome() -> Dictionary:
 			"interaction_active": true,
 			"progress": clampf(_door_time / DOOR_TRANSITION_SECONDS, 0.0, 1.0),
 		}
+	if _exit_time >= 0.0:
+		return {
+			"kind": "exit",
+			"action": "leave_by_exit",
+			"object": _exit_object,
+			"interaction_active": true,
+			"progress": clampf(_exit_time / EXIT_TRANSITION_SECONDS, 0.0, 1.0),
+		}
 	if _terminal_active:
 		return {
 			"kind": "terminal",
@@ -469,8 +521,12 @@ func interaction_outcome() -> Dictionary:
 
 func apply_interaction(intent: Dictionary) -> Dictionary:
 	var action := str(intent.get("action", "none"))
-	# Once the white door is opening nothing turns it back.
-	if _door_time >= 0.0:
+	# Once the white door is opening, or the player is leaving by an exit, nothing turns it back.
+	if _door_time >= 0.0 or _exit_time >= 0.0:
+		return interaction_outcome()
+	if action == "leave_by_exit":
+		if player != null and _chapter_stage != null:
+			_start_exit_transition(str(intent.get("object", "")))
 		return interaction_outcome()
 	if action == "open_door":
 		if _nearby_door and player != null:
@@ -697,6 +753,7 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	clear_nearby_targets()
 	_drop_interaction(false)
 	_door_time = -1.0
+	_exit_time = -1.0
 	if player != null:
 		_last_safe_position = _chapter_stage.start_position()
 		player.position = _last_safe_position
@@ -748,6 +805,63 @@ func _face_terminal() -> void:
 
 func _terminal_view_position() -> Vector3:
 	return _crt_screen().view_position(TERMINAL_VIEW_FOV, TERMINAL_VIEW_FILL)
+
+
+## The nearest place, in reach, of an object this round has made its exit.
+func _find_exit_in_reach(deps: Dictionary) -> void:
+	_nearby_exit = ""
+	var nearest_distance := EXIT_REACH_RADIUS
+	for object_name: Variant in ChapterOneProgressScript.exits(_chapter_progress(deps)):
+		for point: Dictionary in _chapter_stage.exit_points(str(object_name)):
+			var offset: Vector3 = (point["reach"] as Vector3) - player.position
+			offset.y = 0.0
+			if offset.length() <= nearest_distance:
+				nearest_distance = offset.length()
+				_nearby_exit = str(object_name)
+				_nearby_exit_focus = point["focus"]
+
+
+## Starts the exit transition toward the object's place nearest the player (the one in reach, or the door walked out
+## through); an object the room lacks pushes the view straight ahead.
+func _start_exit_transition(object_name: String) -> void:
+	_exit_eye = player.position + Vector3(0.0, EYE_HEIGHT, 0.0)
+	_exit_focus = _exit_eye + Basis.from_euler(Vector3(deg_to_rad(pitch), deg_to_rad(yaw), 0.0)) * Vector3.FORWARD
+	if object_name == _nearby_exit:
+		_exit_focus = _nearby_exit_focus
+	else:
+		var nearest := INF
+		for point: Dictionary in _chapter_stage.exit_points(object_name):
+			var distance := (point["reach"] as Vector3).distance_to(player.position)
+			if distance < nearest:
+				nearest = distance
+				_exit_focus = point["focus"]
+	_exit_object = object_name
+	_exit_time = 0.0
+	player.velocity = Vector3.ZERO
+	clear_nearby_targets()
+	nearby_targets_changed.emit()
+
+
+## Turns the look to the exit object and pushes the view in; when the transition ends the next ensure builds the next
+## round. Open settings holds it.
+func _advance_exit_transition(delta: float) -> void:
+	if _paused:
+		return
+	_exit_time += maxf(delta, 0.0)
+	player.velocity = Vector3.ZERO
+	var direction := _exit_focus - _exit_eye
+	if direction.length_squared() > 0.0001:
+		var turn := smoothstep(0.0, EXIT_TRANSITION_SECONDS * 0.4, _exit_time)
+		yaw = rad_to_deg(lerp_angle(deg_to_rad(yaw), atan2(-direction.x, -direction.z), turn))
+		pitch = lerpf(pitch, rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0))), turn)
+	if _exit_time >= EXIT_TRANSITION_SECONDS:
+		_exit_time = -1.0
+		_exit_object = ""
+
+
+func _exit_view_position() -> Vector3:
+	var push := smoothstep(0.0, EXIT_TRANSITION_SECONDS, _exit_time) * EXIT_PUSH_SHARE
+	return _exit_eye.lerp(_exit_focus, push)
 
 
 func _door_in_reach(deps: Dictionary) -> bool:
@@ -832,6 +946,8 @@ func pose() -> Dictionary:
 	}
 	if _terminal_active and _crt_screen() != null:
 		look_pose["view_position"] = _terminal_view_position()
+	if _exit_time >= 0.0:
+		look_pose["view_position"] = _exit_view_position()
 	return look_pose
 
 
@@ -851,6 +967,9 @@ func restore_world_pose(world_data: Dictionary) -> void:
 
 
 func world_save_pose() -> Dictionary:
+	# Leaving by an exit the state is already in the next round, which starts at its spawn.
+	if _exit_time >= 0.0 and _chapter_stage != null:
+		return {"player_position": _chapter_stage.start_position(), "yaw": _chapter_stage.start_yaw_degrees(), "pitch": 0.0}
 	var look_pose := pose()
 	return {
 		"player_position": look_pose.get("player_position", Vector3.ZERO),

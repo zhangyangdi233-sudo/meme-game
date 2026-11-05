@@ -55,7 +55,7 @@ func test_after_a_post_the_guide_says_what_it_did() -> void:
 
 
 func test_an_open_exit_sends_the_player_out() -> void:
-	var delivered := ProgressScript.deliver(_round(1), true)
+	var delivered := ProgressScript.deliver(_round(1), ["door"])
 	_assert_eq(GuideScript.step(delivered, HELD, ["门"], RED), GuideScript.STEP_OPEN, "an open exit should send the player out")
 
 

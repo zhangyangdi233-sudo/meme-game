@@ -195,29 +195,39 @@ func test_skipping_chapter_one_lands_on_the_tower() -> void:
 func test_the_exit_opens_only_after_a_delivery_with_this_rounds_post() -> void:
 	var basement := ProgressScript.open_door(_ready_door())
 	_assert_true(not ProgressScript.exit_open(basement), "a new round's exit should be shut")
-	_assert_eq(ProgressScript.deliver(basement, false), basement, "a delivery without this round's post should be refused")
-	var delivered := ProgressScript.deliver(basement, true)
-	_assert_true(bool(delivered.get("delivered")), "a delivery with this round's post should be recorded")
+	_assert_eq(ProgressScript.exits(basement), [], "a new round should have no exit object")
+	_assert_eq(ProgressScript.deliver(basement, []), basement, "a delivery that opens nothing should be refused")
+	var delivered := ProgressScript.deliver(basement, ["chair"])
+	_assert_true(bool(delivered.get("delivered")), "a delivery should be recorded")
 	_assert_true(ProgressScript.exit_open(delivered), "a delivered round's exit should open")
-	_assert_eq(ProgressScript.deliver(delivered, true), delivered, "a second delivery should change nothing")
+	_assert_eq(ProgressScript.exits(delivered), ["chair"], "the delivery should name the object that became the exit")
+	_assert_true(not ProgressScript.door_open(delivered), "the exit door should stay locked while only the chair is the exit")
+	_assert_eq(ProgressScript.deliver(delivered, ["chair"]), delivered, "a second delivery of the same object should change nothing")
+	var both := ProgressScript.deliver(delivered, ["door", "chair"])
+	_assert_eq(ProgressScript.exits(both), ["chair", "door"], "a later exit should join the open ones")
+	_assert_true(ProgressScript.door_open(both), "the exit door should open once the door is an exit")
 	var opening := _ready_door()
-	_assert_eq(ProgressScript.deliver(opening, true), opening, "the opening has no round to deliver")
+	_assert_eq(ProgressScript.deliver(opening, ["door"]), opening, "the opening has no round to deliver")
 	_assert_true(not ProgressScript.exit_open(ProgressScript.tower()), "the tower has no basement exit")
 
 
 func test_leaving_through_the_exit_starts_the_next_round() -> void:
 	var basement := ProgressScript.open_door(_ready_door())
-	_assert_eq(ProgressScript.leave_round(basement), basement, "a shut exit should not be left through")
-	var next := ProgressScript.leave_round(ProgressScript.deliver(basement, true))
+	_assert_eq(ProgressScript.leave_round(basement, "door"), basement, "a shut exit should not be left through")
+	var by_chair := ProgressScript.deliver(basement, ["chair"])
+	_assert_eq(ProgressScript.leave_round(by_chair, "table"), by_chair, "an object that is no exit should not be left through")
+	_assert_eq(ProgressScript.leave_round(by_chair, "door"), by_chair, "the locked door should not be left through while the chair is the exit")
+	var next := ProgressScript.leave_round(by_chair, "chair")
 	_assert_eq(next.get("phase"), ProgressScript.PHASE_BASEMENT, "the next round should still be the basement")
 	_assert_eq(ProgressScript.round_of(next), 2, "leaving round one should start round two")
 	_assert_true(not ProgressScript.exit_open(next), "the next round's exit should be shut again")
+	_assert_eq(ProgressScript.exits(next), [], "the next round should start with no exit object")
 
 
 func test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
 	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
-	_assert_eq(ProgressScript.leave_round(progress), progress, "the fifth round's shut exit should hold")
-	var passage := ProgressScript.leave_round(ProgressScript.deliver(progress, true))
+	_assert_eq(ProgressScript.leave_round(progress, "door"), progress, "the fifth round's shut exit should hold")
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(progress, ["clock"]), "clock")
 	_assert_eq(passage.get("phase"), ProgressScript.PHASE_PASSAGE, "the fifth exit should lead to the white door passage, not the crossroads")
 	_assert_eq(passage.get("passage_to"), ProgressScript.PHASE_DEMO_END, "the passage should lead where the level order says")
 	_assert_eq(ProgressScript.round_of(passage), 0, "the passage has no basement round")
@@ -245,9 +255,9 @@ func test_the_level_order_table_decides_the_next_level() -> void:
 	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_TOWER), "", "a level off the table has no next level")
 	var longer := [ProgressScript.PHASE_BASEMENT, "floor_two", ProgressScript.PHASE_DEMO_END]
 	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_BASEMENT, longer), "floor_two", "a level added to the table should come next")
-	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT), true)
-	_assert_eq(ProgressScript.leave_round(fifth, longer).get("passage_to"), "floor_two", "the fifth exit should follow the table, not a fixed level")
-	_assert_eq(ProgressScript.leave_round(fifth, [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the exit should hold")
+	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT), ["door"])
+	_assert_eq(ProgressScript.leave_round(fifth, "door", longer).get("passage_to"), "floor_two", "the fifth exit should follow the table, not a fixed level")
+	_assert_eq(ProgressScript.leave_round(fifth, "door", [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the exit should hold")
 
 
 func test_the_passage_and_the_demo_end_survive_a_save() -> void:
@@ -267,18 +277,26 @@ func test_the_passage_and_the_demo_end_survive_a_save() -> void:
 
 func _passage() -> Dictionary:
 	var fifth := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
-	return ProgressScript.leave_round(ProgressScript.deliver(fifth, true))
+	return ProgressScript.leave_round(ProgressScript.deliver(fifth, ["door"]), "door")
 
 
 func test_a_saved_delivery_is_kept_only_in_the_basement() -> void:
-	var delivered := ProgressScript.deliver(_with(ProgressScript.open_door(_ready_door()), "round", 3), true)
+	var delivered := ProgressScript.deliver(_with(ProgressScript.open_door(_ready_door()), "round", 3), ["tv", "light"])
 	var restored := ProgressScript.normalize(delivered.duplicate(true))
 	_assert_eq(ProgressScript.round_of(restored), 3, "a saved round should come back")
 	_assert_true(ProgressScript.exit_open(restored), "a saved delivery should keep the exit open")
+	_assert_eq(ProgressScript.exits(restored), ["tv", "light"], "a saved delivery should keep its exit objects")
+	_assert_eq(ProgressScript.leave_round(restored, "light").get("round"), 4, "a loaded exit object should still lead on")
 	var unearned := ProgressScript.normalize(_with(_ready_door(), "delivered", true))
 	_assert_true(not bool(unearned.get("delivered")), "a delivery claimed in the opening should be dropped")
 	var text := ProgressScript.normalize(_with(ProgressScript.open_door(_ready_door()), "delivered", "yes"))
 	_assert_true(not ProgressScript.exit_open(text), "a delivery that is not a bool should be dropped")
+	var older := _with(_with(ProgressScript.open_door(_ready_door()), "delivered", true), "exits", null)
+	older.erase("exits")
+	_assert_eq(ProgressScript.exits(ProgressScript.normalize(older)), ["door"], "a delivery saved before exit objects opened the door, and should still")
+	var broken := _with(ProgressScript.open_door(_ready_door()), "exits", ["chair", 3, "", "chair"])
+	_assert_eq(ProgressScript.exits(ProgressScript.normalize(broken)), ["chair"], "broken exit objects should be dropped")
+	_assert_true(bool(ProgressScript.normalize(broken).get("delivered")), "a saved exit object should count as a delivery")
 
 
 func test_the_debug_jump_lands_on_a_fresh_round() -> void:
@@ -287,7 +305,7 @@ func test_the_debug_jump_lands_on_a_fresh_round() -> void:
 	_assert_eq(ProgressScript.round_of(jumped), 4, "a jump should land on the asked round")
 	_assert_true(not ProgressScript.exit_open(jumped), "a jumped round's exit should be shut")
 	_assert_eq(ProgressScript.normalize(jumped), jumped, "a jumped round should survive a save")
-	var delivered := ProgressScript.deliver(jumped, true)
+	var delivered := ProgressScript.deliver(jumped, ["door"])
 	_assert_true(not ProgressScript.exit_open(ProgressScript.jump_to_round(delivered, 4)), "jumping to the same round should start it fresh")
 	_assert_eq(ProgressScript.jump_to_round(jumped, 0), jumped, "a jump before round one should be refused")
 	_assert_eq(ProgressScript.jump_to_round(jumped, ProgressScript.BASEMENT_ROUND_COUNT + 1), jumped, "a jump past the last round should be refused")

@@ -46,14 +46,14 @@ func test_every_round_drops_three_clean_exit_rules() -> void:
 				return
 			_escape_by(game, clean[mini(pick, clean.size() - 1)])
 			if round_number < ProgressScript.BASEMENT_ROUND_COUNT:
-				_assert_true(game.leave_basement_round(), "the opened exit should lead to round %d" % (round_number + 1))
+				_assert_true(_leave(game), "the opened exit should lead to round %d" % (round_number + 1))
 
 
 func test_the_drop_moves_past_a_used_exit() -> void:
 	var game := _basement()
 	var first := _clean_exits(game)
 	_escape_by(game, first[0])
-	_assert_true(game.leave_basement_round(), "the exit rule should have opened the exit")
+	_assert_true(_leave(game), "the exit rule should have opened the exit")
 	var second := _clean_exits(game)
 	_assert_true(first[0]["id"] not in _ids(second), "a used exit rule should not count in the next round")
 	for unit: String in WordDropScript.sentence_units(first[0], "zh", _room(game)):
@@ -68,7 +68,7 @@ func test_many_red_posts_in_one_round_keep_three_for_later() -> void:
 	_post(game, ["房", "间", "亮"])
 	_assert_eq(PolicyScript.polluted_units(game.polluted_words, "zh", _room(game), game.pollution_policy).size(), 1, "only the first exit rule's subject should be polluted")
 	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
-		_assert_true(game.leave_basement_round(), "the exit should lead to round %d" % round_number)
+		_assert_true(_leave(game), "the exit should lead to round %d" % round_number)
 		var clean := _clean_exits(game)
 		_assert_true(clean.size() >= GUARANTEED, "round %d should still drop three: %s" % [round_number, _ids(clean)])
 		for rule: Dictionary in clean:
@@ -99,7 +99,7 @@ func test_other_rules_do_not_touch_the_exit_rules() -> void:
 func test_the_save_brings_the_same_drop_back() -> void:
 	var game := _basement()
 	_escape_by(game, _clean_exits(game)[0])
-	_assert_true(game.leave_basement_round(), "the exit should lead on")
+	_assert_true(_leave(game), "the exit should lead on")
 	var loaded := StateScript.new()
 	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
 	_assert_eq(loaded.get_pickup_unit_pool("zh"), game.get_pickup_unit_pool("zh"), "the save should drop the same words")
@@ -110,7 +110,7 @@ func test_the_save_brings_the_same_drop_back() -> void:
 func test_the_crt_and_the_phone_drop_the_same_words() -> void:
 	var game := _basement()
 	_escape_by(game, _clean_exits(game)[0])
-	_assert_true(game.leave_basement_round(), "the exit should lead on")
+	_assert_true(_leave(game), "the exit should lead on")
 	var material := LanguageMaterialScript.new()
 	material.configure(game, null)
 	_assert_eq(material.offered_units("zh"), game.get_pickup_unit_pool("zh"), "both feeds read the posts' words from one place")
@@ -179,6 +179,12 @@ func _basement() -> MemeGameState:
 func _post(game: MemeGameState, units: Array) -> Dictionary:
 	game.free_sentence_units = units
 	return game.submit_free_sentence("zh")
+
+
+## Leaves the round by the first object its escape made the exit.
+func _leave(game: MemeGameState) -> bool:
+	var open := ProgressScript.exits(game.chapter_one_progress)
+	return not open.is_empty() and game.leave_basement_round(str(open[0]))
 
 
 func _assert_true(condition: bool, message: String) -> void:

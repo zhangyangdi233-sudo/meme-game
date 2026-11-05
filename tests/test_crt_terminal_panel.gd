@@ -144,7 +144,7 @@ func _test_the_narrator_walks_the_round_through() -> void:
 	_model(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, {"kind": "free_sentence", "text": "门", "tier": "misread", "round": 1})
 	await process_frame
 	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_MISSED), "a green post should ask to try again")
-	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), true))
+	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["door"]))
 	await process_frame
 	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_OPEN), "an open exit should send the player out")
 	await _dispose(panel)
