@@ -294,8 +294,10 @@ func test_a_saved_delivery_is_kept_only_in_the_basement() -> void:
 	var older := _with(_with(ProgressScript.open_door(_ready_door()), "delivered", true), "exits", null)
 	older.erase("exits")
 	_assert_eq(ProgressScript.exits(ProgressScript.normalize(older)), ["door"], "a delivery saved before exit objects opened the door, and should still")
-	var broken := _with(ProgressScript.open_door(_ready_door()), "exits", ["chair", 3, "", "chair"])
-	_assert_eq(ProgressScript.exits(ProgressScript.normalize(broken)), ["chair"], "broken exit objects should be dropped")
+	var broken := _with(ProgressScript.open_door(_ready_door()), "exits", ["chair", 3, "", "chair", "sofa"])
+	_assert_eq(ProgressScript.exits(ProgressScript.normalize(broken)), ["chair"], "broken or unknown exit objects should be dropped")
+	var unknown := _with(ProgressScript.open_door(_ready_door()), "exits", ["sofa"])
+	_assert_true(not ProgressScript.exit_open(ProgressScript.normalize(unknown)), "an exit no room has should not open the round")
 	_assert_true(bool(ProgressScript.normalize(broken).get("delivered")), "a saved exit object should count as a delivery")
 
 

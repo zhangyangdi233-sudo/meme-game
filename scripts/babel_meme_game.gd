@@ -636,7 +636,8 @@ func _save_progress() -> bool:
 		return false
 	_commit_notebook_canvas_positions()
 	var world_pose: Dictionary = _reality_scene_adapter.world_save_pose() if _reality_scene_adapter != null else {}
-	var world_data := {
+	# No pose (leaving a stage by its exit) saves none, so the next stage starts at its own beginning.
+	var world_data := {} if world_pose.is_empty() else {
 		"player_position": world_pose.get("player_position", Vector3.ZERO),
 		"yaw": world_pose.get("yaw", 0.0),
 		"pitch": world_pose.get("pitch", 0.0),
@@ -1575,11 +1576,16 @@ func _leave_by_exit(exit_object: String) -> bool:
 	if game == null or not game.leave_basement_round(exit_object):
 		return false
 	_ensure_reality_scene_adapter()
-	_reality_scene_adapter.apply_interaction({"action": "leave_by_exit", "object": exit_object})
+	var leaving: Dictionary = _reality_scene_adapter.apply_interaction({"action": "leave_by_exit", "object": exit_object})
+	if str(leaving.get("kind", "none")) != "exit":
+		# Without a stage to play it in, the next one is built at once.
+		_rebuild_reality_floor()
+		_refresh_play_surfaces()
+		_sync_audio_state(false)
+		return true
 	_transition_was_playing = true
 	_door_light = false
 	_refresh_play_surfaces()
-	_sync_audio_state(false)
 	return true
 
 
@@ -1648,10 +1654,10 @@ func _update_door_fade(delta: float) -> void:
 		var from := 0.45 if str(outcome.get("kind", "")) == "exit" else 0.7
 		target = smoothstep(from, 1.0, float(outcome.get("progress", 0.0)))
 	if _transition_was_playing and not opening:
-		# The next stage is built: the phone and the prompt come back.
+		# The next stage is built: the phone, the prompt and the next stage's surfaces and sound come back.
 		_transition_was_playing = false
-		_update_visibility()
-		_refresh_reality_hud()
+		_refresh_play_surfaces()
+		_sync_audio_state(false)
 		_present_ending_if_unlocked()
 	if _door_fade == null or not is_instance_valid(_door_fade):
 		if target <= 0.0:
@@ -2834,7 +2840,7 @@ func _animate_world(delta: float) -> void:
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
 	var look_pose: Dictionary = _reality_scene_adapter.pose() if _reality_scene_adapter != null else {}
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
-		camera_target_pos = (look_pose.get("player_position", Vector3.ZERO) as Vector3) + Vector3(0.0, 1.56, 0.0)
+		camera_target_pos = (look_pose.get("player_position", Vector3.ZERO) as Vector3) + Vector3(0.0, RealitySceneAdapter.EYE_HEIGHT, 0.0)
 		# Inside the CRT's screen the view pushes in to its glass.
 		if look_pose.has("view_position"):
 			camera_target_pos = look_pose["view_position"]

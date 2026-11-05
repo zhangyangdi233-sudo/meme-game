@@ -437,7 +437,7 @@ func _test_an_object_answers_f_only_once_it_is_the_exit() -> void:
 	for object_name: String in RoomContentScript.EXIT_OBJECTS:
 		var open := ProgressScript.deliver(fresh, [object_name])
 		for reach: Vector3 in adapter.chapter_exit_reaches(object_name):
-			adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+			adapter.player.position = reach + Vector3(0.0, 0.05, 0.0)
 			adapter.refresh_nearby_actor(_deps(fresh))
 			_assert_true(str(adapter.nearby_outcome().get("kind")) != "exit", "the %s should offer no way out before its rule holds" % object_name)
 			adapter.refresh_nearby_actor(_deps(open))
@@ -445,8 +445,12 @@ func _test_an_object_answers_f_only_once_it_is_the_exit() -> void:
 			_assert_eq(str(nearby.get("kind")), "exit", "the %s at %s should answer F once it is the exit" % [object_name, reach])
 			_assert_eq(str(nearby.get("action")), "leave_by_exit", "the exit's action should be to leave by it")
 			_assert_eq(str(nearby.get("object")), object_name, "the exit should name its object")
+	var stairs := ProgressScript.deliver(fresh, ["stairs"])
+	adapter.player.position = Vector3(-2.5, 0.05, -1.9)
+	adapter.refresh_nearby_actor(_deps(stairs))
+	_assert_true(str(adapter.nearby_outcome().get("object", "")) != "stairs", "the floor under the landing should not be the stairs")
 	var reach: Vector3 = adapter.chapter_exit_reaches("chair")[0]
-	adapter.player.position = Vector3(reach.x + 4.0, adapter.player.position.y, reach.z)
+	adapter.player.position = Vector3(reach.x + 4.0, 0.05, reach.z)
 	adapter.refresh_nearby_actor(_deps(ProgressScript.deliver(fresh, ["chair"])))
 	_assert_true(str(adapter.nearby_outcome().get("kind")) != "exit", "the chair should not answer from afar")
 	await _free(adapter)
@@ -460,7 +464,7 @@ func _test_every_exit_object_leaves_through_one_shared_transition() -> void:
 		var adapter = await _adapter(open)
 		var room: Node = adapter.get_parent().find_child("BasementRoom", true, false)
 		var reach: Vector3 = adapter.chapter_exit_reaches(object_name)[0]
-		adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+		adapter.player.position = reach + Vector3(0.0, 0.05, 0.0)
 		var eye: Vector3 = adapter.player.position + Vector3(0.0, 1.56, 0.0)
 		adapter.refresh_nearby_actor(_deps(open))
 		var leaving: Dictionary = adapter.apply_interaction({"action": "leave_by_exit", "object": object_name})
@@ -498,7 +502,7 @@ func _test_settings_hold_the_exit_transition() -> void:
 	var open := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["light"])
 	var adapter = await _adapter(open)
 	var reach: Vector3 = adapter.chapter_exit_reaches("light")[0]
-	adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+	adapter.player.position = reach + Vector3(0.0, 0.05, 0.0)
 	adapter.apply_interaction({"action": "leave_by_exit", "object": "light"})
 	adapter.update_player(0.2, _deps(open))
 	var before := float(adapter.interaction_outcome().get("progress"))
@@ -670,7 +674,7 @@ func _stand_at_door(adapter) -> void:
 
 func _stand_at_terminal(adapter) -> void:
 	var reach: Vector3 = adapter.chapter_terminal_position()
-	adapter.player.position = Vector3(reach.x, adapter.player.position.y, reach.z)
+	adapter.player.position = reach + Vector3(0.0, 0.05, 0.0)
 
 
 func _basement() -> Dictionary:

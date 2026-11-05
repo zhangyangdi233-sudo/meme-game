@@ -121,25 +121,25 @@ func test_any_of_a_rooms_escapes_opens_the_exit() -> void:
 	var room := ROOM.duplicate(true)
 	room["escapes"] = [{"kind": "delivery"}, {"kind": "rule", "rule": "exit_shown"}]
 	var exit_rule := {"exit|exists": {"negated": false, "round": 1}}
-	_assert_true(not RoomRulesScript.escaped(room, {}, 1, false), "nothing done should open nothing")
-	_assert_true(RoomRulesScript.escaped(room, {}, 1, true), "the post and the NPC alone should open a room with both escapes")
-	_assert_true(RoomRulesScript.escaped(room, exit_rule, 1, false), "the rule alone should open a room with both escapes")
+	_assert_true(not _escaped(room, {}, 1, false), "nothing done should open nothing")
+	_assert_true(_escaped(room, {}, 1, true), "the post and the NPC alone should open a room with both escapes")
+	_assert_true(_escaped(room, exit_rule, 1, false), "the rule alone should open a room with both escapes")
 	var talk_only := ROOM.duplicate(true)
 	talk_only["escapes"] = [{"kind": "delivery"}]
-	_assert_true(not RoomRulesScript.escaped(talk_only, exit_rule, 1, false), "a rule should open only a room that declares it")
+	_assert_true(not _escaped(talk_only, exit_rule, 1, false), "a rule should open only a room that declares it")
 	var rule_only := ROOM.duplicate(true)
 	rule_only["escapes"] = [{"kind": "rule", "rule": "exit_shown"}]
-	_assert_true(not RoomRulesScript.escaped(rule_only, {}, 1, true), "the NPC should open only a room that declares it")
-	_assert_true(not RoomRulesScript.escaped({}, exit_rule, 0, true), "no room should have no escape")
+	_assert_true(not _escaped(rule_only, {}, 1, true), "the NPC should open only a room that declares it")
+	_assert_true(not _escaped({}, exit_rule, 0, true), "no room should have no escape")
 
 
 func test_a_rule_escape_asks_for_its_rule_in_force() -> void:
 	var room := ROOM.duplicate(true)
 	room["escapes"] = [{"kind": "rule", "rule": "light_off"}]
-	_assert_true(RoomRulesScript.escaped(room, {"light|lit": {"negated": true, "round": 1}}, 1, false), "a negated rule can be the way out")
-	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": {"negated": false, "round": 1}}, 1, false), "the other polarity is another rule")
-	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": {"negated": true, "round": 2}}, 1, false), "another round's rule should not open this exit")
-	_assert_true(not RoomRulesScript.escaped(room, {"light|lit": "broken"}, 1, false), "a broken saved rule should open nothing")
+	_assert_true(_escaped(room, {"light|lit": {"negated": true, "round": 1}}, 1, false), "a negated rule can be the way out")
+	_assert_true(not _escaped(room, {"light|lit": {"negated": false, "round": 1}}, 1, false), "the other polarity is another rule")
+	_assert_true(not _escaped(room, {"light|lit": {"negated": true, "round": 2}}, 1, false), "another round's rule should not open this exit")
+	_assert_true(not _escaped(room, {"light|lit": "broken"}, 1, false), "a broken saved rule should open nothing")
 
 
 func test_an_escape_makes_its_object_the_exit() -> void:
@@ -169,9 +169,9 @@ func test_round_one_opens_only_by_its_exit_rules() -> void:
 	var room: Dictionary = RoomContentScript.room(1)
 	_assert_true({"kind": "delivery"} not in room.get("escapes"), "round one should not open by the post and the NPC (#120)")
 	_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round one should offer the seven exit rules")
-	_assert_true(not RoomRulesScript.escaped(room, {}, 1, true), "a finished conversation should not open round one")
-	_assert_true(RoomRulesScript.escaped(room, {"door|exit": {"negated": false, "round": 1}}, 1, false), "门是出口 should open round one")
-	_assert_true(not RoomRulesScript.escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
+	_assert_true(not _escaped(room, {}, 1, true), "a finished conversation should not open round one")
+	_assert_true(_escaped(room, {"door|exit": {"negated": false, "round": 1}}, 1, false), "门是出口 should open round one")
+	_assert_true(not _escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
 
 
 func test_the_later_rounds_keep_the_post_and_the_npc() -> void:
@@ -179,8 +179,8 @@ func test_the_later_rounds_keep_the_post_and_the_npc() -> void:
 		var room: Dictionary = RoomContentScript.room(round_number)
 		_assert_true({"kind": "delivery"} in room.get("escapes"), "round %d should still open by the post and the NPC until #127" % round_number)
 		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
-		_assert_true(RoomRulesScript.escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
-		_assert_true(not RoomRulesScript.escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)
+		_assert_true(_escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
+		_assert_true(not _escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)
 
 
 func test_the_authored_rooms_are_valid() -> void:
@@ -290,7 +290,7 @@ func test_a_floor_shares_one_rule_box() -> void:
 	_assert_eq(RoomRulesScript.judge(["灯", "亮"], "zh", second).get("tier"), "misread", "a rule of the box the room does not offer should stay green")
 	_assert_eq(RoomContentScript.rule_text(2, "place|exists", false, "zh", path), "地方存在", "a shared rule should keep its wording")
 	_assert_eq(RoomContentScript.rule_text(3, "door|can_open", false, "zh", path), "", "a room should have no wording for a rule it does not offer")
-	_assert_true(RoomRulesScript.escaped(second, {"place|exists": {"negated": false, "round": 2}}, 2, false), "a shared rule should open the room declaring it")
+	_assert_true(_escaped(second, {"place|exists": {"negated": false, "round": 2}}, 2, false), "a shared rule should open the room declaring it")
 	_assert_eq(RoomRulesScript.world_state(first, {"door|can_open": {"negated": false, "round": 1}}, 1).get("objects"), {"exit_lamp": true}, "a shared rule should change the room")
 
 
@@ -359,6 +359,11 @@ func _names(problems: Array[String], part: String) -> bool:
 
 
 ## Puts a rule in the box and has room one offer it.
+## Whether any of the room's escapes holds: some object is the way out.
+func _escaped(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> bool:
+	return not RoomRulesScript.open_exits(room, rules, round_number, talked_with_post).is_empty()
+
+
 func _offer(catalog: Dictionary, rule: Dictionary) -> void:
 	(catalog["rule_box"] as Array).append(rule)
 	(catalog["rooms"]["1"]["rules"] as Array).append(rule["id"])

@@ -40,9 +40,10 @@ const INITIAL := {
 	"exits": [],
 	"passage_to": "",
 }
-## What a delivery saved before exit objects existed opened: the exit door.
-const LEGACY_EXIT := "door"
-## The exit door behind the NPC: one of the objects a round can make its exit.
+## The things of a basement room a rule can make the way out (#144); `RoomContent` checks the room data against it and
+## the chapter stage answers F at every place of each.
+const EXIT_OBJECTS := ["door", "stairs", "tv", "table", "chair", "clock", "light"]
+## The exit door behind the NPC: what the NPC's help opens, and all a delivery saved before exit objects opened.
 const DOOR_EXIT := "door"
 
 
@@ -80,7 +81,7 @@ static func normalize(raw: Variant) -> Dictionary:
 		progress["round"] = clampi(_integer_or(source.get("round", 1), 1), 1, BASEMENT_ROUND_COUNT)
 		progress["exits"] = _exit_names(source.get("exits", []))
 		if progress["exits"].is_empty() and _is_true(source.get("delivered", false)):
-			progress["exits"] = [LEGACY_EXIT]
+			progress["exits"] = [DOOR_EXIT]
 		progress["delivered"] = not progress["exits"].is_empty()
 	elif phase == PHASE_PASSAGE:
 		var passage_to: Variant = source.get("passage_to", "")
@@ -268,11 +269,11 @@ static func _integer_or(raw: Variant, fallback: int) -> int:
 	return fallback
 
 
-## The distinct object names of a saved list, in order; anything that is not a name is dropped.
+## The distinct exit objects of a saved list, in order; anything that is not one of `EXIT_OBJECTS` is dropped.
 static func _exit_names(raw: Variant) -> Array:
 	var names: Array = []
 	for entry: Variant in raw if raw is Array else []:
-		if entry is String and not entry.is_empty() and entry not in names:
+		if entry is String and entry in EXIT_OBJECTS and entry not in names:
 			names.append(entry)
 	return names
 

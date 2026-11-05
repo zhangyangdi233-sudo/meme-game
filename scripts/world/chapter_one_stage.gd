@@ -92,11 +92,12 @@ const EXIT_PROP_NODES := {
 const EXIT_PROP_FOCUS_HEIGHT := {"table": 0.6, "chair": 0.55, "light": 0.0}
 const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
 const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
-## The stairs, from the foot to the landing: any step counts.
+## The stairs, from the foot to the landing: any step counts. Each place stands at the height of the floor or step
+## under it, so the floor beneath the landing is not the stairs.
 const EXIT_STAIRS := [
 	{"reach": Vector3(-2.5, 0.0, 2.9), "focus": Vector3(-2.5, 1.2, 1.2)},
-	{"reach": Vector3(-2.5, 0.0, 0.6), "focus": Vector3(-2.5, 2.4, -0.8)},
-	{"reach": Vector3(-2.5, 0.0, -1.7), "focus": Vector3(-2.5, 3.6, -2.1)},
+	{"reach": Vector3(-2.5, 1.45, 0.5), "focus": Vector3(-2.5, 2.6, -0.8)},
+	{"reach": Vector3(-2.5, 2.62, -1.9), "focus": Vector3(-2.5, 3.6, -2.3)},
 ]
 
 var phase := ""

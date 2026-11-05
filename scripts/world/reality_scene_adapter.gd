@@ -44,7 +44,14 @@ const EXIT_REACH_RADIUS := 1.0
 const EXIT_TRANSITION_SECONDS := 1.8
 ## How much of the way from the eye to the object the view pushes in.
 const EXIT_PUSH_SHARE := 0.6
+## The eye above the player's feet; the host's camera stands here in first person.
 const EYE_HEIGHT := 1.56
+## Within this horizontal distance an exit object counts as straight overhead or underfoot.
+const EXIT_OVERHEAD_REACH := 0.3
+## How far above or below one of an exit object's places the player may stand (the stairs have places on their steps).
+const EXIT_REACH_HEIGHT := 0.8
+const MIN_PITCH := -68.0
+const MAX_PITCH := 72.0
 
 signal nearby_targets_changed()
 
@@ -78,6 +85,8 @@ var _exit_time := -1.0
 var _exit_object := ""
 var _exit_eye := Vector3.ZERO
 var _exit_focus := Vector3.ZERO
+var _exit_from_look := Vector2.ZERO
+var _exit_to_look := Vector2.ZERO
 var _terminal_active := false
 ## Seconds into opening the white door, or a negative value when no door is opening.
 var _door_time := -1.0
@@ -356,7 +365,7 @@ func chapter_contains(position: Vector3) -> bool:
 
 func apply_look_delta(relative_motion: Vector2, sensitivity: float) -> void:
 	yaw = wrapf(yaw - relative_motion.x * sensitivity, -180.0, 180.0)
-	pitch = clampf(pitch - relative_motion.y * sensitivity, -68.0, 72.0)
+	pitch = clampf(pitch - relative_motion.y * sensitivity, MIN_PITCH, MAX_PITCH)
 
 
 func refresh_nearby_actor(deps: Dictionary) -> void:
@@ -814,6 +823,8 @@ func _find_exit_in_reach(deps: Dictionary) -> void:
 	for object_name: Variant in ChapterOneProgressScript.exits(_chapter_progress(deps)):
 		for point: Dictionary in _chapter_stage.exit_points(str(object_name)):
 			var offset: Vector3 = (point["reach"] as Vector3) - player.position
+			if absf(offset.y) > EXIT_REACH_HEIGHT:
+				continue
 			offset.y = 0.0
 			if offset.length() <= nearest_distance:
 				nearest_distance = offset.length()
@@ -836,6 +847,14 @@ func _start_exit_transition(object_name: String) -> void:
 				nearest = distance
 				_exit_focus = point["focus"]
 	_exit_object = object_name
+	_exit_from_look = Vector2(yaw, pitch)
+	_exit_to_look = _exit_from_look
+	var direction := _exit_focus - _exit_eye
+	# An object straight above or below (a lamp overhead) keeps the yaw; the pitch stays inside the usual look range.
+	if Vector2(direction.x, direction.z).length() > EXIT_OVERHEAD_REACH:
+		_exit_to_look.x = rad_to_deg(atan2(-direction.x, -direction.z))
+	if direction.length_squared() > 0.0001:
+		_exit_to_look.y = clampf(rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0))), MIN_PITCH, MAX_PITCH)
 	_exit_time = 0.0
 	player.velocity = Vector3.ZERO
 	clear_nearby_targets()
@@ -849,11 +868,10 @@ func _advance_exit_transition(delta: float) -> void:
 		return
 	_exit_time += maxf(delta, 0.0)
 	player.velocity = Vector3.ZERO
-	var direction := _exit_focus - _exit_eye
-	if direction.length_squared() > 0.0001:
-		var turn := smoothstep(0.0, EXIT_TRANSITION_SECONDS * 0.4, _exit_time)
-		yaw = rad_to_deg(lerp_angle(deg_to_rad(yaw), atan2(-direction.x, -direction.z), turn))
-		pitch = lerpf(pitch, rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0))), turn)
+	# The turn is a function of the time alone, so it looks the same at any frame rate.
+	var turn := smoothstep(0.0, EXIT_TRANSITION_SECONDS * 0.4, _exit_time)
+	yaw = rad_to_deg(lerp_angle(deg_to_rad(_exit_from_look.x), deg_to_rad(_exit_to_look.x), turn))
+	pitch = lerpf(_exit_from_look.y, _exit_to_look.y, turn)
 	if _exit_time >= EXIT_TRANSITION_SECONDS:
 		_exit_time = -1.0
 		_exit_object = ""
@@ -967,9 +985,10 @@ func restore_world_pose(world_data: Dictionary) -> void:
 
 
 func world_save_pose() -> Dictionary:
-	# Leaving by an exit the state is already in the next round, which starts at its spawn.
-	if _exit_time >= 0.0 and _chapter_stage != null:
-		return {"player_position": _chapter_stage.start_position(), "yaw": _chapter_stage.start_yaw_degrees(), "pitch": 0.0}
+	# Leaving by an exit the state is already past this stage (the next round, or the passage after the fifth): no
+	# pose of this stage belongs to it, so the next one starts at its own beginning.
+	if _exit_time >= 0.0:
+		return {}
 	var look_pose := pose()
 	return {
 		"player_position": look_pose.get("player_position", Vector3.ZERO),

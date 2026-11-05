@@ -16,9 +16,8 @@ const ROOMS_PATH := "res://content/basement_rooms.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 ## The room objects the chapter stage can show or hide. A room can only name these.
 const OBJECTS := ["exit_lamp"]
-## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`, and the chapter
-## stage answers F at every one of them (any chair, any clock).
-const EXIT_OBJECTS := ["door", "stairs", "tv", "table", "chair", "clock", "light"]
+## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`.
+const EXIT_OBJECTS := ChapterOneProgressScript.EXIT_OBJECTS
 
 
 ## The room of a round, or empty when there is none, with the rules it offers taken from the floor's rule box, the

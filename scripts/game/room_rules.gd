@@ -1,9 +1,10 @@
 class_name RoomRules
 extends RefCounted
 ## Pure rules over a room's data (ADR 0009): `judge` reads a sentence with the rule engine and looks it up in the room,
-## `world_state` lays the rules in force over the room's own state, and `escaped` answers whether one of the room's
-## escapes holds. A red post is a sentence that hit a rule.
+## `world_state` lays the rules in force over the room's own state, and `open_exits` answers which objects the room's
+## escapes that hold make the way out. A red post is a sentence that hit a rule.
 
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 
 ## The ways out a room can declare: this round's post and the NPC's conversation, or one of its rules in force.
@@ -11,7 +12,7 @@ const ESCAPE_DELIVERY := "delivery"
 const ESCAPE_RULE := "rule"
 const ESCAPE_KINDS := [ESCAPE_DELIVERY, ESCAPE_RULE]
 ## What the NPC's help opens: the exit door (#129).
-const DELIVERY_EXIT := "door"
+const DELIVERY_EXIT := ChapterOneProgressScript.DOOR_EXIT
 
 
 ## Answers the same fields as `RuleEngine.parse`, plus the room's `rule_id`. The tier is `rule` (a red post) only for a
@@ -45,12 +46,6 @@ static func world_state(room: Dictionary, rules: Dictionary, round_number: int) 
 	for rule: Dictionary in _rules_in_force(room, rules, round_number):
 		_lay_over(state, rule.get("state", {}))
 	return state
-
-
-## Whether any of the room's escapes holds. `talked_with_post` says the NPC's conversation was just finished with a
-## post made in this round.
-static func escaped(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> bool:
-	return not open_exits(room, rules, round_number, talked_with_post).is_empty()
 
 
 ## The room objects the escapes that hold make exits, once each, in the room's escape order: a `rule` escape makes its

@@ -123,7 +123,7 @@ func _enter_round_one(game_root) -> void:
 
 func _stand_at(game_root, reach: Vector3) -> void:
 	var adapter = game_root._reality_scene_adapter
-	adapter.player.position = Vector3(reach.x, 0.05, reach.z)
+	adapter.player.position = reach + Vector3(0.0, 0.05, 0.0)
 	adapter.player.velocity = Vector3.ZERO
 	for frame in 6:
 		await physics_frame
