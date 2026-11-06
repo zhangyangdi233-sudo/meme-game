@@ -1119,7 +1119,7 @@ func _xray_key_held() -> bool:
 
 
 func _hand_frame_looking() -> bool:
-	return _camera_session != null and _camera_session.enabled and _camera_session.hand_xray_overlay != null and _camera_session.hand_xray_overlay.is_frame_active()
+	return _camera_session != null and _camera_session.hand_frame_active()
 
 
 ## The look of the X-ray held on the keyboard: the X-ray's green over the whole view. What it shows in the room is #114's.

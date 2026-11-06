@@ -11,7 +11,7 @@
     {"id": "voice_gone", "subject": "voice", "predicate": "exists", "negated": true, "text": {"zh": "声音不在", "ja": "", "en": ""}, "state": {"hum": 0.0}},
     {"id": "place_lit", "subject": "place", "predicate": "lit", "text": {"zh": "地方亮", "ja": "", "en": ""}, "state": {"brightness": 1.5}},
     {"id": "place_dark", "subject": "place", "predicate": "lit", "negated": true, "text": {"zh": "地方不亮", "ja": "", "en": ""}, "state": {"brightness": 0.3}},
-    {"id": "name_stays", "subject": "name", "predicate": "stay", "text": {"zh": "名字留下", "ja": "", "en": ""}, "state": {"objects": {"exit_lamp": true}}},
+    {"id": "name_stays", "subject": "name", "predicate": "stay", "text": {"zh": "名字留下", "ja": "", "en": ""}, "state": {"brightness": 1.3, "hum": 0.5}},
     {"id": "name_leaves", "subject": "name", "predicate": "stay", "negated": true, "text": {"zh": "名字不留下", "ja": "", "en": ""}, "state": {"brightness": 0.6}},
     {"id": "home_here", "subject": "home", "predicate": "exists", "text": {"zh": "家在", "ja": "", "en": ""}, "state": {"brightness": 1.3, "hum": 0.0}},
     {"id": "home_gone", "subject": "home", "predicate": "exists", "negated": true, "text": {"zh": "家不在", "ja": "", "en": ""}, "state": {"brightness": 0.5, "hum": 0.6}},
@@ -51,7 +51,7 @@
         {"kind": "rule", "rule": "stairs_exit"},
         {"kind": "rule", "rule": "tv_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.4, "objects": {"exit_lamp": false}},
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": [
         {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
       ]

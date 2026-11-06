@@ -202,6 +202,12 @@ func refresh_status_ui() -> void:
 		theme.set_localized_property(status_label, "text")
 
 
+## The camera is on and the hands hold an X-ray frame up.
+func hand_frame_active() -> bool:
+	var overlay := hand_xray_overlay as HandXRayOverlay
+	return enabled and overlay != null and overlay.is_frame_active()
+
+
 func capture_phone_layer_for_xray(deps: Dictionary) -> bool:
 	var game_started := bool(deps.get("game_started", false))
 	if not game_started or _host == null or _host.get_viewport() == null or DisplayServer.get_name().to_lower() == "headless":

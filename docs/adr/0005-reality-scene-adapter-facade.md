@@ -19,3 +19,7 @@ The passage's door is not an outcome the host asks for either: the stage raises 
 ## Amended (#113): the phone on the basement's table
 
 The phone lying on the basement's table is one more interaction outcome (`phone`, action `pick_up_phone`). The host tells the adapter whether the phone is owned through its deps (`phone_owned`), so a rebuilt or loaded round lays no second phone; picking it up is an `apply_interaction` that takes it off the table. The host still reaches neither the stage nor its table.
+
+## Amended (#127): what the X-ray shows
+
+While the X-ray looks (X held, or the hands' frame), the host asks the adapter which of the round's X-ray objects stand in reach (`exit_objects_in_reach`, names in, names out) and hands them to the state; the object the state then opens is reported as the ordinary `exit` outcome. It is a plain value like the CRT's UV; the host still reaches neither the stage nor the clock.

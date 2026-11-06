@@ -248,14 +248,14 @@
     },
     "3": {
       "pick": {
-        "zh": "灯灭了，屏幕还亮着。字还在瀑布里。",
-        "ja": "明かりが消えた。画面だけはまだ光っている。字は滝の中にある。",
-        "en": "The lights are out; the screen is still lit. The words are still in the waterfall."
+        "zh": "第三次了。你认得这个房间，它也开始认得你。字还在瀑布里。",
+        "ja": "三度目だ。君はこの部屋を覚えた。部屋も君を覚え始めた。字は滝の中にある。",
+        "en": "The third time. You know this room, and it is starting to know you. The words are still in the waterfall."
       },
       "missed": {
-        "zh": "黑暗里，这句话没有落到任何东西上。",
-        "ja": "暗闇の中で、その言葉は何にも届かなかった。",
-        "en": "In the dark, that sentence landed on nothing."
+        "zh": "这句话没有落到任何东西上。",
+        "ja": "その言葉は何にも届かなかった。",
+        "en": "That sentence landed on nothing."
       },
       "voided": {
         "zh": "你已经说坏过那个字了。换一样东西。",
@@ -275,9 +275,9 @@
     },
     "4": {
       "pick": {
-        "zh": "钟太多了。别数它们，去捡字。",
-        "ja": "時計が多すぎる。数えないで、字を拾って。",
-        "en": "Too many clocks. Don't count them — go pick up words."
+        "zh": "别去数你来过几次。去捡字。",
+        "ja": "何度来たか数えないで。字を拾って。",
+        "en": "Don't count how many times you've been here. Go pick up words."
       },
       "missed": {
         "zh": "没有回应。每一句话都在耗掉时间。",

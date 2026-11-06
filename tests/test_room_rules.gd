@@ -200,6 +200,8 @@ func test_every_round_has_its_own_rules_and_more_than_one_way_out() -> void:
 			_assert_true(rule["id"] not in others_seen, "round %d's rule %s should be its own" % [round_number, rule["id"]])
 			others_seen.append(rule["id"])
 			_assert_true(RoomRulesScript.can_be_written(rule, (room["words"] as Dictionary)["zh"], "zh", room), "round %d should drop the words of %s" % [round_number, rule["id"]])
+			var lamp: Variant = ((rule.get("state", {}) as Dictionary).get("objects", {}) as Dictionary).get("exit_lamp", false)
+			_assert_true(lamp != true, "round %d's %s opens nothing, so it should not light the exit lamp" % [round_number, rule["id"]])
 			var wording := str((rule.get("text", {}) as Dictionary).get("zh", ""))
 			_assert_true(not wording.is_empty(), "round %d's %s should be worded" % [round_number, rule["id"]])
 			var units: Array = Array(wording.split("", false))
