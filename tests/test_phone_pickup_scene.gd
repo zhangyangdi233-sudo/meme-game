@@ -177,35 +177,12 @@ func _jump_to_round(game_root, round_number: int) -> void:
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), round_number, "setup should jump to round %d" % round_number)
 
 
-## Delivers the round the way it opens: round one by posting an exit rule; a round that stands an NPC by a post and
-## the NPC's conversation played out.
+## Delivers the round the way every round opens (#127): by posting an exit rule.
 func _deliver(game_root) -> void:
-	var by_rule: bool = not game_root.game.basement_npc_stands()
-	game_root.game.free_sentence_units = ["门", "是", "出", "口"] if by_rule else ["灯"]
+	game_root.game.free_sentence_units = ["门", "是", "出", "口"]
 	_assert_true(bool(game_root.game.submit_free_sentence("zh").get("submitted")), "setup should post a sentence")
-	if by_rule:
-		_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "setup should deliver the round")
-		return
-	var adapter = game_root._reality_scene_adapter
-	var npc: Vector3 = adapter.chapter_npc_position()
-	adapter.player.position = Vector3(npc.x, 0.1, npc.z + 1.2)
-	adapter.player.velocity = Vector3.ZERO
-	for frame in 6:
-		await physics_frame
-	await process_frame
-	_push_key(game_root, KEY_F)
-	await process_frame
-	var guard := 0
-	while game_root._reality_interaction_is_active() and guard < 20:
-		var typed := 0
-		while game_root.game.conversation_phase == "typing" and typed < 200:
-			_push_key(game_root, KEY_J)
-			typed += 1
-		await process_frame
-		game_root._process(30.0)
-		await process_frame
-		guard += 1
 	_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "setup should deliver the round")
+	await process_frame
 
 
 func _click(game_root, position: Vector2) -> void:

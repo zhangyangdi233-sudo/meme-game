@@ -23,7 +23,8 @@ func _init() -> void:
 	test_an_open_exit_sends_the_player_out()
 	test_outside_the_basement_there_is_no_guide()
 	test_round_one_has_a_line_for_every_step_in_every_language()
-	test_a_round_without_lines_says_nothing()
+	test_every_later_round_speaks_after_the_tutorial()
+	test_a_step_without_a_line_says_nothing()
 	test_the_authored_guide_is_valid()
 	test_validation_names_a_broken_guide()
 	if _failures.is_empty():
@@ -72,9 +73,22 @@ func test_round_one_has_a_line_for_every_step_in_every_language() -> void:
 	_assert_eq(GuideScript.line(_round(1), [], [], {}, "zh"), NarrativeCatalogScript.basement_guide_line(1, GuideScript.STEP_PICK, "zh"), "the line should be the step's authored line")
 
 
-func test_a_round_without_lines_says_nothing() -> void:
-	_assert_eq(NarrativeCatalogScript.basement_guide_line(2, GuideScript.STEP_PICK, "zh"), "", "round two has no guide yet")
-	_assert_eq(GuideScript.line(_round(2), [], [], {}, "zh"), "", "a round without lines should say nothing")
+## #127: from round two the player knows how to compose and post, so the narrator only greets the round, answers a
+## post and sends the player to the way out; the X-ray is never mentioned (#142 Q1).
+func test_every_later_round_speaks_after_the_tutorial() -> void:
+	var spoken := [GuideScript.STEP_PICK, GuideScript.STEP_MISSED, GuideScript.STEP_VOIDED, GuideScript.STEP_HEARD, GuideScript.STEP_OPEN]
+	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		for step in spoken:
+			for locale_code in ["zh", "ja", "en"]:
+				var said := NarrativeCatalogScript.basement_guide_line(round_number, step, locale_code)
+				_assert_true(not said.is_empty(), "round %d should say %s in %s" % [round_number, step, locale_code])
+				_assert_true("X" not in said, "round %d should not hint at the X-ray: %s" % [round_number, said])
+		_assert_true(NarrativeCatalogScript.basement_guide_line(round_number, GuideScript.STEP_PICK, "zh") != NarrativeCatalogScript.basement_guide_line(1, GuideScript.STEP_PICK, "zh"), "round %d should greet the player its own way" % round_number)
+
+
+func test_a_step_without_a_line_says_nothing() -> void:
+	_assert_eq(NarrativeCatalogScript.basement_guide_line(2, GuideScript.STEP_COMPOSE, "zh"), "", "round two leaves composing to the player")
+	_assert_eq(GuideScript.line(_round(2), HELD, [], {}, "zh"), "", "a step without a line should say nothing")
 
 
 func test_the_authored_guide_is_valid() -> void:

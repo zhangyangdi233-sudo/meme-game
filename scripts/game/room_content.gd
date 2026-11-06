@@ -199,6 +199,8 @@ static func _check_escapes(checked: Dictionary, label: String, problems: Array[S
 			var object_name: Variant = objects[escape["rule"]]
 			if object_name not in EXIT_OBJECTS:
 				problems.append("%s has an escape whose rule %s names no exit object: %s" % [label, escape["rule"], object_name])
+		elif escape["kind"] == RoomRulesScript.ESCAPE_XRAY and escape.get("object") not in EXIT_OBJECTS:
+			problems.append("%s has an X-ray escape naming no exit object: %s" % [label, escape.get("object")])
 
 
 ## Every round must drop the words of `guaranteed_exit_rules` exit rules pollution has left clean, in every language

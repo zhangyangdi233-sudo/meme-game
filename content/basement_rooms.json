@@ -7,6 +7,14 @@
   "rule_box": [
     {"id": "light_on", "subject": "room", "predicate": "lit", "text": {"zh": "房间亮", "ja": "", "en": ""}, "state": {"brightness": 1.6}},
     {"id": "light_off", "subject": "room", "predicate": "lit", "negated": true, "text": {"zh": "房间不亮", "ja": "", "en": ""}, "state": {"brightness": 0.3}},
+    {"id": "voice_here", "subject": "voice", "predicate": "exists", "text": {"zh": "声音在", "ja": "", "en": ""}, "state": {"hum": 1.0}},
+    {"id": "voice_gone", "subject": "voice", "predicate": "exists", "negated": true, "text": {"zh": "声音不在", "ja": "", "en": ""}, "state": {"hum": 0.0}},
+    {"id": "place_lit", "subject": "place", "predicate": "lit", "text": {"zh": "地方亮", "ja": "", "en": ""}, "state": {"brightness": 1.5}},
+    {"id": "place_dark", "subject": "place", "predicate": "lit", "negated": true, "text": {"zh": "地方不亮", "ja": "", "en": ""}, "state": {"brightness": 0.3}},
+    {"id": "name_stays", "subject": "name", "predicate": "stay", "text": {"zh": "名字留下", "ja": "", "en": ""}, "state": {"objects": {"exit_lamp": true}}},
+    {"id": "name_leaves", "subject": "name", "predicate": "stay", "negated": true, "text": {"zh": "名字不留下", "ja": "", "en": ""}, "state": {"brightness": 0.6}},
+    {"id": "home_here", "subject": "home", "predicate": "exists", "text": {"zh": "家在", "ja": "", "en": ""}, "state": {"brightness": 1.3, "hum": 0.0}},
+    {"id": "home_gone", "subject": "home", "predicate": "exists", "negated": true, "text": {"zh": "家不在", "ja": "", "en": ""}, "state": {"brightness": 0.5, "hum": 0.6}},
     {"id": "door_exit", "subject": "door", "predicate": "exit", "object": "door", "text": {"zh": "门是出口", "ja": "", "en": ""}, "state": {}},
     {"id": "stairs_exit", "subject": "stairs", "predicate": "exit", "object": "stairs", "text": {"zh": "楼梯是出口", "ja": "", "en": ""}, "state": {}},
     {"id": "tv_exit", "subject": "tv", "predicate": "exit", "object": "tv", "text": {"zh": "电视是出口", "ja": "", "en": ""}, "state": {}},
@@ -32,10 +40,9 @@
       "events": []
     },
     "2": {
-      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
-      "rules": ["table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
+      "words": {"zh": ["声", "音", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
+      "rules": ["voice_here", "voice_gone", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "rule", "rule": "clock_exit"},
@@ -44,16 +51,15 @@
         {"kind": "rule", "rule": "stairs_exit"},
         {"kind": "rule", "rule": "tv_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "state": {"brightness": 1.0, "hum": 0.4, "objects": {"exit_lamp": false}},
       "events": [
         {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
       ]
     },
     "3": {
-      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
-      "rules": ["light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit"],
+      "words": {"zh": ["地", "方", "亮", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
+      "rules": ["place_lit", "place_dark", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "light_exit"},
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"},
@@ -66,10 +72,9 @@
       "events": []
     },
     "4": {
-      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
-      "rules": ["tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
+      "words": {"zh": ["名", "字", "留", "下", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
+      "rules": ["name_stays", "name_leaves", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "tv_exit"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},
@@ -82,17 +87,17 @@
       "events": []
     },
     "5": {
-      "words": {"zh": ["是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
-      "rules": ["clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
+      "words": {"zh": ["家", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
+      "rules": ["home_here", "home_gone", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "clock_exit"},
         {"kind": "rule", "rule": "light_exit"},
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"},
         {"kind": "rule", "rule": "tv_exit"},
         {"kind": "rule", "rule": "table_exit"},
-        {"kind": "rule", "rule": "chair_exit"}
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "xray", "object": "clock"}
       ],
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []

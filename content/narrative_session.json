@@ -218,6 +218,114 @@
         "ja": "出口ができた。画面から離れて、君が言ったものに近づいて F を押して。",
         "en": "There is a way out now. Leave the screen, go to the thing you named and press F."
       }
+    },
+    "2": {
+      "pick": {
+        "zh": "又是这里。上一次的出口已经不认你了——去瀑布捡新的字。",
+        "ja": "またここだ。前の出口はもう君を覚えていない――滝で新しい字を拾って。",
+        "en": "Here again. The last way out no longer knows you — pick new words from the waterfall."
+      },
+      "missed": {
+        "zh": "它没有听懂。这里的东西只认它们自己的名字。",
+        "ja": "通じなかった。ここの物は自分の名前しか分からない。",
+        "en": "It didn't understand. Things here only answer to their own names."
+      },
+      "voided": {
+        "zh": "那个字上一圈已经被你用坏了。说别的东西。",
+        "ja": "その字は前の周で使い潰した。別のものを言って。",
+        "en": "You wore that word out last time. Name something else."
+      },
+      "heard": {
+        "zh": "声音变了。可它还没让你走。",
+        "ja": "音が変わった。でも、まだ帰してはくれない。",
+        "en": "The sound changed. But it still won't let you go."
+      },
+      "open": {
+        "zh": "它答应了。走到那样东西旁边，按 F。",
+        "ja": "聞き入れた。そのものに近づいて F を押して。",
+        "en": "It agreed. Go to that thing and press F."
+      }
+    },
+    "3": {
+      "pick": {
+        "zh": "灯灭了，屏幕还亮着。字还在瀑布里。",
+        "ja": "明かりが消えた。画面だけはまだ光っている。字は滝の中にある。",
+        "en": "The lights are out; the screen is still lit. The words are still in the waterfall."
+      },
+      "missed": {
+        "zh": "黑暗里，这句话没有落到任何东西上。",
+        "ja": "暗闇の中で、その言葉は何にも届かなかった。",
+        "en": "In the dark, that sentence landed on nothing."
+      },
+      "voided": {
+        "zh": "你已经说坏过那个字了。换一样东西。",
+        "ja": "その字はもう壊してしまった。別のものにして。",
+        "en": "You've already broken that word. Pick another thing."
+      },
+      "heard": {
+        "zh": "这地方听见了。出口还是没有出现。",
+        "ja": "この場所は聞いた。でも出口は現れない。",
+        "en": "This place heard you. The way out still hasn't appeared."
+      },
+      "open": {
+        "zh": "去吧。走到它旁边，按 F。",
+        "ja": "行って。それに近づいて F を押して。",
+        "en": "Go. Walk up to it and press F."
+      }
+    },
+    "4": {
+      "pick": {
+        "zh": "钟太多了。别数它们，去捡字。",
+        "ja": "時計が多すぎる。数えないで、字を拾って。",
+        "en": "Too many clocks. Don't count them — go pick up words."
+      },
+      "missed": {
+        "zh": "没有回应。每一句话都在耗掉时间。",
+        "ja": "応えはない。言葉のたびに時間が減っていく。",
+        "en": "No answer. Every sentence uses up time."
+      },
+      "voided": {
+        "zh": "那个字已经不属于你了。",
+        "ja": "その字はもう君のものじゃない。",
+        "en": "That word isn't yours anymore."
+      },
+      "heard": {
+        "zh": "它听见了。可出口不在那里。",
+        "ja": "聞こえた。でも出口はそこじゃない。",
+        "en": "It heard you. But the way out isn't there."
+      },
+      "open": {
+        "zh": "那样东西现在是出口了。走过去，按 F。",
+        "ja": "それが今は出口だ。近づいて F を押して。",
+        "en": "That thing is the way out now. Walk over and press F."
+      }
+    },
+    "5": {
+      "pick": {
+        "zh": "最后一次了。剩下的字不多，省着用。",
+        "ja": "これで最後。残りの字は少ない。大切に使って。",
+        "en": "This is the last time. Few words are left; spend them carefully."
+      },
+      "missed": {
+        "zh": "它不明白。还有别的说法。",
+        "ja": "分からないらしい。別の言い方がある。",
+        "en": "It doesn't understand. There's another way to say it."
+      },
+      "voided": {
+        "zh": "那个字早就被你用完了。",
+        "ja": "その字はとっくに使い切った。",
+        "en": "You used that word up long ago."
+      },
+      "heard": {
+        "zh": "它听见了。还不够。",
+        "ja": "聞こえた。まだ足りない。",
+        "en": "It heard you. Not enough yet."
+      },
+      "open": {
+        "zh": "出口在那里。走过去，按 F。",
+        "ja": "出口はそこにある。近づいて F を押して。",
+        "en": "The way out is there. Walk over and press F."
+      }
     }
   },
   "demo_end": {

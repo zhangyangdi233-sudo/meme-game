@@ -38,7 +38,10 @@ func _init() -> void:
 	test_round_one_opens_only_by_its_exit_rules()
 	test_an_escape_makes_its_object_the_exit()
 	test_each_exit_subject_names_its_own_object()
-	test_the_later_rounds_keep_the_post_and_the_npc()
+	test_no_round_opens_by_the_post_and_the_npc()
+	test_every_round_has_its_own_rules_and_more_than_one_way_out()
+	test_an_xray_escape_opens_its_object_once_seen()
+	test_round_five_hides_an_xray_way_out_at_the_clock()
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
 	test_every_round_one_word_can_be_picked_up()
@@ -174,13 +177,58 @@ func test_round_one_opens_only_by_its_exit_rules() -> void:
 	_assert_true(not _escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
 
 
-func test_the_later_rounds_keep_the_post_and_the_npc() -> void:
-	for round_number in range(2, 6):
+## #127: the standing NPCs are gone; every round opens by its own escapes, none by the post and a conversation.
+func test_no_round_opens_by_the_post_and_the_npc() -> void:
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		var room: Dictionary = RoomContentScript.room(round_number)
-		_assert_true({"kind": "delivery"} in room.get("escapes"), "round %d should still open by the post and the NPC until #127" % round_number)
+		_assert_true({"kind": "delivery"} not in room.get("escapes"), "round %d should not open by the post and the NPC (#127)" % round_number)
+		_assert_true(not RoomRulesScript.stands_npc(room), "round %d should stand no NPC" % round_number)
 		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
-		_assert_true(_escaped(room, {}, round_number, true), "round %d should open once delivered" % round_number)
-		_assert_true(not _escaped(room, {}, round_number, false), "round %d should stay shut without it" % round_number)
+		_assert_true(not _escaped(room, {}, round_number, true), "a finished conversation should not open round %d" % round_number)
+
+
+## Each round says something of its own besides the ways out, with words it drops itself, and offers at least two ways out.
+func test_every_round_has_its_own_rules_and_more_than_one_way_out() -> void:
+	var others_seen: Array = []
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var room: Dictionary = RoomContentScript.room(round_number)
+		_assert_true((room.get("escapes") as Array).size() >= 2, "round %d should offer at least two ways out" % round_number)
+		var exits := RoomRulesScript.exit_rules(room)
+		var others: Array = (room.get("rules") as Array).filter(func(rule: Dictionary) -> bool: return rule not in exits)
+		_assert_true(not others.is_empty(), "round %d should offer a rule that is no way out" % round_number)
+		for rule: Dictionary in others:
+			_assert_true(rule["id"] not in others_seen, "round %d's rule %s should be its own" % [round_number, rule["id"]])
+			others_seen.append(rule["id"])
+			_assert_true(RoomRulesScript.can_be_written(rule, (room["words"] as Dictionary)["zh"], "zh", room), "round %d should drop the words of %s" % [round_number, rule["id"]])
+			var wording := str((rule.get("text", {}) as Dictionary).get("zh", ""))
+			_assert_true(not wording.is_empty(), "round %d's %s should be worded" % [round_number, rule["id"]])
+			var units: Array = Array(wording.split("", false))
+			_assert_eq(RoomRulesScript.judge(units, "zh", room).get("rule_id"), rule["id"], "round %d should hear its wording %s as its rule" % [round_number, wording])
+
+
+## #127: a room can hide a way out the X-ray shows: its object becomes the exit once the player looks at it through
+## the X-ray, with no post and no rule.
+func test_an_xray_escape_opens_its_object_once_seen() -> void:
+	var room := ROOM.duplicate(true)
+	room["escapes"] = [{"kind": "rule", "rule": "exit_shown"}, {"kind": "xray", "object": "clock"}]
+	_assert_eq(RoomRulesScript.xray_objects(room), ["clock"], "the room should say which object the X-ray shows as a way out")
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 1, false), [], "an unseen X-ray way out should stay shut")
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 1, false, ["clock"]), ["clock"], "the clock seen through the X-ray should be the exit")
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 1, false, ["tv"]), [], "seeing another object through the X-ray should open nothing")
+	_assert_eq(RoomRulesScript.xray_objects(ROOM), [], "a room without an X-ray way out should show none")
+	var plain := ROOM.duplicate(true)
+	plain["escapes"] = [{"kind": "rule", "rule": "exit_shown"}]
+	_assert_eq(RoomRulesScript.open_exits(plain, {}, 1, false, ["clock"]), [], "the X-ray should open only a room that declares it")
+
+
+## #142 Q1: the X-ray works from the start, unannounced; only round five hides a way out in it, at the clock its clue
+## points to (#114).
+func test_round_five_hides_an_xray_way_out_at_the_clock() -> void:
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT):
+		_assert_eq(RoomRulesScript.xray_objects(RoomContentScript.room(round_number)), [], "round %d should hide nothing in the X-ray" % round_number)
+	var round_five: Dictionary = RoomContentScript.room(5)
+	_assert_eq(RoomRulesScript.xray_objects(round_five), ["clock"], "round five should hide its X-ray way out at the clock")
+	_assert_eq(RoomRulesScript.open_exits(round_five, {}, 5, false, ["clock"]), ["clock"], "the clock seen through the X-ray should open round five")
 
 
 func test_the_authored_rooms_are_valid() -> void:
@@ -217,6 +265,8 @@ func test_every_round_one_word_can_be_picked_up() -> void:
 	_assert_eq(RoomContentScript.words(1, "zh", "res://tests/fixtures/floor_two_rooms.json"), PoolScript.get_unit_pool("zh"), "a room without its words should keep the whole pool")
 	for round_number in range(2, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_true(RoomContentScript.words(round_number, "zh") != PoolScript.get_unit_pool("zh"), "round %d should drop its own words, not the whole pool" % round_number)
+		for word in RoomContentScript.words(round_number, "zh"):
+			_assert_true(word in seeded, "round %d's %s should lie in some post" % [round_number, word])
 
 
 func test_the_rule_escape_fixture_is_valid() -> void:
@@ -246,6 +296,9 @@ func test_validation_names_broken_rooms() -> void:
 	_assert_true(not RoomContentScript.problems_in({}, 1).is_empty(), "no rooms should be a problem")
 	var good := {"rule_box": [], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "escapes": [{"kind": "delivery"}], "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
 	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a plain room should be valid")
+	var seen := good.duplicate(true)
+	seen["rooms"]["1"]["escapes"] = [{"kind": "xray", "object": "clock"}]
+	_assert_eq(RoomContentScript.problems_in(seen, 1), [] as Array[String], "a room with an X-ray way out should be valid")
 	for breakage in [
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"].erase("state"),
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["words"] = {"zh": []},
@@ -260,6 +313,8 @@ func test_validation_names_broken_rooms() -> void:
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "wish"}],
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "rule"}],
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "rule", "rule": "no_such_rule"}],
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "xray"}],
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "xray", "object": "piano"}],
 		func(catalog: Dictionary) -> void:
 			_offer(catalog, {"id": "x", "subject": "light", "predicate": "lit", "text": {}, "state": {}})
 			catalog["rooms"]["1"]["escapes"] = [{"kind": "rule", "rule": "x"}],
@@ -335,7 +390,7 @@ func test_validation_holds_the_drop_guarantee() -> void:
 	var few_exits := authored.duplicate(true)
 	var round_five: Dictionary = few_exits["rooms"]["5"]
 	round_five["rules"] = (round_five["rules"] as Array).slice(0, 3)
-	round_five["escapes"] = (round_five["escapes"] as Array).filter(func(escape: Dictionary) -> bool: return escape["kind"] == "delivery" or escape["rule"] in round_five["rules"])
+	round_five["escapes"] = (round_five["escapes"] as Array).filter(func(escape: Dictionary) -> bool: return escape["kind"] != "rule" or escape["rule"] in round_five["rules"])
 	_assert_true(_names(RoomContentScript.problems_in(few_exits), "round 5 can drop only"), "a last round with three exit rules cannot keep three after four rounds")
 	var shared := authored.duplicate(true)
 	(shared["rule_box"] as Array).append({"id": "lamp_lit", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {}})

@@ -1,8 +1,9 @@
 extends SceneTree
 ## The basement NPC conversation is one fixed route: no choices, the player types the authored line one unit per key,
-## the NPC's reply follows, and the last reply ends it. From round two on, finishing it with this round's post delivers
-## the round and opens the exit; without one the NPC sends the player back to the computer. Round one stands no NPC. Pollution garbles the typed line but
-## never interrupts.
+## the NPC's reply follows, and the last reply ends it. In a room that declares the `delivery` escape, finishing it with
+## this round's post delivers the round and opens the exit; without one the NPC sends the player back to the computer.
+## Since #127 no authored round stands an NPC, so the rooms here are the fixture of rounds two to five standing theirs,
+## kept for the NPC behind the door (#129). Pollution garbles the typed line but never interrupts.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
@@ -10,6 +11,7 @@ const ContentScript = preload("res://scripts/narrative/language_corruption_conte
 const StateScript = preload("res://scripts/meme_game_state.gd")
 
 const BASEMENT_NPC_LABELS := ["护灯人", "迟到者", "回声住户", "抄写员", "无名信徒"]
+const STANDING_NPC_ROOMS := "res://tests/fixtures/rooms_standing_npc.json"
 
 var _failures: Array[String] = []
 
@@ -134,7 +136,7 @@ func test_the_typing_hint_is_shown_until_a_first_line_is_typed() -> void:
 	_assert_true(not game.typing_hint_seen, "the hint should stay while the first line is being typed")
 	_type_turn(game)
 	_assert_true(game.typing_hint_seen, "typing a whole line should retire the hint")
-	var restored := StateScript.new()
+	var restored := _state()
 	_assert_true(restored.load_save_data(game.to_save_data()), "the save should load")
 	_assert_true(restored.typing_hint_seen, "a retired hint should stay retired after loading")
 	restored.new_run()
@@ -146,12 +148,12 @@ func test_a_save_comes_back_on_the_same_round_and_delivery() -> void:
 	_post(game)
 	_start(game)
 	_finish_conversation(game)
-	var restored := StateScript.new()
+	var restored := _state()
 	_assert_true(restored.load_save_data(game.to_save_data()), "a basement save should load")
 	_assert_eq(ProgressScript.round_of(restored.chapter_one_progress), 3, "loading should come back on round three")
 	_assert_true(ProgressScript.exit_open(restored.chapter_one_progress), "loading should keep the delivered round's exit open")
 	var undelivered: MemeGameState = _basement_game(4)
-	var restored_undelivered := StateScript.new()
+	var restored_undelivered := _state()
 	restored_undelivered.load_save_data(undelivered.to_save_data())
 	_assert_eq(ProgressScript.round_of(restored_undelivered.chapter_one_progress), 4, "an undelivered round should come back too")
 	_assert_true(not ProgressScript.exit_open(restored_undelivered.chapter_one_progress), "an undelivered round's exit should stay shut after loading")
@@ -211,7 +213,14 @@ func _post(game: MemeGameState) -> void:
 
 func _basement_game(round_number: int) -> MemeGameState:
 	var game: MemeGameState = Harness.new_state()
+	game.room_data_path = STANDING_NPC_ROOMS
 	game.jump_to_basement_round(round_number)
+	return game
+
+
+func _state() -> MemeGameState:
+	var game := StateScript.new()
+	game.room_data_path = STANDING_NPC_ROOMS
 	return game
 
 

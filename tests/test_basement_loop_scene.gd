@@ -1,6 +1,6 @@
 extends SceneTree
-## In the main scene the basement is played in five rounds. Round one stands no NPC; in the later rounds F at the
-## round's NPC starts its one route, text keys type
+## In the main scene the basement is played in five rounds. No authored round stands an NPC (#127); in a room that
+## declares one (the fixture kept for the NPC behind the door, #129) F at the round's NPC starts its one route, text keys type
 ## the player's line (arrows and held repeats do not), each reply plays out by itself and the last ends the
 ## conversation. With this round's post the exit opens and walking out starts the next round at the top of the
 ## stairs; the fifth exit leads to the white door passage, and walking into the light ends on the demo's end screen in
@@ -12,6 +12,7 @@ const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TEST_SAVE_PATH := "user://test_basement_loop_scene_save.dat"
 const TEST_PREFERENCES_PATH := "user://test_basement_loop_scene_preferences.cfg"
+const STANDING_NPC_ROOMS := "res://tests/fixtures/rooms_standing_npc.json"
 
 var _failures: Array[String] = []
 
@@ -85,7 +86,9 @@ func _test_f9_shows_the_debug_panel_and_jumps_to_a_round(game_root) -> void:
 	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 2})
 	await process_frame
 	await process_frame
-	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "round two should still stand its NPC until #127")
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "round two should stand no NPC either (#127)")
+	await _stand_npcs(game_root, 2)
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "a room declaring the NPC's help should stand its NPC")
 
 
 func _test_the_npc_conversation_types_and_plays_out_by_itself(game_root) -> void:
@@ -154,15 +157,14 @@ func _test_a_save_comes_back_on_the_same_round(game_root) -> void:
 	_assert_true(game_root.continue_game(), "the save should continue")
 	await process_frame
 	await process_frame
+	game_root.game.room_data_path = STANDING_NPC_ROOMS
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 3, "the save should come back on round three")
 	_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "the save should keep round three delivered")
 	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") != null, "the save should come back in the basement")
 
 
 func _test_the_fifth_exit_leads_through_the_light_to_the_demo_end(game_root) -> void:
-	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 5})
-	await process_frame
-	await process_frame
+	await _stand_npcs(game_root, 5)
 	_post(game_root)
 	await _talk_to_the_npc(game_root)
 	_assert_eq(str(game_root.game.conversation_actor_label), "无名信徒", "round five should be played with the nameless believer")
@@ -212,9 +214,7 @@ func _test_a_save_comes_back_in_the_passage_and_on_the_demo_end(game_root) -> vo
 	_assert_eq(game_root.session_mode(), "main_menu", "the end screen's button should leave for the main menu")
 	_assert_true(Harness.find_node_by_name(game_root, "DemoEndText") == null, "the end screen should go away with the run")
 	await _continue(game_root)
-	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 5})
-	await process_frame
-	await process_frame
+	await _stand_npcs(game_root, 5)
 	_assert_eq(game_root.session_mode(), "gameplay", "a debug jump should leave the end screen")
 	_post(game_root)
 	await _talk_to_the_npc(game_root)
@@ -279,6 +279,14 @@ func _test_a_rule_escape_opens_the_standing_room(game_root) -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom") == room_before, "the rule should open the exit without a rebuild")
 	await _walk_out(game_root)
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 2, "the exit the rule opened should let the player out")
+
+
+## Plays the rooms of the fixture whose rounds two to five stand their NPC, from a fresh jump to `round_number`.
+func _stand_npcs(game_root, round_number: int) -> void:
+	game_root.game.room_data_path = STANDING_NPC_ROOMS
+	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: round_number})
+	await process_frame
+	await process_frame
 
 
 func _room_light(game_root) -> OmniLight3D:

@@ -6,9 +6,10 @@ extends SceneTree
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const WordDropScript = preload("res://scripts/game/word_drop.gd")
 
-const BASEMENT_NPC_LABELS := ["护灯人", "迟到者", "回声住户", "抄写员", "无名信徒"]
 
 var _failures: Array[String] = []
 
@@ -106,12 +107,11 @@ func test_a_delivery_unlocks_nothing() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.pick_up_phone()
 	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
-		_deliver(game)
+		var way_out := _deliver(game)
 		_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "delivering round %d should leave the apps as they were" % round_number)
-		game.end_typed_reality_conversation()
 		game.set_view_state("npc_up")
 		if round_number < ProgressScript.BASEMENT_ROUND_COUNT:
-			_assert_true(game.leave_basement_round("door"), "round %d should follow" % (round_number + 1))
+			_assert_true(game.leave_basement_round(way_out), "round %d should follow" % (round_number + 1))
 	var without_phone: MemeGameState = _basement_game(1)
 	_deliver(without_phone)
 	_assert_eq(without_phone.unlocked_apps, [], "a delivery should not hand out apps to a run without the phone")
@@ -223,10 +223,9 @@ func test_jumping_to_a_round_hands_over_what_earlier_rounds_earned() -> void:
 func test_the_fifth_exit_hands_over_the_phone_and_its_apps() -> void:
 	var game: MemeGameState = _basement_game(1)
 	game.jump_to_basement_round(5)
-	_deliver(game)
-	game.end_typed_reality_conversation()
+	var way_out := _deliver(game)
 	game.phone_owned = false
-	_assert_true(game.leave_basement_round("door"), "the fifth exit should be left through")
+	_assert_true(game.leave_basement_round(way_out), "the fifth exit should be left through")
 	_assert_true(game.phone_owned, "the passage should be walked with the phone")
 	_assert_eq(game.unlocked_apps, StateScript.PHONE_APPS, "the passage should have the phone's apps")
 	var restored := StateScript.new()
@@ -239,21 +238,16 @@ func test_the_fifth_exit_hands_over_the_phone_and_its_apps() -> void:
 	_assert_eq(restored.unlocked_apps, StateScript.PHONE_APPS, "a save at the demo's end should keep the phone's apps")
 
 
-## Delivers the round the way it opens: round one by an exit rule, the rounds that stand an NPC by a post and its talk.
-func _deliver(game: MemeGameState) -> void:
+## Delivers the round the way every round opens (#127): by posting the first exit rule its words still spell clean.
+## Answers the object it made the way out.
+func _deliver(game: MemeGameState) -> String:
 	var round_number := ProgressScript.round_of(game.chapter_one_progress)
-	game.free_sentence_units = ["灯"] if game.basement_npc_stands() else ["门", "是", "出", "口"]
+	var room: Dictionary = RoomContentScript.room(round_number)
+	var rule: Dictionary = WordDropScript.dropped_exit_rules(room, "zh", game.polluted_words, game.pollution_policy)[0]
+	game.free_sentence_units = WordDropScript.sentence_units(rule, "zh", room)
 	_assert_true(bool(game.submit_free_sentence("zh").get("submitted")), "setup should post a sentence")
-	if not game.basement_npc_stands():
-		_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "setup should deliver round %d" % round_number)
-		return
-	game.start_typed_reality_conversation("basement_npc_%d" % round_number, "basement_npc", BASEMENT_NPC_LABELS[round_number - 1])
-	while true:
-		while game.conversation_phase == "typing":
-			game.advance_typed_reality_character()
-		if not game.continue_typed_reality_conversation():
-			break
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "setup should deliver round %d" % round_number)
+	return str(rule.get("object", ""))
 
 
 func _without_phone_fields(save: Dictionary) -> Dictionary:

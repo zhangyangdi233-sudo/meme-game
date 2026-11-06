@@ -153,9 +153,11 @@ func _test_the_narrator_walks_the_round_through() -> void:
 func _test_outside_a_guided_round_the_narrator_is_silent() -> void:
 	var panel = await _mount()
 	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
+	# From round two composing is left to the player (#127): holding words, the narrator has nothing to say.
+	_model(PropertyKeysScript.COLLECTED_CHAR_UNITS).replace_all([{"unit": "门", "locale": "zh", "source_post_id": "floor_13", "day": 1}])
 	await process_frame
 	var guide := _find(panel, "TerminalGuide") as Label
-	_assert_true(guide != null and not guide.visible, "a round without lines should show no narrator")
+	_assert_true(guide != null and not guide.visible, "a step without a line should show no narrator")
 	await _dispose(panel)
 
 

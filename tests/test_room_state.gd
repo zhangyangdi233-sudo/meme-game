@@ -1,7 +1,7 @@
 extends SceneTree
 ## In a basement round a post is judged against that round's room: a red post changes the room and stays in the save,
-## a green one leaves it alone, the next round starts over; round one opens by its exit rules alone, the later rounds
-## still by a post and the NPC.
+## a green one leaves it alone, the next round starts over; every round opens by its exit rules alone and stands no NPC,
+## round five also by its clock seen through the X-ray, and the way out a round used is void in the next.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
@@ -9,6 +9,7 @@ const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const WordDropScript = preload("res://scripts/game/word_drop.gd")
 
 const RULE_ESCAPE_ROOMS := "res://tests/fixtures/rooms_rule_escape.json"
 
@@ -23,8 +24,11 @@ func _init() -> void:
 	test_a_polluted_subject_cannot_turn_the_change_around()
 	test_the_next_round_starts_from_its_own_room()
 	test_a_debug_jump_forgets_the_rooms_rules()
-	test_a_rule_alone_does_not_open_the_exit()
+	test_a_rule_that_is_no_way_out_leaves_the_round_shut()
 	test_round_one_opens_by_an_exit_rule_without_an_npc()
+	test_no_later_round_stands_an_npc()
+	test_the_xray_shows_round_fives_way_out_at_the_clock()
+	test_each_round_voids_the_way_out_the_last_one_used()
 	test_an_exit_rule_makes_its_object_the_way_out()
 	test_a_rule_escape_opens_the_exit()
 	test_the_exit_stays_open_when_the_rule_is_taken_back()
@@ -109,13 +113,13 @@ func test_a_debug_jump_forgets_the_rooms_rules() -> void:
 	_assert_eq(game.get_world_rules().size(), 0, "a fresh round should have no rules")
 
 
-func test_a_rule_alone_does_not_open_the_exit() -> void:
+func test_a_rule_that_is_no_way_out_leaves_the_round_shut() -> void:
 	var game := _basement()
 	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
-	_post(game, ["灯", "亮"])
-	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post alone should not open the exit")
-	_finish_conversation_with(game, 2)
-	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "the post and the NPC should still open round two")
+	_assert_eq(_post(game, ["声", "音", "在"]).get("rule_key"), "voice|exists", "声音在 should be round two's own rule")
+	_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a rule that is no way out should leave the round shut")
+	_post(game, ["桌", "子", "是", "出", "口"])
+	_assert_eq(game.basement_exits(), ["table"], "an exit rule should still open round two after it")
 
 
 ## #120: round one opens only by its exit rules, and stands no NPC to talk it open.
@@ -127,9 +131,62 @@ func test_round_one_opens_by_an_exit_rule_without_an_npc() -> void:
 	_post(game, ["门", "是", "出", "口"])
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "门是出口 should open round one")
 	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
-	_assert_true(game.basement_npc_stands(), "round two should still stand its NPC until #127")
+	_assert_true(not game.basement_npc_stands(), "round two should stand no NPC either (#127)")
 	game.skip_chapter_one()
 	_assert_true(not game.basement_npc_stands(), "the tower stands no basement NPC")
+
+
+## #127: the standing NPCs are gone; no round opens by a post and a conversation.
+func test_no_later_round_stands_an_npc() -> void:
+	var game := _basement()
+	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		_assert_true(game.jump_to_basement_round(round_number), "setup should reach round %d" % round_number)
+		_assert_true(not game.basement_npc_stands(), "round %d should stand no NPC" % round_number)
+		_post(game, ["我", "是", "你"])
+		_finish_conversation_with(game, round_number)
+		_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post and a conversation should not open round %d" % round_number)
+
+
+## #127 / #142 Q1: the X-ray works from the start, unannounced. Round five's clock seen through it is a way out with no
+## post, which stays open in the save; no other round hides one.
+func test_the_xray_shows_round_fives_way_out_at_the_clock() -> void:
+	var game := _basement()
+	_assert_eq(game.basement_xray_objects(), [], "round one should hide nothing in the X-ray")
+	_assert_true(not game.see_through_xray(["clock"]), "the clock seen through the X-ray should not open round one")
+	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
+	_assert_true(not game.see_through_xray(["clock"]), "nor round four")
+	_assert_true(game.jump_to_basement_round(5), "setup should reach round five")
+	_assert_eq(game.basement_xray_objects(), ["clock"], "round five should hide its way out at the clock")
+	_assert_true(not game.see_through_xray([]), "seeing nothing should open nothing")
+	_assert_true(not game.see_through_xray(["tv"]), "seeing another object should open nothing")
+	_assert_true(game.see_through_xray(["clock"]), "the clock seen through the X-ray should open round five")
+	_assert_eq(game.basement_exits(), ["clock"], "the clock should be round five's way out")
+	_assert_true(not game.see_through_xray(["clock"]), "seeing it again should change nothing")
+	_assert_eq(game.published_memes.size(), 0, "the X-ray way out should need no post")
+	var loaded := StateScript.new()
+	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
+	_assert_eq(loaded.basement_exits(), ["clock"], "the save should keep the clock as the way out")
+	_assert_true(loaded.leave_basement_round("clock"), "the clock should lead on")
+	_assert_eq(str(loaded.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "leaving round five should reach the passage")
+
+
+## #119 Q2-3b: a red post pollutes its subject, so the way out a round used says nothing in the next round, and the
+## player has to name another thing. Every round goes on by a clean exit rule.
+func test_each_round_voids_the_way_out_the_last_one_used() -> void:
+	var game := _basement()
+	var used: Array = []
+	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		if not used.is_empty():
+			var again: Dictionary = _post(game, used)
+			_assert_true(again.get("tier") != "rule", "round %d should not hear the last round's way out %s" % [round_number, "".join(used)])
+			_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "the used way out should leave round %d shut" % round_number)
+			var slip: Dictionary = game.published_memes[0]
+			_assert_true(bool(slip.get("voided", false)), "round %d's post should record that pollution voided it" % round_number)
+		var rule := _first_clean_exit(game)
+		used = WordDropScript.sentence_units(rule, "zh", RoomContentScript.room(round_number))
+		_assert_eq(_post(game, used).get("rule_key"), "%s|%s" % [rule["subject"], rule["predicate"]], "round %d should hear the clean %s" % [round_number, rule["id"]])
+		_assert_true(game.leave_basement_round(str(rule["object"])), "round %d's %s should lead on" % [round_number, rule["object"]])
+	_assert_eq(str(game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "five rounds by their rules should reach the passage")
 
 
 ## #144: the object an exit rule names is the way out, and only that object.
@@ -248,6 +305,14 @@ func _rule_escape_basement() -> MemeGameState:
 	var game := _basement()
 	game.room_data_path = RULE_ESCAPE_ROOMS
 	return game
+
+
+## The first exit rule the round drops the words of, which pollution has left clean.
+func _first_clean_exit(game: MemeGameState) -> Dictionary:
+	var room: Dictionary = RoomContentScript.room(ProgressScript.round_of(game.chapter_one_progress))
+	var dropped := WordDropScript.dropped_exit_rules(room, "zh", game.polluted_words, game.pollution_policy)
+	_assert_true(not dropped.is_empty(), "the round should drop a clean exit rule")
+	return dropped[0] if not dropped.is_empty() else {}
 
 
 func _post(game: MemeGameState, units: Array) -> Dictionary:

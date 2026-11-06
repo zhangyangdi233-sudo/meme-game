@@ -7,10 +7,12 @@ extends RefCounted
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
 
-## The ways out a room can declare: this round's post and the NPC's conversation, or one of its rules in force.
+## The ways out a room can declare: this round's post and the NPC's conversation, one of its rules in force, or its
+## `object` looked at through the X-ray (#127).
 const ESCAPE_DELIVERY := "delivery"
 const ESCAPE_RULE := "rule"
-const ESCAPE_KINDS := [ESCAPE_DELIVERY, ESCAPE_RULE]
+const ESCAPE_XRAY := "xray"
+const ESCAPE_KINDS := [ESCAPE_DELIVERY, ESCAPE_RULE, ESCAPE_XRAY]
 ## What the NPC's help opens: the exit door (#129).
 const DELIVERY_EXIT := ChapterOneProgressScript.DOOR_EXIT
 
@@ -49,9 +51,10 @@ static func world_state(room: Dictionary, rules: Dictionary, round_number: int) 
 
 
 ## The room objects the escapes that hold make exits, once each, in the room's escape order: a `rule` escape makes its
-## rule's `object` the exit, and the NPC's help (`delivery`) opens the exit door. `talked_with_post` says the NPC's
-## conversation was just finished with a post made in this round.
-static func open_exits(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> Array:
+## rule's `object` the exit, the NPC's help (`delivery`) opens the exit door and an `xray` escape opens its `object` once
+## it is among `seen_through_xray`. `talked_with_post` says the NPC's conversation was just finished with a post made in
+## this round.
+static func open_exits(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool, seen_through_xray: Array = []) -> Array:
 	var in_force := _rules_in_force(room, rules, round_number)
 	var objects: Array = []
 	for escape: Variant in room.get("escapes", []):
@@ -66,6 +69,9 @@ static func open_exits(room: Dictionary, rules: Dictionary, round_number: int, t
 				for rule: Dictionary in in_force:
 					if rule.get("id") == escape.get("rule"):
 						object_name = str(rule.get("object", ""))
+			ESCAPE_XRAY:
+				if escape.get("object") in seen_through_xray:
+					object_name = str(escape["object"])
 		if not object_name.is_empty() and object_name not in objects:
 			objects.append(object_name)
 	return objects
@@ -78,6 +84,15 @@ static func stands_npc(room: Dictionary) -> bool:
 		if escape is Dictionary and escape.get("kind") == ESCAPE_DELIVERY:
 			return true
 	return false
+
+
+## The objects the room's `xray` escapes show as a way out through the X-ray, once each, in the room's escape order.
+static func xray_objects(room: Dictionary) -> Array:
+	var objects: Array = []
+	for escape: Variant in room.get("escapes", []):
+		if escape is Dictionary and escape.get("kind") == ESCAPE_XRAY and escape.get("object") is String and escape["object"] not in objects:
+			objects.append(escape["object"])
+	return objects
 
 
 ## The room's exit rules: the rules it offers that one of its `rule` escapes names, in the room's rule order.

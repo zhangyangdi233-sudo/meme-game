@@ -98,6 +98,8 @@ const HUD_DRAWER_CLOSE_DURATION := 0.18
 const HUD_DRAWER_CLOSE_DELAY := 0.22
 const SAVE_PATH := "user://babel_meme_save.dat"
 const SAVE_FILE_VERSION := 1
+## The X-ray's green, the hand frame's, laid over the view while X is held.
+const XRAY_TINT_COLOR := Color(0.32, 0.92, 0.42, 0.22)
 const WORLD_HOTKEY_ACTIONS := [
 	"reality_forward",
 	"reality_back",
@@ -106,6 +108,7 @@ const WORLD_HOTKEY_ACTIONS := [
 	"reality_sprint",
 	"reality_interact",
 	"reality_phone",
+	"reality_xray",
 ]
 
 
@@ -114,6 +117,7 @@ var _locale = GameLocaleScript.new()
 var _phone_sway_time := 0.0
 
 var _camera: Camera3D
+var _xray_tint: ColorRect
 var _reality_scene_adapter
 var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
@@ -932,6 +936,8 @@ func _ensure_reality_input_map() -> void:
 	_set_key_action("reality_sprint", [KEY_SHIFT])
 	_set_key_action("reality_interact", [KEY_F])
 	_set_key_action("reality_phone", [KEY_TAB])
+	# Held, it looks through the X-ray without a camera (#119 Q9).
+	_set_key_action("reality_xray", [KEY_X])
 
 
 func _clear_reality_input_map() -> void:
@@ -1088,7 +1094,44 @@ func _update_reality_player(delta: float) -> void:
 
 func _refresh_nearby_reality_actor() -> void:
 	_ensure_reality_scene_adapter()
+	_look_through_xray()
 	_reality_scene_adapter.refresh_nearby_actor(_reality_scene_deps())
+
+
+## #127 / #142 Q1: holding X, or the camera's hand frame, looks through the X-ray from the start, unannounced. Holding X
+## tints the view; an object the basement round hides a way out at, in reach while the X-ray looks, becomes its exit.
+func _look_through_xray() -> void:
+	var held := _xray_key_held()
+	if _xray_tint != null:
+		_xray_tint.visible = held
+	if game == null or not (held or _hand_frame_looking()):
+		return
+	var hidden := game.basement_xray_objects()
+	if not hidden.is_empty():
+		game.see_through_xray(_reality_scene_adapter.exit_objects_in_reach(hidden))
+
+
+## X is held in the world: the phone is up out of the way and nothing else has the keys.
+func _xray_key_held() -> bool:
+	if not _world_hotkeys_installed or not InputMap.has_action("reality_xray") or not Input.is_action_pressed("reality_xray"):
+		return false
+	return str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_is_active()
+
+
+func _hand_frame_looking() -> bool:
+	return _camera_session != null and _camera_session.enabled and _camera_session.hand_xray_overlay != null and _camera_session.hand_xray_overlay.is_frame_active()
+
+
+## The look of the X-ray held on the keyboard: the X-ray's green over the whole view. What it shows in the room is #114's.
+func _build_xray_tint() -> void:
+	_xray_tint = ColorRect.new()
+	_xray_tint.name = "XRayTint"
+	_xray_tint.color = XRAY_TINT_COLOR
+	_xray_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_xray_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_xray_tint.z_index = 9
+	_xray_tint.visible = false
+	_ui_root.add_child(_xray_tint)
 
 
 ## Inside the CRT's screen the mouse reaches the terminal through its glass; F, Tab and Escape leave it.
@@ -1453,6 +1496,7 @@ func _build_ui() -> void:
 	_ui_root.add_child(_phone_down_backdrop_image)
 	_hand_phone_image = null
 	_build_hand_xray_overlay()
+	_build_xray_tint()
 	_build_cinematic_bars()
 
 	_build_apple_hud()

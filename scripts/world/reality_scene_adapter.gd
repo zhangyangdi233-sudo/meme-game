@@ -832,6 +832,21 @@ func _find_exit_in_reach(deps: Dictionary) -> void:
 				_nearby_exit_focus = point["focus"]
 
 
+## Which of `object_names` (exit objects, `RoomContent.EXIT_OBJECTS`) have a place in reach of the player, in the given
+## order; empty off a chapter stage or while a transition plays. The host asks it for what the X-ray shows (#127).
+func exit_objects_in_reach(object_names: Array) -> Array:
+	var found: Array = []
+	if _chapter_stage == null or player == null or _exit_time >= 0.0 or _door_time >= 0.0:
+		return found
+	for object_name: Variant in object_names:
+		for point: Dictionary in _chapter_stage.exit_points(str(object_name)):
+			var offset: Vector3 = (point["reach"] as Vector3) - player.position
+			if absf(offset.y) <= EXIT_REACH_HEIGHT and Vector2(offset.x, offset.z).length() <= EXIT_REACH_RADIUS:
+				found.append(object_name)
+				break
+	return found
+
+
 ## Starts the exit transition toward the object's place nearest the player (the one in reach, or the door walked out
 ## through); an object the room lacks pushes the view straight ahead.
 func _start_exit_transition(object_name: String) -> void:

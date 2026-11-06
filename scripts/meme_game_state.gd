@@ -1742,6 +1742,20 @@ func basement_exits() -> Array:
 	return ChapterOneProgressScript.exits(chapter_one_progress)
 
 
+## The objects the basement round being played hides a way out at, shown only through the X-ray (#127); empty outside
+## the basement.
+func basement_xray_objects() -> Array:
+	return RoomRulesScript.xray_objects(_current_room())
+
+
+## The player looked at `objects` through the X-ray: any of them the round hides a way out at becomes its exit, with no
+## post. False when nothing new opened.
+func see_through_xray(objects: Array) -> bool:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	var opened := RoomRulesScript.open_exits(_current_room(), {}, current_round, false, objects)
+	return _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, opened))
+
+
 ## Whether the basement round being played stands its NPC: only a room that opens by the NPC's conversation does.
 ## False outside the basement.
 func basement_npc_stands() -> bool:
