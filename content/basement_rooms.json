@@ -104,7 +104,7 @@
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "xray", "object": "clock"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false, "half_clock": true, "sunken_crts": true}},
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false, "half_clock": true, "sunken_crts": true, "torn_tape": true}},
       "events": [
         {"id": "red_screens", "trigger": "room_center", "duration": 8.0, "cue": "red_screens"}
       ]

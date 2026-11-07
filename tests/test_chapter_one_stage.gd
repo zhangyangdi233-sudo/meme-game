@@ -351,7 +351,7 @@ func _test_the_npc_behind_the_sealed_door_knocks_until_first_talked_to() -> void
 	var stage := adapter.get_parent().find_child("ChapterOneStage", true, false) as ChapterOneStage
 	var knock := adapter.get_parent().find_child("SealedDoorKnock", true, false) as AudioStreamPlayer3D
 	_assert_true(knock != null and knock.stream != null, "the sealed door should carry the knocking")
-	_assert_true(adapter.get_parent().find_child("SealedDoor", true, false) != null, "the sealed door should stand under the landing")
+	_assert_true(adapter.get_parent().find_child("StairCloset_Door", true, false) != null, "the sealed door should stand under the landing")
 	var behind := adapter.get_parent().find_child("BasementNPC", true, false) as Node3D
 	_assert_true(behind != null and behind.find_children("*", "VisualInstance3D", true, false).is_empty(), "the one behind the door should never be seen")
 	var npc: Vector3 = adapter.chapter_npc_position()
@@ -389,7 +389,7 @@ func _test_the_npc_behind_the_sealed_door_knocks_until_first_talked_to() -> void
 	var quiet = await _adapter_with(deps)
 	quiet.ensure_floor_current(deps)
 	_assert_true(quiet.get_parent().find_child("SealedDoorKnock", true, false) == null, "a round with nobody behind the door should not knock")
-	_assert_true(quiet.get_parent().find_child("SealedDoor", true, false) != null, "the sealed door should stand in every round")
+	_assert_true(quiet.get_parent().find_child("StairCloset_Door", true, false) != null, "the sealed door should stand in every round")
 	await _free(quiet)
 
 
@@ -418,7 +418,7 @@ func _test_the_sealed_door_never_opens() -> void:
 	var progress := ProgressScript.deliver(ProgressScript.talk_to_npc(ProgressScript.jump_to_round(ProgressScript.initial(), 4)), ["door"])
 	var adapter = await _adapter(progress)
 	adapter.ensure_floor_current(_deps(progress))
-	var sealed := adapter.get_parent().find_child("SealedDoor", true, false) as Node3D
+	var sealed := adapter.get_parent().find_child("StairCloset_Door", true, false) as Node3D
 	var before := sealed.global_transform
 	var npc: Vector3 = adapter.chapter_npc_position()
 	adapter.player.position = Vector3(npc.x + 0.35, 0.05, npc.z + 0.5)
@@ -516,7 +516,7 @@ func _test_every_exit_object_stands_in_every_round() -> void:
 			_assert_true(not reaches.is_empty(), "round %d should stand the %s" % [round_number, object_name])
 			for reach: Vector3 in reaches:
 				_assert_true(adapter.chapter_contains(reach), "round %d's %s should be reachable inside the room: %s" % [round_number, object_name, reach])
-		_assert_true(adapter.chapter_exit_reaches("chair").size() >= 3, "every chair of the room should count")
+		_assert_eq(adapter.chapter_exit_reaches("chair").size(), 2, "both chairs of the room should count")
 		_assert_true(adapter.chapter_exit_reaches("table").size() >= 2, "every table of the room should count")
 		_assert_true(adapter.chapter_exit_reaches("light").size() >= 2, "every lamp of the room should count")
 		_assert_eq(adapter.chapter_exit_reaches("piano"), [], "an object the room lacks should stand nowhere")

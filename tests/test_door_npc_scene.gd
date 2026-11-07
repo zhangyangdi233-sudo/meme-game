@@ -52,7 +52,7 @@ func _run() -> void:
 
 func _test_round_one_has_nobody_behind_the_door(game_root) -> void:
 	await _jump(game_root, 1)
-	_assert_true(_find(game_root, "SealedDoor") != null, "the sealed door should stand under the landing in round one")
+	_assert_true(_find(game_root, "StairCloset_Door") != null, "the sealed door should stand under the landing in round one")
 	_assert_true(_find(game_root, "SealedDoorKnock") == null, "nobody should knock in round one")
 	_assert_true(_find(game_root, "BasementNPC") == null, "nobody should answer behind the door in round one")
 

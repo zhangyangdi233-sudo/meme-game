@@ -17,8 +17,9 @@ const ROOMS_PATH := "res://content/basement_rooms.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 ## The room objects the chapter stage can show or hide. A room can only name these: the lamp over the exit, the one wall
 ## clock, the wall of clocks near the CRT, the half clock whose missing numbers only the X-ray shows, the chairs
-## scattered by the run's seed and the screens sunk in the floor and walls (#114).
-const OBJECTS := ["exit_lamp", "wall_clock", "clock_wall", "half_clock", "scattered_chairs", "sunken_crts"]
+## scattered by the run's seed, the screens sunk in the floor and walls (#114) and the sealed door's tape with a few
+## strips torn off (#128).
+const OBJECTS := ["exit_lamp", "wall_clock", "clock_wall", "half_clock", "scattered_chairs", "sunken_crts", "torn_tape"]
 ## What starts a one-shot event: the entry shutting behind the player, or the player reaching the room's middle.
 const EVENT_TRIGGERS := ["entry_sealed", "room_center"]
 ## How the stage plays an event: the whisper with the lights flickering, the outage, or the screens going black then red.

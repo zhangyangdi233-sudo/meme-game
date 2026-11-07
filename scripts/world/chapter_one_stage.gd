@@ -23,7 +23,7 @@ const LanguageCorruptionContentScript = preload("res://scripts/narrative/languag
 const BasementDecorScript = preload("res://scripts/game/basement_decor.gd")
 
 const OPENING_MODEL_PATH := "res://assets/chapter1/Opening_WhiteDoor_v2.glb"
-const BASEMENT_MODEL_PATH := "res://assets/chapter1/Basement_Loop_v2.glb"
+const BASEMENT_MODEL_PATH := "res://assets/chapter1/Basement_Loop_v3b.glb"
 const KNOCK_PATH := "res://assets/audio/sfx/opening_door_knock.ogg"
 ## How far ahead of the player the white door stands when the opening starts.
 const OPENING_WALK_DISTANCE := 29.5
@@ -40,12 +40,19 @@ const OPENING_BOUNDS := AABB(Vector3(-39.5, -0.3, -51.5), Vector3(79.0, 4.0, 79.
 const BASEMENT_BOUNDS := AABB(Vector3(-3.2, -0.3, -4.2), Vector3(6.4, 6.0, 8.4))
 const BASEMENT_SPAWN := Vector3(-2.5, 2.72, -1.85)
 const BASEMENT_SPAWN_YAW := 180.0
+## The room's two lamps, lit here under the model's globes. The planner's look is Blender's main lamp at about 23 W
+## (between its 15 W and 28 W previews, #120 Q4-1): on screenshots (`tools/capture_basement_rounds.gd`) energies of
+## 1.0 and 0.5 match the 28 W preview, so these are 23/28 of them. Tune them on the real machine.
 const BASEMENT_LIGHTS := {
-	"BasementMainLight": {"position": Vector3(0.3, 2.5, 1.5), "energy": 0.85, "range": 6.8},
-	"BasementRearLight": {"position": Vector3(0.0, 2.5, -3.4), "energy": 0.62, "range": 4.5},
+	"BasementMainLight": {"position": Vector3(0.3, 2.42, 1.5), "energy": 0.82, "range": 6.0},
+	"BasementRearLight": {"position": Vector3(0.0, 2.42, -3.4), "energy": 0.41, "range": 4.5},
 }
-const BASEMENT_LIGHT_COLOR := Color(1.0, 0.82, 0.62)
-const BASEMENT_AMBIENT_ENERGY := 0.35
+const BASEMENT_LIGHT_COLOR := Color("d9e3b8")
+## How fast the lamps fall off: corners go dark on their own.
+const BASEMENT_LIGHT_ATTENUATION := 1.4
+const BASEMENT_AMBIENT_ENERGY := 0.12
+const BASEMENT_EXPOSURE := 0.9
+const BASEMENT_HAZE := 0.012
 ## The lamp a room can light above the exit, just inside the wall over its doorway.
 const EXIT_LAMP_POSITION := Vector3(-3.13, 2.38, -3.43)
 const EXIT_LAMP_SIZE := Vector3(0.06, 0.1, 0.4)
@@ -69,25 +76,21 @@ const ENTRY_SEAL_Z := -1.22
 const EXIT_DOORWAY := Vector3(-3.2, 0.0, -3.43)
 const EXIT_DOORWAY_HALF_WIDTH := 0.53
 const EXIT_WALKED_OUT_X := -3.45
-## The sealed door under the stair landing, facing the room (+X): taped shut, it never opens and answers no F of its own.
-## A stand-in built here until the v3b model brings `StairCloset_Door` (#128): the closet's front panel, the leaf, a
-## knob and tape across the gaps. Its center is the v3b door's (Blender (-1.846, 2.01, 0.97)).
-const SEALED_DOOR_FACE_X := -1.846
-const SEALED_DOOR_CENTER := Vector3(-1.831, 0.97, -2.01)
-const SEALED_DOOR_LEAF_SIZE := Vector3(0.03, 1.9, 0.7)
-## The closet's front under the landing, from the rear wall to the landing's edge.
-const SEALED_CLOSET_FRONT_CENTER := Vector3(-1.861, 1.225, -2.025)
-const SEALED_CLOSET_FRONT_SIZE := Vector3(0.03, 2.45, 0.95)
-const SEALED_DOOR_COLOR := Color(0.47, 0.45, 0.39)
-const SEALED_CLOSET_COLOR := Color(0.36, 0.34, 0.3)
-const SEALED_DOOR_TAPE_COLOR := Color(0.4, 0.41, 0.4)
-## The tape strips across the leaf's edges and over it: their center on the leaf (along Z, up Y), length and tilt.
-const SEALED_DOOR_TAPE := [
-	[Vector2(0.33, 1.6), 0.36, 1.45], [Vector2(0.33, 0.9), 0.32, 1.7], [Vector2(0.33, 0.3), 0.38, 1.5],
-	[Vector2(-0.33, 1.5), 0.34, 1.65], [Vector2(-0.33, 0.6), 0.3, 1.4],
-	[Vector2(0.0, 1.88), 0.5, 0.15], [Vector2(0.0, 0.06), 0.44, -0.1],
-	[Vector2(0.0, 1.05), 1.15, 0.62], [Vector2(0.02, 0.95), 1.2, -0.58],
-]
+## The sealed door under the stair landing, facing the room (+X), is the model's (#128): its leaf, knob and the 38
+## strips of tape over it. Taped shut, it never opens and answers no F of its own; the stair stringer's collider holds
+## the player out from under the landing.
+const SEALED_DOOR_TAPE_NODE := "StairCloset_Tape"
+## Round five tears the longest strips off (`torn_tape`, #120 Q4-3); the first few of them hang from their top end.
+const TORN_STRIPS := 4
+const PEELED_STRIPS := 3
+const PEELED_LENGTH := 0.42
+const PEELED_WIDTH := 0.048
+## How far a peeled strip leans out from the door and twists as it hangs (radians).
+const PEELED_LEAN := 0.2
+const PEELED_TWIST := 0.35
+## What the model brings that the room leaves out (#120 Q4-2: the tables, two chairs and the phone stay): the
+## children's stool and the cardboard boxes, with the stool's collider.
+const LEFT_OUT_PROPS := ["Prop_TealChair", "Prop_Box_Rear", "Prop_Box_UnderStairs", "PropCollision_TealChair"]
 ## The round's NPC is behind the sealed door, at the v3b model's StairClosetDoorAnchor on the floor: F in front of the
 ## door talks to it.
 const BASEMENT_NPC_POSITION := Vector3(-1.8, 0.02, -2.01)
@@ -117,18 +120,22 @@ const CLOCK_RIM_COLOR := Color(0.18, 0.12, 0.08)
 ## props are found by node name; every one of a kind counts (any chair, any table, any lamp).
 const EXIT_PROP_NODES := {
 	"table": ["Prop_ChildTable", "Prop_RearSideTable"],
-	"chair": ["Prop_Windsor_A", "Prop_Windsor_B", "Prop_TealChair"],
+	"chair": ["Prop_Windsor_A", "Prop_Windsor_B"],
 	"light": ["Main_OpalGlobe", "Rear_OpalGlobe"],
 }
 ## How high above a prop's floor point the view pushes in to; a lamp is pushed in to where it hangs.
 const EXIT_PROP_FOCUS_HEIGHT := {"table": 0.6, "chair": 0.55, "light": 0.0}
 const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
 const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
-## The model's own lamps and their glass globes: what the room's `lights` and `brightness` switch and scale, with the
-## stage's lights. The CRT's green light is apart: an outage leaves it on.
-const MODEL_LAMP_LIGHTS := ["Main_PointLight", "Rear_PointLight"]
+## The model's lamps light Blender's preview in physical watts, which Godot would read as energy and turn the room
+## white; they stay off and the stage's lights stand in for them. Their glass globes go dark with the room's `lights`.
+const MODEL_PREVIEW_LIGHTS := ["Main_PointLight", "Rear_PointLight"]
 const MODEL_LAMP_GLOBES := ["Main_OpalGlobe", "Rear_OpalGlobe"]
+## The CRT's green light is kept, at the room's scale: the one cold light in the room. An outage leaves it on.
 const MODEL_CRT_LIGHT := "CRT_Green_PointLight"
+const CRT_LIGHT_ENERGY := 0.42
+const CRT_LIGHT_RANGE := 2.4
+const CRT_LIGHT_COLOR := Color("3fff59")
 const DARK_GLOBE_COLOR := Color(0.2, 0.22, 0.18)
 ## How much of the ambient light an outage leaves, so the CRT's green still finds the room.
 const DARK_AMBIENT_SHARE := 0.12
@@ -231,6 +238,8 @@ var _static: AudioStreamPlayer
 var _switch: Node3D
 ## The model's chairs, which round three's scattered pile replaces once its light is back.
 var _chairs: Array[Node3D] = []
+## The model's tape over the sealed door, which round five's torn tape replaces.
+var _sealed_tape: MeshInstance3D
 ## What only the X-ray shows, and whether it looks now.
 var _xray_nodes: Array[Node3D] = []
 var _xray_looking := false
@@ -413,6 +422,8 @@ func apply_room_state(state: Dictionary) -> void:
 		(_room_objects[object_name] as Node3D).visible = bool(objects.get(object_name, false))
 	for chair in _chairs:
 		chair.visible = not _pile_shown()
+	if _sealed_tape != null:
+		_sealed_tape.visible = not bool(objects.get("torn_tape", false))
 	_refresh_room()
 
 
@@ -632,7 +643,8 @@ func _build_basement(phone_on_table: bool, npc_stands: bool) -> bool:
 	_exit_door = _bind_basement_door(EXIT_DOOR_PIVOT)
 	_swing(_entry_door, _entry_ratio)
 	_swing(_exit_door, _exit_ratio)
-	_build_sealed_door()
+	_leave_out_props()
+	_build_torn_tape()
 	if npc_stands:
 		_build_npc()
 	_build_table(phone_on_table)
@@ -646,10 +658,12 @@ func _build_basement(phone_on_table: bool, npc_stands: bool) -> bool:
 		light.light_color = BASEMENT_LIGHT_COLOR
 		light.light_energy = float(spec["energy"])
 		light.omni_range = float(spec["range"])
+		light.omni_attenuation = BASEMENT_LIGHT_ATTENUATION
 		light.shadow_enabled = true
 		light.position = spec["position"]
 		add_child(light)
 	_build_environment(BASEMENT_LIGHT_COLOR.darkened(0.7), BASEMENT_AMBIENT_ENERGY)
+	_dress_basement_environment()
 	_build_exit_lamp()
 	var glass := _model.find_child(CRT_SCREEN_NODE, true, false) as MeshInstance3D
 	var screen := CrtScreenScript.new()
@@ -679,16 +693,21 @@ func _build_basement(phone_on_table: bool, npc_stands: bool) -> bool:
 func _bind_lamps() -> void:
 	for light_name in BASEMENT_LIGHTS:
 		_lamps.append({"light": get_node(light_name), "energy": float(BASEMENT_LIGHTS[light_name]["energy"])})
-	for light_name: String in MODEL_LAMP_LIGHTS:
+	for light_name: String in MODEL_PREVIEW_LIGHTS:
 		var light := _model.find_child(light_name, true, false) as Light3D
 		if light != null:
-			_lamps.append({"light": light, "energy": light.light_energy})
+			light.visible = false
 	for globe_name: String in MODEL_LAMP_GLOBES:
 		var globe := _model.find_child(globe_name, true, false) as MeshInstance3D
 		if globe != null:
 			_globes.append(globe)
 	_dark_globe = _flat_material(DARK_GLOBE_COLOR)
 	_crt_light = _model.find_child(MODEL_CRT_LIGHT, true, false) as Light3D
+	if _crt_light != null:
+		_crt_light.light_energy = CRT_LIGHT_ENERGY
+		_crt_light.light_color = CRT_LIGHT_COLOR
+		if _crt_light is OmniLight3D:
+			(_crt_light as OmniLight3D).omni_range = CRT_LIGHT_RANGE
 
 
 func _build_sounds() -> void:
@@ -1174,40 +1193,137 @@ func _build_npc() -> void:
 	add_child(_door_knock)
 
 
-## The stand-in sealed door under the stair landing (#128 brings the model's): the closet's front panel, the leaf, its
-## knob and the tape over it. The panel holds the player out from under the landing; nothing opens it.
-func _build_sealed_door() -> void:
-	var sealed_door := Node3D.new()
-	sealed_door.name = "SealedDoor"
-	var front := StaticBody3D.new()
-	front.name = "ClosetFront"
-	front.position = SEALED_CLOSET_FRONT_CENTER
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = SEALED_CLOSET_FRONT_SIZE
-	shape.shape = box
-	front.add_child(shape)
-	front.add_child(_box_mesh("Panel", SEALED_CLOSET_FRONT_SIZE, Vector3.ZERO, _flat_material(SEALED_CLOSET_COLOR)))
-	sealed_door.add_child(front)
-	sealed_door.add_child(_box_mesh("Leaf", SEALED_DOOR_LEAF_SIZE, SEALED_DOOR_CENTER, _flat_material(SEALED_DOOR_COLOR)))
-	var knob := MeshInstance3D.new()
-	knob.name = "Knob"
-	var knob_mesh := SphereMesh.new()
-	knob_mesh.radius = 0.028
-	knob_mesh.height = 0.056
-	knob.mesh = knob_mesh
-	knob.position = Vector3(SEALED_DOOR_FACE_X + 0.065, 1.02, -2.29)
-	knob.material_override = _flat_material(Color(0.62, 0.5, 0.25))
-	sealed_door.add_child(knob)
-	var tape := _flat_material(SEALED_DOOR_TAPE_COLOR)
-	var face_x := SEALED_DOOR_FACE_X + 0.032
-	for index in SEALED_DOOR_TAPE.size():
-		var spec: Array = SEALED_DOOR_TAPE[index]
-		var at: Vector2 = spec[0]
-		var strip := _box_mesh("Tape%d" % index, Vector3(0.002, float(spec[1]), 0.048), Vector3(face_x + 0.001 * (index % 3), at.y, SEALED_DOOR_CENTER.z + at.x), tape)
-		strip.rotation.x = float(spec[2])
-		sealed_door.add_child(strip)
-	add_child(sealed_door)
+## Leaves out what the model brings that the room does without: the stool, the boxes and the stool's collider, and
+## the arrows painted for an older X-ray tutorial (marked `xray_only` in the model; the X-ray shows none of them now).
+func _leave_out_props() -> void:
+	var left_out: Array[Node] = []
+	for node_name: String in LEFT_OUT_PROPS:
+		var prop := _model.find_child(node_name, true, false)
+		if prop != null:
+			left_out.append(prop)
+	for node: Node in _model.find_children("*", "Node3D", true, false):
+		var extras: Variant = node.get_meta("extras", {})
+		if extras is Dictionary and bool((extras as Dictionary).get("xray_only", false)) and node.get_parent() not in left_out:
+			left_out.append(node)
+	for node in left_out:
+		if node.get_parent() != null:
+			node.get_parent().remove_child(node)
+		node.free()
+
+
+## Round five's tape over the sealed door (`torn_tape`): the model's strips without the longest few, a few of those
+## hanging from where they were stuck at the top. It stands in for the model's tape while the room shows it.
+func _build_torn_tape() -> void:
+	var torn := Node3D.new()
+	torn.name = "TornTape"
+	torn.visible = false
+	add_child(torn)
+	_room_objects["torn_tape"] = torn
+	_sealed_tape = _model.find_child(SEALED_DOOR_TAPE_NODE, true, false) as MeshInstance3D
+	if _sealed_tape == null or _sealed_tape.mesh == null:
+		push_error("The basement model has no %s" % SEALED_DOOR_TAPE_NODE)
+		_sealed_tape = null
+		return
+	torn.transform = _in_stage(_sealed_tape)
+	var source := _sealed_tape.mesh
+	var strips: Array[Dictionary] = []
+	for surface in source.get_surface_count():
+		strips.append_array(_tape_strips(source.surface_get_arrays(surface), surface))
+	strips.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["length"]) > float(b["length"]))
+	var torn_off := strips.slice(0, TORN_STRIPS)
+	var remaining := ArrayMesh.new()
+	for surface in source.get_surface_count():
+		var arrays := source.surface_get_arrays(surface)
+		var dropped := {}
+		for strip: Dictionary in torn_off:
+			if int(strip["surface"]) == surface:
+				for triangle: int in strip["triangles"]:
+					dropped[triangle] = true
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var kept := PackedInt32Array()
+		for triangle in indices.size() / 3:
+			if not dropped.has(triangle):
+				kept.append_array(indices.slice(triangle * 3, triangle * 3 + 3))
+		if kept.is_empty():
+			continue
+		arrays[Mesh.ARRAY_INDEX] = kept
+		remaining.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		remaining.surface_set_material(remaining.get_surface_count() - 1, _sealed_tape.get_active_material(surface))
+	var left := MeshInstance3D.new()
+	left.name = "Remaining"
+	left.mesh = remaining
+	torn.add_child(left)
+	for index in mini(PEELED_STRIPS, torn_off.size()):
+		var strip: Dictionary = torn_off[index]
+		torn.add_child(_peeled_strip(strip["top"], _sealed_tape.get_active_material(int(strip["surface"])), index))
+
+
+## The strips of one surface of the tape: the triangles of each, how long it runs across the door and its top end.
+## Vertices at one place belong to one strip (a strip's faces are split apart where their normals differ).
+func _tape_strips(arrays: Array, surface: int) -> Array[Dictionary]:
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var welded := {}
+	var parent: Array[int] = []
+	for index in vertices.size():
+		parent.append(int(welded.get_or_add(Vector3i((vertices[index] * 10000.0).round()), index)))
+	for triangle in indices.size() / 3:
+		var first := _strip_root(parent, indices[triangle * 3])
+		for corner in [1, 2]:
+			var other := _strip_root(parent, indices[triangle * 3 + corner])
+			if other != first:
+				parent[other] = first
+	var by_root := {}
+	for triangle in indices.size() / 3:
+		var root := _strip_root(parent, indices[triangle * 3])
+		var strip: Dictionary = by_root.get_or_add(root, {"surface": surface, "triangles": [], "box": AABB(vertices[indices[triangle * 3]], Vector3.ZERO), "top": vertices[indices[triangle * 3]]})
+		(strip["triangles"] as Array).append(triangle)
+		for corner in 3:
+			var at := vertices[indices[triangle * 3 + corner]]
+			strip["box"] = (strip["box"] as AABB).expand(at)
+			if at.y > (strip["top"] as Vector3).y:
+				strip["top"] = at
+	var strips: Array[Dictionary] = []
+	for strip: Dictionary in by_root.values():
+		var box: AABB = strip["box"]
+		strip["length"] = Vector2(box.size.y, box.size.z).length()
+		strips.append(strip)
+	return strips
+
+
+func _strip_root(parent: Array[int], index: int) -> int:
+	var root := parent[index]
+	while parent[root] != root:
+		root = parent[root]
+	parent[index] = root
+	return root
+
+
+## A torn strip hanging from its top end, leaning out from the door (+X) and a little twisted.
+func _peeled_strip(top: Vector3, material: Material, index: int) -> MeshInstance3D:
+	var piece := MeshInstance3D.new()
+	piece.name = "Peeled%d" % index
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.002, PEELED_LENGTH, PEELED_WIDTH)
+	piece.mesh = mesh
+	if material != null:
+		var both_sides := material.duplicate() as Material
+		if both_sides is BaseMaterial3D:
+			(both_sides as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+		piece.material_override = both_sides
+	var hang := Basis(Vector3.UP, PEELED_TWIST * (1.0 if index % 2 == 0 else -1.0)) * Basis(Vector3.BACK, PEELED_LEAN)
+	piece.transform = Transform3D(hang, top + hang * Vector3(0.0, -PEELED_LENGTH * 0.5, 0.0) + Vector3(0.004, 0.0, 0.0))
+	return piece
+
+
+## A model node's transform in the stage's space.
+func _in_stage(node: Node3D) -> Transform3D:
+	var at := node.transform
+	var parent := node.get_parent()
+	while parent != self and parent is Node3D:
+		at = (parent as Node3D).transform * at
+		parent = parent.get_parent()
+	return at
 
 
 func _box_mesh(node_name: String, size: Vector3, at: Vector3, material: Material) -> MeshInstance3D:
@@ -1324,6 +1440,31 @@ func _build_environment(ambient: Color, ambient_energy: float) -> void:
 	world_environment.environment = environment
 	_environment = environment
 	add_child(world_environment)
+
+
+## The basement's look from the v3b plan (§2.3): AgX like Blender's preview, contact shadows under the skirting and
+## the furniture, the wallpaper's green bounced onto the ceiling, a thin haze and a soft glow on the globes only.
+## The renderers without these effects simply skip them.
+func _dress_basement_environment() -> void:
+	_environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	_environment.tonemap_exposure = BASEMENT_EXPOSURE
+	_environment.ssao_enabled = true
+	_environment.ssao_radius = 1.0
+	_environment.ssao_intensity = 2.5
+	_environment.ssao_detail = 0.6
+	_environment.ssil_enabled = true
+	_environment.ssil_radius = 2.0
+	_environment.ssil_intensity = 1.2
+	_environment.volumetric_fog_enabled = true
+	_environment.volumetric_fog_density = BASEMENT_HAZE
+	_environment.volumetric_fog_albedo = Color("9fb58a")
+	_environment.volumetric_fog_length = 24.0
+	_environment.glow_enabled = true
+	_environment.glow_intensity = 0.35
+	_environment.glow_hdr_threshold = 1.1
+	_environment.adjustment_enabled = true
+	_environment.adjustment_saturation = 0.92
+	_environment.adjustment_contrast = 1.05
 
 
 func _on_knock_finished() -> void:

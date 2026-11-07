@@ -370,15 +370,11 @@ func _lamps_lit(stage: Node3D) -> bool:
 		var light := stage.get_node(light_name) as Light3D
 		if not light.visible or light.light_energy <= 0.0:
 			return false
-	for light_name in ["Main_PointLight", "Rear_PointLight"]:
-		var light := stage.find_child(light_name, true, false) as Light3D
-		if light != null and not light.visible:
-			return false
 	return true
 
 
 func _original_chairs_shown(stage: Node3D) -> bool:
-	for chair_name in ["Prop_Windsor_A", "Prop_Windsor_B", "Prop_TealChair"]:
+	for chair_name in ["Prop_Windsor_A", "Prop_Windsor_B"]:
 		var chair := stage.find_child(chair_name, true, false) as Node3D
 		if chair == null or not chair.visible:
 			return false
