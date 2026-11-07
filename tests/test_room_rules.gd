@@ -466,6 +466,11 @@ func test_validation_names_broken_events() -> void:
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["during"] = {"lights": "off"},
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["during"] = {"colour": 1.0},
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["state"]["lights"] = 1,
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["switch_ends"] = "true",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["duration"] = 5.0,
+		func(catalog: Dictionary) -> void:
+			catalog["rooms"]["1"]["events"][1].erase("duration")
+			catalog["rooms"]["1"]["events"][1]["switch_ends"] = true,
 	]:
 		var broken := good.duplicate(true)
 		breakage.call(broken)

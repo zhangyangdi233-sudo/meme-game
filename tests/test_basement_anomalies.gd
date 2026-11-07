@@ -250,6 +250,17 @@ func _test_round_five_turns_black_then_red_from_the_rooms_middle() -> void:
 	_assert_true((stage.get_node("ScreenStatic") as AudioStreamPlayer).playing, "the red should hiss")
 	adapter.refresh_nearby_actor(_deps(5))
 	_assert_true(str(adapter.nearby_outcome().get("kind")) != "switch", "the switch should not end the red screens")
+	var hiss := stage.get_node("ScreenStatic") as AudioStreamPlayer
+	var hum := stage.get_node("BasementHum") as AudioStreamPlayer
+	adapter.set_paused(true)
+	for frame in 5:
+		adapter.ensure_floor_current(_deps(5))
+		await _advance(adapter, 5, 0.1)
+	_assert_true(hiss.stream_paused, "open settings should keep the hiss held while the stage refreshes")
+	_assert_true(hum.stream_paused or not hum.playing, "open settings should keep the hum held while the stage refreshes")
+	_assert_eq(stage.screen_color(), Color.RED, "open settings should hold the red where it is")
+	adapter.set_paused(false)
+	_assert_true(not hiss.stream_paused, "closing settings should let the hiss go on")
 	await _advance(adapter, 5, 6.0)
 	_assert_true(_lamps_lit(stage), "the lamps should come back after 8 s")
 	_assert_eq(stage.screen_color(), Color(0, 0, 0, 0), "the screens should go back to what they showed")

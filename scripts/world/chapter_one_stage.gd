@@ -96,8 +96,6 @@ const EXIT_PROP_NODES := {
 const EXIT_PROP_FOCUS_HEIGHT := {"table": 0.6, "chair": 0.55, "light": 0.0}
 const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
 const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
-## The stairs, from the foot to the landing: any step counts. Each place stands at the height of the floor or step
-## under it, so the floor beneath the landing is not the stairs.
 ## The model's own lamps and their glass globes: what the room's `lights` and `brightness` switch and scale, with the
 ## stage's lights. The CRT's green light is apart: an outage leaves it on.
 const MODEL_LAMP_LIGHTS := ["Main_PointLight", "Rear_PointLight"]
@@ -150,6 +148,8 @@ const SUNKEN_CRTS := [
 const SUNKEN_CRT_STANDBY := Color(0.22, 0.41, 0.27)
 ## The exit table at the rear and what the seed lays on it.
 const EXIT_TABLE_TOP := Vector3(-1.64, 0.74, -3.9)
+## The stairs, from the foot to the landing: any step counts. Each place stands at the height of the floor or step
+## under it, so the floor beneath the landing is not the stairs.
 const EXIT_STAIRS := [
 	{"reach": Vector3(-2.5, 0.0, 2.9), "focus": Vector3(-2.5, 1.2, 1.2)},
 	{"reach": Vector3(-2.5, 1.45, 0.5), "focus": Vector3(-2.5, 2.6, -0.8)},
@@ -217,6 +217,8 @@ var _at_center := false
 var _cue_lamps_on := true
 var _cue_crt_light_on := true
 var _cue_hum_on := true
+## The room's sounds are held (the world held, or settings open): nothing starts or stops them until they go on.
+var _sounds_held := false
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
@@ -406,31 +408,37 @@ func decorate(seed: int) -> void:
 ## the switch. A saved start is never played; a saved end stops the event if it plays here.
 func set_room_events(events: Array, started: Array, ended: Array) -> void:
 	_events = events
+	var changed := false
 	for event_id: Variant in started:
 		if event_id not in _started_ids:
 			_started_ids.append(event_id)
+			changed = true
 	for event_id: Variant in ended:
 		if event_id not in _ended_ids:
 			_ended_ids.append(event_id)
 			_playing.erase(event_id)
-	_refresh_cues()
+			changed = true
+	if changed:
+		_refresh_cues()
 
 
 ## Moves the events' clock on by `delta`: an event whose trigger holds starts once its delay has passed, is reported
 ## (`ROOM_EVENT_STARTED`) and plays its cue; a timed one stops after its duration. A `held` world (the phone up, the
 ## CRT, a transition) and open settings stop the clock and the sounds where they are.
 func advance_events(delta: float, held: bool) -> void:
-	var stopped := held or _paused
-	for player: AudioStreamPlayer in [_whisper, _static]:
-		if player != null:
-			player.stream_paused = stopped
-	if stopped or phase != ChapterOneProgressScript.PHASE_BASEMENT:
+	_hold_sounds(held or _paused)
+	if _sounds_held or phase != ChapterOneProgressScript.PHASE_BASEMENT:
 		return
 	var step := maxf(delta, 0.0)
+	var was_playing := not _playing.is_empty()
 	for event_id: Variant in _playing:
 		_playing[event_id] = float(_playing[event_id]) + step
 	for event: Variant in _events:
-		if not event is Dictionary or event.get("id") in _started_ids or not _trigger_holds(str(event.get("trigger", ""))):
+		if not event is Dictionary or event.get("id") in _started_ids:
+			continue
+		# The delay counts while the trigger holds without a break: walking off the room's middle starts it over.
+		if not _trigger_holds(str(event.get("trigger", ""))):
+			_trigger_waits.erase(event.get("id"))
 			continue
 		var waited := float(_trigger_waits.get(event["id"], 0.0)) + step
 		_trigger_waits[event["id"]] = waited
@@ -439,7 +447,8 @@ func advance_events(delta: float, held: bool) -> void:
 	for event: Variant in _events:
 		if event is Dictionary and _playing.has(event.get("id")) and float(_playing[event["id"]]) >= float(event.get("duration", 0.0)):
 			_playing.erase(event["id"])
-	_refresh_cues()
+	if was_playing or not _playing.is_empty():
+		_refresh_cues()
 
 
 ## The ids of the events going on that the wall switch can end: a timed one playing here, or one that lasts until the
@@ -447,7 +456,7 @@ func advance_events(delta: float, held: bool) -> void:
 func switch_targets() -> Array:
 	var targets: Array = []
 	for event: Variant in _events:
-		if not event is Dictionary or not bool(event.get("switch_ends", false)) or event.get("id") in _ended_ids:
+		if not event is Dictionary or not _switch_ends(event) or event.get("id") in _ended_ids:
 			continue
 		if _playing.has(event["id"]) or (event["id"] in _started_ids and not event.has("duration")):
 			targets.append(event["id"])
@@ -489,9 +498,7 @@ func set_paused(paused: bool) -> void:
 	_paused = paused
 	if _knock != null:
 		_knock.stream_paused = paused
-	for player: AudioStreamPlayer in [_whisper, _static, _hum]:
-		if player != null:
-			player.stream_paused = paused
+	_hold_sounds(paused)
 
 
 ## Swings the white door open: 0 is closed, 1 fully open away from the player. Its glow plane hides once it moves.
@@ -840,6 +847,25 @@ func _build_exit_table_props() -> void:
 	add_child(book)
 
 
+## Holds the room's sounds where they are, or lets them go on. A held sound reads as not playing, so nothing may start
+## or stop one while held; letting go first settles them to the cues playing now (a whisper the switch ended meanwhile
+## stops, the hum comes back if the room has one).
+func _hold_sounds(held: bool) -> void:
+	if held == _sounds_held:
+		return
+	_sounds_held = held
+	if not held:
+		_refresh_cues()
+	for player: AudioStreamPlayer in [_whisper, _static, _hum]:
+		if player != null:
+			player.stream_paused = held
+
+
+func _switch_ends(event: Dictionary) -> bool:
+	var ends: Variant = event.get("switch_ends", false)
+	return ends is bool and ends
+
+
 ## Whether the event's trigger holds now: the entry has shut behind the player, or they stand in the room's middle.
 func _trigger_holds(trigger: String) -> bool:
 	match trigger:
@@ -886,13 +912,14 @@ func _refresh_cues() -> void:
 				_screen_color = Color.BLACK if played < SIGNAL_BLACK_SECONDS else SIGNAL_RED
 				if played >= SIGNAL_BLACK_SECONDS:
 					hissing = played - SIGNAL_BLACK_SECONDS
-	if _whisper != null and not whispering and _whisper.playing:
-		_whisper.stop()
-	if _static != null and _static.stream != null:
-		if hissing >= 0.0 and not _static.playing:
-			_static.play(hissing)
-		elif hissing < 0.0 and _static.playing:
-			_static.stop()
+	if not _sounds_held:
+		if _whisper != null and not whispering:
+			_whisper.stop()
+		if _static != null and _static.stream != null:
+			if hissing >= 0.0 and not _static.playing:
+				_static.play(hissing)
+			elif hissing < 0.0:
+				_static.stop()
 	_refresh_room()
 
 
@@ -912,12 +939,12 @@ func _refresh_room() -> void:
 	if _crt_light != null:
 		_crt_light.visible = _cue_crt_light_on
 	var hum := float(_room_state.get("hum", 0.0))
-	if _hum != null:
+	if _hum != null and not _sounds_held:
 		if hum > 0.0 and _cue_hum_on:
 			_hum.volume_db = linear_to_db(hum * HUM_GAIN)
 			if not _hum.playing:
 				_hum.play()
-		elif _hum.playing:
+		else:
 			_hum.stop()
 	var showing := _screen_color != NO_SIGNAL
 	for glass in _sunken_glass:

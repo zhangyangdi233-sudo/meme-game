@@ -211,13 +211,14 @@ var typing_hint_seen: bool:
 		return _read_run_bool(PropertyKeysScript.TYPING_HINT_SEEN)
 	set(value):
 		_write_run_field(PropertyKeysScript.TYPING_HINT_SEEN, value)
-## The player picked up the phone from the basement's table; until then it cannot be raised.
-## The run's seed (#114): the basement's run-to-run look, such as the exit table's vase or book. A new run draws one.
+## The run's seed (#114): the basement's run-to-run look, such as the exit table's vase or book. A new run draws one; a
+## save made before it existed gets a fresh one when it loads, kept from its next save on.
 var run_seed: int:
 	get:
 		return _read_run_int(PropertyKeysScript.RUN_SEED)
 	set(value):
 		_write_run_field(PropertyKeysScript.RUN_SEED, value)
+## The player picked up the phone from the basement's table; until then it cannot be raised.
 var phone_owned: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
@@ -1748,7 +1749,7 @@ func room_world_state() -> Dictionary:
 
 ## The one-shot events of the basement round being played, as its room lists them (#114); empty outside the basement.
 func basement_room_events() -> Array:
-	return (_current_room().get("events", []) as Array).duplicate(true)
+	return RoomContentScript.events(ChapterOneProgressScript.round_of(chapter_one_progress), room_data_path)
 
 
 ## The ids of this round's events that have started, so the stage never plays one twice.
@@ -1774,7 +1775,8 @@ func start_room_event(event_id: String) -> bool:
 func end_room_events(event_ids: Array) -> bool:
 	var endable: Array = []
 	for event: Dictionary in basement_room_events():
-		if event.get("id") in event_ids and bool(event.get("switch_ends", false)):
+		var ends: Variant = event.get("switch_ends", false)
+		if event.get("id") in event_ids and ends is bool and ends:
 			endable.append(event["id"])
 	return _step_chapter_one(ChapterOneProgressScript.end_events(chapter_one_progress, endable))
 

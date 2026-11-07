@@ -22,6 +22,9 @@ const OBJECTS := ["exit_lamp", "wall_clock", "clock_wall", "half_clock", "scatte
 const EVENT_TRIGGERS := ["entry_sealed", "room_center"]
 ## How the stage plays an event: the whisper with the lights flickering, the outage, or the screens going black then red.
 const EVENT_CUES := ["whisper_flicker", "blackout", "red_screens"]
+## The cues the stage plays over a time: an event with one needs a `duration`. The outage plays nothing of its own (its
+## `during` state darkens the room), so it lasts until the switch instead.
+const TIMED_CUES := ["whisper_flicker", "red_screens"]
 ## The state fields a room, a rule or an event can set: numbers, the lights' switch and the objects.
 const STATE_NUMBERS := ["brightness", "hum"]
 ## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`.
@@ -199,12 +202,18 @@ static func _check_event(event: Dictionary, label: String, problems: Array[Strin
 		problems.append("%s has an unknown cue %s" % [label, event.get("cue")])
 	if event.has("delay") and not (_is_number(event["delay"]) and float(event["delay"]) >= 0.0):
 		problems.append("%s has a delay that is no time" % label)
+	if event.has("switch_ends") and not event["switch_ends"] is bool:
+		problems.append("%s says neither yes nor no to the switch" % label)
+	if event.get("cue") in TIMED_CUES and not event.has("duration"):
+		problems.append("%s plays its cue over a time but has no duration" % label)
+	elif not event.get("cue") in TIMED_CUES and event.has("duration"):
+		problems.append("%s plays nothing over a time, so it cannot have a duration" % label)
 	if event.has("duration"):
 		if not (_is_number(event["duration"]) and float(event["duration"]) > 0.0):
 			problems.append("%s has a duration that is no time" % label)
 		if event.has("during"):
 			problems.append("%s has a during state but ends by itself" % label)
-	elif not bool(event.get("switch_ends", false)):
+	elif not _is_yes(event.get("switch_ends", false)):
 		problems.append("%s has no duration and the switch cannot end it" % label)
 	for part: String in ["during", "after"]:
 		if not event.has(part):
@@ -231,6 +240,10 @@ static func _check_state_fields(state: Dictionary, label: String, problems: Arra
 				_check_objects(state, label, problems)
 		else:
 			problems.append("%s sets an unknown field %s" % [label, field_name])
+
+
+static func _is_yes(value: Variant) -> bool:
+	return value is bool and value
 
 
 static func _is_number(value: Variant) -> bool:
