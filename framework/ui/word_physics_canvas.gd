@@ -23,6 +23,8 @@ var _press_global := Vector2.ZERO
 var _drag_started := false
 var _last_drag_position := Vector2.ZERO
 var _last_drag_delta := Vector2.ZERO
+var _drag_velocity := Vector2.ZERO
+var _last_drag_time_usec := 0
 
 
 func _ready() -> void:
@@ -183,8 +185,15 @@ func _gui_input(event: InputEvent) -> void:
 		_drag_started = true
 		var target := motion.position - _drag_grab_offset
 		_last_drag_delta = target - _last_drag_position
+		var now_usec := Time.get_ticks_usec()
+		var elapsed := maxf(0.008, float(now_usec - _last_drag_time_usec) / 1000000.0)
+		_drag_velocity = (_last_drag_delta / elapsed).limit_length(THROW_SPEED_LIMIT)
+		_last_drag_time_usec = now_usec
 		_last_drag_position = target
 		_dragging_body.position = target
+		# RigidBody's physics transform otherwise overwrites this visual move
+		# on the next simulation tick, even when the body is frozen.
+		PhysicsServer2D.body_set_state(_dragging_body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, _dragging_body.global_transform)
 		accept_event()
 
 
@@ -197,6 +206,8 @@ func _begin_drag(local_position: Vector2, global_position: Vector2) -> void:
 	_drag_grab_offset = local_position - _dragging_body.position
 	_last_drag_position = _dragging_body.position
 	_last_drag_delta = Vector2.ZERO
+	_drag_velocity = Vector2.ZERO
+	_last_drag_time_usec = Time.get_ticks_usec()
 	# 抓起时切成运动学:跟手,且不会被其它字挤走。
 	_dragging_body.freeze = true
 	_dragging_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
@@ -209,9 +220,17 @@ func _end_drag(release_global: Vector2) -> void:
 	var body := _dragging_body
 	_dragging_body = null
 	body.z_index = 0
+	# Release at the current pointer, not at the last physics-server transform.
+	if _drag_started:
+		body.position = get_global_transform().affine_inverse() * release_global - _drag_grab_offset
+		var half_size := TILE_SIZE * 0.5
+		body.position = body.position.clamp(half_size, (size - half_size).max(half_size))
+	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
 	body.freeze = false
-	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面。
-	body.linear_velocity = (_last_drag_delta * 60.0).limit_length(THROW_SPEED_LIMIT)
+	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面;停手一下再放就不抛。
+	var still_time := float(Time.get_ticks_usec() - _last_drag_time_usec) / 1000000.0
+	body.linear_velocity = _drag_velocity if still_time < 0.09 else Vector2.ZERO
+	body.sleeping = false
 	var unit := str(body.get_meta("word_unit", ""))
 	if not _drag_started:
 		tile_tapped.emit(unit)

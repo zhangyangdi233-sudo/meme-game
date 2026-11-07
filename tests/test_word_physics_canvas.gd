@@ -11,6 +11,7 @@ func _init() -> void:
 
 
 func _run_async() -> void:
+	await _test_drag_release_across_physics_frames()
 	await _run()
 	if _failures.is_empty():
 		print("word physics canvas tests passed")
@@ -19,6 +20,38 @@ func _run_async() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _test_drag_release_across_physics_frames() -> void:
+	# Ported from main (#141).
+	var canvas: Control = CanvasScript.new()
+	canvas.position = Vector2(240, 110)
+	canvas.size = Vector2(520, 400)
+	root.add_child(canvas)
+	canvas.add_tile("门", Vector2(60, 30), Color.WHITE, null, false)
+	for frame in 60:
+		await physics_frame
+	var body: RigidBody2D = canvas.get_node("WordPhysicsRoot/WordBody_门")
+	canvas._begin_drag(body.position, canvas.global_position + body.position)
+	var destination := Vector2(340, 90)
+	var motion := InputEventMouseMotion.new()
+	motion.position = destination
+	motion.global_position = canvas.global_position + destination
+	canvas._gui_input(motion)
+	# Hold still, then release. A stale last-motion delta must not throw the
+	# tile sideways, and unfreezing must not restore its old floor position.
+	for frame in 12:
+		await physics_frame
+	canvas._end_drag(canvas.global_position + destination)
+	await physics_frame
+	await physics_frame
+	_assert_true(absf(body.position.x - destination.x) < 8, "holding the dragged tile still before release must not retain an old fling velocity")
+	_assert_true(body.position.y < 150, "physics resumes at the release location instead of the old floor position")
+	var release_y := body.position.y
+	for frame in 8:
+		await physics_frame
+	_assert_true(body.position.y > release_y, "gravity continues pulling the released tile downward")
+	canvas.free()
 
 
 func _run() -> void:
