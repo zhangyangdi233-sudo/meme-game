@@ -23,7 +23,7 @@ static func item_name(item_id: String, locale_code: String, path: String = ITEMS
 	return _text(item_id, "name", locale_code, path)
 
 
-## The item's one line in a language, or empty when the item is unknown.
+## The item's one line in a language, ending in its own punctuation, or empty when the item is unknown.
 static func description(item_id: String, locale_code: String, path: String = ITEMS_PATH) -> String:
 	return _text(item_id, "description", locale_code, path)
 

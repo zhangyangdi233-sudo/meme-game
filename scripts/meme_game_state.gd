@@ -43,7 +43,7 @@ const BASEMENT_NO_POST_LINE := "去电脑上拾字并投稿一句话，再回来
 ## What the NPC behind the door says once its help opened the exit door (#129; an AI draft for the planner).
 const BASEMENT_HELPED_LINE := "我帮你离开这里。出口的门已经开了。"
 ## What round four's NPC says handing over its hidden item once helped (#130): the item's name, then its line.
-const HIDDEN_ITEM_GIVEN_LINE := "这个给你：「%s」。%s。"
+const HIDDEN_ITEM_GIVEN_LINE := "这个给你：「%s」。%s"
 const SAVE_DATA_VERSION := 6
 ## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
@@ -530,8 +530,7 @@ func load_save_data(save_data: Dictionary) -> bool:
 	_normalize_notebook_tokens()
 	_drop_retired_apps()
 	_normalize_phone(state_data)
-	# A save hands back only known items, each once.
-	_write_run_list(PropertyKeysScript.HIDDEN_ITEMS, HiddenItemsScript.known_ids(hidden_items))
+	_normalize_hidden_items()
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	if view_state == "npc_up":
@@ -1416,6 +1415,11 @@ func _deliver_basement_round() -> void:
 		conversation_feedback += "\n" + locale.translate(BASEMENT_NO_POST_LINE)
 	if posted:
 		_give_hidden_item(RoomRulesScript.gift(_current_room()), locale)
+
+
+## A save hands back only known items, each once.
+func _normalize_hidden_items() -> void:
+	_write_run_list(PropertyKeysScript.HIDDEN_ITEMS, HiddenItemsScript.known_ids(hidden_items))
 
 
 func has_hidden_item(item_id: String) -> bool:

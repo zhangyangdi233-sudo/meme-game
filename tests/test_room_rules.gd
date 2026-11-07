@@ -525,7 +525,7 @@ func test_enoch_is_written_in_the_content_as_provisional() -> void:
 	_assert_true(HiddenItemsScript.is_provisional("enoch"), "Enoch's wording should be marked provisional")
 	_assert_eq(HiddenItemsScript.item_name("enoch", "zh"), "以诺", "Enoch's Chinese name")
 	_assert_eq(HiddenItemsScript.item_name("enoch", "en"), "Enoch", "Enoch's English name")
-	_assert_eq(HiddenItemsScript.description("enoch", "zh"), "一本绿色的书，封面没有字，翻开只有一页被撕掉的痕迹", "Enoch's provisional line")
+	_assert_eq(HiddenItemsScript.description("enoch", "zh"), "一本绿色的书，封面没有字，翻开只有一页被撕掉的痕迹。", "Enoch's provisional line")
 	for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
 		_assert_true(not HiddenItemsScript.item_name("enoch", locale_code).is_empty(), "Enoch should have a %s name" % locale_code)
 		_assert_true(not HiddenItemsScript.description("enoch", locale_code).is_empty(), "Enoch should have a %s line" % locale_code)
