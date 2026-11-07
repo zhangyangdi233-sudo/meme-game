@@ -35,6 +35,12 @@ const NEGATION_WORDS := {
 	"en": ["not", "no"],
 }
 
+## 只有主语和否定词、没有谓语时句子读成的谓语:日文「こえが ない」本身就是"不在"(#131)。
+## 中文、英文的否定离不开谓语("声音不在"、"the voice is not here"),所以没有这一项。
+const BARE_NEGATION_PREDICATE := {
+	"ja": "exists",
+}
+
 
 ## 词典最大匹配合词:把单位序列(中文单字/日文词/英文词)合并成词典词。
 ## 未能合词的单位以原样进入结果(unknown 词)。`extra_words` 是房间资料另外加的词。
@@ -133,6 +139,8 @@ static func read_sentence(units: Array, locale: String, extra_subjects: Dictiona
 	# continue 只保证同一个词不会既占主语又占谓语;主谓可在句中任意位置(语序宽容)。
 	if subject.is_empty() and predicate.is_empty():
 		return result
+	if negated and predicate.is_empty() and not subject.is_empty():
+		predicate = str(BARE_NEGATION_PREDICATE.get(locale, ""))
 	result["subject"] = subject
 	result["predicate"] = predicate
 	result["negated"] = negated

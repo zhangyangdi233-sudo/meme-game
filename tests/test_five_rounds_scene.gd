@@ -52,15 +52,15 @@ func _play_the_demo(locale_code: String) -> void:
 	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), round_number, "the %s run should stand in round %d" % [locale_code, round_number])
 		# Rounds two and four keep someone behind the sealed door (#129); helping them is a side path the run never takes here.
-		_assert_eq(Harness.find_node_by_name(game_root, "BasementNPC") != null, round_number in [2, 4], "round %d's NPC behind the door" % round_number)
+		_assert_eq(Harness.find_node_by_name(game_root, "BasementNPC") != null, round_number in [2, 4], "%s round %d's NPC behind the door" % [locale_code, round_number])
 		used.append(await _leave_by_a_clean_exit_rule(game_root, round_number, locale_code))
 	_assert_eq(used.size(), ProgressScript.BASEMENT_ROUND_COUNT, "every %s round should have been left by a rule" % locale_code)
 	var distinct: Array = []
 	for object_name: String in used:
 		if object_name not in distinct:
 			distinct.append(object_name)
-	_assert_eq(distinct.size(), used.size(), "each round should go out by another thing: %s" % [used])
-	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "the fifth round should lead to the passage")
+	_assert_eq(distinct.size(), used.size(), "each %s round should go out by another thing: %s" % [locale_code, used])
+	_assert_eq(str(game_root.game.chapter_one_progress.get("phase")), ProgressScript.PHASE_PASSAGE, "the fifth %s round should lead to the passage" % locale_code)
 	await _walk_into_the_light(game_root)
 	for frame in 900:
 		await process_frame
@@ -87,10 +87,10 @@ func _leave_by_a_clean_exit_rule(game_root, round_number: int, locale_code: Stri
 	game.free_sentence_units = units
 	_assert_eq(str(game.submit_free_sentence(locale_code).get("tier")), "rule", "%s round %d should hear %s from %s" % [locale_code, round_number, rule["id"], units])
 	var object_name := str(rule["object"])
-	_assert_eq(game.basement_exits(), [object_name], "round %d's %s should make the %s the way out" % [round_number, rule["id"], object_name])
+	_assert_eq(game.basement_exits(), [object_name], "%s round %d's %s should make the %s the way out" % [locale_code, round_number, rule["id"], object_name])
 	var adapter = game_root._reality_scene_adapter
 	await _stand_at(game_root, adapter.chapter_exit_reaches(object_name)[0])
-	_assert_eq(str(adapter.nearby_outcome().get("object")), object_name, "the %s should answer F in round %d" % [object_name, round_number])
+	_assert_eq(str(adapter.nearby_outcome().get("object")), object_name, "the %s should answer F in %s round %d" % [object_name, locale_code, round_number])
 	_push_key(game_root, KEY_F)
 	await process_frame
 	for frame in 900:

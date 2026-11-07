@@ -45,7 +45,6 @@
     },
     "2": {
       "words": {"zh": ["声", "音", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["こえ", "ある", "ない", "でぐち", "わたし", "あなた"], "en": ["voice", "here", "is", "not", "no", "the", "exit", "I", "you"]},
-      "vocabulary": {"predicates": {"ja": {"ない": "exists"}}},
       "rules": ["voice_here", "voice_gone", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
       "escapes": [
         {"kind": "delivery"},
@@ -98,7 +97,6 @@
     },
     "5": {
       "words": {"zh": ["家", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["いえ", "ある", "でぐち", "ない", "わたし", "あなた"], "en": ["home", "here", "is", "exit", "not", "no", "the", "I", "you"]},
-      "vocabulary": {"predicates": {"ja": {"ない": "exists"}}},
       "rules": ["home_here", "home_gone", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
       "escapes": [
         {"kind": "rule", "rule": "clock_exit"},
