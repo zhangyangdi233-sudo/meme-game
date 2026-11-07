@@ -55,14 +55,35 @@ def _process_exists(pid: int) -> bool:
     if pid <= 0:
         return False
     if os.name == "nt":
+        # An open handle alone is not proof of life: a process that has exited
+        # stays openable while anyone still holds a handle to it. A zero-time
+        # wait asks whether it has terminated without touching it.
         import ctypes
+        from ctypes import wintypes
 
-        synchronize = 0x00100000
-        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, pid)
-        if handle:
-            ctypes.windll.kernel32.CloseHandle(handle)
-            return True
-        return False
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not handle:
+            error = ctypes.get_last_error()
+            if error == 5:  # ERROR_ACCESS_DENIED: it exists but is not ours.
+                return True
+            return False  # ERROR_INVALID_PARAMETER and the rest: no such process.
+        try:
+            state = kernel32.WaitForSingleObject(handle, 0)
+            if state == 0:  # WAIT_OBJECT_0: the process has terminated.
+                return False
+            if state == 258:  # WAIT_TIMEOUT: the process is still running.
+                return True
+            raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
