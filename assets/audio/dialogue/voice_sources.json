@@ -1,0 +1,277 @@
+{
+  "approved_on": "2026-10-13",
+  "assets": [
+    {
+      "path": "03_muted_narrator/blip_01.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_01.wav",
+      "sha256": "fb12dd627cb04d200a6981d0fc0445f9eb1c914187e475170348d12fed32977d"
+    },
+    {
+      "path": "03_muted_narrator/blip_02.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_02.wav",
+      "sha256": "969e33a00a81a4d16a82cec4b60af76fc86b839611870e22dfd2b831ab1abf46"
+    },
+    {
+      "path": "03_muted_narrator/blip_03.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_03.wav",
+      "sha256": "be93e3c2ff7b500388eb488f30d36b1f5973d5c61f9af2d0f61b29e98e162acf"
+    },
+    {
+      "path": "03_muted_narrator/blip_04.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_04.wav",
+      "sha256": "9f7c38438ae6e41000acc0e7dfaf7117f3908b2a3b7e8965be99d26e4d5cc13c"
+    },
+    {
+      "path": "03_muted_narrator/blip_05.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_05.wav",
+      "sha256": "56d3a23520545bfda9e63acc45ad9578c9cd1c36dff6e4ea7636ff70221ee5ae"
+    },
+    {
+      "path": "03_muted_narrator/blip_06.wav",
+      "source": "audio-previews/dialogue-blips-2026-10-13/one_shots/03_muted_narrator/blip_06.wav",
+      "sha256": "50b942f65b0839da66cbb4714f61305341c7e04a8a3f9bf412d226fe1bedfa83"
+    },
+    {
+      "path": "D_whisper_fragments/blip_01.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_01.wav",
+      "sha256": "fc255e4b8a92336bbb078e89125b9df011c6d5aa45aa4c8076dbd2b573830de0"
+    },
+    {
+      "path": "D_whisper_fragments/blip_02.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_02.wav",
+      "sha256": "2627baeda21bd7caec9725a0d2d462b58b251cc13f23dcc77ef7b8ed4dcc7724"
+    },
+    {
+      "path": "D_whisper_fragments/blip_03.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_03.wav",
+      "sha256": "812c7850e1280dd78977d122fc9efef06a491e744b8d6f1a5c9cb12d39600bb1"
+    },
+    {
+      "path": "D_whisper_fragments/blip_04.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_04.wav",
+      "sha256": "045c48f82fb8cf8722a8e7c60096bcb024e69804d5ddf8fd2a523c9666e69f0e"
+    },
+    {
+      "path": "D_whisper_fragments/blip_05.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_05.wav",
+      "sha256": "786ea936e95d6579e3a343a87a29e50e016779d2cefd5dbd10657e18051a1378"
+    },
+    {
+      "path": "D_whisper_fragments/blip_06.wav",
+      "source": "audio-previews/dialogue-blips-human-v2-2026-10-13/one_shots/D_whisper_fragments/blip_06.wav",
+      "sha256": "00e5351f5f7b85bc8a5368e49ede17ec55d25b4fc41af3b0f301892a1a2956e9"
+    },
+    {
+      "path": "basement_whisper_8s.wav",
+      "duration_seconds": 8.0,
+      "sha256": "6b6f084b0064fd804b7a07a57c05597f377a7d02f2fca0b7edc45fa1ce74aaab"
+    }
+  ],
+  "whisper_events": [
+    {
+      "at_seconds": 0.0,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 0.15,
+      "blip": 4,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 0.3,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 0.45,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 0.6,
+      "blip": 3,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 0.75,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 0.9,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 1.05,
+      "blip": 4,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 1.55,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 1.695,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 1.84,
+      "blip": 3,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 1.985,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 2.13,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 2.275,
+      "blip": 4,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 2.42,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 2.565,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 2.71,
+      "blip": 3,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 2.855,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 3.5,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 3.67,
+      "blip": 4,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 3.84,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 4.01,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 4.18,
+      "blip": 3,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 4.35,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 4.52,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 4.69,
+      "blip": 4,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 5.45,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 5.6,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 5.75,
+      "blip": 3,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 5.9,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 6.05,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 6.2,
+      "blip": 4,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 6.35,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 6.8,
+      "blip": 5,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 6.95,
+      "blip": 3,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 7.1,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 7.25,
+      "blip": 1,
+      "gain": 0.9
+    },
+    {
+      "at_seconds": 7.4,
+      "blip": 4,
+      "gain": 0.75
+    },
+    {
+      "at_seconds": 7.55,
+      "blip": 2,
+      "gain": 1.0
+    },
+    {
+      "at_seconds": 7.7,
+      "blip": 6,
+      "gain": 0.82
+    },
+    {
+      "at_seconds": 7.85,
+      "blip": 3,
+      "gain": 0.9
+    }
+  ]
+}

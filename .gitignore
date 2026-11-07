@@ -35,3 +35,19 @@ exports/
 
 # 示意图（僅供參考，不入版控）
 assets/image/示意图/
+
+# Local authoring backups, Python environments, credentials, and runtime data
+*.blend1
+*.blend2
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+local-data/
+outputs/
+artifacts/
+source_assets/**/revisions/
