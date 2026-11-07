@@ -8,7 +8,9 @@ class_name RealitySceneAdapter
 ## lying on the basement's table while nobody owns it is a `phone` outcome; picking it up takes it off the table.
 ## An object a basement round has made its exit is an `exit` outcome in reach of any of its places; leaving by it plays
 ## the one exit transition every object shares (the view pushes in to it while the host darkens the screen), and only
-## then is the next round built.
+## then is the next round built. The round's one-shot events (#114) run on a clock this adapter holds while the world
+## is held: the phone up, settings open or the window out of focus (`set_paused`), the CRT entered or a transition
+## playing. The wall switch is a `switch` outcome while an event it can end goes on.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
@@ -39,6 +41,8 @@ const TERMINAL_VIEW_FOV := 58.0
 const PHONE_REACH_RADIUS := 1.1
 ## How far from one of an exit object's places the player may stand for it to answer.
 const EXIT_REACH_RADIUS := 1.0
+## How far from the wall switch's reach point the player may stand to press it.
+const SWITCH_REACH_RADIUS := 0.9
 ## Leaving by an exit: the view pushes in toward the object over the whole transition; the host darkens the screen as
 ## it ends, then the next round is built.
 const EXIT_TRANSITION_SECONDS := 1.8
@@ -77,6 +81,8 @@ var _built_round := 0
 var _nearby_door := false
 var _nearby_terminal := false
 var _nearby_phone := false
+## The events the wall switch in reach would end, or empty when it is out of reach or would do nothing.
+var _nearby_switch: Array = []
 ## The exit object in reach and the place of it nearest the player, or empty.
 var _nearby_exit := ""
 var _nearby_exit_focus := Vector3.ZERO
@@ -143,6 +149,7 @@ func clear_nearby_targets() -> void:
 	_nearby_door = false
 	_nearby_terminal = false
 	_nearby_phone = false
+	_nearby_switch = []
 	_nearby_exit = ""
 
 
@@ -215,6 +222,7 @@ func ensure_floor_current(deps: Dictionary) -> void:
 	if not stage_phase.is_empty():
 		if _chapter_stage != null:
 			_chapter_stage.sync_progress(_chapter_progress(deps))
+			_sync_room_events(deps)
 			_chapter_stage.apply_room_state(deps.get("room_state", {}))
 		return
 	var progress: Dictionary = deps.get("day_progress", {})
@@ -251,6 +259,8 @@ static func npc_count_for_floor(floor_number: int) -> int:
 func update_player(delta: float, deps: Dictionary) -> void:
 	if player == null:
 		return
+	if _chapter_stage != null:
+		_chapter_stage.advance_events(delta, _world_held(deps))
 	if _door_time >= 0.0:
 		_advance_door_opening(delta)
 		return
@@ -288,7 +298,19 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		_chapter_stage.track_player(player.position)
 
 
-## Opening settings holds the knock and a door that is opening.
+## Whether the world is held for the room's events: the phone up, the CRT entered, or the white door or an exit's
+## transition playing. Open settings and a lost focus hold it through `set_paused`.
+func _world_held(deps: Dictionary) -> bool:
+	return str(deps.get("view_state", "")) != "npc_up" or _terminal_active or _door_time >= 0.0 or _exit_time >= 0.0
+
+
+## The X-ray looks (X held, or the hands' frame): the stage shows what only it shows (#114).
+func set_xray_looking(looking: bool) -> void:
+	if _chapter_stage != null:
+		_chapter_stage.set_xray_looking(looking)
+
+
+## Opening settings (or losing the window's focus) holds the knock, a door that is opening and the room's events.
 func set_paused(paused: bool) -> void:
 	_paused = paused
 	if _chapter_stage != null:
@@ -374,6 +396,7 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 	var previous_door := _nearby_door
 	var previous_terminal := _nearby_terminal
 	var previous_phone := _nearby_phone
+	var previous_switch := _nearby_switch
 	var previous_exit := _nearby_exit
 	if (
 		str(deps.get("view_state", "")) != "npc_up"
@@ -385,19 +408,21 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 		or player == null
 	):
 		clear_nearby_targets()
-		if previous_actor != null or previous_item != null or previous_door or previous_terminal or previous_phone or not previous_exit.is_empty():
+		if previous_actor != null or previous_item != null or previous_door or previous_terminal or previous_phone or not previous_switch.is_empty() or not previous_exit.is_empty():
 			nearby_targets_changed.emit()
 		return
 	if _chapter_stage != null:
 		_nearby_door = _door_in_reach(deps)
 		_nearby_terminal = _terminal_in_reach()
 		_nearby_phone = _phone_in_reach()
+		_nearby_switch = _chapter_stage.switch_targets() if _switch_in_reach() else []
 		_find_exit_in_reach(deps)
 		nearby_actor = _nearest_actor(_chapter_stage.interactable_actors())
 		if (
 			previous_door != _nearby_door
 			or previous_terminal != _nearby_terminal
 			or previous_phone != _nearby_phone
+			or previous_switch != _nearby_switch
 			or previous_exit != _nearby_exit
 			or previous_actor != nearby_actor
 		):
@@ -451,6 +476,13 @@ func nearby_outcome() -> Dictionary:
 		return {
 			"kind": "phone",
 			"action": "pick_up_phone",
+		}
+	# In the dark or the flicker the switch answers before the stairs beside it.
+	if not _nearby_switch.is_empty():
+		return {
+			"kind": "switch",
+			"action": "press_switch",
+			"events": _nearby_switch.duplicate(),
 		}
 	# An object that is the exit answers before the CRT it may be.
 	if not _nearby_exit.is_empty():
@@ -555,6 +587,11 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 			player.velocity = Vector3.ZERO
 			nearby_targets_changed.emit()
 		return interaction_outcome()
+	if action == "press_switch":
+		var ended: Array = _chapter_stage.press_switch() if _chapter_stage != null else []
+		_nearby_switch = []
+		nearby_targets_changed.emit()
+		return {"kind": "switch", "action": "press_switch", "events": ended, "interaction_active": false}
 	if action == "pick_up_phone":
 		if _chapter_stage != null:
 			_chapter_stage.take_phone()
@@ -754,6 +791,8 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	# Deps that do not say the round stands no NPC stand one, as every round did before #125.
 	var npc_stands := bool(deps.get("basement_npc_stands", true))
 	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table, npc_stands)
+	_chapter_stage.decorate(int(deps.get("run_seed", 0)))
+	_sync_room_events(deps)
 	_chapter_stage.apply_room_state(deps.get("room_state", {}))
 	_chapter_stage.set_paused(_paused)
 	_chapter_stage.visible = _street_shown()
@@ -769,6 +808,20 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 		player.velocity = Vector3.ZERO
 	yaw = _chapter_stage.start_yaw_degrees()
 	pitch = 0.0
+
+
+## Hands the stage the round's events and which of them the state saved as started or ended.
+func _sync_room_events(deps: Dictionary) -> void:
+	var progress := _chapter_progress(deps)
+	_chapter_stage.set_room_events(deps.get("room_events", []), ChapterOneProgressScript.started_events(progress), ChapterOneProgressScript.ended_events(progress))
+
+
+func _switch_in_reach() -> bool:
+	var reach := _chapter_stage.switch_reach_position()
+	if reach == Vector3.ZERO:
+		return false
+	var offset: Vector3 = reach - player.position
+	return absf(offset.y) <= EXIT_REACH_HEIGHT and Vector2(offset.x, offset.z).length() <= SWITCH_REACH_RADIUS
 
 
 func _clear_chapter_stage() -> void:

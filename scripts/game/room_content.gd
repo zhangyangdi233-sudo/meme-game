@@ -14,8 +14,16 @@ const WordDropScript = preload("res://scripts/game/word_drop.gd")
 
 const ROOMS_PATH := "res://content/basement_rooms.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
-## The room objects the chapter stage can show or hide. A room can only name these.
-const OBJECTS := ["exit_lamp"]
+## The room objects the chapter stage can show or hide. A room can only name these: the lamp over the exit, the one wall
+## clock, the wall of clocks near the CRT, the half clock whose missing numbers only the X-ray shows, the chairs
+## scattered by the run's seed and the screens sunk in the floor and walls (#114).
+const OBJECTS := ["exit_lamp", "wall_clock", "clock_wall", "half_clock", "scattered_chairs", "sunken_crts"]
+## What starts a one-shot event: the entry shutting behind the player, or the player reaching the room's middle.
+const EVENT_TRIGGERS := ["entry_sealed", "room_center"]
+## How the stage plays an event: the whisper with the lights flickering, the outage, or the screens going black then red.
+const EVENT_CUES := ["whisper_flicker", "blackout", "red_screens"]
+## The state fields a room, a rule or an event can set: numbers, the lights' switch and the objects.
+const STATE_NUMBERS := ["brightness", "hum"]
 ## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`.
 const EXIT_OBJECTS := ChapterOneProgressScript.EXIT_OBJECTS
 
@@ -161,7 +169,7 @@ static func _check_room(checked: Dictionary, catalog: Dictionary, label: String,
 	if not state.get("objects") is Dictionary:
 		problems.append("%s has no objects" % label)
 		return false
-	_check_objects(state, label, problems)
+	_check_state_fields(state, label, problems)
 	_check_offered(checked, box, label, problems)
 	var resolved := _resolved(checked, catalog)
 	# With a guarantee an exit rule's words come from the drop, so it is checked with the words the drop would add.
@@ -177,7 +185,56 @@ static func _check_room(checked: Dictionary, catalog: Dictionary, label: String,
 			problems.append("%s repeats the event %s" % [label, event["id"]])
 		else:
 			event_ids.append(str(event["id"]))
+			_check_event(event, "%s event %s" % [label, event["id"]], problems)
 	return true
+
+
+## An event starts on a known trigger after an optional delay, plays a known cue, and ends after its `duration` or, with
+## none, only by the light switch (`switch_ends`); only such an event has a `during` state. Its states are checked like
+## the room's.
+static func _check_event(event: Dictionary, label: String, problems: Array[String]) -> void:
+	if event.get("trigger") not in EVENT_TRIGGERS:
+		problems.append("%s has an unknown trigger %s" % [label, event.get("trigger")])
+	if event.get("cue") not in EVENT_CUES:
+		problems.append("%s has an unknown cue %s" % [label, event.get("cue")])
+	if event.has("delay") and not (_is_number(event["delay"]) and float(event["delay"]) >= 0.0):
+		problems.append("%s has a delay that is no time" % label)
+	if event.has("duration"):
+		if not (_is_number(event["duration"]) and float(event["duration"]) > 0.0):
+			problems.append("%s has a duration that is no time" % label)
+		if event.has("during"):
+			problems.append("%s has a during state but ends by itself" % label)
+	elif not bool(event.get("switch_ends", false)):
+		problems.append("%s has no duration and the switch cannot end it" % label)
+	for part: String in ["during", "after"]:
+		if not event.has(part):
+			continue
+		if not event[part] is Dictionary:
+			problems.append("%s has a %s state that is not a table" % [label, part])
+			continue
+		_check_state_fields(event[part], "%s %s" % [label, part], problems)
+
+
+## The fields a state may set, each of its kind.
+static func _check_state_fields(state: Dictionary, label: String, problems: Array[String]) -> void:
+	for field_name: Variant in state:
+		if field_name in STATE_NUMBERS:
+			if not _is_number(state[field_name]):
+				problems.append("%s sets %s to no number" % [label, field_name])
+		elif field_name == "lights":
+			if not state[field_name] is bool:
+				problems.append("%s sets the lights to neither on nor off" % label)
+		elif field_name == "objects":
+			if not state[field_name] is Dictionary:
+				problems.append("%s has objects that are not a table" % label)
+			else:
+				_check_objects(state, label, problems)
+		else:
+			problems.append("%s sets an unknown field %s" % [label, field_name])
+
+
+static func _is_number(value: Variant) -> bool:
+	return value is float or value is int
 
 
 ## A room nobody can leave would stop the run, and a rule escape naming no rule of its room would never open.
@@ -292,7 +349,7 @@ static func _check_rule(rule: Variant, label: String, problems: Array[String]) -
 	if not rule.get("text") is Dictionary or not rule.get("state") is Dictionary:
 		problems.append("%s rule %s needs text and state" % [label, rule.get("id", "")])
 		return
-	_check_objects(rule["state"], "%s rule %s" % [label, rule.get("id", "")], problems)
+	_check_state_fields(rule["state"], "%s rule %s" % [label, rule.get("id", "")], problems)
 
 
 ## A rule the room's own words cannot say would silently never fire. A language without a word list has the whole pool.

@@ -60,6 +60,9 @@ const TYPING_HINT_SEEN := "typing_hint_seen"
 const PHONE_OWNED := "phone_owned"
 ## The phone apps this run can open; the phone comes with them. Any other app's icon does nothing.
 const UNLOCKED_APPS := "unlocked_apps"
+## The run's seed: what decides the basement's look that changes from run to run but holds within one, such as the
+## vase or book on the exit table and the scattered chairs (#114). A new run draws one.
+const RUN_SEED := "run_seed"
 const SETTINGS_OPEN := "settings_open"
 const SAVE_STATUS := "save_status"
 ## The line the desk log shows after the last player action. Not saved: the next action writes a new one.
@@ -132,6 +135,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": TYPING_HINT_SEEN, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": PHONE_OWNED, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": UNLOCKED_APPS, "initial": [], "save": SAVED_WITH_RUN},
+	{"name": RUN_SEED, "initial": 0, "save": SAVED_WITH_RUN},
 	{"name": LOCALE, "initial": DEFAULT_LOCALE, "save": PREFERENCE},
 	{"name": MASTER_VOLUME, "initial": DEFAULT_MASTER_VOLUME, "min": 0.0, "max": 100.0, "save": PREFERENCE},
 	{"name": TERMINAL_VHS_ENABLED, "initial": true, "save": PREFERENCE},

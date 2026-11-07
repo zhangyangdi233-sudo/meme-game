@@ -36,7 +36,7 @@
         {"kind": "rule", "rule": "clock_exit"},
         {"kind": "rule", "rule": "light_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
       "events": []
     },
     "2": {
@@ -51,9 +51,9 @@
         {"kind": "rule", "rule": "stairs_exit"},
         {"kind": "rule", "rule": "tv_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
       "events": [
-        {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker"}
+        {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker", "switch_ends": true}
       ]
     },
     "3": {
@@ -68,8 +68,10 @@
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "rule", "rule": "clock_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
-      "events": []
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
+      "events": [
+        {"id": "blackout", "trigger": "entry_sealed", "delay": 1.0, "cue": "blackout", "switch_ends": true, "during": {"lights": false, "hum": 0.0}, "after": {"brightness": 0.85, "hum": 0.0, "objects": {"scattered_chairs": true}}}
+      ]
     },
     "4": {
       "words": {"zh": ["名", "字", "留", "下", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
@@ -83,7 +85,7 @@
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
+      "state": {"brightness": 0.85, "hum": 0.0, "objects": {"exit_lamp": false, "clock_wall": true}},
       "events": []
     },
     "5": {
@@ -99,8 +101,10 @@
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "xray", "object": "clock"}
       ],
-      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
-      "events": []
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false, "half_clock": true, "sunken_crts": true}},
+      "events": [
+        {"id": "red_screens", "trigger": "room_center", "duration": 8.0, "cue": "red_screens"}
+      ]
     }
   }
 }

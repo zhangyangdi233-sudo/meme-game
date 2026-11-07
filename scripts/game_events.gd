@@ -6,6 +6,7 @@ extends RefCounted
 ## Payload keys.
 const KEY_CUE := "cue"
 const KEY_FLOOR := "floor"
+const KEY_EVENT := "event"
 
 ## A short sound was asked for. Payload: {KEY_CUE: String}, one of the CUE_* names below.
 const SFX_REQUESTED := "sfx_requested"
@@ -26,6 +27,10 @@ const BASEMENT_EXIT_CROSSED := "basement_exit_crossed"
 
 ## The player walked into the white door's light in the passage. Payload: {}.
 const PASSAGE_DOOR_ENTERED := "passage_door_entered"
+
+## A basement room's one-shot event started on the stage (#114), so the state saves it at once. Payload:
+## {KEY_EVENT: String}, the event's id in the room data.
+const ROOM_EVENT_STARTED := "room_event_started"
 
 ## Sound cues carried by SFX_REQUESTED.
 const CUE_PICKUP_PRESS := "pickup_press"

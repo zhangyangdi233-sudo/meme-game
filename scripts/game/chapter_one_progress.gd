@@ -5,6 +5,8 @@ extends RefCounted
 ## The basement is played in five rounds: a round is delivered when one of its room's escapes holds
 ## (`RoomRules.open_exits`), which makes an object of the room its exit (`exits`); leaving by one starts the next round,
 ## and the fifth round's exit leads to the white door passage. Walking into its light reaches the next level of `LEVEL_ORDER`.
+## A round also records which of its room's one-shot events have started (`events`) and which of them the light switch
+## ended (`ended`), so neither a save nor walking back replays one (#114); the next round starts with none.
 ## Every rule returns the next progress; a refused step returns the progress unchanged. `MemeGameState` keeps the
 ## dictionary in the `chapter_one_progress` model and saves it with the run.
 
@@ -38,6 +40,8 @@ const INITIAL := {
 	"round": 0,
 	"delivered": false,
 	"exits": [],
+	"events": [],
+	"ended": [],
 	"passage_to": "",
 }
 ## The things of a basement room a rule can make the way out (#144); `RoomContent` checks the room data against it and
@@ -83,6 +87,8 @@ static func normalize(raw: Variant) -> Dictionary:
 		if progress["exits"].is_empty() and _is_true(source.get("delivered", false)):
 			progress["exits"] = [DOOR_EXIT]
 		progress["delivered"] = not progress["exits"].is_empty()
+		progress["events"] = _names(source.get("events", []))
+		progress["ended"] = _names(source.get("ended", [])).filter(func(event_id: String) -> bool: return event_id in progress["events"])
 	elif phase == PHASE_PASSAGE:
 		var passage_to: Variant = source.get("passage_to", "")
 		var ahead := LEVEL_ORDER.find(passage_to) > LEVEL_ORDER.find(PHASE_BASEMENT)
@@ -202,6 +208,42 @@ static func door_open(progress: Dictionary) -> bool:
 	return DOOR_EXIT in exits(progress)
 
 
+## The room's one-shot event `event_id` started this round. An event starts once; outside the basement nothing does.
+static func start_event(progress: Dictionary, event_id: String) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT or event_id.is_empty() or event_id in started_events(progress):
+		return progress
+	var next := progress.duplicate(true)
+	(next["events"] as Array).append(event_id)
+	return next
+
+
+## The light switch ended `event_ids`, events of this round that had started. Each is ended once.
+static func end_events(progress: Dictionary, event_ids: Array) -> Dictionary:
+	var ended := ended_events(progress)
+	for event_id: Variant in event_ids:
+		if event_id is String and event_id in started_events(progress) and event_id not in ended:
+			ended.append(event_id)
+	if ended == ended_events(progress):
+		return progress
+	var next := progress.duplicate(true)
+	next["ended"] = ended
+	return next
+
+
+## The ids of this round's one-shot events that have started, in the order they started; empty outside the basement.
+static func started_events(progress: Dictionary) -> Array:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return []
+	return _names(progress.get("events", []))
+
+
+## The ids of this round's started events the light switch has ended.
+static func ended_events(progress: Dictionary) -> Array:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return []
+	return _names(progress.get("ended", []))
+
+
 ## The player left by `exit_object`, one of this round's exits: the next round begins, or after the fifth the white
 ## door passage to the level `order` puts after the basement. Any other object, or no next level, holds.
 static func leave_round(progress: Dictionary, exit_object: String, order: Array = LEVEL_ORDER) -> Dictionary:
@@ -210,6 +252,8 @@ static func leave_round(progress: Dictionary, exit_object: String, order: Array 
 	var next := progress.duplicate(true)
 	next["delivered"] = false
 	next["exits"] = []
+	next["events"] = []
+	next["ended"] = []
 	if round_of(progress) < BASEMENT_ROUND_COUNT:
 		next["round"] = round_of(progress) + 1
 		return next
@@ -256,6 +300,8 @@ static func _enter_level(progress: Dictionary, level: String) -> Dictionary:
 	next["round"] = 1 if level == PHASE_BASEMENT else 0
 	next["delivered"] = false
 	next["exits"] = []
+	next["events"] = []
+	next["ended"] = []
 	next["passage_to"] = ""
 	return next
 
@@ -274,6 +320,15 @@ static func _exit_names(raw: Variant) -> Array:
 	var names: Array = []
 	for entry: Variant in raw if raw is Array else []:
 		if entry is String and entry in EXIT_OBJECTS and entry not in names:
+			names.append(entry)
+	return names
+
+
+## The distinct non-empty names of a saved list, in order; anything that is not a name is dropped.
+static func _names(raw: Variant) -> Array:
+	var names: Array = []
+	for entry: Variant in raw if raw is Array else []:
+		if entry is String and not entry.is_empty() and entry not in names:
 			names.append(entry)
 	return names
 

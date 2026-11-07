@@ -212,6 +212,12 @@ var typing_hint_seen: bool:
 	set(value):
 		_write_run_field(PropertyKeysScript.TYPING_HINT_SEEN, value)
 ## The player picked up the phone from the basement's table; until then it cannot be raised.
+## The run's seed (#114): the basement's run-to-run look, such as the exit table's vase or book. A new run draws one.
+var run_seed: int:
+	get:
+		return _read_run_int(PropertyKeysScript.RUN_SEED)
+	set(value):
+		_write_run_field(PropertyKeysScript.RUN_SEED, value)
 var phone_owned: bool:
 	get:
 		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
@@ -315,6 +321,7 @@ var conversation_reward: Dictionary = {}
 
 func new_run() -> void:
 	PropertyBootScript.reset_run()
+	run_seed = randi_range(1, 2147483646)
 	exit_prompt_seen = false
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
@@ -1731,10 +1738,45 @@ func get_world_rules() -> Array:
 	return world_rule_list(world_rules)
 
 
-## The basement room as its rules in force left it: brightness, hum and objects. Empty outside the basement.
+## The basement room as its one-shot events and rules in force left it: brightness, hum, lights and objects. Empty
+## outside the basement.
 func room_world_state() -> Dictionary:
-	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
-	return RoomRulesScript.world_state(_current_room(), world_rules, current_round)
+	var progress := chapter_one_progress
+	var current_round := ChapterOneProgressScript.round_of(progress)
+	return RoomRulesScript.world_state(_current_room(), world_rules, current_round, ChapterOneProgressScript.started_events(progress), ChapterOneProgressScript.ended_events(progress))
+
+
+## The one-shot events of the basement round being played, as its room lists them (#114); empty outside the basement.
+func basement_room_events() -> Array:
+	return (_current_room().get("events", []) as Array).duplicate(true)
+
+
+## The ids of this round's events that have started, so the stage never plays one twice.
+func basement_started_events() -> Array:
+	return ChapterOneProgressScript.started_events(chapter_one_progress)
+
+
+## The ids of this round's events the light switch ended.
+func basement_ended_events() -> Array:
+	return ChapterOneProgressScript.ended_events(chapter_one_progress)
+
+
+## The stage started the room's one-shot event `event_id`: it is saved at once, so a save never replays it. False for an
+## event the room lacks or one that already started.
+func start_room_event(event_id: String) -> bool:
+	if not basement_room_events().any(func(event: Dictionary) -> bool: return event.get("id") == event_id):
+		return false
+	return _step_chapter_one(ChapterOneProgressScript.start_event(chapter_one_progress, event_id))
+
+
+## The player pressed the light switch while `event_ids` went on: those of them the switch can end are over. False when
+## the switch ended nothing.
+func end_room_events(event_ids: Array) -> bool:
+	var endable: Array = []
+	for event: Dictionary in basement_room_events():
+		if event.get("id") in event_ids and bool(event.get("switch_ends", false)):
+			endable.append(event["id"])
+	return _step_chapter_one(ChapterOneProgressScript.end_events(chapter_one_progress, endable))
 
 
 ## The objects this basement round has made its exits (#144), in the order they opened; empty outside the basement.

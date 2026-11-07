@@ -7,15 +7,19 @@ extends Node3D
 ## model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
 ## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
 ## until the player owns it.
-## A basement's lights and room objects follow the round's room state.
-## The adapter drives it; the knock finishing, the player walking out through the basement's open exit and the player
-## walking into the passage's light are raised as game events for the state to record.
+## A basement's lamps, hum and room objects (its clocks, the scattered chairs, the sunken screens) follow the round's room
+## state, and the round's one-shot events play here (#114): the stage starts each on its trigger once its delay has
+## passed on a clock the adapter holds while the world is held, plays its cue, and the wall switch ends the ones it can.
+## The run's seed decides what lies on the exit table and how round three's chairs scatter.
+## The adapter drives it; the knock finishing, the player walking out through the basement's open exit, the player
+## walking into the passage's light and a room event starting are raised as game events for the state to record.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
+const BasementDecorScript = preload("res://scripts/game/basement_decor.gd")
 
 const OPENING_MODEL_PATH := "res://assets/chapter1/Opening_WhiteDoor_v2.glb"
 const BASEMENT_MODEL_PATH := "res://assets/chapter1/Basement_Loop_v2.glb"
@@ -94,6 +98,58 @@ const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
 const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
 ## The stairs, from the foot to the landing: any step counts. Each place stands at the height of the floor or step
 ## under it, so the floor beneath the landing is not the stairs.
+## The model's own lamps and their glass globes: what the room's `lights` and `brightness` switch and scale, with the
+## stage's lights. The CRT's green light is apart: an outage leaves it on.
+const MODEL_LAMP_LIGHTS := ["Main_PointLight", "Rear_PointLight"]
+const MODEL_LAMP_GLOBES := ["Main_OpalGlobe", "Rear_OpalGlobe"]
+const MODEL_CRT_LIGHT := "CRT_Green_PointLight"
+const DARK_GLOBE_COLOR := Color(0.2, 0.22, 0.18)
+## How much of the ambient light an outage leaves, so the CRT's green still finds the room.
+const DARK_AMBIENT_SHARE := 0.12
+## The wall switch by the foot of the stairs, and where the player stands to press it.
+const SWITCH_NODE := "Prop_LightSwitch"
+const SWITCH_REACH_OFFSET := Vector3(0.6, 0.0, 0.0)
+## The room's middle, where round five's screens turn (#114): within this far of it on the floor.
+const ROOM_CENTER := Vector3(0.0, 0.0, 0.0)
+const ROOM_CENTER_RADIUS := 0.65
+const ROOM_FLOOR_HEIGHT := 0.8
+## A whisper flickers the lamps off on these beats (11 a second).
+const FLICKER_BEATS := 11.0
+## Round five's screens: black first, then red.
+const SIGNAL_BLACK_SECONDS := 2.0
+const SIGNAL_RED := Color(1.0, 0.0, 0.0)
+const NO_SIGNAL := Color(0.0, 0.0, 0.0, 0.0)
+const WHISPER_PATH := "res://assets/audio/dialogue/basement_whisper_8s.wav"
+const STATIC_PATH := "res://assets/audio/sfx/tv_static_diarchangeli.ogg"
+## The lamps' hum, made here: a mains buzz, as loud as the room's `hum` times this.
+const HUM_GAIN := 0.3
+const HUM_RATE := 22050
+## Round four's wall of clocks, near the CRT on the wall behind it: columns and rows from its lower left, facing the room.
+const CLOCK_WALL_ORIGIN := Vector3(-1.0, 1.45, 4.16)
+const CLOCK_WALL_STEP := Vector2(0.48, 0.45)
+const CLOCK_WALL_SIZE := Vector2i(6, 3)
+const CLOCK_WALL_RADIUS := 0.17
+## How far in front of a clock the player stands to use it.
+const CLOCK_REACH := 0.6
+## Round five's sunken screens: where each stands, its yaw and its tilt (radians), in the model's space; four sit in
+## the walls. Clear of the room's middle, the stairs and the way to the exit.
+const SUNKEN_CRTS := [
+	[Vector3(2.40, -0.18, 2.80), -2.65, -0.08],
+	[Vector3(2.55, -0.20, 1.75), -1.55, 0.06],
+	[Vector3(2.05, -0.24, -1.15), -0.90, -0.05],
+	[Vector3(-0.75, -0.19, 2.80), 2.65, 0.04],
+	[Vector3(-1.13, -0.23, 0.65), 1.20, -0.08],
+	[Vector3(0.75, -0.22, 1.65), 2.75, 0.08],
+	[Vector3(2.40, -0.18, -3.20), -1.25, 0.05],
+	[Vector3(-0.95, -0.20, -3.75), 0.45, -0.04],
+	[Vector3(3.18, 0.72, 2.20), -PI / 2.0, 0.0],
+	[Vector3(3.18, 1.48, -0.55), -PI / 2.0, 0.0],
+	[Vector3(-0.55, 1.30, 4.18), PI, 0.0],
+	[Vector3(1.90, 0.82, -4.18), 0.0, 0.0],
+]
+const SUNKEN_CRT_STANDBY := Color(0.22, 0.41, 0.27)
+## The exit table at the rear and what the seed lays on it.
+const EXIT_TABLE_TOP := Vector3(-1.64, 0.74, -3.9)
 const EXIT_STAIRS := [
 	{"reach": Vector3(-2.5, 0.0, 2.9), "focus": Vector3(-2.5, 1.2, 1.2)},
 	{"reach": Vector3(-2.5, 1.45, 0.5), "focus": Vector3(-2.5, 2.6, -0.8)},
@@ -128,7 +184,39 @@ var _room_state: Dictionary = {}
 ## Room object names (`RoomContent.OBJECTS`) to what shows them.
 var _room_objects: Dictionary = {}
 ## Exit object names (`RoomContent.EXIT_OBJECTS`) to their points: `reach` on the floor and `focus` to push in to.
+## The clocks and the chairs are read from what the room shows instead.
 var _exit_points: Dictionary = {}
+## The lamps: each light with the energy it has at brightness 1, and the globes the outage darkens.
+var _lamps: Array[Dictionary] = []
+var _globes: Array[MeshInstance3D] = []
+var _dark_globe: StandardMaterial3D
+var _crt_light: Light3D
+var _hum: AudioStreamPlayer
+var _whisper: AudioStreamPlayer
+var _static: AudioStreamPlayer
+var _switch: Node3D
+## The model's chairs, which round three's scattered pile replaces once its light is back.
+var _chairs: Array[Node3D] = []
+## What only the X-ray shows, and whether it looks now.
+var _xray_nodes: Array[Node3D] = []
+var _xray_looking := false
+## Round five's sunken screens' glass, their red lights and the colour every screen shows now (none: their own).
+var _sunken_glass: Array[StandardMaterial3D] = []
+var _red_lights: Array[OmniLight3D] = []
+var _screen_color := NO_SIGNAL
+## The round's one-shot events (room data), the ids started (saved or here) and ended by the switch, how long each
+## event's trigger has held, and how long each timed event started here has played.
+var _events: Array = []
+var _started_ids: Array = []
+var _ended_ids: Array = []
+var _trigger_waits: Dictionary = {}
+var _playing: Dictionary = {}
+var _entry_sealed := false
+var _at_center := false
+## What the playing cues do to the room right now.
+var _cue_lamps_on := true
+var _cue_crt_light_on := true
+var _cue_hum_on := true
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
@@ -208,6 +296,10 @@ func exit_position() -> Vector3:
 ## Every place of an exit object (`RoomContent.EXIT_OBJECTS`) in this room: `reach`, where the player stands on the
 ## floor to use it, and `focus`, where the view pushes in to when leaving by it. Empty for an object the room lacks.
 func exit_points(object_name: String) -> Array:
+	if phase == ChapterOneProgressScript.PHASE_BASEMENT and object_name == "clock":
+		return _clock_points()
+	if phase == ChapterOneProgressScript.PHASE_BASEMENT and object_name == "chair" and _pile_shown():
+		return _pile_points()
 	return (_exit_points.get(object_name, []) as Array).duplicate(true)
 
 
@@ -220,6 +312,12 @@ func track_player(position: Vector3) -> void:
 			GameEventBusScript.raise_event(GameEventsScript.PASSAGE_DOOR_ENTERED)
 	if _entry_door != null and position.z > ENTRY_SEAL_Z:
 		_entry_target = 0.0
+		_entry_sealed = true
+	_at_center = (
+		phase == ChapterOneProgressScript.PHASE_BASEMENT
+		and position.y < ROOM_FLOOR_HEIGHT
+		and Vector2(position.x - ROOM_CENTER.x, position.z - ROOM_CENTER.z).length() <= ROOM_CENTER_RADIUS
+	)
 	if _exit_door == null or _exit_reported or _exit_ratio < 0.5:
 		return
 	if position.x < EXIT_WALKED_OUT_X and absf(position.z - EXIT_DOORWAY.z) <= EXIT_DOORWAY_HALF_WIDTH:
@@ -263,19 +361,127 @@ func sync_progress(progress: Dictionary) -> void:
 	_knock.play()
 
 
-## Shows the room as its data and the rules in force say: the lights follow its brightness, its objects come and go.
+## Shows the room as its data, its events and the rules in force say: the lamps follow its `lights` and `brightness`,
+## the hum its `hum`, its objects come and go. Round three's pile of chairs stands in for the room's own chairs.
 func apply_room_state(state: Dictionary) -> void:
 	# A basement whose model did not load has no lights to follow.
 	if phase != ChapterOneProgressScript.PHASE_BASEMENT or _environment == null or state == _room_state:
 		return
 	_room_state = state
-	var brightness := float(state.get("brightness", 1.0))
-	for light_name in BASEMENT_LIGHTS:
-		(get_node(light_name) as OmniLight3D).light_energy = float(BASEMENT_LIGHTS[light_name]["energy"]) * brightness
-	_environment.ambient_light_energy = BASEMENT_AMBIENT_ENERGY * brightness
 	var objects: Dictionary = state.get("objects", {})
 	for object_name in _room_objects:
 		(_room_objects[object_name] as Node3D).visible = bool(objects.get(object_name, false))
+	for chair in _chairs:
+		chair.visible = not _pile_shown()
+	_refresh_room()
+
+
+## The run's seed lays what changes from run to run (`BasementDecor`): the vase or the book on the exit table, and the
+## chairs of round three's pile. Called once the basement is built.
+func decorate(seed: int) -> void:
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or _model == null:
+		return
+	var on_table := BasementDecorScript.exit_table_prop(seed, _round)
+	(get_node("ExitTableVase") as Node3D).visible = on_table == "vase"
+	(get_node("ExitTableBook") as Node3D).visible = on_table == "book"
+	var pile := _room_objects["scattered_chairs"] as Node3D
+	for chair in pile.get_children():
+		pile.remove_child(chair)
+		chair.queue_free()
+	if _chairs.is_empty():
+		return
+	for spec: Dictionary in BasementDecorScript.scattered_chairs(seed):
+		var chair := _chairs[int(spec["model"]) % _chairs.size()].duplicate() as Node3D
+		chair.name = "ScatteredChair%d" % pile.get_child_count()
+		chair.visible = true
+		var tilt := float(spec["tilt"])
+		var lift := Vector3(0.0, 0.22, 0.0) if tilt != 0.0 else Vector3.ZERO
+		chair.transform = Transform3D(Basis(Vector3.UP, float(spec["yaw"])) * Basis(Vector3.BACK, tilt), (spec["position"] as Vector3) + lift)
+		pile.add_child(chair)
+	for model_chair in _chairs:
+		model_chair.visible = not _pile_shown()
+
+
+## The round's one-shot events as its room lists them, with the ids the state already saved as started and as ended by
+## the switch. A saved start is never played; a saved end stops the event if it plays here.
+func set_room_events(events: Array, started: Array, ended: Array) -> void:
+	_events = events
+	for event_id: Variant in started:
+		if event_id not in _started_ids:
+			_started_ids.append(event_id)
+	for event_id: Variant in ended:
+		if event_id not in _ended_ids:
+			_ended_ids.append(event_id)
+			_playing.erase(event_id)
+	_refresh_cues()
+
+
+## Moves the events' clock on by `delta`: an event whose trigger holds starts once its delay has passed, is reported
+## (`ROOM_EVENT_STARTED`) and plays its cue; a timed one stops after its duration. A `held` world (the phone up, the
+## CRT, a transition) and open settings stop the clock and the sounds where they are.
+func advance_events(delta: float, held: bool) -> void:
+	var stopped := held or _paused
+	for player: AudioStreamPlayer in [_whisper, _static]:
+		if player != null:
+			player.stream_paused = stopped
+	if stopped or phase != ChapterOneProgressScript.PHASE_BASEMENT:
+		return
+	var step := maxf(delta, 0.0)
+	for event_id: Variant in _playing:
+		_playing[event_id] = float(_playing[event_id]) + step
+	for event: Variant in _events:
+		if not event is Dictionary or event.get("id") in _started_ids or not _trigger_holds(str(event.get("trigger", ""))):
+			continue
+		var waited := float(_trigger_waits.get(event["id"], 0.0)) + step
+		_trigger_waits[event["id"]] = waited
+		if waited >= float(event.get("delay", 0.0)):
+			_start_event(event, waited - float(event.get("delay", 0.0)))
+	for event: Variant in _events:
+		if event is Dictionary and _playing.has(event.get("id")) and float(_playing[event["id"]]) >= float(event.get("duration", 0.0)):
+			_playing.erase(event["id"])
+	_refresh_cues()
+
+
+## The ids of the events going on that the wall switch can end: a timed one playing here, or one that lasts until the
+## switch. Empty when pressing the switch would do nothing.
+func switch_targets() -> Array:
+	var targets: Array = []
+	for event: Variant in _events:
+		if not event is Dictionary or not bool(event.get("switch_ends", false)) or event.get("id") in _ended_ids:
+			continue
+		if _playing.has(event["id"]) or (event["id"] in _started_ids and not event.has("duration")):
+			targets.append(event["id"])
+	return targets
+
+
+## Where the player stands to press the wall switch; zero when the stage has none.
+func switch_reach_position() -> Vector3:
+	if _switch == null:
+		return Vector3.ZERO
+	var at := _model.transform * _switch.position + SWITCH_REACH_OFFSET
+	return Vector3(at.x, 0.0, at.z)
+
+
+## The player pressed the wall switch: the events it can end stop here. Answers their ids for the state to record.
+func press_switch() -> Array:
+	var ended := switch_targets()
+	for event_id: Variant in ended:
+		_playing.erase(event_id)
+		_ended_ids.append(event_id)
+	_refresh_cues()
+	return ended
+
+
+## The X-ray looks (X held, or the hands' frame): what only it shows appears, where the room shows it.
+func set_xray_looking(looking: bool) -> void:
+	_xray_looking = looking
+	for node in _xray_nodes:
+		node.visible = looking
+
+
+## The colour every screen of the room shows over its own picture now; fully transparent when none does.
+func screen_color() -> Color:
+	return _screen_color
 
 
 ## Opening settings holds the knock where it is.
@@ -283,6 +489,9 @@ func set_paused(paused: bool) -> void:
 	_paused = paused
 	if _knock != null:
 		_knock.stream_paused = paused
+	for player: AudioStreamPlayer in [_whisper, _static, _hum]:
+		if player != null:
+			player.stream_paused = paused
 
 
 ## Swings the white door open: 0 is closed, 1 fully open away from the player. Its glow plane hides once it moves.
@@ -370,8 +579,383 @@ func _build_basement(npc_texture: Texture2D, phone_on_table: bool, npc_stands: b
 	else:
 		push_error("The basement model has no CRT glass (%s)" % CRT_SCREEN_NODE)
 	_build_clock()
+	_bind_lamps()
+	_build_sounds()
+	_build_clock_wall()
+	_build_half_clock()
+	_build_sunken_crts()
+	_build_exit_table_props()
+	_switch = _model.find_child(SWITCH_NODE, true, false) as Node3D
+	var pile := Node3D.new()
+	pile.name = "ScatteredChairs"
+	pile.visible = false
+	add_child(pile)
+	_room_objects["scattered_chairs"] = pile
 	_collect_exit_points()
+	_refresh_room()
 	return true
+
+
+## The stage's lights and the model's own lamps, with their globes; the CRT's green light is kept apart.
+func _bind_lamps() -> void:
+	for light_name in BASEMENT_LIGHTS:
+		_lamps.append({"light": get_node(light_name), "energy": float(BASEMENT_LIGHTS[light_name]["energy"])})
+	for light_name: String in MODEL_LAMP_LIGHTS:
+		var light := _model.find_child(light_name, true, false) as Light3D
+		if light != null:
+			_lamps.append({"light": light, "energy": light.light_energy})
+	for globe_name: String in MODEL_LAMP_GLOBES:
+		var globe := _model.find_child(globe_name, true, false) as MeshInstance3D
+		if globe != null:
+			_globes.append(globe)
+	_dark_globe = _flat_material(DARK_GLOBE_COLOR)
+	_crt_light = _model.find_child(MODEL_CRT_LIGHT, true, false) as Light3D
+
+
+func _build_sounds() -> void:
+	_hum = AudioStreamPlayer.new()
+	_hum.name = "BasementHum"
+	_hum.stream = _hum_stream()
+	add_child(_hum)
+	_whisper = AudioStreamPlayer.new()
+	_whisper.name = "BasementWhisper"
+	_whisper.stream = load(WHISPER_PATH) as AudioStream
+	_whisper.volume_db = -11.0
+	add_child(_whisper)
+	_static = AudioStreamPlayer.new()
+	_static.name = "ScreenStatic"
+	_static.stream = load(STATIC_PATH) as AudioStream
+	_static.volume_db = -16.0
+	add_child(_static)
+
+
+## One second of mains buzz that loops: 60 Hz and its first overtones.
+func _hum_stream() -> AudioStreamWAV:
+	var data := PackedByteArray()
+	data.resize(HUM_RATE * 2)
+	for index in HUM_RATE:
+		var t := float(index) / HUM_RATE
+		var sample := 0.5 * sin(TAU * 60.0 * t) + 0.3 * sin(TAU * 120.0 * t) + 0.12 * sin(TAU * 180.0 * t)
+		data.encode_s16(index * 2, int(clampf(sample, -1.0, 1.0) * 32000.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = HUM_RATE
+	stream.stereo = false
+	stream.data = data
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_end = HUM_RATE
+	return stream
+
+
+## Round four's wall of clocks near the CRT; each clock faces the room and counts as the clock.
+func _build_clock_wall() -> void:
+	var wall := Node3D.new()
+	wall.name = "ClockWall"
+	wall.visible = false
+	add_child(wall)
+	for row in CLOCK_WALL_SIZE.y:
+		for column in CLOCK_WALL_SIZE.x:
+			var clock := _wall_clock(CLOCK_WALL_RADIUS, float(row * 7 + column) * 0.42, false)
+			clock.name = "WallClock%d" % (row * CLOCK_WALL_SIZE.x + column)
+			clock.position = CLOCK_WALL_ORIGIN + Vector3(column * CLOCK_WALL_STEP.x, row * CLOCK_WALL_STEP.y, 0.0)
+			clock.rotation_degrees.y = 180.0
+			clock.set_meta("reach", Vector3(clock.position.x, 0.0, clock.position.z - CLOCK_REACH))
+			wall.add_child(clock)
+	_room_objects["clock_wall"] = wall
+
+
+## Round five's half clock where the single clock hangs: its right half broken off, the numbers that half held written
+## on the wall where only the X-ray shows them.
+func _build_half_clock() -> void:
+	var clock := _wall_clock(CLOCK_RADIUS * 1.6, -0.72, true)
+	clock.name = "HalfClock"
+	clock.position = CLOCK_POSITION
+	clock.rotation_degrees.y = -90.0
+	clock.visible = false
+	add_child(clock)
+	_room_objects["half_clock"] = clock
+
+
+## A clock facing its local +Z, built from primitives: a rim, a face, the twelve numbers and two hands. A `broken`
+## clock keeps only its left half; numbers one to five are then ink on the wall that only the X-ray shows.
+func _wall_clock(radius: float, hand_turn: float, broken: bool) -> Node3D:
+	var clock := Node3D.new()
+	var rim_material := _flat_material(CLOCK_RIM_COLOR)
+	var face_material := _flat_material(CLOCK_FACE_COLOR)
+	if broken:
+		face_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		rim_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		clock.add_child(_half_disc("Rim", radius * 1.08, 0.0, rim_material))
+		clock.add_child(_half_disc("Face", radius, 0.012, face_material))
+	else:
+		for part: Array in [["Rim", radius * 1.08, 0.05, rim_material, 0.0], ["Face", radius, 0.01, face_material, 0.026]]:
+			var disc := MeshInstance3D.new()
+			disc.name = str(part[0])
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = float(part[1])
+			mesh.bottom_radius = float(part[1])
+			mesh.height = float(part[2])
+			disc.mesh = mesh
+			disc.rotation_degrees.x = 90.0
+			disc.position.z = float(part[4])
+			disc.material_override = part[3]
+			clock.add_child(disc)
+	for number in range(1, 13):
+		var angle := float(number) * TAU / 12.0
+		var numeral := Label3D.new()
+		numeral.text = str(number)
+		numeral.font_size = 40
+		numeral.pixel_size = radius * 0.0045
+		numeral.outline_size = 0
+		numeral.modulate = CLOCK_RIM_COLOR
+		numeral.position = Vector3(sin(angle), cos(angle), 0.0) * radius * 0.78 + Vector3(0.0, 0.0, 0.035)
+		if broken and number <= 5:
+			numeral.name = "XRayNumeral%d" % number
+			numeral.modulate = Color(0.55, 1.0, 0.6)
+			numeral.shaded = false
+			numeral.visible = _xray_looking
+			_xray_nodes.append(numeral)
+		else:
+			numeral.name = "Numeral%d" % number
+			numeral.shaded = true
+		clock.add_child(numeral)
+	for hand: Array in [[0.62, hand_turn], [0.42, hand_turn * 2.3 + 1.1]]:
+		var pivot := Node3D.new()
+		pivot.position.z = 0.04
+		pivot.rotation.z = float(hand[1])
+		var needle := MeshInstance3D.new()
+		var needle_mesh := BoxMesh.new()
+		needle_mesh.size = Vector3(radius * 0.06, radius * float(hand[0]), 0.004)
+		needle.mesh = needle_mesh
+		needle.position.y = radius * float(hand[0]) * 0.5
+		needle.material_override = rim_material
+		pivot.add_child(needle)
+		clock.add_child(pivot)
+	return clock
+
+
+## A half disc facing +Z: the left half of a clock's round.
+func _half_disc(node_name: String, radius: float, depth: float, material: Material) -> MeshInstance3D:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in 24:
+		var from := PI * float(index) / 24.0
+		var to := PI * float(index + 1) / 24.0
+		surface.set_normal(Vector3.BACK)
+		surface.add_vertex(Vector3(0.0, 0.0, depth))
+		surface.add_vertex(Vector3(-sin(from) * radius, cos(from) * radius, depth))
+		surface.add_vertex(Vector3(-sin(to) * radius, cos(to) * radius, depth))
+	var disc := MeshInstance3D.new()
+	disc.name = node_name
+	disc.mesh = surface.commit()
+	disc.material_override = material
+	return disc
+
+
+## Round five's twelve screens sunk in the floor and walls: a cabinet, glass glowing the CRT's standby green, and a red
+## light that only the red screens turn on.
+func _build_sunken_crts() -> void:
+	var sunk := Node3D.new()
+	sunk.name = "SunkenCrts"
+	sunk.visible = false
+	add_child(sunk)
+	var plastic := _flat_material(Color(0.52, 0.53, 0.47))
+	for index in SUNKEN_CRTS.size():
+		var spec: Array = SUNKEN_CRTS[index]
+		var monitor := Node3D.new()
+		monitor.name = "SunkenCrt%02d" % (index + 1)
+		monitor.position = spec[0]
+		monitor.rotation = Vector3(float(spec[2]), float(spec[1]), 0.0)
+		var cabinet := MeshInstance3D.new()
+		var cabinet_mesh := BoxMesh.new()
+		cabinet_mesh.size = Vector3(0.78, 0.64, 0.6)
+		cabinet.mesh = cabinet_mesh
+		cabinet.position = Vector3(0.0, 0.36, -0.08)
+		cabinet.material_override = plastic
+		monitor.add_child(cabinet)
+		var glass := MeshInstance3D.new()
+		glass.name = "Glass"
+		var glass_mesh := QuadMesh.new()
+		glass_mesh.size = Vector2(0.6, 0.45)
+		glass.mesh = glass_mesh
+		glass.position = Vector3(-0.02, 0.4, 0.225)
+		var glow := StandardMaterial3D.new()
+		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.albedo_color = SUNKEN_CRT_STANDBY
+		glass.material_override = glow
+		glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		monitor.add_child(glass)
+		_sunken_glass.append(glow)
+		var red := OmniLight3D.new()
+		red.name = "RedScreenLight"
+		red.position = Vector3(0.0, 0.4, 0.5)
+		red.light_color = SIGNAL_RED
+		red.light_energy = 0.85
+		red.omni_range = 3.3
+		red.visible = false
+		monitor.add_child(red)
+		_red_lights.append(red)
+		sunk.add_child(monitor)
+	_room_objects["sunken_crts"] = sunk
+
+
+## The vase and the book of the exit table, both built and hidden until the seed picks one (`decorate`).
+func _build_exit_table_props() -> void:
+	var vase := Node3D.new()
+	vase.name = "ExitTableVase"
+	vase.position = EXIT_TABLE_TOP
+	vase.visible = false
+	var ceramic := _flat_material(Color(0.54, 0.58, 0.48))
+	for part: Array in [[0.10, 0.075, 0.18, 0.09], [0.039, 0.085, 0.11, 0.235]]:
+		var piece := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = float(part[0])
+		mesh.bottom_radius = float(part[1])
+		mesh.height = float(part[2])
+		piece.mesh = mesh
+		piece.position.y = float(part[3])
+		piece.material_override = ceramic
+		vase.add_child(piece)
+	add_child(vase)
+	var book := Node3D.new()
+	book.name = "ExitTableBook"
+	book.position = EXIT_TABLE_TOP + Vector3(0.0, 0.017, 0.0)
+	book.rotation.y = 0.14
+	book.visible = false
+	var cover := _flat_material(Color(0.33, 0.25, 0.19))
+	var pages := _flat_material(Color(0.69, 0.65, 0.54))
+	for part: Array in [
+		[Vector3(0.22, 0.027, 0.30), Vector3.ZERO, pages],
+		[Vector3(0.23, 0.007, 0.31), Vector3(0.0, -0.017, 0.0), cover],
+		[Vector3(0.23, 0.007, 0.31), Vector3(0.0, 0.017, 0.0), cover],
+		[Vector3(0.01, 0.034, 0.31), Vector3(-0.112, 0.0, 0.0), cover],
+	]:
+		var piece := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = part[0]
+		piece.mesh = mesh
+		piece.position = part[1]
+		piece.material_override = part[2]
+		book.add_child(piece)
+	add_child(book)
+
+
+## Whether the event's trigger holds now: the entry has shut behind the player, or they stand in the room's middle.
+func _trigger_holds(trigger: String) -> bool:
+	match trigger:
+		"entry_sealed":
+			return _entry_sealed
+		"room_center":
+			return _at_center
+	return false
+
+
+func _start_event(event: Dictionary, played: float) -> void:
+	_started_ids.append(event["id"])
+	if event.has("duration"):
+		_playing[event["id"]] = played
+		if event.get("cue") == "whisper_flicker" and _whisper != null and _whisper.stream != null:
+			_whisper.play(played)
+	GameEventBusScript.raise_event(GameEventsScript.ROOM_EVENT_STARTED, {GameEventsScript.KEY_EVENT: str(event["id"])})
+
+
+## What the cues playing now do to the room: the whisper flickers the lamps and cuts the hum on their dark beats; the
+## red screens put out every lamp and the CRT's green and turn every screen black, then red with a hiss.
+func _refresh_cues() -> void:
+	_cue_lamps_on = true
+	_cue_crt_light_on = true
+	_cue_hum_on = true
+	_screen_color = NO_SIGNAL
+	var whispering := false
+	var hissing := -1.0
+	for event: Variant in _events:
+		if not event is Dictionary or not _playing.has(event.get("id")):
+			continue
+		var played := float(_playing[event["id"]])
+		match str(event.get("cue", "")):
+			"whisper_flicker":
+				whispering = true
+				var beat := int(played * FLICKER_BEATS)
+				if beat % 5 == 1 or beat % 7 == 2:
+					_cue_lamps_on = false
+					_cue_hum_on = false
+			"red_screens":
+				_cue_lamps_on = false
+				_cue_crt_light_on = false
+				_cue_hum_on = false
+				_screen_color = Color.BLACK if played < SIGNAL_BLACK_SECONDS else SIGNAL_RED
+				if played >= SIGNAL_BLACK_SECONDS:
+					hissing = played - SIGNAL_BLACK_SECONDS
+	if _whisper != null and not whispering and _whisper.playing:
+		_whisper.stop()
+	if _static != null and _static.stream != null:
+		if hissing >= 0.0 and not _static.playing:
+			_static.play(hissing)
+		elif hissing < 0.0 and _static.playing:
+			_static.stop()
+	_refresh_room()
+
+
+## Lays the room state and the cues over the lamps, the hum and the screens.
+func _refresh_room() -> void:
+	if _environment == null or phase != ChapterOneProgressScript.PHASE_BASEMENT:
+		return
+	var brightness := float(_room_state.get("brightness", 1.0))
+	var lit := bool(_room_state.get("lights", true)) and _cue_lamps_on
+	for lamp: Dictionary in _lamps:
+		var light := lamp["light"] as Light3D
+		light.visible = lit
+		light.light_energy = float(lamp["energy"]) * brightness
+	for globe in _globes:
+		globe.material_override = null if lit else _dark_globe
+	_environment.ambient_light_energy = BASEMENT_AMBIENT_ENERGY * brightness * (1.0 if lit else DARK_AMBIENT_SHARE)
+	if _crt_light != null:
+		_crt_light.visible = _cue_crt_light_on
+	var hum := float(_room_state.get("hum", 0.0))
+	if _hum != null:
+		if hum > 0.0 and _cue_hum_on:
+			_hum.volume_db = linear_to_db(hum * HUM_GAIN)
+			if not _hum.playing:
+				_hum.play()
+		elif _hum.playing:
+			_hum.stop()
+	var showing := _screen_color != NO_SIGNAL
+	for glass in _sunken_glass:
+		glass.albedo_color = _screen_color if showing else SUNKEN_CRT_STANDBY
+	for light in _red_lights:
+		light.visible = _screen_color == SIGNAL_RED
+	if _crt_screen != null:
+		if showing:
+			_crt_screen.show_signal(_screen_color)
+		else:
+			_crt_screen.clear_signal()
+
+
+## Every clock the room shows now: the single clock, each clock of the wall, or the half clock where the single one hangs.
+func _clock_points() -> Array:
+	var points: Array = []
+	for object_name: String in ["wall_clock", "half_clock"]:
+		var clock := _room_objects.get(object_name) as Node3D
+		if clock != null and clock.visible:
+			points.append({"reach": Vector3(CLOCK_POSITION.x - CLOCK_REACH, 0.0, CLOCK_POSITION.z), "focus": CLOCK_POSITION})
+	var wall := _room_objects.get("clock_wall") as Node3D
+	if wall != null and wall.visible:
+		for clock: Node3D in wall.get_children():
+			points.append({"reach": clock.get_meta("reach"), "focus": clock.position})
+	return points
+
+
+func _pile_shown() -> bool:
+	var pile := _room_objects.get("scattered_chairs") as Node3D
+	return pile != null and pile.visible and pile.get_child_count() > 0
+
+
+func _pile_points() -> Array:
+	var points: Array = []
+	for chair: Node3D in (_room_objects["scattered_chairs"] as Node3D).get_children():
+		var at := chair.position
+		points.append({"reach": Vector3(at.x, 0.0, at.z), "focus": Vector3(at.x, float(EXIT_PROP_FOCUS_HEIGHT["chair"]), at.z)})
+	return points
 
 
 ## Finds every exit object of the room: the door, the stairs, the CRT, the tables (the phone's too), the chairs, the
@@ -381,7 +965,6 @@ func _collect_exit_points() -> void:
 	if _crt_screen != null:
 		_exit_points["tv"] = [{"reach": crt_reach_position(), "focus": _crt_screen.center()}]
 	_exit_points["table"] = [{"reach": TABLE_POSITION, "focus": TABLE_POSITION + Vector3(0.0, TABLE_SIZE.y, 0.0)}]
-	_exit_points["clock"] = [{"reach": Vector3(CLOCK_POSITION.x - 0.6, 0.0, CLOCK_POSITION.z), "focus": CLOCK_POSITION}]
 	for object_name: String in EXIT_PROP_NODES:
 		var points: Array = _exit_points.get_or_add(object_name, [])
 		for node_name: String in EXIT_PROP_NODES[object_name]:
@@ -389,6 +972,8 @@ func _collect_exit_points() -> void:
 			if prop == null:
 				push_error("The basement model has no %s" % node_name)
 				continue
+			if object_name == "chair":
+				_chairs.append(prop)
 			var at := _model.transform * prop.position
 			points.append({"reach": Vector3(at.x, 0.0, at.z), "focus": Vector3(at.x, at.y + float(EXIT_PROP_FOCUS_HEIGHT[object_name]), at.z)})
 
@@ -427,6 +1012,7 @@ func _build_clock() -> void:
 		mesh_instance.material_override = _flat_material(CLOCK_RIM_COLOR)
 		clock.add_child(mesh_instance)
 	add_child(clock)
+	_room_objects["wall_clock"] = clock
 
 
 ## Gives a door leaf the collider the model leaves out, so it swings with the door and holds the doorway shut.

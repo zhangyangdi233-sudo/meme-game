@@ -11,6 +11,7 @@ const MISS := Vector2(-1, -1)
 var _mesh: MeshInstance3D
 var _triangles: Array[Dictionary] = []
 var _material: ShaderMaterial
+var _signal: StandardMaterial3D
 
 
 ## Binds the glass; false when the mesh has no surface with UVs to show a display on.
@@ -53,9 +54,24 @@ func show_display(texture: Texture2D, vhs_enabled: bool) -> void:
 	if _material == null:
 		_material = ShaderMaterial.new()
 		_material.shader = SHADER
+	# A signal covering the glass stays until it is cleared; the display shows again then.
+	if _signal == null or _mesh.get_surface_override_material(0) != _signal:
 		_mesh.set_surface_override_material(0, _material)
 	_material.set_shader_parameter("content_texture", texture)
 	_material.set_shader_parameter("vhs_enabled", vhs_enabled)
+
+
+## Covers the glass with one flat colour, as a dead or failing signal (#114); `clear_signal` gives the display back.
+func show_signal(color: Color) -> void:
+	if _signal == null:
+		_signal = StandardMaterial3D.new()
+		_signal.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_signal.albedo_color = color
+	_mesh.set_surface_override_material(0, _signal)
+
+
+func clear_signal() -> void:
+	_mesh.set_surface_override_material(0, _material)
 
 
 ## Where a world-space ray meets the glass, as a UV with its origin at the top left; `MISS` when it does not.

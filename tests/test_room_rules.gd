@@ -52,6 +52,9 @@ func _init() -> void:
 	test_every_authored_round_draws_from_the_rule_box()
 	test_validation_names_broken_rule_boxes()
 	test_validation_holds_the_drop_guarantee()
+	test_a_rooms_events_lay_their_state_over_it()
+	test_validation_names_broken_events()
+	test_each_round_plays_its_anomaly_from_its_data()
 	if _failures.is_empty():
 		print("room rules tests passed")
 		quit(0)
@@ -419,6 +422,87 @@ func _names(problems: Array[String], part: String) -> bool:
 ## Whether any of the room's escapes holds: some object is the way out.
 func _escaped(room: Dictionary, rules: Dictionary, round_number: int, talked_with_post: bool) -> bool:
 	return not RoomRulesScript.open_exits(room, rules, round_number, talked_with_post).is_empty()
+
+
+## #114: an event the switch ends lays its `during` state over the room while it goes on and its `after` state once
+## it is over; a timed event counts as over once it started, since the state keeps no clock. Rules in force go on top.
+func test_a_rooms_events_lay_their_state_over_it() -> void:
+	var room := ROOM.duplicate(true)
+	room["events"] = [
+		{"id": "blackout", "trigger": "entry_sealed", "cue": "blackout", "switch_ends": true, "during": {"lights": false, "hum": 0.0}, "after": {"brightness": 0.85, "objects": {"scattered_chairs": true}}},
+		{"id": "whisper", "trigger": "entry_sealed", "duration": 8.0, "cue": "whisper_flicker", "switch_ends": true, "after": {"hum": 0.1}},
+	]
+	var calm: Dictionary = RoomRulesScript.world_state(room, {}, 1)
+	_assert_eq(calm.get("lights", true), true, "before its events start the room should keep its lights")
+	var dark: Dictionary = RoomRulesScript.world_state(room, {}, 1, ["blackout"])
+	_assert_eq(dark.get("lights"), false, "an event going on until the switch should lay its state over the room")
+	_assert_eq(dark.get("hum"), 0.0, "the outage should silence the hum")
+	_assert_eq((dark.get("objects") as Dictionary).get("scattered_chairs", false), false, "the chairs should stay put during the outage")
+	var restored: Dictionary = RoomRulesScript.world_state(room, {}, 1, ["blackout"], ["blackout"])
+	_assert_eq(restored.get("lights", true), true, "the switch should bring the lights back")
+	_assert_eq(restored.get("brightness"), 0.85, "the room should keep what the event left behind")
+	_assert_eq((restored.get("objects") as Dictionary).get("scattered_chairs"), true, "the chairs should scatter once the lights are back")
+	var whispered: Dictionary = RoomRulesScript.world_state(room, {}, 1, ["whisper"])
+	_assert_eq(whispered.get("hum"), 0.1, "a timed event should count as over once it started")
+	var lit: Dictionary = RoomRulesScript.world_state(room, {"light|lit": {"negated": false, "round": 1}}, 1, ["blackout"], ["blackout"])
+	_assert_eq(lit.get("brightness"), 1.6, "a rule in force should go over what an event left")
+
+
+func test_validation_names_broken_events() -> void:
+	var good := {"rule_box": [], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "escapes": [{"kind": "delivery"}], "state": {"brightness": 1.0, "hum": 0.0, "lights": true, "objects": {"wall_clock": true}}, "events": [
+		{"id": "blackout", "trigger": "entry_sealed", "delay": 1.0, "cue": "blackout", "switch_ends": true, "during": {"lights": false}, "after": {"objects": {"scattered_chairs": true}}},
+		{"id": "red", "trigger": "room_center", "duration": 8.0, "cue": "red_screens"},
+	]}}}
+	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a room with well-formed events should be valid")
+	for breakage in [
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["trigger"] = "midnight",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["cue"] = "fireworks",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1].erase("cue"),
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1].erase("duration"),
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["duration"] = -1.0,
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["delay"] = "soon",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["during"] = {"lights": false},
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["after"] = {"objects": {"piano": true}},
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["during"] = {"lights": "off"},
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["during"] = {"colour": 1.0},
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["state"]["lights"] = 1,
+	]:
+		var broken := good.duplicate(true)
+		breakage.call(broken)
+		_assert_true(not RoomContentScript.problems_in(broken, 1).is_empty(), "a broken event should be reported: %s" % [broken["rooms"]["1"]])
+
+
+## #114's table, read from the authored rooms: a clock in round one, the whisper in round two, the outage that the
+## switch ends and the scattered chairs after it in round three only, the wall of clocks in round four, and the half
+## clock with the red screens in round five.
+func test_each_round_plays_its_anomaly_from_its_data() -> void:
+	var objects := func(round_number: int, started: Array = [], ended: Array = []) -> Dictionary:
+		return RoomRulesScript.world_state(RoomContentScript.room(round_number), {}, round_number, started, ended).get("objects", {})
+	_assert_eq(objects.call(1).get("wall_clock"), true, "round one should have one wall clock")
+	_assert_eq(RoomContentScript.events(1), [], "round one should play no event")
+	var whisper: Dictionary = _event(2, "whisper")
+	_assert_eq([whisper.get("trigger"), whisper.get("delay"), whisper.get("duration"), whisper.get("switch_ends")], ["entry_sealed", 2.5, 8.0, true], "round two should whisper 2.5 s after the entry shuts, for 8 s, until the switch")
+	var blackout: Dictionary = _event(3, "blackout")
+	_assert_true(not blackout.has("duration") and bool(blackout.get("switch_ends")), "round three's outage should last until the switch")
+	var dark: Dictionary = RoomRulesScript.world_state(RoomContentScript.room(3), {}, 3, ["blackout"])
+	_assert_eq(dark.get("lights"), false, "round three should go dark once the outage starts")
+	_assert_eq(objects.call(3, ["blackout"]).get("scattered_chairs", false), false, "the chairs should stand normally in the dark")
+	_assert_eq(objects.call(3, ["blackout"], ["blackout"]).get("scattered_chairs"), true, "the chairs should scatter once the switch brings the light back")
+	_assert_eq(objects.call(4).get("scattered_chairs", false), false, "round four's chairs should stand normally again")
+	_assert_eq(objects.call(4).get("clock_wall"), true, "round four should have the wall of clocks")
+	_assert_eq(objects.call(4).get("wall_clock", false), false, "round four's clocks should replace the single clock")
+	_assert_eq(objects.call(5).get("half_clock"), true, "round five should have the half clock")
+	var red: Dictionary = _event(5, "red_screens")
+	_assert_eq([red.get("trigger"), red.get("duration"), red.get("switch_ends", false)], ["room_center", 8.0, false], "round five's screens should go black and red for 8 s from the room's middle, past the switch")
+	_assert_eq(objects.call(5).get("sunken_crts"), true, "round five should have its sunken screens")
+
+
+func _event(round_number: int, event_id: String) -> Dictionary:
+	for event: Dictionary in RoomContentScript.events(round_number):
+		if event.get("id") == event_id:
+			return event
+	_failures.append("round %d should have the event %s" % [round_number, event_id])
+	return {}
 
 
 func _offer(catalog: Dictionary, rule: Dictionary) -> void:

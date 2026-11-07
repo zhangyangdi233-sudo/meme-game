@@ -7,6 +7,7 @@ const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
 const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
 const WordDropScript = preload("res://scripts/game/word_drop.gd")
@@ -39,6 +40,9 @@ func _init() -> void:
 	test_the_npc_asks_for_a_post_only_without_one()
 	test_only_the_rooms_words_can_be_picked_up()
 	test_the_tower_keeps_its_rules()
+	test_a_rooms_event_is_recorded_once_and_survives_a_save()
+	test_the_switch_brings_round_threes_light_back()
+	test_the_run_has_one_seed_that_a_save_keeps()
 	if _failures.is_empty():
 		print("room state tests passed")
 		quit(0)
@@ -289,6 +293,54 @@ func test_the_tower_keeps_its_rules() -> void:
 	_assert_true(game.is_world_rule_active("door|can_open"), "the tower's door rule should hold")
 	_assert_eq(game.room_world_state(), {}, "the tower has no room")
 	_assert_true("家" in game.get_pickup_unit_pool("zh"), "the tower should keep the whole word pool")
+
+
+## #114: the state records a one-shot event the moment the stage starts it, so a save never replays it.
+func test_a_rooms_event_is_recorded_once_and_survives_a_save() -> void:
+	var game := _basement()
+	_assert_eq(game.basement_room_events(), [], "round one should play no event")
+	_assert_true(not game.start_room_event("whisper"), "round one has no whisper to start")
+	game.jump_to_basement_round(2)
+	_assert_eq((game.basement_room_events()[0] as Dictionary).get("id"), "whisper", "round two's events should come from its room")
+	_assert_eq(game.basement_started_events(), [], "a fresh round should have started nothing")
+	_assert_true(game.start_room_event("whisper"), "the whisper should be recorded when it starts")
+	_assert_true(not game.start_room_event("whisper"), "the whisper should start only once")
+	var restored := StateScript.new()
+	_assert_true(restored.load_save_data(game.to_save_data()), "the save should load")
+	_assert_eq(restored.basement_started_events(), ["whisper"], "a loaded round should know the whisper already played")
+	_assert_true(not restored.start_room_event("whisper"), "a loaded round should not play the whisper again")
+
+
+func test_the_switch_brings_round_threes_light_back() -> void:
+	var game := _basement()
+	game.jump_to_basement_round(3)
+	_assert_eq(game.room_world_state().get("lights", true), true, "round three should be lit until the outage")
+	_assert_true(not game.end_room_events(["blackout"]), "the switch should end nothing before the outage")
+	game.start_room_event("blackout")
+	_assert_eq(game.room_world_state().get("lights"), false, "the outage should put the lights out")
+	_assert_true(game.end_room_events(["blackout"]), "the switch should end the outage")
+	var state := game.room_world_state()
+	_assert_eq(state.get("lights", true), true, "the switch should bring the lights back")
+	_assert_eq((state.get("objects") as Dictionary).get("scattered_chairs"), true, "the chairs should scatter once the light is back")
+	var restored := StateScript.new()
+	restored.load_save_data(game.to_save_data())
+	_assert_eq((restored.room_world_state().get("objects") as Dictionary).get("scattered_chairs"), true, "a save should keep the scattered chairs")
+	game.jump_to_basement_round(5)
+	game.start_room_event("red_screens")
+	_assert_true(not game.end_room_events(["red_screens"]), "the switch should not end the red screens")
+
+
+func test_the_run_has_one_seed_that_a_save_keeps() -> void:
+	var game := _basement()
+	_assert_true(PropertyKeysScript.RUN_SEED in PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN), "the run's seed should be saved with the run")
+	var restored := StateScript.new()
+	restored.load_save_data(game.to_save_data())
+	_assert_eq(restored.run_seed, game.run_seed, "a save should keep the run's seed")
+	var seeds := {}
+	for attempt in 8:
+		game.new_run()
+		seeds[game.run_seed] = true
+	_assert_true(seeds.size() > 1, "each new run should draw its own seed")
 
 
 func _basement() -> MemeGameState:

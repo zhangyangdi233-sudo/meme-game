@@ -40,11 +40,19 @@ static func judge(units: Array, locale: String, room: Dictionary) -> Dictionary:
 	return result
 
 
-## The room's state with the rules in force laid over it, in the room's rule order. Empty for no room.
-static func world_state(room: Dictionary, rules: Dictionary, round_number: int) -> Dictionary:
+## The room's state with its one-shot events and then the rules in force laid over it, in the room's order. Empty for
+## no room. `started` and `ended` name the round's events that started and that the switch ended (#114): one going on
+## until the switch lays its `during` over the room, one that is over its `after`. A timed event counts as over once it
+## started, since the state keeps no clock; how it looks while it plays is its cue's, on the stage.
+static func world_state(room: Dictionary, rules: Dictionary, round_number: int, started: Array = [], ended: Array = []) -> Dictionary:
 	if room.is_empty():
 		return {}
 	var state: Dictionary = (room.get("state", {}) as Dictionary).duplicate(true)
+	for event: Variant in room.get("events", []):
+		if not event is Dictionary or event.get("id") not in started:
+			continue
+		var going_on: bool = not event.has("duration") and event.get("id") not in ended
+		_lay_over(state, event.get("during" if going_on else "after", {}))
 	for rule: Dictionary in _rules_in_force(room, rules, round_number):
 		_lay_over(state, rule.get("state", {}))
 	return state
@@ -119,10 +127,12 @@ static func _rules_in_force(room: Dictionary, rules: Dictionary, round_number: i
 	return in_force
 
 
-static func _lay_over(state: Dictionary, change: Dictionary) -> void:
+static func _lay_over(state: Dictionary, change: Variant) -> void:
+	if not change is Dictionary:
+		return
 	for field_name: String in change:
 		if field_name == "objects":
-			(state["objects"] as Dictionary).merge(change["objects"], true)
+			(state.get_or_add("objects", {}) as Dictionary).merge(change["objects"], true)
 		else:
 			state[field_name] = change[field_name]
 

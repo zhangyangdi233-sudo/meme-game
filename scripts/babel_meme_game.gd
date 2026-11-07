@@ -118,6 +118,8 @@ var _phone_sway_time := 0.0
 
 var _camera: Camera3D
 var _xray_tint: ColorRect
+## The window lost its focus: the world is held as with settings open (#114).
+var _focus_lost := false
 var _reality_scene_adapter
 var _reality_mouse_look_enabled := false
 var _reality_touch_look_index := -1
@@ -362,6 +364,7 @@ func _enter_tree() -> void:
 	_ui_event_bus.subscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 	_ui_event_bus.subscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
 	_ui_event_bus.subscribe(GameEventsScript.PASSAGE_DOOR_ENTERED, _on_passage_door_entered)
+	_ui_event_bus.subscribe(GameEventsScript.ROOM_EVENT_STARTED, _on_room_event_started)
 	var volume := _master_volume_model()
 	if volume != null:
 		volume.register(_apply_master_volume)
@@ -383,6 +386,7 @@ func _exit_tree() -> void:
 		_ui_event_bus.unsubscribe(GameEventsScript.OPENING_KNOCK_FINISHED, _on_opening_knock_finished)
 		_ui_event_bus.unsubscribe(GameEventsScript.BASEMENT_EXIT_CROSSED, _on_basement_exit_crossed)
 		_ui_event_bus.unsubscribe(GameEventsScript.PASSAGE_DOOR_ENTERED, _on_passage_door_entered)
+		_ui_event_bus.unsubscribe(GameEventsScript.ROOM_EVENT_STARTED, _on_room_event_started)
 	# The theme caches a font Theme; leaving it in the static table crashes engine shutdown.
 	ServiceRegistryScript.unbind(ServiceKeysScript.UI_THEME, _ui_theme_helper)
 	ServiceRegistryScript.unbind(ServiceKeysScript.SOCIAL_FEED_SOURCE, _social_source)
@@ -851,6 +855,8 @@ func _reality_scene_deps() -> Dictionary:
 		"phone_owned": game.phone_owned if game != null else true,
 		"basement_npc_stands": game.basement_npc_stands() if game != null else true,
 		"room_state": game.room_world_state() if game != null else {},
+		"room_events": game.basement_room_events() if game != null else [],
+		"run_seed": game.run_seed if game != null else 0,
 	}
 
 
@@ -1104,7 +1110,10 @@ func _look_through_xray() -> void:
 	var held := _xray_key_held()
 	if _xray_tint != null:
 		_xray_tint.visible = held
-	if game == null or not (held or _hand_frame_looking()):
+	var looking := held or _hand_frame_looking()
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.set_xray_looking(looking)
+	if game == null or not looking:
 		return
 	var hidden := game.basement_xray_objects()
 	if not hidden.is_empty():
@@ -1122,7 +1131,8 @@ func _hand_frame_looking() -> bool:
 	return _camera_session != null and _camera_session.hand_frame_active()
 
 
-## The look of the X-ray held on the keyboard: the X-ray's green over the whole view. What it shows in the room is #114's.
+## The look of the X-ray held on the keyboard: the X-ray's green over the whole view. What it shows in the room (round
+## five's missing numbers) the stage shows while it looks.
 func _build_xray_tint() -> void:
 	_xray_tint = ColorRect.new()
 	_xray_tint.name = "XRayTint"
@@ -1216,7 +1226,27 @@ func _try_reality_interaction() -> bool:
 			return _pick_up_phone()
 		"leave_by_exit":
 			return _leave_by_exit(str(outcome.get("object", "")))
+		"press_switch":
+			return _press_switch()
 	return false
+
+
+## Pressing the basement's wall switch (#114): the stage ends the events it can end there, and the state records them,
+## so the room's light comes back from the data.
+func _press_switch() -> bool:
+	var pressed: Dictionary = _reality_scene_adapter.apply_interaction({"action": "press_switch"})
+	var ended: Array = pressed.get("events", [])
+	if ended.is_empty():
+		return false
+	game.end_room_events(ended)
+	_refresh_play_surfaces()
+	return true
+
+
+## The stage started one of the room's one-shot events: it is saved at once, so neither a save nor walking back replays it.
+func _on_room_event_started(payload: Dictionary) -> void:
+	if game != null:
+		game.start_room_event(str(payload.get(GameEventsScript.KEY_EVENT, "")))
 
 
 ## Picking up the phone from the basement's table: the state owns it, the adapter takes it off the table, and the
@@ -2347,11 +2377,23 @@ func _on_settings_open_changed(_open: Variant) -> void:
 	# Registering in _enter_tree delivers the current value before the UI exists.
 	if not is_node_ready():
 		return
-	if _reality_scene_adapter != null:
-		_reality_scene_adapter.set_paused(_model_is_on(PropertyKeysScript.SETTINGS_OPEN))
+	_hold_world_for_settings_or_focus()
 	if _apple_hud_panel != null:
 		_apple_hud_panel.hide_tooltip()
 	_update_visibility()
+
+
+## Open settings, or a window out of focus, holds the world: the knock, a door or exit transition, the room's events.
+func _hold_world_for_settings_or_focus() -> void:
+	if _reality_scene_adapter != null:
+		_reality_scene_adapter.set_paused(_model_is_on(PropertyKeysScript.SETTINGS_OPEN) or _focus_lost)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_focus_lost = what == NOTIFICATION_APPLICATION_FOCUS_OUT
+		if is_node_ready():
+			_hold_world_for_settings_or_focus()
 
 
 func _apply_master_volume(value: Variant) -> void:
@@ -2584,6 +2626,8 @@ func _render_world_prompt() -> void:
 				_world_prompt.text = "F  拾取手机"
 			"exit":
 				_world_prompt.text = "F  离开"
+			"switch":
+				_world_prompt.text = "F  开灯"
 			_:
 				_world_prompt.text = ""
 

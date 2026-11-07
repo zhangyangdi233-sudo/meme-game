@@ -36,6 +36,8 @@ func _run() -> void:
 	test_the_passage_and_the_demo_end_survive_a_save()
 	test_a_saved_delivery_is_kept_only_in_the_basement()
 	test_the_debug_jump_lands_on_a_fresh_round()
+	test_a_rounds_one_shot_events_are_recorded_once()
+	test_a_rounds_events_survive_a_save_and_start_over_next_round()
 	if _failures.is_empty():
 		print("chapter one progress tests passed")
 		quit(0)
@@ -311,6 +313,38 @@ func test_the_debug_jump_lands_on_a_fresh_round() -> void:
 	_assert_true(not ProgressScript.exit_open(ProgressScript.jump_to_round(delivered, 4)), "jumping to the same round should start it fresh")
 	_assert_eq(ProgressScript.jump_to_round(jumped, 0), jumped, "a jump before round one should be refused")
 	_assert_eq(ProgressScript.jump_to_round(jumped, ProgressScript.BASEMENT_ROUND_COUNT + 1), jumped, "a jump past the last round should be refused")
+
+
+## #114: a room's one-shot event is recorded the moment it starts, so neither a save nor walking back replays it; the
+## switch ends one that is going on. Each round starts with none.
+func test_a_rounds_one_shot_events_are_recorded_once() -> void:
+	var round_two := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	_assert_eq(ProgressScript.started_events(round_two), [], "a fresh round should have started no event")
+	var whispered := ProgressScript.start_event(round_two, "whisper")
+	_assert_eq(ProgressScript.started_events(whispered), ["whisper"], "a started event should be recorded")
+	_assert_eq(ProgressScript.start_event(whispered, "whisper"), whispered, "an event should start only once")
+	_assert_eq(ProgressScript.start_event(ProgressScript.initial(), "whisper"), ProgressScript.initial(), "the opening has no room events")
+	_assert_eq(ProgressScript.ended_events(whispered), [], "a started event should not be ended yet")
+	var ended := ProgressScript.end_events(whispered, ["whisper"])
+	_assert_eq(ProgressScript.ended_events(ended), ["whisper"], "the switch should record the event it ended")
+	_assert_eq(ProgressScript.end_events(ended, ["whisper"]), ended, "an ended event should end only once")
+	_assert_eq(ProgressScript.end_events(round_two, ["whisper"]), round_two, "an event that never started cannot end")
+
+
+func test_a_rounds_events_survive_a_save_and_start_over_next_round() -> void:
+	var started := ProgressScript.end_events(ProgressScript.start_event(ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 3), "blackout"), "other"), ["blackout"])
+	var saved := ProgressScript.normalize(started)
+	_assert_eq(ProgressScript.started_events(saved), ["blackout", "other"], "a save should keep the started events")
+	_assert_eq(ProgressScript.ended_events(saved), ["blackout"], "a save should keep the ended events")
+	var broken := started.duplicate(true)
+	broken["events"] = ["blackout", 7, "blackout"]
+	broken["ended"] = ["other", "never"]
+	_assert_eq(ProgressScript.started_events(ProgressScript.normalize(broken)), ["blackout"], "a broken event list should keep its names once each")
+	_assert_eq(ProgressScript.ended_events(ProgressScript.normalize(broken)), [], "an event cannot be ended without having started")
+	var next := ProgressScript.leave_round(ProgressScript.deliver(started, ["door"]), "door")
+	_assert_eq(ProgressScript.started_events(next), [], "the next round should start with no events")
+	_assert_eq(ProgressScript.ended_events(next), [], "the next round should start with nothing ended")
+	_assert_eq(ProgressScript.started_events(ProgressScript.jump_to_round(started, 3)), [], "a jump should start the round's events over")
 
 
 func _at_line(line_index: int) -> Dictionary:
