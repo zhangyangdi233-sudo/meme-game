@@ -29,8 +29,8 @@
 assets/chapter1/**/*.png    filter=lfs diff=lfs merge=lfs -text
 source_assets/**            filter=lfs diff=lfs merge=lfs -text
 # ...except the notes that sit beside the sources, which stay readable text.
-source_assets/**/*.md       -filter -diff -merge text eol=lf
-source_assets/**/.gdignore  -filter -diff -merge text eol=lf
+source_assets/**/*.md       !filter !diff !merge text eol=lf
+source_assets/**/.gdignore  !filter !diff !merge text eol=lf
 
 # Content carried over from main (#141). Keep the planner's originals and the
 # narrative drafts byte-exact; office files and the large HTML go to LFS.

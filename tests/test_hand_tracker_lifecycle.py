@@ -22,35 +22,6 @@ TRACKER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TRACKER)
 
 
-def _process_exists(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    if os.name == "nt":
-        import ctypes
-        from ctypes import wintypes
-
-        process_query_limited = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(process_query_limited, False, pid)
-        if not handle:
-            return False
-        exit_code = wintypes.DWORD()
-        still_active = 259
-        exists = True
-        if ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
-            exists = exit_code.value == still_active
-        ctypes.windll.kernel32.CloseHandle(handle)
-        return exists
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
-
-
 class SidecarLifecycleTests(unittest.TestCase):
     def test_tracker_process_check_recognizes_an_exited_process(self) -> None:
         # Ported from main (#141): a handle held by the parent kept an exited
@@ -115,14 +86,14 @@ print(sidecar.pid, flush=True)
 
         try:
             deadline = time.monotonic() + 1.0
-            while time.monotonic() < deadline and _process_exists(sidecar_pid):
+            while time.monotonic() < deadline and TRACKER._process_exists(sidecar_pid):
                 time.sleep(0.02)
             self.assertFalse(
-                _process_exists(sidecar_pid),
+                TRACKER._process_exists(sidecar_pid),
                 "the tracker sidecar must not survive after its owning Godot process exits",
             )
         finally:
-            if _process_exists(sidecar_pid):
+            if TRACKER._process_exists(sidecar_pid):
                 try:
                     os.kill(sidecar_pid, signal.SIGTERM)
                 except OSError:

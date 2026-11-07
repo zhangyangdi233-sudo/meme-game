@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import signal
@@ -51,6 +52,39 @@ def _stop(_signum: int, _frame: Any) -> None:
     RUNNING = False
 
 
+_SYNCHRONIZE = 0x00100000
+_INFINITE = 0xFFFFFFFF
+_WAIT_OBJECT_0 = 0
+_ERROR_ACCESS_DENIED = 5
+
+
+@functools.cache
+def _kernel32() -> Any:
+    """kernel32 with typed signatures, so a 64-bit HANDLE is never truncated."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    return kernel32
+
+
+def _open_for_wait(pid: int) -> tuple[Any, bool]:
+    """(handle, exists) for a Windows process. Access denied means it exists
+    but cannot be waited on; any other failure means there is no such process."""
+    import ctypes
+
+    handle = _kernel32().OpenProcess(_SYNCHRONIZE, False, pid)
+    if handle:
+        return handle, True
+    return None, ctypes.get_last_error() == _ERROR_ACCESS_DENIED
+
+
 def _process_exists(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -58,32 +92,14 @@ def _process_exists(pid: int) -> bool:
         # An open handle alone is not proof of life: a process that has exited
         # stays openable while anyone still holds a handle to it. A zero-time
         # wait asks whether it has terminated without touching it.
-        import ctypes
-        from ctypes import wintypes
-
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-        kernel32.OpenProcess.restype = wintypes.HANDLE
-        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
-        kernel32.WaitForSingleObject.restype = wintypes.DWORD
-        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
-        kernel32.CloseHandle.restype = wintypes.BOOL
-
-        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
-        if not handle:
-            error = ctypes.get_last_error()
-            if error == 5:  # ERROR_ACCESS_DENIED: it exists but is not ours.
-                return True
-            return False  # ERROR_INVALID_PARAMETER and the rest: no such process.
+        handle, exists = _open_for_wait(pid)
+        if handle is None:
+            return exists
         try:
-            state = kernel32.WaitForSingleObject(handle, 0)
-            if state == 0:  # WAIT_OBJECT_0: the process has terminated.
-                return False
-            if state == 258:  # WAIT_TIMEOUT: the process is still running.
-                return True
-            raise ctypes.WinError(ctypes.get_last_error())
+            # WAIT_FAILED is not proof of death either; the next check retries.
+            return _kernel32().WaitForSingleObject(handle, 0) != _WAIT_OBJECT_0
         finally:
-            kernel32.CloseHandle(handle)
+            _kernel32().CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -97,17 +113,16 @@ def _process_exists(pid: int) -> bool:
 
 def _exit_when_host_dies(host_pid: int) -> None:
     if os.name == "nt":
-        import ctypes
-
-        synchronize = 0x00100000
-        handle = ctypes.windll.kernel32.OpenProcess(synchronize, False, host_pid)
-        if not handle:
+        handle, exists = _open_for_wait(host_pid)
+        if handle is not None:
+            _kernel32().WaitForSingleObject(handle, _INFINITE)
+            _kernel32().CloseHandle(handle)
             os._exit(0)
             return
-        ctypes.windll.kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
-        ctypes.windll.kernel32.CloseHandle(handle)
-        os._exit(0)
-        return
+        if not exists:
+            os._exit(0)
+            return
+        # Access denied: the host is alive but cannot be waited on, so poll it.
     while _process_exists(host_pid):
         time.sleep(HOST_WATCH_INTERVAL_SECONDS)
     # The camera read may be blocked, so a flag or graceful signal is not

@@ -24,7 +24,7 @@ func _run_async() -> void:
 
 func _test_drag_release_across_physics_frames() -> void:
 	# Ported from main (#141).
-	var canvas: Control = CanvasScript.new()
+	var canvas: WordPhysicsCanvas = CanvasScript.new()
 	canvas.position = Vector2(240, 110)
 	canvas.size = Vector2(520, 400)
 	root.add_child(canvas)
@@ -42,6 +42,8 @@ func _test_drag_release_across_physics_frames() -> void:
 	# tile sideways, and unfreezing must not restore its old floor position.
 	for frame in 12:
 		await physics_frame
+	# The canvas treats a release as a throw only within 90 ms of the last move.
+	OS.delay_msec(120)
 	canvas._end_drag(canvas.global_position + destination)
 	await physics_frame
 	await physics_frame
