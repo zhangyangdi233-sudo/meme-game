@@ -53,7 +53,8 @@ func _test_pool_integrity() -> void:
 		_assert_true(str(unit_value).length() == 1, "zh pickup units must be single characters, got %s" % unit_value)
 	_assert_true(PoolScript.get_unit_pool("ja").size() >= 18, "ja pool should hold at least 18 lexical units")
 	var en_pool: Array = PoolScript.get_unit_pool("en")
-	_assert_true(en_pool.size() >= 20 and en_pool.size() <= 30, "en pool should hold 20-30 words")
+	# Like Chinese, English needs a word for each of the seven exit subjects (#131) on top of the first thirty.
+	_assert_true(en_pool.size() >= 20 and en_pool.size() <= 40, "en pool should hold 20-40 words, got %d" % en_pool.size())
 
 	# 词典一致性:合词单位必须全部可拾取(validate 已覆盖),再抽查规则句所需词。
 	var zh_dictionary: Dictionary = PoolScript.get_word_dictionary("zh")

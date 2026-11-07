@@ -7,6 +7,9 @@ const StateCatalogScript = preload("res://scripts/localization/state_catalog.gd"
 const RegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const CorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
+const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
 
 var _failures: Array[String] = []
 
@@ -30,6 +33,7 @@ func _run_async() -> void:
 func _run() -> void:
 	_test_catalog_coverage_and_dynamic_templates()
 	_test_all_script_literals_have_translations()
+	_test_the_basement_npcs_speak_every_language()
 	_test_language_specific_pickup_units()
 	_test_japanese_dialogue_units()
 	_test_audited_localization_copy()
@@ -95,6 +99,28 @@ func _test_all_script_literals_have_translations() -> void:
 			if locale.translate(literal) == literal and literal not in missing:
 				missing.append(literal)
 	_assert_true(missing.is_empty(), "every Chinese script literal should have an English catalog entry; missing (%d):\n%s" % [missing.size(), "\n".join(missing)])
+
+
+## #131: the NPCs behind the basement doors talk and are answered in the player's language, not in Chinese.
+func _test_the_basement_npcs_speak_every_language() -> void:
+	var missing: Array[String] = []
+	for round_number in range(1, 6):
+		if not RoomRulesScript.stands_npc(RoomContentScript.room(round_number)):
+			continue
+		var route: Dictionary = CorruptionContentScript.get_basement_route(round_number)
+		var texts: Array[String] = [str(route.get("actor_label", ""))]
+		for turn: Dictionary in route.get("turns", []):
+			texts.append_array([str(turn["line"]), str(turn["sentence"]), str(turn["result"])])
+		for locale_code in ["ja", "en"]:
+			var locale = LocaleScript.new()
+			locale.set_locale(locale_code)
+			for text in texts:
+				var shown: String = locale.translate(text)
+				if text.is_empty() or shown == text or (locale_code == "en" and locale.has_untranslated_han(shown)):
+					missing.append("round %d %s: %s" % [round_number, locale_code, text])
+	_assert_true(missing.is_empty(), "every basement NPC line should be translated; missing (%d):
+%s" % [missing.size(), "
+".join(missing)])
 
 
 func _test_language_specific_pickup_units() -> void:

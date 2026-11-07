@@ -9,6 +9,7 @@ const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const HiddenItemsScript = preload("res://scripts/game/hidden_items.gd")
+const WordDropScript = preload("res://scripts/game/word_drop.gd")
 
 const ROOM := {
 	"vocabulary": {"subjects": {"zh": {"电灯": "light"}}, "predicates": {"zh": {"点亮": "lit"}}},
@@ -46,6 +47,9 @@ func _init() -> void:
 	test_the_authored_rooms_are_valid()
 	test_round_one_comes_from_its_data()
 	test_every_round_one_word_can_be_picked_up()
+	test_every_rule_and_room_is_written_in_every_language()
+	test_every_round_reads_its_rules_in_every_language()
+	test_pollution_follows_a_subject_across_languages()
 	test_the_rule_escape_fixture_is_valid()
 	test_a_room_can_carry_state_and_one_shot_events()
 	test_validation_names_broken_rooms()
@@ -262,7 +266,7 @@ func test_round_one_comes_from_its_data() -> void:
 	_assert_eq(RoomRulesScript.judge(["ドア", "でぐち"], "ja", room).get("rule_id"), "door_exit", "an exit rule should already read in Japanese through the engine's words")
 	_assert_eq(RoomRulesScript.judge(["door", "is", "exit"], "en", room).get("rule_id"), "door_exit", "an exit rule should already read in English through the engine's words")
 	_assert_eq(RoomContentScript.rule_text(1, "room|lit", false, "zh"), "房间亮", "a rule should have its authored wording")
-	_assert_eq(RoomContentScript.rule_text(1, "room|lit", false, "en"), "", "an unwritten language should have no wording yet")
+	_assert_eq(RoomContentScript.rule_text(1, "room|lit", false, "en"), "the room is lit", "a rule should have its English wording")
 	_assert_eq(RoomContentScript.rule_text(1, "door|lit", false, "zh"), "", "an unknown rule should have no wording")
 
 
@@ -274,12 +278,70 @@ func test_every_round_one_word_can_be_picked_up() -> void:
 		seeded.append_array(PoolScript.get_post_units(post_id, "zh"))
 	for word in words:
 		_assert_true(word in seeded, "%s should lie in some post" % word)
-	_assert_eq(RoomContentScript.words(1, "ja"), PoolScript.get_unit_pool("ja"), "an unwritten language should keep the whole pool")
 	_assert_eq(RoomContentScript.words(1, "zh", "res://tests/fixtures/floor_two_rooms.json"), PoolScript.get_unit_pool("zh"), "a room without its words should keep the whole pool")
 	for round_number in range(2, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_true(RoomContentScript.words(round_number, "zh") != PoolScript.get_unit_pool("zh"), "round %d should drop its own words, not the whole pool" % round_number)
 		for word in RoomContentScript.words(round_number, "zh"):
 			_assert_true(word in seeded, "round %d's %s should lie in some post" % [round_number, word])
+
+
+## #131: Japanese and English have their own words, wording and drop, like Chinese. A rule's wording names its subject
+## with a word the player can post, so pollution garbles it in the notebook.
+func test_every_rule_and_room_is_written_in_every_language() -> void:
+	var seeded := {}
+	for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+		seeded[locale_code] = []
+		for post_id in PoolScript.get_post_ids():
+			(seeded[locale_code] as Array).append_array(PoolScript.get_post_units(post_id, locale_code))
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var room: Dictionary = RoomContentScript.room(round_number)
+		for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+			var words: Array = ((room.get("words", {}) as Dictionary).get(locale_code, []) as Array)
+			_assert_true(not words.is_empty(), "round %d should list its %s words" % [round_number, locale_code])
+			for word in RoomContentScript.words(round_number, locale_code):
+				_assert_true(word in seeded[locale_code], "round %d's %s word %s should lie in some post" % [round_number, locale_code, word])
+			for rule: Dictionary in room.get("rules", []):
+				var text := str((rule.get("text", {}) as Dictionary).get(locale_code, ""))
+				_assert_true(not text.is_empty(), "rule %s should have %s wording" % [rule["id"], locale_code])
+				var named := RoomRulesScript.subject_word_units(str(rule["subject"]), locale_code, room).any(
+					func(units: Array) -> bool: return text.contains("".join(units)))
+				_assert_true(named, "rule %s's %s wording %s should name its subject" % [rule["id"], locale_code, text])
+
+
+## Every rule a round offers is heard from its shortest sentence in every language, and a Japanese negation or an
+## English "here" reads the way the wording says it.
+func test_every_round_reads_its_rules_in_every_language() -> void:
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var room: Dictionary = RoomContentScript.room(round_number)
+		for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+			for rule: Dictionary in room.get("rules", []):
+				var units := WordDropScript.sentence_units(rule, locale_code, room)
+				_assert_eq(RoomRulesScript.judge(units, locale_code, room).get("rule_id"), rule["id"], "round %d should hear %s in %s from %s" % [round_number, rule["id"], locale_code, units])
+	_assert_eq(RoomRulesScript.judge(["へや", "あかるい"], "ja", RoomContentScript.room(1)).get("rule_id"), "light_on", "へやが あかるい should light round one")
+	_assert_eq(RoomRulesScript.judge(["こえ", "ない"], "ja", RoomContentScript.room(2)).get("rule_id"), "voice_gone", "こえが ない should silence round two")
+	_assert_eq(RoomRulesScript.judge(["いえ", "ない"], "ja", RoomContentScript.room(5)).get("rule_id"), "home_gone", "いえが ない should be round five's rule")
+	_assert_eq(RoomRulesScript.judge(["the", "voice", "is", "not", "here"], "en", RoomContentScript.room(2)).get("rule_id"), "voice_gone", "the voice is not here should be round two's rule")
+	_assert_eq(RoomRulesScript.judge(["the", "name", "stays"], "en", RoomContentScript.room(4)).get("rule_id"), "name_stays", "the name stays should be round four's rule")
+	_assert_eq(RoomRulesScript.judge(["the", "TV", "is", "the", "exit"], "en", RoomContentScript.room(1)).get("rule_id"), "tv_exit", "the TV is the exit should open the TV")
+	_assert_eq(RoomRulesScript.judge(["いす", "でぐち"], "ja", RoomContentScript.room(1)).get("rule_id"), "chair_exit", "いすは でぐち should open the chair")
+
+
+## A subject a red post used up is polluted in every language: its words garble and its rule is void, whichever
+## language the player switches to. The skeleton words stay clean.
+func test_pollution_follows_a_subject_across_languages() -> void:
+	var room: Dictionary = RoomContentScript.room(1)
+	var policy := PolicyScript.settings()
+	var polluted := PolicyScript.pollute({}, ["テレビ", "でぐち"], "tv", "ja", room, policy)
+	_assert_eq(PolicyScript.polluted_units(polluted, "ja", room, policy), ["テレビ"], "the Japanese post should pollute テレビ, not でぐち")
+	_assert_eq(PolicyScript.polluted_units(polluted, "en", room, policy), ["TV"], "the same subject should be polluted in English")
+	_assert_eq(PolicyScript.polluted_units(polluted, "zh", room, policy), ["电", "视"], "the same subject should be polluted in Chinese")
+	for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+		var tv_exit: Dictionary = room["rules"].filter(func(rule: Dictionary) -> bool: return rule["id"] == "tv_exit")[0]
+		var units := WordDropScript.sentence_units(tv_exit, locale_code, room)
+		_assert_true(PolicyScript.sentence_voids(units, locale_code, room, polluted, policy), "the TV rule should be void in %s once used" % locale_code)
+	var english := PolicyScript.pollute({}, ["the", "chair", "is", "the", "exit"], "chair", "en", room, policy)
+	_assert_eq(PolicyScript.polluted_units(english, "en", room, policy), ["chair"], "an English post should pollute only its subject")
+	_assert_eq(PolicyScript.polluted_units(english, "ja", room, policy), ["いす"], "the chair should be polluted in Japanese too")
 
 
 func test_the_rule_escape_fixture_is_valid() -> void:
@@ -409,6 +471,8 @@ func test_validation_holds_the_drop_guarantee() -> void:
 	(shared["rule_box"] as Array).append({"id": "lamp_lit", "subject": "light", "predicate": "lit", "text": {"zh": "灯亮"}, "state": {}})
 	(shared["rooms"]["1"]["rules"] as Array).append("lamp_lit")
 	(shared["rooms"]["1"]["words"]["zh"] as Array).append("灯")
+	(shared["rooms"]["1"]["words"]["ja"] as Array).append_array(["でんき", "つく"])
+	(shared["rooms"]["1"]["words"]["en"] as Array).append("light")
 	_assert_true(_names(RoomContentScript.problems_in(shared), "the subject light belongs to an exit rule and to another rule"), "another rule on an exit subject should be reported")
 	var lasting := policy.merged({"pollute_after_exit_opens": true}, true)
 	_assert_true(_names(RoomContentScript.problems_in(authored, ChapterOneProgressScript.BASEMENT_ROUND_COUNT, lasting), "can drop only"), "pollution after the exit opens should break the guarantee")
@@ -418,7 +482,8 @@ func test_validation_holds_the_drop_guarantee() -> void:
 	var unasked := few_exits.duplicate(true)
 	unasked.erase("guaranteed_exit_rules")
 	for listed: Dictionary in (unasked["rooms"] as Dictionary).values():
-		listed["words"]["zh"] = []
+		for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+			listed["words"][locale_code] = []
 	_assert_eq(RoomContentScript.problems_in(unasked), [] as Array[String], "a floor that asks for no guarantee should not be held to one")
 
 

@@ -1,10 +1,10 @@
 {
   "floor_13": {
-    "units": {"zh": ["门", "开", "出", "楼", "梯"], "ja": ["ドア", "ひらく"], "en": ["door", "open"]},
+    "units": {"zh": ["门", "开", "出", "楼", "梯"], "ja": ["ドア", "ひらく", "かいだん"], "en": ["door", "open", "stairs"]},
     "line": {
       "zh": "顶楼的门开着。楼梯上没人出来。",
-      "ja": "屋上のドアがひらく音。だれも出ない。",
-      "en": "The top-floor door stands open. Nobody came out."
+      "ja": "屋上のドアがひらく音。かいだんからはだれも出ない。",
+      "en": "The top-floor door stands open. Nobody came down the stairs."
     },
     "comments": [
       {
@@ -62,10 +62,10 @@
         "time": "00:58",
         "text": {
           "zh": "去年停电那晚,只有它亮着。",
-          "ja": "停電の夜も、あそこだけつく。",
+          "ja": "停電の夜も、あそこだけつく。あかるいまま。",
           "en": "The night of the blackout, one light stayed lit."
         },
-        "units": {"zh": ["亮", "电"], "ja": ["つく"], "en": ["light", "lit"]}
+        "units": {"zh": ["亮", "电"], "ja": ["つく", "あかるい"], "en": ["light", "lit"]}
       },
       {
         "handle": {"zh": "顶楼安全员", "ja": "安全第一", "en": "safety_officer"},
@@ -132,10 +132,10 @@
         "time": "04:20",
         "text": {
           "zh": "那站的电视线,九八年就剪了。",
-          "ja": "あの駅の配線は98年に切った。",
-          "en": "They cut that station's wiring in '98."
+          "ja": "あの駅のテレビの配線は98年に切った。",
+          "en": "They cut the wiring to that station's TV in '98."
         },
-        "units": {"zh": ["电", "视"], "ja": [], "en": []}
+        "units": {"zh": ["电", "视"], "ja": ["テレビ"], "en": ["TV"]}
       },
       {
         "handle": {"zh": "重听三遍的人", "ja": "三回聞いた", "en": "listened_thrice"},
@@ -182,10 +182,10 @@
         "time": "03:33",
         "text": {
           "zh": "灯全关了,他还在房间里走。",
-          "ja": "でんきを消しても歩いている。",
-          "en": "Half the lights stay lit after closing. He keeps walking the aisles."
+          "ja": "でんきを消しても、へやの中を歩いている。",
+          "en": "Half the lights stay lit after closing. He keeps walking around the room."
         },
-        "units": {"zh": ["灯", "房", "间"], "ja": ["でんき"], "en": ["lit"]}
+        "units": {"zh": ["灯", "房", "间"], "ja": ["でんき", "へや"], "en": ["lit", "room"]}
       }
     ]
   },
@@ -203,18 +203,18 @@
         "text": {
           "zh": "撕下来第二天,门缝里有一张一样的。",
           "ja": "剥がした翌日、ドアのすきまに同じ紙。",
-          "en": "I tore it down. Next day the same sheet was under my door."
+          "en": "I tore it down. Next day the same sheet was under my door. It stays."
         },
-        "units": {"zh": ["门", "下"], "ja": ["ドア"], "en": ["door"]}
+        "units": {"zh": ["门", "下"], "ja": ["ドア"], "en": ["door", "stays"]}
       }
     ]
   },
   "old_post_today": {
-    "units": {"zh": ["字", "是", "你"], "ja": ["あなた", "いる"], "en": ["you", "is"]},
+    "units": {"zh": ["字", "是", "你"], "ja": ["あなた", "いる"], "en": ["you", "is", "here"]},
     "line": {
       "zh": "回帖只有一行字:是你吗。",
       "ja": "返信は一行。「あなたはまだいる?」",
-      "en": "The reply is one line: is that you."
+      "en": "The reply is one line: is that you. Are you still here?"
     },
     "comments": [
       {
@@ -222,10 +222,10 @@
         "time": "23:59",
         "text": {
           "zh": "楼主十年没上线。照片里他的桌子和椅子还摆着。",
-          "ja": "主は十年不在。アイコンは昨日更新。",
-          "en": "OP has been gone ten years. The avatar changed yesterday."
+          "ja": "主は十年不在。写真のつくえといすはそのまま。",
+          "en": "OP has been gone ten years. In the photo, his table and chair are still there."
         },
-        "units": {"zh": ["桌", "子", "椅"], "ja": [], "en": []}
+        "units": {"zh": ["桌", "子", "椅"], "ja": ["つくえ", "いす"], "en": ["table", "chair"]}
       }
     ]
   },
@@ -242,10 +242,10 @@
         "time": "21:18",
         "text": {
           "zh": "导航说:您已到达。墙上的钟停在三点。",
-          "ja": "「到着しました」。窓の外は壁。",
-          "en": "Navigation said: you have arrived. Outside the window, a wall."
+          "ja": "「到着しました」。壁のとけいは三時で止まっている。",
+          "en": "Navigation said: you have arrived. The clock on the wall stopped at three."
         },
-        "units": {"zh": ["钟"], "ja": [], "en": []}
+        "units": {"zh": ["钟"], "ja": ["とけい"], "en": ["clock"]}
       }
     ]
   },

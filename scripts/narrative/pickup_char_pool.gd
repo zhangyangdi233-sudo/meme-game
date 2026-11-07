@@ -21,11 +21,13 @@ const UNIT_POOLS := {
 		"ドア", "ひらく", "でぐち", "ある", "ない", "でんき", "つく",
 		"わたし", "あなた", "いえ", "かえる", "なまえ", "こえ",
 		"あんぜん", "ばしょ", "できる", "のこる", "いる", "その", "みち",
+		"へや", "かいだん", "テレビ", "つくえ", "いす", "とけい", "あかるい",
 	],
 	"en": [
 		"door", "can", "be", "opened", "open", "exit", "exists", "exist",
 		"not", "light", "lit", "is", "I", "you", "home", "name", "voice",
 		"safe", "place", "stay", "want", "return", "the", "no",
+		"room", "stairs", "TV", "table", "chair", "clock", "here", "stays",
 	],
 }
 

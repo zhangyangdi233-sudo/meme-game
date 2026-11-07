@@ -25,6 +25,7 @@ func _run() -> void:
 	_test_english_borrows_chinese_glyphs_it_lacks()
 	_test_the_same_font_comes_back_for_the_same_locale()
 	_test_licenses_and_provenance_ship_with_the_fonts()
+	_test_the_protagonists_name_draws_in_every_language()
 
 
 func _test_each_language_gets_its_own_face() -> void:
@@ -86,3 +87,21 @@ func _assert_true(condition: bool, message: String) -> void:
 func _assert_eq(actual, expected, message: String) -> void:
 	if actual != expected:
 		_failures.append("%s (expected %s, got %s)" % [message, str(expected), str(actual)])
+
+
+## #131 / #119 Q12: the opening narration calls the protagonist by name (埃弥亣 in Chinese). Every glyph of that line
+## must be in the face the narration uses, or the name falls to a system font or a blank box.
+func _test_the_protagonists_name_draws_in_every_language() -> void:
+	var catalog: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/narrative_session.json"))
+	var named: Dictionary = {}
+	for line: Dictionary in catalog.get("opening", []):
+		if str(line.get("zh", "")).contains("亣"):
+			named = line
+	_assert_true(not named.is_empty(), "the opening should name the protagonist")
+	for locale in ["zh", "ja", "en"]:
+		var text := str(named.get(locale, ""))
+		_assert_true(not text.is_empty(), "the name should be written in %s" % locale)
+		var font: Font = LocaleFontScript.font(locale)
+		for index in text.length():
+			var glyph := text.unicode_at(index)
+			_assert_true(font.has_char(glyph), "the %s narration font should draw %s in %s" % [locale, String.chr(glyph), text])
