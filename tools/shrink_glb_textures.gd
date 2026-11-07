@@ -1,7 +1,8 @@
 extends SceneTree
 ## Rewrites a .glb with every embedded image larger than `--max` pixels on a side scaled down to fit (PNG kept), so a
-## Blender export can go into the repo at a sensible size. Nothing else in the file changes: nodes, extras, meshes and
-## materials stay byte for byte; only the binary chunk is repacked around the smaller images.
+## Blender export can go into the repo at a sensible size. Nothing else changes in meaning: the JSON is written back
+## with the same content (whole numbers written as integers, so `1.0` comes back as `1`) and the binary chunk is
+## repacked around the smaller images. Only a .glb with its one embedded buffer is handled.
 ##
 ##   & $env:GODOT_BIN --headless --script res://tools/shrink_glb_textures.gd -- <in.glb> <out.glb> [--max 1024]
 
@@ -45,6 +46,9 @@ static func shrink(in_path: String, out_path: String, max_size: int) -> bool:
 		return false
 	var bin := bytes.slice(bin_at + 8, bin_at + 8 + bytes.decode_u32(bin_at))
 	var views: Array = gltf["bufferViews"]
+	if (gltf.get("buffers", []) as Array).size() != 1 or views.any(func(view: Dictionary) -> bool: return int(view.get("buffer", 0)) != 0):
+		push_error("only a glb with its one embedded buffer is handled: %s" % in_path)
+		return false
 	var replaced := {}
 	for image: Dictionary in gltf.get("images", []):
 		if not image.has("bufferView"):

@@ -91,6 +91,8 @@ const PEELED_TWIST := 0.35
 ## What the model brings that the room leaves out (#120 Q4-2: the tables, two chairs and the phone stay): the
 ## children's stool and the cardboard boxes, with the stool's collider.
 const LEFT_OUT_PROPS := ["Prop_TealChair", "Prop_Box_Rear", "Prop_Box_UnderStairs", "PropCollision_TealChair"]
+## The arrows the model paints for an older X-ray tutorial; the X-ray shows none of them now.
+const OLD_XRAY_ARROWS := "XRAY_EXIT_GUIDE_0*"
 ## The round's NPC is behind the sealed door, at the v3b model's StairClosetDoorAnchor on the floor: F in front of the
 ## door talks to it.
 const BASEMENT_NPC_POSITION := Vector3(-1.8, 0.02, -2.01)
@@ -689,7 +691,8 @@ func _build_basement(phone_on_table: bool, npc_stands: bool) -> bool:
 	return true
 
 
-## The stage's lights and the model's own lamps, with their globes; the CRT's green light is kept apart.
+## The stage's lights, with the model's globes; the model's preview lamps go off and the CRT's green light is kept
+## apart, at the room's scale.
 func _bind_lamps() -> void:
 	for light_name in BASEMENT_LIGHTS:
 		_lamps.append({"light": get_node(light_name), "energy": float(BASEMENT_LIGHTS[light_name]["energy"])})
@@ -1194,20 +1197,20 @@ func _build_npc() -> void:
 
 
 ## Leaves out what the model brings that the room does without: the stool, the boxes and the stool's collider, and
-## the arrows painted for an older X-ray tutorial (marked `xray_only` in the model; the X-ray shows none of them now).
+## the arrows painted for an older X-ray tutorial.
 func _leave_out_props() -> void:
 	var left_out: Array[Node] = []
 	for node_name: String in LEFT_OUT_PROPS:
 		var prop := _model.find_child(node_name, true, false)
-		if prop != null:
+		if prop == null:
+			push_error("The basement model has no %s to leave out" % node_name)
+		else:
 			left_out.append(prop)
-	for node: Node in _model.find_children("*", "Node3D", true, false):
-		var extras: Variant = node.get_meta("extras", {})
-		if extras is Dictionary and bool((extras as Dictionary).get("xray_only", false)) and node.get_parent() not in left_out:
-			left_out.append(node)
+	for arrow: Node in _model.find_children(OLD_XRAY_ARROWS, "Node3D", true, false):
+		if arrow.get_parent() not in left_out:
+			left_out.append(arrow)
 	for node in left_out:
-		if node.get_parent() != null:
-			node.get_parent().remove_child(node)
+		node.get_parent().remove_child(node)
 		node.free()
 
 
@@ -1229,6 +1232,11 @@ func _build_torn_tape() -> void:
 	var strips: Array[Dictionary] = []
 	for surface in source.get_surface_count():
 		strips.append_array(_tape_strips(source.surface_get_arrays(surface), surface))
+	if strips.size() <= TORN_STRIPS:
+		# A tape without separate indexed strips cannot be torn; round five keeps it whole rather than bare.
+		push_error("The model's %s has no strips to tear" % SEALED_DOOR_TAPE_NODE)
+		_sealed_tape = null
+		return
 	strips.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["length"]) > float(b["length"]))
 	var torn_off := strips.slice(0, TORN_STRIPS)
 	var remaining := ArrayMesh.new()

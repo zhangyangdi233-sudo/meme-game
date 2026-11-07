@@ -82,6 +82,11 @@ func _test_no_lamp_carries_the_preview_watts() -> void:
 
 
 func _test_the_clutter_is_cut_to_the_tables_two_chairs_and_the_phone() -> void:
+	# What the room leaves out must be in the model under these names, or the checks below prove nothing.
+	var source := (load(ChapterOneStage.BASEMENT_MODEL_PATH) as PackedScene).instantiate()
+	for node_name: String in ["Prop_TealChair", "Prop_Box_Rear", "Prop_Box_UnderStairs", "PropCollision_TealChair", "XRAY_EXIT_GUIDE_01"]:
+		_assert_true(source.find_child(node_name, true, false) != null, "the model should bring %s" % node_name)
+	source.free()
 	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		var adapter = await _adapter(round_number)
 		var stage := _stage(adapter)
