@@ -174,6 +174,11 @@ func test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so() 
 	_assert_eq(game.basement_exits(), ["door"], "the NPC's help should open the exit door")
 	_assert_true(game.leave_basement_round("door"), "the exit door should lead on")
 	_assert_true(not ProgressScript.talked_to_npc(game.chapter_one_progress), "round three should start with nobody talked to")
+	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
+	_post(game, ["门", "是", "出", "口"])
+	_assert_eq(game.basement_exits(), ["door"], "门是出口 should open round four's exit door by itself")
+	_finish_conversation_with(game, 4)
+	_assert_true(not game.conversation_feedback.contains(StateScript.BASEMENT_HELPED_LINE), "the NPC should not claim a door a rule opened")
 
 
 ## #127 / #142 Q1: the X-ray works from the start, unannounced. Round five's clock seen through it is a way out with no

@@ -533,12 +533,18 @@ func screen_color() -> Color:
 
 ## Moves the knocking behind the sealed door on by `delta`: each cycle plays the next piece of the recording for
 ## `DOOR_KNOCK_SECONDS`, then pauses for `DOOR_KNOCK_PAUSE_SECONDS`. Open settings hold it; once the NPC has been
-## talked to it stays quiet.
+## talked to it stays quiet. It goes on while the player is at the CRT or has the phone up, so the knocking keeps
+## calling them to the side path; a stage the adapter hides (the street not shown) holds it like open settings.
 func advance_door_knock(delta: float) -> void:
-	if _door_knock == null or _paused:
+	if _door_knock == null:
+		return
+	var held := _paused or not is_visible_in_tree()
+	_door_knock.stream_paused = held
+	if held:
 		return
 	if not _door_knocking:
-		_door_knock.stop()
+		if _door_knock.playing:
+			_door_knock.stop()
 		return
 	_door_knock_clock += maxf(delta, 0.0)
 	var cycle_seconds := DOOR_KNOCK_SECONDS + DOOR_KNOCK_PAUSE_SECONDS
@@ -549,7 +555,9 @@ func advance_door_knock(delta: float) -> void:
 	elif cycle != _door_knock_cycle and _door_knock.stream != null:
 		# Each cycle knocks once: a piece that ends before its time is not started again.
 		_door_knock_cycle = cycle
-		_door_knock.play(float(cycle % DOOR_KNOCK_PIECES) * DOOR_KNOCK_SECONDS + into)
+		# A recording shorter than the pieces assume (a later trim) is cut into as many pieces as it holds.
+		var pieces := clampi(int(_door_knock.stream.get_length() / DOOR_KNOCK_SECONDS), 1, DOOR_KNOCK_PIECES)
+		_door_knock.play(float(cycle % pieces) * DOOR_KNOCK_SECONDS + into)
 
 
 ## Opening settings holds the knock and the knocking behind the sealed door where they are.

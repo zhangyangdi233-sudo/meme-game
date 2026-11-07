@@ -1397,9 +1397,11 @@ func advance_typed_reality_character() -> Dictionary:
 ## door the NPC says so; without this round's post and with the exit shut it sends the player back to the computer.
 func _deliver_basement_round() -> void:
 	var posted := has_posted_this_round()
+	# A door a rule already opened is not the NPC's doing, so it says nothing of helping.
+	var door_was_open := ChapterOneProgressScript.door_open(chapter_one_progress)
 	_open_exit_if_escaped(posted)
 	var locale := GameLocaleScript.for_locale(conversation_locale)
-	if posted and ChapterOneProgressScript.door_open(chapter_one_progress):
+	if posted and not door_was_open and ChapterOneProgressScript.door_open(chapter_one_progress):
 		conversation_feedback += "\n" + locale.translate(BASEMENT_HELPED_LINE)
 	elif not posted and not ChapterOneProgressScript.exit_open(chapter_one_progress):
 		conversation_feedback += "\n" + locale.translate(BASEMENT_NO_POST_LINE)

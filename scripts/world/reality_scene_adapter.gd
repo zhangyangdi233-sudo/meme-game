@@ -54,6 +54,9 @@ const EYE_HEIGHT := 1.56
 const EXIT_OVERHEAD_REACH := 0.3
 ## How far above or below one of an exit object's places the player may stand (the stairs have places on their steps).
 const EXIT_REACH_HEIGHT := 0.8
+## How far above or below a chapter stage's actor the player may stand: the NPC behind the door under the landing is
+## out of reach from the landing above it.
+const ACTOR_REACH_HEIGHT := 0.8
 const MIN_PITCH := -68.0
 const MAX_PITCH := 72.0
 
@@ -460,7 +463,7 @@ func _nearest_actor(actors: Array[Area3D]) -> Area3D:
 	var nearest_distance := INTERACTION_DISTANCE
 	for actor in actors:
 		var offset: Vector3 = actor.global_position - player.global_position
-		if absf(offset.y) > EXIT_REACH_HEIGHT:
+		if absf(offset.y) > ACTOR_REACH_HEIGHT:
 			continue
 		offset.y = 0.0
 		if offset.length() <= nearest_distance:

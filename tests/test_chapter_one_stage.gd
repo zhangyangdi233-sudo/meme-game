@@ -371,6 +371,12 @@ func _test_the_npc_behind_the_sealed_door_knocks_until_first_talked_to() -> void
 	_assert_true(knock.stream_paused, "open settings should hold the knocking where it is")
 	adapter.set_paused(false)
 	_assert_true(not knock.stream_paused, "closing settings should let the knocking go on")
+	stage.visible = false
+	stage.advance_door_knock(0.1)
+	_assert_true(knock.stream_paused, "a hidden stage should hold the knocking")
+	stage.visible = true
+	stage.advance_door_knock(0.1)
+	_assert_true(not knock.stream_paused, "the stage shown again should let the knocking go on")
 	var talked := ProgressScript.talk_to_npc(progress)
 	adapter.ensure_floor_current(_deps(talked))
 	_assert_true(not knock.playing, "talking to the NPC should stop the knocking at once")
