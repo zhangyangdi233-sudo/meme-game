@@ -65,4 +65,12 @@ git commit
 
 一般 merge，`main` 的歷史保留，不用強推。
 
-2026-11-07 用這個做法試合（`dev` 為本票完成時）：直接 merge 有 13 個衝突（`.gitattributes`、`.gitignore`、`AGENTS.md`、`README.md`、白門 GLB、`hand_tracker.py`、`word_physics_canvas.gd`、`babel_meme_game.gd`、`game_locale.gd`、`meme_game_state.gd`、`reality_floor_generator.gd`、`test_hand_tracker_lifecycle.py`、`test_sentence_composer.gd`），另有 5 個檔會被 Git 默默合進 `main` 的修改（`hand_xray_overlay.gd`、`ui_catalog.gd`、`vhs_screen.gdshader`、`test_reality_world.gd`、`test_word_physics_canvas.gd`），而 `main` 獨有的舊實作與測試也會全部留下。所以不要逐檔解衝突，整棵樹換成 `dev` 的。
+2026-11-07 用這個做法試合（`dev` 為本票完成時），`read-tree` 後的樹與 `dev` 完全相同。直接 merge 的話：
+
+- **24 個衝突**，全部取 `dev` 的版本：
+  - 兩邊各自新增：`.gitattributes`、`AGENTS.md`、白門 GLB（`main` 是一般檔、`dev` 是 LFS 指標，內容相同），以及本票搬進的 `docs/design_originals/` 兩份 docx、`docs/narrative/` 的 docx、html 與 README、`source_assets/` 的 `.gdignore`、白門 `.blend` 與 README、`assets/audio/dialogue/README.md`（LFS 或加註造成的差異）。
+  - 兩邊都改：`.gitignore`、`README.md`、`babel_meme_game.gd`、`game_locale.gd`、`meme_game_state.gd`、`reality_floor_generator.gd`、`test_sentence_composer.gd`，以及已移植修正的 `hand_tracker.py`、`hand_xray_overlay.gd`、`word_physics_canvas.gd`、`test_hand_tracker_lifecycle.py`、`test_word_physics_canvas.gd`。
+- **3 個檔會被 Git 默默合進 `main` 的修改**而不報衝突：`ui_catalog.gd`、`vhs_screen.gdshader`、`test_reality_world.gd`。
+- `main` 獨有的舊實作、測試與封存檔會全部留在合併結果裡，舊測試會壞。
+
+所以不要逐檔解衝突，整棵樹換成 `dev` 的。
