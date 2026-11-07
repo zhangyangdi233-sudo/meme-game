@@ -94,6 +94,12 @@ static func stands_npc(room: Dictionary) -> bool:
 	return false
 
 
+## The hidden item the room's NPC gives once helped (#130), or empty: only a room that stands an NPC gives one.
+static func gift(room: Dictionary) -> String:
+	var item_id: Variant = room.get("gift", "")
+	return item_id if item_id is String and stands_npc(room) else ""
+
+
 ## The objects the room's `xray` escapes show as a way out through the X-ray, once each, in the room's escape order.
 static func xray_objects(room: Dictionary) -> Array:
 	var objects: Array = []

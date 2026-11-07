@@ -8,6 +8,7 @@ const ContentJsonScript = preload("res://framework/content_json.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const PoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
+const HiddenItemsScript = preload("res://scripts/game/hidden_items.gd")
 
 const ROOM := {
 	"vocabulary": {"subjects": {"zh": {"电灯": "light"}}, "predicates": {"zh": {"点亮": "lit"}}},
@@ -55,6 +56,10 @@ func _init() -> void:
 	test_a_rooms_events_lay_their_state_over_it()
 	test_validation_names_broken_events()
 	test_each_round_plays_its_anomaly_from_its_data()
+	test_only_round_fours_npc_gives_a_hidden_item()
+	test_enoch_is_written_in_the_content_as_provisional()
+	test_validation_names_broken_gifts()
+	test_validation_names_broken_hidden_items()
 	if _failures.is_empty():
 		print("room rules tests passed")
 		quit(0)
@@ -503,6 +508,58 @@ func test_each_round_plays_its_anomaly_from_its_data() -> void:
 	var red: Dictionary = _event(5, "red_screens")
 	_assert_eq([red.get("trigger"), red.get("duration"), red.get("switch_ends", false)], ["room_center", 8.0, false], "round five's screens should go black and red for 8 s from the room's middle, past the switch")
 	_assert_eq(objects.call(5).get("sunken_crts"), true, "round five should have its sunken screens")
+
+
+## #130 / #120 Q2: of the two NPCs behind the door only round four's gives a hidden item, the first one: Enoch.
+func test_only_round_fours_npc_gives_a_hidden_item() -> void:
+	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
+		var gift := RoomRulesScript.gift(RoomContentScript.room(round_number))
+		_assert_eq(gift, "enoch" if round_number == 4 else "", "round %d's gift" % round_number)
+
+
+## #142 Q2-2: the item's name and its one line are content, marked provisional until the planner rewrites them.
+func test_enoch_is_written_in_the_content_as_provisional() -> void:
+	_assert_eq(HiddenItemsScript.validate(), [] as Array[String], "the authored hidden items should be valid")
+	_assert_true(HiddenItemsScript.is_known("enoch"), "Enoch should be a hidden item")
+	_assert_true(not HiddenItemsScript.is_known("logos"), "the second floor's item belongs to its own ticket")
+	_assert_true(HiddenItemsScript.is_provisional("enoch"), "Enoch's wording should be marked provisional")
+	_assert_eq(HiddenItemsScript.item_name("enoch", "zh"), "以诺", "Enoch's Chinese name")
+	_assert_eq(HiddenItemsScript.item_name("enoch", "en"), "Enoch", "Enoch's English name")
+	_assert_eq(HiddenItemsScript.description("enoch", "zh"), "一本绿色的书，封面没有字，翻开只有一页被撕掉的痕迹", "Enoch's provisional line")
+	for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+		_assert_true(not HiddenItemsScript.item_name("enoch", locale_code).is_empty(), "Enoch should have a %s name" % locale_code)
+		_assert_true(not HiddenItemsScript.description("enoch", locale_code).is_empty(), "Enoch should have a %s line" % locale_code)
+	_assert_eq(HiddenItemsScript.item_name("nothing", "zh"), "", "an unknown item has no name")
+
+
+## A gift is a known hidden item, given by a room's NPC: only a room that stands one (`delivery`) can name it.
+func test_validation_names_broken_gifts() -> void:
+	var good := {"rule_box": [], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "escapes": [{"kind": "delivery"}], "gift": "enoch", "state": {"brightness": 1.0, "hum": 0.0, "objects": {}}, "events": []}}}
+	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a room whose NPC gives Enoch should be valid")
+	for breakage in [
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["gift"] = "piano",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["gift"] = 3,
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["escapes"] = [{"kind": "xray", "object": "clock"}],
+	]:
+		var broken := good.duplicate(true)
+		breakage.call(broken)
+		_assert_true(not RoomContentScript.problems_in(broken, 1).is_empty(), "a broken gift should be reported: %s" % [broken["rooms"]["1"]])
+
+
+func test_validation_names_broken_hidden_items() -> void:
+	var good := {"items": {"x": {"provisional": true, "name": {"zh": "甲", "ja": "甲", "en": "A"}, "description": {"zh": "乙", "ja": "乙", "en": "B"}}}}
+	_assert_eq(HiddenItemsScript.problems_in(good), [] as Array[String], "a whole item should be valid")
+	_assert_true(not HiddenItemsScript.problems_in({}).is_empty(), "no items should be a problem")
+	for breakage in [
+		func(catalog: Dictionary) -> void: catalog["items"]["x"]["name"].erase("ja"),
+		func(catalog: Dictionary) -> void: catalog["items"]["x"]["description"]["en"] = "",
+		func(catalog: Dictionary) -> void: catalog["items"]["x"].erase("description"),
+		func(catalog: Dictionary) -> void: catalog["items"]["x"]["provisional"] = "yes",
+		func(catalog: Dictionary) -> void: catalog["items"]["x"] = "a book",
+	]:
+		var broken := good.duplicate(true)
+		breakage.call(broken)
+		_assert_true(not HiddenItemsScript.problems_in(broken).is_empty(), "a broken item should be reported: %s" % [broken])
 
 
 func _event(round_number: int, event_id: String) -> Dictionary:

@@ -7,6 +7,7 @@ extends RefCounted
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ContentJsonScript = preload("res://framework/content_json.gd")
+const HiddenItemsScript = preload("res://scripts/game/hidden_items.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
@@ -180,6 +181,7 @@ static func _check_room(checked: Dictionary, catalog: Dictionary, label: String,
 	for rule: Dictionary in resolved["rules"]:
 		_check_writable(rule, resolved, label, problems, rule in dropped)
 	_check_escapes(resolved, label, problems)
+	_check_gift(resolved, label, problems)
 	var event_ids: Array[String] = []
 	for event: Variant in checked["events"]:
 		if not event is Dictionary or str(event.get("id", "")).is_empty() or str(event.get("trigger", "")).is_empty():
@@ -271,6 +273,16 @@ static func _check_escapes(checked: Dictionary, label: String, problems: Array[S
 				problems.append("%s has an escape whose rule %s names no exit object: %s" % [label, escape["rule"], object_name])
 		elif escape["kind"] == RoomRulesScript.ESCAPE_XRAY and escape.get("object") not in EXIT_OBJECTS:
 			problems.append("%s has an X-ray escape naming no exit object: %s" % [label, escape.get("object")])
+
+
+## A room's `gift` is a hidden item its NPC gives once helped, so it names a known item and the room stands an NPC.
+static func _check_gift(checked: Dictionary, label: String, problems: Array[String]) -> void:
+	if not checked.has("gift"):
+		return
+	if not checked["gift"] is String or not HiddenItemsScript.is_known(checked["gift"]):
+		problems.append("%s gives no known hidden item: %s" % [label, checked["gift"]])
+	elif not RoomRulesScript.stands_npc(checked):
+		problems.append("%s gives %s but stands no NPC to give it" % [label, checked["gift"]])
 
 
 ## Every round must drop the words of `guaranteed_exit_rules` exit rules pollution has left clean, in every language

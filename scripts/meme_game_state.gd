@@ -22,6 +22,7 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const HiddenItemsScript = preload("res://scripts/game/hidden_items.gd")
 const MAX_TOWER_FLOOR := PropertyKeysScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
 const HISTORY_FIELD_NAMES := [
@@ -41,6 +42,8 @@ const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、",
 const BASEMENT_NO_POST_LINE := "去电脑上拾字并投稿一句话，再回来告诉我。"
 ## What the NPC behind the door says once its help opened the exit door (#129; an AI draft for the planner).
 const BASEMENT_HELPED_LINE := "我帮你离开这里。出口的门已经开了。"
+## What round four's NPC says handing over its hidden item once helped (#130): the item's name, then its line.
+const HIDDEN_ITEM_GIVEN_LINE := "这个给你：「%s」。%s。"
 const SAVE_DATA_VERSION := 6
 ## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
@@ -226,6 +229,10 @@ var phone_owned: bool:
 		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
 	set(value):
 		_write_run_field(PropertyKeysScript.PHONE_OWNED, value)
+## The hidden items the run holds, each once, in the order given (`HiddenItems` ids). A read is a copy.
+var hidden_items: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.HIDDEN_ITEMS)
 ## The phone apps this run can open: the ones that came with the phone. A read is a copy.
 var unlocked_apps: Array:
 	get:
@@ -523,6 +530,8 @@ func load_save_data(save_data: Dictionary) -> bool:
 	_normalize_notebook_tokens()
 	_drop_retired_apps()
 	_normalize_phone(state_data)
+	# A save hands back only known items, each once.
+	_write_run_list(PropertyKeysScript.HIDDEN_ITEMS, HiddenItemsScript.known_ids(hidden_items))
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
 	if view_state == "npc_up":
@@ -1405,6 +1414,24 @@ func _deliver_basement_round() -> void:
 		conversation_feedback += "\n" + locale.translate(BASEMENT_HELPED_LINE)
 	elif not posted and not ChapterOneProgressScript.exit_open(chapter_one_progress):
 		conversation_feedback += "\n" + locale.translate(BASEMENT_NO_POST_LINE)
+	if posted:
+		_give_hidden_item(RoomRulesScript.gift(_current_room()), locale)
+
+
+func has_hidden_item(item_id: String) -> bool:
+	return hidden_items.has(item_id)
+
+
+## The helped NPC hands over its room's gift once (#130), naming it and its line in the conversation's language.
+func _give_hidden_item(item_id: String, locale: BabelGameLocale) -> void:
+	if item_id.is_empty() or has_hidden_item(item_id) or not HiddenItemsScript.is_known(item_id):
+		return
+	_run_list(PropertyKeysScript.HIDDEN_ITEMS).add(item_id)
+	var line := locale.translate(HIDDEN_ITEM_GIVEN_LINE) % [
+		HiddenItemsScript.item_name(item_id, conversation_locale),
+		HiddenItemsScript.description(item_id, conversation_locale),
+	]
+	conversation_feedback += "\n" + line
 
 
 ## Makes the objects of the room's escapes that hold its exits. Once open an exit stays open, whatever is posted later.

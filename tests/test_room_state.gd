@@ -30,6 +30,9 @@ func _init() -> void:
 	test_only_rounds_two_and_four_open_by_the_npcs_help()
 	test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so()
 	test_the_xray_shows_round_fives_way_out_at_the_clock()
+	test_helping_round_fours_npc_hands_over_enoch()
+	test_round_fours_npc_gives_enoch_even_after_a_rule_opened_the_door()
+	test_enoch_stays_in_the_save()
 	test_each_round_voids_the_way_out_the_last_one_used()
 	test_an_exit_rule_makes_its_object_the_way_out()
 	test_a_rule_escape_opens_the_exit()
@@ -179,6 +182,64 @@ func test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so() 
 	_assert_eq(game.basement_exits(), ["door"], "门是出口 should open round four's exit door by itself")
 	_finish_conversation_with(game, 4)
 	_assert_true(not game.conversation_feedback.contains(StateScript.BASEMENT_HELPED_LINE), "the NPC should not claim a door a rule opened")
+
+
+## #130 / #120 Q2: round four's NPC gives Enoch once it is helped (this round's post, then the whole conversation), and
+## says so; talking without a post gives nothing, nor does round two's NPC.
+func test_helping_round_fours_npc_hands_over_enoch() -> void:
+	var game := _basement()
+	_assert_eq(game.hidden_items, [], "a new run should hold no hidden item")
+	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
+	_post(game, ["我", "是", "你"])
+	_finish_conversation_with(game, 2)
+	_assert_eq(game.basement_exits(), ["door"], "round two's NPC should still help")
+	_assert_eq(game.hidden_items, [], "round two's NPC should give no item")
+	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
+	_finish_conversation_with(game, 4)
+	_assert_eq(game.hidden_items, [], "talking without a post should not help, so no item")
+	game.end_typed_reality_conversation()
+	_post(game, ["我", "是", "你"])
+	_finish_conversation_with(game, 4)
+	_assert_eq(game.hidden_items, ["enoch"], "helping round four's NPC should hand over Enoch")
+	_assert_true(game.has_hidden_item("enoch"), "the run should hold Enoch")
+	_assert_true(game.conversation_feedback.contains("以诺"), "the NPC's reply should name what it gave")
+	game.end_typed_reality_conversation()
+	_finish_conversation_with(game, 4)
+	_assert_eq(game.hidden_items, ["enoch"], "talking again should not give a second one")
+	_assert_true(not game.conversation_feedback.contains("以诺"), "talking again should not hand it over again")
+
+
+## Helping is the post and the conversation; a rule that opened the door first takes nothing from it.
+func test_round_fours_npc_gives_enoch_even_after_a_rule_opened_the_door() -> void:
+	var game := _basement()
+	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
+	_post(game, ["门", "是", "出", "口"])
+	_assert_eq(game.basement_exits(), ["door"], "门是出口 should open round four's exit door")
+	_finish_conversation_with(game, 4)
+	_assert_eq(game.hidden_items, ["enoch"], "the NPC helped after a rule should still give Enoch")
+
+
+func test_enoch_stays_in_the_save() -> void:
+	_assert_true(PropertyKeysScript.HIDDEN_ITEMS in PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN), "the hidden items should be saved with the run")
+	var game := _basement()
+	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
+	_post(game, ["我", "是", "你"])
+	_finish_conversation_with(game, 4)
+	var loaded := StateScript.new()
+	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
+	_assert_eq(loaded.hidden_items, ["enoch"], "Enoch should stay after a load")
+	_assert_true(loaded.leave_basement_round("door"), "the exit door should lead on")
+	_assert_eq(loaded.hidden_items, ["enoch"], "Enoch should stay in the next round")
+	var tampered := game.to_save_data()
+	tampered["state"][PropertyKeysScript.HIDDEN_ITEMS] = ["enoch", "enoch", "piano", 3]
+	_assert_true(loaded.load_save_data(tampered), "a save with odd items should still load")
+	_assert_eq(loaded.hidden_items, ["enoch"], "a load should keep each known item once")
+	var old := game.to_save_data()
+	(old["state"] as Dictionary).erase(PropertyKeysScript.HIDDEN_ITEMS)
+	_assert_true(loaded.load_save_data(old), "a save made before hidden items should load")
+	_assert_eq(loaded.hidden_items, [], "a save made before hidden items holds none")
+	loaded.new_run()
+	_assert_eq(loaded.hidden_items, [], "a new run should hold no hidden item")
 
 
 ## #127 / #142 Q1: the X-ray works from the start, unannounced. Round five's clock seen through it is a way out with no
