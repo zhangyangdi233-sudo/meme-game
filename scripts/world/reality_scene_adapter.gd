@@ -453,11 +453,15 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 		nearby_targets_changed.emit()
 
 
+## The nearest of the chapter stage's actors in reach. One on another floor (the NPC behind the door under the landing,
+## seen from the landing above it) is out of reach.
 func _nearest_actor(actors: Array[Area3D]) -> Area3D:
 	var nearest: Area3D = null
 	var nearest_distance := INTERACTION_DISTANCE
 	for actor in actors:
 		var offset: Vector3 = actor.global_position - player.global_position
+		if absf(offset.y) > EXIT_REACH_HEIGHT:
+			continue
 		offset.y = 0.0
 		if offset.length() <= nearest_distance:
 			nearest = actor
@@ -790,7 +794,7 @@ func _build_chapter_stage(stage_phase: String, deps: Dictionary) -> void:
 	var phone_on_table := not bool(deps.get("phone_owned", true))
 	# Deps that do not say the round stands no NPC stand one, as every round did before #125.
 	var npc_stands := bool(deps.get("basement_npc_stands", true))
-	_chapter_stage.build(stage_phase, round_number, _basement_npc_texture(deps, round_number), phone_on_table, npc_stands)
+	_chapter_stage.build(stage_phase, round_number, phone_on_table, npc_stands)
 	_chapter_stage.decorate(int(deps.get("run_seed", 0)))
 	_sync_room_events(deps)
 	_chapter_stage.apply_room_state(deps.get("room_state", {}))
@@ -831,14 +835,6 @@ func _clear_chapter_stage() -> void:
 	_chapter_stage = null
 	_built_stage = ""
 	_built_round = 0
-
-
-## The round's NPC is drawn with the street's NPC portraits, one after another.
-func _basement_npc_texture(deps: Dictionary, round_number: int) -> Texture2D:
-	var paths: Array = deps.get("npc_character_paths", [])
-	if round_number <= 0 or paths.is_empty():
-		return null
-	return _load_texture(deps.get("load_texture", Callable()), str(paths[(round_number - 1) % paths.size()]))
 
 
 func _terminal_in_reach() -> bool:

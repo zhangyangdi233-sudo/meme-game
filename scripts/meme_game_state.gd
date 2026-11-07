@@ -39,6 +39,8 @@ const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、",
 ## Version 6 dropped daily actions, funds and the day settlement. An older save is refused and the host starts a new run.
 ## What a basement NPC says when the player finished the conversation without posting this round.
 const BASEMENT_NO_POST_LINE := "去电脑上拾字并投稿一句话，再回来告诉我。"
+## What the NPC behind the door says once its help opened the exit door (#129; an AI draft for the planner).
+const BASEMENT_HELPED_LINE := "我帮你离开这里。出口的门已经开了。"
 const SAVE_DATA_VERSION := 6
 ## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
@@ -1046,6 +1048,8 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 			return false
 		conversation_mode = ChapterOneProgressScript.LINEAR_CONVERSATION_MODE
 		conversation_turns = (route.get("turns", []) as Array).duplicate(true)
+		# The first word through the door quiets the knocking for the rest of the round (#129).
+		_step_chapter_one(ChapterOneProgressScript.talk_to_npc(chapter_one_progress))
 	else:
 		conversation_mode = "authored"
 		var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
@@ -1389,14 +1393,16 @@ func advance_typed_reality_character() -> Dictionary:
 	return result
 
 
-## The basement NPC's conversation was finished: an escape of the room may hold now. Without this round's post and
-## with the exit shut the NPC sends the player back to the computer.
+## The basement NPC's conversation was finished: an escape of the room may hold now. Once its help opened the exit
+## door the NPC says so; without this round's post and with the exit shut it sends the player back to the computer.
 func _deliver_basement_round() -> void:
 	var posted := has_posted_this_round()
 	_open_exit_if_escaped(posted)
-	if posted or ChapterOneProgressScript.exit_open(chapter_one_progress):
-		return
-	conversation_feedback += "\n" + GameLocaleScript.for_locale(conversation_locale).translate(BASEMENT_NO_POST_LINE)
+	var locale := GameLocaleScript.for_locale(conversation_locale)
+	if posted and ChapterOneProgressScript.door_open(chapter_one_progress):
+		conversation_feedback += "\n" + locale.translate(BASEMENT_HELPED_LINE)
+	elif not posted and not ChapterOneProgressScript.exit_open(chapter_one_progress):
+		conversation_feedback += "\n" + locale.translate(BASEMENT_NO_POST_LINE)
 
 
 ## Makes the objects of the room's escapes that hold its exits. Once open an exit stays open, whatever is posted later.

@@ -38,7 +38,7 @@ func _init() -> void:
 	test_round_one_opens_only_by_its_exit_rules()
 	test_an_escape_makes_its_object_the_exit()
 	test_each_exit_subject_names_its_own_object()
-	test_no_round_opens_by_the_post_and_the_npc()
+	test_only_rounds_two_and_four_open_by_the_npc_behind_the_door()
 	test_every_round_has_its_own_rules_and_more_than_one_way_out()
 	test_an_xray_escape_opens_its_object_once_seen()
 	test_round_five_hides_an_xray_way_out_at_the_clock()
@@ -180,14 +180,17 @@ func test_round_one_opens_only_by_its_exit_rules() -> void:
 	_assert_true(not _escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
 
 
-## #127: the standing NPCs are gone; every round opens by its own escapes, none by the post and a conversation.
-func test_no_round_opens_by_the_post_and_the_npc() -> void:
+## #127 / #129: nobody stands in the room any more. Rounds two and four keep someone behind the sealed door whose help
+## (this round's post and the conversation) opens the exit door; rounds one, three and five open by their own escapes only.
+func test_only_rounds_two_and_four_open_by_the_npc_behind_the_door() -> void:
 	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		var room: Dictionary = RoomContentScript.room(round_number)
-		_assert_true({"kind": "delivery"} not in room.get("escapes"), "round %d should not open by the post and the NPC (#127)" % round_number)
-		_assert_true(not RoomRulesScript.stands_npc(room), "round %d should stand no NPC" % round_number)
+		var behind_door := round_number in [2, 4]
+		_assert_eq({"kind": "delivery"} in room.get("escapes"), behind_door, "round %d's escapes by the NPC's help" % round_number)
+		_assert_eq(RoomRulesScript.stands_npc(room), behind_door, "round %d's NPC behind the door" % round_number)
 		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
-		_assert_true(not _escaped(room, {}, round_number, true), "a finished conversation should not open round %d" % round_number)
+		var helped := RoomRulesScript.open_exits(room, {}, round_number, true)
+		_assert_eq(helped, ["door"] if behind_door else [], "the NPC's help in round %d should open only the exit door" % round_number)
 
 
 ## Each round says something of its own besides the ways out, with words it drops itself, and offers at least two ways out.

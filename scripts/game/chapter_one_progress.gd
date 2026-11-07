@@ -7,6 +7,7 @@ extends RefCounted
 ## and the fifth round's exit leads to the white door passage. Walking into its light reaches the next level of `LEVEL_ORDER`.
 ## A round also records which of its room's one-shot events have started (`events`) and which of them the light switch
 ## ended (`ended`), so neither a save nor walking back replays one (#114); the next round starts with none.
+## It records too whether the player has talked to the round's NPC behind the door (`talked`), who knocks until then (#129).
 ## Every rule returns the next progress; a refused step returns the progress unchanged. `MemeGameState` keeps the
 ## dictionary in the `chapter_one_progress` model and saves it with the run.
 
@@ -42,6 +43,7 @@ const INITIAL := {
 	"exits": [],
 	"events": [],
 	"ended": [],
+	"talked": false,
 	"passage_to": "",
 }
 ## The things of a basement room a rule can make the way out (#144); `RoomContent` checks the room data against it and
@@ -89,6 +91,7 @@ static func normalize(raw: Variant) -> Dictionary:
 		progress["delivered"] = not progress["exits"].is_empty()
 		progress["events"] = _names(source.get("events", []))
 		progress["ended"] = _names(source.get("ended", [])).filter(func(event_id: String) -> bool: return event_id in progress["events"])
+		progress["talked"] = _is_true(source.get("talked", false))
 	elif phase == PHASE_PASSAGE:
 		var passage_to: Variant = source.get("passage_to", "")
 		var ahead := LEVEL_ORDER.find(passage_to) > LEVEL_ORDER.find(PHASE_BASEMENT)
@@ -244,6 +247,21 @@ static func ended_events(progress: Dictionary) -> Array:
 	return _names(progress.get("ended", []))
 
 
+## The player started talking to this round's NPC behind the door: from now on it no longer knocks. Outside the
+## basement nobody is there.
+static func talk_to_npc(progress: Dictionary) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT or talked_to_npc(progress):
+		return progress
+	var next := progress.duplicate(true)
+	next["talked"] = true
+	return next
+
+
+## Whether the player has talked to this round's NPC; false outside the basement.
+static func talked_to_npc(progress: Dictionary) -> bool:
+	return phase_of(progress) == PHASE_BASEMENT and _is_true(progress.get("talked", false))
+
+
 ## The player left by `exit_object`, one of this round's exits: the next round begins, or after the fifth the white
 ## door passage to the level `order` puts after the basement. Any other object, or no next level, holds.
 static func leave_round(progress: Dictionary, exit_object: String, order: Array = LEVEL_ORDER) -> Dictionary:
@@ -254,6 +272,7 @@ static func leave_round(progress: Dictionary, exit_object: String, order: Array 
 	next["exits"] = []
 	next["events"] = []
 	next["ended"] = []
+	next["talked"] = false
 	if round_of(progress) < BASEMENT_ROUND_COUNT:
 		next["round"] = round_of(progress) + 1
 		return next
@@ -302,6 +321,7 @@ static func _enter_level(progress: Dictionary, level: String) -> Dictionary:
 	next["exits"] = []
 	next["events"] = []
 	next["ended"] = []
+	next["talked"] = false
 	next["passage_to"] = ""
 	return next
 

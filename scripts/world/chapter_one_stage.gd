@@ -2,11 +2,12 @@ class_name ChapterOneStage
 extends Node3D
 ## Chapter one's stage behind the Reality scene adapter: the opening (black water, a white door 29.5 m ahead and
 ## the knock behind it), the passage between levels (the same water and door, no knock, walked into) or one basement
-## round (a room with the CRT terminal, the round's NPC when its room has one, and the seven things a rule can make the
-## way out: the exit door, the stairs, the TV, the tables, the chairs, the clock and the lamps), each from its imported
-## model. The models bring their own walls and ground colliders; this stage adds the spawn, the playable
-## bounds, the light, the doors and their colliders, the NPC, the CRT's glass and a small table where the phone lies
-## until the player owns it.
+## round (a room with the CRT terminal, the sealed door under the landing with the round's NPC behind it when its room
+## has one, and the seven things a rule can make the way out: the exit door, the stairs, the TV, the tables, the chairs,
+## the clock and the lamps), each from its imported model. The models bring their own walls and ground colliders; this
+## stage adds the spawn, the playable bounds, the light, the doors and their colliders, the sealed door, the NPC, the
+## CRT's glass and a small table where the phone lies until the player owns it. The NPC behind the door is never seen; it
+## knocks, a few seconds at a time, until the player first talks to it (#129).
 ## A basement's lamps, hum and room objects (its clocks, the scattered chairs, the sunken screens) follow the round's room
 ## state, and the round's one-shot events play here (#114): the stage starts each on its trigger once its delay has
 ## passed on a clock the adapter holds while the world is held, plays its cue, and the wall switch ends the ones it can.
@@ -68,9 +69,36 @@ const ENTRY_SEAL_Z := -1.22
 const EXIT_DOORWAY := Vector3(-3.2, 0.0, -3.43)
 const EXIT_DOORWAY_HALF_WIDTH := 0.53
 const EXIT_WALKED_OUT_X := -3.45
-## The round's NPC stands at the model's NPC anchor, behind the partition, facing the room.
-const BASEMENT_NPC_POSITION := Vector3(0.0, 0.02, -3.7)
+## The sealed door under the stair landing, facing the room (+X): taped shut, it never opens and answers no F of its own.
+## A stand-in built here until the v3b model brings `StairCloset_Door` (#128): the closet's front panel, the leaf, a
+## knob and tape across the gaps. Its center is the v3b door's (Blender (-1.846, 2.01, 0.97)).
+const SEALED_DOOR_FACE_X := -1.846
+const SEALED_DOOR_CENTER := Vector3(-1.831, 0.97, -2.01)
+const SEALED_DOOR_LEAF_SIZE := Vector3(0.03, 1.9, 0.7)
+## The closet's front under the landing, from the rear wall to the landing's edge.
+const SEALED_CLOSET_FRONT_CENTER := Vector3(-1.861, 1.225, -2.025)
+const SEALED_CLOSET_FRONT_SIZE := Vector3(0.03, 2.45, 0.95)
+const SEALED_DOOR_COLOR := Color(0.47, 0.45, 0.39)
+const SEALED_CLOSET_COLOR := Color(0.36, 0.34, 0.3)
+const SEALED_DOOR_TAPE_COLOR := Color(0.4, 0.41, 0.4)
+## The tape strips across the leaf's edges and over it: their center on the leaf (along Z, up Y), length and tilt.
+const SEALED_DOOR_TAPE := [
+	[Vector2(0.33, 1.6), 0.36, 1.45], [Vector2(0.33, 0.9), 0.32, 1.7], [Vector2(0.33, 0.3), 0.38, 1.5],
+	[Vector2(-0.33, 1.5), 0.34, 1.65], [Vector2(-0.33, 0.6), 0.3, 1.4],
+	[Vector2(0.0, 1.88), 0.5, 0.15], [Vector2(0.0, 0.06), 0.44, -0.1],
+	[Vector2(0.0, 1.05), 1.15, 0.62], [Vector2(0.02, 0.95), 1.2, -0.58],
+]
+## The round's NPC is behind the sealed door, at the v3b model's StairClosetDoorAnchor on the floor: F in front of the
+## door talks to it.
+const BASEMENT_NPC_POSITION := Vector3(-1.8, 0.02, -2.01)
 const BASEMENT_NPC_HEIGHT := 1.75
+## The knocking from behind the sealed door: the recording (#143) is played a piece of `DOOR_KNOCK_SECONDS` at a time,
+## the next piece after a pause, round and round.
+const DOOR_KNOCK_PATH := "res://assets/audio/sfx/sealed_door_knock_altfuture.ogg"
+const DOOR_KNOCK_SECONDS := 3.0
+const DOOR_KNOCK_PAUSE_SECONDS := 5.0
+const DOOR_KNOCK_PIECES := 3
+const DOOR_KNOCK_HEIGHT := 1.0
 ## The small table against the east wall, between the stairs and the CRT: its center on the floor and its size. The
 ## model has none, so it is built from boxes.
 const TABLE_POSITION := Vector3(2.55, 0.0, 0.6)
@@ -169,6 +197,12 @@ var _knock_reported := false
 var _paused := false
 var _round := 0
 var _npc: Area3D
+## The knocking behind the sealed door, whether the NPC still knocks (nobody has talked to it yet), how long it has
+## knocked, and the last cycle whose piece was started.
+var _door_knock: AudioStreamPlayer3D
+var _door_knocking := false
+var _door_knock_clock := 0.0
+var _door_knock_cycle := -1
 var _entry_door: Node3D
 var _exit_door: Node3D
 ## Door open ratios (0 shut, 1 open) and where each is swinging to.
@@ -222,9 +256,9 @@ var _sounds_held := false
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
-## built for its round, with that round's NPC shown by `npc_texture` unless `npc_stands` is false, and the phone on the
+## built for its round, with that round's NPC behind the sealed door unless `npc_stands` is false, and the phone on the
 ## table while nobody owns it.
-func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = null, phone_on_table: bool = false, npc_stands: bool = true) -> bool:
+func build(stage_phase: String, round_number: int = 0, phone_on_table: bool = false, npc_stands: bool = true) -> bool:
 	phase = stage_phase
 	_round = round_number
 	if phase == ChapterOneProgressScript.PHASE_OPENING:
@@ -232,7 +266,7 @@ func build(stage_phase: String, round_number: int = 0, npc_texture: Texture2D = 
 	if phase == ChapterOneProgressScript.PHASE_PASSAGE:
 		return _build_door_world()
 	if phase == ChapterOneProgressScript.PHASE_BASEMENT:
-		return _build_basement(npc_texture, phone_on_table, npc_stands)
+		return _build_basement(phone_on_table, npc_stands)
 	push_error("ChapterOneStage has no stage for phase '%s'" % phase)
 	return false
 
@@ -268,7 +302,7 @@ func door_position() -> Vector3:
 	return OPENING_DOOR_CENTER
 
 
-## The basement round's NPC, or none outside the basement.
+## The basement round's NPC behind the sealed door, or none outside the basement or in a round without one.
 func interactable_actors() -> Array[Area3D]:
 	var actors: Array[Area3D] = []
 	if _npc != null:
@@ -346,10 +380,14 @@ func clamp_to_playable_position(position: Vector3, inset: float = 0.0) -> Vector
 
 
 ## Starts the knock once its line is reached; a knock already heard, or already started in this stage, is not replayed.
+## The NPC behind the sealed door knocks until the player has talked to it.
 func sync_progress(progress: Dictionary) -> void:
 	# The exit door is locked until the door is one of the round's exits (the rule, or the NPC's help).
 	if _exit_door != null and ChapterOneProgressScript.door_open(progress):
 		_exit_target = 1.0
+	_door_knocking = _npc != null and not ChapterOneProgressScript.talked_to_npc(progress)
+	if not _door_knocking and _door_knock != null:
+		_door_knock.stop()
 	if _knock == null or _paused or _knock_started:
 		return
 	if not ChapterOneProgressScript.knock_due(progress):
@@ -493,11 +531,34 @@ func screen_color() -> Color:
 	return _screen_color
 
 
-## Opening settings holds the knock where it is.
+## Moves the knocking behind the sealed door on by `delta`: each cycle plays the next piece of the recording for
+## `DOOR_KNOCK_SECONDS`, then pauses for `DOOR_KNOCK_PAUSE_SECONDS`. Open settings hold it; once the NPC has been
+## talked to it stays quiet.
+func advance_door_knock(delta: float) -> void:
+	if _door_knock == null or _paused:
+		return
+	if not _door_knocking:
+		_door_knock.stop()
+		return
+	_door_knock_clock += maxf(delta, 0.0)
+	var cycle_seconds := DOOR_KNOCK_SECONDS + DOOR_KNOCK_PAUSE_SECONDS
+	var cycle := int(_door_knock_clock / cycle_seconds)
+	var into := fmod(_door_knock_clock, cycle_seconds)
+	if into >= DOOR_KNOCK_SECONDS:
+		_door_knock.stop()
+	elif cycle != _door_knock_cycle and _door_knock.stream != null:
+		# Each cycle knocks once: a piece that ends before its time is not started again.
+		_door_knock_cycle = cycle
+		_door_knock.play(float(cycle % DOOR_KNOCK_PIECES) * DOOR_KNOCK_SECONDS + into)
+
+
+## Opening settings holds the knock and the knocking behind the sealed door where they are.
 func set_paused(paused: bool) -> void:
 	_paused = paused
 	if _knock != null:
 		_knock.stream_paused = paused
+	if _door_knock != null:
+		_door_knock.stream_paused = paused
 	_hold_sounds(paused)
 
 
@@ -541,10 +602,12 @@ func _build_door_world() -> bool:
 	return true
 
 
-## Swings the basement doors toward where they are going; open settings holds them.
+## Swings the basement doors toward where they are going and lets the NPC behind the sealed door knock; open
+## settings holds them.
 func _process(delta: float) -> void:
 	if _paused:
 		return
+	advance_door_knock(delta)
 	var step := maxf(delta, 0.0) / BASEMENT_DOOR_SECONDS
 	if _entry_door != null and _entry_ratio != _entry_target:
 		_entry_ratio = move_toward(_entry_ratio, _entry_target, step)
@@ -554,15 +617,16 @@ func _process(delta: float) -> void:
 		_swing(_exit_door, _exit_ratio)
 
 
-func _build_basement(npc_texture: Texture2D, phone_on_table: bool, npc_stands: bool) -> bool:
+func _build_basement(phone_on_table: bool, npc_stands: bool) -> bool:
 	if not _instance_model(BASEMENT_MODEL_PATH, "BasementRoom"):
 		return false
 	_entry_door = _bind_basement_door(ENTRY_DOOR_PIVOT)
 	_exit_door = _bind_basement_door(EXIT_DOOR_PIVOT)
 	_swing(_entry_door, _entry_ratio)
 	_swing(_exit_door, _exit_ratio)
+	_build_sealed_door()
 	if npc_stands:
-		_build_npc(npc_texture)
+		_build_npc()
 	_build_table(phone_on_table)
 	_bounds = BASEMENT_BOUNDS
 	_spawn = BASEMENT_SPAWN
@@ -1065,7 +1129,8 @@ func _swing(door: Node3D, ratio: float) -> void:
 		door.rotation_degrees.y = BASEMENT_DOOR_OPEN_DEGREES * clampf(ratio, 0.0, 1.0)
 
 
-func _build_npc(npc_texture: Texture2D) -> void:
+## The round's NPC behind the sealed door: an actor to talk to through it, never seen, and the knocking it makes.
+func _build_npc() -> void:
 	var route: Dictionary = LanguageCorruptionContentScript.get_basement_route(_round)
 	if route.is_empty():
 		push_error("Basement round %d has no NPC" % _round)
@@ -1086,18 +1151,66 @@ func _build_npc(npc_texture: Texture2D) -> void:
 	collision.shape = capsule
 	collision.position.y = BASEMENT_NPC_HEIGHT * 0.5
 	_npc.add_child(collision)
-	var sprite := Sprite3D.new()
-	sprite.name = "Billboard"
-	sprite.texture = npc_texture
-	if npc_texture != null:
-		sprite.pixel_size = BASEMENT_NPC_HEIGHT / maxf(1.0, float(npc_texture.get_height()))
-	sprite.position.y = BASEMENT_NPC_HEIGHT * 0.5
-	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	sprite.double_sided = true
-	_npc.add_child(sprite)
 	add_child(_npc)
+	_door_knock = AudioStreamPlayer3D.new()
+	_door_knock.name = "SealedDoorKnock"
+	_door_knock.stream = load(DOOR_KNOCK_PATH) as AudioStream
+	if _door_knock.stream == null:
+		push_error("The sealed door's knocking did not load: %s" % DOOR_KNOCK_PATH)
+	_door_knock.position = BASEMENT_NPC_POSITION + Vector3(0.0, DOOR_KNOCK_HEIGHT, 0.0)
+	_door_knock.unit_size = 4.0
+	_door_knock.volume_db = -4.0
+	# Heard through the door: the farther the player, the more muffled.
+	_door_knock.attenuation_filter_cutoff_hz = 1200.0
+	_door_knock.attenuation_filter_db = -18.0
+	add_child(_door_knock)
+
+
+## The stand-in sealed door under the stair landing (#128 brings the model's): the closet's front panel, the leaf, its
+## knob and the tape over it. The panel holds the player out from under the landing; nothing opens it.
+func _build_sealed_door() -> void:
+	var sealed_door := Node3D.new()
+	sealed_door.name = "SealedDoor"
+	var front := StaticBody3D.new()
+	front.name = "ClosetFront"
+	front.position = SEALED_CLOSET_FRONT_CENTER
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = SEALED_CLOSET_FRONT_SIZE
+	shape.shape = box
+	front.add_child(shape)
+	front.add_child(_box_mesh("Panel", SEALED_CLOSET_FRONT_SIZE, Vector3.ZERO, _flat_material(SEALED_CLOSET_COLOR)))
+	sealed_door.add_child(front)
+	sealed_door.add_child(_box_mesh("Leaf", SEALED_DOOR_LEAF_SIZE, SEALED_DOOR_CENTER, _flat_material(SEALED_DOOR_COLOR)))
+	var knob := MeshInstance3D.new()
+	knob.name = "Knob"
+	var knob_mesh := SphereMesh.new()
+	knob_mesh.radius = 0.028
+	knob_mesh.height = 0.056
+	knob.mesh = knob_mesh
+	knob.position = Vector3(SEALED_DOOR_FACE_X + 0.065, 1.02, -2.29)
+	knob.material_override = _flat_material(Color(0.62, 0.5, 0.25))
+	sealed_door.add_child(knob)
+	var tape := _flat_material(SEALED_DOOR_TAPE_COLOR)
+	var face_x := SEALED_DOOR_FACE_X + 0.032
+	for index in SEALED_DOOR_TAPE.size():
+		var spec: Array = SEALED_DOOR_TAPE[index]
+		var at: Vector2 = spec[0]
+		var strip := _box_mesh("Tape%d" % index, Vector3(0.002, float(spec[1]), 0.048), Vector3(face_x + 0.001 * (index % 3), at.y, SEALED_DOOR_CENTER.z + at.x), tape)
+		strip.rotation.x = float(spec[2])
+		sealed_door.add_child(strip)
+	add_child(sealed_door)
+
+
+func _box_mesh(node_name: String, size: Vector3, at: Vector3, material: Material) -> MeshInstance3D:
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = node_name
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh_instance.mesh = mesh
+	mesh_instance.position = at
+	mesh_instance.material_override = material
+	return mesh_instance
 
 
 func _build_table(phone_on_table: bool) -> void:

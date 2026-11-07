@@ -58,6 +58,9 @@ func _run() -> void:
 	await _test_the_tower_street_still_builds_without_chapter_progress()
 	await _test_each_round_stands_its_npc_in_reach()
 	await _test_a_round_without_its_npc_stands_nobody()
+	await _test_the_npc_behind_the_sealed_door_knocks_until_first_talked_to()
+	await _test_a_save_keeps_the_knocking_of_each_round()
+	await _test_the_sealed_door_never_opens()
 	await _test_the_entry_door_shuts_behind_the_player()
 	await _test_the_exit_opens_once_delivered_and_walking_out_is_reported()
 	await _test_the_exit_door_stays_locked_while_another_object_is_the_exit()
@@ -314,7 +317,7 @@ func _test_each_round_stands_its_npc_in_reach() -> void:
 		adapter.refresh_nearby_actor(_deps(progress))
 		_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "round %d's NPC should be out of reach from the stairs" % round_number)
 		var npc: Vector3 = adapter.chapter_npc_position()
-		adapter.player.position = Vector3(npc.x, adapter.player.position.y, npc.z + 1.2)
+		adapter.player.position = Vector3(npc.x + 1.2, 0.05, npc.z)
 		adapter.refresh_nearby_actor(_deps(progress))
 		var nearby: Dictionary = adapter.nearby_outcome()
 		_assert_eq(str(nearby.get("action")), "converse", "round %d's NPC should answer in reach" % round_number)
@@ -336,6 +339,90 @@ func _test_a_round_without_its_npc_stands_nobody() -> void:
 	adapter.player.position = Vector3(0.0, adapter.player.position.y, -2.5)
 	adapter.refresh_nearby_actor(deps)
 	_assert_eq(str(adapter.nearby_outcome().get("kind")), "none", "nothing should answer where the NPC would stand")
+	await _free(adapter)
+
+
+## #129: rounds that keep someone behind the sealed door under the landing hear them knock: a few seconds of pounding,
+## a pause, again, until the player first talks to them. Nobody is ever seen; settings hold the knocking.
+func _test_the_npc_behind_the_sealed_door_knocks_until_first_talked_to() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	var adapter = await _adapter(progress)
+	adapter.ensure_floor_current(_deps(progress))
+	var stage := adapter.get_parent().find_child("ChapterOneStage", true, false) as ChapterOneStage
+	var knock := adapter.get_parent().find_child("SealedDoorKnock", true, false) as AudioStreamPlayer3D
+	_assert_true(knock != null and knock.stream != null, "the sealed door should carry the knocking")
+	_assert_true(adapter.get_parent().find_child("SealedDoor", true, false) != null, "the sealed door should stand under the landing")
+	var behind := adapter.get_parent().find_child("BasementNPC", true, false) as Node3D
+	_assert_true(behind != null and behind.find_children("*", "VisualInstance3D", true, false).is_empty(), "the one behind the door should never be seen")
+	var npc: Vector3 = adapter.chapter_npc_position()
+	_assert_true(Vector2(knock.global_position.x - npc.x, knock.global_position.z - npc.z).length() < 0.3, "the knocking should come from where the NPC is")
+	_assert_true(npc.x < -1.7 and npc.z < -1.5 and npc.z > -2.5, "the NPC should be behind the door under the landing: %s" % str(npc))
+	var cycle := ChapterOneStage.DOOR_KNOCK_SECONDS + ChapterOneStage.DOOR_KNOCK_PAUSE_SECONDS
+	_knock_at(stage, cycle * 3.0 + 0.2)
+	_assert_true(knock.playing, "the NPC should knock at the start of a cycle")
+	stage.advance_door_knock(ChapterOneStage.DOOR_KNOCK_SECONDS)
+	_assert_true(not knock.playing, "the knocking should pause after a few seconds")
+	stage.advance_door_knock(cycle - ChapterOneStage.DOOR_KNOCK_SECONDS)
+	_assert_true(knock.playing, "the knocking should come back after the pause")
+	# A 3D player registers its playback on the next physics frame; only then can it be paused.
+	await physics_frame
+	await physics_frame
+	adapter.set_paused(true)
+	_assert_true(knock.stream_paused, "open settings should hold the knocking where it is")
+	adapter.set_paused(false)
+	_assert_true(not knock.stream_paused, "closing settings should let the knocking go on")
+	var talked := ProgressScript.talk_to_npc(progress)
+	adapter.ensure_floor_current(_deps(talked))
+	_assert_true(not knock.playing, "talking to the NPC should stop the knocking at once")
+	_knock_at(stage, cycle * 2.0 + 0.2)
+	_assert_true(not knock.playing, "after the first talk the door should stay quiet")
+	await _free(adapter)
+	var nobody := ProgressScript.jump_to_round(ProgressScript.initial(), 3)
+	var deps := _deps(nobody)
+	deps["basement_npc_stands"] = false
+	var quiet = await _adapter_with(deps)
+	quiet.ensure_floor_current(deps)
+	_assert_true(quiet.get_parent().find_child("SealedDoorKnock", true, false) == null, "a round with nobody behind the door should not knock")
+	_assert_true(quiet.get_parent().find_child("SealedDoor", true, false) != null, "the sealed door should stand in every round")
+	await _free(quiet)
+
+
+## A save brings each round back as it was: a round not talked to yet goes on knocking, one talked to stays quiet.
+func _test_a_save_keeps_the_knocking_of_each_round() -> void:
+	var cycle := ChapterOneStage.DOOR_KNOCK_SECONDS + ChapterOneStage.DOOR_KNOCK_PAUSE_SECONDS
+	for round_number: int in [2, 4]:
+		var fresh := ProgressScript.normalize(ProgressScript.jump_to_round(ProgressScript.initial(), round_number))
+		var adapter = await _adapter(fresh)
+		adapter.ensure_floor_current(_deps(fresh))
+		var stage := adapter.get_parent().find_child("ChapterOneStage", true, false) as ChapterOneStage
+		_knock_at(stage, cycle + 0.2)
+		_assert_true((adapter.get_parent().find_child("SealedDoorKnock", true, false) as AudioStreamPlayer3D).playing, "a loaded round %d not talked to should knock" % round_number)
+		await _free(adapter)
+		var talked := ProgressScript.normalize(ProgressScript.talk_to_npc(fresh))
+		adapter = await _adapter(talked)
+		adapter.ensure_floor_current(_deps(talked))
+		stage = adapter.get_parent().find_child("ChapterOneStage", true, false) as ChapterOneStage
+		_knock_at(stage, cycle + 0.2)
+		_assert_true(not (adapter.get_parent().find_child("SealedDoorKnock", true, false) as AudioStreamPlayer3D).playing, "a loaded round %d talked to should stay quiet" % round_number)
+		await _free(adapter)
+
+
+## The door under the landing never opens: in front of it F talks to the one behind it, even once the exit door is open.
+func _test_the_sealed_door_never_opens() -> void:
+	var progress := ProgressScript.deliver(ProgressScript.talk_to_npc(ProgressScript.jump_to_round(ProgressScript.initial(), 4)), ["door"])
+	var adapter = await _adapter(progress)
+	adapter.ensure_floor_current(_deps(progress))
+	var sealed := adapter.get_parent().find_child("SealedDoor", true, false) as Node3D
+	var before := sealed.global_transform
+	var npc: Vector3 = adapter.chapter_npc_position()
+	adapter.player.position = Vector3(npc.x + 0.35, 0.05, npc.z + 0.5)
+	adapter.refresh_nearby_actor(_deps(progress))
+	_assert_eq(str(adapter.nearby_outcome().get("action")), "converse", "in front of the sealed door F should talk to the one behind it")
+	for frame in 90:
+		await process_frame
+	_assert_true(sealed.global_transform.is_equal_approx(before), "the sealed door should never move")
+	var exit_door := adapter.get_parent().find_child("ExitDoorPivot", true, false) as Node3D
+	_assert_true(absf(exit_door.rotation_degrees.y) > 45.0, "the NPC's help should open the exit door instead")
 	await _free(adapter)
 
 
@@ -526,7 +613,7 @@ func _test_a_new_round_starts_again_at_the_top_of_the_stairs() -> void:
 	var restarted: Vector3 = adapter.pose().get("player_position")
 	_assert_true(restarted.distance_to(spawn) < 0.01, "the next round should start at the top of the stairs: %s" % str(restarted))
 	var npc: Vector3 = adapter.chapter_npc_position()
-	adapter.player.position = Vector3(npc.x, adapter.player.position.y, npc.z + 1.2)
+	adapter.player.position = Vector3(npc.x + 1.2, 0.05, npc.z)
 	adapter.refresh_nearby_actor(_deps(next))
 	_assert_eq(str(adapter.nearby_outcome().get("actor_label")), "迟到者", "the next round should stand the next NPC")
 	var entry := adapter.get_parent().find_child("EntryDoorPivot", true, false) as Node3D
@@ -684,6 +771,11 @@ func _basement() -> Dictionary:
 func _look_direction(pose: Dictionary) -> Vector3:
 	var look := Basis.from_euler(Vector3(deg_to_rad(float(pose.get("pitch"))), deg_to_rad(float(pose.get("yaw"))), 0.0))
 	return look * Vector3.FORWARD
+
+
+## Moves the stage's knocking clock on by `seconds` in one step; the frames awaited so far add only a little.
+func _knock_at(stage: ChapterOneStage, seconds: float) -> void:
+	stage.advance_door_knock(seconds)
 
 
 func _free(adapter) -> void:

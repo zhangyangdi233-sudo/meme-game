@@ -1,6 +1,6 @@
 extends SceneTree
-## In the main scene the basement is played in five rounds. No authored round stands an NPC (#127); in a room that
-## declares one (the fixture kept for the NPC behind the door, #129) F at the round's NPC starts its one route, text keys type
+## In the main scene the basement is played in five rounds. Rounds two and four keep an NPC behind the sealed door
+## (#129); here the fixture whose rounds two to five all keep theirs is played: F at the round's NPC starts its one route, text keys type
 ## the player's line (arrows and held repeats do not), each reply plays out by itself and the last ends the
 ## conversation. With this round's post the exit opens and walking out starts the next round at the top of the
 ## stairs; the fifth exit leads to the white door passage, and walking into the light ends on the demo's end screen in
@@ -86,7 +86,7 @@ func _test_f9_shows_the_debug_panel_and_jumps_to_a_round(game_root) -> void:
 	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 2})
 	await process_frame
 	await process_frame
-	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "round two should stand no NPC either (#127)")
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "round two should keep its NPC behind the door (#129)")
 	await _stand_npcs(game_root, 2)
 	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "a room declaring the NPC's help should stand its NPC")
 
@@ -329,7 +329,8 @@ func _walk_into_the_light(game_root) -> void:
 func _talk_to_the_npc(game_root) -> void:
 	var adapter = game_root._reality_scene_adapter
 	var npc: Vector3 = adapter.chapter_npc_position()
-	adapter.player.position = Vector3(npc.x, 0.1, npc.z + 1.2)
+	# In front of the sealed door, between the stairs and the Windsor chair.
+	adapter.player.position = Vector3(npc.x + 0.35, 0.1, npc.z + 0.5)
 	adapter.player.velocity = Vector3.ZERO
 	for frame in 6:
 		await physics_frame

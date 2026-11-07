@@ -27,7 +27,8 @@ func _init() -> void:
 	test_a_debug_jump_forgets_the_rooms_rules()
 	test_a_rule_that_is_no_way_out_leaves_the_round_shut()
 	test_round_one_opens_by_an_exit_rule_without_an_npc()
-	test_no_later_round_stands_an_npc()
+	test_only_rounds_two_and_four_open_by_the_npcs_help()
+	test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so()
 	test_the_xray_shows_round_fives_way_out_at_the_clock()
 	test_each_round_voids_the_way_out_the_last_one_used()
 	test_an_exit_rule_makes_its_object_the_way_out()
@@ -135,20 +136,44 @@ func test_round_one_opens_by_an_exit_rule_without_an_npc() -> void:
 	_post(game, ["门", "是", "出", "口"])
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "门是出口 should open round one")
 	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
-	_assert_true(not game.basement_npc_stands(), "round two should stand no NPC either (#127)")
+	_assert_true(game.basement_npc_stands(), "round two should keep its NPC behind the door (#129)")
 	game.skip_chapter_one()
 	_assert_true(not game.basement_npc_stands(), "the tower stands no basement NPC")
 
 
-## #127: the standing NPCs are gone; no round opens by a post and a conversation.
-func test_no_later_round_stands_an_npc() -> void:
+## #129: rounds two and four keep their NPC behind the door, whose help (this round's post, then the conversation)
+## opens the exit door; rounds three and five have nobody, and a conversation opens nothing there.
+func test_only_rounds_two_and_four_open_by_the_npcs_help() -> void:
 	var game := _basement()
 	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_true(game.jump_to_basement_round(round_number), "setup should reach round %d" % round_number)
-		_assert_true(not game.basement_npc_stands(), "round %d should stand no NPC" % round_number)
+		var behind_door := round_number in [2, 4]
+		_assert_eq(game.basement_npc_stands(), behind_door, "round %d's NPC behind the door" % round_number)
 		_post(game, ["我", "是", "你"])
 		_finish_conversation_with(game, round_number)
-		_assert_true(not ProgressScript.exit_open(game.chapter_one_progress), "a post and a conversation should not open round %d" % round_number)
+		_assert_eq(game.basement_exits(), ["door"] if behind_door else [], "the NPC's help in round %d should open only the exit door" % round_number)
+
+
+## #129: the first word to the one behind the door is recorded at once, so the knocking stops; finished with this
+## round's post, the NPC says they will help the player out, and the exit door opens.
+func test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so() -> void:
+	var game := _basement()
+	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
+	_assert_true(not ProgressScript.talked_to_npc(game.chapter_one_progress), "nobody should have talked to round two's NPC yet")
+	_assert_true(game.start_typed_reality_conversation("basement_npc_2", "basement_npc", "迟到者"), "the NPC behind the door should talk")
+	_assert_true(ProgressScript.talked_to_npc(game.chapter_one_progress), "starting the conversation should record the talk")
+	game.end_typed_reality_conversation()
+	_assert_true(ProgressScript.talked_to_npc(game.chapter_one_progress), "leaving the conversation early should keep the talk")
+	_finish_conversation_with(game, 2)
+	_assert_true(game.conversation_feedback.ends_with(StateScript.BASEMENT_NO_POST_LINE), "without a post the NPC should send the player to the computer")
+	_assert_true(not game.conversation_feedback.contains(StateScript.BASEMENT_HELPED_LINE), "without a post the NPC should not help yet")
+	game.end_typed_reality_conversation()
+	_post(game, ["我", "是", "你"])
+	_finish_conversation_with(game, 2)
+	_assert_true(game.conversation_feedback.ends_with(StateScript.BASEMENT_HELPED_LINE), "with this round's post the NPC should say they will help the player out")
+	_assert_eq(game.basement_exits(), ["door"], "the NPC's help should open the exit door")
+	_assert_true(game.leave_basement_round("door"), "the exit door should lead on")
+	_assert_true(not ProgressScript.talked_to_npc(game.chapter_one_progress), "round three should start with nobody talked to")
 
 
 ## #127 / #142 Q1: the X-ray works from the start, unannounced. Round five's clock seen through it is a way out with no

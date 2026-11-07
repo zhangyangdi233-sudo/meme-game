@@ -43,6 +43,7 @@
       "words": {"zh": ["声", "音", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["voice_here", "voice_gone", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
       "escapes": [
+        {"kind": "delivery"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "rule", "rule": "clock_exit"},
@@ -77,6 +78,7 @@
       "words": {"zh": ["名", "字", "留", "下", "是", "出", "口", "不", "没", "我", "你"], "ja": [], "en": []},
       "rules": ["name_stays", "name_leaves", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
       "escapes": [
+        {"kind": "delivery"},
         {"kind": "rule", "rule": "tv_exit"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},

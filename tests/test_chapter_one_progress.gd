@@ -38,6 +38,7 @@ func _run() -> void:
 	test_the_debug_jump_lands_on_a_fresh_round()
 	test_a_rounds_one_shot_events_are_recorded_once()
 	test_a_rounds_events_survive_a_save_and_start_over_next_round()
+	test_talking_to_the_npc_is_recorded_per_round()
 	if _failures.is_empty():
 		print("chapter one progress tests passed")
 		quit(0)
@@ -345,6 +346,23 @@ func test_a_rounds_events_survive_a_save_and_start_over_next_round() -> void:
 	_assert_eq(ProgressScript.started_events(next), [], "the next round should start with no events")
 	_assert_eq(ProgressScript.ended_events(next), [], "the next round should start with nothing ended")
 	_assert_eq(ProgressScript.started_events(ProgressScript.jump_to_round(started, 3)), [], "a jump should start the round's events over")
+
+
+## The one behind the door knocks until the player first talks to them (#129); each round is its own, and a save keeps it.
+func test_talking_to_the_npc_is_recorded_per_round() -> void:
+	var round_two := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	_assert_true(not ProgressScript.talked_to_npc(round_two), "a fresh round should not have talked to its NPC")
+	var talked := ProgressScript.talk_to_npc(round_two)
+	_assert_true(ProgressScript.talked_to_npc(talked), "talking should be recorded")
+	_assert_eq(ProgressScript.talk_to_npc(talked), talked, "talking again should change nothing")
+	_assert_true(ProgressScript.talked_to_npc(ProgressScript.normalize(talked)), "a save should keep the talk")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.normalize(round_two)), "a save should keep a round not talked to")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.normalize(_with(round_two, "talked", "yes"))), "a broken talk should read as none")
+	var next := ProgressScript.leave_round(ProgressScript.deliver(talked, ["door"]), "door")
+	_assert_true(not ProgressScript.talked_to_npc(next), "the next round should start with nobody talked to")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.jump_to_round(talked, 2)), "a jump should start the round fresh")
+	_assert_eq(ProgressScript.talk_to_npc(ProgressScript.initial()), ProgressScript.initial(), "outside the basement nobody is talked to")
+	_assert_true(not ProgressScript.talked_to_npc(_with(ProgressScript.initial(), "talked", true)), "outside the basement nobody has been talked to")
 
 
 func _at_line(line_index: int) -> Dictionary:
