@@ -70,11 +70,7 @@ const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backd
 ## The narrow tab on the right edge that slides the phone in and out.
 const PHONE_EDGE_TAB_SIZE := Vector2(24.0, 112.0)
 const GUIDE_DOLL_CHARACTER_PATH := "res://assets/generated/characters/guide_doll.png"
-const NPC_CHARACTER_PATHS := [
-	"res://assets/generated/characters/npc_late_arrival.png",
-	"res://assets/generated/characters/npc_echo_tenant.png",
-	"res://assets/generated/characters/npc_archive_witness.png",
-]
+const NPC_CHARACTER_PATHS := NpcPortraits.PORTRAIT_PATHS
 const HUD_POLLUTION_ICON_PATH := "res://assets/generated/ui/hud_pollution_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
 const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"

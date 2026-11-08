@@ -129,13 +129,12 @@ const LIGHTS := {
 }
 
 
-## Fixed tints that no palette changes: sprites, the disc path glow and the face scribble ink.
+## Fixed tints that no palette changes: sprites and the disc path glow.
 const TINTS := {
 	"claimed_doll": Color(0.82, 0.90, 0.82, 1.0),
 	"cover_watcher": Color(0.76, 0.86, 0.58, 0.92),
 	"distant_mirage": Color(0.82, 0.92, 0.64, 1.0),
 	"disc_path_glow": Color("28453A"),
-	"face_scribble_ink": Color("020202"),
 }
 ## Grass blades cycle through this many brightness shades.
 const GRASS_BLADE_SHADES := 6

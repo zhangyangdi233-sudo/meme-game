@@ -24,10 +24,9 @@ func _run_async() -> void:
 func _run() -> void:
 	var vhs_source := FileAccess.get_file_as_string("res://shaders/vhs_screen.gdshader")
 	_assert_true(vhs_source.contains("black_ink_guard"), "VHS post-processing should preserve fully opaque black face scribbles")
-	var scribble_source := FileAccess.get_file_as_string("res://shaders/npc_face_scribble_overlay.gdshader")
-	_assert_true(scribble_source.contains("ALBEDO = ink_color.rgb") and scribble_source.contains("ALPHA = opaque_ink"), "face scribble shader should output only black marker pixels and transparent background")
-	_assert_true(scribble_source.contains("texture(character_texture, UV).a"), "face scribble overlay should read the character only for alpha alignment")
-	_assert_true(not scribble_source.contains("mix(base") and not scribble_source.contains("body_tint"), "face scribble overlay must never darken or recolor the source portrait")
+	var cover_source := FileAccess.get_file_as_string("res://shaders/npc_face_cover.gdshader")
+	_assert_true(cover_source.contains("toward_camera"), "the chalk cover should be pushed toward the camera so it draws in front of the face")
+	_assert_true(not cover_source.contains("character_texture"), "the chalk cover must never sample or recolor the source portrait")
 	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
 	_assert_true(scene != null, "reality world test should load the main scene")
 	if scene == null:
@@ -557,7 +556,7 @@ func _assert_actor_face_veil(actor: Area3D, billboard: Sprite3D, actor_label: St
 	var portrait_world_height := float(actor.get_meta("portrait_world_height", 0.0))
 	var camera_eye_height := float(actor.get_meta("camera_eye_height", 0.0))
 	var face_center_world_y := float(actor.get_meta("face_center_world_y", 99.0))
-	_assert_near(portrait_world_height, 1.90, 0.01, "%s should share one compact cartoon portrait height" % actor_label)
+	_assert_true(portrait_world_height > 1.6 and portrait_world_height < 2.0, "%s should stay a compact cartoon portrait (got %s)" % [actor_label, portrait_world_height])
 	_assert_near(billboard.position.y - portrait_world_height * 0.5, 0.0, 0.01, "%s portrait should meet the ground instead of floating" % actor_label)
 	_assert_near(face_center_world_y, camera_eye_height, 0.08, "%s blank face should remain level with the first-person camera" % actor_label)
 	_assert_eq(billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "%s character layer should always face the active camera" % actor_label)
@@ -571,35 +570,24 @@ func _assert_actor_face_veil(actor: Area3D, billboard: Sprite3D, actor_label: St
 	if overlay == null:
 		return
 	_assert_true(bool(overlay.get_meta("separate_face_effect", false)), "%s handwriting node should identify itself as a separate effect layer" % actor_label)
-	_assert_true(overlay.texture == billboard.texture, "%s overlay should share the original canvas only for exact face alignment" % actor_label)
-	_assert_eq(overlay.position, billboard.position, "%s overlay should remain registered over the original portrait" % actor_label)
-	_assert_eq(overlay.scale, billboard.scale, "%s overlay should preserve the original portrait proportions" % actor_label)
-	_assert_eq(overlay.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "%s handwriting layer should always face the same camera as the character" % actor_label)
-	_assert_true(not overlay.shaded, "%s handwriting should remain opaque black under every floor light" % actor_label)
-	_assert_eq(overlay.texture_filter, BaseMaterial3D.TEXTURE_FILTER_NEAREST, "%s handwriting layer should retain a stable silhouette at long distance" % actor_label)
-	_assert_true(overlay.render_priority > billboard.render_priority, "%s handwriting should render after and above the character layer" % actor_label)
+	_assert_eq(overlay.position, billboard.position, "%s chalk cover should be registered on the portrait's center" % actor_label)
+	_assert_eq(overlay.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "%s chalk cover should always face the same camera as the character" % actor_label)
+	_assert_true(not overlay.shaded, "%s chalk cover should keep its drawn color under every floor light" % actor_label)
+	_assert_true(overlay.render_priority > billboard.render_priority, "%s chalk cover should render after and above the character layer" % actor_label)
 	var material := overlay.material_override as ShaderMaterial
-	_assert_true(material != null and material.shader != null, "%s separate handwriting layer should use an animated shader" % actor_label)
+	_assert_true(material != null and material.shader != null, "%s chalk cover should use an animated shader" % actor_label)
 	_assert_true(bool(actor.get_meta("face_veil", false)), "%s should declare its identity-obscuring veil" % actor_label)
-	_assert_eq(str(actor.get_meta("face_veil_style", "")), "separate_animated_marker_overlay", "%s veil should be a separate animated handwriting overlay" % actor_label)
+	_assert_eq(str(actor.get_meta("face_veil_style", "")), "separate_animated_chalk_cover", "%s veil should be the separate animated chalk cover" % actor_label)
 	_assert_true(bool(actor.get_meta("face_effect_separate_layer", false)), "%s face effect should never be baked into the character material" % actor_label)
 	_assert_true(bool(actor.get_meta("base_character_texture_preserved", false)), "%s should preserve the unmodified source character image" % actor_label)
 	_assert_true(not bool(actor.get_meta("face_identity_readable", true)), "%s face should remain deliberately unreadable" % actor_label)
-	if material != null and material.shader != null:
-		_assert_eq(material.shader.resource_path, "res://shaders/npc_face_scribble_overlay.gdshader", "%s should use the standalone handwriting overlay shader" % actor_label)
-		_assert_eq(float(material.get_shader_parameter("ink_opacity")), 1.0, "%s marker pixels should be fully opaque rather than multiply-darkening the face" % actor_label)
-		var brush_width := float(material.get_shader_parameter("brush_width_px"))
-		_assert_true(brush_width >= 40.0 and brush_width <= 60.0, "%s marker strokes should remain within the requested 40-60 px range" % actor_label)
-		var scribble_atlas := material.get_shader_parameter("scribble_atlas") as Texture2D
-		_assert_true(scribble_atlas != null and scribble_atlas.resource_path == "res://assets/generated/effects/face_scribble_atlas.png", "%s veil should use the four-frame hand-drawn marker atlas" % actor_label)
-		var character_texture := material.get_shader_parameter("character_texture") as Texture2D
-		_assert_true(character_texture == billboard.texture, "%s overlay shader should use the portrait only as an alpha alignment mask" % actor_label)
-		var ink_color := material.get_shader_parameter("ink_color") as Color
-		_assert_true(maxf(ink_color.r, maxf(ink_color.g, ink_color.b)) < 0.08, "%s overlay should output near-black ink" % actor_label)
-		var face_center := material.get_shader_parameter("face_center") as Vector2
-		var face_size := material.get_shader_parameter("face_size") as Vector2
-		_assert_true(face_center.y >= 0.15 and face_center.y <= 0.20, "%s handwriting should stay centered on the illustrated face" % actor_label)
-		_assert_true(face_size.x <= 0.18 and face_size.y <= 0.10, "%s handwriting should cover the face without becoming a head-to-chest rectangle" % actor_label)
+	if material == null or material.shader == null:
+		return
+	_assert_eq(material.shader.resource_path, "res://shaders/npc_face_cover.gdshader", "%s should use the chalk cover shader" % actor_label)
+	var frames := material.get_shader_parameter("cover_frames") as Texture2DArray
+	_assert_true(frames != null and frames.get_layers() == 6, "%s chalk cover should play the six drawn frames" % actor_label)
+	var face_offset := material.get_shader_parameter("face_offset") as Vector2
+	_assert_near(billboard.position.y + face_offset.y, face_center_world_y, 0.01, "%s chalk cover should sit on the face" % actor_label)
 
 
 func _vertical_ground_collision(floor_root: Node3D, point: Vector3, player: CharacterBody3D) -> Dictionary:

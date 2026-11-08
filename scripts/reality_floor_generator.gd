@@ -5,8 +5,8 @@ class_name RealityFloorGenerator
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const FloorLookScript = preload("res://scripts/game/floor_look.gd")
-const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
-const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
+const NPC_FACE_COVER_SHADER := preload("res://shaders/npc_face_cover.gdshader")
+const NpcPortraitsScript = preload("res://scripts/world/npc_portraits.gd")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
 const COVER_WATCHER_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
 const COVER_WATCHER_APPEAR_DELAY := 0.72
@@ -14,7 +14,6 @@ const COVER_WATCHER_APPROACH_DISTANCE := 6.4
 const COVER_WATCHER_RETREAT_DURATION := 0.72
 const COVER_WATCHER_SOURCE_CROP := Rect2(300.0, 150.0, 424.0, 1220.0)
 const COVER_WATCHER_PIXEL_SIZE := 0.00155
-const ACTOR_PORTRAIT_WORLD_HEIGHT := 1.90
 const ACTOR_CAMERA_EYE_HEIGHT := 1.56
 const DOLL_PORTRAIT_WORLD_HEIGHT := 0.96
 
@@ -105,6 +104,8 @@ var _authored_event_origin := Vector3.ZERO
 var _authored_event_day := 1
 var _cover_watcher_root: Node3D
 var _cover_watcher_sprite: Sprite3D
+## The NPC chalk cover's six drawings, built on the first NPC and shared by all of them.
+var _npc_cover_frames: Texture2DArray
 var _cover_watcher_state: Dictionary = {}
 var _layout_shape := "shared_street"
 
@@ -2455,7 +2456,11 @@ func _make_doll_actor(doll_id: String, display_name: String, doll_position: Vect
 
 func _make_actor(node_name: String, actor_type: String, display_name: String, position: Vector3, npc_texture: Texture2D, tint_index: int) -> Area3D:
 	var actor := Area3D.new()
-	var face_center := Vector2(0.5, 0.18)
+	var source_size := Vector2(npc_texture.get_size()) if npc_texture != null else Vector2(1024.0, 1536.0)
+	var face_pixel := NpcPortraitsScript.face_pixel(npc_texture) if npc_texture != null else source_size * Vector2(0.5, 0.18)
+	var face_center := face_pixel / source_size
+	# Each portrait is sized so its face meets the first-person camera's eye height.
+	var portrait_height := ACTOR_CAMERA_EYE_HEIGHT / maxf(0.5, 1.0 - face_center.y)
 	actor.name = node_name
 	actor.position = position
 	actor.collision_layer = 2
@@ -2465,15 +2470,15 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	actor.set_meta("display_name", display_name)
 	actor.set_meta("tint_index", tint_index)
 	actor.set_meta("face_veil", true)
-	actor.set_meta("face_veil_style", "separate_animated_marker_overlay")
+	actor.set_meta("face_veil_style", "separate_animated_chalk_cover")
 	actor.set_meta("face_veil_mode", tint_index % 3)
 	actor.set_meta("face_identity_readable", false)
 	actor.set_meta("face_effect_separate_layer", true)
 	actor.set_meta("base_character_texture_preserved", true)
 	actor.set_meta("portrait_pose", "front_eye_level")
-	actor.set_meta("portrait_world_height", ACTOR_PORTRAIT_WORLD_HEIGHT)
+	actor.set_meta("portrait_world_height", portrait_height)
 	actor.set_meta("camera_eye_height", ACTOR_CAMERA_EYE_HEIGHT)
-	actor.set_meta("face_center_world_y", ACTOR_PORTRAIT_WORLD_HEIGHT * (1.0 - face_center.y))
+	actor.set_meta("face_center_world_y", portrait_height * (1.0 - face_center.y))
 	var collision := CollisionShape3D.new()
 	collision.name = "InteractionShape"
 	var capsule := CapsuleShape3D.new()
@@ -2486,9 +2491,8 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	var sprite := Sprite3D.new()
 	sprite.name = "Billboard"
 	sprite.texture = npc_texture
-	var source_height := float(npc_texture.get_height()) if npc_texture != null else 1536.0
-	sprite.pixel_size = ACTOR_PORTRAIT_WORLD_HEIGHT / maxf(1.0, source_height)
-	sprite.position.y = ACTOR_PORTRAIT_WORLD_HEIGHT * 0.5
+	sprite.pixel_size = portrait_height / maxf(1.0, source_size.y)
+	sprite.position.y = portrait_height * 0.5
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.shaded = false
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
@@ -2502,37 +2506,35 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	sprite.set_meta("front_eye_level", true)
 	actor.add_child(sprite)
 
-	var scribble_overlay := Sprite3D.new()
-	scribble_overlay.name = "FaceScribbleOverlay"
-	scribble_overlay.texture = npc_texture
-	scribble_overlay.pixel_size = sprite.pixel_size
-	scribble_overlay.position = sprite.position
-	scribble_overlay.scale = sprite.scale
-	scribble_overlay.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	scribble_overlay.shaded = false
-	scribble_overlay.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	scribble_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	scribble_overlay.render_priority = 8
-	scribble_overlay.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	scribble_overlay.double_sided = true
-	scribble_overlay.modulate = Color.WHITE
-	scribble_overlay.set_meta("separate_face_effect", true)
-	scribble_overlay.set_meta("camera_facing_layer", true)
-	scribble_overlay.set_meta("always_above_character_layer", true)
-	var scribble_material := ShaderMaterial.new()
-	scribble_material.shader = NPC_FACE_SCRIBBLE_OVERLAY_SHADER
-	scribble_material.render_priority = 8
-	scribble_material.set_shader_parameter("character_texture", npc_texture)
-	scribble_material.set_shader_parameter("scribble_atlas", NPC_FACE_SCRIBBLE_ATLAS)
-	scribble_material.set_shader_parameter("ink_color", FloorLookScript.tint("face_scribble_ink"))
-	scribble_material.set_shader_parameter("ink_opacity", 1.0)
-	scribble_material.set_shader_parameter("brush_width_px", 56.0)
-	scribble_material.set_shader_parameter("face_center", face_center)
-	scribble_material.set_shader_parameter("face_size", Vector2(0.16, 0.09))
-	scribble_material.set_shader_parameter("variation", float(tint_index % 3))
-	scribble_material.set_shader_parameter("seed", float(built_floor * 17 + tint_index * 7))
-	scribble_overlay.material_override = scribble_material
-	actor.add_child(scribble_overlay)
+	# The chalk cover is its own camera-facing layer in front of the character; the portrait stays untouched.
+	var cover_frame := NpcPortraitsScript.first_cover_frame()
+	var cover := Sprite3D.new()
+	cover.name = "FaceScribbleOverlay"
+	cover.texture = cover_frame
+	cover.pixel_size = sprite.pixel_size
+	cover.position = sprite.position
+	var cover_scale := NpcPortraitsScript.COVER_WIDTH_PX / maxf(1.0, float(cover_frame.get_width())) if cover_frame != null else 1.0
+	cover.scale = Vector3.ONE * cover_scale
+	cover.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	cover.shaded = false
+	cover.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cover.render_priority = 8
+	cover.double_sided = true
+	cover.set_meta("separate_face_effect", true)
+	cover.set_meta("camera_facing_layer", true)
+	cover.set_meta("always_above_character_layer", true)
+	var cover_material := ShaderMaterial.new()
+	cover_material.shader = NPC_FACE_COVER_SHADER
+	cover_material.render_priority = 8
+	if _npc_cover_frames == null:
+		_npc_cover_frames = NpcPortraitsScript.cover_frames()
+	cover_material.set_shader_parameter("cover_frames", _npc_cover_frames)
+	cover_material.set_shader_parameter("frame_count", float(NpcPortraitsScript.COVER_FRAME_COUNT))
+	cover_material.set_shader_parameter("frame_offset", float(built_floor * 5 + tint_index * 2))
+	var face_offset := Vector2(face_pixel.x - source_size.x * 0.5, source_size.y * 0.5 - face_pixel.y) * sprite.pixel_size
+	cover_material.set_shader_parameter("face_offset", face_offset)
+	cover.material_override = cover_material
+	actor.add_child(cover)
 	return actor
 
 
