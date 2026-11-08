@@ -22,7 +22,7 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main._close_app_window("social")
 	main._open_phone_launcher()
 	for frame in 12:

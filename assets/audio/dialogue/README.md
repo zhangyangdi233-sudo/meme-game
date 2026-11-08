@@ -1,12 +1,13 @@
-# 已选旁白与地下室耳语
+# 地下室耳語的來源
 
-- `03_muted_narrator/`：用户选中的第一组 03，六个单音原样复制。项目内原创程序合成，不含第三方录音。原生成器位于外层工作区 `tools/generate_dialogue_blip_previews.py`。
-- `D_whisper_fragments/`：用户保留的 D 耳语，六个单音原样复制。源录音为 Thorsten Müller / Thorsten-Voice 的真实耳语录音，CC0 1.0。完整许可证见 `THORSTEN_CC0.txt`。
-- `basement_whisper_8s.wav`：D 的六个单音按不规则节奏重新排列，单声道 PCM16 / 44100 Hz / 恰好 8 秒；不循环。未生成新的人声。
-- 精确源路径、文件 SHA256 和剪辑时间表见 `voice_sources.json`；可用外层 `tools/build_chapter_voice_assets.py` 重建。
+- `basement_whisper_8s.wav`：第二圈耳語事件播放的 8 秒耳語。由六段耳語短音依不規則節奏重新排列而成，單聲道 PCM16 / 44100 Hz / 正好 8 秒，不循環，沒有生成新的人聲。
+- 短音的源錄音是 Thorsten Müller / Thorsten-Voice 的真實耳語錄音，CC0 1.0，完整授權見 `THORSTEN_CC0.txt`。
+- 精確的源路徑、SHA-256 與剪輯時間表見 `voice_sources.json`。
 
-来源：https://github.com/thorstenMueller/Thorsten-Voice
+來源：https://github.com/thorstenMueller/Thorsten-Voice
 
-源录音：https://raw.githubusercontent.com/thorstenMueller/Thorsten-Voice/master/samples/thorsten-21.06-emotional/whisper.wav
+源錄音：https://raw.githubusercontent.com/thorstenMueller/Thorsten-Voice/master/samples/thorsten-21.06-emotional/whisper.wav
 
-录音身份记录：https://github.com/thorstenMueller/Thorsten-Voice/blob/6efb25310a303af541d83047627c0f4d79aaad7c/README.md
+錄音身分紀錄：https://github.com/thorstenMueller/Thorsten-Voice/blob/6efb25310a303af541d83047627c0f4d79aaad7c/README.md
+
+`voice_sources.json` 列到的 `D_whisper_fragments/`（耳語短音）與 `03_muted_narrator/`（企劃選的旁白單音，專案自行合成）目前遊戲沒有用到，只留在 `main` 的歷史裡（commit `a5ad585`），要替旁白加聲音時再取回。

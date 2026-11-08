@@ -1,0 +1,396 @@
+extends SceneTree
+## Chapter one's opening rules: the narration advances one line at a time, the knock waits for its line, and the
+## door opens into the basement only after both. Pure rules on a progress dictionary, then the state that saves it.
+
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const StateScript = preload("res://scripts/meme_game_state.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_run()
+
+
+func _run() -> void:
+	test_a_new_progress_starts_on_the_first_line()
+	test_the_narration_advances_one_line_at_a_time()
+	test_the_knock_waits_for_its_line()
+	test_the_knock_is_heard_once()
+	test_the_door_needs_the_narration_and_the_knock()
+	test_the_door_opens_into_the_first_basement_round()
+	test_a_broken_progress_falls_back_to_the_opening()
+	test_a_basement_claim_without_the_door_is_refused()
+	test_a_new_run_starts_the_opening()
+	test_the_state_advances_and_refuses_through_the_rules()
+	test_a_save_keeps_the_line_and_the_knock()
+	test_a_save_made_before_chapter_one_stays_on_the_tower()
+	test_skipping_chapter_one_lands_on_the_tower()
+	test_the_exit_opens_only_after_a_delivery_with_this_rounds_post()
+	test_leaving_through_the_exit_starts_the_next_round()
+	test_the_fifth_exit_leads_to_the_white_door_passage()
+	test_crossing_the_passage_reaches_the_next_level()
+	test_the_level_order_table_decides_the_next_level()
+	test_the_passage_and_the_demo_end_survive_a_save()
+	test_a_saved_delivery_is_kept_only_in_the_basement()
+	test_the_debug_jump_lands_on_a_fresh_round()
+	test_a_rounds_one_shot_events_are_recorded_once()
+	test_a_rounds_events_survive_a_save_and_start_over_next_round()
+	test_talking_to_the_npc_is_recorded_per_round()
+	if _failures.is_empty():
+		print("chapter one progress tests passed")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func test_a_new_progress_starts_on_the_first_line() -> void:
+	var progress: Dictionary = ProgressScript.initial()
+	_assert_eq(progress.get("phase"), ProgressScript.PHASE_OPENING, "a new progress should start in the opening")
+	_assert_eq(progress.get("line_index"), 0, "a new progress should show the first line")
+	_assert_true(ProgressScript.is_reading_narration(progress), "a new progress should be reading the narration")
+	_assert_true(not ProgressScript.knock_due(progress), "the knock should not be due on the first line")
+	_assert_true(not ProgressScript.door_ready(progress), "the door should not open on the first line")
+
+
+func test_the_narration_advances_one_line_at_a_time() -> void:
+	var progress: Dictionary = ProgressScript.initial()
+	progress = ProgressScript.advance_narration(progress)
+	_assert_eq(progress.get("line_index"), 1, "one advance should show the second line")
+	for step in ProgressScript.OPENING_LINE_COUNT - 2:
+		progress = ProgressScript.advance_narration(progress)
+	_assert_eq(progress.get("line_index"), ProgressScript.OPENING_LINE_COUNT - 1, "the advances should reach the last line")
+	_assert_true(ProgressScript.is_reading_narration(progress), "the last line should still be read")
+	progress = ProgressScript.advance_narration(progress)
+	_assert_true(bool(progress.get("narration_complete")), "advancing past the last line should complete the narration")
+	_assert_true(not ProgressScript.is_reading_narration(progress), "a complete narration should no longer be read")
+	var after := ProgressScript.advance_narration(progress)
+	_assert_eq(after, progress, "a complete narration should not advance again")
+
+
+func test_the_knock_waits_for_its_line() -> void:
+	var progress: Dictionary = ProgressScript.initial()
+	for step in ProgressScript.KNOCK_LINE_INDEX - 1:
+		progress = ProgressScript.advance_narration(progress)
+	_assert_true(not ProgressScript.knock_due(progress), "the knock should not be due the line before its own")
+	_assert_eq(ProgressScript.complete_knock(progress), progress, "a knock before its line should be refused")
+	progress = ProgressScript.advance_narration(progress)
+	_assert_eq(progress.get("line_index"), ProgressScript.KNOCK_LINE_INDEX, "the narration should reach the knock line")
+	_assert_true(ProgressScript.knock_due(progress), "the knock should be due on its line")
+
+
+func test_the_knock_is_heard_once() -> void:
+	var progress := _at_line(ProgressScript.KNOCK_LINE_INDEX)
+	progress = ProgressScript.complete_knock(progress)
+	_assert_true(bool(progress.get("knock_complete")), "a finished knock should be recorded")
+	_assert_true(not ProgressScript.knock_due(progress), "a heard knock should not be due again")
+	_assert_eq(ProgressScript.complete_knock(progress), progress, "a second knock should change nothing")
+
+
+func test_the_door_needs_the_narration_and_the_knock() -> void:
+	var knocked := ProgressScript.complete_knock(_at_line(ProgressScript.KNOCK_LINE_INDEX))
+	_assert_true(not ProgressScript.door_ready(knocked), "the door should stay shut while the narration is read")
+	_assert_eq(ProgressScript.open_door(knocked), knocked, "opening the door during the narration should be refused")
+	var read := _at_line(ProgressScript.OPENING_LINE_COUNT - 1)
+	read = ProgressScript.advance_narration(read)
+	_assert_true(bool(read.get("narration_complete")), "the narration should be complete")
+	_assert_true(ProgressScript.knock_due(read), "a narration read past the knock line should still owe the knock")
+	_assert_true(not ProgressScript.door_ready(read), "the door should stay shut until the knock has finished")
+	_assert_eq(ProgressScript.open_door(read), read, "opening the door before the knock finishes should be refused")
+	var ready := ProgressScript.complete_knock(read)
+	_assert_true(ProgressScript.door_ready(ready), "the door should open once the narration is read and the knock heard")
+
+
+func test_the_door_opens_into_the_first_basement_round() -> void:
+	var opened := ProgressScript.open_door(_ready_door())
+	_assert_eq(opened.get("phase"), ProgressScript.PHASE_BASEMENT, "opening the door should enter the basement")
+	_assert_eq(opened.get("round"), 1, "the basement should start on round one")
+	_assert_true(not ProgressScript.door_ready(opened), "the opening door should not open twice")
+	_assert_eq(ProgressScript.open_door(opened), opened, "a second door request should change nothing")
+	_assert_true(not ProgressScript.is_reading_narration(opened), "the basement should not read the narration")
+
+
+func test_a_broken_progress_falls_back_to_the_opening() -> void:
+	_assert_eq(ProgressScript.normalize(null), ProgressScript.initial(), "a missing progress should be a new opening")
+	_assert_eq(ProgressScript.normalize({"phase": "moon"}), ProgressScript.initial(), "an unknown phase should be a new opening")
+	var beyond := ProgressScript.normalize({"phase": "opening", "line_index": 999})
+	_assert_eq(beyond.get("line_index"), ProgressScript.OPENING_LINE_COUNT - 1, "a line past the end should clamp to the last line")
+	var negative := ProgressScript.normalize({"phase": "opening", "line_index": -3})
+	_assert_eq(negative.get("line_index"), 0, "a negative line should clamp to the first")
+	var text_line := ProgressScript.normalize({"phase": "opening", "line_index": "5"})
+	_assert_eq(text_line.get("line_index"), 0, "a line that is not a number should start over")
+	var early_knock := ProgressScript.normalize({"phase": "opening", "line_index": 3, "knock_complete": true})
+	_assert_true(not bool(early_knock.get("knock_complete")), "a knock claimed before its line should be dropped")
+	var read := ProgressScript.normalize({"phase": "opening", "line_index": 2, "narration_complete": true})
+	_assert_eq(read.get("line_index"), ProgressScript.OPENING_LINE_COUNT - 1, "a complete narration should rest on the last line")
+
+
+func test_a_basement_claim_without_the_door_is_refused() -> void:
+	var claimed := ProgressScript.normalize({"phase": "basement", "line_index": 4, "round": 1})
+	_assert_eq(claimed.get("phase"), ProgressScript.PHASE_OPENING, "a basement without the narration and knock should go back to the opening")
+	_assert_eq(claimed.get("line_index"), 4, "the line read so far should be kept")
+	var earned := ProgressScript.normalize(ProgressScript.open_door(_ready_door()))
+	_assert_eq(earned.get("phase"), ProgressScript.PHASE_BASEMENT, "an earned basement should be kept")
+	var far := ProgressScript.normalize(_with(ProgressScript.open_door(_ready_door()), "round", 40))
+	_assert_eq(far.get("round"), ProgressScript.BASEMENT_ROUND_COUNT, "a round past the last should clamp")
+
+
+func test_a_new_run_starts_the_opening() -> void:
+	var game := Harness.new_state()
+	_assert_eq(game.chapter_one_progress, ProgressScript.initial(), "a new run should start the opening")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.CHAPTER_ONE_PROGRESS), "chapter one progress should be a run model")
+	_assert_true(PropertyKeysScript.CHAPTER_ONE_PROGRESS in PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN), "chapter one progress should be saved with the run")
+
+
+func test_the_state_advances_and_refuses_through_the_rules() -> void:
+	var game := Harness.new_state()
+	_assert_true(not game.complete_opening_knock(), "the state should refuse a knock before its line")
+	_assert_true(not game.open_opening_door(), "the state should refuse the door on the first line")
+	for step in ProgressScript.KNOCK_LINE_INDEX:
+		_assert_true(game.advance_opening_narration(), "each advance should be accepted while reading")
+	_assert_eq(int(game.chapter_one_progress.get("line_index")), ProgressScript.KNOCK_LINE_INDEX, "the state should reach the knock line")
+	_assert_true(game.complete_opening_knock(), "the state should record the knock on its line")
+	_assert_true(not game.complete_opening_knock(), "the state should refuse a second knock")
+	while ProgressScript.is_reading_narration(game.chapter_one_progress):
+		game.advance_opening_narration()
+	_assert_true(not game.advance_opening_narration(), "a complete narration should refuse another advance")
+	_assert_true(game.open_opening_door(), "the state should open the door after the narration and knock")
+	_assert_eq(game.chapter_one_progress.get("phase"), ProgressScript.PHASE_BASEMENT, "the state should enter the basement")
+	game.new_run()
+	_assert_eq(game.chapter_one_progress, ProgressScript.initial(), "a new run should start the opening again")
+
+
+func test_a_save_keeps_the_line_and_the_knock() -> void:
+	var game := Harness.new_state()
+	for step in ProgressScript.KNOCK_LINE_INDEX + 1:
+		game.advance_opening_narration()
+	game.complete_opening_knock()
+	var saved: Dictionary = game.to_save_data()
+	var restored := StateScript.new()
+	_assert_true(restored.load_save_data(saved), "a save in the opening should load")
+	_assert_eq(int(restored.chapter_one_progress.get("line_index")), ProgressScript.KNOCK_LINE_INDEX + 1, "loading should come back on the same line")
+	_assert_true(bool(restored.chapter_one_progress.get("knock_complete")), "loading should remember the knock was heard")
+	_assert_true(not ProgressScript.knock_due(restored.chapter_one_progress), "a heard knock should not be due after loading")
+
+
+func test_a_save_made_before_chapter_one_stays_on_the_tower() -> void:
+	var game := Harness.new_state()
+	var saved: Dictionary = game.to_save_data()
+	(saved["state"] as Dictionary).erase(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
+	var restored := StateScript.new()
+	_assert_true(restored.load_save_data(saved), "a save without chapter one should still load")
+	_assert_eq(restored.chapter_one_progress.get("phase"), ProgressScript.PHASE_TOWER, "a save made before chapter one should stay on the tower street")
+	_assert_true(not ProgressScript.is_reading_narration(restored.chapter_one_progress), "the tower should not read the narration")
+
+
+func test_skipping_chapter_one_lands_on_the_tower() -> void:
+	var game := Harness.new_state()
+	game.skip_chapter_one()
+	_assert_eq(game.chapter_one_progress.get("phase"), ProgressScript.PHASE_TOWER, "skipping chapter one should land on the tower street")
+	_assert_true(not game.advance_opening_narration(), "the tower should refuse the narration")
+	_assert_true(not game.open_opening_door(), "the tower should refuse the opening door")
+
+
+func test_the_exit_opens_only_after_a_delivery_with_this_rounds_post() -> void:
+	var basement := ProgressScript.open_door(_ready_door())
+	_assert_true(not ProgressScript.exit_open(basement), "a new round's exit should be shut")
+	_assert_eq(ProgressScript.exits(basement), [], "a new round should have no exit object")
+	_assert_eq(ProgressScript.deliver(basement, []), basement, "a delivery that opens nothing should be refused")
+	var delivered := ProgressScript.deliver(basement, ["chair"])
+	_assert_true(bool(delivered.get("delivered")), "a delivery should be recorded")
+	_assert_true(ProgressScript.exit_open(delivered), "a delivered round's exit should open")
+	_assert_eq(ProgressScript.exits(delivered), ["chair"], "the delivery should name the object that became the exit")
+	_assert_true(not ProgressScript.door_open(delivered), "the exit door should stay locked while only the chair is the exit")
+	_assert_eq(ProgressScript.deliver(delivered, ["chair"]), delivered, "a second delivery of the same object should change nothing")
+	var both := ProgressScript.deliver(delivered, ["door", "chair"])
+	_assert_eq(ProgressScript.exits(both), ["chair", "door"], "a later exit should join the open ones")
+	_assert_true(ProgressScript.door_open(both), "the exit door should open once the door is an exit")
+	var opening := _ready_door()
+	_assert_eq(ProgressScript.deliver(opening, ["door"]), opening, "the opening has no round to deliver")
+	_assert_true(not ProgressScript.exit_open(ProgressScript.tower()), "the tower has no basement exit")
+
+
+func test_leaving_through_the_exit_starts_the_next_round() -> void:
+	var basement := ProgressScript.open_door(_ready_door())
+	_assert_eq(ProgressScript.leave_round(basement, "door"), basement, "a shut exit should not be left through")
+	var by_chair := ProgressScript.deliver(basement, ["chair"])
+	_assert_eq(ProgressScript.leave_round(by_chair, "table"), by_chair, "an object that is no exit should not be left through")
+	_assert_eq(ProgressScript.leave_round(by_chair, "door"), by_chair, "the locked door should not be left through while the chair is the exit")
+	var next := ProgressScript.leave_round(by_chair, "chair")
+	_assert_eq(next.get("phase"), ProgressScript.PHASE_BASEMENT, "the next round should still be the basement")
+	_assert_eq(ProgressScript.round_of(next), 2, "leaving round one should start round two")
+	_assert_true(not ProgressScript.exit_open(next), "the next round's exit should be shut again")
+	_assert_eq(ProgressScript.exits(next), [], "the next round should start with no exit object")
+
+
+func test_the_fifth_exit_leads_to_the_white_door_passage() -> void:
+	var progress := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
+	_assert_eq(ProgressScript.leave_round(progress, "door"), progress, "the fifth round's shut exit should hold")
+	var passage := ProgressScript.leave_round(ProgressScript.deliver(progress, ["clock"]), "clock")
+	_assert_eq(passage.get("phase"), ProgressScript.PHASE_PASSAGE, "the fifth exit should lead to the white door passage, not the crossroads")
+	_assert_eq(passage.get("passage_to"), ProgressScript.PHASE_DEMO_END, "the passage should lead where the level order says")
+	_assert_eq(ProgressScript.round_of(passage), 0, "the passage has no basement round")
+	_assert_true(not ProgressScript.is_reading_narration(passage), "the passage should have no narration")
+	_assert_true(not ProgressScript.knock_due(passage), "the passage should have no knock")
+	_assert_true(not ProgressScript.door_ready(passage), "the passage door is walked into, not opened with F")
+
+
+func test_crossing_the_passage_reaches_the_next_level() -> void:
+	var passage := _passage()
+	var ended := ProgressScript.cross_passage(passage)
+	_assert_eq(ended.get("phase"), ProgressScript.PHASE_DEMO_END, "crossing should reach the level the passage leads to")
+	_assert_true(ProgressScript.demo_ended(ended), "the demo should have ended")
+	_assert_true(not ProgressScript.demo_ended(passage), "the demo should not end before the crossing")
+	_assert_eq(ProgressScript.cross_passage(ended), ended, "there is nothing left to cross at the demo's end")
+	var basement := ProgressScript.jump_to_round(ProgressScript.initial(), 1)
+	_assert_eq(ProgressScript.cross_passage(basement), basement, "the basement has no passage to cross")
+
+
+func test_the_level_order_table_decides_the_next_level() -> void:
+	_assert_eq(ProgressScript.LEVEL_ORDER, [ProgressScript.PHASE_OPENING, ProgressScript.PHASE_BASEMENT, ProgressScript.PHASE_DEMO_END], "the demo's levels end on the demo end; the tower is not one of them")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_OPENING), ProgressScript.PHASE_BASEMENT, "the basement follows the opening")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_BASEMENT), ProgressScript.PHASE_DEMO_END, "the demo end follows the basement")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_DEMO_END), "", "nothing follows the last level")
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_TOWER), "", "a level off the table has no next level")
+	var longer := [ProgressScript.PHASE_BASEMENT, "floor_two", ProgressScript.PHASE_DEMO_END]
+	_assert_eq(ProgressScript.next_level(ProgressScript.PHASE_BASEMENT, longer), "floor_two", "a level added to the table should come next")
+	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT), ["door"])
+	_assert_eq(ProgressScript.leave_round(fifth, "door", longer).get("passage_to"), "floor_two", "the fifth exit should follow the table, not a fixed level")
+	_assert_eq(ProgressScript.leave_round(fifth, "door", [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the exit should hold")
+
+
+func test_the_passage_and_the_demo_end_survive_a_save() -> void:
+	var passage := _passage()
+	_assert_eq(ProgressScript.normalize(passage), passage, "a save in the passage should come back in it")
+	var ended := ProgressScript.cross_passage(passage)
+	_assert_eq(ProgressScript.normalize(ended), ended, "a save at the demo's end should come back there")
+	var broken := ProgressScript.normalize(_with(passage, "passage_to", "moon"))
+	_assert_eq(broken.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a broken destination should fall back to the level order")
+	var backward := ProgressScript.normalize(_with(passage, "passage_to", ProgressScript.PHASE_BASEMENT))
+	_assert_eq(backward.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a passage should not lead back to a level already played")
+	var claimed := ProgressScript.normalize({"phase": ProgressScript.PHASE_DEMO_END, "line_index": 4})
+	_assert_eq(claimed.get("phase"), ProgressScript.PHASE_OPENING, "a demo end without the door should go back to the opening")
+	var claimed_passage := ProgressScript.normalize({"phase": ProgressScript.PHASE_PASSAGE, "line_index": 4})
+	_assert_eq(claimed_passage.get("phase"), ProgressScript.PHASE_OPENING, "a passage without the door should go back to the opening")
+
+
+func _passage() -> Dictionary:
+	var fifth := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
+	return ProgressScript.leave_round(ProgressScript.deliver(fifth, ["door"]), "door")
+
+
+func test_a_saved_delivery_is_kept_only_in_the_basement() -> void:
+	var delivered := ProgressScript.deliver(_with(ProgressScript.open_door(_ready_door()), "round", 3), ["tv", "light"])
+	var restored := ProgressScript.normalize(delivered.duplicate(true))
+	_assert_eq(ProgressScript.round_of(restored), 3, "a saved round should come back")
+	_assert_true(ProgressScript.exit_open(restored), "a saved delivery should keep the exit open")
+	_assert_eq(ProgressScript.exits(restored), ["tv", "light"], "a saved delivery should keep its exit objects")
+	_assert_eq(ProgressScript.leave_round(restored, "light").get("round"), 4, "a loaded exit object should still lead on")
+	var unearned := ProgressScript.normalize(_with(_ready_door(), "delivered", true))
+	_assert_true(not bool(unearned.get("delivered")), "a delivery claimed in the opening should be dropped")
+	var text := ProgressScript.normalize(_with(ProgressScript.open_door(_ready_door()), "delivered", "yes"))
+	_assert_true(not ProgressScript.exit_open(text), "a delivery that is not a bool should be dropped")
+	var older := _with(_with(ProgressScript.open_door(_ready_door()), "delivered", true), "exits", null)
+	older.erase("exits")
+	_assert_eq(ProgressScript.exits(ProgressScript.normalize(older)), ["door"], "a delivery saved before exit objects opened the door, and should still")
+	var broken := _with(ProgressScript.open_door(_ready_door()), "exits", ["chair", 3, "", "chair", "sofa"])
+	_assert_eq(ProgressScript.exits(ProgressScript.normalize(broken)), ["chair"], "broken or unknown exit objects should be dropped")
+	var unknown := _with(ProgressScript.open_door(_ready_door()), "exits", ["sofa"])
+	_assert_true(not ProgressScript.exit_open(ProgressScript.normalize(unknown)), "an exit no room has should not open the round")
+	_assert_true(bool(ProgressScript.normalize(broken).get("delivered")), "a saved exit object should count as a delivery")
+
+
+func test_the_debug_jump_lands_on_a_fresh_round() -> void:
+	var jumped := ProgressScript.jump_to_round(ProgressScript.initial(), 4)
+	_assert_eq(jumped.get("phase"), ProgressScript.PHASE_BASEMENT, "a jump should land in the basement")
+	_assert_eq(ProgressScript.round_of(jumped), 4, "a jump should land on the asked round")
+	_assert_true(not ProgressScript.exit_open(jumped), "a jumped round's exit should be shut")
+	_assert_eq(ProgressScript.normalize(jumped), jumped, "a jumped round should survive a save")
+	var delivered := ProgressScript.deliver(jumped, ["door"])
+	_assert_true(not ProgressScript.exit_open(ProgressScript.jump_to_round(delivered, 4)), "jumping to the same round should start it fresh")
+	_assert_eq(ProgressScript.jump_to_round(jumped, 0), jumped, "a jump before round one should be refused")
+	_assert_eq(ProgressScript.jump_to_round(jumped, ProgressScript.BASEMENT_ROUND_COUNT + 1), jumped, "a jump past the last round should be refused")
+
+
+## #114: a room's one-shot event is recorded the moment it starts, so neither a save nor walking back replays it; the
+## switch ends one that is going on. Each round starts with none.
+func test_a_rounds_one_shot_events_are_recorded_once() -> void:
+	var round_two := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	_assert_eq(ProgressScript.started_events(round_two), [], "a fresh round should have started no event")
+	var whispered := ProgressScript.start_event(round_two, "whisper")
+	_assert_eq(ProgressScript.started_events(whispered), ["whisper"], "a started event should be recorded")
+	_assert_eq(ProgressScript.start_event(whispered, "whisper"), whispered, "an event should start only once")
+	_assert_eq(ProgressScript.start_event(ProgressScript.initial(), "whisper"), ProgressScript.initial(), "the opening has no room events")
+	_assert_eq(ProgressScript.ended_events(whispered), [], "a started event should not be ended yet")
+	var ended := ProgressScript.end_events(whispered, ["whisper"])
+	_assert_eq(ProgressScript.ended_events(ended), ["whisper"], "the switch should record the event it ended")
+	_assert_eq(ProgressScript.end_events(ended, ["whisper"]), ended, "an ended event should end only once")
+	_assert_eq(ProgressScript.end_events(round_two, ["whisper"]), round_two, "an event that never started cannot end")
+
+
+func test_a_rounds_events_survive_a_save_and_start_over_next_round() -> void:
+	var started := ProgressScript.end_events(ProgressScript.start_event(ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 3), "blackout"), "other"), ["blackout"])
+	var saved := ProgressScript.normalize(started)
+	_assert_eq(ProgressScript.started_events(saved), ["blackout", "other"], "a save should keep the started events")
+	_assert_eq(ProgressScript.ended_events(saved), ["blackout"], "a save should keep the ended events")
+	var broken := started.duplicate(true)
+	broken["events"] = ["blackout", 7, "blackout"]
+	broken["ended"] = ["other", "never"]
+	_assert_eq(ProgressScript.started_events(ProgressScript.normalize(broken)), ["blackout"], "a broken event list should keep its names once each")
+	_assert_eq(ProgressScript.ended_events(ProgressScript.normalize(broken)), [], "an event cannot be ended without having started")
+	var next := ProgressScript.leave_round(ProgressScript.deliver(started, ["door"]), "door")
+	_assert_eq(ProgressScript.started_events(next), [], "the next round should start with no events")
+	_assert_eq(ProgressScript.ended_events(next), [], "the next round should start with nothing ended")
+	_assert_eq(ProgressScript.started_events(ProgressScript.jump_to_round(started, 3)), [], "a jump should start the round's events over")
+
+
+## The one behind the door knocks until the player first talks to them (#129); each round is its own, and a save keeps it.
+func test_talking_to_the_npc_is_recorded_per_round() -> void:
+	var round_two := ProgressScript.jump_to_round(ProgressScript.initial(), 2)
+	_assert_true(not ProgressScript.talked_to_npc(round_two), "a fresh round should not have talked to its NPC")
+	var talked := ProgressScript.talk_to_npc(round_two)
+	_assert_true(ProgressScript.talked_to_npc(talked), "talking should be recorded")
+	_assert_eq(ProgressScript.talk_to_npc(talked), talked, "talking again should change nothing")
+	_assert_true(ProgressScript.talked_to_npc(ProgressScript.normalize(talked)), "a save should keep the talk")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.normalize(round_two)), "a save should keep a round not talked to")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.normalize(_with(round_two, "talked", "yes"))), "a broken talk should read as none")
+	var next := ProgressScript.leave_round(ProgressScript.deliver(talked, ["door"]), "door")
+	_assert_true(not ProgressScript.talked_to_npc(next), "the next round should start with nobody talked to")
+	_assert_true(not ProgressScript.talked_to_npc(ProgressScript.jump_to_round(talked, 2)), "a jump should start the round fresh")
+	_assert_eq(ProgressScript.talk_to_npc(ProgressScript.initial()), ProgressScript.initial(), "outside the basement nobody is talked to")
+	_assert_true(not ProgressScript.talked_to_npc(_with(ProgressScript.initial(), "talked", true)), "outside the basement nobody has been talked to")
+
+
+func _at_line(line_index: int) -> Dictionary:
+	var progress: Dictionary = ProgressScript.initial()
+	for step in line_index:
+		progress = ProgressScript.advance_narration(progress)
+	return progress
+
+
+func _ready_door() -> Dictionary:
+	var progress := _at_line(ProgressScript.KNOCK_LINE_INDEX)
+	progress = ProgressScript.complete_knock(progress)
+	while ProgressScript.is_reading_narration(progress):
+		progress = ProgressScript.advance_narration(progress)
+	return progress
+
+
+func _with(progress: Dictionary, key: String, value: Variant) -> Dictionary:
+	var changed := progress.duplicate(true)
+	changed[key] = value
+	return changed
+
+
+func _assert_true(value: bool, message: String) -> void:
+	if not value:
+		_failures.append(message)
+
+
+func _assert_eq(actual: Variant, expected: Variant, message: String) -> void:
+	if actual != expected:
+		_failures.append("%s: expected %s, got %s" % [message, str(expected), str(actual)])

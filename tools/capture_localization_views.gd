@@ -33,10 +33,9 @@ func _capture() -> void:
 
 	main._on_language_selected("en")
 	main.new_game()
-	main._skip_prologue()
-	main._open_app_windows["social"] = true
+	main._skip_chapter_one()
 	main.game.set_active_app("social")
-	main._set_social_screen("home")
+	main._social_feed_panel.show_screen("home")
 	for frame in 12:
 		await process_frame
 	if not _save_view(ENGLISH_SOCIAL_OUTPUT):
@@ -48,14 +47,14 @@ func _capture() -> void:
 	if not _save_view(JAPANESE_SOCIAL_OUTPUT):
 		return
 
-	main._open_social_post(0)
+	main._social_feed_panel.open_post(0)
 	for frame in 8:
 		await process_frame
 	if not _save_view(JAPANESE_DETAIL_OUTPUT):
 		return
 
-	main._close_social_detail_window()
-	main._set_social_screen("archive")
+	main._social_feed_panel.close_detail()
+	main._social_feed_panel.show_screen("home")
 	main._on_oldweb_page_pressed("source")
 	for frame in 8:
 		await process_frame

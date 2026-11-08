@@ -1,0 +1,211 @@
+# Babel Meme Game
+
+Psychological-horror Godot game about language pollution, social publishing, and tower-floor exploration.
+
+## Architecture
+
+**Framework**:
+Reusable Godot modules under `framework/` that know nothing about this game's rules, content, or progression.
+_Avoid_: addon (when we mean this repo's seam, not third-party plugins), shared, utils
+
+**Game**:
+Babel-specific state, narrative, floor composition, and the main scene wiring under `scripts/` and `scenes/`.
+_Avoid_: app, core (when used loosely)
+
+**Seam**:
+The rule that Framework may be called from Game; Framework must not call back into Game.
+_Avoid_: boundary, layer (when used as a synonym for this rule)
+
+Parallel **adapter extractions** under `scripts/integrations/` (`camera_session`, `game_audio_controller`), `scripts/game/` (`social_feed_content`, `narrative_overlay_director`), and `scripts/ui/game_ui_theme.gd` shrink `babel_meme_game.gd` without changing MemeGameState API; see `docs/design/meme_game_state_public_surface.md`.
+
+**Reality scene adapter**:
+Game-side facade and composition root for the 3D street. Host talks to this one module via interaction outcomes and look pose, not live world objects. Locomotion and look pose stay on this facade. Internally it may later call a Floor generator and Floor composer.
+_Avoid_: Framework, Reality HUD, host reading live world objects as the API, treating locomotion / proximity / floor composition as three host-facing adapters today, letting the main scene compose 3D pieces directly
+
+**Floor generator**:
+Framework module that builds walkable space, collision, and generic geometry from engine primitives (cubes and the like). It does not know Babel rules, dolls, catalogs, or which floor the player is on. Cubes are the stand-in for objects; imported 3D models are not required.
+_Avoid_: RealityFloorGenerator (current Game bag that mixes generation and composition), Floor composer, moving today's generator into Framework as-is, blocking generation on authored meshes
+
+**Chapter stage**:
+Game module (`scripts/world/chapter_one_stage.gd`) the Reality scene adapter builds instead of a tower floor while chapter one is in its opening or basement: the black water with the white door 29.5 m ahead and the knock behind it, the white door passage: the same water and door with neither narration nor knock, or one basement round: the room with its CRT, the sealed door under the stair landing (the model's `StairCloset_Door`, taped shut: it never opens and answers no F of its own; round five shows it with its longest strips of tape torn off, the `torn_tape` room object, #128) with the round's NPC behind it (only in a room that opens by its conversation: rounds two and four, #129), the entry at the top of the stairs (open when the round starts, shut once the player goes down) and the exit door (locked until the door is one of the round's Exit objects), and every place of the seven Exit objects. Each comes from an imported model (`assets/chapter1/*.glb`, Git LFS) that brings its own ground and wall colliders; the basement is the planner's v3b model (#128), whose own materials show untouched and whose Blender preview lamps stay off: the stage lights the room itself at about the planner's 23 W, leaves out the model's stool, boxes and old X-ray arrows (the tables, two chairs and the phone stay) and adds the spawn, the playable bounds, the doors' leaf colliders, the NPC (never seen: only its knocking, a 3 s piece of the recording every 8 s until the player has talked to it, held by open settings), the CRT's glass (`CrtScreen`), a small table of boxes where the phone lies while nobody owns it, the clocks of primitives (the model has none: one wall clock, round four's wall of 18 near the CRT, round five's half clock whose missing numbers only the X-ray shows), round five's twelve sunken screens and torn tape, the exit table's vase or book and round three's pile of chairs by the run's seed (`BasementDecor`), and shows the round's room state (`room_state`: its lamps on or off and their brightness, the hum, the exit lamp and those objects). It plays the round's Room events. Every round is built afresh. The host still talks only to the adapter: the door is a `door` interaction outcome, an Exit object an `exit` one, the NPC an ordinary actor outcome, and the knock finishing, walking out through the open exit door and walking into the passage's light are the `OPENING_KNOCK_FINISHED`, `BASEMENT_EXIT_CROSSED` and `PASSAGE_DOOR_ENTERED` game events.
+_Avoid_: the host reaching the stage or its door, a second host-facing adapter, rebuilding the opening while its door is still opening, the stage writing the progress when the exit is crossed
+
+**CRT terminal**:
+The basement CRT entered with F: the view pushes in to its glass and the player browses the social feed and the notebook on it, one at a time; Tab, F, Escape or the screen's exit give the look from before back. `CrtTerminalPanel` (chrome: Layout scene `scenes/ui/crt_terminal.tscn`) owns a display of its own with its own social feed and notebook panels, which watch the same models and raise the same intents as the phone, so held words, the sentence and the world rules are one copy. The host hands the display to the Reality scene adapter, which shows it on the glass, and routes the mouse to the panel as a UV on the glass. Above the apps the round's narrator says what to do next (Basement guide). Its VHS look is the `terminal_vhs_enabled` preference, apart from the full-screen VHS. While it is entered the phone is set aside.
+_Avoid_: reparenting the phone's app windows onto the CRT, a second copy of held words or sentences, the host reaching the stage's mesh, a terminal VHS that follows the full-screen one
+
+**Chapter one progress**:
+Pure rules (`ChapterOneProgress`) on one dictionary kept in the `chapter_one_progress` run model: the phase (opening, basement, passage, demo end, or tower for a save made before chapter one or from the old crossroads), the opening line read so far, whether the narration is read and the knock heard, the basement round, whether it is delivered, which Exit objects it opened (`exits`), which of its Room events started (`events`), which the wall switch ended (`ended`) and whether the player has talked to its NPC behind the door (`talked`, set when the conversation starts, so the knocking stops). The narration advances one line per click; the knock is due on its line and heard once; the door opens into basement round one only after both. A round is delivered when one of its room's escapes holds, which makes that escape's object an exit; leaving by one of them starts the next round, and the fifth round's exit leads to the White door passage. Leaving by any other object is refused. While chapter one lasts the progress check climbs no floor. A save keeps the line, the knock, the round, its delivery, its exits, its events and the talk (a delivery saved before exits existed opened the door); a broken or unearned value falls back to what was earned. A post records the basement round it was made in (zero outside the basement), so an earlier round's post never delivers this one. The F9 debug panel (debug builds only) jumps to a round fresh.
+_Avoid_: the panel or the stage writing the progress, a knock replayed after it was heard, inferring the basement from the world, an earlier round's post counting for this one
+
+**Room data**:
+One room per basement round in `content/basement_rooms.json`, read through `RoomContent`: its own words per language (the Word drop adds the exit rules' words), its vocabulary (over the floor's shared `vocabulary`), the rules of the Rule box it offers (by id), its escapes, its state (brightness, hum, lights, objects) and its Room events. Editing the file changes a room without touching code; `RoomContent.validate` reports a broken one, including a room naming a rule the box lacks. Words a language has not written keep the whole pool. See ADR 0009.
+_Avoid_: a rule table per round in code, a planner editing GDScript to change a room, a room writing out a rule of its own
+
+**Room event**:
+A basement room's one-shot anomaly, listed under its `events` (#114): round two's whisper with the lamps flickering, 2.5 s after the entry shuts, for 8 s; round three's outage once the player is down, which only the wall switch ends, after which the room is a little dimmer, never hums again and its chairs lie in a pile; round five's screens and lamps going black for 2 s and red for 6 s when the player first reaches the room's middle. The Chapter stage starts one on its trigger once its delay has passed and raises `ROOM_EVENT_STARTED`; the state records it in the chapter progress at once, so it never plays twice. Its clock stops while the world is held: the phone up, settings open, the window out of focus, the CRT entered, a door or exit transition. The wall switch by the stairs' foot answers F (a `switch` Interaction outcome) only while an event it can end goes on. See ADR 0009.
+_Avoid_: replaying an event after a load, an event's clock running while the phone is up, the switch toggling the lights at any time
+
+**Rule box**:
+The `rule_box` of a floor's room file: every rule of the floor written once (id, subject, predicate, polarity, wording, the state it lays over). The basement's holds seven exit rules, `X 是出口` for the door, stairs, TV, table, chair, clock and light, each naming its Exit object (`object`), and each round's own rules on a subject of its own, which open nothing: `房间` lit or not in round one, `声音` there or not in round two, `地方` lit or not in round three, `名字` staying or not in round four and `家` there or not in round five (#127; AI drafts for the planner). Each rule is worded in all three languages with a word for its subject the player can post, so pollution garbles it (#131); the floor's vocabulary adds each language's words for the exit objects, Japanese `あかるい` and English `here` and `stays`, and the rule engine reads a Japanese subject with `ない` and no predicate as "not there" (`こえが ない`, `RuleEngine.BARE_NEGATION_PREDICATE`). Each room names the ones it offers; `RoomContent.room` hands callers the room with those rules filled in, so a rule two rounds offer is one rule. The shape names no floor: a later floor is another file of the same shape. See ADR 0009.
+_Avoid_: a rule box per round, a basement-only rule box, copying a rule into the rooms that use it
+
+**Escape**:
+A way out of a basement round that its room declares under `escapes`: `delivery` (the NPC's conversation finished with a post made in this round), `rule` (a named rule of the room in force) or `xray` (its `object` looked at through the X-ray). Only a room declaring `delivery` has its NPC behind the sealed door (`RoomRules.stands_npc`): rounds two and four (#129). Helping it is a side path; their rule escapes open the round as well. A rule a room names as an escape is one of its **exit rules** (`RoomRules.exit_rules`); every basement room offers all seven, each in its own order. Round five also hides an `xray` escape at its clock (#142 Q1): the X-ray works from the start, unannounced, and holding X (or the camera's hand frame) in reach of the clock makes it the exit with no post (`MemeGameState.see_through_xray`). Any one of them delivers the round, checked when the conversation ends, when a red post lands and while the X-ray looks: `RoomRules.open_exits` names the Exit objects the escapes that hold open, a `rule` escape its rule's `object`, `delivery` the exit door and `xray` its `object`. Once open an exit stays open until the player leaves, even if the rule is taken back. A room with no escape, an unknown kind, a rule it lacks, or a rule or X-ray escape naming no Exit object fails `RoomContent.validate`. See ADR 0009.
+_Avoid_: an exit condition in code, a round number that decides how it opens, an exit that closes again
+
+**Hidden item**:
+One of the three things the run can carry from a floor toward the fourth (#142 Q2): Enoch (a green book) on the first, Logos (a blue post; spelled Logos, #145 Q1) on the second, the psychiatric diagnosis (a crumpled sheet) on the third. Each is written once in `content/hidden_items.json` with a name and one line per language; the planner settled all three lines (#145 Q2), and `provisional` would mark wording not yet settled (`HiddenItems`). Their 3D models are still to come from the planner. A basement room whose NPC stands behind the door may name one as its `gift`: round four gives Enoch (#130). The NPC hands it over when its conversation finishes with this round's post, even if a rule opened the door first, and says so with the item's name and line; round two's NPC gives nothing. The run keeps the ids it holds in `hidden_items` (saved with the run, each once; a load drops an unknown id). The tower's floor-four check for the hidden ending is kept, but the demo ends before the tower, so nothing reads the items yet.
+_Avoid_: an item lying in the room to pick up, a world item (`collected_world_item_ids`) for a hidden item, a gift from a room with no NPC
+
+**Exit object**:
+One of the seven things of a basement room a rule can make the way out (`RoomContent.EXIT_OBJECTS`): the exit door, the stairs, the TV, the tables, the chairs, the clock and the lamps, in every round. The Chapter stage knows every place of each (any chair counts, also the phone's table and both lamps, which still count in the dark); in reach of one the round opened, F leaves the round. Every object leaves through the same exit transition: the view pushes in to it while the screen darkens, the state is already in the next round, and the screen lightens at its start. Open settings holds the transition. The exit door is one of them: locked until the door is an exit, then it swings open and walking through it is the same as F.
+_Avoid_: a leaving route per object, an exit door that opens for any exit, an F that leaves by an object the round did not open
+
+**Red post**:
+A sentence that hit a rule the current room offers from its Rule box (tier `rule`): `RoomRules.judge` reads it with the rule engine, any word order, the room's synonyms and a loose match, and the room changes. Anything else is a **green post** (`misread` or `noise`) and nothing changes. A rule is written into `world_rules` with its round; the room's look (`room_world_state`) is derived from the room and those rules, so it needs no save of its own, and leaving the round forgets them. The slip under the post button shows the last post in its color; under a green one a line says to try again, or that pollution voided it (the post records `voided`). The exit follows from a red post only when the room declares that rule as an Escape.
+_Avoid_: a saved copy of the room's look, a rule carrying over to the next round, a green post changing anything
+
+**Word pollution**:
+What a red post of a basement round costs: its subject's words are polluted for the rest of the run (`polluted_words`, saved). A polluted word shows as red garble in the notebook and the sentence, can still be placed, and never recovers. A sentence that hits a rule whose subject is polluted is void: it turns green, changes nothing, and the composer warns above its post button before it is posted. The word is polluted at once, so the same round cannot take its rule back either. Overall pollution is a separate number and keeps its own sum. The tower pollutes no word.
+_Avoid_: recording used rules, reusing overall pollution for this, a red word that cannot be placed
+
+**Word drop**:
+The words a basement round's posts let the player pick up (`WordDrop`, through `MemeGameState.get_pickup_unit_pool`, so the phone and the CRT read the same): the room's own words plus those of the first `guaranteed_exit_rules` (floor data, 3) of its exit rules, in the room's order, that pollution has not voided. They follow the polluted words, so a save brings them back without a field of its own. With an open exit stopping pollution each round uses up at most one exit subject, so seven subjects leave three for round five. `RoomContent.validate` plays the worst case for every language the floor writes words for (one exit used per earlier round, every other rule posted) and fails a floor that would drop fewer, or whose exit subject another rule shares. A language with no words written keeps the whole pool and is not held to it yet.
+_Avoid_: a fixed word list per round, a second drop for the CRT, an exit subject on a rule that is no exit
+
+**Pollution policy**:
+`PollutionPolicy`, the one place that says what a red post pollutes and when pollution voids a sentence, read from `content/pollution_policy.json`: whether a polluted subject voids its rule (otherwise a sentence over `void_ratio` polluted units is void), whether pollution counts by synonym group across languages, which subjects are barred (`exit`, so one sentence cannot escape every round; a room authoring one fails `RoomContent.validate`), whether pollution goes on once this round's exit stands open, and the skeleton words that are never polluted. See ADR 0009.
+_Avoid_: a pollution rule outside this module, a code change to adjust one
+
+**Level order**:
+`ChapterOneProgress.LEVEL_ORDER`, the one table that says which level follows which: opening, basement, demo end. A new level goes on it and brings its own phase and stage. The old tower is not on it: its code stays, and only the skip seam and old saves reach it.
+_Avoid_: a level naming its successor, a passage that always leads to the same place
+
+**White door passage**:
+The way between two levels (`passage`): the opening's black water and white door, without narration or knock. The door stays shut and full of light, and walking into it (no F) raises `PASSAGE_DOOR_ENTERED`: the state moves to the level the passage leads to (`passage_to`, taken from the Level order) and the player is walked in as the screen fills with white. A save in the passage comes back in it, where the player stood; one made in the light comes back past it.
+_Avoid_: a passage per level, a white cover the state knows about, an F prompt on this door
+
+**Demo end**:
+The demo's last level: `DemoEndPanel` (Layout scene `scenes/ui/demo_end.tscn`), black text on white in the chosen language (`demo_end` in `content/narrative_session.json`), with a button back to the main menu. It is shown in the Session mode ending, once the light has covered the screen, in place of the tower's ending screen; the world behind it stays on the passage.
+_Avoid_: a sixth Session mode, the UI catalog for the line, the tower's ending screen with other words
+
+**Found phone**:
+The phone is not the player's from the start: it lies on the basement's small table and F in reach picks it up (`MemeGameState.pick_up_phone`). Before that Tab raises nothing and no edge tab shows; after it a narrow tab sticks out of the right edge, and a click on it or Tab slides the phone in from the right or back out. Its home shows the social feed, the notebook and the map. The phone comes with the first two (`MemeGameState.PHONE_APPS`); the map is locked for the whole demo, its icon disabled and its window never opening, and who unlocks it belongs to the second floor. No round's delivery unlocks anything. Owning the phone (`phone_owned`) and the unlocked apps (`unlocked_apps`) are two run models saved apart; a loaded save lays no second phone on the table, and a loaded phone has its apps whatever the save names. A save made before them, a debug jump to a round and anything past the basement get the phone the progress earned (from round two on).
+_Avoid_: a phone that is there from the start of a run, locking an app only in the launcher while the state still opens its window, an NPC or a delivery handing out apps
+
+**Linear conversation**:
+The basement NPCs' one route (`conversation_mode` `linear`, routes from `LanguageCorruptionContent.get_basement_route`): no choices and no button. The NPC's line shows and the player's turn starts at once; each fresh text-key press types the next unit of the authored line (`TypingKeys`: arrows, modifiers alone, shortcuts and held repeats type nothing), and every key but Escape stays in the conversation. The NPC's reply then stays for as long as it takes to read (`ConversationReplyClock`, held by open settings) and the next turn follows; after the last reply the conversation ends by itself. Pollution garbles the typed units but never interrupts. Until the player has typed a whole line once (`typing_hint_seen`, saved with the run) a hint shows how to type. The typing keys and the hint hold for every typed line, also the tower's choice conversations. Finished without this round's post, the NPC sends the player back to the computer; finished with one, it says it will help the player out (`BASEMENT_HELPED_LINE`) and the exit door opens.
+_Avoid_: choice buttons or a continue button in the basement, a key that types several units, an understanding roll that cuts the route short
+
+**Basement guide**:
+The CRT narrator of a basement round (`BasementGuide`): which step the round is on, read from the models alone (nothing held: pick words; words held: make a sentence; a sentence: post it; after a post: it missed, pollution voided it, or it was heard without opening the exit; the exit open: walk out), and the line authored for that step (`basement_guide` in `content/narrative_session.json`, per round, behind the opening's speaker tag). A step without a line shows none: round one speaks at every step; from round two, where the player knows how to compose and post, the narrator greets the round, answers a post and sends the player out, and never mentions the X-ray (#127). `BasementGuide.problems_in` fails an unknown round or step, or a missing language.
+_Avoid_: a model for the line, a tutorial that advances on a timer, the narrator outside the CRT
+
+**Opening narration**:
+Chapter one's narrator lines (the `opening` list in `content/narrative_session.json`, Chinese, Japanese and an English draft), shown one at a time behind the speaker tag (`opening_speaker`: `？？？：`, `???: ` in English) after two seconds of black by `OpeningNarrationPanel` (Layout scene `scenes/ui/opening_narration.tscn`) while the Session mode is prologue. While it is read, walking, looking and the phone are locked; open settings holds it. A click on a shown line raises `OPENING_NARRATION_ADVANCED`.
+_Avoid_: prologue (the retired transmission overlay), a timer that advances lines, the UI catalog for the lines themselves
+
+**Floor look**:
+Game module (`scripts/game/floor_look.gd`) that answers the 3D street's colors from tables: a material role, the background / ambient / fog, a light or a fixed tint, by floor, district style and UI palette. `RealityFloorGenerator` asks it for every color and decides none itself.
+_Avoid_: color literals or palette blends in the generator, one `if built_floor ==` branch per color, treating it as part of the Floor composer
+
+**Floor composer**:
+Game module that assembles one tower floor from catalogs and snapshots: who stands where, which items exist, which authored events run. It uses a Floor generator for geometry; that geometry is engine primitives unless a later ticket introduces templates. Interaction stays an interaction outcome, not node signals as the host API.
+_Avoid_: treating the composer as Framework, host talking to the composer instead of the Reality scene adapter, one authored .tscn per floor as the source of truth, assuming imported 3D models
+
+**Interaction outcome**:
+The Reality scene adapter's report of nearby approach, conversation, or pickup, looked up by id and kind, and of chapter one's white door (`door`: in reach once it is ready, then opening with its progress until the next stage is built), the basement CRT (`terminal`: in reach in front of its glass, then entered until the player leaves), the phone on the basement's table (`phone`: in reach while it lies there; picking it up takes it off the table), the basement's wall switch (`switch` with the `events` it would end: in reach while a Room event it can end goes on, answering before an exit) and an Exit object the round opened (`exit` with its `object`: in reach of one of its places, then leaving with the transition's progress until the next round is built; it answers before the CRT, the phone before it). The basement round's NPC is an ordinary actor outcome (`actor_type` `basement_npc`), in reach in front of the sealed door but not from the landing above it. Host and Reality HUD read this instead of live world objects.
+_Avoid_: publish outcome (pollution gain), live actor/item, treating the whole nearby crowd as the API
+
+**Valid interaction**:
+A post (free sentence submit), a conversation the player spoke in and then left, or a pickup (a social word or a world item). There are no daily actions, funds or day settlement: the run goes on until the ending. When a valid interaction completes the state runs the progress check: the pollution floor step, the floor-three finish and the hidden ending. A post that just made the exit exist holds the hidden ending back for the next one.
+_Avoid_: daily actions, funds, day settlement, checking progress on a timer or when pollution changes
+
+**Action outcome**:
+What one valid interaction reports back from the state: whether it counted, whether the pollution flashback is due, and whether the progress check moved the floor. The flashback is legacy (#145 Q3): its doll and doctor predate floor three's redesign (the hospital's merged collective consciousness: the doctor never appears, only a small hatch like a medicine window that talks now and then and drops items), so the demo never triggers it (`pollution_flashback_enabled` stays off); the code, assets and the "a pollution threshold plays a beat" frame wait for the new content. Its settlement is the flashback beat or nothing. The host presents it once: the flashback beat, or the ending, or the redrawn surfaces (which rebuild a new floor). Social char picks and free sentence submits carry one under `outcome`; leaving a conversation returns one from `end_typed_reality_conversation()`.
+_Avoid_: host re-checking the floor itself, confusing it with Interaction outcome (Reality approach / conversation / pickup)
+
+**Look pose**:
+The Reality scene adapter's player position and first-person yaw/pitch; inside the CRT terminal also `view_position`, where the view pushes in to.
+_Avoid_: reading adapter fields as the host API, camera node as the look contract
+
+**Session mode**:
+The outer flow's current state: main menu, prologue (chapter one's opening narration), gameplay, narrative, or ending (the tower's ending or the Demo end). The reusable machine (state interface + manager) is Framework; the five state scripts are Game and are created and injected at boot. Rules flags are transition conditions, not a way to infer the screen. See ADR 0004.
+_Avoid_: deriving the screen from overlay flags, treating language picker or camera consent as flow states, a single FSM for phone apps or conversations, putting Babel state names inside Framework
+
+**Content catalog**:
+Authored narrative copy grouped by domain and looked up by id. MemeGameState stores ids, not sentences.
+_Avoid_: strings file, localization dump, 文案系統
+
+**ContentJson**:
+Framework module that reads and caches `content/*.json`. Game catalogs call it; they do not parse JSON themselves.
+_Avoid_: per-feature JSON loader, new parser
+
+**Language material**:
+Locale-native phrases that *are* the language mechanic (pickup units, echo templates). Each locale writes its own; they do not go through the UI catalog.
+_Avoid_: UI copy, translation entry, content catalog (when meaning pickup or echo text)
+
+**Layout scene**:
+An editor-authored `.tscn` that owns a fixed screen's layout and look; its panel script only mounts it, tints it, and wires intents. Build UI from code only when the item count is decided at runtime. The main menu (`scenes/ui/main_menu.tscn`) is the first one.
+_Avoid_: fixed layouts built from `Control.new()` and pixel offsets, @tool scripts that generate the layout, the global UI theme walk repainting a layout scene
+
+**Screen manager**:
+Host-created opener for one fixed screen. The host builds it at boot (not an autoload). The screen script declares the scene path, layer name, and button intents. The first open instantiates; close hides; the next open reuses that instance. The main menu and the Dialog are opened this way; the Dialog's manager is bound in the service registry so any panel can open it.
+_Avoid_: autoload, a manager that also closes other screens
+
+**Dialog**:
+The generic modal window any panel opens by resolving its screen manager (`ServiceKeys.DIALOG`) and calling `open(spec)`: a message and one to three buttons, each a UI catalog source key with an optional callback, plus an optional cancel button (Escape and first focus) and owner. A press closes the Dialog, then runs that button's callback. One at a time: a second open is refused with a warning. The owner leaving the tree closes it without a callback. It sits above every other game UI, takes every click, keeps the focus and holds the game's hotkeys while open, and tints itself for the pollution stage. Its text uses the language's formal font (`LocaleFont`: Roboto Condensed Bold, Noto Sans SC Medium, Noto Sans JP Medium), not the pixel font, and swaps it when the language changes; its buttons do not react to hover and show focus as an underline. Refusal, owner and callbacks live on the `DialogScreen`; there is no dialog service. See ADR 0007 for why its callbacks are allowed.
+_Avoid_: a dialog service beside the screen manager, a queue of dialogs, the host forwarding opens, a callback that writes host state instead of raising on the bus
+
+**UI intent**:
+How any UI tells the host what the player did. The control emits on the game event bus; the host listens in one place. This covers every UI surface, including controls whose count is known only at runtime; no panel keeps a private signal to the host. If the action carries an answer (a locale, a post, a token, a drag), that answer rides along. The main menu is the first caller. See ADR 0007.
+_Avoid_: a private signal or callback per panel (for example telling the host that a window opened: write the model instead), a second channel for runtime-built controls, dropping the answer, bare-string intent names or payload keys outside `UiIntents`
+
+**Game event**:
+Something that happened once and that several unrelated collaborators react to (a sound cue was asked for, the flashback finished). It rides the same game event bus as UI intents, but listeners subscribe by event name and there may be many; the sender does not know who listens. Names and payload keys live in `GameEvents`. Sound cues (`SFX_REQUESTED`) are the first; the cover watcher appearing and vanishing (`COVER_WATCHER_APPEARED` / `COVER_WATCHER_VANISHED`, with the floor) followed, then the pollution flashback finishing (`FLASHBACK_FINISHED`). The day settling (`DAY_SETTLED`) was removed with the action economy (#108). See ADR 0007.
+_Avoid_: a game event for a fact that is true now (that is a model), listening for an intent name outside the host, handing an `AudioStreamPlayer` down so a caller can play it
+
+**Intent handler**:
+A Game module that takes one domain's UI intents from the host, changes the state, writes its feedback line, and returns an intent result naming what the host presents. The host stays the only listener and only routes and presents. Each extends the `@abstract` `IntentHandler`; the social feed, the notebook and the settings window have one. A domain's own presentation kinds live on its handler; `IntentResult` keeps the shared ones. See ADR 0007.
+_Avoid_: a handler subscribing to the bus itself, a handler reaching into host nodes, the host writing state for an intent a handler claims
+
+**Service registry**:
+Global table from a string to one shared object. The host binds services at boot. Callers resolve by that string. Service names live in `ServiceKeys`.
+_Avoid_: autoload, passing the same object down through every panel, binding one string twice
+
+**Property manager**:
+The service that stores models by name. It does not hold raw values and it does not notify. Screens resolve it from the service registry. See ADR 0008.
+_Avoid_: a bag pushed into each screen, a second copy of a fact on the host or on `MemeGameState`
+
+**Model**:
+One single-copy value with its observers. An open screen registers and is told the current value; a later write tells every listener. The host observes a model the same way a screen does, instead of connecting to a panel. Callers fetch the model from the property manager each time. Lists and maps are copied on read and changed only through the model's methods. Names and save categories live in `PropertyKeys`.
+_Avoid_: keeping a model in a field, writing a list or map in place, storing a derived label or palette as its own model, a screen opening itself because a model changed
+
+**Property watch**:
+One screen's registrations on its models, kept in one place. Starting finds every model and registers every listener (each is told the current value once); stopping unregisters them all; the screen leaving the tree stops it too. A screen builds one and starts it when it opens.
+_Avoid_: a screen re-writing its own find / register / unregister code, keeping the models in fields, a listener that outlives its screen
+
+**Palette role**:
+A named color slot of the UI palette (`surface`, `ink`, `accent`, `error`, `pending`, …), set as `palette_role` metadata on a node in a Layout scene. Tinting swaps the RGB for the active palette and keeps the alpha authored in the editor. `UiPalette.VOID` (true-black horror backdrop) and `UiPalette.OUTLINE` (near-black text and 3D outline) are fixed colors, not roles: pollution never changes them.
+_Avoid_: literal colors on palette-driven nodes, one node group per color, a near-black literal where `VOID` or `OUTLINE` is meant
+
+**Scrim**:
+The full-screen cover behind a window that hides the game so only that window is read (camera consent, language selection, phone camera connection). `GameUiTheme.scrim()` answers it: the active palette's `ink` at one shared strength, so it follows pollution. Not this recipe: the phone wallpaper tint, and the shared Dialog's `DialogScrim`, a lighter dimmer whose strength is authored in `dialog.tscn` because the window behind a dialog stays readable.
+_Avoid_: a panel choosing its own cover alpha or a literal near-black cover
+
+**Hairline**:
+A thin divider or faint edge on a dark surface (the HUD rail, the rule above a post's comments). `GameUiTheme.hairline()` answers it: the active palette's `muted` at one shared strength. Not this recipe: the social post card's edge, a stronger `muted` that marks the card rather than divides.
+_Avoid_: a panel choosing its own divider alpha
+
+**Button tint**:
+The wash behind a hovered or pressed button that has no face of its own (HUD icons, flat phone buttons). `GameUiTheme.hover_tint()` and `pressed_tint()` answer it: the active palette's `muted` at two shared strengths. Not this recipe: the sentence composer's ghost tile, a resting `muted` wash that marks an empty slot rather than a button state.
+_Avoid_: a button state choosing its own wash alpha
+
+## Development
+
+**Primary platform**: Windows (Godot 4.6+ editor and headless tests).
+
+**Tests**: `tools\run_tests.bat` or `.\tools\run_tests.ps1`; set `GODOT_BIN` to your Godot executable. See `docs/agents/testing.md`.
+
+**macOS**: still supported for Godot and optional Continuity Camera hand-tracking; use `tools/run_tests.sh` with `GODOT_BIN` set.

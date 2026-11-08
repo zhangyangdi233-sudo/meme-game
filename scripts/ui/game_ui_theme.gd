@@ -1,0 +1,380 @@
+extends RefCounted
+class_name GameUiTheme
+## Palette, pixel-font theme, panel factories, and control-tree styling for the main scene adapter.
+
+const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
+const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
+const PaletteSceneRootScript = preload("res://scripts/ui/palette_scene_root.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const SCRIM_ALPHA := 0.92
+const HAIRLINE_ALPHA := 0.22
+const HOVER_TINT_ALPHA := 0.24
+const PRESSED_TINT_ALPHA := 0.40
+
+var ui_font_path := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
+var ui_font_grid := 9
+var ui_font_min_size := 9
+var ui_font_max_size := 45
+
+var _ui_theme: Theme
+var _locale_translate: Callable = Callable()
+var _pollution_stage_fn: Callable = Callable()
+
+
+## The theme the host bound under ServiceKeys.UI_THEME, or null when none is bound.
+static func bound() -> GameUiTheme:
+	if not ServiceRegistryScript.has(ServiceKeysScript.UI_THEME):
+		return null
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
+
+
+func configure(deps: Dictionary) -> void:
+	ui_font_path = str(deps.get("ui_font_path", ui_font_path))
+	ui_font_grid = int(deps.get("ui_font_grid", ui_font_grid))
+	ui_font_min_size = int(deps.get("ui_font_min_size", ui_font_min_size))
+	ui_font_max_size = int(deps.get("ui_font_max_size", ui_font_max_size))
+	_locale_translate = deps.get("locale_translate", Callable())
+	_pollution_stage_fn = deps.get("pollution_stage", Callable())
+
+
+func current_pollution_stage() -> Dictionary:
+	return _pollution_stage_fn.call() if _pollution_stage_fn.is_valid() else {}
+
+
+func _stage(pollution_stage = null) -> Dictionary:
+	if pollution_stage == null:
+		return current_pollution_stage()
+	return pollution_stage
+
+
+func active_palette(pollution_stage = null) -> Dictionary:
+	return UiPaletteScript.palette(str(_stage(pollution_stage).get("palette_key", "palette_1")))
+
+
+func theme_color(key: String, pollution_stage = null) -> Color:
+	return UiPaletteScript.color(active_palette(_stage(pollution_stage)), key)
+
+
+## The full-screen cover behind a window that hides the game: ink at one shared strength.
+func scrim(pollution_stage = null) -> Color:
+	return Color(theme_color("ink", _stage(pollution_stage)), SCRIM_ALPHA)
+
+
+## A thin divider or faint edge: muted at one shared strength.
+func hairline(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), HAIRLINE_ALPHA)
+
+
+## The wash behind a hovered button: muted at one shared strength.
+func hover_tint(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), HOVER_TINT_ALPHA)
+
+
+## The wash behind a pressed button: muted at one shared strength.
+func pressed_tint(pollution_stage = null) -> Color:
+	return Color(theme_color("muted", _stage(pollution_stage)), PRESSED_TINT_ALPHA)
+
+
+func ensure_ui_font_theme() -> Theme:
+	if _ui_theme != null:
+		return _ui_theme
+	_ui_theme = PixelFontThemeScript.build(ui_font_path, ui_font_grid)
+	return _ui_theme
+
+
+func ui_font_size(requested_size: int) -> int:
+	return PixelFontThemeScript.snap_size(requested_size, ui_font_grid, ui_font_min_size, ui_font_max_size)
+
+
+func apply_ui_font_theme(target: Control) -> void:
+	PixelFontThemeScript.apply(target, ensure_ui_font_theme())
+
+
+func panel(pollution_stage = null) -> PanelContainer:
+	var stage := _stage(pollution_stage)
+	var panel_node := PanelContainer.new()
+	panel_node.add_theme_stylebox_override("panel", style(theme_color("surface", stage), theme_color("accent", stage)))
+	return panel_node
+
+
+func wrap(node: Control, pollution_stage = null) -> PanelContainer:
+	var panel_node := panel(_stage(pollution_stage))
+	panel_node.add_child(node)
+	return panel_node
+
+
+func label(text: String, size: int, color: Color) -> Label:
+	var label_node := Label.new()
+	label_node.text = text
+	set_localized_property(label_node, "text")
+	label_node.add_theme_font_size_override("font_size", ui_font_size(size))
+	label_node.add_theme_color_override("font_color", color)
+	return label_node
+
+
+func refresh_localized_ui(ui_root: Control) -> void:
+	if ui_root == null or not is_instance_valid(ui_root):
+		return
+	localize_control_tree(ui_root)
+
+
+func localize_control_tree(node: Node) -> void:
+	if node is Control and not bool(node.get_meta("skip_localization", false)):
+		var control := node as Control
+		if control is Label or control is Button:
+			set_localized_property(control, "text")
+		if control is LineEdit:
+			set_localized_property(control, "placeholder_text")
+		set_localized_property(control, "tooltip_text")
+	for child in node.get_children():
+		localize_control_tree(child)
+
+
+func set_localized_property(control: Control, property_name: String) -> void:
+	if control == null:
+		return
+	if control.has_meta("skip_localization"):
+		return
+	var current_text := str(control.get(property_name))
+	if current_text.is_empty():
+		return
+	var source_meta := "locale_source_%s" % property_name
+	var last_meta := "locale_last_%s" % property_name
+	var source_text := str(control.get_meta(source_meta, ""))
+	var last_text := str(control.get_meta(last_meta, ""))
+	if source_text.is_empty() or current_text != last_text:
+		source_text = current_text
+		control.set_meta(source_meta, source_text)
+	var localized_text := source_text
+	if _locale_translate.is_valid():
+		localized_text = _locale_translate.call(source_text)
+	control.set(property_name, localized_text)
+	control.set_meta(last_meta, localized_text)
+
+
+func style(bg: Color, border: Color) -> StyleBoxFlat:
+	return UiPaletteScript.flat_style(bg, border)
+
+
+func soft_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = Color(bg, 0.94)
+	style_box.border_color = Color(border, 0.24)
+	style_box.set_border_width_all(1)
+	style_box.set_corner_radius_all(16)
+	style_box.set_content_margin_all(16)
+	return style_box
+
+
+func phone_shell_style(pollution_stage: Dictionary) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = theme_color("ink", pollution_stage)
+	style_box.border_color = theme_color("ink", pollution_stage)
+	style_box.set_border_width_all(6)
+	style_box.set_corner_radius_all(24)
+	style_box.set_content_margin_all(6)
+	return style_box
+
+
+func phone_surface_style(pollution_stage: Dictionary) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = theme_color("surface", pollution_stage)
+	style_box.border_color = theme_color("surface", pollution_stage)
+	style_box.set_border_width_all(0)
+	style_box.set_corner_radius_all(16)
+	style_box.set_content_margin_all(10)
+	return style_box
+
+
+func launcher_app_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = bg
+	style_box.border_color = border
+	style_box.set_border_width_all(2)
+	style_box.set_corner_radius_all(6)
+	style_box.set_content_margin_all(12)
+	return style_box
+
+
+func window_close_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = bg
+	style_box.border_color = border
+	style_box.set_border_width_all(1)
+	style_box.set_corner_radius_all(4)
+	style_box.set_content_margin_all(4)
+	return style_box
+
+
+func reward_card_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = bg
+	style_box.border_color = border
+	style_box.set_border_width_all(2)
+	style_box.set_corner_radius_all(6)
+	style_box.set_content_margin_all(12)
+	return style_box
+
+
+func poster_frame_style(pollution_stage: Dictionary) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = theme_color("muted", pollution_stage)
+	style_box.border_color = Color(theme_color("ink", pollution_stage), 0.65)
+	style_box.set_border_width_all(1)
+	style_box.set_corner_radius_all(8)
+	style_box.set_content_margin_all(0)
+	return style_box
+
+
+func flat_button_state_style(bg: Color) -> StyleBoxFlat:
+	var style_box := StyleBoxFlat.new()
+	style_box.bg_color = bg
+	style_box.border_color = Color(bg, 0.0)
+	style_box.set_border_width_all(0)
+	style_box.set_corner_radius_all(10)
+	style_box.set_content_margin_all(4)
+	return style_box
+
+
+func composer_tile_style(kind: String, pollution_stage = null) -> StyleBoxFlat:
+	var stage := _stage(pollution_stage)
+	var style_box := StyleBoxFlat.new()
+	style_box.set_corner_radius_all(10)
+	style_box.content_margin_left = 10.0
+	style_box.content_margin_right = 10.0
+	style_box.content_margin_top = 5.0
+	style_box.content_margin_bottom = 7.0
+	match kind:
+		"pressed":
+			style_box.bg_color = theme_color("surface", stage).darkened(0.05)
+			style_box.border_color = Color(theme_color("accent", stage), 0.9)
+			style_box.set_border_width_all(1)
+			style_box.content_margin_top = 7.0
+			style_box.content_margin_bottom = 5.0
+		"ghost":
+			style_box.bg_color = Color(theme_color("muted", stage), 0.30)
+			style_box.border_color = Color(theme_color("accent", stage), 0.22)
+			style_box.set_border_width_all(1)
+		_:
+			style_box.bg_color = theme_color("surface", stage)
+			style_box.border_color = Color(theme_color("accent", stage), 0.55)
+			style_box.set_border_width_all(1)
+			style_box.border_width_bottom = 3
+	return style_box
+
+
+func apply_composer_tile_theme(tile: Button, is_ghost: bool, pollution_stage = null) -> void:
+	var stage := _stage(pollution_stage)
+	if is_ghost:
+		tile.add_theme_stylebox_override("normal", composer_tile_style("ghost", stage))
+		tile.add_theme_stylebox_override("disabled", composer_tile_style("ghost", stage))
+		return
+	tile.add_theme_stylebox_override("normal", composer_tile_style("normal", stage))
+	tile.add_theme_stylebox_override("hover", composer_tile_style("normal", stage))
+	tile.add_theme_stylebox_override("pressed", composer_tile_style("pressed", stage))
+
+
+## Text that keeps a palette role of its own (red garble, a post's slip) through the theme walk.
+func set_font_role(control: Control, role: String) -> void:
+	control.set_meta("font_role", role)
+	_paint_font_role(control, null)
+
+
+func _paint_font_role(control: Control, pollution_stage) -> void:
+	var color := theme_color(str(control.get_meta("font_role")), _stage(pollution_stage))
+	for color_name: String in ["font_color", "font_hover_color", "font_pressed_color"]:
+		control.add_theme_color_override(color_name, color)
+
+
+func apply_ui_theme(node: Node, pollution_stage = null) -> void:
+	if node == null or node is PaletteSceneRootScript:
+		return
+	pollution_stage = _stage(pollution_stage)
+	if node is Label and not node.has_meta("flashback_text") and not node.has_meta("action_overlay_text"):
+		if node.has_meta("font_role"):
+			_paint_font_role(node as Control, pollution_stage)
+		elif node.has_meta("hud_action_label"):
+			(node as Label).add_theme_color_override("font_color", theme_color("muted", pollution_stage))
+		elif node.has_meta("on_dark"):
+			(node as Label).add_theme_color_override("font_color", theme_color("surface", pollution_stage))
+		else:
+			(node as Label).add_theme_color_override("font_color", theme_color("ink", pollution_stage))
+	elif node is Button:
+		var button := node as Button
+		if button.has_meta("hud_icon"):
+			var empty := StyleBoxEmpty.new()
+			button.add_theme_stylebox_override("normal", empty)
+			var hover := hover_tint(pollution_stage)
+			var pressed := pressed_tint(pollution_stage)
+			button.add_theme_stylebox_override("hover", style(hover, hover))
+			button.add_theme_stylebox_override("pressed", style(pressed, pressed))
+		elif button.has_meta("phone_app_icon"):
+			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage))
+			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
+			button.add_theme_color_override("font_pressed_color", theme_color("ink", pollution_stage))
+			button.add_theme_font_size_override("font_size", ui_font_size(18))
+			button.add_theme_stylebox_override("normal", launcher_app_style(theme_color("ink", pollution_stage), theme_color("muted", pollution_stage)))
+			button.add_theme_stylebox_override("hover", launcher_app_style(theme_color("muted", pollution_stage), theme_color("ink", pollution_stage)))
+			button.add_theme_stylebox_override("pressed", launcher_app_style(theme_color("bg", pollution_stage), theme_color("ink", pollution_stage)))
+		elif button.has_meta("dark_window_close_button"):
+			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage))
+			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
+			button.add_theme_color_override("font_pressed_color", theme_color("ink", pollution_stage))
+			button.add_theme_stylebox_override("normal", window_close_style(Color(theme_color("ink", pollution_stage), 0.0), theme_color("muted", pollution_stage)))
+			button.add_theme_stylebox_override("hover", window_close_style(theme_color("muted", pollution_stage), theme_color("surface", pollution_stage)))
+			button.add_theme_stylebox_override("pressed", window_close_style(theme_color("surface", pollution_stage), theme_color("surface", pollution_stage)))
+		elif button.has_meta("window_close_button"):
+			button.add_theme_color_override("font_color", theme_color("ink", pollution_stage))
+			button.add_theme_color_override("font_hover_color", theme_color("surface", pollution_stage))
+			button.add_theme_color_override("font_pressed_color", theme_color("surface", pollution_stage))
+			button.add_theme_stylebox_override("normal", window_close_style(Color(theme_color("surface", pollution_stage), 0.0), theme_color("accent", pollution_stage)))
+			button.add_theme_stylebox_override("hover", window_close_style(theme_color("ink", pollution_stage), theme_color("ink", pollution_stage)))
+			button.add_theme_stylebox_override("pressed", window_close_style(theme_color("accent", pollution_stage), theme_color("ink", pollution_stage)))
+		elif button.has_meta("notebook_browser_tab"):
+			var tab_active := bool(button.get_meta("active_tab", false))
+			button.add_theme_color_override("font_color", theme_color("surface", pollution_stage) if tab_active else theme_color("ink", pollution_stage))
+			button.add_theme_color_override("font_hover_color", theme_color("ink", pollution_stage))
+			button.add_theme_stylebox_override("normal", style(theme_color("ink", pollution_stage) if tab_active else Color(theme_color("surface", pollution_stage), 0.72), theme_color("accent", pollution_stage)))
+			button.add_theme_stylebox_override("hover", style(theme_color("muted", pollution_stage), theme_color("ink", pollution_stage)))
+			button.add_theme_stylebox_override("pressed", style(theme_color("accent", pollution_stage), theme_color("ink", pollution_stage)))
+		elif button.has_meta("flat_phone_button"):
+			var flat := StyleBoxEmpty.new()
+			button.add_theme_color_override("font_color", theme_color("ink", pollution_stage))
+			button.add_theme_color_override("font_hover_color", theme_color("accent", pollution_stage))
+			button.add_theme_color_override("font_pressed_color", theme_color("ink", pollution_stage))
+			button.add_theme_stylebox_override("normal", flat)
+			button.add_theme_stylebox_override("hover", flat_button_state_style(hover_tint(pollution_stage)))
+			button.add_theme_stylebox_override("pressed", flat_button_state_style(pressed_tint(pollution_stage)))
+		else:
+			UiPaletteScript.apply_button_style(button, active_palette(pollution_stage))
+		if button.has_meta("font_role"):
+			_paint_font_role(button, pollution_stage)
+	elif node is PanelContainer:
+		if node.has_meta("phone_shell"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", phone_shell_style(pollution_stage))
+		elif node.has_meta("movie_subtitle"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		elif node.has_meta("portrait_panel"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", reward_card_style(theme_color("ink", pollution_stage), theme_color("muted", pollution_stage)))
+		elif node.has_meta("phone_surface"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", phone_surface_style(pollution_stage))
+		elif node.has_meta("poster_frame"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", poster_frame_style(pollution_stage))
+		elif node.has_meta("dark_rail"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("ink", pollution_stage), hairline(pollution_stage)))
+		elif node.has_meta("tooltip_panel"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", style(theme_color("muted", pollution_stage), theme_color("accent", pollution_stage)))
+		elif node.has_meta("soft_panel"):
+			(node as PanelContainer).add_theme_stylebox_override("panel", soft_style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
+		else:
+			var panel_node := node as PanelContainer
+			if not panel_node.has_theme_stylebox_override("panel"):
+				panel_node.add_theme_stylebox_override("panel", style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
+	elif node is LineEdit:
+		var edit := node as LineEdit
+		edit.add_theme_color_override("font_color", theme_color("ink", pollution_stage))
+		edit.add_theme_color_override("font_placeholder_color", theme_color("accent", pollution_stage))
+		edit.add_theme_stylebox_override("normal", style(theme_color("surface", pollution_stage), theme_color("accent", pollution_stage)))
+	for child in node.get_children():
+		apply_ui_theme(child, pollution_stage)

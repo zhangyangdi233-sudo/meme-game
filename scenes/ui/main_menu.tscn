@@ -1,0 +1,182 @@
+[gd_scene format=3 uid="uid://bh2k6b00ky1vn"]
+
+[ext_resource type="Script" uid="uid://bac1s3wnhsegu" path="res://scripts/ui/main_menu_screen.gd" id="1_root"]
+[ext_resource type="FontFile" uid="uid://cqyei842slvok" path="res://assets/fonts/BoutiqueBitmap9x9.ttf" id="2_font"]
+[ext_resource type="Texture2D" uid="uid://gunyo2vi8bkb" path="res://assets/image/main_menu/main_menu_bg.png" id="3_bg"]
+[ext_resource type="Texture2D" uid="uid://b7iargpbuxw6x" path="res://assets/image/main_menu/main_menu_triangle_s.png" id="4_band"]
+[ext_resource type="Texture2D" uid="uid://bx5j0sp7tqpm8" path="res://assets/image/main_menu/main_menu_triangle_s1.png" id="5_strip"]
+[ext_resource type="Texture2D" uid="uid://cbwwgirc7tr8p" path="res://assets/image/main_menu/menu_bg.png" id="6_backdrop"]
+[ext_resource type="Texture2D" uid="uid://d1j5be7qu6d1x" path="res://assets/image/main_menu/START_leave.png" id="7_start"]
+[ext_resource type="Texture2D" uid="uid://cwa7edec5us41" path="res://assets/image/main_menu/SETTING_leave.png" id="8_setting"]
+[ext_resource type="Texture2D" uid="uid://bp6x1qcll4jxo" path="res://assets/image/main_menu/QUIT_leave.png" id="9_quit"]
+[ext_resource type="Texture2D" uid="uid://dmdy0ssc6xjnv" path="res://assets/image/main_menu/title_menu.png" id="10_title"]
+[ext_resource type="Texture2D" uid="uid://cout8jq11efqp" path="res://assets/image/main_menu/square_c.png" id="12_c"]
+[ext_resource type="Texture2D" uid="uid://cimeswj4do2ar" path="res://assets/image/main_menu/START_hover.png" id="13_start_hover"]
+[ext_resource type="Texture2D" uid="uid://y1301r6p8dh3" path="res://assets/image/main_menu/SETTING_hover.png" id="14_setting_hover"]
+[ext_resource type="Texture2D" uid="uid://ca4q5nyrgrnh5" path="res://assets/image/main_menu/QUIT_hover.png" id="15_quit_hover"]
+[ext_resource type="Script" uid="uid://cuh3onuxx8sl5" path="res://scripts/ui/hold_ring.gd" id="16_ring"]
+[ext_resource type="Texture2D" uid="uid://d2n5w6bdgst3q" path="res://assets/image/main_menu/square_uc.png" id="17_uc"]
+[ext_resource type="Shader" path="res://shaders/main_menu_red_backdrop.gdshader" id="18_backdrop_shader"]
+[ext_resource type="Shader" path="res://shaders/main_menu_cream_slabs.gdshader" id="19_slabs_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_backdrop"]
+resource_local_to_scene = true
+shader = ExtResource("18_backdrop_shader")
+shader_parameter/reveal = 0.0
+shader_parameter/node_origin = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_slabs"]
+resource_local_to_scene = true
+shader = ExtResource("19_slabs_shader")
+shader_parameter/reveal = 0.0
+shader_parameter/node_origin = Vector2(570, 255)
+shader_parameter/band_texture = ExtResource("4_band")
+shader_parameter/band_origin = Vector2(0, 116)
+shader_parameter/band_size = Vector2(1316, 780)
+shader_parameter/backdrop_texture = ExtResource("6_backdrop")
+shader_parameter/backdrop_origin = Vector2(0, 0)
+shader_parameter/backdrop_size = Vector2(1323, 900)
+
+[sub_resource type="Theme" id="Theme_pixel"]
+default_font = ExtResource("2_font")
+default_font_size = 18
+
+[node name="MainMenuLayer" type="Control" unique_id=787154510]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_pixel")
+script = ExtResource("1_root")
+
+[node name="MainMenuBackground" type="TextureRect" parent="." unique_id=1630261629]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="MainMenuBand" type="TextureRect" parent="." unique_id=923935199]
+layout_mode = 0
+offset_top = 116.0
+offset_right = 1316.0
+offset_bottom = 896.0
+mouse_filter = 2
+texture = ExtResource("4_band")
+
+[node name="MainMenuStrip" type="TextureRect" parent="." unique_id=443222528]
+layout_mode = 0
+offset_left = 1312.0
+offset_top = 105.0
+offset_right = 1600.0
+offset_bottom = 900.0
+mouse_filter = 2
+texture = ExtResource("5_strip")
+
+[node name="MainMenuRedBackdrop" type="TextureRect" parent="." unique_id=559541786]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1323.0
+offset_bottom = 900.0
+mouse_filter = 2
+material = SubResource("ShaderMaterial_backdrop")
+texture = ExtResource("6_backdrop")
+
+[node name="MainMenuTitleArt" type="TextureRect" parent="." unique_id=1369827620]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1295.0
+offset_right = 1.0
+offset_bottom = 337.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("10_title")
+expand_mode = 1
+
+[node name="MainMenuSlabsOutline" type="TextureRect" parent="." unique_id=1154391849]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 570.0
+offset_top = 255.0
+offset_right = 1057.0
+offset_bottom = 855.0
+texture = ExtResource("17_uc")
+expand_mode = 1
+
+[node name="MainMenuSlabs" type="TextureRect" parent="." unique_id=1154391848]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 570.0
+offset_top = 255.0
+offset_right = 1057.0
+offset_bottom = 855.0
+mouse_filter = 2
+material = SubResource("ShaderMaterial_slabs")
+texture = ExtResource("12_c")
+expand_mode = 1
+
+[node name="MainMenuHoldHint" type="Label" parent="." unique_id=1938274615]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_top = 88.0
+offset_right = 584.0
+offset_bottom = 124.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 27
+text = "长按重新开始"
+vertical_alignment = 2
+
+[node name="MainMenuStartButton" type="TextureButton" parent="." unique_id=1141621375]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 130.0
+offset_right = 584.0
+offset_bottom = 324.0
+texture_normal = ExtResource("7_start")
+texture_hover = ExtResource("13_start_hover")
+texture_focused = ExtResource("13_start_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuLanguageButton" type="TextureButton" parent="." unique_id=1487615960]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 395.0
+offset_right = 765.0
+offset_bottom = 589.0
+texture_normal = ExtResource("8_setting")
+texture_hover = ExtResource("14_setting_hover")
+texture_focused = ExtResource("14_setting_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuExitButton" type="TextureButton" parent="." unique_id=206836557]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 660.0
+offset_right = 412.0
+offset_bottom = 849.0
+texture_normal = ExtResource("9_quit")
+texture_hover = ExtResource("15_quit_hover")
+texture_focused = ExtResource("15_quit_hover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="MainMenuHoldRing" type="Control" parent="." unique_id=1720483916]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 72.0
+offset_bottom = 72.0
+mouse_filter = 2
+script = ExtResource("16_ring")

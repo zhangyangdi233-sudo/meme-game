@@ -14,8 +14,8 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-TRACKER_PATH = PROJECT_DIR / "tools" / "hand_tracking" / "hand_tracker.py"
-RECEIVER_PATH = PROJECT_DIR / "scripts" / "integrations" / "hand_tracking_receiver.gd"
+TRACKER_PATH = PROJECT_DIR / "framework" / "integrations" / "hand_tracking" / "hand_tracker.py"
+RECEIVER_PATH = PROJECT_DIR / "framework" / "integrations" / "hand_tracking_receiver.gd"
 SPEC = importlib.util.spec_from_file_location("babel_hand_tracker", TRACKER_PATH)
 assert SPEC is not None and SPEC.loader is not None
 TRACKER = importlib.util.module_from_spec(SPEC)
@@ -23,7 +23,9 @@ SPEC.loader.exec_module(TRACKER)
 
 
 class SidecarLifecycleTests(unittest.TestCase):
-    def test_process_check_recognizes_an_exited_process(self) -> None:
+    def test_tracker_process_check_recognizes_an_exited_process(self) -> None:
+        # Ported from main (#141): a handle held by the parent kept an exited
+        # process "alive" on Windows.
         for exit_code in (0, 259):
             with self.subTest(exit_code=exit_code):
                 child = subprocess.Popen([sys.executable, "-c", f"raise SystemExit({exit_code})"])
@@ -34,7 +36,7 @@ class SidecarLifecycleTests(unittest.TestCase):
                     self.fail(f"checking an exited process must return false, not raise: {exc}")
                 self.assertFalse(exists, "an exited process must not be reported as alive")
 
-    def test_process_check_does_not_terminate_a_live_process(self) -> None:
+    def test_tracker_process_check_does_not_terminate_a_live_process(self) -> None:
         child = subprocess.Popen(
             [sys.executable, "-c", "import time; print('ready', flush=True); time.sleep(30)"],
             stdout=subprocess.PIPE,
@@ -83,16 +85,19 @@ print(sidecar.pid, flush=True)
         sidecar_pid = int(host.stdout.strip())
 
         try:
-            deadline = time.monotonic() + 3.0
+            deadline = time.monotonic() + 1.0
             while time.monotonic() < deadline and TRACKER._process_exists(sidecar_pid):
-                time.sleep(0.05)
+                time.sleep(0.02)
             self.assertFalse(
                 TRACKER._process_exists(sidecar_pid),
                 "the tracker sidecar must not survive after its owning Godot process exits",
             )
         finally:
             if TRACKER._process_exists(sidecar_pid):
-                os.kill(sidecar_pid, signal.SIGTERM)
+                try:
+                    os.kill(sidecar_pid, signal.SIGTERM)
+                except OSError:
+                    pass
 
 
 if __name__ == "__main__":

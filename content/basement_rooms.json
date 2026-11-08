@@ -1,0 +1,117 @@
+{
+  "guaranteed_exit_rules": 3,
+  "vocabulary": {
+    "subjects": {
+      "zh": {"房间": "room", "楼梯": "stairs", "电视": "tv", "桌子": "table", "椅子": "chair", "钟": "clock"},
+      "ja": {"へや": "room", "かいだん": "stairs", "テレビ": "tv", "つくえ": "table", "いす": "chair", "とけい": "clock"},
+      "en": {"room": "room", "stairs": "stairs", "TV": "tv", "table": "table", "chair": "chair", "clock": "clock"}
+    },
+    "predicates": {"zh": {"出口": "exit"}, "ja": {"でぐち": "exit", "あかるい": "lit"}, "en": {"exit": "exit", "here": "exists", "stays": "stay"}}
+  },
+  "rule_box": [
+    {"id": "light_on", "subject": "room", "predicate": "lit", "text": {"zh": "房间亮", "ja": "へやが あかるい", "en": "the room is lit"}, "state": {"brightness": 1.6}},
+    {"id": "light_off", "subject": "room", "predicate": "lit", "negated": true, "text": {"zh": "房间不亮", "ja": "へやが あかるくない", "en": "the room is not lit"}, "state": {"brightness": 0.3}},
+    {"id": "voice_here", "subject": "voice", "predicate": "exists", "text": {"zh": "声音在", "ja": "こえが ある", "en": "the voice is here"}, "state": {"hum": 1.0}},
+    {"id": "voice_gone", "subject": "voice", "predicate": "exists", "negated": true, "text": {"zh": "声音不在", "ja": "こえが ない", "en": "the voice is not here"}, "state": {"hum": 0.0}},
+    {"id": "place_lit", "subject": "place", "predicate": "lit", "text": {"zh": "地方亮", "ja": "ばしょが あかるい", "en": "the place is lit"}, "state": {"brightness": 1.5}},
+    {"id": "place_dark", "subject": "place", "predicate": "lit", "negated": true, "text": {"zh": "地方不亮", "ja": "ばしょが あかるくない", "en": "the place is not lit"}, "state": {"brightness": 0.3}},
+    {"id": "name_stays", "subject": "name", "predicate": "stay", "text": {"zh": "名字留下", "ja": "なまえが のこる", "en": "the name stays"}, "state": {"brightness": 1.3, "hum": 0.5}},
+    {"id": "name_leaves", "subject": "name", "predicate": "stay", "negated": true, "text": {"zh": "名字不留下", "ja": "なまえが のこらない", "en": "the name does not stay"}, "state": {"brightness": 0.6}},
+    {"id": "home_here", "subject": "home", "predicate": "exists", "text": {"zh": "家在", "ja": "いえが ある", "en": "home is here"}, "state": {"brightness": 1.3, "hum": 0.0}},
+    {"id": "home_gone", "subject": "home", "predicate": "exists", "negated": true, "text": {"zh": "家不在", "ja": "いえが ない", "en": "home is not here"}, "state": {"brightness": 0.5, "hum": 0.6}},
+    {"id": "door_exit", "subject": "door", "predicate": "exit", "object": "door", "text": {"zh": "门是出口", "ja": "ドアは でぐち", "en": "the door is the exit"}, "state": {}},
+    {"id": "stairs_exit", "subject": "stairs", "predicate": "exit", "object": "stairs", "text": {"zh": "楼梯是出口", "ja": "かいだんは でぐち", "en": "the stairs are the exit"}, "state": {}},
+    {"id": "tv_exit", "subject": "tv", "predicate": "exit", "object": "tv", "text": {"zh": "电视是出口", "ja": "テレビは でぐち", "en": "the TV is the exit"}, "state": {}},
+    {"id": "table_exit", "subject": "table", "predicate": "exit", "object": "table", "text": {"zh": "桌子是出口", "ja": "つくえは でぐち", "en": "the table is the exit"}, "state": {}},
+    {"id": "chair_exit", "subject": "chair", "predicate": "exit", "object": "chair", "text": {"zh": "椅子是出口", "ja": "いすは でぐち", "en": "the chair is the exit"}, "state": {}},
+    {"id": "clock_exit", "subject": "clock", "predicate": "exit", "object": "clock", "text": {"zh": "钟是出口", "ja": "とけいは でぐち", "en": "the clock is the exit"}, "state": {}},
+    {"id": "light_exit", "subject": "light", "predicate": "exit", "object": "light", "text": {"zh": "灯是出口", "ja": "でんきは でぐち", "en": "the light is the exit"}, "state": {}}
+  ],
+  "rooms": {
+    "1": {
+      "words": {"zh": ["房", "间", "亮", "不", "没", "是", "出", "口", "我", "你"], "ja": ["へや", "あかるい", "ない", "でぐち", "わたし", "あなた"], "en": ["room", "lit", "not", "no", "is", "the", "exit", "I", "you"]},
+      "rules": ["light_on", "light_off", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit"],
+      "escapes": [
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"}
+      ],
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
+      "events": []
+    },
+    "2": {
+      "words": {"zh": ["声", "音", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["こえ", "ある", "ない", "でぐち", "わたし", "あなた"], "en": ["voice", "here", "is", "not", "no", "the", "exit", "I", "you"]},
+      "rules": ["voice_here", "voice_gone", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"}
+      ],
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
+      "events": [
+        {"id": "whisper", "trigger": "entry_sealed", "delay": 2.5, "duration": 8.0, "cue": "whisper_flicker", "switch_ends": true}
+      ]
+    },
+    "3": {
+      "words": {"zh": ["地", "方", "亮", "是", "出", "口", "不", "没", "我", "你"], "ja": ["ばしょ", "あかるい", "でぐち", "ない", "わたし", "あなた"], "en": ["place", "lit", "is", "the", "exit", "not", "no", "I", "you"]},
+      "rules": ["place_lit", "place_dark", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit", "clock_exit"],
+      "escapes": [
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"}
+      ],
+      "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
+      "events": [
+        {"id": "blackout", "trigger": "entry_sealed", "delay": 1.0, "cue": "blackout", "switch_ends": true, "during": {"lights": false, "hum": 0.0}, "after": {"brightness": 0.85, "hum": 0.0, "objects": {"scattered_chairs": true}}}
+      ]
+    },
+    "4": {
+      "words": {"zh": ["名", "字", "留", "下", "是", "出", "口", "不", "没", "我", "你"], "ja": ["なまえ", "のこる", "でぐち", "ない", "わたし", "あなた"], "en": ["name", "stays", "stay", "not", "is", "the", "exit", "I", "you"]},
+      "rules": ["name_stays", "name_leaves", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
+      "escapes": [
+        {"kind": "delivery"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"}
+      ],
+      "gift": "enoch",
+      "state": {"brightness": 0.85, "hum": 0.0, "objects": {"exit_lamp": false, "clock_wall": true}},
+      "events": []
+    },
+    "5": {
+      "words": {"zh": ["家", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["いえ", "ある", "でぐち", "ない", "わたし", "あなた"], "en": ["home", "here", "is", "exit", "not", "no", "the", "I", "you"]},
+      "rules": ["home_here", "home_gone", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit", "table_exit", "chair_exit"],
+      "escapes": [
+        {"kind": "rule", "rule": "clock_exit"},
+        {"kind": "rule", "rule": "light_exit"},
+        {"kind": "rule", "rule": "door_exit"},
+        {"kind": "rule", "rule": "stairs_exit"},
+        {"kind": "rule", "rule": "tv_exit"},
+        {"kind": "rule", "rule": "table_exit"},
+        {"kind": "rule", "rule": "chair_exit"},
+        {"kind": "xray", "object": "clock"}
+      ],
+      "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false, "half_clock": true, "sunken_crts": true, "torn_tape": true}},
+      "events": [
+        {"id": "red_screens", "trigger": "room_center", "duration": 8.0, "cue": "red_screens"}
+      ]
+    }
+  }
+}

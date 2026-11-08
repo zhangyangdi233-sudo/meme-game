@@ -1,0 +1,239 @@
+# Testing
+
+How to run the headless test suite on the **primary development platform (Windows)** and on macOS/Linux.
+
+## Runners
+
+| Platform | Command |
+|---|---|
+| Windows (recommended) | `tools\run_tests.bat` or `.\tools\run_tests.ps1` |
+| macOS / Linux | `tools/run_tests.sh` |
+
+All runners execute every `tests/test_*.gd` file headlessly, then (unless skipped) `tests/test_hand_tracker_*.py`.
+
+## One-time setup (Windows)
+
+1. Install **Godot 4.6+** (project targets 4.6.3).
+2. Point `GODOT_BIN` at the executable, for example:
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+```
+
+`tools\run_tests.bat` also tries `C:\Godot\Godot_v4.6.3-stable_win64.exe` when the variable is unset.
+
+3. Optional: isolate Godot editor cache (avoids polluting your user profile):
+
+```powershell
+$env:GODOT_HOME = "$env:USERPROFILE\.godot_home"
+```
+
+(`GODOT_HOME` is used by `run_tests.sh` on Unix; Windows headless tests usually do not need it.)
+
+4. Python 3 on `PATH` for hand-tracker sidecar tests.
+
+## Modes
+
+**Fast** — skips GDScript tests that `load("res://scenes/babel_meme_game.tscn")` (29 files after the harness split). Use after small module-only changes.
+
+```powershell
+.\tools\run_tests.ps1 -Fast
+tools\run_tests.bat -Fast
+```
+
+**Full** — all `test_*.gd` plus Python sidecar tests. Use before push or after UI / main-scene refactors.
+
+```powershell
+.\tools\run_tests.ps1
+```
+
+**Filter** — run tests whose **filename** matches a regex:
+
+```powershell
+.\tools\run_tests.ps1 -Filter social
+.\tools\run_tests.ps1 -Filter "settings|localization"
+```
+
+**Skip Python:**
+
+```powershell
+.\tools\run_tests.ps1 -SkipPython
+```
+
+## macOS / Linux
+
+```sh
+export GODOT_BIN=/path/to/Godot
+export GODOT_HOME="$HOME/.godot_home"   # optional
+tools/run_tests.sh --fast
+tools/run_tests.sh
+tools/run_tests.sh --filter social
+```
+
+`run_tests.sh` falls back to a developer-specific macOS path only when `GODOT_BIN` is unset; always set `GODOT_BIN` in CI or new machines.
+
+## What runs (125 tests)
+
+### GDScript (123)
+
+Headless Godot `--script res://tests/test_….gd`. Each file is a standalone `SceneTree` test.
+
+#### Module-only harness convention
+
+Prefer **state + harness** when the behavior lives in `MemeGameState`, `PollutionStage`, extracted UI modules (`GameUiTheme`, `settings_history_panel`), or narrative content scripts — without needing the full adapter tree.
+
+Shared helpers live in `tests/harness/minimal_game_harness.gd`:
+
+- `new_state()` — `MemeGameState.new()` + `new_run()`
+- `find_node_by_name`, `collect_control_text` — Control-tree probes when a tiny scene is still needed
+- `craft_token(...)` — notebook / pickup test token dictionaries
+
+`tests/harness/palette_error_log.gd` is a `Logger` that collects `UiPalette` reports. `tests/harness/floor_look_snapshot.gd` builds a floor with every authored event and records every color it shows; `tests/fixtures/floor_look_before.json` holds what the Floor generator painted before its colors moved into `FloorLook`. 3D tests pass `UiPalette.PALETTE_1` or `UiPalette.POLLUTION_PALETTE_5` as the palette instead of copying a table.
+
+```gdscript
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
+func _run() -> void:
+    var game := Harness.new_state()
+    # assert on game.* directly
+```
+
+When a file mixes state checks with adapter UI, **split** into `test_<area>.gd` (fast) and `test_<area>_scene.gd` or `test_<area>_ui.gd` (skipped in `--fast`).
+
+#### Classification (`--fast` skips main-scene loaders)
+
+| File | Tier | Notes |
+|---|---|---|
+| `test_meme_game_state` | state | `RefCounted` state only |
+| `test_pollution_stage` | state | `PollutionStage` rules |
+| `test_language_corruption_state` | state | hidden route, history, floor transitions |
+| `test_doll_system` | state | doll encounters, save migration, notebook craft |
+| `test_simplified_language_core` | state | metrics, publish preview, hidden floor |
+| `test_interaction_progress` | state | no funds, daily actions or day settlement in the state or the save; posts, pickups and conversations are not limited; the floor step, the floor-three finish and the hidden floor run when a post, a pickup, a world item pickup or leaving a spoken conversation completes (leaving unspoken checks nothing; the post that makes the exit exist holds the hidden ending for the next interaction); with the legacy flashback turned on, crossing 60% reports the flashback alone and the run goes on; saves are version 6 and older ones are refused |
+| `test_basement_conversation` | state | on the fixture whose rounds stand their NPC (`tests/fixtures/rooms_standing_npc.json`; no authored round does since #127): each basement round has its NPC's one route; the conversation offers no choices and types the authored line one unit per key; the reply follows and the next turn types at once; pollution garbles but never interrupts; finishing with this round's post opens the exit, without one the NPC sends the player back to the computer, and an earlier round's post does not count; the typing hint stays until a whole line was typed and is saved; a save keeps the round and its delivery; the open exit starts the next round, the fifth leads to the white door passage and crossing it reaches the demo end, once; basement posts and conversations climb no floor |
+| `test_linear_dialogue_input` | module | fresh text-key presses type a unit (also a letter held back by an input method); arrows, modifiers, Tab, Enter, Escape, F9, shortcuts, releases and repeats do not; a reply waits by its length, at least 2.5 s, and a paused or cancelled clock never runs out |
+| `test_chapter_debug_panel` | module | the F9 chapter debug panel's round buttons raise `CHAPTER_ROUND_JUMP_REQUESTED` with their round; its status follows the chapter progress model (round, open exit, passage, demo end, crossroads) |
+| `test_phone_pickup` | state | a new run owns no phone and cannot raise one; the phone is picked up once and only in the basement; the phone comes with the social feed and the notebook and no delivery unlocks anything; the locked map opens no window, cannot be chosen and never comes back in front; a save keeps owning the phone and the unlocked apps apart, gives a saved phone its apps whatever the save names and puts away a phone not owned; an older save, a round jump, the skip seam and the fifth exit get what the progress earned; a save in the passage or at the demo end keeps the phone and every app |
+| `test_room_rules` | module | a room's data decides: synonyms, word orders, the room's vocabulary and a scattered sentence hit one rule; a wrong sentence is green and a rule the room lacks does not count; a negated sentence is its own rule; the rules in force lay over the room's state, this round's only and at their newest polarity; any of a room's escapes opens it, and only those it declares; a rule escape asks for its rule in force, this round's and at its polarity; no authored round opens by the post and the NPC or stands one; every round offers two ways out and a rule of its own that opens nothing, worded and spelled by its own words; an `xray` escape opens its object once seen through the X-ray, and only round five hides one, at the clock; the authored rooms are valid, every round's words lie in posts and an unwritten language keeps the pool; a room carries state and one-shot events; validation names broken rooms, also a missing, empty or unknown escape a rule escape naming no rule of its room and an X-ray escape naming no Exit object; the three hidden items carry the planner's settled names and lines in every language |
+| `test_pollution_policy` | state | a red post pollutes its subject (also scattered words) and a green one nothing; an open exit stops pollution, however it opened, after the post that opened it; skeleton words stay clean; a polluted rule is void later, also through a synonym, another language or a word a later room adds, and stays a green post; a polluted word can be placed; the sentence warns before posting; each of the four defaults changes alone; a room authoring a barred subject fails validation; the save keeps it, a debug jump clears it, the tower pollutes nothing |
+| `test_room_state` | state | in a basement round a red post changes the room and a green one does not; the change survives a save, a later post can turn it around, and the next round or a jump starts from its own room; a rule that is no way out leaves the round shut; no round stands an NPC; round five's clock seen through the X-ray opens it with no post, the save keeps it and no other round hides one; the way out a round used is voided in the next, and every round goes on by a clean exit rule to the passage; with test rooms (`tests/fixtures/rooms_rule_escape.json`) the declared rule opens the exit without the NPC, taking it back does not shut it, the save keeps it, the post and the NPC still open a room with both, and the next round needs its own escape; the NPC asks for a post only when there is none; only the room's words can be picked up; the tower keeps its rule table and whole pool |
+| `test_post_round` | state | a post records the basement round it was made in, zero on the tower; whether the current round already has a post |
+| `test_player_echo_quote` | state | echo quote stages (deterministic) |
+| `test_chapter_one_progress` | state | the opening narration advances one line at a time and completes after the last; the knock is due on its line and heard once; the door opens into basement round one only after the narration and the knock; broken or unearned saved progress falls back; a new run starts the opening, a save keeps the line and the knock, a save without chapter one stays on the tower, and the skip seam lands on the tower; the level order table alone decides what follows a level and where the fifth exit leads; a save keeps the passage and the demo end, a broken destination falls back to the table and an unearned one to the opening; talking to a round's NPC is recorded once, kept by a save and forgotten by the next round or a jump |
+| `test_basement_v3b_model` | **adapter** | the basement is the v3b model: its walls, ceilings, floor and stairwell keep the model's v3b materials and normal maps with no override, and the old X-ray tutorial arrows do not show; no light carries the Blender preview's watts and the CRT's green stays at the room's scale; every round keeps the two Windsor chairs, the tables, the TV and the phone and leaves out the stool (and its collider) and the boxes, so two chairs count as the chair; the sealed door is the model's taped door, which still holds the player out and lets them talk through it; only round five shows the tape with its longest strips torn off and a few hanging |
+| `test_chapter_one_stage` | module | the adapter builds the opening from its model 29.5 m from the white door and the player stands on the water; the door answers only in reach and once the narration is read and the knock heard; the knock plays on its line, pauses, is reported once on the bus and is not replayed once heard; opening the door is not cancelled, pauses, walks the player through, then the basement replaces the opening; the basement is a room the player stands and walks in; the basement CRT answers in reach (not in the opening), entering frames its glass from `view_position`, rays meet it as a UV, leaving restores the look, and the terminal display and its VHS show on the glass; round one's table holds the phone while it is not owned, it answers in reach as `phone` and picking it up takes it off the table; an owned phone, deps that do not say it is missing and the opening lay none; deps without chapter progress still build the tower street; each round's NPC answers in reach in front of the sealed door under the landing, not from the landing; behind the door it is never seen and knocks a few seconds at a time until first talked to, settings hold the knocking, a save keeps each round knocking or quiet, and the sealed door never moves while the NPC's help opens the exit door; the entry stands open and shuts once the player goes down the stairs; the exit holds the player in until the round is delivered, then opens and walking out is reported once; a new round starts again at the top of the stairs; the room state scales the basement's lights and shows its objects, also on a stage built from a changed room; the fifth exit builds the passage (the opening's world, no knock, no F, as far from the door); walking into the light is reported once, the door stays shut during the walk through and the demo end stays on the passage, not the tower's street |
+| `test_crt_terminal_panel` | module | the terminal's display opens on the social feed; its tabs switch the app and raise `TERMINAL_APP_SELECTED`, its exit raises `TERMINAL_EXIT_REQUESTED`, all clicked through a UV on the glass; a click off the glass raises nothing; a held word shows on its notebook and its post raises the phone's intent; hidden it lets go of the models and catches up when shown |
+| `test_opening_narration_panel` | module | two seconds of true black, then the catalog line behind its speaker tag in the chosen language and its formal font with a localized hint; every language reads from its first line to its last; repaints from the chapter progress and locale models; open settings holds the black and clicks; a left click on a shown line raises `OPENING_NARRATION_ADVANCED`, nothing during the black, for another button or once the narration is read |
+| `test_flashback_sequence` | module | director timeline + determinism |
+| `test_flashback_overlay_panel` | module | the flashback phases are painted from the bound theme's palette, and a later pollution stage repaints them on the next build; the black covers stay true black |
+| `test_void_and_outline` | module | under pollution palette 5 the prologue backdrop stays true black, and the conversation text outlines stay near black |
+| `test_ui_font_theme` | module | `PixelFontTheme` + `GameUiTheme`; the scrim is the active palette's `ink` at 0.92; the hairline, hover tint and pressed tint are its `muted` at 0.22, 0.24 and 0.40, and dark rails, HUD icons and flat phone buttons are painted from them |
+| `test_locale_font` | module | `LocaleFont` answers Roboto Condensed Bold, Noto Sans SC Medium and Noto Sans JP Medium per language, falls back to Simplified Chinese for an unknown locale and for Han text in English, reuses each font; the OFL texts and provenance ship with them |
+| `test_full_screen_scrim` | module | under pollution palette 5 the camera consent, language selection and phone camera connection backdrops are the bound theme's scrim |
+| `test_ui_palette` | module | `UiPalette.color` answers a complete palette silently; a missing role is reported and answered from `PALETTE_1`, an unknown role (or `name`) is reported; both palettes define the same role set (including `error` and `pending`); the Layout scenes name only known roles; `VOID` and `OUTLINE` are fixed colors that `has_role` does not accept |
+| `test_floor_palette` | module | the Floor generator builds and repaints every floor from `UiPalette` palettes without a report, the EXIT sign outline stays near black after the repaint and no floor floats a TEST marker (the generator has no playtest switch); a palette gap is reported and painted from `PALETTE_1`; every floor built or repainted shows the materials, environment, lights and tints recorded in `floor_look_before.json` (floor one's residents and prerequisite left the recording with the old street); the generator source decides no color of its own |
+| `test_floor_look` | module | without a scene, `FloorLook` answers every material role, background / ambient / fog, light and tint recorded in `floor_look_before.json` for every floor, its district style and both palettes, and keeps no playtest marker tint |
+| `test_dialog_screen` | module | a dialog opened from the registry builds one to three translated buttons left to right, closes before the callback, skips an empty, null or stale callback (warning on stale), refuses a second open or a bad button count, takes Escape and first focus from `cancel_index`, closes without callbacks when its owner leaves, blocks clicks (also from UI added after it opened), focus and hotkeys below and follows the pollution palette; uses the language's formal font (also when switched while open, pixel font kept outside), buttons unchanged on hover and underlined only on keyboard focus |
+| `test_main_menu_scene` | module | main menu Layout scene, palette roles; no separate continue button; an open menu's START continues once `has_save` is true; with a save, holding START 1.2 s by mouse, Enter, Space or pad A opens the restart dialog before release and that release raises nothing, a shorter hold continues, and without a save a hold only starts a new game; while held with a save a ring fills clockwise from twelve o'clock in step with the held seconds, around the cursor (following it, also off START) for a mouse hold and on START's center for a key or pad hold, and hides empty on an early release or once the dialog opens; no ring without a save; the dialog words its question and YES / NO from the catalog with NO focused and taking Escape, YES raises `RESTART_REQUESTED`, closing the menu closes it; the hold hint shows only with a save, is worded on open, darkens while START is hovered or focused and follows the language's formal font; the debug panel shows the held seconds |
+| `test_game_locale_preferences` | module | language / volume / terminal VHS preference models, preferences file; the terminal VHS is saved apart from the full-screen VHS |
+| `test_settings_history_panel`, `test_language_selection_panel` | module | the settings panel owns the settings-open model, always watches pollution for its labels, and while open watches preference, autoplay and save-status models; the open history window watches the recorded lines; an exit request opens the shared dialog with the plea, 返回 (focused, Escape) and 仍然退出, only 仍然退出 raises the exit confirm, and the panel builds no confirmation nodes |
+| `test_demo_end_panel` | module | black text on white in the chosen language and its formal font, following the locale model; its button raises the main menu intent |
+| `test_ending_screen_panel` | module | open ending screen watches the chosen ending language |
+| `test_phone_launcher_panel` | module | shown phone launcher watches the phone-open, foreground-app and unlocked-app models; it offers the social app, the notebook and the map; a locked icon is disabled and raises nothing; the phone slides in from the right edge and back out before it hides, and showing places it at once |
+| `test_notebook_app_panel` | module | shown notebook watches the held-word, sentence, world-rule and post models; the slip under the post button shows this round's last post red or green; a polluted word shows as red garble through the theme walk and a void sentence warns above the post button; a room's rule reads as its room words it; hiding writes canvas positions once; it has no fusion tab or tabs to select; every notebook action raises its intent with the right name and payload |
+| `test_reality_conversation_panel` | module | shown conversation panel watches the conversation progress models; it keeps the hovered choice and every conversation action raises its intent with the right name and payload; the key NPC's correct choice carries no TEST mark; a linear conversation shows no choices or button; the typing hint shows until a line was typed, with no unit count |
+| `test_social_feed_panel` | module | shown social app watches the follow, like, held-word, meme, sentence and published models and repaints itself; it keeps its own page, channel and open post; pickable words take the bound palette's `flash_text`; the comments rule is the hairline while post cards keep their stronger `muted` edge; every social action raises its intent with the right name and payload; it registers its drag handles with the bound window manager and declares no signal |
+| `test_social_intent_handler` | module | on an empty bus with `PropertyBoot`, the social intent handler writes likes, follows, the window close, pickups, composer drops, taps and submit to the state, words the feedback line, and returns the presentation the host should run |
+| `test_notebook_intent_handler` | module | on an empty bus, the notebook intent handler places bank taps and tiles dropped on the answer area, posts the sentence, writes the resting canvas positions, words the feedback line, and returns the presentation |
+| `test_settings_intent_handler` | module | on an empty bus, the settings handler writes volume, autoplay and the terminal VHS, marks the exit prompt seen, and names the settings, save, VHS, history, main menu and quit presentations; it leaves `settings_open` to the panel |
+| `test_settings_prologue_ending_intents` | module | settings window, HUD settings button, the opening narration and ending screen raise their intents with the right name and payload |
+| `test_game_event_bus` | module | intent name and payload; the bus binds once under `ServiceKeys.UI_EVENT_BUS`; game events reach only their subscribers, many at once, never the intent listener, and stop after unsubscribe |
+| `test_game_audio_controller` | module | the audio controller subscribes to `SFX_REQUESTED` and `COVER_WATCHER_APPEARED` while in the tree, restarts the cue's player, plays the watcher stinger and lets it finish when the watcher vanishes |
+| `test_narrative_overlay_director` | module | while in the tree the director answers `FLASHBACK_FINISHED` by closing the flashback and ending the beat in gameplay, once, without settling a day; with no flashback on screen, or out of the tree, it does nothing; a flashback played to its end raises the event; the overlay mounts with no callback |
+| `test_cover_watcher_sightings` | module | the sightings subscribe to the watcher events once attached: an appearance marks its floor seen in the run they were last pointed at, a withdrawal records its line, and a detached one hears nothing |
+| `test_desk_log_label` | module | the desk log watches the feedback text model while in the tree and translates it through the bound UI theme |
+| `test_camera_session_status` | module | the camera session words its status label and translates it through the bound UI theme, again after a language switch |
+| `test_property_watch` | module | shared register / sync / unregister helper; a freed owner lets go |
+| `test_property_model` | state | property models and the run save; there is no tutorial progress model, state field or save field, and an older save that carries one loads and drops it; a save on the removed tower app comes back on social |
+| `test_reality_scene_adapter` | module | RealitySceneAdapter floor tables; task props take their colors from `UiPalette` and report a palette gap |
+| `test_framework_seam`, `test_rule_engine`, `test_language_bridge`, `test_narrative_session_catalog`, … | module | no main scene |
+| `test_simplified_language_ui` | **adapter** | removed legacy UI copy |
+| `test_player_echo_quote_ui` | **adapter** | social echo comment wiring |
+| `test_flashback_sequence_scene` | **adapter** | flashback overlay playback |
+| `test_crt_terminal_scene` | **adapter** | in the basement F at the CRT pushes the view in to its glass showing the terminal's display; Tab gives the look back without raising the phone; the screen's exit leaves; a word picked on the terminal shows in the phone's notebook and the other way round; a post from the terminal records round one; the terminal VHS reaches the glass, is saved to the preferences and stays apart from the full-screen VHS |
+| `test_basement_loop_scene` | **adapter** | F9 in a debug build shows the chapter debug panel and its buttons jump to a round (not in a release build); round one has nobody to talk to, round two its NPC behind the sealed door; on the standing-NPC fixture F at the round's NPC starts its linear conversation with no button or choices; arrows, modifiers, Tab and repeats do not type, letters (also F) do, and keys during the reply do not leave; the reply plays out by itself; without a post the exit stays shut, with this round's post it opens and walking out starts the next round at the top of the stairs; a save comes back on the same round and delivery; the fifth exit leads to the white door passage, the light fills the screen with white and turns into the demo end in the chosen language; a save comes back on the end screen, in the passage where it stood, and past the light when made in it; the end screen's button leads to the main menu and a debug jump leaves it; a green post leaves the room as it was, a red post brightens it without a rebuild and a save keeps that; a declared rule opens the standing room's exit and the player walks out |
+| `test_phone_pickup_scene` | **adapter** | before the phone is picked up Tab raises nothing and no edge tab or phone shows, also after loading; F at round one's table picks it up with its prompt and shows the narrow tab on the right edge; Tab and clicks on the edge tab raise and put away the phone; the social feed and the notebook open, the map's icon is disabled and its intent opens nothing, and a delivery changes no app; a save keeps the phone and its apps and lays no second phone |
+| `test_five_rounds_scene` | **adapter** | the five rounds played by their rules alone, nobody helped (only rounds two and four have an NPC behind the sealed door): each drops three clean exit rules, posting the first makes its object the way out and F there leads on, each round by another thing; the fifth leads through the passage's light to the end screen |
+| `test_door_npc_scene` | **adapter** | #129 with the authored rooms: round one has the sealed door and nobody behind it; round two knocks from the start, F in front of the door talks to the one behind it and the knocking stops; a save keeps that round quiet; with this round's post the one behind the door says it will help, the exit door opens and walking out reaches round three, where nobody knocks; round four knocks on its own |
+| `test_xray_escape_scene` | **adapter** | without a camera holding X tints the view and letting go lifts it; X at round four's clock or away from round five's opens nothing; X in reach of round five's clock makes it the way out with no post, and F there plays the exit transition to the passage |
+| `test_opening_scene` | **adapter** | a new run opens in the prologue on the black water and the narration with the phone up; the narration locks walking, turning and the phone (toggle, Tab); a click reads the next line; the knock sounds on its line and open settings pauses it and the narration; a save in the narration continues on the same line without the knock; F refuses the door until the knock finishes, then the door opens without being cut short, fades to black and the basement round one follows without the phone (it lies on the table) |
+| `test_main_scene` | **adapter** | integration smoke; the HUD shows no funds or action dots and no action pulse or day transition overlay is built; under pollution palette 5 the world prompt outline and cinematic bars keep their fixed colors; in a debug build a new game shows no doll guide window, playtest panel, TEST marker or tower app, the phone offers only social and notebook, and the doll stays in the street |
+| `test_dialog_scene` | **adapter** | boot binds the dialog manager; the debug-only title panel opens the 1/2/3-button samples and logs the press; its save simulation (follow / saved / empty) writes only the `has_save` model, shows the actual save and leaves the file untouched, and a simulated save without a file falls back to a new game; an open dialog sits above every other game UI; a rebuilt world leaves it closed and reusable |
+| `test_settings_exit_safety`, `test_localization` | **adapter** | settings / locale UI |
+| `test_social_feed_layout`, `test_sentence_composer` | **adapter** | phone shell layout; the social app and detail windows drag through the host's window manager, and the host connects no social panel signal |
+| `test_pickup_char_flow`, `test_save_progress` | **adapter** | input lock, save file; post detail words no action cost; START continues from the save, holding it and answering YES starts a new game and leaves the save file, starts a new game with the opening narration without one, and falls back to a new game with one warning when the save is corrupt, missing or from an older state version; a continued save shows no guide, test aid or tower app and saves no tutorial progress |
+| `test_settings_intents_scene` | **adapter** | routing smoke: the host hands volume, VHS, history, exit request and the settings button to the settings handler and presents them, the exit request as the dialog; closing by model restores the chrome; 仍然退出 saves the run and preferences before quitting |
+| `test_notebook_intents_scene` | **adapter** | routing smoke: the host hands bank taps and craft to the notebook handler and presents the submit |
+| `test_reality_intents_scene` | **adapter** | the host routes conversation choice and continue itself; the reality HUD builds no doctor sentence composer; leaving a spoken conversation on floor two at 60% pollution moves the floor and the street is rebuilt for it; the host keeps no transient selection |
+| `test_canvas_positions_save` | **adapter** | saving writes resting tile positions into the model once |
+| `test_hud_drawer`, `test_hand_xray` | **adapter** | HUD / camera overlay |
+| `test_phone_shell_refresh_ui`, `test_reality_hud_refresh_ui`, `test_surface_refresh_ui` | **adapter** | per-surface snapshot refresh; Session mode visibility; composer intents repaint the publish page from the sentence model without a host redraw |
+| `test_reality_world`, `test_responsive_layout` | **adapter** | 3D + layout |
+| `test_audio_runtime`, `test_language_corruption_ui` | **adapter** | audio routing (the host raises the land and hinge cues; a watcher appearance plays the stinger and marks the floor without a host handler or adapter signal), polluted menu, typed reality text colors corrupted characters with the `error` role and the unrevealed suffix with the `pending` role of the active palette |
+| `test_doll_ui_flow` | **adapter** | 3D doll interaction (craft → `test_doll_system`) |
+
+Re-count skipped files: `grep -l 'load("res://scenes/babel_meme_game.tscn")' tests/test_*.gd`
+
+### Python (2)
+
+- `test_hand_tracker_candidates.py`
+- `test_hand_tracker_lifecycle.py`
+
+Both should pass on Windows when Python 3 is available.
+
+## When to run what
+
+| Change type | Minimum |
+|---|---|
+| `framework/**` only | `-Fast` (must include `test_framework_seam`) |
+| `meme_game_state.gd`, pollution, doll flows | `-Fast` (`test_meme_game_state`, `test_pollution_stage`, `test_doll_system`) |
+| New `scripts/ui/*_panel.gd` | `-Filter` matching that area + scene tests if wired |
+| `babel_meme_game.gd` adapter / node names | Full suite |
+| Before push | Full suite |
+
+There is **no git hook**; local tests run when you or an agent invokes a runner. **CI** runs the same Windows full suite on push and pull requests targeting `dev` or `main`.
+
+## CI (GitHub Actions)
+
+Workflow: [`.github/workflows/tests.yml`](../../.github/workflows/tests.yml)
+
+| Local (Windows) | CI |
+|---|---|
+| `windows-latest` runner matches the primary dev platform | same |
+| `GODOT_BIN` → `C:\Godot\Godot_v4.6.3-stable_win64.exe` | same path; downloaded on first run, then cached |
+| `.\tools\run_tests.ps1` (full suite) | same command |
+| Python 3 on `PATH` for `test_hand_tracker_*.py` | runner ships Python 3 |
+
+**Equivalent local command before push:**
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+.\tools\run_tests.ps1
+```
+
+CI does **not** pass `-Fast` or `-Filter`; a green local full run is the closest pre-push check. Use `-Fast` locally for iteration; rely on CI (or a local full run) before merging adapter or main-scene changes.
+
+**Fresh checkout / CI:** `run_tests` runs `godot --headless --import` once when `.godot/global_script_class_cache.cfg` is missing. That builds the global `class_name` registry and imports textures (e.g. `assets/generated/**`) before any test script loads. Local dev with an existing `.godot/` from the editor skips import.
+
+## Single test (Windows)
+
+```powershell
+& $env:GODOT_BIN --headless --path . --script res://tests/test_pollution_stage.gd
+```
+
+## Agents
+
+- Prefer `tools\run_tests.bat` or `.\tools\run_tests.ps1` in this repo.
+- Do not assume macOS-only Godot paths in handoff prompts.
+- New state-level coverage: use `minimal_game_harness.gd`; add `*_scene.gd` / `*_ui.gd` only when the adapter tree is required.
+- If Godot is not installed in the agent environment, report which `-Filter` the human should run locally.

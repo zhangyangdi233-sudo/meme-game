@@ -23,7 +23,7 @@ func _capture() -> void:
 	main._locale.set_locale("zh")
 	if main.has_method("new_game"):
 		main.new_game()
-		main._skip_prologue()
+		main._skip_chapter_one()
 	main.game.owned_meme_frames = 1
 	main.game.notebook_tokens = [{
 		"id": "capture-glyph",
@@ -51,7 +51,6 @@ func _capture() -> void:
 		"pollution_bias": 2,
 		"fusion_level": 0,
 	}]
-	main.game.fusion_slots = {"left": "capture-ha", "right": "capture-tower"}
 	if main.has_method("_on_app_pressed"):
 		main._on_app_pressed("notebook")
 	for frame in 5:

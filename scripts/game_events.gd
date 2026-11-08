@@ -1,0 +1,38 @@
+class_name GameEvents
+extends RefCounted
+## Names of game events on the game event bus, and the payload keys each one carries.
+## A game event says that something happened once; any number of listeners may subscribe to it (ADR 0007).
+
+## Payload keys.
+const KEY_CUE := "cue"
+const KEY_FLOOR := "floor"
+const KEY_EVENT := "event"
+
+## A short sound was asked for. Payload: {KEY_CUE: String}, one of the CUE_* names below.
+const SFX_REQUESTED := "sfx_requested"
+
+## The cover watcher stepped out into the player's view. Payload: {KEY_FLOOR: int}, the tower floor it watched from.
+const COVER_WATCHER_APPEARED := "cover_watcher_appeared"
+## The cover watcher finished withdrawing behind its cover. Payload: {KEY_FLOOR: int}.
+const COVER_WATCHER_VANISHED := "cover_watcher_vanished"
+
+## The pollution flashback director's timeline ended. Payload: {}.
+const FLASHBACK_FINISHED := "flashback_finished"
+
+## The knock at chapter one's white door played to its end. Payload: {}.
+const OPENING_KNOCK_FINISHED := "opening_knock_finished"
+
+## The player walked out through the basement's open exit. Payload: {}.
+const BASEMENT_EXIT_CROSSED := "basement_exit_crossed"
+
+## The player walked into the white door's light in the passage. Payload: {}.
+const PASSAGE_DOOR_ENTERED := "passage_door_entered"
+
+## A basement room's one-shot event started on the stage (#114), so the state saves it at once. Payload:
+## {KEY_EVENT: String}, the event's id in the room data.
+const ROOM_EVENT_STARTED := "room_event_started"
+
+## Sound cues carried by SFX_REQUESTED.
+const CUE_PICKUP_PRESS := "pickup_press"
+const CUE_PICKUP_LAND := "pickup_land"
+const CUE_NOTEBOOK_HINGE := "notebook_hinge"

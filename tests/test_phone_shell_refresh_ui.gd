@@ -1,0 +1,351 @@
+extends SceneTree
+## Phone-shell snapshot refresh: social / phone / action-economy updates paint the phone, not ending or Reality HUD.
+
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+
+const HUD_SENTINEL := "HUD_SENTINEL_PHONE_SHELL"
+const ENDING_SENTINEL := "ENDING_SENTINEL_PHONE_SHELL"
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	call_deferred("_run_async")
+
+
+func _run_async() -> void:
+	root.size = Vector2i(1600, 900)
+	await _test_like_refreshes_phone_shell_not_hud()
+	await _test_channel_refreshes_phone_shell_not_hud()
+	await _test_opening_app_refreshes_phone_shell_not_hud()
+	await _test_composer_intents_paint_the_publish_page_without_a_host_redraw()
+	await _test_phone_popup_follows_the_phone_model()
+	await _test_app_windows_follow_the_open_windows_model()
+	await _test_like_does_not_rerun_ending()
+	await _test_a_new_run_resets_the_social_and_notebook_view()
+	await _test_the_host_presents_the_social_close()
+	if _failures.is_empty():
+		print("phone shell refresh UI tests passed")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _test_like_refreshes_phone_shell_not_hud() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+
+	var like_button := Harness.find_node_by_name(game_root, "SocialPostLikeButton0") as Button
+	_assert_true(like_button != null, "social home should expose a like button")
+	if like_button != null:
+		_assert_true(like_button.text.begins_with("♡"), "an unliked post should show an empty heart")
+
+	var hud := _stamp_hud(game_root)
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
+	var post_id := str(post.get("id", ""))
+	_assert_true(not post_id.is_empty(), "first feed card should have a post id")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: post_id})
+	await process_frame
+
+	like_button = Harness.find_node_by_name(game_root, "SocialPostLikeButton0") as Button
+	_assert_true(like_button != null, "liking a post should keep the phone-shell like button")
+	if like_button != null:
+		_assert_true(like_button.text.begins_with("♥"), "phone shell should show the liked heart")
+	_assert_hud_untouched(hud, "liking a post")
+
+	game_root.queue_free()
+	await process_frame
+
+
+## The social handler only changes the state; the host shuts the open post and hides the window.
+func _test_the_host_presents_the_social_close() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+	game_root._social_feed_panel.open_post(0)
+	_assert_true(game_root._social_feed_panel.is_detail_open(), "the post should be open before the close intent")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
+	await process_frame
+	_assert_true(not game_root.game.is_app_window_open("social"), "a close intent should close the social window")
+	_assert_true(not game_root._social_feed_panel.is_detail_open(), "the host should shut the open post on close")
+	var window := game_root._app_windows.get("social") as Control
+	_assert_true(window == null or not window.visible, "the host should hide the social window on close")
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_channel_refreshes_phone_shell_not_hud() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+
+	var discover := Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
+	_assert_true(discover != null and discover.visible, "discover channel should start selected")
+
+	var hud := _stamp_hud(game_root)
+	var following_tab := Harness.find_node_by_name(game_root, "SocialChannelTabfollowing") as Button
+	_assert_true(following_tab != null, "social home should expose the following tab")
+	if following_tab != null:
+		following_tab.pressed.emit()
+	await process_frame
+
+	discover = Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
+	var following := Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinefollowing") as ColorRect
+	_assert_true(following != null and following.visible, "phone shell should select the following channel")
+	_assert_true(discover != null and not discover.visible, "phone shell should deselect discover after a channel change")
+	_assert_hud_untouched(hud, "changing the social channel")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	game_root.game.pick_social_char("floor_13", "门", "zh")
+	game_root._social_feed_panel.show_screen("publish")
+	await process_frame
+	var notebook_body := game_root._app_bodies.get("notebook") as VBoxContainer
+	_assert_true(notebook_body != null, "the phone shell should keep a notebook app body")
+	if notebook_body == null:
+		game_root.queue_free()
+		await process_frame
+		return
+	var sentinel := Label.new()
+	sentinel.name = "NotebookRedrawSentinel"
+	notebook_body.add_child(sentinel)
+
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
+	await process_frame
+
+	var tile := Harness.find_node_by_name(game_root, "ComposerAnswerTile0")
+	_assert_true(tile != null, "the publish page should show the dropped word from the sentence model")
+	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "editing the sentence should not make the host redraw the whole phone shell")
+	var social_window := game_root._social_feed_panel.get_app_window() as Control
+	var painted := _label_colors(social_window)
+	game_root._apply_phone_shell_theme()
+	_assert_eq(painted, _label_colors(social_window), "the self-repainted publish page should already carry the phone shell theme")
+
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
+	await process_frame
+	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the publish page should drop the removed word from the sentence model")
+	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "removing a word should not make the host redraw the whole phone shell")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_opening_app_refreshes_phone_shell_not_hud() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+
+	var hud := _stamp_hud(game_root)
+	game_root._on_app_pressed("notebook")
+	await process_frame
+
+	var notebook := Harness.find_node_by_name(game_root, "NotebookAppWindow") as Control
+	var canvas := Harness.find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(notebook != null and notebook.visible, "opening the notebook should show its phone-shell window")
+	_assert_true(canvas != null, "phone shell should paint notebook content")
+	_assert_hud_untouched(hud, "opening a phone app")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_phone_popup_follows_the_phone_model() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var open: PropertyModel = manager.model(PropertyKeysScript.PHONE_OPEN)
+	var popup := Harness.find_node_by_name(game_root, "PhonePopup") as Control
+	_assert_true(popup != null and popup.visible, "a new run should show the phone popup")
+	_assert_eq(open.changed.get_connections().size(), 1, "the shown phone should listen to the phone model once")
+
+	open.write(false)
+	# The phone slides out before it hides.
+	game_root._phone_launcher_panel._process(1.0)
+	_assert_true(popup != null and not popup.visible, "writing the phone model closed should hide the popup without a refresh")
+	open.write(true)
+	_assert_true(popup != null and popup.visible, "writing the phone model open should show the popup without a refresh")
+
+	game_root.set_view_state("npc_up")
+	await process_frame
+	game_root._phone_launcher_panel._process(1.0)
+	_assert_true(popup != null and not popup.visible, "putting the phone down should hide the popup")
+	_assert_eq(open.changed.get_connections().size(), 1, "putting the phone down should keep one registration while the play chrome is shown")
+	game_root.set_view_state("phone_down")
+	await process_frame
+	_assert_true(popup != null and popup.visible, "picking the phone up should show the popup")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_app_windows_follow_the_open_windows_model() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	_assert_true(game_root.get("_open_app_windows") == null, "the host should not keep its own open-window table")
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var windows: ListPropertyModel = manager.model(PropertyKeysScript.OPEN_APP_WINDOWS) as ListPropertyModel
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	_assert_eq(windows.read(), ["social", "notebook"], "opening apps should list their windows in the model")
+	var social := game_root._app_windows.get("social") as Control
+	var notebook := game_root._app_windows.get("notebook") as Control
+	_assert_true(social != null and notebook != null, "the phone shell should build the social and notebook windows")
+	if social == null or notebook == null:
+		game_root.queue_free()
+		await process_frame
+		return
+	_assert_true(notebook.visible, "an open notebook window should show")
+
+	game_root._close_app_window("notebook")
+	await process_frame
+	_assert_eq(windows.read(), ["social"], "closing a window should drop it from the model")
+	_assert_true(not notebook.visible, "a closed notebook window should hide")
+	_assert_eq(game_root.game.active_app_window, "social", "closing the foreground window should fall back to the remaining one")
+	_assert_true(social.visible, "the remaining window should stay visible")
+
+	game_root.set_view_state("npc_up")
+	await process_frame
+	_assert_true(not social.visible, "putting the phone down should hide every window")
+	game_root.set_view_state("phone_down")
+	await process_frame
+	_assert_eq(windows.read(), ["social"], "picking the phone up should keep the same open windows")
+	_assert_true(social.visible, "picking the phone up should show the open window again")
+
+	var save_data: Dictionary = game_root.game.to_save_data()
+	windows.replace_all([])
+	_assert_true(game_root.game.load_save_data(save_data), "the save should load")
+	_assert_eq(windows.read(), ["social"], "loading should restore the windows that were open when saving")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_like_does_not_rerun_ending() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root.game.ending_unlocked = true
+	game_root._render()
+	await process_frame
+
+	var body := Harness.find_node_by_name(game_root, "EndingBody") as Label
+	_assert_true(body != null, "unlocking the ending should paint the ending screen")
+	if body != null:
+		body.text = ENDING_SENTINEL
+	var post: Dictionary = game_root._social_feed_source().post_for_index(0)
+	GameEventBus.raise(UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: str(post.get("id", ""))})
+	await process_frame
+
+	body = Harness.find_node_by_name(game_root, "EndingBody") as Label
+	_assert_true(body != null and is_instance_valid(body), "liking a post should leave the ending screen in place")
+	if body != null and is_instance_valid(body):
+		_assert_eq(body.text, ENDING_SENTINEL, "liking a post should not re-run the ending screen")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	for field in ["_social_screen", "_social_channel", "_social_detail_open", "_social_detail_post_index", "_notebook_crafting_tab"]:
+		_assert_true(game_root.get(field) == null, "the host should not keep the panel view field %s" % field)
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	var social: SocialFeedPanel = game_root._social_feed_panel
+	social.select_channel("following")
+	social.open_post(0)
+	social.show_screen("profile")
+	social.open_post(1)
+	await process_frame
+
+	game_root.new_game()
+	game_root._skip_chapter_one()
+	await process_frame
+	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	social = game_root._social_feed_panel
+	_assert_true(not social.is_detail_open(), "a new run should shut the open post")
+	_assert_true(Harness.find_node_by_name(game_root, "SocialHomePage") != null, "a new run should open the social app on the home feed")
+	var discover := Harness.find_node_by_name(game_root, "SocialChannelTabUnderlinediscover") as ColorRect
+	_assert_true(discover != null and discover.visible, "a new run should open the social app on the discover channel")
+	_assert_true(Harness.find_node_by_name(game_root, "NotebookCraftButton") != null, "a new run should open the notebook on its post page")
+
+	game_root.queue_free()
+	await process_frame
+
+
+func _label_colors(node: Node) -> Dictionary:
+	var colors := {}
+	if node == null:
+		return colors
+	for label in node.find_children("*", "Label", true, false):
+		colors[str(node.get_path_to(label))] = (label as Label).get_theme_color("font_color")
+	return colors
+
+
+func _boot_gameplay() -> Node:
+	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
+	_assert_true(scene != null, "phone shell refresh should load the main scene")
+	if scene == null:
+		return null
+	var game_root := scene.instantiate()
+	root.add_child(game_root)
+	game_root._locale.set_locale("zh")
+	game_root.new_game()
+	game_root._skip_chapter_one()
+	await process_frame
+	return game_root
+
+
+## The world prompt stands in for the Reality HUD's content: a phone-shell refresh must leave it alone.
+func _stamp_hud(game_root: Node) -> Label:
+	var hud := Harness.find_node_by_name(game_root, "WorldPrompt") as Label
+	_assert_true(hud != null, "Reality HUD should expose the world prompt")
+	if hud != null:
+		hud.text = HUD_SENTINEL
+	return hud
+
+
+func _assert_hud_untouched(hud: Label, action: String) -> void:
+	_assert_true(hud != null and is_instance_valid(hud), "%s should leave the Reality HUD node in place" % action)
+	if hud != null and is_instance_valid(hud):
+		_assert_eq(hud.text, HUD_SENTINEL, "%s should not re-run Reality HUD content" % action)
+
+
+func _assert_true(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)
+
+
+func _assert_eq(value: Variant, expected: Variant, message: String) -> void:
+	if value != expected:
+		_failures.append("%s (got %s, expected %s)" % [message, str(value), str(expected)])

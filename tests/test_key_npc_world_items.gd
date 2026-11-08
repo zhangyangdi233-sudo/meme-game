@@ -1,6 +1,7 @@
 extends SceneTree
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
+const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 
@@ -12,14 +13,11 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var palette := {
-		"bg": "B7D957", "surface": "FFF1C9", "ink": "10140F",
-		"accent": "365B2D", "muted": "DDEB8A", "flash_text": "9CFF24",
-	}
 	var texture := load("res://assets/generated/characters/npc_late_arrival.png") as Texture2D
 	var doll_texture := load("res://assets/generated/characters/guide_doll.png") as Texture2D
 	_assert_true(doll_texture != null, "the user's guide doll artwork should import as a Godot texture")
-	for floor_number in [1, 2, 3]:
+	# The first floor is the empty crossroads; its old residents moved into the basement.
+	for floor_number in [2, 3]:
 		var state := MemeGameStateScript.new()
 		state.new_run()
 		state.tower_floor = floor_number
@@ -27,13 +25,12 @@ func _run() -> void:
 		var floor_root := RealityFloorGeneratorScript.new()
 		root.add_child(floor_root)
 		await process_frame
-		floor_root.rebuild(floor_number, palette, {
+		var composed: Dictionary = FloorComposerScript.compose({"day_progress": {"tower_floor": floor_number}})
+		floor_root.rebuild(floor_number, UiPalette.PALETTE_1, {
 			"key_npc": texture,
-			"key_npc_label": "关键住户",
 			"npcs": [texture],
 			"doll": doll_texture,
-			"doll_encounter": LanguageCorruptionContentScript.get_doll_encounter_for_floor(floor_number),
-		}, 1, false, item)
+		}, 1, false, composed.get("items", []), composed.get("people", []), composed.get("display_names", {}), [], composed.get("layout", {}))
 		var key_npc := _find_actor(floor_root, "key_npc")
 		_assert_true(key_npc != null, "floor %d should place one key NPC at the authored nearby test position" % floor_number)
 		_assert_true(_find_actor(floor_root, "merchant") == null, "floor %d should contain no merchant actor" % floor_number)
@@ -54,6 +51,7 @@ func _run() -> void:
 		_assert_true(prerequisite != null, "floor %d should build exactly one authored prerequisite" % floor_number)
 		if prerequisite != null:
 			_assert_eq(str(prerequisite.get_meta("item_id", "")), str(item.get("id", "")), "world item should use the state-owned prerequisite ID")
+			_assert_eq(str(prerequisite.get_meta("display_name", "")), str(item.get("label", "")), "world item should keep the catalog label for pickup")
 			_assert_true(floor_root.contains_playable_position(prerequisite.position, 1.0), "floor %d prerequisite must be inside the traversable map" % floor_number)
 			_assert_true(not prerequisite.visible, "the item should remain hidden before the key NPC clue")
 			floor_root.sync_prerequisite_items([str(item.get("id", ""))], [])

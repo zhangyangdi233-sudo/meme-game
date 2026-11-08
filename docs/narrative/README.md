@@ -1,5 +1,7 @@
 # 文本创作交接
 
+> **2026-11 註（#141）**：這批是從 `main` 搬來的文字創作與研究，作為第二層以後（#115、#137）的參考，不是遊戲目前的內容。下文提到的 `GAME_FLOW_MEMORY.md`、`docs/chapter1-integration.md` 與 2026-10-09 交接文件屬於 `main` 的舊第一章實作，已由 `dev` 重做取代，只留在 `main` 的歷史裡。目前的流程以 `CONTEXT.md` 與 #119、#120、#142 的結論為準。
+
 本目录保存当前文字创作成果，供继续编辑和后续接入；不表示其中所有剧情已进入游戏。第一章已实现流程以根目录 `GAME_FLOW_MEMORY.md`、`docs/chapter1-integration.md` 和 2026-10-09 交接文档为准。
 
 主稿为 [Aphasia_中文对白修订版.docx](Aphasia_中文对白修订版.docx)。归档时，它与原工作区的 `Aphasia_文本分区编辑版.docx`、`outputs/narrative/Aphasia_文本分区完整编辑版.docx` 三份文件 SHA-256 完全相同，因此只保存一个副本。

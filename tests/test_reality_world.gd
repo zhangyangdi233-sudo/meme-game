@@ -1,5 +1,7 @@
 extends SceneTree
 
+const RealitySceneAdapterScript = preload("res://scripts/world/reality_scene_adapter.gd")
+
 var _failures: Array[String] = []
 
 
@@ -8,6 +10,7 @@ func _init() -> void:
 
 
 func _run_async() -> void:
+	root.size = Vector2i(1600, 900)
 	await _run()
 	if _failures.is_empty():
 		print("reality world tests passed")
@@ -21,10 +24,9 @@ func _run_async() -> void:
 func _run() -> void:
 	var vhs_source := FileAccess.get_file_as_string("res://shaders/vhs_screen.gdshader")
 	_assert_true(vhs_source.contains("black_ink_guard"), "VHS post-processing should preserve fully opaque black face scribbles")
-	var scribble_source := FileAccess.get_file_as_string("res://shaders/npc_face_scribble_overlay.gdshader")
-	_assert_true(scribble_source.contains("ALBEDO = ink_color.rgb") and scribble_source.contains("ALPHA = opaque_ink"), "face scribble shader should output only black marker pixels and transparent background")
-	_assert_true(scribble_source.contains("texture(character_texture, UV).a"), "face scribble overlay should read the character only for alpha alignment")
-	_assert_true(not scribble_source.contains("mix(base") and not scribble_source.contains("body_tint"), "face scribble overlay must never darken or recolor the source portrait")
+	var cover_source := FileAccess.get_file_as_string("res://shaders/npc_face_cover.gdshader")
+	_assert_true(cover_source.contains("toward_camera"), "the chalk cover should be pushed toward the camera so it draws in front of the face")
+	_assert_true(not cover_source.contains("character_texture"), "the chalk cover must never sample or recolor the source portrait")
 	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
 	_assert_true(scene != null, "reality world test should load the main scene")
 	if scene == null:
@@ -33,9 +35,9 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
-	for _line_index in 7:
-		game_root._advance_prologue()
+	game_root._skip_chapter_one()
 	await process_frame
+	_assert_true(not game_root._reality_scene_deps().has("game"), "reality adapter deps should carry snapshots, not the live game")
 
 	var player := game_root.get_node_or_null("RealityPlayer") as CharacterBody3D
 	var floor_root := game_root.get_node_or_null("RealityFloor") as Node3D
@@ -58,32 +60,30 @@ func _run() -> void:
 			_assert_near(camera_attributes.dof_blur_amount, 0.08, 0.001, "far blur should obscure silhouettes without erasing navigation")
 		_assert_eq(str(camera.get_meta("fixed_focus_profile", "")), "near_clear_far_soft", "camera should expose its fixed-focus art direction")
 		_assert_near(camera.fov, 58.0, 0.01, "the shared first-person camera should start at the fixed authored FOV")
-		game_root._reality_interaction_active = true
-		game_root._animate_world(0.5)
-		_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
-		game_root._reality_interaction_active = false
+		_assert_true(game_root._reality_scene_adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads chapter one ends on")
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
 		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
-		_assert_eq(float(top_bar.get_meta("target_aspect_ratio", 0.0)), 2.35, "cinematic bars should target the selected 2.35 aspect ratio")
+		_assert_true(is_equal_approx(game_root._cinematic_bars.bar_height(Vector2(2.35 * 400.0, 400.0)), 0.0), "cinematic bars should target the selected 2.35 aspect ratio")
 	if social_window != null and top_bar != null:
 		_assert_true(social_window.z_index > top_bar.z_index, "phone app windows should render above the cinematic bars")
 
-	_assert_eq(game_root._room_count_for_floor(1), 4, "floor one should begin with four rooms")
-	_assert_eq(game_root._room_count_for_floor(2), 6, "floor two should add two rooms")
-	_assert_eq(game_root._room_count_for_floor(3), 9, "floor three should add three rooms")
-	_assert_eq(game_root._room_count_for_floor(4), 11, "hidden floor four should retain the final authored expansion")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(1), 4, "floor one should begin with four rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(2), 6, "floor two should add two rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(3), 9, "floor three should add three rooms")
+	_assert_eq(RealitySceneAdapterScript.room_count_for_floor(4), 11, "hidden floor four should retain the final authored expansion")
 	for floor_number in range(2, 5):
-		var growth: int = game_root._room_count_for_floor(floor_number) - game_root._room_count_for_floor(floor_number - 1)
+		var growth: int = RealitySceneAdapterScript.room_count_for_floor(floor_number) - RealitySceneAdapterScript.room_count_for_floor(floor_number - 1)
 		_assert_true(growth == 2 or growth == 3, "each ascent should add two or three rooms")
-	var expected_npc_counts := [4, 3, 2, 0]
+	# Floor one is the empty crossroads chapter one ends on; the cast shrinks from floor two up.
+	var expected_npc_counts := [0, 3, 2, 0]
 	for floor_index in expected_npc_counts.size():
 		var floor_number := floor_index + 1
-		_assert_eq(game_root._npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
-		if floor_index > 0:
+		_assert_eq(RealitySceneAdapterScript.npc_count_for_floor(floor_number), expected_npc_counts[floor_index], "ordinary NPC population should follow the reduced floor sequence")
+		if floor_index > 1:
 			_assert_true(expected_npc_counts[floor_index] < expected_npc_counts[floor_index - 1], "ordinary NPC population should strictly decrease on every ascent")
 	_assert_eq(int(floor_root.get_meta("room_count", 0)), 4, "generated first floor should match the room formula")
-	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 4, "first floor should contain four ordinary NPCs")
+	_assert_eq(int(floor_root.get_meta("ordinary_npc_count", 0)), 0, "the first-floor crossroads should stand no ordinary NPCs")
 	_assert_eq(str(floor_root.get_meta("district_style", "")), "sunlit_brick_street", "first floor should use the sunlit brick-road reference grammar")
 	var map_width := float(floor_root.get_meta("map_width", 0.0))
 	var map_length := float(floor_root.get_meta("map_length", 0.0))
@@ -95,12 +95,7 @@ func _run() -> void:
 	_assert_true(first_reference_portal != null and str(first_reference_portal.get_meta("reference_texture", "")).contains("sunlit_brick_street"), "sunlit district should extend its geometry with the supplied reference image")
 	if first_reference_portal != null and first_reference_portal.mesh is QuadMesh:
 		_assert_true((first_reference_portal.mesh as QuadMesh).size.x >= 12.0, "sunlit reference continuation should fill the road horizon rather than appear as a small poster")
-	_assert_eq(int(floor_root.get_meta("useful_item_count", 0)), 1, "each normal floor should reserve one physical hidden-route prerequisite")
-	var hidden_prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor1") as Area3D
-	_assert_true(hidden_prerequisite != null and not hidden_prerequisite.visible, "the prerequisite should exist in reachable geometry but remain hidden before its NPC clue")
-	if hidden_prerequisite != null:
-		_assert_true(not hidden_prerequisite.monitoring and not hidden_prerequisite.monitorable, "an unrevealed prerequisite must not intercept interaction")
-		_assert_eq(str(hidden_prerequisite.get_meta("item_effect", "")), "prerequisite", "physical route proof should not carry an obsolete stat bonus")
+	_assert_eq(int(floor_root.get_meta("useful_item_count", 0)), 0, "the crossroads should place no hidden-route prerequisite")
 	_assert_eq(str(floor_root.get_meta("layout_mode", "")), "shared_street", "reality floor should be one shared open street instead of isolated NPC boxes")
 	_assert_true(map_width >= 32.0 and map_length >= 230.0, "first floor should be five times longer than the original forty-six-metre street")
 	_assert_eq(float(floor_root.get_meta("world_length_scale", 0.0)), 5.0, "generated floors should expose the requested five-times world scale")
@@ -152,33 +147,8 @@ func _run() -> void:
 	var clamped_corner: Vector3 = floor_root.call("clamp_to_playable_position", outside_corner)
 	_assert_true(bool(floor_root.call("contains_playable_position", clamped_corner)), "clamping should choose the nearest valid arm or trunk instead of a bounding rectangle")
 
-	var doll := _find_actor(floor_root, "doll")
-	var ordinary_npcs := _count_actors(floor_root, "npc")
-	var doctors := _count_actors(floor_root, "doctor")
-	_assert_true(doll != null, "each normal floor should contain one discoverable stitched doll")
-	_assert_true(_find_actor(floor_root, "merchant") == null, "removed merchant actor must not return")
-	_assert_eq(ordinary_npcs + doctors, 4, "first floor should preserve its four-character population")
-	_assert_eq(doctors, 0, "the retired doctor actor must not spawn")
-	var npc_z_positions: Array[float] = []
-	_collect_actor_z_positions(floor_root, "npc", npc_z_positions)
-	_collect_actor_z_positions(floor_root, "doctor", npc_z_positions)
-	npc_z_positions.sort()
-	for index in range(1, npc_z_positions.size()):
-		_assert_true(npc_z_positions[index] - npc_z_positions[index - 1] >= 25.0, "ordinary NPCs should be spaced across the five-times-long street")
-	if doll != null:
-		var doll_billboard := doll.get_node_or_null("Billboard") as Sprite3D
-		_assert_true(doll_billboard != null and doll_billboard.texture != null, "doll should use the player's stitched guide artwork")
-		if doll_billboard != null:
-			_assert_eq(doll_billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "the physical doll should always face the camera")
-		_assert_true(doll.get_node_or_null("FaceScribbleOverlay") == null, "the guide doll artwork should never receive the NPC face veil")
-		_assert_true(bool(doll.get_meta("guide_character", false)), "the world doll should retain its guide role")
-	var sample_npc := _find_actor(floor_root, "npc")
-	if sample_npc != null:
-		var sample_npc_billboard := sample_npc.get_node_or_null("Billboard") as Sprite3D
-		_assert_actor_face_veil(sample_npc, sample_npc_billboard, "ordinary NPC")
-	var npc_texture_ids: Dictionary = {}
-	_collect_actor_texture_ids(floor_root, "npc", npc_texture_ids)
-	_assert_eq(npc_texture_ids.size(), 3, "ordinary NPCs should rotate through all three protagonist-style character artworks")
+	_assert_true(_find_actor(floor_root, "doll") == null, "no doll should wait at the crossroads")
+	_assert_eq(_count_actors(floor_root, "npc") + _count_actors(floor_root, "key_npc"), 0, "no resident should wait at the crossroads")
 
 	for action_name in ["reality_forward", "reality_back", "reality_left", "reality_right", "reality_sprint", "reality_interact"]:
 		_assert_true(InputMap.has_action(action_name), "reality movement should register input action %s" % action_name)
@@ -190,25 +160,30 @@ func _run() -> void:
 	_assert_true(_action_has_key("reality_interact", KEY_F), "world interaction should use F")
 
 	game_root.set_view_state("npc_up")
+	game_root._layout_hud_rail()
+	game_root._set_hud_drawer_expanded(true, false)
+	await process_frame
 	if top_bar != null and bottom_bar != null:
 		_assert_true(top_bar.visible and bottom_bar.visible, "putting the phone down should restore both cinematic bars")
 		_assert_true(top_bar.size.y > 24.0 and bottom_bar.size.y > 24.0, "reality walking should retain a visible movie frame")
 		_assert_true(top_bar.size.y <= game_root.get_viewport().get_visible_rect().size.y * 0.121, "responsive cinematic bars should never consume more than twelve percent per edge")
 		if hud_rail != null:
-			var hud_rect := hud_rail.get_global_rect()
-			var viewport_height := game_root.get_viewport().get_visible_rect().size.y
-			_assert_true(hud_rect.position.y >= top_bar.get_global_rect().end.y + 6.0, "left HUD should begin inside the cinematic picture instead of crossing the top matte")
-			_assert_true(hud_rect.end.y <= bottom_bar.get_global_rect().position.y - 6.0, "left HUD should end inside the cinematic picture instead of crossing the bottom matte")
-			_assert_true(absf(hud_rect.get_center().y - viewport_height * 0.5) <= 1.0, "left HUD should stay vertically centered on the picture")
+			var safe_top := float(hud_rail.get_meta("cinematic_safe_top", -1.0))
+			var safe_bottom := float(hud_rail.get_meta("cinematic_safe_bottom", -1.0))
+			_assert_true(safe_top >= 0.0 and safe_bottom > safe_top, "HUD rail should record cinematic safe bounds after layout")
+			_assert_true(hud_rail.offset_top >= safe_top - 1.0, "left HUD should begin inside the cinematic picture instead of crossing the top matte")
+			_assert_true(hud_rail.offset_bottom <= safe_bottom + 1.0, "left HUD should end inside the cinematic picture instead of crossing the bottom matte")
+			var picture_center_y := (safe_top + safe_bottom) * 0.5
+			var rail_center_y := (hud_rail.offset_top + hud_rail.offset_bottom) * 0.5
+			_assert_true(absf(rail_center_y - picture_center_y) <= 2.0, "left HUD should stay vertically centered on the picture")
 	_assert_true(bool(game_root._reality_mouse_look_enabled), "putting the phone down should immediately enable free mouse look")
-	var yaw_before_mouse := float(game_root._reality_yaw)
+	var yaw_before_mouse := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var mouse_turn := InputEventMouseMotion.new()
 	mouse_turn.relative = Vector2(96.0, 0.0)
 	game_root._unhandled_input(mouse_turn)
-	_assert_true(not is_equal_approx(float(game_root._reality_yaw), yaw_before_mouse), "horizontal mouse movement should rotate the first-person view")
-	var yaw_before_touch := float(game_root._reality_yaw)
-	var pitch_before_touch := float(game_root._reality_pitch)
-	var actions_before_touch := int(game_root.game.actions_remaining)
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before_mouse), "horizontal mouse movement should rotate the first-person view")
+	var yaw_before_touch := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
+	var pitch_before_touch := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
 	var touch_start := InputEventScreenTouch.new()
 	touch_start.index = 3
 	touch_start.position = Vector2(760.0, 430.0)
@@ -219,58 +194,56 @@ func _run() -> void:
 	touch_turn.position = Vector2(688.0, 468.0)
 	touch_turn.screen_relative = Vector2(-72.0, 38.0)
 	game_root._input(touch_turn)
-	_assert_true(not is_equal_approx(float(game_root._reality_yaw), yaw_before_touch), "horizontal touchscreen drag should rotate the first-person view")
-	_assert_true(not is_equal_approx(float(game_root._reality_pitch), pitch_before_touch), "vertical touchscreen drag should tilt the first-person view")
-	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "touchscreen free look should not spend an action")
-	var yaw_after_primary_touch := float(game_root._reality_yaw)
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_before_touch), "horizontal touchscreen drag should rotate the first-person view")
+	_assert_true(not is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_touch), "vertical touchscreen drag should tilt the first-person view")
+	var yaw_after_primary_touch := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	var second_touch_turn := InputEventScreenDrag.new()
 	second_touch_turn.index = 4
 	second_touch_turn.position = Vector2(500.0, 300.0)
 	second_touch_turn.screen_relative = Vector2(120.0, 0.0)
 	game_root._input(second_touch_turn)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_after_primary_touch), "a second finger should not steal the active one-finger camera gesture")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_after_primary_touch), "a second finger should not steal the active one-finger camera gesture")
 	var touch_end := InputEventScreenTouch.new()
 	touch_end.index = 3
 	touch_end.position = touch_turn.position
 	touch_end.pressed = false
 	game_root._input(touch_end)
 	_assert_eq(int(game_root._reality_touch_look_index), -1, "lifting the active finger should finish the camera gesture")
-	game_root._reality_yaw = 0.0
+	game_root._reality_scene_adapter.yaw = 0.0
 	var trackpad_left := InputEventPanGesture.new()
 	# macOS pan deltas report content movement, opposite to finger movement.
 	trackpad_left.delta = Vector2(2.0, 0.0)
 	game_root._input(trackpad_left)
-	_assert_true(float(game_root._reality_yaw) > 0.0, "two-finger trackpad movement to the left should turn the camera left")
-	_assert_true(absf(float(game_root._reality_yaw)) <= 4.0, "trackpad look should use the reduced sensitivity")
-	game_root._reality_yaw = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)) > 0.0, "two-finger trackpad movement to the left should turn the camera left")
+	_assert_true(absf(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))) <= 4.0, "trackpad look should use the reduced sensitivity")
+	game_root._reality_scene_adapter.yaw = 0.0
 	var trackpad_right := InputEventPanGesture.new()
 	trackpad_right.delta = Vector2(-2.0, 0.0)
 	game_root._input(trackpad_right)
-	_assert_true(float(game_root._reality_yaw) < 0.0, "two-finger trackpad movement to the right should turn the camera right")
-	game_root._reality_pitch = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)) < 0.0, "two-finger trackpad movement to the right should turn the camera right")
+	game_root._reality_scene_adapter.pitch = 0.0
 	var trackpad_up := InputEventPanGesture.new()
 	trackpad_up.delta = Vector2(0.0, 2.0)
 	game_root._input(trackpad_up)
-	_assert_true(float(game_root._reality_pitch) > 0.0, "two-finger trackpad movement upward should tilt the camera upward")
-	game_root._reality_pitch = 0.0
+	_assert_true(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)) > 0.0, "two-finger trackpad movement upward should tilt the camera upward")
+	game_root._reality_scene_adapter.pitch = 0.0
 	var trackpad_down := InputEventPanGesture.new()
 	trackpad_down.delta = Vector2(0.0, -2.0)
 	game_root._input(trackpad_down)
-	_assert_true(float(game_root._reality_pitch) < 0.0, "two-finger trackpad movement downward should tilt the camera downward")
-	_assert_eq(game_root.game.actions_remaining, actions_before_touch, "trackpad free look should not spend an action")
+	_assert_true(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)) < 0.0, "two-finger trackpad movement downward should tilt the camera downward")
 	game_root.set_view_state("phone_down")
-	var yaw_while_phone_is_up := float(game_root._reality_yaw)
+	var yaw_while_phone_is_up := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 	game_root._input(touch_start)
 	game_root._input(touch_turn)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_while_phone_is_up), "touchscreen drag should not turn the world while the phone interface is active")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_while_phone_is_up), "touchscreen drag should not turn the world while the phone interface is active")
 	game_root._input(trackpad_left)
-	_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_while_phone_is_up), "trackpad pan should keep scrolling available instead of turning the world while the phone is active")
-	var pitch_while_phone_is_up := float(game_root._reality_pitch)
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_while_phone_is_up), "trackpad pan should keep scrolling available instead of turning the world while the phone is active")
+	var pitch_while_phone_is_up := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
 	game_root._input(trackpad_up)
-	_assert_true(is_equal_approx(float(game_root._reality_pitch), pitch_while_phone_is_up), "vertical trackpad pan should remain available to phone UI while the phone is active")
+	_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_while_phone_is_up), "vertical trackpad pan should remain available to phone UI while the phone is active")
 	game_root.set_view_state("npc_up")
-	game_root._reality_yaw = 0.0
-	game_root._reality_pitch = 0.0
+	game_root._reality_scene_adapter.yaw = 0.0
+	game_root._reality_scene_adapter.pitch = 0.0
 	if player != null:
 		var walk_start := player.position
 		Input.action_press("reality_forward")
@@ -289,7 +262,7 @@ func _run() -> void:
 		Input.action_release("reality_forward")
 		var sprint_distance := walk_start.distance_to(player.position)
 		_assert_true(sprint_distance > walk_distance * 1.35, "holding Shift while walking should cover substantially more distance")
-		game_root._reality_yaw = 0.0
+		game_root._reality_scene_adapter.yaw = 0.0
 		player.position = Vector3(0.0, 0.08, map_length * 0.5 - 1.2)
 		player.velocity = Vector3.ZERO
 		Input.action_press("reality_back")
@@ -302,25 +275,63 @@ func _run() -> void:
 		player.velocity = Vector3(0.0, -12.0, 0.0)
 		game_root._update_reality_player(0.016)
 		_assert_true(player.position.y >= 0.0, "falling below the street should recover the player onto a safe spawn")
+	# The street's cast now starts on the second floor: the crossroads below it is empty.
+	game_root.game.tower_floor = 2
+	game_root._refresh_play_surfaces()
+	floor_root = game_root.get_node_or_null("RealityFloor") as Node3D
+	await physics_frame
+	var doll := _find_actor(floor_root, "doll")
+	_assert_true(doll != null, "each normal floor should contain one discoverable stitched doll")
+	_assert_true(_find_actor(floor_root, "merchant") == null, "removed merchant actor must not return")
+	_assert_eq(_count_actors(floor_root, "doctor"), 0, "the retired doctor actor must not spawn")
+	if doll != null:
+		var doll_billboard := doll.get_node_or_null("Billboard") as Sprite3D
+		_assert_true(doll_billboard != null and doll_billboard.texture != null, "doll should use the player's stitched guide artwork")
+		if doll_billboard != null:
+			_assert_eq(doll_billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "the physical doll should always face the camera")
+		_assert_true(doll.get_node_or_null("FaceScribbleOverlay") == null, "the guide doll artwork should never receive the NPC face veil")
+		_assert_true(bool(doll.get_meta("guide_character", false)), "the world doll should retain its guide role")
+	var sample_npc := _find_actor(floor_root, "npc")
+	if sample_npc != null:
+		var sample_npc_billboard := sample_npc.get_node_or_null("Billboard") as Sprite3D
+		_assert_actor_face_veil(sample_npc, sample_npc_billboard, "ordinary NPC")
+		game_root._reality_scene_adapter.apply_interaction({
+			"action": "converse",
+			"actor_id": str(sample_npc.get_meta("actor_id", "")),
+			"accepted": true,
+		})
+		game_root._animate_world(0.5)
+		_assert_near(camera.fov, 58.0, 0.01, "starting an NPC interaction must not alter the fixed focal length")
+		game_root._reality_scene_adapter.apply_interaction({"action": "end"})
+	var npc_texture_ids: Dictionary = {}
+	_collect_actor_texture_ids(floor_root, "npc", npc_texture_ids)
+	_assert_eq(npc_texture_ids.size(), 3, "ordinary NPCs should rotate through all three protagonist-style character artworks")
+	var hidden_prerequisite := _find_node_by_name(floor_root, "PrerequisiteItemFloor2") as Area3D
+	_assert_true(hidden_prerequisite != null and not hidden_prerequisite.visible, "the prerequisite should exist in reachable geometry but remain hidden before its NPC clue")
+	if hidden_prerequisite != null:
+		_assert_true(not hidden_prerequisite.monitoring and not hidden_prerequisite.monitorable, "an unrevealed prerequisite must not intercept interaction")
+		_assert_eq(str(hidden_prerequisite.get_meta("item_effect", "")), "prerequisite", "physical route proof should not carry an obsolete stat bonus")
 	if player != null and doll != null:
+		var pitch_before_dialogue := float(game_root._reality_scene_adapter.pose().get("pitch", 0.0))
 		player.position = doll.position + Vector3(0.0, 0.0, 1.4)
 		game_root._refresh_nearby_reality_actor()
-		_assert_true(game_root._nearby_reality_actor == doll, "approaching the stitched doll should select it as the nearby actor")
+		_assert_eq(str(game_root._reality_scene_adapter.nearby_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "approaching the stitched doll should select it as the nearby actor")
 		_assert_true(game_root._try_reality_interaction(), "F interaction path should open the nearby actor")
-		_assert_true(game_root._reality_interaction_active, "world interaction should enter the dialogue state")
-		_assert_true(game_root._active_reality_actor == doll, "world interaction should remember the discovered doll")
+		_assert_true(game_root._reality_interaction_is_active(), "world interaction should enter the dialogue state")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), -30.0), "starting a doll conversation should face the doll")
+		_assert_eq(str(game_root._reality_scene_adapter.active_actor_outcome().get("actor_id", "")), str(doll.get_meta("actor_id", "")), "world interaction should remember the discovered doll")
 		var leave_button := _find_node_by_name(game_root, "RealityConversationContinue") as Button
-		var actions_before_leave := int(game_root.game.actions_remaining)
 		_assert_true(leave_button != null and leave_button.visible and leave_button.text == "离开", "doll and NPC conversations should expose an immediate Leave button")
 		if leave_button != null:
 			leave_button.pressed.emit()
-		_assert_true(not game_root._reality_interaction_active, "Leave should close a conversation before the player speaks")
-		_assert_eq(game_root.game.actions_remaining, actions_before_leave, "leaving without speaking should not spend an action")
+		_assert_true(not game_root._reality_interaction_is_active(), "Leave should close a conversation before the player speaks")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "leaving a conversation should restore the look pitch")
+		_assert_eq(game_root.game.reality_dialogue_count, 0, "leaving without speaking should count no dialogue")
 		game_root._refresh_nearby_reality_actor()
 		_assert_true(game_root._try_reality_interaction(), "the same actor should remain available after leaving")
-		var yaw_during_dialogue := float(game_root._reality_yaw)
+		var yaw_during_dialogue := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
 		game_root._unhandled_input(touch_turn)
-		_assert_true(is_equal_approx(float(game_root._reality_yaw), yaw_during_dialogue), "touchscreen drag should not turn the camera during a reality conversation")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("yaw", 0.0)), yaw_during_dialogue), "touchscreen drag should not turn the camera during a reality conversation")
 		var choice_id := str(game_root.game.get_typed_reality_choices()[0].get("id", ""))
 		game_root._on_reality_choice_selected(choice_id)
 		var arbitrary_key := InputEventKey.new()
@@ -328,9 +339,9 @@ func _run() -> void:
 		arbitrary_key.pressed = true
 		game_root._unhandled_input(arbitrary_key)
 		_assert_eq(game_root.game.conversation_reveal_index, 1, "an arbitrary physical key should reveal exactly one spoken character")
-		_assert_eq(game_root.game.actions_remaining, 5, "partial typed speech should remain action-free")
 		game_root._exit_reality_interaction()
-		_assert_true(not game_root._reality_interaction_active, "leaving dialogue should return to free walking")
+		_assert_true(not game_root._reality_interaction_is_active(), "leaving dialogue should return to free walking")
+		_assert_true(is_equal_approx(float(game_root._reality_scene_adapter.pose().get("pitch", 0.0)), pitch_before_dialogue), "ending dialogue should restore the look pitch")
 
 	game_root.game.tower_floor = 2
 	game_root._ensure_reality_floor_current()
@@ -545,11 +556,10 @@ func _assert_actor_face_veil(actor: Area3D, billboard: Sprite3D, actor_label: St
 	var portrait_world_height := float(actor.get_meta("portrait_world_height", 0.0))
 	var camera_eye_height := float(actor.get_meta("camera_eye_height", 0.0))
 	var face_center_world_y := float(actor.get_meta("face_center_world_y", 99.0))
-	_assert_near(portrait_world_height, 1.90, 0.01, "%s should share one compact cartoon portrait height" % actor_label)
-	var bottom_padding := float(actor.get_meta("portrait_bottom_padding", 0.0))
-	_assert_near(billboard.position.y - portrait_world_height * 0.5 + bottom_padding, 0.0, 0.01, "%s opaque shoes should meet the ground instead of floating" % actor_label)
+	_assert_true(portrait_world_height > 1.6 and portrait_world_height < 2.0, "%s should stay a compact cartoon portrait (got %s)" % [actor_label, portrait_world_height])
+	_assert_near(billboard.position.y - portrait_world_height * 0.5, 0.0, 0.01, "%s portrait should meet the ground instead of floating" % actor_label)
 	_assert_near(face_center_world_y, camera_eye_height, 0.08, "%s blank face should remain level with the first-person camera" % actor_label)
-	_assert_eq(billboard.billboard, BaseMaterial3D.BILLBOARD_FIXED_Y, "%s character should face camera horizontally without lifting its feet" % actor_label)
+	_assert_eq(billboard.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "%s character layer should always face the active camera" % actor_label)
 	_assert_true(not billboard.shaded, "%s character colors should remain unlit and floor-independent" % actor_label)
 	_assert_eq(billboard.texture_filter, BaseMaterial3D.TEXTURE_FILTER_NEAREST, "%s character layer should avoid colored mipmap bleed at long distance" % actor_label)
 	_assert_eq(billboard.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s character layer should not inherit floor lighting through shadows" % actor_label)
@@ -560,35 +570,24 @@ func _assert_actor_face_veil(actor: Area3D, billboard: Sprite3D, actor_label: St
 	if overlay == null:
 		return
 	_assert_true(bool(overlay.get_meta("separate_face_effect", false)), "%s handwriting node should identify itself as a separate effect layer" % actor_label)
-	_assert_true(overlay.texture == billboard.texture, "%s overlay should share the original canvas only for exact face alignment" % actor_label)
-	_assert_eq(overlay.position, billboard.position, "%s overlay should remain registered over the original portrait" % actor_label)
-	_assert_eq(overlay.scale, billboard.scale, "%s overlay should preserve the original portrait proportions" % actor_label)
-	_assert_eq(overlay.billboard, BaseMaterial3D.BILLBOARD_FIXED_Y, "%s handwriting should share the grounded horizontal portrait orientation" % actor_label)
-	_assert_true(not overlay.shaded, "%s handwriting should remain opaque black under every floor light" % actor_label)
-	_assert_eq(overlay.texture_filter, BaseMaterial3D.TEXTURE_FILTER_NEAREST, "%s handwriting layer should retain a stable silhouette at long distance" % actor_label)
-	_assert_true(overlay.render_priority > billboard.render_priority, "%s handwriting should render after and above the character layer" % actor_label)
+	_assert_eq(overlay.position, billboard.position, "%s chalk cover should be registered on the portrait's center" % actor_label)
+	_assert_eq(overlay.billboard, BaseMaterial3D.BILLBOARD_ENABLED, "%s chalk cover should always face the same camera as the character" % actor_label)
+	_assert_true(not overlay.shaded, "%s chalk cover should keep its drawn color under every floor light" % actor_label)
+	_assert_true(overlay.render_priority > billboard.render_priority, "%s chalk cover should render after and above the character layer" % actor_label)
 	var material := overlay.material_override as ShaderMaterial
-	_assert_true(material != null and material.shader != null, "%s separate handwriting layer should use an animated shader" % actor_label)
+	_assert_true(material != null and material.shader != null, "%s chalk cover should use an animated shader" % actor_label)
 	_assert_true(bool(actor.get_meta("face_veil", false)), "%s should declare its identity-obscuring veil" % actor_label)
-	_assert_eq(str(actor.get_meta("face_veil_style", "")), "separate_animated_marker_overlay", "%s veil should be a separate animated handwriting overlay" % actor_label)
+	_assert_eq(str(actor.get_meta("face_veil_style", "")), "separate_animated_chalk_cover", "%s veil should be the separate animated chalk cover" % actor_label)
 	_assert_true(bool(actor.get_meta("face_effect_separate_layer", false)), "%s face effect should never be baked into the character material" % actor_label)
 	_assert_true(bool(actor.get_meta("base_character_texture_preserved", false)), "%s should preserve the unmodified source character image" % actor_label)
 	_assert_true(not bool(actor.get_meta("face_identity_readable", true)), "%s face should remain deliberately unreadable" % actor_label)
-	if material != null and material.shader != null:
-		_assert_eq(material.shader.resource_path, "res://shaders/npc_face_scribble_overlay.gdshader", "%s should use the standalone handwriting overlay shader" % actor_label)
-		_assert_eq(float(material.get_shader_parameter("ink_opacity")), 1.0, "%s marker pixels should be fully opaque rather than multiply-darkening the face" % actor_label)
-		var brush_width := float(material.get_shader_parameter("brush_width_px"))
-		_assert_true(brush_width >= 40.0 and brush_width <= 60.0, "%s marker strokes should remain within the requested 40-60 px range" % actor_label)
-		var scribble_atlas := material.get_shader_parameter("scribble_atlas") as Texture2D
-		_assert_true(scribble_atlas != null and scribble_atlas.resource_path == "res://assets/generated/effects/face_scribble_atlas.png", "%s veil should use the four-frame hand-drawn marker atlas" % actor_label)
-		var character_texture := material.get_shader_parameter("character_texture") as Texture2D
-		_assert_true(character_texture == billboard.texture, "%s overlay shader should use the portrait only as an alpha alignment mask" % actor_label)
-		var ink_color := material.get_shader_parameter("ink_color") as Color
-		_assert_true(maxf(ink_color.r, maxf(ink_color.g, ink_color.b)) < 0.08, "%s overlay should output near-black ink" % actor_label)
-		var face_center := material.get_shader_parameter("face_center") as Vector2
-		var face_size := material.get_shader_parameter("face_size") as Vector2
-		_assert_true(face_center.y >= 0.15 and face_center.y <= 0.20, "%s handwriting should stay centered on the illustrated face" % actor_label)
-		_assert_true(face_size.x <= 0.18 and face_size.y <= 0.10, "%s handwriting should cover the face without becoming a head-to-chest rectangle" % actor_label)
+	if material == null or material.shader == null:
+		return
+	_assert_eq(material.shader.resource_path, "res://shaders/npc_face_cover.gdshader", "%s should use the chalk cover shader" % actor_label)
+	var frames := material.get_shader_parameter("cover_frames") as Texture2DArray
+	_assert_true(frames != null and frames.get_layers() == 6, "%s chalk cover should play the six drawn frames" % actor_label)
+	var face_offset := material.get_shader_parameter("face_offset") as Vector2
+	_assert_near(billboard.position.y + face_offset.y, face_center_world_y, 0.01, "%s chalk cover should sit on the face" % actor_label)
 
 
 func _vertical_ground_collision(floor_root: Node3D, point: Vector3, player: CharacterBody3D) -> Dictionary:

@@ -1,0 +1,391 @@
+# MemeGameState public surface inventory
+
+Phase **4b** documents what callers depend on and rolls out the **snapshot out / intent in** seam domain by domain (slices 1–7 complete). Parallel **UI/world extractions** shrink `babel_meme_game.gd` without changing MemeGameState API.
+
+> **#108 (2026-10):** daily actions, funds, the day settlement, fusion, the old-meme publish and the doctor sentence composer are removed. The "Public fields / methods by domain" sections are current; the slice contracts further down describe the history and still name them.
+
+## Summary (2026-08-30, post–slice 7 + adapter read cleanup)
+
+### 4b signal seams (MemeGameState)
+
+| Metric | Count |
+|---|---:|
+| Public `var` fields | 90 |
+| Public `func` methods | 103 |
+| Public `const` | 27 (19 content/config + 8 script preloads) |
+| Signals (before slice 1) | 0 |
+| Signals (slice 1) | 1 — `social_engagement_changed` (retired once the follows and likes moved to property models) |
+| Signals (slice 2A) | 2 — + `phone_shell_changed` (retired once the phone moved to property models) |
+| Signals (slice 2B) | 3 — + `action_economy_changed` (retired once the day progress moved to property models) |
+| Signals (slice 2C) | 4 — + `settings_changed` |
+| Signals (slice 3a) | 5 — + `reality_conversation_changed` (retired once the conversation progress moved to property models) |
+| Signals (slice 3b) | 5 — `reality_conversation_changed` emitted on all conversation intents (retired with 3a) |
+| Signals (slice 4) | 6 — + `day_progress_changed` (retired once the day progress moved to property models) |
+| Signals (slice 5) | 6 — `day_progress_changed` emits from pollution, settle, and floor transition (retired with 4) |
+| Signals (slice 6) | 7 — + `inventory_changed` (retired once held words and memes moved to property models) |
+| Signals (slice 6b) | 7 — `inventory_changed` emitted on `place_token_in_slot` and `confirm_meme_fusion` (retired with 6) |
+| Signals (slice 7) | 8 — + `progression_changed` |
+| Signals (held words and memes moved to models) | 7 — − `inventory_changed` |
+| Signals (day progress moved to models) | 5 — − `action_economy_changed`, − `day_progress_changed` |
+| Signals (tutorial and ending progress moved to models) | 4 — − `progression_changed` |
+| Open adapter field writes (worst-examples table) | 0 — all retired through slice 3a |
+
+**Adapter read convention:** new adapter render and HUD code should prefer domain snapshot helpers (`_phone_shell_snapshot()`, `_inventory_snapshot()`, etc.) over bare `game.*` field reads. Save/load paths and headless `MemeGameState` tests may continue to use fields directly.
+
+**Primary caller:** `scripts/babel_meme_game.gd` (adapter). Tests call `MemeGameState` directly via `RefCounted.new()`.
+
+**C2 problem:** callers read/write bare fields and must remember to `_render()` after mutations. Slice 1 proves one flow where the adapter reads a snapshot and listens for a change signal instead.
+
+### Parallel adapter extractions (no new state API)
+
+| Extraction | Module | Owns |
+|---|---|---|
+| Apple HUD rail | `scripts/ui/apple_hud_panel.gd` | Pollution and settings HUD chrome; watches the pollution model |
+| Reality 3D scene | `scripts/world/reality_scene_adapter.gd` (slice 1) | Floor rebuild, player locomotion, proximity actors/items; MemeGameState intents stay in adapter |
+| Camera / hand X-ray | `scripts/integrations/camera_session.gd` | Hand tracking receiver, X-ray overlay, enable/source intents; settings UI wiring stays in adapter |
+| Adaptive audio mix | `scripts/integrations/game_audio_controller.gd` | Score players, floor phone music, flashback ducking, cover-watcher stinger |
+| Social feed content | `scripts/game/social_feed_content.gd` | Post/caption/poster pure helpers consumed by `social_feed_panel` mount deps |
+| UI theme factories | `scripts/ui/game_ui_theme.gd` | Palette, pixel-font theme, panel/style factories, control-tree localization |
+| Narrative overlays | `scripts/game/narrative_overlay_director.gd` | Flashback start/finish and input-lock coordination; the panel stays extracted |
+
+---
+
+## Direct field mutation by adapter (worst examples)
+
+These are the highest-risk couplings to retire in later 4b slices:
+
+| Location (intent call site) | Retired mutation | Risk | 4b status |
+|---|---|---|---|
+| `babel_meme_game.gd:822` | ~~`game.social_followed_handles = migrated`~~ | bypasses engagement API | **Fixed** — `replace_social_followed_handles()` (slice 1) |
+| `babel_meme_game.gd:1321` | ~~`game.conversation_* = …`~~ | localizes state in adapter | **Fixed** — `configure_conversation_locale()` (slice 3a) |
+| `babel_meme_game.gd:2864` | ~~`game.autoplay_enabled = value`~~ | settings write without intent | **Fixed** — `set_autoplay_enabled()` (slice 2C) |
+| `babel_meme_game.gd:2940` | ~~`game.exit_prompt_seen = true`~~ | one-shot flag from UI | **Fixed** — `mark_exit_prompt_seen()` (slice 2C) |
+| `babel_meme_game.gd:3817` | ~~`game.active_app_window` / `active_app`~~ | phone shell closes apps inline | **Fixed** — `close_app_window()` (slice 2A) |
+
+Most other adapter usage is **read-only** field access (`game.view_state`, `game.tower_floor`, `game.completed_memes`, …) plus method calls.
+
+---
+
+## Public fields by domain
+
+### Run progress
+
+`day`, `pollution`, `tower_floor`, `pollution_flashback_seen`, `pollution_flashback_pending`
+
+There are no daily actions, funds or day settlement (#108). `day` stays 1 and only seeds ids and rolls. A valid interaction (a post, a spoken conversation the player leaves, a pickup) runs the progress check when it completes; see "Valid interaction" in `CONTEXT.md`.
+
+`event_log` (newest first) is read from the `EVENT_LOG` run model as a copy; add a line with `record_event()`.
+
+### Ending / tower progression
+
+`ending_unlocked`, `ending_language_choice`, `ending_route`, `formal_floor_three_complete`, `pending_floor_transition`, `floor3_task_complete`, `floor4_task_complete`, `cover_watcher_seen_floors`
+
+### Phone shell
+
+`view_state`, `phone_visible`, `phone_open`, `active_app`, `active_app_window`, `autoplay_enabled`, `exit_prompt_seen`
+
+### Social / publishing
+
+`published_memes` (newest first) and `free_sentence_units` are list models; `world_rules` is a map model. All three are saved with the run and reset with it. A read is a copy, an assignment replaces the whole value through the model, and the sentence edits, posts and publications go through the model's methods. `sentence_text(units, locale)` and `world_rule_list(rules)` are static, so a screen can word the sentence and list the rules from the model values alone.
+
+### Notebook / meme craft
+
+`owned_meme_frame_ids`, `sentence_records`
+
+`draft_slots` is a map model and `owned_meme_frames` is a value model (int, at least 0); saved with the run and reset with it. A read is a copy; filling a slot writes one entry, and a craft empties the map.
+
+### Held words, memes, and canvas positions (run property models)
+
+The held words (`collected_char_units`, `notebook_tokens`) and the finished memes (`completed_memes`) are list models; the notebook canvas positions (`char_canvas_positions`) are a map model. They are saved with the run and reset with it. The state exposes them as accessors: a read is a copy, an assignment replaces the whole list through the model, and picks and crafts go through the model's `add` / `insert_at`. `char_canvas_positions` has no setter; positions arrive through `set_char_canvas_positions()`. The shown social app watches the held words and the memes itself: pickup marks in a post and the profile's finished-meme count come from the models, not from a host read.
+
+### Doll / prerequisite world items
+
+`claimed_doll_ids`, `doll_choice_results`, `collected_world_item_ids`, `revealed_prerequisite_item_ids`, `collected_prerequisite_item_ids`, `key_clue_progress`
+
+### Reality conversation (typed)
+
+The progress the conversation screen shows lives only in run property models (reset with the run, not part of the save): `conversation_phase`, `conversation_mode`, `conversation_actor_type`, `conversation_actor_label`, `conversation_prompt`, `conversation_result_line`, `conversation_choices`, `conversation_can_continue`, `conversation_feedback`, `conversation_reveal_index`, `conversation_revealed_units`. The state exposes them as accessors that read and write the models; it keeps no second copy.
+
+The typed turn engine keeps its own plain fields: `conversation_actor_id`, `conversation_selected_choice_id`, `conversation_clean_sentence`, `conversation_attempts`, `conversation_understood`, `conversation_understanding_rolls`, `conversation_locale`, `conversation_clean_units`, `conversation_world`, `conversation_turns`, `conversation_turn_index`, `conversation_history`, `conversation_completed`, `conversation_interrupted`, `conversation_interrupt_line`, `conversation_counted`, `conversation_reward`
+
+### Relationship
+
+`npc_understanding`, `reality_phase`, `relationship_residue`, `last_relationship_residue_gain`, `reality_dialogue_count`, `last_clean_sentence`, `last_polluted_sentence`
+
+---
+
+## Public methods by domain
+
+### Session / save
+
+`new_run()`, `to_save_data()`, `load_save_data()`
+
+### Phone / view — **slice 2A seam**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_phone_shell_snapshot()` → `{ view_state }` |
+| Intent | `set_view_state()`, `set_active_app()`, `set_phone_open()`, `open_app_window(app_id)`, `close_app_window(app_id)`; read `is_app_window_open(app_id)` |
+
+Whether the phone is open, the current app, and the foreground app window live only in the `phone_open` / `active_app` / `active_app_window` property models (saved with the run). The state reads and writes them through those models; the phone launcher watches them while shown. `phone_visible` was always the same as `phone_open`, so it is gone. There is no phone signal: the launcher listens to the models, and the adapter refreshes after its own phone intents. `view_state` and the list of open app windows (`open_app_windows`) are run models too; the snapshot only hands out a copy of the view.
+
+### Phone / view (legacy listing)
+
+`set_phone_open()`, `set_view_state()`, `set_active_app()`
+
+### Settings — **slice 2C seam**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_settings_snapshot()` → `{ autoplay_enabled, exit_prompt_seen }` |
+| Signal | `settings_changed(snapshot)` — snapshot includes `change: { kind, target_id, active }` |
+| Intent | `set_autoplay_enabled(bool)`, `mark_exit_prompt_seen()` |
+
+Legacy fields `autoplay_enabled` / `exit_prompt_seen` remain for save/load; new adapter code should prefer snapshot + signal for settings UI refresh.
+
+### Pollution / tower — day progress (run property models)
+
+`day`, `pollution`, `tower_floor` and `pending_floor_transition` live only in run property models. `day` never goes below 1 and `tower_floor` stays within 1–4; the models clamp. There is no change signal.
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_day_progress_snapshot()` → `{ day, pollution, tower_floor, pending_floor_transition }` — a read of the models, for the world adapter, floor composer, audio, and social feed content |
+| Intent | `change_pollution(amount)`, `resolve_floor_transition_at_boundary()` — write the models and emit nothing |
+
+The progress check runs inside the state when a valid interaction completes; the adapter presents its outcome (`_present_interaction_outcome`, `_present_progress`). The left HUD watches the models itself while shown.
+
+### Pollution / tower (legacy listing)
+
+`change_pollution()`, `check_pollution_flashback()`, `consume_pollution_flashback()`, `request_floor_transition_for_pollution()`, `resolve_floor_transition_at_boundary()`, `complete_floor_three()`
+
+### World items / prerequisites
+
+`is_world_item_collected()`, `get_prerequisite_item_ids()`, `get_prerequisite_item_for_floor()`, `get_key_clue_progress()`, `reveal_prerequisite_item_for_floor()`, `is_prerequisite_item_revealed()`, `collect_prerequisite_item()`, `is_hidden_layer_unlocked()`, `collect_world_item()`, `has_seen_cover_watcher()`, `mark_cover_watcher_seen()`
+
+### History
+
+`record_history_line()`, `get_history_entries()`
+
+`history_entries` live in the `HISTORY_ENTRIES` run model (read as a copy). The open history window watches it; the host no longer pushes entries.
+
+### Ending — **slice 7 seam (progression), signal retired**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_progression_snapshot()` → `{ ending_unlocked, ending_route, formal_floor_three_complete, floor3_task_complete, floor4_task_complete }`, read from the models |
+| Intent | `choose_ending_language()`, `complete_floor_three()` |
+| Query | `get_ending_language_choices()`, `get_ending_language_output()` |
+
+The chosen ending language lives only in the `ending_language_choice` property model (saved with the run); `choose_ending_language()` writes it and the open ending screen watches it. `ending_unlocked`, `ending_route`, `formal_floor_three_complete`, `floor3_task_complete`, and `floor4_task_complete` live only in run property models (saved with the run, reset with a new run); the state's fields of the same names read and write the models.
+
+### Ending (legacy listing)
+
+`get_ending_language_choices()`, `choose_ending_language()`, `get_ending_language_output()`
+
+### Social engagement — **slice 1 seam**
+
+The followed authors and the liked posts live only in two run property models (`social_followed_handles`, `social_liked_post_ids`), saved with the run. The state keeps no field for them.
+
+| Kind | API |
+|---|---|
+| Intent | `toggle_social_follow(handle)`, `toggle_social_like(post_id)` — add or remove through the list model |
+| Query | `is_social_following(handle)`, `is_social_post_liked(post_id)`, `get_social_followed_handles()` (a copy) |
+| Migration | `replace_social_followed_handles(handles)` — replaces the whole list through the model |
+
+The open social app registers on both models and repaints itself, so there is no change signal and no snapshot.
+
+### Social char pickup / free sentence
+
+`get_pickup_unit_pool()`, `is_social_char_collected()`, `get_collected_char_units()`, `pick_social_char()`, `get_free_sentence_units()`, `free_sentence_place()`, `free_sentence_remove()`, `free_sentence_place_at()`, `free_sentence_move()`, `free_sentence_clear()`, `get_free_sentence_text()`, `submit_free_sentence()`, `get_player_quote_stage()`, `get_player_echo_quote()`
+
+`pick_social_char()` and `submit_free_sentence()` carry an Action outcome under `outcome`; Language material returns that outcome from `pick_from_post()` and `submit()`, and the adapter presents it. `end_typed_reality_conversation()` returns one when the player leaves a conversation; `collect_world_item()` runs the same check after a world item is taken.
+
+### Char canvas
+
+`get_char_canvas_position()`, `set_char_canvas_positions(tile_positions, locale)` — one batch from the canvas, one map write, none when nothing moved
+
+### World rules
+
+`is_world_rule_active()`, `get_world_rules()`, `room_world_state()` — the basement room as its rules in force left it, empty outside the basement
+
+### Notebook craft / publish — **slice 6 seam (inventory)**
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_inventory_snapshot()` → `{ completed_memes, notebook_token_count, draft_slots, craft_slot_fills }` |
+| Intent | `place_token_in_slot()`, `confirm_craft()` |
+
+The shown notebook watches the held-word, sentence and world-rule models and repaints itself, so there is no change signal; it has no fusion tab. The shown social app watches the sentence and the published records: the publish page words the sentence itself, and an open post repaints its echo comment after a new publication. Fusion, the old-meme publish and the doctor sentence composer were removed (#108). The snapshot stays for the craft slot fills.
+
+### Notebook craft / publish (legacy listing)
+
+`pick_token()`, `get_craft_slots()`, `get_craft_sentence_preview()`, `place_token_in_slot()`, `confirm_craft()`
+
+### Relationship
+
+`get_relationship_state_label()` (the doctor sentence composer and its language-bridge methods were removed in #108; the world has no doctor)
+
+### Typed reality conversation — **slice 3a seam** (read-side display subset)
+
+| Kind | API |
+|---|---|
+| Snapshot | `get_reality_conversation_snapshot()` → `{ phase, mode, actor_type, actor_label, prompt, result_line, choices, can_continue, feedback, reveal_index, revealed_units }` |
+| Intent | `configure_conversation_locale(locale_code)` — localizes display fields internally and updates the snapshot |
+| Query | `get_typed_reality_choices()`, `get_typed_reality_progress()`, `get_typed_reality_history()` |
+
+The open conversation panel watches the progress models and repaints itself, so there is no change signal. The snapshot stays for the other readers (world prompt, language composer). Do **not** snapshot the full turn engine.
+
+### Typed reality conversation (legacy listing)
+
+`begin_reality_player_turn()`, `reset_reality_phase_for_day()`, `start_typed_reality_conversation()`, `reset_typed_reality_conversation()`, `continue_typed_reality_conversation()`, `configure_conversation_locale()`, `preview_typed_reality_choice()`, `select_typed_reality_choice()`, `advance_typed_reality_character()`, `get_typed_reality_spoken_sentence()`, `get_typed_reality_unrevealed_suffix()`, `get_typed_reality_unit_count()`
+
+### Doll
+
+`is_doll_claimed()`, `get_doll_choice_result()`
+
+---
+
+## Slice 1 contract (social engagement)
+
+No snapshot and no signal. The follows and likes are two list models; the social app registers on them while shown.
+
+**Adapter pattern:** send intents via `toggle_social_*`; the shown social app repaints itself. Log copy stays in adapter handlers.
+
+---
+
+## Slice 2A contract (phone shell)
+
+```gdscript
+# Snapshot (read)
+{
+  "view_state": "phone_down" | "npc_up",
+}
+```
+
+`phone_open`, `active_app`, and `active_app_window` are property models, not snapshot fields. The old `phone_shell_changed` signal and its payload are gone.
+
+**Adapter pattern:** read the view via `get_phone_shell_snapshot()` (or adapter `_phone_shell_snapshot()`); send intents via `set_view_state` / `set_active_app` / `close_app_window`, then refresh the app content. The phone launcher shows, hides, and raises itself from the models. Which app windows are open lives in the `open_app_windows` model and the view in the `view_state` model (both saved with the run); the adapter keeps no window table of its own.
+
+---
+
+## Slice 2B contract (action economy) — retired
+
+The action economy moved into run property models. `get_action_economy_snapshot()` and `action_economy_changed` are gone. See "Action economy (run property models)".
+
+---
+
+## Slice 2C contract (settings)
+
+```gdscript
+# Snapshot (read)
+{
+  "autoplay_enabled": bool,
+  "exit_prompt_seen": bool,
+}
+
+# Signal payload = snapshot + change metadata
+{
+  "autoplay_enabled": bool,
+  "exit_prompt_seen": bool,
+  "change": {
+    "kind": "autoplay" | "exit_prompt_seen",
+    "target_id": String,
+    "active": bool,
+  },
+}
+```
+
+**Adapter pattern:** connect `settings_changed` → `_render()`; read settings via `get_settings_snapshot()` (or adapter `_settings_snapshot()`); send intents via `set_autoplay_enabled()` / `mark_exit_prompt_seen()`. Settings menu label refresh in `_render_status()` still runs on pollution-driven renders; autoplay toggle state updates when settings change via the signal path.
+
+---
+
+## Slice 3a contract (reality conversation display)
+
+```gdscript
+# Snapshot (read) — display subset only, not the full typed turn engine
+{
+  "phase": String,
+  "mode": String,
+  "actor_type": String,
+  "actor_label": String,
+  "prompt": String,
+  "result_line": String,
+  "choices": Array,
+  "can_continue": bool,
+  "feedback": String,
+  "reveal_index": int,
+  "revealed_units": Array,  # bounded per-character reveal payload for bbcode
+}
+```
+
+**Adapter pattern:** the conversation panel registers on the progress models while shown; read display for other readers via `get_reality_conversation_snapshot()` (or adapter `_reality_conversation_snapshot()`); send locale intent via `configure_conversation_locale()`. Localization of label/prompt/result/choices happens inside that intent and writes the models.
+
+---
+
+## Slice 3b contract (reality conversation intents)
+
+```gdscript
+# Snapshot extension (display subset + bounded typing payload)
+{
+  # ...slice 3a fields...
+  "revealed_units": Array,  # { clean, display, corrupted, roll } per revealed character
+}
+```
+
+**Intents** (`select_typed_reality_choice`, `advance_typed_reality_character`, `continue_typed_reality_conversation`, `confirm_doctor_sentence`, `configure_conversation_locale`) write the progress models and emit nothing. The panel repaints itself; the adapter refreshes the world prompt and language composer after each intent and keeps locked-out cleanup and doll sync side effects. `advance_typed_reality_character` carries an Action outcome under `outcome`, and `confirm_doctor_sentence` returns one; the adapter presents its settlement.
+
+---
+
+## Slice 4–5 contract (day progression, settlement, floor transition) — signal retired
+
+The six day-progress facts moved into run property models. `day_progress_changed` is gone; `get_day_progress_snapshot()` stays as a read of the models:
+
+```gdscript
+{
+  "day": int,
+  "pollution": int,
+  "tower_floor": int,
+  "needs_day_settlement": bool,
+  "day_ended_reason": String,
+  "pending_floor_transition": int,
+}
+```
+
+**Adapter pattern:** the adapter no longer listens to the state. `_present_settlement()` refreshes play surfaces before an action-spend or flashback beat, and `_settle_day_and_present_rewards()` refreshes them after a settlement. Read `day` / `tower_floor` / `pollution` straight from the state accessors; pass `get_day_progress_snapshot()` where a world dependency takes the grouped dictionary. Keep day-transition overlay orchestration side effects (`_play_day_transition`, `_finish_day_transition`, flashback finish).
+
+---
+
+## Slice 6 contract (inventory / craft)
+
+```gdscript
+# Snapshot (read)
+{
+  "completed_memes": Array,       # copy read from the meme model
+  "notebook_token_count": int,
+  "draft_slots": Dictionary,      # slot_id -> token_id
+  "craft_slot_fills": Dictionary, # slot_id -> display text for adapter slot labels
+  "fusion_slots": Dictionary,     # slot_id -> meme_id (slice 6b)
+}
+```
+
+**Intents** (`place_token_in_slot`, `confirm_craft`, `confirm_meme_fusion`, `pick_social_char`) write the models and emit nothing. The notebook registers on the held-word, meme, sentence, world-rule and fusion-slot models while its window shows and unregisters when it hides. Its canvas hands tile positions to `set_char_canvas_positions()` in one batch before a redraw, a hide, or a save; dragged or still-falling tiles stay on the canvas. The notebook words the fusion slot labels from the fusion-slot and meme models.
+
+---
+
+## Slice 7 contract (progression / ending) — signal retired
+
+The progression facts moved into run property models (`PropertyKeys.ENDING_UNLOCKED`, `ENDING_ROUTE`, `FORMAL_FLOOR_THREE_COMPLETE`, `FLOOR3_TASK_COMPLETE`, `FLOOR4_TASK_COMPLETE`). `progression_changed` is gone; `get_progression_snapshot()` stays as a read of the models:
+
+```gdscript
+{
+  "ending_unlocked": bool,
+  "ending_route": String,
+  "formal_floor_three_complete": bool,
+  "floor3_task_complete": bool,
+  "floor4_task_complete": bool,
+}
+```
+
+**Tutorial removed (#109):** the tutorial progress model, `TutorialDirector`, `GuideLine`, the doll guide window and the playtest panel are gone. A save that still carries `tutorial_progress` loads and drops it.
+
+**Host:** after a day settles, `_present_ending_if_unlocked()` asks whether the ending opened; `_render()` still moves to the ending screen when `ending_unlocked` is true.

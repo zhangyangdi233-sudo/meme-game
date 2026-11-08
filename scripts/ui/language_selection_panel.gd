@@ -1,0 +1,150 @@
+class_name LanguageSelectionPanel
+extends Node
+## Game-side language selection overlay: first-run picker and in-menu language switcher chrome.
+## The open picker watches the language model and marks the current choice; closing stops.
+## A choice is raised on the bound event bus; the host's handler writes the language model.
+
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+
+var _language_overlay: Control
+var _choice_buttons: Dictionary = {}
+var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {PropertyKeysScript.LOCALE: _on_locale})
+var _language_overlay_first_run := false
+var _language_selected_fn: Callable
+var _refresh_localized_ui_fn: Callable
+var _locales: Array = []
+
+
+func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> void:
+	_apply_mount_deps(deps)
+	if parent == null or _theme() == null:
+		return
+	_watch.stop()
+	if _language_overlay != null and is_instance_valid(_language_overlay):
+		# Leave the tree now: a sibling waiting to be freed would make the new overlay lose its name.
+		_language_overlay.get_parent().remove_child(_language_overlay)
+		_language_overlay.queue_free()
+	_choice_buttons.clear()
+	_language_overlay_first_run = first_run
+	_language_overlay = Control.new()
+	_language_overlay.name = "LanguageSelectionOverlay"
+	_language_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_language_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_language_overlay.z_index = 190
+	parent.add_child(_language_overlay)
+
+	var scrim := ColorRect.new()
+	scrim.name = "LanguageSelectionBackdrop"
+	scrim.color = _theme().scrim()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_language_overlay.add_child(scrim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_language_overlay.add_child(center)
+	var panel := PanelContainer.new()
+	panel.name = "LanguageSelectionPanel"
+	panel.custom_minimum_size = Vector2(620, 390)
+	panel.add_theme_stylebox_override("panel", _theme().soft_style(_theme().theme_color("surface"), _theme().theme_color("accent")))
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 18)
+	panel.add_child(box)
+
+	var eyebrow := Label.new()
+	eyebrow.text = "BABEL PHONE  /  LANGUAGE"
+	eyebrow.add_theme_font_size_override("font_size", _theme().ui_font_size(15))
+	eyebrow.add_theme_color_override("font_color", _theme().theme_color("accent"))
+	box.add_child(eyebrow)
+	var title := Label.new()
+	title.name = "LanguageSelectionTitle"
+	title.text = "选择语言  /  言語を選択  /  CHOOSE LANGUAGE"
+	title.add_theme_font_size_override("font_size", _theme().ui_font_size(27))
+	title.add_theme_color_override("font_color", _theme().theme_color("ink"))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+	var rule := HSeparator.new()
+	box.add_child(rule)
+
+	var choices := VBoxContainer.new()
+	choices.name = "LanguageSelectionChoices"
+	choices.add_theme_constant_override("separation", 10)
+	box.add_child(choices)
+	for locale_entry in _locales:
+		var locale_code := str(locale_entry.get("code", ""))
+		if locale_code.is_empty():
+			continue
+		var choice := Button.new()
+		choice.name = "LanguageChoice%s" % locale_code.to_upper()
+		choice.text = str(locale_entry.get("name", locale_code))
+		choice.custom_minimum_size = Vector2(500, 58)
+		choice.toggle_mode = true
+		choice.set_meta("skip_localization", true)
+		choice.pressed.connect(_on_choice_pressed.bind(locale_code))
+		choices.add_child(choice)
+		_choice_buttons[locale_code] = choice
+
+	if not first_run:
+		var cancel := Button.new()
+		cancel.name = "LanguageSelectionCancel"
+		cancel.text = "返回"
+		cancel.custom_minimum_size.y = 50
+		cancel.pressed.connect(_on_cancel_pressed)
+		box.add_child(cancel)
+	_watch.start()
+	if _refresh_localized_ui_fn.is_valid():
+		_refresh_localized_ui_fn.call()
+
+
+func get_overlay() -> Control:
+	return _language_overlay
+
+
+func close() -> bool:
+	if _language_overlay_first_run and _language_selected_fn.is_valid() and not bool(_language_selected_fn.call()):
+		return false
+	_watch.stop()
+	if _language_overlay != null and is_instance_valid(_language_overlay):
+		_language_overlay.queue_free()
+	_language_overlay = null
+	_choice_buttons.clear()
+	_language_overlay_first_run = false
+	return true
+
+
+func _on_locale(value: Variant) -> void:
+	for locale_code in _choice_buttons:
+		var choice := _choice_buttons[locale_code] as Button
+		if choice != null and is_instance_valid(choice):
+			choice.set_pressed_no_signal(str(locale_code) == str(value))
+
+
+func _apply_mount_deps(deps: Dictionary) -> void:
+	if deps.is_empty():
+		return
+	_language_selected_fn = deps.get("language_selected", Callable())
+	_refresh_localized_ui_fn = deps.get("refresh_localized_ui", Callable())
+	_locales = deps.get("locales", [])
+
+
+func _on_choice_pressed(locale_code: String) -> void:
+	# Toggling is the button's own reaction; the mark stays on the model's language.
+	if _watch.is_active():
+		_on_locale(_watch.read(PropertyKeysScript.LOCALE))
+	var bus := ServiceRegistryScript.resolve(ServiceKeysScript.UI_EVENT_BUS) as GameEventBus
+	if bus != null:
+		bus.emit_intent(UiIntentsScript.LANGUAGE_SELECTED, {UiIntentsScript.KEY_LOCALE: locale_code})
+
+
+func _on_cancel_pressed() -> void:
+	close()
+
+
+## The UI theme bound by the host; panels resolve it instead of taking theme callables.
+func _theme() -> GameUiTheme:
+	return ServiceRegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme

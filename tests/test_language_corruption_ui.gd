@@ -1,5 +1,7 @@
 extends SceneTree
 
+const GameScript = preload("res://scripts/babel_meme_game.gd")
+
 var _failures: Array[String] = []
 
 
@@ -18,7 +20,7 @@ func _run_async() -> void:
 		root.new_game()
 		_assert_true(_find_node_by_name(root, "HUDPollutionIcon") is Button, "the in-game HUD should expose pollution")
 		_assert_true(_find_node_by_name(root, "HUDDayIcon") == null, "day must not remain a visible progress metric")
-		_assert_true(_find_node_by_name(root, "HUDMoneyIcon") is Button, "the compact HUD should expose usable funds")
+		_assert_true(_find_node_by_name(root, "HUDMoneyIcon") == null, "the compact HUD should expose no funds")
 		var hud_rail := _find_node_by_name(root, "InternationalHUDRail") as Control
 		var settings_window := _find_node_by_name(root, "SettingsWindow") as Control
 		var exit_button := _find_node_by_name(root, "SettingsExitGameButton") as Button
@@ -29,14 +31,16 @@ func _run_async() -> void:
 		_assert_true(root.has_method("_request_quit_game"), "exit should use the one-time in-game confirmation flow")
 		if root.has_method("_request_quit_game"):
 			root._request_quit_game()
-			var confirmation := _find_node_by_name(root, "ExitConfirmationOverlay") as Control
-			_assert_true(confirmation != null and confirmation.visible, "the first exit request should show the authored plea")
-			var message := _find_node_by_name(root, "ExitConfirmationMessage") as Label
-			var return_button := _find_node_by_name(root, "ExitConfirmationReturnButton") as Button
-			var confirm_button := _find_node_by_name(root, "ExitConfirmationConfirmButton") as Button
+			var confirmation := _find_node_by_name(root, "DialogLayer") as Control
+			_assert_true(confirmation != null and confirmation.visible, "the first exit request should show the authored plea in the dialog")
+			var message := _find_node_by_name(confirmation, "DialogMessage") as Label
+			var return_button := _find_node_by_name(confirmation, "DialogButton0") as Button
+			var confirm_button := _find_node_by_name(confirmation, "DialogButton1") as Button
 			_assert_true(message != null and message.text == "真的要抛弃我吗？", "the exit plea should use the exact required sentence")
 			_assert_true(return_button != null and return_button.text == "返回", "the safe return command should remain exact")
 			_assert_true(confirm_button != null and confirm_button.text == "仍然退出", "the final exit command should remain exact")
+			if return_button != null:
+				return_button.pressed.emit()
 		var settings_title := _find_node_by_name(root, "SettingsWindowHandle") as Label
 		var save_button := _find_node_by_name(root, "SettingsManualSaveButton") as Button
 		var autoplay_button := _find_node_by_name(root, "SettingsAutoplayButton") as CheckButton
@@ -63,8 +67,10 @@ func _run_async() -> void:
 			var history_entry := _find_node_by_name(root, "HistoryEntry0") as RichTextLabel
 			_assert_true(history_window != null and history_window.visible, "opening history should show the read-only window")
 			_assert_true(history_entry != null and history_entry.text.contains("恢复"), "history should render the authored replacement text")
+		_assert_typed_reality_colors(root as GameScript, UiPalette.PALETTE_1, "palette 1")
 		root.game.pollution = 60
 		root._render_status()
+		_assert_typed_reality_colors(root as GameScript, UiPalette.POLLUTION_PALETTE_5, "pollution palette 5")
 		_assert_true(save_button != null and save_button.text != "保存", "menu label display may become polluted at 60%")
 		_assert_true(save_button == null or not save_button.disabled, "menu pollution must not disable saving")
 		_assert_true(history_button == null or not history_button.disabled, "menu pollution must not disable history")
@@ -80,7 +86,26 @@ func _run_async() -> void:
 		quit(1)
 
 
+## Corrupted typed characters use the error role and the unrevealed suffix uses the pending role of the active palette.
+func _assert_typed_reality_colors(root: GameScript, palette: Dictionary, label: String) -> void:
+	var clean_units: Array[String] = ["甲", "乙", "丙"]
+	root.game.conversation_clean_units = clean_units
+	root.game.conversation_revealed_units = [
+		{"display": "甲", "corrupted": true},
+		{"display": "乙", "corrupted": false},
+	]
+	root.game.conversation_reveal_index = 2
+	var bbcode: String = root._typed_reality_bbcode()
+	var error_hex := UiPalette.color(palette, "error").to_html(false)
+	var pending_hex := UiPalette.color(palette, "pending").to_html(false)
+	_assert_true(bbcode.contains("[color=#%s][cuss]甲" % error_hex), "%s: a corrupted character should use the error role: %s" % [label, bbcode])
+	_assert_true(bbcode.contains("[color=#%s]丙" % pending_hex), "%s: the unrevealed suffix should use the pending role: %s" % [label, bbcode])
+	root.game.reset_typed_reality_conversation()
+
+
 func _find_node_by_name(root: Node, wanted_name: String) -> Node:
+	if root == null:
+		return null
 	if root.name == wanted_name:
 		return root
 	for child in root.get_children():

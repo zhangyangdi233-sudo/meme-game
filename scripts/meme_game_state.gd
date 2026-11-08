@@ -1,414 +1,570 @@
 class_name MemeGameState
 extends RefCounted
 
+## The phone's apps, in the order a closed foreground window falls back to.
+## The apps that come with the phone. The map is not one of them: its icon shows on the phone, locked, and nothing in the demo unlocks it.
+const PHONE_APPS := ["social", "notebook"]
+
 const GameLocaleScript = preload("res://scripts/localization/game_locale.gd")
+const PollutionPolicyScript = preload("res://scripts/game/pollution_policy.gd")
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const LanguageBridgeScript = preload("res://scripts/narrative/language_bridge.gd")
-const TutorialDirectorScript = preload("res://scripts/tutorial/tutorial_director.gd")
-const BasementLoopDirectorScript = preload("res://scripts/progression/basement_loop_director.gd")
 const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const RuleEngineScript = preload("res://scripts/narrative/rule_engine.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
+const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
 const EchoQuoteContentScript = preload("res://scripts/narrative/echo_quote_content.gd")
-const MAX_TOWER_FLOOR := 4
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
+const PropertyBootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const ServiceRegistryScript = preload("res://framework/service_registry.gd")
+const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
+const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const HiddenItemsScript = preload("res://scripts/game/hidden_items.gd")
+const MAX_TOWER_FLOOR := PropertyKeysScript.MAX_TOWER_FLOOR
 const POLLUTION_FLOOR_THRESHOLDS := {1: 25, 2: 60, 3: 80}
-const PREREQUISITE_ITEMS := {
-	1: {
-		"id": "artifact_named_lamp_tag",
-		"label": "写着“小月亮”的旧名牌",
-		"location_hint": "沿主路往前走，在右侧第一盏不亮的路灯脚边。",
-	},
-	2: {
-		"id": "artifact_reversed_tape",
-		"label": "两面都录着同一句话的磁带",
-		"location_hint": "在与你醒来位置相反的低坡上，贴着一栋亮窗房子的门前。",
-	},
-	3: {
-		"id": "artifact_missing_subject_page",
-		"label": "缺少主语的病历页",
-		"location_hint": "沿中央通道走过第三排立柱，夹在左侧那扇假窗下面。",
-	},
-}
 const HISTORY_FIELD_NAMES := [
 	"lineId", "originalSpeaker", "currentSpeaker", "originalText",
 	"displayText", "revisionStage", "revisionMarkup",
 ]
 const POLLUTION_FLASHBACK_THRESHOLD := 60
-const BASE_ACTIONS_PER_DAY := 5
 const LANGUAGE_RECIPE_SLOTS := [
 	{"id": "subject", "label": "谁 / 什么", "placeholder": "放入主语", "accepted_role": "subject"},
 	{"id": "action", "label": "发生了什么", "placeholder": "放入动作", "accepted_role": "action"},
 	{"id": "object", "label": "对谁 / 在哪里", "placeholder": "放入落点", "accepted_role": "object"},
 ]
-const DOCTOR_DIALOGUES_BY_FLOOR := {
-	1: {"line": "把刚才那句再说一遍。不要替它解释。", "result": "医生记下来了。字数和你说的对不上。"},
-	2: {"line": "按顺序念。不要按你记得的顺序，按你说过的顺序。", "result": "医生在每个词旁边写下另一种用途。笔尖比你慢半个字。"},
-	3: {"line": "只用还登记在你名下的词。说出你现在的位置。", "result": "医生停笔。病历上的主语先一步空了。"},
-	4: {"line": "这些词没有登记来源。签字栏是空的。你要在这里写谁。", "result": "没有人受理这句话的说话者。"},
-}
 const REALITY_CORRUPTION_GLYPHS := ["■", "▦", "∴", "//", "□", "▧", "≠", "…"]
 const PROTECTED_PUNCTUATION := ["，", "。", "！", "？", "；", "：", "、", "…", ",", ".", "!", "?", ";", ":", "\"", "'", "（", "）", "(", ")"]
-const ENDING_LANGUAGE_CHOICES := [
-	{"id": "blank", "label": "空白", "output": "（空白）"},
-	{"id": "blocks", "label": "■■■■", "output": "■ ■ ■ ■"},
-	{"id": "hajimi", "label": "哈吉米", "output": "哈吉米"},
-	{"id": "silence", "label": "沉默", "output": "……"},
-]
-const PROLOGUE_LINES := [
-	"（先确认一件事。你手里拿着什么？）",
-	"一部手机。没有信号。我醒来的时候它已经亮着。",
-	"（你在等谁的消息？）",
-	"不等消息。我在等路面停下来。它每退一步，塔多一层。",
-	"城市广播说今天一切正常。它重复了七次。第八次我关掉了。",
-	"（从哪里开始？）",
-	"从字开始。先拼成一句话。再看这句话到了楼下变成什么。",
-]
-const EPILOGUE_LINES := [
-	"所有帖子都说智者住在顶楼。顶楼没有人。",
-	"只有一台发射机。它没有接线。指示灯跟着你的呼吸。",
-	"（它在发送什么？）",
-	"你把耳朵贴近外壳。里面有人在说你昨天说过的那句话。他说得比你准。",
-	"你想说一句普通的话。第七层先开口了。",
-]
-const SAVE_DATA_VERSION := 5
+## Version 6 dropped daily actions, funds and the day settlement. An older save is refused and the host starts a new run.
+## What a basement NPC says when the player finished the conversation without posting this round.
+const BASEMENT_NO_POST_LINE := "去电脑上拾字并投稿一句话，再回来告诉我。"
+## What the NPC behind the door says once its help opened the exit door (#129; an AI draft for the planner).
+const BASEMENT_HELPED_LINE := "我帮你离开这里。出口的门已经开了。"
+## What round four's NPC says handing over its hidden item once helped (#130): the item's name, then its line.
+const HIDDEN_ITEM_GIVEN_LINE := "这个给你：「%s」。%s"
+const SAVE_DATA_VERSION := 6
+## Run fields that still live on this object. Fields kept in models are saved from the PropertyKeys fact table instead.
 const SAVE_FIELD_NAMES := [
-	"day", "pollution", "tower_floor",
-	"ending_unlocked", "ending_language_choice", "ending_route", "formal_floor_three_complete",
-	"pending_floor_transition", "autoplay_enabled", "exit_prompt_seen",
-	"money", "actions_remaining", "max_actions_per_day",
-	"needs_day_settlement", "day_ended_reason", "pollution_flashback_seen", "pollution_flashback_pending",
-	"view_state", "phone_visible", "phone_open", "active_app", "active_app_window",
-	"notebook_tokens", "draft_slots", "completed_memes", "owned_meme_frames", "owned_meme_frame_ids",
+	"exit_prompt_seen",
+	"pollution_flashback_seen",
+	"owned_meme_frame_ids",
 	"claimed_doll_ids", "doll_choice_results",
-	"fusion_slots", "fused_meme_pairs", "dialogue_blanks", "published_memes", "last_publish_result",
-	"event_log", "social_followed_handles", "social_liked_post_ids", "collected_world_item_ids",
+	"collected_world_item_ids",
 	"cover_watcher_seen_floors",
 	"revealed_prerequisite_item_ids", "collected_prerequisite_item_ids", "key_clue_progress",
-	"history_entries",
-	"language_sentence_slots", "sentence_records", "tutorial_progress", "chapter1_progress",
-	"collected_char_units", "last_char_pick_day", "char_canvas_positions",
-	"free_sentence_units", "world_rules", "floor3_task_complete", "floor4_task_complete",
+	"sentence_records",
 	"last_clean_sentence", "last_polluted_sentence",
 	"npc_understanding", "reality_phase", "relationship_residue", "last_relationship_residue_gain",
-	"last_relationship_money_loss", "reality_dialogue_count",
+	"reality_dialogue_count",
 ]
 
-var day: int = 1
-var pollution: int = 0
-var tower_floor: int = 1
-var ending_unlocked: bool = false
-var ending_language_choice: String = ""
-var ending_route: String = ""
-var formal_floor_three_complete: bool = false
-var pending_floor_transition: int = 0
-var autoplay_enabled: bool = false
+var day: int:
+	get:
+		return _read_run_int(PropertyKeysScript.DAY)
+	set(value):
+		_write_run_field(PropertyKeysScript.DAY, value)
+var pollution: int:
+	get:
+		return _read_pollution()
+	set(value):
+		_write_pollution(value)
+var tower_floor: int:
+	get:
+		return _read_run_int(PropertyKeysScript.TOWER_FLOOR)
+	set(value):
+		_write_run_field(PropertyKeysScript.TOWER_FLOOR, value)
+var ending_unlocked: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.ENDING_UNLOCKED)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_UNLOCKED, value)
+var ending_language_choice: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ENDING_LANGUAGE_CHOICE)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_LANGUAGE_CHOICE, value)
+var ending_route: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ENDING_ROUTE)
+	set(value):
+		_write_run_field(PropertyKeysScript.ENDING_ROUTE, value)
+var formal_floor_three_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, value)
+var pending_floor_transition: int:
+	get:
+		return _read_run_int(PropertyKeysScript.PENDING_FLOOR_TRANSITION)
+	set(value):
+		_write_run_field(PropertyKeysScript.PENDING_FLOOR_TRANSITION, value)
 var exit_prompt_seen: bool = false
-var money: int = 0 # Legacy save field; no longer a gameplay resource.
-var actions_remaining: int = 5
-var max_actions_per_day: int = 5
-var needs_day_settlement: bool = false
-var day_ended_reason: String = ""
 var pollution_flashback_seen: bool = false
+## Set when pollution crosses the flashback threshold; the outcome of the interaction that crossed it takes it.
 var pollution_flashback_pending: bool = false
+## Legacy, waiting on floor three's redesign (#145 Q3): the flashback's doll and doctor predate it, so the demo never
+## lets pollution trigger it. Its code and assets stay; the "a pollution threshold plays a beat" frame is to be reused
+## once the new content and its place are decided. Not saved. Test seam: a test turns it on to drive the beat.
+var pollution_flashback_enabled: bool = false
 
-var view_state: String = "phone_down"
-var phone_visible: bool = true
-var phone_open: bool = true
-var active_app: String = "social"
-var active_app_window: String = "social"
+var view_state: String:
+	get:
+		return _read_run_string(PropertyKeysScript.VIEW_STATE)
+	set(value):
+		_write_run_field(PropertyKeysScript.VIEW_STATE, value)
+var phone_open: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.PHONE_OPEN)
+	set(value):
+		_write_run_field(PropertyKeysScript.PHONE_OPEN, value)
+var active_app: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ACTIVE_APP)
+	set(value):
+		_write_run_field(PropertyKeysScript.ACTIVE_APP, value)
+var active_app_window: String:
+	get:
+		return _read_run_string(PropertyKeysScript.ACTIVE_APP_WINDOW)
+	set(value):
+		_write_run_field(PropertyKeysScript.ACTIVE_APP_WINDOW, value)
+var open_app_windows: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.OPEN_APP_WINDOWS)
 
-var notebook_tokens: Array = []
-var draft_slots: Dictionary = {}
-var completed_memes: Array = []
-var owned_meme_frames: int = 0
+var notebook_tokens: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.NOTEBOOK_TOKENS)
+	set(value):
+		_write_run_list(PropertyKeysScript.NOTEBOOK_TOKENS, value)
+## Recipe slot id -> token id. A read is a copy.
+var draft_slots: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.DRAFT_SLOTS)
+	set(value):
+		_write_run_map(PropertyKeysScript.DRAFT_SLOTS, value)
+var completed_memes: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.COMPLETED_MEMES)
+	set(value):
+		_write_run_list(PropertyKeysScript.COMPLETED_MEMES, value)
+var owned_meme_frames: int:
+	get:
+		return _read_run_int(PropertyKeysScript.OWNED_MEME_FRAMES)
+	set(value):
+		_write_run_field(PropertyKeysScript.OWNED_MEME_FRAMES, value)
 var owned_meme_frame_ids: Array[String] = []
 var claimed_doll_ids: Array[String] = []
 var doll_choice_results: Dictionary = {}
-var fusion_slots: Dictionary = {}
-var fused_meme_pairs: Array[String] = []
-var dialogue_blanks: Dictionary = {}
-var published_memes: Array = []
-var last_publish_result: Dictionary = {}
-var event_log: Array[String] = []
-var social_followed_handles: Array[String] = []
-var social_liked_post_ids: Array[String] = []
+## Newest first. A read is a copy.
+var published_memes: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.PUBLISHED_MEMES)
+	set(value):
+		_write_run_list(PropertyKeysScript.PUBLISHED_MEMES, value)
+## Newest first. A read is a copy; add through record_event().
+var event_log: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.EVENT_LOG)
+	set(value):
+		_write_run_list(PropertyKeysScript.EVENT_LOG, value)
 
 var collected_world_item_ids: Array[String] = []
 var cover_watcher_seen_floors: Array[int] = []
 var revealed_prerequisite_item_ids: Array[String] = []
 var collected_prerequisite_item_ids: Array[String] = []
 var key_clue_progress: Dictionary = {}
-var history_entries: Array = []
+var history_entries: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.HISTORY_ENTRIES)
 
-var language_sentence_slots: Dictionary = {}
 var sentence_records: Array = []
-var tutorial_progress: Dictionary = {}
-var chapter1_progress: Dictionary = {}
-var collected_char_units: Array = []
-var last_char_pick_day: int = 0
-var char_canvas_positions: Dictionary = {}
-var free_sentence_units: Array = []
-var world_rules: Dictionary = {}
-var floor3_task_complete: bool = false
-var floor4_task_complete: bool = false
+## Where the basement's rooms are read from. Test seam: the authored rooms unless a test hands in its own.
+var room_data_path: String = RoomContentScript.ROOMS_PATH
+## Read once per state; a test replaces it to change one setting.
+var pollution_policy: Dictionary = PollutionPolicyScript.settings()
+var collected_char_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.COLLECTED_CHAR_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS, value)
+var char_canvas_positions: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.CHAR_CANVAS_POSITIONS)
+## The sentence being composed, in order. A read is a copy.
+var free_sentence_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.FREE_SENTENCE_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS, value)
+## Rule key -> the sentence that set it. A read is a copy.
+var world_rules: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.WORLD_RULES)
+	set(value):
+		_write_run_map(PropertyKeysScript.WORLD_RULES, value)
+## What red posts polluted (`PollutionPolicy`). A read is a copy.
+var polluted_words: Dictionary:
+	get:
+		return _read_run_map(PropertyKeysScript.POLLUTED_WORDS)
+	set(value):
+		_write_run_map(PropertyKeysScript.POLLUTED_WORDS, value)
+## Chapter one's progress (`ChapterOneProgress`): the opening narration, the knock, the basement round. A read is a copy.
+var chapter_one_progress: Dictionary:
+	get:
+		return ChapterOneProgressScript.normalize(_read_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS))
+## The first-time typing hint was seen: the player typed a whole conversation line once.
+var typing_hint_seen: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.TYPING_HINT_SEEN)
+	set(value):
+		_write_run_field(PropertyKeysScript.TYPING_HINT_SEEN, value)
+## The run's seed (#114): the basement's run-to-run look, such as the exit table's vase or book. A new run draws one; a
+## save made before it existed gets a fresh one when it loads, kept from its next save on.
+var run_seed: int:
+	get:
+		return _read_run_int(PropertyKeysScript.RUN_SEED)
+	set(value):
+		_write_run_field(PropertyKeysScript.RUN_SEED, value)
+## The player picked up the phone from the basement's table; until then it cannot be raised.
+var phone_owned: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
+	set(value):
+		_write_run_field(PropertyKeysScript.PHONE_OWNED, value)
+## The hidden items the run holds, each once, in the order given (`HiddenItems` ids). A read is a copy.
+var hidden_items: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.HIDDEN_ITEMS)
+## The phone apps this run can open: the ones that came with the phone. A read is a copy.
+var unlocked_apps: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.UNLOCKED_APPS)
+var floor3_task_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FLOOR3_TASK_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FLOOR3_TASK_COMPLETE, value)
+var floor4_task_complete: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.FLOOR4_TASK_COMPLETE)
+	set(value):
+		_write_run_field(PropertyKeysScript.FLOOR4_TASK_COMPLETE, value)
 var last_clean_sentence: String = ""
 var last_polluted_sentence: String = ""
 var npc_understanding: int = 100
 var reality_phase: String = "npc_speaking"
 var relationship_residue: int = 0
 var last_relationship_residue_gain: int = 0
-var last_relationship_money_loss: int = 0
 var reality_dialogue_count: int = 0
-var conversation_phase: String = "idle"
+var conversation_phase: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_PHASE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_PHASE, value)
 var conversation_actor_id: String = ""
-var conversation_actor_type: String = "npc"
-var conversation_actor_label: String = ""
-var conversation_prompt: String = ""
-var conversation_result_line: String = ""
-var conversation_choices: Array = []
+var conversation_actor_type: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_ACTOR_TYPE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_ACTOR_TYPE, value)
+var conversation_actor_label: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_ACTOR_LABEL)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_ACTOR_LABEL, value)
+var conversation_prompt: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_PROMPT)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_PROMPT, value)
+var conversation_result_line: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_RESULT_LINE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_RESULT_LINE, value)
+var conversation_choices: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.CONVERSATION_CHOICES)
+	set(value):
+		_write_run_list(PropertyKeysScript.CONVERSATION_CHOICES, value)
 var conversation_selected_choice_id: String = ""
 var conversation_clean_sentence: String = ""
-var conversation_revealed_units: Array = []
-var conversation_reveal_index: int = 0
+var conversation_revealed_units: Array:
+	get:
+		return _read_run_array(PropertyKeysScript.CONVERSATION_REVEALED_UNITS)
+	set(value):
+		_write_run_list(PropertyKeysScript.CONVERSATION_REVEALED_UNITS, value)
+var conversation_reveal_index: int:
+	get:
+		return _read_run_int(PropertyKeysScript.CONVERSATION_REVEAL_INDEX)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_REVEAL_INDEX, value)
 var conversation_attempts: int = 0
 var conversation_understood: bool = false
 var conversation_understanding_rolls: Array[int] = []
-var conversation_feedback: String = ""
+var conversation_feedback: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_FEEDBACK)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_FEEDBACK, value)
 var conversation_locale: String = "zh"
 var conversation_clean_units: Array[String] = []
-var conversation_mode: String = "authored"
+var conversation_mode: String:
+	get:
+		return _read_run_string(PropertyKeysScript.CONVERSATION_MODE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_MODE, value)
 var conversation_world: String = "reality"
-var conversation_selected_token_ids: Array[String] = []
 var conversation_turns: Array = []
 var conversation_turn_index: int = 0
 var conversation_history: Array = []
-var conversation_can_continue: bool = false
+var conversation_can_continue: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.CONVERSATION_CAN_CONTINUE)
+	set(value):
+		_write_run_field(PropertyKeysScript.CONVERSATION_CAN_CONTINUE, value)
 var conversation_completed: bool = false
 var conversation_interrupted: bool = false
 var conversation_interrupt_line: String = ""
-var conversation_action_spent: bool = false
+## Whether this conversation already counted toward the dialogue count.
+var conversation_counted: bool = false
 var conversation_reward: Dictionary = {}
 
 
 func new_run() -> void:
-	day = 1
-	pollution = 0
-	tower_floor = 1
-	ending_unlocked = false
-	ending_language_choice = ""
-	ending_route = ""
-	formal_floor_three_complete = false
-	pending_floor_transition = 0
-	autoplay_enabled = false
+	PropertyBootScript.reset_run()
+	run_seed = randi_range(1, 2147483646)
 	exit_prompt_seen = false
-	money = 0
-	max_actions_per_day = BASE_ACTIONS_PER_DAY
-	actions_remaining = max_actions_per_day
-	needs_day_settlement = false
-	day_ended_reason = ""
 	pollution_flashback_seen = false
 	pollution_flashback_pending = false
-	view_state = "phone_down"
-	phone_visible = true
-	phone_open = true
-	active_app = "social"
-	active_app_window = "social"
-	notebook_tokens = []
-	draft_slots = {}
-	completed_memes = []
-	owned_meme_frames = 0
+	open_app_window(active_app_window)
 	owned_meme_frame_ids = []
 	claimed_doll_ids = []
 	doll_choice_results = {}
-	fusion_slots = {}
-	fused_meme_pairs = []
-	dialogue_blanks = {}
-	published_memes = []
-	last_publish_result = {}
-	event_log = []
-	social_followed_handles = []
-	social_liked_post_ids = []
 	collected_world_item_ids = []
 	cover_watcher_seen_floors = []
 	revealed_prerequisite_item_ids = []
 	collected_prerequisite_item_ids = []
 	key_clue_progress = {}
-	history_entries = []
-	language_sentence_slots = {}
 	sentence_records = []
-	collected_char_units = []
-	last_char_pick_day = 0
-	char_canvas_positions = {}
-	free_sentence_units = []
-	world_rules = {}
-	floor3_task_complete = false
-	floor4_task_complete = false
-	tutorial_progress = TutorialDirectorScript.initial_progress()
-	chapter1_progress = {}
 	last_clean_sentence = ""
 	last_polluted_sentence = ""
 	npc_understanding = 100
 	reality_phase = "npc_speaking"
 	relationship_residue = 0
 	last_relationship_residue_gain = 0
-	last_relationship_money_loss = 0
 	reality_dialogue_count = 0
 	reset_typed_reality_conversation()
 
 
-func start_chapter1() -> void:
-	chapter1_progress = BasementLoopDirectorScript.initial_progress()
-	_normalize_phone_app_window()
+func _read_save_field(field_name: String) -> Variant:
+	if PropertyKeysScript.is_run(field_name):
+		var model: PropertyModel = _run_model(field_name)
+		if model == null:
+			return null
+		return model.read()
+	return get(field_name)
 
 
-func notify_chapter1(event_id: String, payload: Dictionary = {}) -> Dictionary:
-	if chapter1_progress.is_empty():
-		return {"accepted": false, "progress": {}, "transition": ""}
-	var result := BasementLoopDirectorScript.dispatch(chapter1_progress, event_id, payload)
-	chapter1_progress = (result.progress as Dictionary).duplicate(true)
-	_normalize_phone_app_window()
-	return result
+func _write_run_field(field_name: String, value: Variant) -> void:
+	var model: ValuePropertyModel = _run_model(field_name) as ValuePropertyModel
+	if model == null:
+		return
+	model.write(value)
 
 
-func has_current_chapter_submission() -> bool:
-	if not _is_basement_practice():
+func _read_pollution() -> int:
+	var model: ValuePropertyModel = _pollution_model()
+	if model == null:
+		return 0
+	return int(model.read())
+
+
+func _write_pollution(value: int) -> void:
+	var model: ValuePropertyModel = _pollution_model()
+	if model == null:
+		return
+	model.write(value)
+
+
+func _pollution_model() -> ValuePropertyModel:
+	return _run_model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+
+
+func _read_run_int(property_name: String) -> int:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
+	if model == null:
+		return 0
+	return int(model.read())
+
+
+func _read_run_bool(property_name: String) -> bool:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
+	if model == null:
 		return false
-	var progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
-	var current := BasementLoopDirectorScript.get_current_round(progress)
-	for value in sentence_records:
-		if not value is Dictionary:
-			continue
-		var record: Dictionary = value
-		var token: Variant = record.get("chapter_round_token")
-		if not (token is int or token is float) or token != progress.transition_serial:
-			continue
-		if record.get("chapter_task_id") != current.task_id or record.get("kind") != "free_sentence":
-			continue
-		var text_value: Variant = record.get("text")
-		var units: Variant = record.get("units")
-		if not text_value is String or text_value.strip_edges().is_empty() or not units is Array or units.is_empty():
-			continue
-		var valid_units := true
-		for unit in units:
-			if not unit is String or unit.strip_edges().is_empty():
-				valid_units = false
-				break
-		if valid_units:
-			return true
-	return false
+	return bool(model.read())
 
 
-func notify_tutorial(event_id: String, payload: Dictionary = {}) -> Dictionary:
-	tutorial_progress = TutorialDirectorScript.notify(tutorial_progress, StringName(event_id), payload)
-	return get_tutorial_step()
+func _read_run_string(property_name: String) -> String:
+	var model: ValuePropertyModel = _run_model(property_name) as ValuePropertyModel
+	if model == null:
+		return ""
+	return str(model.read())
 
 
-func get_tutorial_step() -> Dictionary:
-	return TutorialDirectorScript.current_step(tutorial_progress)
+func _read_run_array(property_name: String) -> Array:
+	var model: ListPropertyModel = _run_model(property_name) as ListPropertyModel
+	if model == null:
+		return []
+	return model.read() as Array
 
 
-func skip_tutorial() -> void:
-	tutorial_progress = TutorialDirectorScript.skip(tutorial_progress)
+func _write_run_list(property_name: String, items: Array) -> void:
+	var model: ListPropertyModel = _run_model(property_name) as ListPropertyModel
+	if model == null:
+		return
+	model.replace_all(items)
 
 
-func replay_tutorial() -> void:
-	tutorial_progress = TutorialDirectorScript.replay(tutorial_progress)
+func _run_list(property_name: String) -> ListPropertyModel:
+	return _run_model(property_name) as ListPropertyModel
+
+
+func _read_run_map(property_name: String) -> Dictionary:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return {}
+	return model.read() as Dictionary
+
+
+func _write_run_map(property_name: String, entries: Dictionary) -> void:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return
+	model.replace_all(entries)
+
+
+## Adds the key or replaces what it holds.
+func _put_run_map_entry(property_name: String, key: Variant, value: Variant) -> void:
+	var model: MapPropertyModel = _run_model(property_name) as MapPropertyModel
+	if model == null:
+		return
+	if (model.read() as Dictionary).has(key):
+		model.replace(key, value)
+	else:
+		model.add(key, value)
+
+
+## A save writes each run field back through its model. A list or map of the wrong shape is refused and keeps the reset value.
+func _load_run_field(field_name: String, value: Variant) -> void:
+	var model: PropertyModel = _run_model(field_name)
+	if model is ListPropertyModel:
+		if value is Array:
+			(model as ListPropertyModel).replace_all(value)
+		else:
+			push_error("Save field '%s' is not a list and was skipped" % field_name)
+		return
+	if model is MapPropertyModel:
+		if value is Dictionary:
+			(model as MapPropertyModel).replace_all(value)
+		else:
+			push_error("Save field '%s' is not a map and was skipped" % field_name)
+		return
+	_write_run_field(field_name, value)
+
+
+func _run_model(property_name: String) -> PropertyModel:
+	PropertyBootScript.install()
+	var manager: PropertyManager = ServiceRegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	if manager == null:
+		return null
+	return manager.model(property_name)
 
 
 func to_save_data() -> Dictionary:
 	var state_data := {}
-	for field_name in SAVE_FIELD_NAMES:
-		var value: Variant = get(field_name)
-		if field_name == "chapter1_progress" and not chapter1_progress.is_empty():
-			value = BasementLoopDirectorScript.normalize_progress(chapter1_progress)
+	for field_name in _save_field_names():
+		var value: Variant = _read_save_field(field_name)
 		state_data[field_name] = value.duplicate(true) if value is Array or value is Dictionary else value
-	if not is_phone_app_unlocked(active_app_window):
-		state_data["active_app_window"] = ""
 	return {
 		"version": SAVE_DATA_VERSION,
 		"state": state_data,
 	}
 
 
+## Every saved run model, then the fields this object still holds.
+func _save_field_names() -> Array[String]:
+	var names: Array[String] = []
+	names.append_array(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN))
+	for field_name in SAVE_FIELD_NAMES:
+		names.append(str(field_name))
+	return names
+
+
 func load_save_data(save_data: Dictionary) -> bool:
-	var loaded_version := int(save_data.get("version", -1))
-	if loaded_version not in [1, 2, 3, 4, SAVE_DATA_VERSION]:
+	if int(save_data.get("version", -1)) != SAVE_DATA_VERSION:
 		return false
 	var state_data: Variant = save_data.get("state", {})
 	if not state_data is Dictionary:
 		return false
-	var saved_floor := int((state_data as Dictionary).get("tower_floor", 1))
 	new_run()
-	for field_name in SAVE_FIELD_NAMES:
+	for field_name in _save_field_names():
 		if not state_data.has(field_name):
 			continue
 		var value: Variant = state_data[field_name]
-		if field_name == "chapter1_progress":
-			chapter1_progress = BasementLoopDirectorScript.normalize_progress(value) if value is Dictionary and not value.is_empty() else {}
+		if PropertyKeysScript.is_run(field_name):
+			_load_run_field(field_name, value)
 			continue
 		set(field_name, value.duplicate(true) if value is Array or value is Dictionary else value)
-	day = maxi(1, day)
-	tower_floor = clampi(tower_floor, 1, MAX_TOWER_FLOOR)
-	max_actions_per_day = maxi(1, max_actions_per_day)
-	actions_remaining = clampi(actions_remaining, 0, max_actions_per_day)
 	pollution = clampi(pollution, 0, 100)
-	_migrate_legacy_chapter_action_budget(state_data.get("chapter1_progress", {}))
-	# Retired resources cannot block a continued save or restore removed UI.
-	money = 0
-	actions_remaining = max_actions_per_day
-	needs_day_settlement = false
-	day_ended_reason = ""
-	autoplay_enabled = false
-	if loaded_version < 4 and saved_floor >= 4:
-		tower_floor = 3
-		ending_unlocked = false
-		ending_route = ""
-		formal_floor_three_complete = false
-		pending_floor_transition = 0
-	if loaded_version < 4 and saved_floor < 4:
-		_migrate_legacy_hidden_route_data(state_data as Dictionary)
+	# A save made before chapter one existed was already on the tower street.
+	if state_data.has(PropertyKeysScript.CHAPTER_ONE_PROGRESS):
+		_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, chapter_one_progress)
+	else:
+		_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
 	var normalized_watcher_floors: Array[int] = []
 	for floor_value in cover_watcher_seen_floors:
 		var floor_number := clampi(int(floor_value), 1, MAX_TOWER_FLOOR)
 		if floor_number not in normalized_watcher_floors:
 			normalized_watcher_floors.append(floor_number)
 	cover_watcher_seen_floors = normalized_watcher_floors
-	_normalize_removed_shop_state()
 	_normalize_doll_state()
-	_normalize_language_bridge_state(loaded_version)
-	tutorial_progress = TutorialDirectorScript.normalize_progress(tutorial_progress)
-	_normalize_phone_app_window()
+	_normalize_notebook_tokens()
+	_drop_retired_apps()
+	_normalize_phone(state_data)
+	_normalize_hidden_items()
 	if view_state != "phone_down" and view_state != "npc_up":
 		view_state = "phone_down"
+	if view_state == "npc_up":
+		phone_open = false
+		active_app_window = ""
+	else:
+		_bring_active_app_forward()
 	reset_typed_reality_conversation()
 	# 读档防御:规则已活而任务旗标缺失的异常档,按当前楼层重扫一次锁存。
 	_latch_ultimate_tasks_for_current_floor()
 	return true
 
 
-func _migrate_legacy_chapter_action_budget(raw: Variant) -> void:
-	# Old chapter saves have no action-origin marker. This deliberately narrow
-	# schema migration repairs their exhausted tutorial budget on the same day;
-	# ordinary saves and explicit new-schema budget records remain unchanged.
-	if not raw is Dictionary or raw.has("unlocked_app_ids"):
-		return
-	var config: Variant = raw.get("reward_config", {})
-	if config is Dictionary and config.has("task_app_unlocks"):
-		return
-	var phase: Variant = raw.get("phase", "")
-	if phase not in ["basement", "crossroads"] or phase != chapter1_progress.get("phase", ""):
-		return
-	if actions_remaining != 0 or not needs_day_settlement:
-		return
-	actions_remaining = max_actions_per_day
-	needs_day_settlement = false
-	day_ended_reason = ""
-	pollution_flashback_pending = false
+## Past the basement the run has the phone. A save made before the phone was a thing to pick up gets what its chapter
+## progress earned, and whatever apps a save names the phone comes with its own. A run without the phone looks at the room.
+func _normalize_phone(state_data: Dictionary) -> void:
+	var progress := chapter_one_progress
+	var past_basement := ChapterOneProgressScript.past_basement(progress)
+	if past_basement or not state_data.has(PropertyKeysScript.PHONE_OWNED):
+		phone_owned = phone_owned or ChapterOneProgressScript.phone_earned(progress)
+	_grant_phone_apps()
+	if not phone_owned:
+		view_state = "npc_up"
 
 
-func _normalize_language_bridge_state(loaded_version: int) -> void:
+func _normalize_notebook_tokens() -> void:
 	var normalized_tokens: Array = []
-	for token_index in notebook_tokens.size():
-		var token_value: Variant = notebook_tokens[token_index]
+	var saved_tokens := notebook_tokens
+	for token_index in saved_tokens.size():
+		var token_value: Variant = saved_tokens[token_index]
 		if token_value is Dictionary:
 			var token: Dictionary = (token_value as Dictionary).duplicate(true)
 			if not token.get("grammar_roles", null) is Array or (token.get("grammar_roles", []) as Array).is_empty():
@@ -417,51 +573,6 @@ func _normalize_language_bridge_state(loaded_version: int) -> void:
 				token["lexeme_id"] = str(token.get("id", "token-%d" % token_index))
 			normalized_tokens.append(LanguageBridgeScript.normalized_token(token))
 	notebook_tokens = normalized_tokens
-	if loaded_version <= 4:
-		language_sentence_slots.clear()
-		reality_phase = "npc_speaking"
-	var filtered_log: Array[String] = []
-	for entry in event_log:
-		var text := str(entry)
-		if not text.contains("遗产规则"):
-			filtered_log.append(text)
-	event_log = filtered_log
-
-
-func _migrate_legacy_hidden_route_data(state_data: Dictionary) -> void:
-	var legacy_fragments: Array = state_data.get("collected_echo_fragment_ids", [])
-	var legacy_fragment_ids := ["echo_room_name", "echo_safe_place", "echo_blank_voice"]
-	var item_ids := get_prerequisite_item_ids()
-	for index in legacy_fragment_ids.size():
-		if legacy_fragment_ids[index] not in legacy_fragments:
-			continue
-		var item_id := str(item_ids[index])
-		if item_id not in revealed_prerequisite_item_ids:
-			revealed_prerequisite_item_ids.append(item_id)
-		if item_id not in collected_prerequisite_item_ids:
-			collected_prerequisite_item_ids.append(item_id)
-		if item_id not in collected_world_item_ids:
-			collected_world_item_ids.append(item_id)
-	var legacy_keys: Array = state_data.get("completed_dialogue_key_ids", [])
-	var legacy_key_to_floor := {
-		"dialogue_key_name": 1,
-		"dialogue_key_source": 2,
-		"dialogue_key_voice": 3,
-	}
-	for legacy_key in legacy_keys:
-		var floor_number := int(legacy_key_to_floor.get(str(legacy_key), 0))
-		if floor_number == 0:
-			continue
-		var item_id := str(item_ids[floor_number - 1])
-		if item_id not in revealed_prerequisite_item_ids:
-			revealed_prerequisite_item_ids.append(item_id)
-
-
-func _normalize_removed_shop_state() -> void:
-	if active_app in ["shop", "babel"]:
-		active_app = "social"
-	if active_app_window in ["shop", "babel"]:
-		active_app_window = "social" if phone_open else ""
 
 
 func _normalize_doll_state() -> void:
@@ -505,29 +616,169 @@ func _normalize_doll_state() -> void:
 
 func set_phone_open(value: bool) -> void:
 	phone_open = value
-	phone_visible = value
 	if not value:
 		active_app_window = ""
-	else:
-		_normalize_phone_app_window()
 
 
+## Raising the phone needs the phone; it brings the last app to the front only once that app is unlocked.
 func set_view_state(value: String) -> bool:
 	if value != "phone_down" and value != "npc_up":
 		return false
+	if value == "phone_down" and not phone_owned:
+		return false
+	if view_state == value:
+		return true
 	view_state = value
 	if view_state == "phone_down":
-		phone_visible = true
 		phone_open = true
-		_normalize_phone_app_window()
-		if active_app_window.is_empty() and can_use_app(active_app):
-			active_app_window = active_app
+		_bring_active_app_forward()
 	else:
-		phone_visible = false
 		phone_open = false
 		active_app_window = ""
-		reset_reality_phase_for_day()
+		reset_reality_phase()
 	return true
+
+
+## Shows the next opening line, or completes the narration after the last one. False when nothing moved.
+func advance_opening_narration() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.advance_narration(chapter_one_progress))
+
+
+## The opening knock played to its end. False before its line or once it was heard.
+func complete_opening_knock() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.complete_knock(chapter_one_progress))
+
+
+## The white door opens into the basement once the narration is read and the knock heard.
+func open_opening_door() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.open_door(chapter_one_progress))
+
+
+## The player left the basement round by `exit_object`, one of the objects its escapes made the exit: the next round, or
+## after the fifth the white door passage, which is walked with the phone and its apps. False for any other object.
+func leave_basement_round(exit_object: String) -> bool:
+	if not _step_chapter_one(ChapterOneProgressScript.leave_round(chapter_one_progress, exit_object)):
+		return false
+	_forget_room_rules()
+	if ChapterOneProgressScript.past_basement(chapter_one_progress):
+		_hand_over_earned_phone()
+	return true
+
+
+## The player walked into the white door's light: the next level begins. False outside the passage.
+func cross_passage() -> bool:
+	return _step_chapter_one(ChapterOneProgressScript.cross_passage(chapter_one_progress))
+
+
+## Development seam: starts basement round `round_number` fresh, with the phone if an earlier round earned it.
+## False for a round that does not exist.
+func jump_to_basement_round(round_number: int) -> bool:
+	if not _step_chapter_one(ChapterOneProgressScript.jump_to_round(chapter_one_progress, round_number)):
+		return false
+	_forget_room_rules()
+	polluted_words = {}
+	_hand_over_earned_phone()
+	return true
+
+
+## Development and test seam: leaves chapter one for the tower street, with the phone and its apps.
+func skip_chapter_one() -> void:
+	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, ChapterOneProgressScript.tower())
+	_hand_over_earned_phone()
+
+
+## Picks up the phone from the basement's table. False outside the basement or once it is owned.
+func pick_up_phone() -> bool:
+	if phone_owned or ChapterOneProgressScript.phase_of(chapter_one_progress) != ChapterOneProgressScript.PHASE_BASEMENT:
+		return false
+	phone_owned = true
+	_grant_phone_apps()
+	return true
+
+
+func is_app_unlocked(app_id: String) -> bool:
+	return unlocked_apps.has(app_id)
+
+
+## The apps follow the phone: it comes with them and a run without it has none.
+func _grant_phone_apps() -> void:
+	_write_run_list(PropertyKeysScript.UNLOCKED_APPS, PHONE_APPS.duplicate() if phone_owned else [])
+
+
+## Sets the phone to what the chapter progress earned; a run without the phone puts it away, a raised phone brings its
+## last app back.
+func _hand_over_earned_phone() -> void:
+	phone_owned = ChapterOneProgressScript.phone_earned(chapter_one_progress)
+	_grant_phone_apps()
+	for app_id in open_app_windows:
+		if not is_app_unlocked(str(app_id)):
+			close_app_window(str(app_id))
+	if not phone_owned:
+		set_view_state("npc_up")
+	elif view_state == "phone_down":
+		_bring_active_app_forward()
+
+
+## A raised phone brings the last chosen app to the front; a locked app is never in front.
+func _bring_active_app_forward() -> void:
+	if not active_app_window.is_empty() and not is_app_unlocked(active_app_window):
+		active_app_window = ""
+	if active_app_window.is_empty() and is_app_unlocked(active_app):
+		active_app_window = active_app
+	open_app_window(active_app_window)
+
+
+func _step_chapter_one(next: Dictionary) -> bool:
+	if next == chapter_one_progress:
+		return false
+	_write_run_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS, next)
+	return true
+
+
+func get_phone_shell_snapshot() -> Dictionary:
+	return {"view_state": view_state}
+
+
+## A save may still name an app the phone no longer has (the tower app); the phone comes back on one it has.
+func _drop_retired_apps() -> void:
+	for app_id in open_app_windows:
+		if str(app_id) not in PHONE_APPS:
+			close_app_window(str(app_id))
+	if active_app not in PHONE_APPS:
+		active_app = PropertyKeysScript.DEFAULT_APP
+	if not active_app_window.is_empty() and active_app_window not in PHONE_APPS:
+		active_app_window = active_app
+
+
+func is_app_window_open(app_id: String) -> bool:
+	return open_app_windows.has(app_id)
+
+
+## A locked app's window does not open.
+func open_app_window(app_id: String) -> void:
+	var normalized := app_id.strip_edges()
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.OPEN_APP_WINDOWS)
+	if normalized.is_empty() or model == null or is_app_window_open(normalized) or not is_app_unlocked(normalized):
+		return
+	model.add(normalized)
+
+
+func close_app_window(app_id: String) -> void:
+	var normalized := app_id.strip_edges()
+	if normalized.is_empty():
+		return
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.OPEN_APP_WINDOWS)
+	var open_index := open_app_windows.find(normalized)
+	if model != null and open_index >= 0:
+		model.remove_at(open_index)
+	if active_app_window == normalized:
+		active_app_window = ""
+		for candidate in PHONE_APPS:
+			if is_app_window_open(candidate):
+				active_app = candidate
+				if view_state == "phone_down":
+					active_app_window = candidate
+				break
 
 
 func is_world_item_collected(item_id: String) -> bool:
@@ -535,14 +786,11 @@ func is_world_item_collected(item_id: String) -> bool:
 
 
 func get_prerequisite_item_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for floor_number in [1, 2, 3]:
-		ids.append(str((PREREQUISITE_ITEMS[floor_number] as Dictionary).get("id", "")))
-	return ids
+	return NarrativeSessionCatalogScript.prerequisite_item_ids()
 
 
-func get_prerequisite_item_for_floor(floor_number: int) -> Dictionary:
-	return (PREREQUISITE_ITEMS.get(floor_number, {}) as Dictionary).duplicate(true)
+func get_prerequisite_item_for_floor(floor_number: int, locale_code: String = "zh") -> Dictionary:
+	return NarrativeSessionCatalogScript.prerequisite_item(floor_number, locale_code)
 
 
 func get_key_clue_progress(floor_number: int) -> Dictionary:
@@ -550,12 +798,12 @@ func get_key_clue_progress(floor_number: int) -> Dictionary:
 
 
 func reveal_prerequisite_item_for_floor(floor_number: int) -> bool:
-	var item := get_prerequisite_item_for_floor(floor_number)
+	var item := get_prerequisite_item_for_floor(floor_number, "zh")
 	var item_id := str(item.get("id", ""))
 	if item_id.is_empty() or item_id in revealed_prerequisite_item_ids:
 		return false
 	revealed_prerequisite_item_ids.append(item_id)
-	event_log.push_front(str(item.get("location_hint", "这一层有一件东西正等着被找到。")))
+	record_event(str(item.get("location_hint", "这一层有一件东西正等着被找到。")))
 	return true
 
 
@@ -572,7 +820,7 @@ func collect_prerequisite_item(item_id: String) -> bool:
 	collected_prerequisite_item_ids.append(normalized_id)
 	if normalized_id not in collected_world_item_ids:
 		collected_world_item_ids.append(normalized_id)
-	event_log.push_front("你收起了这一层不该留下的东西。")
+	record_event("你收起了这一层不该留下的东西。")
 	return true
 
 
@@ -589,16 +837,27 @@ func record_history_line(line_data: Dictionary) -> bool:
 		normalized[field_name] = line_data.get(field_name, 0 if field_name == "revisionStage" else "")
 	normalized["lineId"] = line_id
 	normalized["revisionStage"] = clampi(int(normalized["revisionStage"]), 0, 3)
-	for index in history_entries.size():
-		if str(history_entries[index].get("lineId", "")) == line_id:
-			history_entries[index] = normalized
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.HISTORY_ENTRIES)
+	if model == null:
+		return false
+	var saved: Array = model.read()
+	for index in saved.size():
+		if str(saved[index].get("lineId", "")) == line_id:
+			model.replace_at(index, normalized)
 			return true
-	history_entries.append(normalized)
+	model.add(normalized)
 	return true
 
 
 func get_history_entries() -> Array:
-	return history_entries.duplicate(true)
+	return history_entries
+
+
+## Puts a line at the front of the event log.
+func record_event(text: String) -> void:
+	var model: ListPropertyModel = _run_list(PropertyKeysScript.EVENT_LOG)
+	if model != null:
+		model.insert_at(0, text)
 
 
 func complete_floor_three() -> String:
@@ -613,7 +872,7 @@ func complete_floor_three() -> String:
 		pending_floor_transition = 0
 		ending_route = "hidden"
 		ending_unlocked = false
-		event_log.push_front("第四层没有登记记录。")
+		record_event("第四层没有登记记录。")
 		_latch_ultimate_tasks_for_current_floor()
 		return "hidden-floor"
 	ending_route = "normal"
@@ -638,7 +897,7 @@ func resolve_floor_transition_at_boundary() -> int:
 		return tower_floor
 	tower_floor = pending_floor_transition
 	pending_floor_transition = 0
-	event_log.push_front("你抵达了第 %d 层。" % tower_floor)
+	record_event("你抵达了第 %d 层。" % tower_floor)
 	_latch_ultimate_tasks_for_current_floor()
 	return tower_floor
 
@@ -655,119 +914,93 @@ func mark_cover_watcher_seen(floor_number: int) -> bool:
 	return true
 
 
+## A world item pickup is a valid interaction: once the item is taken the progress check runs.
 func collect_world_item(item_data: Dictionary) -> bool:
 	var item_id := str(item_data.get("id", "")).strip_edges()
-	return collect_prerequisite_item(item_id)
+	if not collect_prerequisite_item(item_id):
+		return false
+	_finish_interaction()
+	return true
 
 
-func get_ending_language_choices() -> Array:
-	return ENDING_LANGUAGE_CHOICES.duplicate(true)
+func get_ending_language_choices(locale_code: String = "zh") -> Array:
+	return NarrativeSessionCatalogScript.ending_language_choices(locale_code)
 
 
 func choose_ending_language(choice_id: String) -> bool:
 	if not ending_unlocked or not ending_language_choice.is_empty():
 		return false
-	for choice in ENDING_LANGUAGE_CHOICES:
-		if str(choice.get("id", "")) == choice_id:
-			ending_language_choice = choice_id
-			return true
-	return false
-
-
-func get_ending_language_output() -> String:
-	for choice in ENDING_LANGUAGE_CHOICES:
-		if str(choice.get("id", "")) == ending_language_choice:
-			return str(choice.get("output", ""))
-	return ""
-
-
-func is_phone_app_unlocked(app_id: String) -> bool:
-	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
+	if not NarrativeSessionCatalogScript.has_ending_language_choice(choice_id):
 		return false
-	if chapter1_progress.is_empty():
-		return true
-	var progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
-	return app_id in progress.unlocked_app_ids
+	ending_language_choice = choice_id
+	return true
 
 
-func can_use_app(app_id: String, context: String = "phone") -> bool:
-	if app_id not in BasementLoopDirectorScript.REQUIRED_APP_IDS:
-		return false
-	if context == "phone":
-		return is_phone_app_unlocked(app_id)
-	if context == "terminal":
-		return _is_basement_practice()
-	return false
+func get_ending_language_output(locale_code: String = "zh") -> String:
+	return str(NarrativeSessionCatalogScript.ending_language_choice(ending_language_choice, locale_code).get("output", ""))
 
 
-func set_active_app(app_id: String, context: String = "phone") -> bool:
-	if not can_use_app(app_id, context):
-		return false
+## A locked app cannot be chosen.
+func set_active_app(app_id: String) -> void:
+	if not is_app_unlocked(app_id):
+		return
 	active_app = app_id
-	if context == "phone" and view_state == "phone_down":
+	if view_state == "phone_down":
 		active_app_window = app_id
-	return true
+		open_app_window(app_id)
 
 
-func _normalize_phone_app_window() -> void:
-	if not is_phone_app_unlocked(active_app_window):
-		active_app_window = ""
+func set_autoplay_enabled(value: bool) -> void:
+	_write_run_field(PropertyKeysScript.AUTOPLAY_ENABLED, value)
 
 
-func _is_basement_practice() -> bool:
-	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase == "basement"
+func mark_exit_prompt_seen() -> void:
+	exit_prompt_seen = true
 
 
-func _is_chapter_practice() -> bool:
-	return not chapter1_progress.is_empty() and BasementLoopDirectorScript.normalize_progress(chapter1_progress).phase in ["basement", "crossroads"]
+## The followed authors, a copy. They change only through the follow methods below.
+func get_social_followed_handles() -> Array[String]:
+	var result: Array[String] = []
+	for handle in _read_run_array(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES):
+		result.append(str(handle))
+	return result
 
 
-func spend_action(_action_type: String) -> bool:
-	# Compatibility for authored interactions: all actions are unlimited.
-	needs_day_settlement = false
-	day_ended_reason = ""
-	return true
-
-
-func can_spend_action() -> bool:
-	return true
+func replace_social_followed_handles(handles: Array[String]) -> void:
+	_write_run_list(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, handles)
 
 
 func is_social_following(handle: String) -> bool:
-	return handle in social_followed_handles
+	return handle in _read_run_array(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES)
 
 
 func toggle_social_follow(handle: String) -> bool:
-	var normalized := handle.strip_edges()
-	if normalized.is_empty():
-		return false
-	if normalized in social_followed_handles:
-		social_followed_handles.erase(normalized)
-		return false
-	social_followed_handles.append(normalized)
-	return true
+	return _toggle_in_run_list(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES, handle)
 
 
 func is_social_post_liked(post_id: String) -> bool:
-	return post_id in social_liked_post_ids
+	return post_id in _read_run_array(PropertyKeysScript.SOCIAL_LIKED_POST_IDS)
 
 
 func toggle_social_like(post_id: String) -> bool:
-	var normalized := post_id.strip_edges()
-	if normalized.is_empty():
+	return _toggle_in_run_list(PropertyKeysScript.SOCIAL_LIKED_POST_IDS, post_id)
+
+
+## Adds the entry when absent and removes it when present. Returns whether it is in the list afterwards.
+func _toggle_in_run_list(property_name: String, entry: String) -> bool:
+	var normalized := entry.strip_edges()
+	var model := _run_list(property_name)
+	if normalized.is_empty() or model == null:
 		return false
-	if normalized in social_liked_post_ids:
-		social_liked_post_ids.erase(normalized)
+	var index := (model.read() as Array).find(normalized)
+	if index >= 0:
+		model.remove_at(index)
 		return false
-	social_liked_post_ids.append(normalized)
+	model.add(normalized)
 	return true
 
 
 func check_pollution_flashback(previous_pollution: int) -> bool:
-	# Tutorial retries share pollution records, but cannot end the normal day
-	# or queue a forced-day cutscene to run after entering the tower.
-	if _is_chapter_practice():
-		return false
 	if pollution_flashback_seen:
 		return false
 	if previous_pollution >= POLLUTION_FLASHBACK_THRESHOLD:
@@ -779,11 +1012,21 @@ func check_pollution_flashback(previous_pollution: int) -> bool:
 	return true
 
 
+func get_day_progress_snapshot() -> Dictionary:
+	return {
+		"day": day,
+		"pollution": pollution,
+		"tower_floor": tower_floor,
+		"pending_floor_transition": pending_floor_transition,
+	}
+
+
 func change_pollution(amount: int) -> int:
 	var previous_pollution := pollution
 	pollution = clampi(pollution + amount, 0, 100)
 	request_floor_transition_for_pollution()
-	check_pollution_flashback(previous_pollution)
+	if pollution_flashback_enabled:
+		check_pollution_flashback(previous_pollution)
 	return pollution - previous_pollution
 
 
@@ -801,43 +1044,70 @@ func begin_reality_player_turn() -> bool:
 	return true
 
 
-func reset_reality_phase_for_day() -> void:
+func reset_reality_phase() -> void:
 	reality_phase = "npc_speaking"
 
 
 func start_typed_reality_conversation(actor_id: String, actor_type: String, actor_label: String) -> bool:
-	if not can_spend_action():
-		return false
 	conversation_actor_id = actor_id
-	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", "doctor"] else "npc"
+	conversation_actor_type = actor_type if actor_type in ["npc", "key_npc", "doll", ChapterOneProgressScript.BASEMENT_NPC_ACTOR_TYPE] else "npc"
 	conversation_actor_label = actor_label
-	conversation_mode = "lexeme" if conversation_actor_type == "doctor" else "authored"
-	conversation_world = "doctor" if conversation_actor_type == "doctor" else "reality"
-	conversation_selected_token_ids = []
-	language_sentence_slots.clear()
-	var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
-	conversation_turns = [{
-		"line": str(dialogue.get("line", "你打算说什么？")),
-		"result": str(dialogue.get("result", "%s移开了视线。" % actor_label)),
-		"choices": (dialogue.get("choices", []) as Array).duplicate(true),
-	}]
-	for followup in dialogue.get("continuation_turns", []):
-		conversation_turns.append((followup as Dictionary).duplicate(true))
+	conversation_world = "reality"
+	conversation_interrupt_line = ""
+	if conversation_actor_type == ChapterOneProgressScript.BASEMENT_NPC_ACTOR_TYPE:
+		var route: Dictionary = LanguageCorruptionContentScript.get_basement_route(ChapterOneProgressScript.round_of(chapter_one_progress))
+		if route.is_empty():
+			reset_typed_reality_conversation()
+			return false
+		conversation_mode = ChapterOneProgressScript.LINEAR_CONVERSATION_MODE
+		conversation_turns = (route.get("turns", []) as Array).duplicate(true)
+		# The first word through the door quiets the knocking for the rest of the round (#129).
+		_step_chapter_one(ChapterOneProgressScript.talk_to_npc(chapter_one_progress))
+	else:
+		conversation_mode = "authored"
+		var dialogue := _reality_dialogue_for_actor(actor_id, conversation_actor_type)
+		conversation_turns = [{
+			"line": str(dialogue.get("line", "你打算说什么？")),
+			"result": str(dialogue.get("result", "%s移开了视线。" % actor_label)),
+			"choices": (dialogue.get("choices", []) as Array).duplicate(true),
+		}]
+		for followup in dialogue.get("continuation_turns", []):
+			conversation_turns.append((followup as Dictionary).duplicate(true))
+		conversation_interrupt_line = str(dialogue.get("interrupt", ""))
 	conversation_turn_index = 0
 	conversation_history = []
 	conversation_can_continue = false
 	conversation_completed = false
 	conversation_interrupted = false
-	conversation_interrupt_line = str(dialogue.get("interrupt", ""))
-	conversation_action_spent = false
+	conversation_counted = false
 	conversation_reward = {}
 	conversation_attempts = 0
 	conversation_locale = "zh"
 	_load_typed_reality_turn(0)
-	conversation_phase = "composing" if conversation_mode == "lexeme" else "choosing"
-	if conversation_mode == "lexeme":
-		reality_phase = "player_composing"
+	conversation_phase = "choosing"
+	_begin_linear_turn()
 	return true
+
+
+## A linear conversation offers no choice: the player's turn starts at once on the turn's authored line.
+func _begin_linear_turn() -> void:
+	if conversation_mode != ChapterOneProgressScript.LINEAR_CONVERSATION_MODE or conversation_phase != "choosing":
+		return
+	var turn: Dictionary = conversation_turns[conversation_turn_index]
+	conversation_selected_choice_id = "turn_%d" % conversation_turn_index
+	conversation_clean_sentence = str(turn.get("sentence", "")).strip_edges()
+	conversation_clean_units = _conversation_units(conversation_clean_sentence)
+	conversation_phase = "typing"
+
+
+## The player leaves the conversation. One in which they spoke at least once was a valid interaction, so the
+## progress check runs after it; leaving before speaking checks nothing.
+func end_typed_reality_conversation() -> ActionOutcomeScript:
+	var spoken := not conversation_history.is_empty()
+	reset_typed_reality_conversation()
+	if not spoken:
+		return _refused_outcome()
+	return _finish_interaction()
 
 
 func reset_typed_reality_conversation() -> void:
@@ -845,8 +1115,6 @@ func reset_typed_reality_conversation() -> void:
 	conversation_actor_id = ""
 	conversation_actor_type = "npc"
 	conversation_actor_label = ""
-	conversation_prompt = ""
-	conversation_result_line = ""
 	conversation_prompt = ""
 	conversation_result_line = ""
 	conversation_choices = []
@@ -862,7 +1130,6 @@ func reset_typed_reality_conversation() -> void:
 	conversation_clean_units = []
 	conversation_mode = "authored"
 	conversation_world = "reality"
-	conversation_selected_token_ids = []
 	conversation_turns = []
 	conversation_turn_index = 0
 	conversation_history = []
@@ -870,8 +1137,24 @@ func reset_typed_reality_conversation() -> void:
 	conversation_completed = false
 	conversation_interrupted = false
 	conversation_interrupt_line = ""
-	conversation_action_spent = false
+	conversation_counted = false
 	conversation_reward = {}
+
+
+func get_reality_conversation_snapshot() -> Dictionary:
+	return {
+		"phase": conversation_phase,
+		"mode": conversation_mode,
+		"actor_type": conversation_actor_type,
+		"actor_label": conversation_actor_label,
+		"prompt": conversation_prompt,
+		"result_line": conversation_result_line,
+		"choices": conversation_choices.duplicate(true),
+		"can_continue": conversation_can_continue,
+		"feedback": conversation_feedback,
+		"reveal_index": conversation_reveal_index,
+		"revealed_units": conversation_revealed_units.duplicate(true),
+	}
 
 
 func get_typed_reality_choices() -> Array:
@@ -887,7 +1170,6 @@ func get_typed_reality_progress() -> Dictionary:
 		"can_continue": conversation_can_continue,
 		"completed": conversation_completed,
 		"interrupted": conversation_interrupted,
-		"action_spent": conversation_action_spent,
 		"history_count": conversation_history.size(),
 		"reward": conversation_reward.duplicate(true),
 	}
@@ -906,6 +1188,7 @@ func continue_typed_reality_conversation() -> bool:
 	conversation_can_continue = false
 	_load_typed_reality_turn(next_turn)
 	conversation_phase = "choosing"
+	_begin_linear_turn()
 	return true
 
 
@@ -916,14 +1199,15 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 	conversation_turn_index = turn_index
 	conversation_prompt = str(turn.get("line", "你打算说什么？"))
 	conversation_result_line = str(turn.get("result", "%s移开了视线。" % conversation_actor_label))
-	conversation_choices = (turn.get("choices", []) as Array).duplicate(true)
+	var turn_choices: Array = (turn.get("choices", []) as Array).duplicate(true)
 	if conversation_actor_type == "doll":
-		for choice_index in conversation_choices.size():
-			var choice: Dictionary = (conversation_choices[choice_index] as Dictionary).duplicate(true)
+		for choice_index in turn_choices.size():
+			var choice: Dictionary = (turn_choices[choice_index] as Dictionary).duplicate(true)
 			choice["locked"] = _doll_choice_is_locked(choice)
 			if bool(choice["locked"]) and not str(choice.get("locked_summary", "")).is_empty():
 				choice["summary"] = str(choice.get("locked_summary", ""))
-			conversation_choices[choice_index] = choice
+			turn_choices[choice_index] = choice
+	conversation_choices = turn_choices
 	conversation_selected_choice_id = ""
 	conversation_clean_sentence = ""
 	conversation_revealed_units = []
@@ -936,19 +1220,29 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 
 func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Array[String] = []) -> void:
 	conversation_locale = locale_code if locale_code in ["zh", "ja", "en"] else "zh"
+	_localize_conversation_display()
 	if not conversation_clean_sentence.is_empty():
 		conversation_clean_units = _conversation_units(conversation_clean_sentence)
 
 
+func _localize_conversation_display() -> void:
+	if conversation_locale == "zh":
+		return
+	var locale: BabelGameLocale = GameLocaleScript.for_locale(conversation_locale)
+	conversation_actor_label = locale.translate(conversation_actor_label)
+	conversation_prompt = locale.translate(conversation_prompt)
+	conversation_result_line = locale.translate(conversation_result_line)
+	var localized_choices: Array = []
+	for choice in conversation_choices:
+		var localized_choice: Dictionary = (choice as Dictionary).duplicate(true)
+		localized_choice["summary"] = locale.translate(str(localized_choice.get("summary", "")))
+		localized_choice["sentence"] = locale.translate(str(localized_choice.get("sentence", "")))
+		localized_choices.append(localized_choice)
+	conversation_choices = localized_choices
+
+
 func _reality_dialogue_for_actor(actor_id: String, actor_type: String) -> Dictionary:
 	var floor_number := clampi(tower_floor, 1, 3)
-	if actor_type == "doctor":
-		var doctor_dialogue: Dictionary = DOCTOR_DIALOGUES_BY_FLOOR.get(clampi(tower_floor, 1, 4), DOCTOR_DIALOGUES_BY_FLOOR[1])
-		return {
-			"line": str(doctor_dialogue.get("line", "用你从屏幕里带回来的词说一句完整的话。")),
-			"result": str(doctor_dialogue.get("result", "医生把句子写了下来。")),
-			"choices": [],
-		}
 	if actor_type == "doll":
 		var encounter: Dictionary = LanguageCorruptionContentScript.get_doll_encounter_by_id(actor_id)
 		if encounter.is_empty():
@@ -1018,9 +1312,7 @@ func advance_typed_reality_character() -> Dictionary:
 	var result := {
 		"advanced": false,
 		"completed": false,
-		"action_spent": false,
 		"understood": false,
-		"locked_out": false,
 		"conversation_completed": false,
 		"can_continue": false,
 		"interrupted": false,
@@ -1037,37 +1329,33 @@ func advance_typed_reality_character() -> Dictionary:
 	var display_character := clean_character
 	if corrupted:
 		display_character = _conversation_corruption_text(roll, conversation_reveal_index)
-	conversation_revealed_units.append({
+	var revealed_units := conversation_revealed_units
+	revealed_units.append({
 		"clean": clean_character,
 		"display": display_character,
 		"corrupted": corrupted,
 		"roll": roll,
 	})
+	conversation_revealed_units = revealed_units
 	conversation_reveal_index += 1
 	result["advanced"] = true
 	if conversation_reveal_index < conversation_clean_units.size():
 		return result
 
 	result["completed"] = true
+	typing_hint_seen = true
 	var is_key_npc_final_turn := conversation_actor_type == "key_npc" and conversation_turn_index + 1 >= conversation_turns.size()
 	var is_claimed_doll_repeat := conversation_actor_type == "doll" and is_doll_claimed(conversation_actor_id)
-	var should_spend_now := conversation_actor_type != "doll" and (conversation_actor_type != "key_npc" or is_key_npc_final_turn) and not is_claimed_doll_repeat
-	if not conversation_action_spent and should_spend_now:
-		if not spend_action("typed-reality-dialogue"):
-			conversation_phase = "result"
-			conversation_interrupted = true
-			conversation_feedback = "今天已经没有能说出口的行动。"
-			result["locked_out"] = true
-			result["interrupted"] = true
-			return result
-		conversation_action_spent = true
-		result["action_spent"] = true
+	var should_count_now := conversation_actor_type != "doll" and (conversation_actor_type != "key_npc" or is_key_npc_final_turn) and not is_claimed_doll_repeat
+	if not conversation_counted and should_count_now:
+		conversation_counted = true
 		reality_dialogue_count += 1
 	conversation_attempts += 1
 	last_clean_sentence = conversation_clean_sentence
 	last_polluted_sentence = get_typed_reality_spoken_sentence()
 	var understood := true
-	if conversation_actor_type in ["key_npc", "doll"]:
+	# Key residents, dolls and the basement NPCs always understand: pollution garbles the line, never the turn.
+	if conversation_actor_type in ["key_npc", "doll", ChapterOneProgressScript.BASEMENT_NPC_ACTOR_TYPE]:
 		conversation_understanding_rolls = []
 		npc_understanding = 100
 	else:
@@ -1113,7 +1401,53 @@ func advance_typed_reality_character() -> Dictionary:
 		conversation_reward = _resolve_doll_choice_attempt()
 		result["reward"] = conversation_reward.duplicate(true)
 		conversation_feedback += "\n" + str(conversation_reward.get("feedback", ""))
+	elif conversation_actor_type == ChapterOneProgressScript.BASEMENT_NPC_ACTOR_TYPE:
+		_deliver_basement_round()
 	return result
+
+
+## The basement NPC's conversation was finished: an escape of the room may hold now. Once its help opened the exit
+## door the NPC says so; without this round's post and with the exit shut it sends the player back to the computer.
+func _deliver_basement_round() -> void:
+	var posted := has_posted_this_round()
+	# A door a rule already opened is not the NPC's doing, so it says nothing of helping.
+	var door_was_open := ChapterOneProgressScript.door_open(chapter_one_progress)
+	_open_exit_if_escaped(posted)
+	var locale := GameLocaleScript.for_locale(conversation_locale)
+	if posted and not door_was_open and ChapterOneProgressScript.door_open(chapter_one_progress):
+		conversation_feedback += "\n" + locale.translate(BASEMENT_HELPED_LINE)
+	elif not posted and not ChapterOneProgressScript.exit_open(chapter_one_progress):
+		conversation_feedback += "\n" + locale.translate(BASEMENT_NO_POST_LINE)
+	if posted:
+		_give_hidden_item(RoomRulesScript.gift(_current_room()), locale)
+
+
+## A save hands back only known items, each once.
+func _normalize_hidden_items() -> void:
+	_write_run_list(PropertyKeysScript.HIDDEN_ITEMS, HiddenItemsScript.known_ids(hidden_items))
+
+
+func has_hidden_item(item_id: String) -> bool:
+	return hidden_items.has(item_id)
+
+
+## The helped NPC hands over its room's gift once (#130), naming it and its line in the conversation's language.
+func _give_hidden_item(item_id: String, locale: BabelGameLocale) -> void:
+	if item_id.is_empty() or has_hidden_item(item_id) or not HiddenItemsScript.is_known(item_id):
+		return
+	_run_list(PropertyKeysScript.HIDDEN_ITEMS).add(item_id)
+	var line := locale.translate(HIDDEN_ITEM_GIVEN_LINE) % [
+		HiddenItemsScript.item_name(item_id, conversation_locale),
+		HiddenItemsScript.description(item_id, conversation_locale),
+	]
+	conversation_feedback += "\n" + line
+
+
+## Makes the objects of the room's escapes that hold its exits. Once open an exit stays open, whatever is posted later.
+func _open_exit_if_escaped(talked_with_post: bool = false) -> void:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	var objects := RoomRulesScript.open_exits(_current_room(), world_rules, current_round, talked_with_post)
+	_step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, objects))
 
 
 func _resolve_key_npc_clue_attempt() -> Dictionary:
@@ -1140,7 +1474,7 @@ func _resolve_key_npc_clue_attempt() -> Dictionary:
 		"solved": bool(previous.get("solved", false)) or solved,
 	}
 	key_clue_progress[progress_key] = progress
-	var item := get_prerequisite_item_for_floor(floor_number)
+	var item := get_prerequisite_item_for_floor(floor_number, "zh")
 	var item_id := str(item.get("id", ""))
 	var newly_revealed := false
 	var feedback := str(key_dialogue.get("failure_line", "对方没有说出地点。"))
@@ -1190,7 +1524,7 @@ func _resolve_doll_choice_attempt() -> Dictionary:
 	var encounter: Dictionary = LanguageCorruptionContentScript.get_doll_encounter_by_id(conversation_actor_id)
 	var choice: Dictionary = _doll_choice_by_id(encounter, conversation_selected_choice_id)
 	var reward := {
-		"kind": "guide_tutorial",
+		"kind": "doll_guidance",
 		"doll_id": conversation_actor_id,
 		"choice_id": conversation_selected_choice_id,
 		"guided": false,
@@ -1218,8 +1552,7 @@ func _resolve_doll_choice_attempt() -> Dictionary:
 	doll_choice_results[conversation_actor_id] = result_record
 	reward["guided"] = true
 	reward["feedback"] = str(choice.get("guide_feedback", "它让你先照做，理由可以晚一点再问。"))
-	event_log.push_front("缝线布偶指向了下一步。")
-	notify_tutorial("guide_found", {"doll_id": conversation_actor_id})
+	record_event("缝线布偶指向了下一步。")
 	return reward
 
 
@@ -1239,18 +1572,15 @@ func get_typed_reality_unrevealed_suffix() -> String:
 	return suffix
 
 
-func get_typed_reality_unit_count() -> int:
-	return conversation_clean_units.size()
-
-
 func _conversation_units(sentence: String) -> Array[String]:
 	return GameLocaleScript.split_dialogue_units(sentence, conversation_locale)
 
 
 func _conversation_corruption_text(roll: int, character_index: int) -> String:
-	if not completed_memes.is_empty() and posmod(roll + character_index, 3) == 0:
-		var meme_index := posmod(roll + conversation_attempts + character_index, completed_memes.size())
-		var meme: Dictionary = completed_memes[meme_index]
+	var memes := completed_memes
+	if not memes.is_empty() and posmod(roll + character_index, 3) == 0:
+		var meme_index := posmod(roll + conversation_attempts + character_index, memes.size())
+		var meme: Dictionary = memes[meme_index]
 		var meme_text := str(meme.get("title", meme.get("text", ""))).strip_edges()
 		if not meme_text.is_empty():
 			return meme_text.substr(0, mini(4, meme_text.length()))
@@ -1284,23 +1614,6 @@ func _conversation_roll(channel: String, character_index: int, check_index: int)
 	return posmod(int(hash(key)), 100)
 
 
-func settle_day_if_needed() -> bool:
-	# A completed interaction is now the story boundary; there is no daily
-	# budget, reset or forced discard of the player's notebook draft.
-	needs_day_settlement = false
-	day_ended_reason = ""
-	if _is_chapter_practice():
-		return false
-	var previous_floor := tower_floor
-	var previous_ending := ending_unlocked
-	_resolve_tower_step()
-	if previous_floor != tower_floor:
-		day += 1 # Legacy narrative visit index, never an action allowance.
-		reset_reality_phase_for_day()
-		reset_typed_reality_conversation()
-	return previous_floor != tower_floor or previous_ending != ending_unlocked
-
-
 func pick_token(post_id: String, token: Dictionary) -> bool:
 	var content_locale := str(token.get("content_locale", "zh"))
 	var picked_text := str(token.get("text", "")).strip_edges()
@@ -1328,15 +1641,13 @@ func pick_token(post_id: String, token: Dictionary) -> bool:
 	for existing in notebook_tokens:
 		if existing.get("id", "") == note["id"]:
 			return false
-	if not spend_action("pick-token"):
-		return false
-	notebook_tokens.append(note)
-	notify_tutorial("collect_word", {"token_id": str(note.get("id", ""))})
+	_run_list(PropertyKeysScript.NOTEBOOK_TOKENS).add(note)
 	return true
 
 
+## The words the posts drop now: the round's room with the pollution so far (`WordDrop`), or the whole pool off the basement.
 func get_pickup_unit_pool(locale_code: String = "zh") -> Array:
-	return PickupCharPoolScript.get_unit_pool(locale_code)
+	return RoomContentScript.words(ChapterOneProgressScript.round_of(chapter_one_progress), locale_code, room_data_path, polluted_words, pollution_policy)
 
 
 func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
@@ -1347,8 +1658,13 @@ func is_social_char_collected(unit: String, locale_code: String = "zh") -> bool:
 
 
 func get_collected_char_units(locale_code: String = "zh") -> Array[String]:
+	return char_units_for_locale(collected_char_units, locale_code)
+
+
+## The held words of one language, in pick order, from the entries the held-word model stores.
+static func char_units_for_locale(entries: Array, locale_code: String) -> Array[String]:
 	var result: Array[String] = []
-	for entry in collected_char_units:
+	for entry in entries:
 		if entry is Dictionary and str((entry as Dictionary).get("locale", "zh")) == locale_code:
 			var unit := str((entry as Dictionary).get("unit", ""))
 			if not unit.is_empty() and unit not in result:
@@ -1356,12 +1672,17 @@ func get_collected_char_units(locale_code: String = "zh") -> Array[String]:
 	return result
 
 
-## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。
-## 计费规则:每天第一次拾字消耗 1 行动,相当于刷一次手机;当天后续拾字免费。
+## 拾取帖文中的单个语言单位(中文单字/日文单词/英文单词)。拾取不限次数;成功的拾取是一次有效互动,之后检查进度。
 func pick_social_char(post_id: String, unit: String, locale_code: String = "zh") -> Dictionary:
-	var result := {"picked": false, "reason": "", "action_spent": false}
+	var result := _pick_social_char(post_id, unit, locale_code)
+	result["outcome"] = _finish_interaction() if bool(result.get("picked", false)) else _refused_outcome()
+	return result
+
+
+func _pick_social_char(post_id: String, unit: String, locale_code: String) -> Dictionary:
+	var result := {"picked": false, "reason": ""}
 	var normalized_unit := unit.strip_edges()
-	if normalized_unit.is_empty() or not PickupCharPoolScript.is_unit_in_pool(normalized_unit, locale_code):
+	if normalized_unit.is_empty() or normalized_unit not in get_pickup_unit_pool(locale_code):
 		result["reason"] = "not-in-pool"
 		return result
 	if not PickupCharPoolScript.is_unit_seeded_in_post(post_id, normalized_unit, locale_code):
@@ -1370,32 +1691,20 @@ func pick_social_char(post_id: String, unit: String, locale_code: String = "zh")
 	if is_social_char_collected(normalized_unit, locale_code):
 		result["reason"] = "duplicate"
 		return result
-	var needs_action := last_char_pick_day != day
-	if needs_action:
-		if not can_spend_action():
-			result["reason"] = "no-actions"
-			return result
-		var previous_actions := actions_remaining
-		if not spend_action("pick-char"):
-			result["reason"] = "no-actions"
-			return result
-		result["action_spent"] = actions_remaining < previous_actions
-	collected_char_units.append({
+	_run_list(PropertyKeysScript.COLLECTED_CHAR_UNITS).add({
 		"unit": normalized_unit,
 		"locale": locale_code,
 		"source_post_id": post_id,
 		"day": day,
 	})
-	last_char_pick_day = day
 	result["picked"] = true
-	notify_tutorial("collect_word", {"token_id": "char-%s-%s" % [locale_code, normalized_unit]})
 	return result
 
 
 ## ============ 自由造句(多邻国式词库,无固定主谓宾)与世界规则 ============
 
 func get_free_sentence_units() -> Array:
-	return free_sentence_units.duplicate()
+	return free_sentence_units
 
 
 func free_sentence_place(unit: String, locale_code: String = "zh") -> bool:
@@ -1406,14 +1715,14 @@ func free_sentence_place(unit: String, locale_code: String = "zh") -> bool:
 		return false
 	if normalized_unit in free_sentence_units:
 		return false
-	free_sentence_units.append(normalized_unit)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).add(normalized_unit)
 	return true
 
 
 func free_sentence_remove(unit_index: int) -> bool:
 	if unit_index < 0 or unit_index >= free_sentence_units.size():
 		return false
-	free_sentence_units.remove_at(unit_index)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).remove_at(unit_index)
 	return true
 
 
@@ -1422,112 +1731,247 @@ func free_sentence_place_at(unit: String, insert_index: int, locale_code: String
 	var normalized_unit := unit.strip_edges()
 	if normalized_unit.is_empty() or not is_social_char_collected(normalized_unit, locale_code):
 		return false
-	if normalized_unit in free_sentence_units:
+	var units := free_sentence_units
+	if normalized_unit in units:
 		return false
-	free_sentence_units.insert(clampi(insert_index, 0, free_sentence_units.size()), normalized_unit)
+	_run_list(PropertyKeysScript.FREE_SENTENCE_UNITS).insert_at(clampi(insert_index, 0, units.size()), normalized_unit)
 	return true
 
 
 ## 拖拽支持:答案区内重排。to_index 是移除后的目标位置(越界即句尾)。
 func free_sentence_move(from_index: int, to_index: int) -> bool:
-	if from_index < 0 or from_index >= free_sentence_units.size():
+	var units := free_sentence_units
+	if from_index < 0 or from_index >= units.size():
 		return false
-	var moved_unit: Variant = free_sentence_units[from_index]
-	free_sentence_units.remove_at(from_index)
-	free_sentence_units.insert(clampi(to_index, 0, free_sentence_units.size()), moved_unit)
+	var moved_unit: Variant = units[from_index]
+	units.remove_at(from_index)
+	units.insert(clampi(to_index, 0, units.size()), moved_unit)
+	free_sentence_units = units
 	return true
 
 
 func free_sentence_clear() -> void:
-	free_sentence_units.clear()
+	free_sentence_units = []
+
+
+## The units of a language that show as red garble here.
+func get_polluted_units(locale_code: String = "zh") -> Array:
+	return PollutionPolicyScript.polluted_units(polluted_words, locale_code, _current_room(), pollution_policy)
 
 
 func get_free_sentence_text(locale_code: String = "zh") -> String:
+	return sentence_text(free_sentence_units, locale_code)
+
+
+## English words are spaced; the other locales join units directly.
+static func sentence_text(units: Array, locale_code: String) -> String:
 	var separator := " " if locale_code == "en" else ""
 	var pieces: Array[String] = []
-	for unit in free_sentence_units:
+	for unit in units:
 		pieces.append(str(unit))
 	return separator.join(pieces)
 
 
 func is_world_rule_active(rule_key: String) -> bool:
-	if not world_rules.has(rule_key):
+	var rules := world_rules
+	if not rules.has(rule_key):
 		return false
-	return not bool((world_rules[rule_key] as Dictionary).get("negated", false))
+	return not bool((rules[rule_key] as Dictionary).get("negated", false))
 
 
 func get_world_rules() -> Array:
+	return world_rule_list(world_rules)
+
+
+## The basement room as its one-shot events and rules in force left it: brightness, hum, lights and objects. Empty
+## outside the basement.
+func room_world_state() -> Dictionary:
+	var progress := chapter_one_progress
+	var current_round := ChapterOneProgressScript.round_of(progress)
+	return RoomRulesScript.world_state(_current_room(), world_rules, current_round, ChapterOneProgressScript.started_events(progress), ChapterOneProgressScript.ended_events(progress))
+
+
+## The one-shot events of the basement round being played, as its room lists them (#114); empty outside the basement.
+func basement_room_events() -> Array:
+	return RoomContentScript.events(ChapterOneProgressScript.round_of(chapter_one_progress), room_data_path)
+
+
+## The ids of this round's events that have started, so the stage never plays one twice.
+func basement_started_events() -> Array:
+	return ChapterOneProgressScript.started_events(chapter_one_progress)
+
+
+## The ids of this round's events the light switch ended.
+func basement_ended_events() -> Array:
+	return ChapterOneProgressScript.ended_events(chapter_one_progress)
+
+
+## The stage started the room's one-shot event `event_id`: it is saved at once, so a save never replays it. False for an
+## event the room lacks or one that already started.
+func start_room_event(event_id: String) -> bool:
+	if not basement_room_events().any(func(event: Dictionary) -> bool: return event.get("id") == event_id):
+		return false
+	return _step_chapter_one(ChapterOneProgressScript.start_event(chapter_one_progress, event_id))
+
+
+## The player pressed the light switch while `event_ids` went on: those of them the switch can end are over. False when
+## the switch ended nothing.
+func end_room_events(event_ids: Array) -> bool:
+	var endable: Array = []
+	for event: Dictionary in basement_room_events():
+		var ends: Variant = event.get("switch_ends", false)
+		if event.get("id") in event_ids and ends is bool and ends:
+			endable.append(event["id"])
+	return _step_chapter_one(ChapterOneProgressScript.end_events(chapter_one_progress, endable))
+
+
+## The objects this basement round has made its exits (#144), in the order they opened; empty outside the basement.
+func basement_exits() -> Array:
+	return ChapterOneProgressScript.exits(chapter_one_progress)
+
+
+## The objects the basement round being played hides a way out at, shown only through the X-ray (#127); empty outside
+## the basement.
+func basement_xray_objects() -> Array:
+	return RoomRulesScript.xray_objects(_current_room())
+
+
+## The player looked at `objects` through the X-ray: any of them the round hides a way out at becomes its exit, with no
+## post. False when nothing new opened.
+func see_through_xray(objects: Array) -> bool:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	var opened := RoomRulesScript.open_exits(_current_room(), {}, current_round, false, objects)
+	return _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, opened))
+
+
+## Whether the basement round being played stands its NPC: only a room that opens by the NPC's conversation does.
+## False outside the basement.
+func basement_npc_stands() -> bool:
+	return RoomRulesScript.stands_npc(_current_room())
+
+
+## The room of the basement round being played, or empty outside the basement.
+func _current_room() -> Dictionary:
+	return RoomContentScript.room(ChapterOneProgressScript.round_of(chapter_one_progress), room_data_path)
+
+
+## A room's rules hold in that room only. The tower's rules carry no round and stay.
+func _forget_room_rules() -> void:
+	var kept := {}
+	var rules := world_rules
+	for rule_key in rules:
+		var rule: Variant = rules[rule_key]
+		if not rule is Dictionary or int(rule.get("round", 0)) == 0:
+			kept[rule_key] = rule
+	world_rules = kept
+
+
+## The rules map as a list, each rule carrying its own key.
+static func world_rule_list(rules: Dictionary) -> Array:
 	var result: Array = []
-	for rule_key in world_rules.keys():
-		var rule: Dictionary = (world_rules[rule_key] as Dictionary).duplicate(true)
+	for rule_key in rules.keys():
+		var rule: Dictionary = (rules[rule_key] as Dictionary).duplicate(true)
 		rule["key"] = str(rule_key)
 		result.append(rule)
 	return result
 
 
-## 投稿:随时可结束造句(≥1 个单位即可),消耗 1 行动。
+## 投稿:随时可结束造句(≥1 个单位即可),不限次数;成功的投稿是一次有效互动,之后检查进度。
 ## 三层响应:rule(规则生效,世界异变)/ misread(世界误读)/ noise(噪声回应)。
 func submit_free_sentence(locale_code: String = "zh") -> Dictionary:
+	var result := _submit_free_sentence(locale_code)
+	if not bool(result.get("submitted", false)):
+		result["outcome"] = _refused_outcome()
+		return result
+	# 刚让出口存在的这一句不立即进入结局:玩家先看见出口,下一次有效互动完成时才结算。
+	result["outcome"] = _finish_interaction(bool(result.get("floor4_task_completed", false)))
+	return result
+
+
+## Whether a post was made in the basement round being played. Outside the basement there is no round to ask about.
+func has_posted_this_round() -> bool:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	if current_round <= 0:
+		return false
+	for record in published_memes:
+		if record is Dictionary and str(record.get("kind", "")) == "free_sentence" and int(record.get("round", 0)) == current_round:
+			return true
+	return false
+
+
+func _submit_free_sentence(locale_code: String) -> Dictionary:
 	var result := {
 		"submitted": false, "reason": "", "tier": "", "rule_key": "", "negated": false,
-		"sentence": "", "money_gain": 0, "pollution_gain": 0,
-		"floor3_task_completed": false, "floor4_task_completed": false,
+		"sentence": "", "pollution_gain": 0,
+		"floor3_task_completed": false, "floor4_task_completed": false, "voided": false,
 	}
-	if free_sentence_units.is_empty():
+	var units := free_sentence_units
+	if units.is_empty():
 		result["reason"] = "empty"
 		return result
-	if not can_spend_action():
-		result["reason"] = "no-actions"
-		return result
-	var sentence := get_free_sentence_text(locale_code)
-	var parsed: Dictionary = RuleEngineScript.parse(free_sentence_units, locale_code)
-	if not spend_action("free-sentence-publish"):
-		result["reason"] = "no-actions"
-		return result
-	var unit_count := free_sentence_units.size()
+	var sentence := sentence_text(units, locale_code)
+	var parsed := _judge_sentence(units, locale_code)
+	var unit_count := units.size()
 	var tier := str(parsed.get("tier", "noise"))
-	var money_gain := 0
 	var pollution_gain := clampi(2 + unit_count + (2 if tier == "rule" else 0), 2, 12)
 	var record := {
 		"id": "free-%d-%d" % [day, published_memes.size() + 1],
 		"kind": "free_sentence",
 		"title": "投稿「%s」" % sentence,
 		"text": sentence,
-		"units": free_sentence_units.duplicate(),
+		"shown_text": sentence_text(PollutionPolicyScript.shown_units(units, get_polluted_units(locale_code)), locale_code),
+		"units": units,
 		"tier": tier,
 		"rule_key": str(parsed.get("rule_key", "")),
 		"negated": bool(parsed.get("negated", false)),
+		"voided": bool(parsed.get("voided", false)),
 		"floor": tower_floor,
 		"published_day": day,
-		"money_gain": money_gain,
+		"round": ChapterOneProgressScript.round_of(chapter_one_progress),
 		"pollution_gain": pollution_gain,
 		"content_locale": locale_code,
 	}
-	if _is_basement_practice():
-		var chapter_progress := BasementLoopDirectorScript.normalize_progress(chapter1_progress)
-		record["chapter_task_id"] = BasementLoopDirectorScript.get_current_round(chapter_progress).task_id
-		record["chapter_round_token"] = chapter_progress.transition_serial
-	published_memes.push_front(record)
+	_run_list(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, record)
 	sentence_records.append(record.duplicate(true))
 	last_clean_sentence = sentence
 	if tier == "rule":
 		var floor3_before := floor3_task_complete
 		var floor4_before := floor4_task_complete
 		_apply_world_rule(parsed, sentence, locale_code)
+		_pollute_subject(parsed, units, locale_code)
+		_open_exit_if_escaped()
 		result["floor3_task_completed"] = floor3_task_complete and not floor3_before
 		result["floor4_task_completed"] = floor4_task_complete and not floor4_before
 	change_pollution(pollution_gain)
-	free_sentence_units.clear()
-	notify_tutorial("sentence_composed", {"sentence": sentence})
-	notify_tutorial("sentence_published", {"sentence": sentence})
+	free_sentence_units = []
 	result["submitted"] = true
 	result["tier"] = tier
 	result["rule_key"] = str(parsed.get("rule_key", ""))
 	result["negated"] = bool(parsed.get("negated", false))
+	result["voided"] = bool(parsed.get("voided", false))
 	result["sentence"] = sentence
-	result["money_gain"] = money_gain
 	result["pollution_gain"] = pollution_gain
 	return result
+
+
+## In a basement round the round's room judges the sentence; elsewhere the rule engine's own table does.
+func _judge_sentence(units: Array, locale_code: String) -> Dictionary:
+	var current_round := ChapterOneProgressScript.round_of(chapter_one_progress)
+	if current_round <= 0:
+		return RuleEngineScript.parse(units, locale_code)
+	var judged := RoomRulesScript.judge(units, locale_code, _current_room())
+	if PollutionPolicyScript.voids(judged, units, locale_code, _current_room(), polluted_words, pollution_policy):
+		return PollutionPolicyScript.voided(judged)
+	return judged
+
+
+## A red post of a basement round uses up its subject, unless this round's exit already stands open. The tower pollutes no word.
+func _pollute_subject(parsed: Dictionary, units: Array, locale_code: String) -> void:
+	var progress := chapter_one_progress
+	if ChapterOneProgressScript.round_of(progress) <= 0:
+		return
+	if PollutionPolicyScript.may_pollute(ChapterOneProgressScript.exit_open(progress), pollution_policy):
+		polluted_words = PollutionPolicyScript.pollute(polluted_words, units, str(parsed.get("subject", "")), locale_code, _current_room(), pollution_policy)
 
 
 func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String) -> void:
@@ -1535,35 +1979,36 @@ func _apply_world_rule(parsed: Dictionary, sentence: String, locale_code: String
 	if rule_key.is_empty():
 		return
 	# Baba 式冲突消解:同键新规则覆盖旧规则;否定即压制既有正例。
-	world_rules[rule_key] = {
+	_put_run_map_entry(PropertyKeysScript.WORLD_RULES, rule_key, {
 		"negated": bool(parsed.get("negated", false)),
 		"source_text": sentence,
 		"locale": locale_code,
 		"day": day,
 		"floor": tower_floor,
-	}
+		"round": ChapterOneProgressScript.round_of(chapter_one_progress),
+	})
 	if not bool(parsed.get("negated", false)):
 		match rule_key:
 			"door|can_open":
-				event_log.push_front("有一句话贴上了门。")
+				record_event("有一句话贴上了门。")
 			"exit|exists":
-				event_log.push_front("有一句话在找它的出口。")
+				record_event("有一句话在找它的出口。")
 			"light|lit":
-				event_log.push_front("有一盏灯听懂了。")
+				record_event("有一盏灯听懂了。")
 	_latch_ultimate_tasks_for_current_floor()
 
 
 ## 终极任务在规则生效、抵达楼层与读档三个时机都会重扫:
 ## 早于楼层写下的规则,到层后依然兑现;任务一旦达成即锁存,不被后续否定收回。
-## 第四层的隐藏结局不在此立即解锁——按规格只在日结边界结算(见 _resolve_tower_step),
-## 玩家先看见出口出现,下一次边界才进入结局。
+## 第四层的隐藏结局不在此立即解锁——只在有效互动完成后的进度检查结算(见 _resolve_tower_step),
+## 玩家先看见出口出现,下一次有效互动完成时才进入结局。
 func _latch_ultimate_tasks_for_current_floor() -> void:
 	if tower_floor == 3 and not floor3_task_complete and is_world_rule_active("door|can_open"):
 		floor3_task_complete = true
-		event_log.push_front("第三层的门开了。")
+		record_event("第三层的门开了。")
 	if tower_floor == 4 and not floor4_task_complete and is_world_rule_active("exit|exists"):
 		floor4_task_complete = true
-		event_log.push_front("出口开始存在。")
+		record_event("出口开始存在。")
 
 
 ## ============ 笔记本字词画布:字被拾取后一直留在画布上,位置可自由拖动 ============
@@ -1574,8 +2019,9 @@ const CHAR_CANVAS_TILE := Vector2(44.0, 40.0)
 
 func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vector2:
 	var key := "%s|%s" % [locale_code, unit]
-	if char_canvas_positions.has(key):
-		var stored: Variant = char_canvas_positions[key]
+	var positions := char_canvas_positions
+	if positions.has(key):
+		var stored: Variant = positions[key]
 		if stored is Vector2:
 			return stored
 		if stored is Array and (stored as Array).size() == 2:
@@ -1583,11 +2029,29 @@ func get_char_canvas_position(unit: String, locale_code: String = "zh") -> Vecto
 	return _default_char_canvas_position(unit, locale_code)
 
 
-func set_char_canvas_position(unit: String, position: Vector2, locale_code: String = "zh") -> void:
-	# Phone and CRT have different live dimensions. The canvas, not this
-	# legacy spawn-layout constant, owns its actual collision boundaries.
-	if position.is_finite():
-		char_canvas_positions["%s|%s" % [locale_code, unit]] = [maxf(0.0, position.x), maxf(0.0, position.y)]
+## The canvas hands over every resting tile at once (before it closes, redraws, or saves).
+## The map model is written once, and not at all when nothing moved.
+func set_char_canvas_positions(tile_positions: Dictionary, locale_code: String = "zh") -> void:
+	var positions := char_canvas_positions
+	var moved := false
+	for unit in tile_positions.keys():
+		var position: Vector2 = tile_positions[unit]
+		var clamped := Vector2(
+			clampf(position.x, 0.0, CHAR_CANVAS_SIZE.x - CHAR_CANVAS_TILE.x),
+			clampf(position.y, 0.0, CHAR_CANVAS_SIZE.y - CHAR_CANVAS_TILE.y)
+		)
+		var key := "%s|%s" % [locale_code, str(unit)]
+		var stored: Variant = positions.get(key, null)
+		if stored is Array and (stored as Array).size() == 2:
+			if Vector2(float(stored[0]), float(stored[1])).is_equal_approx(clamped):
+				continue
+		positions[key] = [clamped.x, clamped.y]
+		moved = true
+	if not moved:
+		return
+	var model: MapPropertyModel = _run_model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	if model != null:
+		model.replace_all(positions)
 
 
 ## 新拾取的字从画布上方落下:横向按顺序错开,纵向给一点高度差,
@@ -1655,6 +2119,24 @@ func get_player_echo_quote(locale_code: String = "zh") -> String:
 	return EchoQuoteContentScript.reattribute(source, locale_code)
 
 
+func get_inventory_snapshot() -> Dictionary:
+	var craft_slot_fills := {}
+	var drafts := draft_slots
+	for slot_def: Dictionary in LANGUAGE_RECIPE_SLOTS:
+		var slot_id := str(slot_def.get("id", ""))
+		if not drafts.has(slot_id):
+			continue
+		var token := _find_token(str(drafts[slot_id]))
+		if not token.is_empty():
+			craft_slot_fills[slot_id] = str(token.get("text", ""))
+	return {
+		"completed_memes": completed_memes,
+		"notebook_token_count": notebook_tokens.size(),
+		"draft_slots": drafts,
+		"craft_slot_fills": craft_slot_fills,
+	}
+
+
 func get_craft_slots() -> Array:
 	return LANGUAGE_RECIPE_SLOTS.duplicate(true)
 
@@ -1677,7 +2159,7 @@ func place_token_in_slot(slot_id: String, token_id: String) -> bool:
 	var token_roles: Array = token.get("grammar_roles", [])
 	if accepted_role not in token_roles:
 		return false
-	draft_slots[slot_id] = token_id
+	_put_run_map_entry(PropertyKeysScript.DRAFT_SLOTS, slot_id, token_id)
 	return true
 
 
@@ -1687,8 +2169,6 @@ func confirm_craft() -> bool:
 		return false
 	var composition: Dictionary = LanguageBridgeScript.compose_sentence(draft_slots, notebook_tokens, "phone", conversation_locale)
 	if not bool(composition.get("valid", false)):
-		return false
-	if not spend_action("craft-meme"):
 		return false
 	var token_ids: Array = composition.get("token_ids", [])
 	var tags: Array = []
@@ -1709,212 +2189,40 @@ func confirm_craft() -> bool:
 		"tags": tags,
 		"rarity": _meme_rarity_from_tags(tags),
 		"pollution_bias": maxi(1, rarity_total - token_ids.size()),
-		"fusion_level": 0,
 		"unit_count": token_ids.size(),
 		"created_day": day,
 	}
-	completed_memes.push_front(meme)
-	draft_slots.clear()
-	notify_tutorial("sentence_composed", {"meme_id": str(meme.get("id", ""))})
+	_run_list(PropertyKeysScript.COMPLETED_MEMES).insert_at(0, meme)
+	draft_slots = {}
 	return true
 
 
-func place_meme_in_fusion_slot(slot_id: String, meme_id: String) -> bool:
-	if slot_id != "left" and slot_id != "right":
-		return false
-	if _find_completed_meme_index(meme_id) < 0:
-		return false
-	var other_slot := "right" if slot_id == "left" else "left"
-	if str(fusion_slots.get(other_slot, "")) == meme_id:
-		return false
-	fusion_slots[slot_id] = meme_id
-	return true
-
-
-func confirm_meme_fusion() -> bool:
-	var left_id := str(fusion_slots.get("left", ""))
-	var right_id := str(fusion_slots.get("right", ""))
-	if left_id.is_empty() or right_id.is_empty() or left_id == right_id:
-		return false
-	var left_index := _find_completed_meme_index(left_id)
-	var right_index := _find_completed_meme_index(right_id)
-	if left_index < 0 or right_index < 0:
-		return false
-	var pair_ids: Array[String] = [left_id, right_id]
-	pair_ids.sort()
-	var pair_key := "%s+%s" % [pair_ids[0], pair_ids[1]]
-	if pair_key in fused_meme_pairs:
-		return false
-	if not spend_action("fuse-memes"):
-		return false
-	var left: Dictionary = completed_memes[left_index]
-	var right: Dictionary = completed_memes[right_index]
-	var fusion_level := mini(3, maxi(int(left.get("fusion_level", 0)), int(right.get("fusion_level", 0))) + 1)
-	var tags: Array = _unique((left.get("tags", []) as Array) + (right.get("tags", []) as Array))
-	var left_text := str(left.get("text", ""))
-	var right_text := str(right.get("text", ""))
-	var fused_text := "%s%s" % [left_text, right_text]
-	var meme := {
-		"id": "fusion-%d-%d" % [day, completed_memes.size() + 1],
-		"title": "复合「%s」" % fused_text,
-		"text": fused_text,
-		"tags": tags,
-		"rarity": clampi(maxi(int(left.get("rarity", 1)), int(right.get("rarity", 1))) + 1, 1, 5),
-		"pollution_bias": int(left.get("pollution_bias", 0)) + int(right.get("pollution_bias", 0)) + 6 + fusion_level * 2,
-		"fusion_level": fusion_level,
-		"unit_count": maxi(2, int(left.get("unit_count", 1)) + int(right.get("unit_count", 1))),
-		"fused_from": pair_ids,
-		"created_day": day,
+func get_progression_snapshot() -> Dictionary:
+	return {
+		"ending_unlocked": ending_unlocked,
+		"ending_route": ending_route,
+		"formal_floor_three_complete": formal_floor_three_complete,
+		"floor3_task_complete": floor3_task_complete,
+		"floor4_task_complete": floor4_task_complete,
 	}
-	completed_memes.push_front(meme)
-	fused_meme_pairs.append(pair_key)
-	fusion_slots.clear()
-	change_pollution(3 + fusion_level * 2)
-	event_log.push_front("两个旧梗粘在一起。新梗更响，也更脏。")
-	return true
 
 
-func place_meme_in_blank(blank_id: String, meme_id: String) -> bool:
-	dialogue_blanks[blank_id] = meme_id
-	return true
+## A valid interaction (a post, a finished conversation, a pickup) completed: the progress check runs, and the
+## outcome takes the pending flashback and says whether the floor moved. A post that just made the exit exist
+## holds the hidden ending back for the next interaction.
+func _finish_interaction(exit_just_appeared: bool = false) -> ActionOutcomeScript:
+	var floor_before := tower_floor
+	_resolve_tower_step(not exit_just_appeared)
+	var outcome := ActionOutcomeScript.new()
+	outcome.succeeded = true
+	outcome.flashback = consume_pollution_flashback()
+	outcome.floor_changed = tower_floor != floor_before
+	return outcome
 
 
-func confirm_dialogue() -> bool:
-	var meme := _get_first_placed_meme()
-	if meme.is_empty():
-		return false
-	var publish_result := get_publish_result(meme)
-	if not spend_action("confirm-dialogue"):
-		return false
-	last_publish_result = publish_result.duplicate(true)
-	change_pollution(int(publish_result.get("pollution_gain", 0)))
-	var record: Dictionary = meme.duplicate(true)
-	record["floor"] = tower_floor
-	record["money_gain"] = int(publish_result.get("money_gain", 0))
-	record["pollution_gain"] = int(publish_result.get("pollution_gain", 0))
-	record["published_day"] = day
-	published_memes.push_front(record)
-	var published_token_ids: Array = record.get("token_ids", [])
-	if not published_token_ids.is_empty():
-		notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, published_token_ids, "phone")
-	dialogue_blanks.clear()
-	event_log.push_front("发布完成。")
-	notify_tutorial("sentence_published", {"meme_id": str(record.get("id", ""))})
-	return true
-
-
-func get_language_token_options(world: String = "doctor") -> Array:
-	var result: Array = []
-	for token_value in notebook_tokens:
-		if not token_value is Dictionary:
-			continue
-		var token: Dictionary = token_value
-		var used_worlds: Array = token.get("used_worlds", [])
-		if world == "doctor" and "phone" not in used_worlds:
-			continue
-		var option := token.duplicate(true)
-		option["display_text"] = LanguageBridgeScript.token_surface(token, world)
-		result.append(option)
-	return result
-
-
-func place_language_token(slot_id: String, token_id: String, world: String = "doctor") -> bool:
-	var token := _find_token(token_id)
-	if token.is_empty():
-		return false
-	var is_available := false
-	for option: Dictionary in get_language_token_options(world):
-		if str(option.get("id", "")) == token_id:
-			is_available = true
-			break
-	if not is_available:
-		return false
-	var accepted_role := ""
-	for slot: Dictionary in LANGUAGE_RECIPE_SLOTS:
-		if str(slot.get("id", "")) == slot_id:
-			accepted_role = str(slot.get("accepted_role", ""))
-			break
-	if accepted_role.is_empty():
-		return false
-	var token_roles: Array = token.get("grammar_roles", [])
-	if accepted_role not in token_roles:
-		return false
-	language_sentence_slots[slot_id] = token_id
-	conversation_selected_token_ids = []
-	for recipe_slot: Dictionary in LANGUAGE_RECIPE_SLOTS:
-		var selected_id := str(language_sentence_slots.get(str(recipe_slot.get("id", "")), ""))
-		if not selected_id.is_empty():
-			conversation_selected_token_ids.append(selected_id)
-	return true
-
-
-func clear_language_sentence() -> void:
-	language_sentence_slots.clear()
-	conversation_selected_token_ids.clear()
-
-
-func get_language_sentence_preview(world: String = "doctor") -> Dictionary:
-	return LanguageBridgeScript.compose_sentence(language_sentence_slots, notebook_tokens, world, conversation_locale)
-
-
-func confirm_doctor_sentence() -> bool:
-	if conversation_mode != "lexeme" or conversation_phase != "composing":
-		return false
-	var composition := get_language_sentence_preview("doctor")
-	if not bool(composition.get("valid", false)):
-		return false
-	if not spend_action("doctor-dialogue"):
-		return false
-
-	var token_ids: Array = composition.get("token_ids", [])
-	var doctor_sentence := str(composition.get("world_sentence", ""))
-	last_clean_sentence = str(composition.get("clean_sentence", doctor_sentence))
-	last_polluted_sentence = pollute_reality_sentence(doctor_sentence, pollution)
-	notebook_tokens = LanguageBridgeScript.mark_tokens_used(notebook_tokens, token_ids, "doctor")
-	var shifted_token_count := _token_count_with_world_shift(token_ids, "doctor")
-	var distortion_penalty := 10 if last_polluted_sentence != doctor_sentence else 0
-	npc_understanding = clampi(100 - int(round(float(pollution) * 0.45)) - shifted_token_count * 7 - distortion_penalty, 0, 100)
-	reality_dialogue_count += 1
-	last_relationship_residue_gain = maxi(0, int(ceil(float(maxi(0, 80 - npc_understanding)) / 12.0)))
-	relationship_residue = clampi(relationship_residue + last_relationship_residue_gain, 0, 100)
-	last_relationship_money_loss = 0
-	change_pollution(clampi(2 + shifted_token_count, 2, 8))
-	conversation_clean_sentence = last_clean_sentence
-	conversation_revealed_units = []
-	for index in last_polluted_sentence.length():
-		var clean_unit := last_clean_sentence.substr(index, 1) if index < last_clean_sentence.length() else ""
-		var display_unit := last_polluted_sentence.substr(index, 1)
-		conversation_revealed_units.append({"clean": clean_unit, "display": display_unit, "corrupted": clean_unit != display_unit, "roll": -1})
-	conversation_reveal_index = conversation_revealed_units.size()
-	conversation_clean_units = _conversation_units(last_clean_sentence)
-	conversation_understood = npc_understanding >= 45
-	conversation_action_spent = true
-	conversation_completed = true
-	conversation_feedback = conversation_result_line
-	conversation_phase = "result"
-	reality_phase = "reality_result"
-	var record := {
-		"id": "sentence-%d-%d" % [day, sentence_records.size() + 1],
-		"world": "doctor",
-		"floor": tower_floor,
-		"day": day,
-		"token_ids": token_ids.duplicate(),
-		"lexeme_ids": (composition.get("lexeme_ids", []) as Array).duplicate(),
-		"clean_sentence": last_clean_sentence,
-		"world_sentence": doctor_sentence,
-		"spoken_sentence": last_polluted_sentence,
-		"pollution": pollution,
-		"understanding": npc_understanding,
-	}
-	sentence_records.append(record)
-	conversation_history.append(record.duplicate(true))
-	clear_language_sentence()
-	notify_tutorial("doctor_spoken", {"sentence_id": str(record.get("id", ""))})
-	return true
-
-
-func confirm_reality_dialogue() -> bool:
-	return confirm_doctor_sentence()
+## An attempt that did not count as an interaction checks nothing.
+func _refused_outcome() -> ActionOutcomeScript:
+	return ActionOutcomeScript.new()
 
 
 func get_relationship_state_label() -> String:
@@ -1925,31 +2233,6 @@ func get_relationship_state_label() -> String:
 	if relationship_residue < 70:
 		return "只剩熟悉的语气"
 	return "彼此已无法确认"
-
-
-func pollute_reality_sentence(sentence: String, pollution_value: int, _unused_rules: Array = []) -> String:
-	if pollution_value < 35:
-		return sentence
-	var markers := ["■", "□", "▦", "∴", "//", "≠", "…"]
-	var step := maxi(2, 9 - int(pollution_value / 12))
-	var result := ""
-	for index in sentence.length():
-		var ch := sentence.substr(index, 1)
-		if ch == " ":
-			result += ch
-		elif index % step == 0:
-			result += markers[(index + day) % markers.size()]
-		else:
-			result += ch
-	return result
-
-
-func _get_first_placed_meme() -> Dictionary:
-	for meme_id in dialogue_blanks.values():
-		for meme in completed_memes:
-			if str(meme.get("id", "")) == str(meme_id):
-				return meme
-	return {}
 
 
 func _find_token_text(token_id: String) -> String:
@@ -1971,44 +2254,24 @@ func _find_token_rarity(token_id: String) -> int:
 	return int(_find_token(token_id).get("rarity", 1))
 
 
-func _token_count_with_world_shift(token_ids: Array, world: String) -> int:
-	var shifted := 0
-	for token_id_value in token_ids:
-		var token := _find_token(str(token_id_value))
-		if not token.is_empty() and LanguageBridgeScript.token_surface(token, world) != str(token.get("text", "")):
-			shifted += 1
-	return shifted
-
-
-func get_gameplay_metrics() -> Dictionary:
-	return {"money": money, "pollution": pollution}
-
-
-func get_publish_result(meme: Dictionary) -> Dictionary:
-	if meme.is_empty():
-		return {}
-	var rarity := clampi(int(meme.get("rarity", 1)), 1, 5)
-	var fusion_level := clampi(int(meme.get("fusion_level", 0)), 0, 3)
-	var pollution_bias := maxi(0, int(meme.get("pollution_bias", 0)))
-	return {
-		"money_gain": 0,
-		"pollution_gain": clampi(2 + rarity + fusion_level * 2 + pollution_bias, 1, 30),
-	}
-
-
-func _resolve_tower_step() -> void:
+## The progress check after a valid interaction: the pollution floor step, the floor-three finish and the hidden ending.
+func _resolve_tower_step(may_unlock_hidden_ending: bool = true) -> void:
+	# Chapter one is not on the tower yet: its posts and conversations climb nothing until the crossroads.
+	if ChapterOneProgressScript.phase_of(chapter_one_progress) != ChapterOneProgressScript.PHASE_TOWER:
+		return
 	resolve_floor_transition_at_boundary()
 	if tower_floor == 3 and pollution >= int(POLLUTION_FLOOR_THRESHOLDS[3]) and not formal_floor_three_complete:
 		complete_floor_three()
-	# 第四层终极任务完成后,隐藏结局只在日结边界解锁,不打断出口出现的当下。
-	if tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
+	# 第四层终极任务完成后,隐藏结局只在下一次有效互动完成时解锁,不打断出口出现的当下。
+	if may_unlock_hidden_ending and tower_floor == 4 and ending_route == "hidden" and floor4_task_complete and not ending_unlocked:
 		ending_unlocked = true
-		event_log.push_front("出口承认了你。")
+		record_event("出口承认了你。")
 
 
 func _find_completed_meme_index(meme_id: String) -> int:
-	for index in completed_memes.size():
-		if str(completed_memes[index].get("id", "")) == meme_id:
+	var memes := completed_memes
+	for index in memes.size():
+		if str(memes[index].get("id", "")) == meme_id:
 			return index
 	return -1
 

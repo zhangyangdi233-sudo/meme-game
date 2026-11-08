@@ -1,0 +1,102 @@
+extends SceneTree
+
+const FORBIDDEN_PATTERNS := [
+	"res://scripts/",
+	"MemeGameState",
+	"babel_meme_game",
+	"pollution",
+	"tower_floor",
+	"meme_game_state",
+]
+
+const FORBIDDEN_SESSION_IDS := "\\b(main_menu|prologue|gameplay|narrative|ending)\\b"
+
+const SCAN_SUFFIXES := [".gd", ".py", ".sh", ".txt", ".md"]
+
+var _failures: Array[String] = []
+var _session_id_regex := RegEx.new()
+var _palette_hexes: Array[String] = []
+
+
+func _init() -> void:
+	_session_id_regex.compile(FORBIDDEN_SESSION_IDS)
+	_palette_hexes = _babel_palette_hexes()
+	_scan_directory("res://framework")
+	if _failures.is_empty():
+		print("framework seam tests passed")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _scan_directory(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		_failures.append("framework directory missing: %s" % path)
+		return
+
+	dir.list_dir_begin()
+	var entry_name := dir.get_next()
+	while entry_name != "":
+		if entry_name.begins_with("."):
+			entry_name = dir.get_next()
+			continue
+
+		var entry_path := "%s/%s" % [path, entry_name]
+		if dir.current_is_dir():
+			_scan_directory(entry_path)
+		elif _should_scan(entry_name):
+			_scan_file(entry_path)
+		entry_name = dir.get_next()
+	dir.list_dir_end()
+
+
+func _should_scan(entry_name: String) -> bool:
+	for suffix in SCAN_SUFFIXES:
+		if entry_name.ends_with(suffix):
+			return true
+	return false
+
+
+func _scan_file(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_failures.append("could not read %s" % path)
+		return
+
+	var line_number := 0
+	while not file.eof_reached():
+		line_number += 1
+		var line := file.get_line()
+		for pattern in FORBIDDEN_PATTERNS:
+			if line.find(pattern) != -1:
+				_failures.append(
+					"%s:%d contains forbidden token %s" % [path, line_number, pattern]
+				)
+		var upper_line := line.to_upper()
+		for hex in _palette_hexes:
+			if upper_line.find(hex) != -1:
+				_failures.append(
+					"%s:%d contains Babel palette color %s" % [path, line_number, hex]
+				)
+		var session_hit := _session_id_regex.search(line)
+		if session_hit != null:
+			_failures.append(
+				"%s:%d contains forbidden token %s" % [path, line_number, session_hit.get_string()]
+			)
+	file.close()
+
+
+## Framework must not know Babel's palette (ADR 0001); callers inject colors instead.
+func _babel_palette_hexes() -> Array[String]:
+	var hexes: Array[String] = []
+	for palette in [UiPalette.PALETTE_1, UiPalette.POLLUTION_PALETTE_5]:
+		for role in palette:
+			if role == "name":
+				continue
+			var hex := str(palette[role]).to_upper()
+			if not hexes.has(hex):
+				hexes.append(hex)
+	return hexes

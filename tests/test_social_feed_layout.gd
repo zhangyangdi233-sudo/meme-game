@@ -17,10 +17,9 @@ func _run() -> void:
 	root.add_child(game_root)
 	game_root._locale.set_locale("ja")
 	game_root.new_game()
-	game_root._skip_prologue()
-	game_root._open_app_windows["social"] = true
+	game_root._skip_chapter_one()
 	game_root.game.set_active_app("social")
-	game_root._set_social_screen("home")
+	game_root._social_feed_panel.show_screen("home")
 	for _frame in 8:
 		await process_frame
 
@@ -65,12 +64,32 @@ func _run() -> void:
 			release.pressed = false
 			game_root.get_viewport().push_input(release, true)
 			await process_frame
-			_assert_true(game_root._social_detail_open, "clicking a poster in the rendered feed should open its detail page")
+			_assert_true(game_root._social_feed_panel.is_detail_open(), "clicking a poster in the rendered feed should open its detail page")
 			_assert_true(_find_node_by_name(game_root, "SocialPostDetailPage") != null, "poster click should render the social detail page")
+			_assert_window_drags(game_root, "social-detail")
+	_assert_window_drags(game_root, "app:social")
+	_assert_host_connects_no_panel_signal(game_root)
 
 	game_root.queue_free()
 	await process_frame
 	_finish()
+
+
+func _assert_window_drags(game_root, window_id: String) -> void:
+	var before: Vector2 = game_root._window_position_for_test(window_id)
+	_assert_true(before.is_finite(), "%s should be registered with the host's window manager" % window_id)
+	_assert_true(game_root._move_window_for_test(window_id, Vector2(16, -10)), "%s should drag" % window_id)
+	var after: Vector2 = game_root._window_position_for_test(window_id)
+	_assert_true(after.distance_to(before) > 1.0, "dragging %s should move it" % window_id)
+	game_root._move_window_for_test(window_id, Vector2(-16, 10))
+
+
+func _assert_host_connects_no_panel_signal(game_root: Node) -> void:
+	var panel: Node = game_root._social_feed_panel
+	for entry in panel.get_signal_list():
+		for connection in panel.get_signal_connection_list(str(entry["name"])):
+			var callable: Callable = connection["callable"]
+			_assert_true(callable.get_object() != game_root, "the host should not connect the social panel's %s" % entry["name"])
 
 
 func _assert_column_continuity(column: VBoxContainer) -> void:

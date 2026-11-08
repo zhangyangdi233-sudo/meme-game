@@ -23,7 +23,7 @@ func _capture() -> void:
 	main._locale.set_locale("zh")
 	if main.has_method("new_game"):
 		main.new_game()
-		main._skip_prologue()
+		main._skip_chapter_one()
 	main.game.completed_memes = [{
 		"id": "capture-contract",
 		"title": "复合「哈塔」",
@@ -35,8 +35,8 @@ func _capture() -> void:
 		"fused_from": ["capture-ha", "capture-tower"],
 	}]
 	main.game.place_meme_in_blank("blank_1", "capture-contract")
-	if main.has_method("_set_social_screen"):
-		main._set_social_screen("publish")
+	if main._social_feed_panel != null:
+		main._social_feed_panel.show_screen("publish")
 	for frame in 8:
 		await process_frame
 	var viewport_texture := root.get_texture()

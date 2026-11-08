@@ -1,15 +1,26 @@
 extends SceneTree
-## 点阵字体主题:资源存在、许可随包、全局生效、字号吸附到 9 的整数倍。
+## 点阵字体主题:资源存在、许可随包、GameUiTheme 字号吸附与字形覆盖。
+
+const PixelFontThemeScript = preload("res://framework/ui/pixel_font_theme.gd")
+const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const FONT_PATH := "res://assets/fonts/BoutiqueBitmap9x9.ttf"
+const FONT_GRID := 9
+const FONT_MIN := 9
+const FONT_MAX := 45
+## The scrim strength issue #103 settled on, pinned here rather than read back from the theme.
+const SCRIM_ALPHA := 0.92
+## The divider and button tint strengths issue #104 settled on, pinned the same way.
+const HAIRLINE_ALPHA := 0.22
+const HOVER_TINT_ALPHA := 0.24
+const PRESSED_TINT_ALPHA := 0.40
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
-	call_deferred("_run_async")
-
-
-func _run_async() -> void:
-	await _run()
+	_run()
 	if _failures.is_empty():
 		print("ui font theme tests passed")
 		quit(0)
@@ -20,59 +31,145 @@ func _run_async() -> void:
 
 
 func _run() -> void:
-	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9.ttf"), "the pixel font should ship with the project")
+	_test_bound_returns_the_registered_theme_or_null()
+	_test_scrim_is_ink_at_the_shared_strength_and_follows_pollution()
+	_test_hairline_and_button_tints_are_muted_at_shared_strengths_and_follow_pollution()
+	_test_apply_ui_theme_paints_rails_and_button_tints_from_the_recipes()
+	_assert_true(FileAccess.file_exists(FONT_PATH), "the pixel font should ship with the project")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/BoutiqueBitmap9x9-OFL.txt"), "the OFL license text must ship alongside the font")
 	_assert_true(FileAccess.file_exists("res://assets/fonts/FONT_PROVENANCE.md"), "font provenance should be documented")
 
-	var scene := load("res://scenes/babel_meme_game.tscn") as PackedScene
-	if scene == null:
-		_failures.append("font test should load the main scene")
-		return
-	var game_root := scene.instantiate()
-	root.add_child(game_root)
-	game_root._locale.set_locale("zh")
-	game_root.new_game()
-	await process_frame
+	_assert_true(PixelFontThemeScript.snap_size(12, FONT_GRID, FONT_MIN, FONT_MAX) == 9, "12 should snap to 9")
+	_assert_true(PixelFontThemeScript.snap_size(13, FONT_GRID, FONT_MIN, FONT_MAX) == 9, "13 should snap to 9")
+	_assert_true(PixelFontThemeScript.snap_size(14, FONT_GRID, FONT_MIN, FONT_MAX) == 18, "14 should snap to 18")
+	_assert_true(PixelFontThemeScript.snap_size(17, FONT_GRID, FONT_MIN, FONT_MAX) == 18, "17 should snap to 18")
+	_assert_true(PixelFontThemeScript.snap_size(22, FONT_GRID, FONT_MIN, FONT_MAX) == 18, "22 should snap to 18")
+	_assert_true(PixelFontThemeScript.snap_size(28, FONT_GRID, FONT_MIN, FONT_MAX) == 27, "28 should snap to 27")
+	_assert_true(PixelFontThemeScript.snap_size(32, FONT_GRID, FONT_MIN, FONT_MAX) == 36, "32 should snap to 36")
+	_assert_true(PixelFontThemeScript.snap_size(3, FONT_GRID, FONT_MIN, FONT_MAX) == FONT_MIN, "below-min sizes clamp to 9")
+	_assert_true(PixelFontThemeScript.snap_size(200, FONT_GRID, FONT_MIN, FONT_MAX) == FONT_MAX, "above-max sizes clamp to 45")
 
-	var ui_root := _find_node_by_name(game_root, "UIRoot") as Control
-	_assert_true(ui_root != null and ui_root.theme != null, "the UI root should carry the pixel-font theme")
-	if ui_root != null and ui_root.theme != null:
-		var font := ui_root.theme.default_font
-		_assert_true(font != null, "the theme should define a default font")
-		if font is FontFile:
-			var font_file := font as FontFile
-			_assert_true(font_file.antialiasing == TextServer.FONT_ANTIALIASING_NONE, "pixel glyphs must not be antialiased")
-			_assert_true(font_file.hinting == TextServer.HINTING_NONE, "pixel glyphs must not be hinted")
-			_assert_true(not font_file.multichannel_signed_distance_field, "MSDF would blur a bitmap-style face")
-			# 三语字形覆盖:任一语言掉字都会立刻暴露。
-			for sample in ["门", "开", "あ", "ド", "A", "7"]:
-				_assert_true(font_file.has_char(sample.unicode_at(0)), "the shipped font must cover %s" % sample)
+	var theme: Theme = PixelFontThemeScript.build(FONT_PATH, FONT_GRID)
+	_assert_true(theme != null, "build should return a Theme")
+	_assert_true(theme.default_font_size == FONT_GRID * 2, "default size should be two grid steps")
+	_assert_true(theme.default_font is FontFile, "build should attach the shipped FontFile")
+	if theme.default_font is FontFile:
+		var built_font := theme.default_font as FontFile
+		_assert_true(built_font.antialiasing == TextServer.FONT_ANTIALIASING_NONE, "pixel glyphs must not be antialiased")
+		_assert_true(built_font.hinting == TextServer.HINTING_NONE, "pixel glyphs must not be hinted")
+		_assert_true(not built_font.multichannel_signed_distance_field, "MSDF would blur a bitmap-style face")
 
-	# 字号吸附:任何请求都落在 9 的整数倍上,且保持在可读区间。
-	for requested in [12, 13, 14, 17, 22, 28, 32, 3, 200]:
-		var snapped: int = game_root._ui_font_size(requested)
-		_assert_true(snapped % 9 == 0, "font size %d should snap to the 9px grid, got %d" % [requested, snapped])
-		_assert_true(snapped >= 9 and snapped <= 45, "snapped size %d should stay inside the readable range" % snapped)
-	_assert_true(game_root._ui_font_size(13) == 9 or game_root._ui_font_size(13) == 18, "snapping should pick the nearest grid step")
+	var apply_host := Control.new()
+	PixelFontThemeScript.apply(apply_host, theme)
+	_assert_true(apply_host.theme == theme, "apply should assign the theme onto the control")
+	apply_host.free()
 
-	# 实际标签也必须用吸附后的字号(不是原始值)。
-	var probe_label: Label = game_root._label("测试", 13, Color.WHITE)
+	var ui_theme := GameUiThemeScript.new()
+	ui_theme.configure({
+		"ui_font_path": FONT_PATH,
+		"ui_font_grid": FONT_GRID,
+		"ui_font_min_size": FONT_MIN,
+		"ui_font_max_size": FONT_MAX,
+	})
+	var wired_theme := ui_theme.ensure_ui_font_theme()
+	_assert_true(wired_theme != null and wired_theme.default_font is FontFile, "GameUiTheme should build the shipped pixel font")
+	if wired_theme.default_font is FontFile:
+		var font_file := wired_theme.default_font as FontFile
+		for sample in ["门", "开", "あ", "ド", "A", "7"]:
+			_assert_true(font_file.has_char(sample.unicode_at(0)), "the shipped font must cover %s" % sample)
+
+	var probe_label: Label = ui_theme.label("测试", 13, Color.WHITE)
 	_assert_true(probe_label.get_theme_font_size("font_size") % 9 == 0, "labels should render on the pixel grid")
 
-	game_root.queue_free()
-	await process_frame
+	ui_theme.configure({
+		"ui_font_path": FONT_PATH,
+		"ui_font_grid": FONT_GRID,
+		"ui_font_min_size": FONT_MIN,
+		"ui_font_max_size": FONT_MAX,
+		"pollution_stage": func() -> Dictionary: return {"palette_key": "pollution_palette_5"},
+	})
+	_assert_eq(ui_theme.theme_color("flash_text"), Color("39FF14"), "bound pollution stage should drive one-arg theme_color")
+	_assert_eq(str(ui_theme.active_palette().get("name", "")), "pollution_palette_5", "bound pollution stage should select the high-pollution palette")
+	_assert_eq(ui_theme.theme_color("flash_text", {"palette_key": "palette_1"}), Color("9CFF24"), "an explicit stage should still override the bound provider")
+	_assert_eq(ui_theme.theme_color("flash_text", {}), Color("9CFF24"), "an explicit empty stage should keep the default palette")
+
+	var themed_root := Control.new()
+	ui_theme.apply_ui_font_theme(themed_root)
+	_assert_true(themed_root.theme == wired_theme, "apply_ui_font_theme should wire the built theme onto controls")
+	themed_root.free()
 
 
-func _find_node_by_name(node: Node, node_name: String) -> Node:
-	if node.name == node_name:
-		return node
-	for child in node.get_children():
-		var found := _find_node_by_name(child, node_name)
-		if found != null:
-			return found
-	return null
+func _test_bound_returns_the_registered_theme_or_null() -> void:
+	RegistryScript.clear()
+	_assert_true(GameUiThemeScript.bound() == null, "bound() should be null when no theme is registered")
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	RegistryScript.bind(ServiceKeysScript.UI_THEME, theme)
+	_assert_true(GameUiThemeScript.bound() == theme, "bound() should return the theme registered under UI_THEME")
+	RegistryScript.clear()
+
+
+func _test_scrim_is_ink_at_the_shared_strength_and_follows_pollution() -> void:
+	var stage := {"palette_key": "palette_1"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), SCRIM_ALPHA), "the scrim should be palette 1 ink at 0.92")
+	stage["palette_key"] = "pollution_palette_5"
+	_assert_eq(theme.scrim(), Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "ink"), SCRIM_ALPHA), "the scrim should follow the bound pollution palette")
+	_assert_eq(theme.scrim({"palette_key": "palette_1"}), Color(UiPalette.color(UiPalette.PALETTE_1, "ink"), SCRIM_ALPHA), "an explicit stage should override the bound provider")
+
+
+func _test_hairline_and_button_tints_are_muted_at_shared_strengths_and_follow_pollution() -> void:
+	var stage := {"palette_key": "palette_1"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	theme.configure({"pollution_stage": func() -> Dictionary: return stage})
+	var muted_1 := UiPalette.color(UiPalette.PALETTE_1, "muted")
+	var muted_5 := UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted")
+	_assert_eq(theme.hairline(), Color(muted_1, HAIRLINE_ALPHA), "the hairline should be palette 1 muted at 0.22")
+	_assert_eq(theme.hover_tint(), Color(muted_1, HOVER_TINT_ALPHA), "the hover tint should be palette 1 muted at 0.24")
+	_assert_eq(theme.pressed_tint(), Color(muted_1, PRESSED_TINT_ALPHA), "the pressed tint should be palette 1 muted at 0.40")
+	stage["palette_key"] = "pollution_palette_5"
+	_assert_eq(theme.hairline(), Color(muted_5, HAIRLINE_ALPHA), "the hairline should follow the bound pollution palette")
+	_assert_eq(theme.hover_tint(), Color(muted_5, HOVER_TINT_ALPHA), "the hover tint should follow the bound pollution palette")
+	_assert_eq(theme.pressed_tint(), Color(muted_5, PRESSED_TINT_ALPHA), "the pressed tint should follow the bound pollution palette")
+	_assert_eq(theme.hairline({"palette_key": "palette_1"}), Color(muted_1, HAIRLINE_ALPHA), "an explicit stage should override the bound provider for the hairline")
+	_assert_eq(theme.hover_tint({"palette_key": "palette_1"}), Color(muted_1, HOVER_TINT_ALPHA), "an explicit stage should override the bound provider for the hover tint")
+	_assert_eq(theme.pressed_tint({"palette_key": "palette_1"}), Color(muted_1, PRESSED_TINT_ALPHA), "an explicit stage should override the bound provider for the pressed tint")
+
+
+func _test_apply_ui_theme_paints_rails_and_button_tints_from_the_recipes() -> void:
+	var stage := {"palette_key": "pollution_palette_5"}
+	var theme: GameUiTheme = GameUiThemeScript.new()
+	var hairline := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), HAIRLINE_ALPHA)
+	var hover := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), HOVER_TINT_ALPHA)
+	var pressed := Color(UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "muted"), PRESSED_TINT_ALPHA)
+	var rail := PanelContainer.new()
+	rail.set_meta("dark_rail", true)
+	var hud_icon := Button.new()
+	hud_icon.set_meta("hud_icon", true)
+	var flat_button := Button.new()
+	flat_button.set_meta("flat_phone_button", true)
+	var host := Control.new()
+	host.add_child(rail)
+	host.add_child(hud_icon)
+	host.add_child(flat_button)
+	theme.apply_ui_theme(host, stage)
+	_assert_eq((rail.get_theme_stylebox("panel") as StyleBoxFlat).border_color, hairline, "a dark rail should be bordered by the hairline")
+	for button in [hud_icon, flat_button]:
+		var kind := "a HUD icon" if button == hud_icon else "a flat phone button"
+		var hover_box := (button as Button).get_theme_stylebox("hover") as StyleBoxFlat
+		var pressed_box := (button as Button).get_theme_stylebox("pressed") as StyleBoxFlat
+		_assert_eq(hover_box.bg_color, hover, "%s should hover with the hover tint" % kind)
+		_assert_eq(pressed_box.bg_color, pressed, "%s should press with the pressed tint" % kind)
+	_assert_eq((hud_icon.get_theme_stylebox("hover") as StyleBoxFlat).border_color, hover, "a hovered HUD icon should be edged in the hover tint")
+	_assert_eq((hud_icon.get_theme_stylebox("pressed") as StyleBoxFlat).border_color, pressed, "a pressed HUD icon should be edged in the pressed tint")
+	host.free()
 
 
 func _assert_true(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _assert_eq(actual, expected, message: String) -> void:
+	if actual != expected:
+		_failures.append("%s (expected %s, got %s)" % [message, str(expected), str(actual)])

@@ -22,7 +22,7 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.set_view_state("npc_up")
 	main._phone_art_alpha = 0.0
 	if main._phone_down_backdrop_image != null:
@@ -32,7 +32,7 @@ func _capture() -> void:
 		push_error("Unable to find physical doll encounter")
 		quit(1)
 		return
-	main._reality_player.position = _approach_position(main, doll, 1.45)
+	main._reality_scene_adapter.player.position = _approach_position(main, doll, 1.45)
 	main._refresh_nearby_reality_actor()
 	if not main._try_reality_interaction():
 		push_error("Unable to start doll dialogue")
@@ -57,7 +57,7 @@ func _capture() -> void:
 
 
 func _find_actor(main: Node, actor_type: String) -> Area3D:
-	for actor in main._reality_floor.get_interactable_actors():
+	for actor in main._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null

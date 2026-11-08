@@ -26,7 +26,7 @@ This matrix is the handoff contract for independent review. A row is complete on
 | 8 | Simplify the meme bank and use `easeOutQuint` for contextual motion. | Meme bank is contextual to notebook/publish only; its radial selector supports wheel, trackpad, touch, and clicks. Godot `TRANS_QUINT + EASE_OUT` implements the requested GSAP `power5.out` curve without a web dependency. | `test_day_transition.gd` checks contextual visibility, interrupted open/close tweens, curve metadata, and no action cost; `test_drag_controls.gd` checks ring movement and the same curve. | `tools/current_meme_bank_closed.png`, `tools/current_meme_bank_opening.png`, `tools/current_meme_bank_open.png`, and `tools/current_meme_bank_motion_trace.json` form a live three-sample motion record; `tools/current_notebook_view.png` and `tools/current_publish_view.png` show both contexts. |
 | 9 | Learn from the local Milk installation's atmosphere and writing without weakening originality. | Presentation uses short observation/correction beats, viewpoint-bound UI, selective disruptions, and ordinary-object anchors. No archive, dialogue, image, or audio was copied into the project. | `test_localization.gd`, `test_richtext_effects.gd`, and dialogue/state tests protect authored cadence and playable flow. | Direction and originality boundary: `docs/design/character_and_narrative_direction.md`, `docs/design/denpa_cartoon_horror_direction.md`. |
 | 10 | Improve English/Japanese localization as localization rather than literal substitution. | Parallel catalogs cover active UI, feed, NPCs, doll dialogue, events, endings, dynamic formats, and language-specific tokenization. Removed shop, Tarot, relic, and fifth-floor UI copy is absent from active catalogs. | `test_localization.gd` checks catalog-key parity, ordered placeholder parity, terminology, native sample lines, source-literal coverage, and Chinese/English/Japanese text-unit rules. | `tools/current_social_english.png`, `tools/current_social_japanese.png`, `tools/current_language_selection.png`; audit in `docs/research/localization_voice_audit.md`. |
-| 11 | NPC face obstruction is animated, opaque black handwriting on a separate layer. | Untouched NPC `Billboard` and independent `FaceScribbleOverlay` are unshaded camera-facing sprites; the overlay uses a four-frame atlas, 56 px black strokes, higher render priority, and no multiply/dark rectangle. The guide doll keeps its original face and has no scribble overlay. | `test_reality_world.gd` checks source preservation, transform registration, shader path/parameters, billboard behavior, opacity, width, priority, and doll exemption. | `tools/current_npc_character_view.png`, `tools/current_npc_character_view_phase_b.png`, and doll captures. |
+| 11 | NPC face obstruction is an animated chalk scribble on a separate layer. | Untouched NPC `Billboard` and independent `FaceScribbleOverlay` are unshaded camera-facing sprites; the overlay plays the six drawn cover frames on twos, sits on each portrait's face, renders above the character, and never samples the portrait. The guide doll keeps its original face and has no overlay. | `test_reality_world.gd` checks source preservation, registration on the face, shader path, frame count, billboard behavior, priority, and doll exemption. | — |
 | 12 | Keep progression simple and hide the fourth-floor condition. | Global HUD exposes Pollution, Funds, and Actions; day remains an internal scheduler and floor appears only inside the Tower App. Heat, Clarity, threshold discounts, Tarot, shops, and random frame rewards are gone. The Tower App does not display prerequisite counts or a hidden-route checklist. | `test_simplified_language_core.gd`, `test_main_scene.gd`, and state/playthrough tests protect the reduced surface and pollution thresholds. | `docs/design/mechanics_surface_audit.md` records every retained and removed value. |
 | 12A | NPC and guide art should feel unsettling, indie, and slightly cartoon rather than mature-realistic. | Three curated 1024 x 1536 NPC portraits share faceless cream heads, restrained green/black print grain, compact proportions, and role-specific props. The permanent guide is the project owner's exact stitched-cat artwork. | `test_character_assets.gd` pins the curated sources, guide hash, transparent canvas, palette, and featureless NPC face region; `test_reality_world.gd` verifies floor-independent colors. | Source assets under `assets/generated/characters/`; current NPC and doll captures above. |
 | 13 | Overall presentation should use restrained psychological-horror craft inspired by repeated-space, compliance, and subjective-perception references. | Deterministic light-memory, failed-sign, rare mirage, language-pollution flashback, inherited-language pressure, and non-jumpscare spatial repetition form one authored system. | `test_authored_horror_events.gd`, `test_playthrough_flow.gd`, `test_language_corruption_state.gd`, and `test_main_scene.gd` cover scheduling, state transitions, progression, and both ending routes. | `tools/current_horror_*.png`; research synthesis in `docs/design/psychological_horror_event_research.md`. |
@@ -35,13 +35,23 @@ This matrix is the handoff contract for independent review. A row is complete on
 
 ## Test Command
 
-Each test is a standalone SceneTree script. Example:
+Each test is a standalone SceneTree script.
+
+**Windows (primary):**
+
+```powershell
+$env:GODOT_BIN = 'C:\Godot\Godot_v4.6.3-stable_win64.exe'
+& $env:GODOT_BIN --headless --path . --script res://tests/test_reality_world.gd
+```
+
+Or run the full suite: `tools\run_tests.bat`
+
+**macOS / Linux:**
 
 ```bash
-HOME=/Users/zhang/Documents/游戏/.godot_home \
-  /Users/zhang/Documents/游戏/Godot_4.6.3/Godot.app/Contents/MacOS/Godot \
-  --headless --path /Users/zhang/Documents/游戏/babel-meme-game \
-  --script res://tests/test_reality_world.gd
+GODOT_BIN=/path/to/Godot \
+  GODOT_HOME="$HOME/.godot_home" \
+  $GODOT_BIN --headless --path . --script res://tests/test_reality_world.gd
 ```
 
 ## Asset Integrity Commands

@@ -2,11 +2,11 @@ extends Node3D
 
 class_name RealityFloorGenerator
 
-signal cover_watcher_appeared(floor_number: int)
-signal cover_watcher_vanished(floor_number: int)
-
-const NPC_FACE_SCRIBBLE_OVERLAY_SHADER := preload("res://shaders/npc_face_scribble_overlay.gdshader")
-const NPC_FACE_SCRIBBLE_ATLAS := preload("res://assets/generated/effects/face_scribble_atlas.png")
+const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
+const FloorLookScript = preload("res://scripts/game/floor_look.gd")
+const NPC_FACE_COVER_SHADER := preload("res://shaders/npc_face_cover.gdshader")
+const NpcPortraitsScript = preload("res://scripts/world/npc_portraits.gd")
 const DISTANT_MIRAGE_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
 const COVER_WATCHER_TEXTURE_PATH := "res://assets/generated/world/events/distant_mirage.png"
 const COVER_WATCHER_APPEAR_DELAY := 0.72
@@ -14,11 +14,9 @@ const COVER_WATCHER_APPROACH_DISTANCE := 6.4
 const COVER_WATCHER_RETREAT_DURATION := 0.72
 const COVER_WATCHER_SOURCE_CROP := Rect2(300.0, 150.0, 424.0, 1220.0)
 const COVER_WATCHER_PIXEL_SIZE := 0.00155
-const ACTOR_PORTRAIT_WORLD_HEIGHT := 1.90
 const ACTOR_CAMERA_EYE_HEIGHT := 1.56
 const DOLL_PORTRAIT_WORLD_HEIGHT := 0.96
 
-const BASE_ROOM_COUNT := 4
 const WORLD_LENGTH_SCALE := 5.0
 const LOT_SPACING := 9.4 * WORLD_LENGTH_SCALE
 const LOT_WIDTH := 7.4
@@ -35,10 +33,6 @@ const MAP_END_MARGIN := 12.0 * WORLD_LENGTH_SCALE
 const WALL_HEIGHT := 3.4
 const AIR_WALL_HEIGHT := 6.0
 const AIR_WALL_THICKNESS := 0.5
-const ORDINARY_NPC_COUNTS := [4, 3, 2, 0]
-const NIGHT_TERRACE_END_MARGIN := 8.0
-const NIGHT_TERRACE_GAP := 1.2
-const NIGHT_FACADE_BAY := 7.6
 const FLOOR_TWO_DISC_SEGMENTS := 96
 const FLOOR_TWO_DISC_RADIAL_SEGMENTS := 24
 const FLOOR_TWO_DISC_RADIUS_X := 112.0
@@ -72,24 +66,8 @@ const FULL_MAP_GRASS_SPACING := 0.44
 const FULL_MAP_GRASS_BLADE_HEIGHT := 0.32
 const FULL_MAP_GRASS_BLADE_WIDTH := 0.24
 const SUSPENSE_CLEAR_PATH_WIDTH := 5.6
-const DISTANT_MIRAGE_DAYS := [4, 9]
-const AUTHORED_EVENT_TABLE := {
-	2: [
-		["light_memory", "dead_sign"],
-		["light_memory"],
-		["dead_sign"],
-	],
-	3: [
-		["dead_sign"],
-		["light_memory", "dead_sign"],
-		["light_memory"],
-	],
-	4: [
-		["light_memory"],
-		["dead_sign"],
-		["light_memory", "dead_sign"],
-	],
-}
+const PLANNED_SHAPES := ["shared_street", "irregular_disc", "skylit_overgrown_gallery"]
+const REPLACEABLE_SCENE_KINDS := ["light_memory", "dead_sign", "distant_mirage"]
 const DISTRICT_STYLES := ["sunlit_brick_street", "night_white_blocks", "overgrown_gallery"]
 const DISTRICT_REFERENCE_TEXTURES := {
 	"sunlit_brick_street": "res://assets/generated/world/reference_districts/sunlit_brick_street.png",
@@ -113,6 +91,8 @@ var ordinary_npc_count: int = 0
 var useful_item_count: int = 0
 var map_width: float = MIN_MAP_WIDTH
 var map_length: float = MIN_MAP_LENGTH
+var _disc_radius_x := FLOOR_TWO_DISC_RADIUS_X
+var _disc_radius_z := FLOOR_TWO_DISC_RADIUS_Z
 var district_style := DISTRICT_STYLES[0]
 var _actors: Array[Area3D] = []
 var _items: Array[Area3D] = []
@@ -124,34 +104,69 @@ var _authored_event_origin := Vector3.ZERO
 var _authored_event_day := 1
 var _cover_watcher_root: Node3D
 var _cover_watcher_sprite: Sprite3D
+## The NPC chalk cover's six drawings, built on the first NPC and shared by all of them.
+var _npc_cover_frames: Texture2DArray
 var _cover_watcher_state: Dictionary = {}
-var _playtest_assist_enabled := false
-
-
-static func room_count_for_floor(floor_number: int) -> int:
-	var normalized := maxi(1, floor_number) - 1
-	return BASE_ROOM_COUNT + normalized * 2 + int(normalized / 2)
-
-
-static func npc_count_for_floor(floor_number: int) -> int:
-	var floor_index := clampi(maxi(1, floor_number), 1, ORDINARY_NPC_COUNTS.size()) - 1
-	return int(ORDINARY_NPC_COUNTS[floor_index])
+var _layout_shape := "shared_street"
 
 
 static func district_style_for_floor(floor_number: int) -> String:
 	return DISTRICT_STYLES[posmod(maxi(1, floor_number) - 1, DISTRICT_STYLES.size())]
 
 
-static func authored_event_kinds_for_floor_day(floor_number: int, day_number: int) -> PackedStringArray:
-	var floor_schedules: Array = AUTHORED_EVENT_TABLE.get(clampi(floor_number, 1, 4), [])
-	if floor_schedules.is_empty():
-		return PackedStringArray()
-	var normalized_day := maxi(1, day_number)
-	var selected_schedule: Array = floor_schedules[posmod(normalized_day - 1, floor_schedules.size())]
-	var event_kinds := PackedStringArray(selected_schedule)
-	if floor_number >= 2 and normalized_day in DISTANT_MIRAGE_DAYS:
-		event_kinds.append("distant_mirage")
-	return event_kinds
+func _street_for(layout: Dictionary) -> Dictionary:
+	var shape := str(layout.get("shape", ""))
+	if shape in PLANNED_SHAPES and _is_complete_layout(layout, shape):
+		return _street_from_layout(layout, shape)
+	return {
+		"room_count": 0,
+		"shape": "shared_street",
+		"map_width": MIN_MAP_WIDTH,
+		"map_length": MIN_MAP_LENGTH,
+	}
+
+
+func _street_from_layout(layout: Dictionary, shape: String) -> Dictionary:
+	var map_size: Dictionary = layout.get("map_size", {})
+	return {
+		"room_count": int(layout.get("room_count", 0)),
+		"shape": shape,
+		"map_width": float(map_size.get("width", 0.0)),
+		"map_length": float(map_size.get("length", 0.0)),
+	}
+
+
+func _is_complete_layout(layout: Dictionary, shape: String) -> bool:
+	if str(layout.get("shape", "")) != shape:
+		return false
+	var room_count_value = layout.get("room_count", null)
+	if not (room_count_value is int or room_count_value is float):
+		return false
+	var map_size = layout.get("map_size", null)
+	if not map_size is Dictionary:
+		return false
+	var size: Dictionary = map_size
+	return size.has("width") and size.has("length")
+
+
+func _apply_disc_extent(street: Dictionary) -> void:
+	if str(street.get("shape", "")) != "irregular_disc":
+		return
+	# The plan's map size is the disc's bounding box, radius plus the fixed rim and margin.
+	_disc_radius_x = float(street["map_width"]) * 0.5 - FLOOR_TWO_DISC_IRREGULARITY - FLOOR_TWO_DISC_MAP_MARGIN
+	_disc_radius_z = float(street["map_length"]) * 0.5 - FLOOR_TWO_DISC_IRREGULARITY - FLOOR_TWO_DISC_MAP_MARGIN
+
+
+func _is_disc_layout() -> bool:
+	return _layout_shape == "irregular_disc"
+
+
+func _air_wall_count_for_layout() -> int:
+	if _is_disc_layout():
+		return FLOOR_TWO_DISC_AIR_WALL_SEGMENTS
+	if _layout_shape == "shared_street":
+		return 12
+	return 4
 
 
 func rebuild(
@@ -159,33 +174,34 @@ func rebuild(
 	palette: Dictionary,
 	actor_textures: Dictionary,
 	day_number: int = 1,
-	cover_watcher_seen: bool = false,
-	prerequisite_item: Dictionary = {},
-	populate: bool = true
+	_cover_watcher_seen: bool = false,
+	items: Array = [],
+	people: Array = [],
+	display_names: Dictionary = {},
+	events: Array = [],
+	layout: Dictionary = {}
 ) -> void:
 	_clear_floor()
 	built_floor = clampi(floor_number, 1, 4)
 	district_style = district_style_for_floor(built_floor)
-	room_count = room_count_for_floor(built_floor)
-	ordinary_npc_count = npc_count_for_floor(built_floor)
+	var street := _street_for(layout)
+	_layout_shape = str(street["shape"])
+	room_count = int(street["room_count"])
+	ordinary_npc_count = _count_kind(people, "npc")
 	useful_item_count = 0
-	var lot_rows := int(ceil(float(room_count) / 2.0))
-	if built_floor == 2:
-		map_width = (FLOOR_TWO_DISC_RADIUS_X + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-		map_length = (FLOOR_TWO_DISC_RADIUS_Z + FLOOR_TWO_DISC_IRREGULARITY + FLOOR_TWO_DISC_MAP_MARGIN) * 2.0
-	else:
-		map_width = MIN_MAP_WIDTH + float(built_floor - 1) * 1.5
-		map_length = maxf(MIN_MAP_LENGTH, float(lot_rows) * LOT_SPACING + MAP_END_MARGIN * 2.0)
+	map_width = float(street["map_width"])
+	map_length = float(street["map_length"])
+	_apply_disc_extent(street)
 	set_meta("built_floor", built_floor)
 	set_meta("room_count", room_count)
 	set_meta("logical_room_count", room_count)
 	set_meta("ordinary_npc_count", ordinary_npc_count)
 	set_meta("doll_encounter_count", 0)
-	set_meta("layout_mode", "irregular_disc" if built_floor == 2 else ("skylit_overgrown_gallery" if built_floor == 3 else "shared_street"))
+	set_meta("layout_mode", str(street["shape"]))
 	set_meta("map_width", map_width)
 	set_meta("map_length", map_length)
 	set_meta("world_length_scale", WORLD_LENGTH_SCALE)
-	set_meta("air_wall_count", 12 if district_style == "sunlit_brick_street" else (FLOOR_TWO_DISC_AIR_WALL_SEGMENTS if built_floor == 2 else 4))
+	set_meta("air_wall_count", _air_wall_count_for_layout())
 	set_meta("district_style", district_style)
 	set_meta("npc_population_rule", "strictly_descending")
 	set_meta("atmosphere_mode", "open_daylight" if built_floor == 1 else "slow_burn_suspense")
@@ -240,16 +256,10 @@ func rebuild(
 
 	_build_environment(palette)
 	_build_architecture(palette)
-	if populate:
-		_build_prerequisite_item(prerequisite_item, palette)
-		_build_actors(actor_textures)
-	else:
-		ordinary_npc_count = 0
-		set_meta("ordinary_npc_count", 0)
-	_refresh_playtest_markers()
-	configure_authored_events(day_number, palette)
-	if populate:
-		_build_cover_watcher_event(palette, cover_watcher_seen)
+	_build_prerequisite_items(items, display_names, palette)
+	_build_actors(actor_textures, people, display_names)
+	configure_authored_events(day_number, palette, events)
+	_build_cover_watcher_event(palette, not _events_include_kind(events, "cover_watcher"))
 	set_meta("useful_item_count", useful_item_count)
 
 
@@ -292,65 +302,6 @@ func sync_prerequisite_items(revealed_ids: Array[String], collected_ids: Array[S
 		item.visible = revealed and not collected
 		item.monitoring = revealed and not collected
 		item.monitorable = revealed and not collected
-	_refresh_playtest_markers()
-
-
-func set_playtest_assist_enabled(value: bool) -> void:
-	_playtest_assist_enabled = value
-	_refresh_playtest_markers()
-
-
-func _refresh_playtest_markers() -> void:
-	for actor in _actors:
-		if not is_instance_valid(actor):
-			continue
-		var actor_type := str(actor.get_meta("actor_type", "npc"))
-		var marker_text := ""
-		match actor_type:
-			"doll":
-				marker_text = "TEST  教程引导"
-			"key_npc":
-				marker_text = "TEST  隐藏路线关键 NPC"
-		var existing_actor_marker := actor.get_node_or_null("PlaytestMarker") as Label3D
-		if marker_text.is_empty() or not _playtest_assist_enabled:
-			if existing_actor_marker != null:
-				existing_actor_marker.visible = false
-			continue
-		if existing_actor_marker == null:
-			existing_actor_marker = _make_playtest_marker(marker_text, 2.55 if actor_type != "doll" else 1.35)
-			actor.add_child(existing_actor_marker)
-		existing_actor_marker.text = marker_text
-		existing_actor_marker.visible = true
-
-	for item in _items:
-		if not is_instance_valid(item) or not bool(item.get_meta("prerequisite_item", false)):
-			continue
-		var existing_item_marker := item.get_node_or_null("PlaytestMarker") as Label3D
-		if not _playtest_assist_enabled:
-			if existing_item_marker != null:
-				existing_item_marker.visible = false
-			continue
-		if existing_item_marker == null:
-			existing_item_marker = _make_playtest_marker("TEST  前置物：%s" % str(item.get_meta("display_name", "未登记物")), 1.75)
-			item.add_child(existing_item_marker)
-		existing_item_marker.visible = bool(item.get_meta("revealed", false)) and not bool(item.get_meta("collected", false))
-
-
-func _make_playtest_marker(marker_text: String, height: float) -> Label3D:
-	var marker := Label3D.new()
-	marker.name = "PlaytestMarker"
-	marker.text = marker_text
-	marker.position = Vector3(0.0, height, 0.0)
-	marker.font_size = 14
-	marker.pixel_size = 0.0024
-	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	marker.fixed_size = true
-	marker.modulate = Color("D8FF66")
-	marker.outline_modulate = Color("050705")
-	marker.outline_size = 3
-	marker.no_depth_test = true
-	marker.render_priority = 20
-	return marker
 
 
 func sync_claimed_dolls(claimed_ids: Array[String]) -> void:
@@ -362,10 +313,10 @@ func sync_claimed_dolls(claimed_ids: Array[String]) -> void:
 		actor.set_meta("claimed", claimed)
 		var sprite := actor.get_node_or_null("Billboard") as Sprite3D
 		if sprite != null:
-			sprite.modulate = Color(0.82, 0.90, 0.82, 1.0) if claimed else Color.WHITE
+			sprite.modulate = FloorLookScript.tint("claimed_doll") if claimed else Color.WHITE
 
 
-func configure_authored_events(day_number: int, palette: Dictionary) -> void:
+func configure_authored_events(day_number: int, palette: Dictionary, events: Array = []) -> void:
 	if _authored_event_root != null and is_instance_valid(_authored_event_root):
 		remove_child(_authored_event_root)
 		_authored_event_root.free()
@@ -378,9 +329,13 @@ func configure_authored_events(day_number: int, palette: Dictionary) -> void:
 	_authored_event_root.set_meta("authored_event_collection", true)
 	_authored_event_root.set_meta("non_jumpscare", true)
 	add_child(_authored_event_root)
-	var event_kinds := authored_event_kinds_for_floor_day(built_floor, _authored_event_day)
-	for event_kind in event_kinds:
-		match str(event_kind):
+	var event_kinds := PackedStringArray()
+	for event_entry in events:
+		var event_kind := str((event_entry as Dictionary).get("kind", ""))
+		if event_kind not in REPLACEABLE_SCENE_KINDS:
+			continue
+		event_kinds.append(event_kind)
+		match event_kind:
 			"light_memory":
 				_build_light_memory_event(palette)
 			"dead_sign":
@@ -419,11 +374,18 @@ func get_cover_watcher_state() -> Dictionary:
 	return _cover_watcher_state.duplicate(true)
 
 
+func _events_include_kind(events: Array, event_kind: String) -> bool:
+	for event_entry in events:
+		if str((event_entry as Dictionary).get("kind", "")) == event_kind:
+			return true
+	return false
+
+
 func _cover_watcher_position() -> Vector3:
 	var origin := start_position()
 	var lateral_sign := -1.0 if built_floor in [2, 4] else 1.0
 	var target := origin + Vector3(lateral_sign * (4.1 + float(built_floor % 2) * 0.7), 0.08, -15.0 - float(built_floor % 3))
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _clamp_to_floor_two_disc(target, 4.5)
 	return clamp_to_playable_position(target, 4.0)
 
@@ -476,7 +438,7 @@ func _build_cover_watcher_event(palette: Dictionary, already_seen: bool) -> void
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	sprite.modulate = Color(0.76, 0.86, 0.58, 0.92)
+	sprite.modulate = FloorLookScript.tint("cover_watcher")
 	sprite.render_priority = 3
 	sprite.visible = false
 	sprite.set_meta("faceless_watcher", true)
@@ -511,7 +473,7 @@ func _update_cover_watcher_event(delta: float, player_position: Vector3, camera_
 		_cover_watcher_state["observed_in_view"] = true
 		_cover_watcher_sprite.visible = true
 		_cover_watcher_root.set_meta("event_phase", "watching_from_cover")
-		cover_watcher_appeared.emit(built_floor)
+		GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: built_floor})
 	var distance := player_position.distance_to(_cover_watcher_root.global_position)
 	if not bool(_cover_watcher_state.get("retreating", false)) and distance <= COVER_WATCHER_APPROACH_DISTANCE:
 		_cover_watcher_state["retreating"] = true
@@ -532,12 +494,12 @@ func _update_cover_watcher_event(delta: float, player_position: Vector3, camera_
 		_cover_watcher_sprite.visible = false
 		_cover_watcher_state["vanished"] = true
 		_cover_watcher_root.set_meta("event_phase", "gone_behind_cover")
-		cover_watcher_vanished.emit(built_floor)
+		GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_VANISHED, {GameEventsScript.KEY_FLOOR: built_floor})
 
 
 func _authored_event_position(event_kind: String) -> Vector3:
 	var event_index := ["light_memory", "dead_sign", "distant_mirage"].find(event_kind)
-	if built_floor == 2:
+	if _is_disc_layout():
 		var angles := [PI * 0.5 - 0.11, PI * 0.5 + 0.18, PI * 0.5 - 0.28]
 		var radii := [0.65, 0.55, 0.39]
 		var disc_position := _floor_two_disc_point(float(angles[event_index]), float(radii[event_index]))
@@ -549,7 +511,7 @@ func _authored_event_position(event_kind: String) -> Vector3:
 
 
 func _orient_event_toward_origin(event_root: Node3D) -> void:
-	if built_floor != 2:
+	if not _is_disc_layout():
 		return
 	var target := Vector3(_authored_event_origin.x, event_root.position.y, _authored_event_origin.z)
 	var direction := target - event_root.position
@@ -585,7 +547,7 @@ func _build_light_memory_event(palette: Dictionary) -> void:
 	var light := OmniLight3D.new()
 	light.name = "MemoryLightSource"
 	light.position = Vector3(0.0, 2.72, 0.0)
-	light.light_color = Color("D9FFB5") if built_floor >= 3 else Color("91B99A")
+	light.light_color = _light_color("memory", palette)
 	light.light_energy = 1.35 if built_floor == 3 else 0.72
 	light.omni_range = 12.0
 	light.shadow_enabled = false
@@ -614,14 +576,14 @@ func _build_dead_sign_event(palette: Dictionary) -> void:
 	label.font_size = 96
 	label.pixel_size = 0.0046
 	label.modulate = _role_color("fluorescent", palette)
-	label.outline_modulate = Color("071009")
+	label.outline_modulate = UiPalette.OUTLINE
 	label.outline_size = 12
 	label.no_depth_test = true
 	event_root.add_child(label)
 	var light := OmniLight3D.new()
 	light.name = "DeadSignGlow"
 	light.position = Vector3(0.0, 2.18, 0.28)
-	light.light_color = _role_color("fluorescent", palette)
+	light.light_color = _light_color("dead_sign", palette)
 	light.light_energy = 0.42
 	light.omni_range = 4.0
 	light.shadow_enabled = false
@@ -654,7 +616,9 @@ func _build_distant_mirage_event() -> void:
 		sprite.shaded = false
 		sprite.transparent = true
 		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		sprite.modulate = Color(0.82, 0.92, 0.64, float(layer_alphas[layer_index]))
+		var mirage_tint := FloorLookScript.tint("distant_mirage")
+		mirage_tint.a = float(layer_alphas[layer_index])
+		sprite.modulate = mirage_tint
 		sprite.render_priority = layer_index
 		sprite.set_meta("mirage_base_position", sprite.position)
 		sprite.set_meta("mirage_base_alpha", float(layer_alphas[layer_index]))
@@ -767,7 +731,7 @@ func _update_distant_mirage_event(delta: float, horizontal_travel: float, player
 
 
 func start_position() -> Vector3:
-	if built_floor == 2:
+	if _is_disc_layout():
 		var disc_spawn := _floor_two_disc_point(PI * 0.5, 0.82)
 		disc_spawn.y += 0.08
 		return disc_spawn
@@ -779,12 +743,12 @@ func start_yaw_degrees() -> float:
 
 
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _floor_two_disc_contains(position, inset)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
 	var inside_trunk := absf(position.x) <= half_width and absf(position.z) <= half_length
-	if district_style != "sunlit_brick_street":
+	if _layout_shape != "shared_street":
 		return inside_trunk
 	var branch_half_span := maxf(0.5, _sunlit_crossroad_span() * 0.5 - inset)
 	var branch_half_width := maxf(0.5, SUNLIT_CROSSROAD_OPENING * 0.5 - inset)
@@ -792,7 +756,7 @@ func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
 
 
 func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector3:
-	if built_floor == 2:
+	if _is_disc_layout():
 		return _clamp_to_floor_two_disc(position, inset)
 	var half_width := maxf(0.5, map_width * 0.5 - inset)
 	var half_length := maxf(0.5, map_length * 0.5 - inset)
@@ -801,7 +765,7 @@ func clamp_to_playable_position(position: Vector3, inset: float = 1.2) -> Vector
 		maxf(0.08, position.y),
 		clampf(position.z, -half_length, half_length)
 	)
-	if district_style != "sunlit_brick_street":
+	if _layout_shape != "shared_street":
 		return trunk_candidate
 	var branch_half_span := maxf(0.5, _sunlit_crossroad_span() * 0.5 - inset)
 	var branch_half_width := maxf(0.5, SUNLIT_CROSSROAD_OPENING * 0.5 - inset)
@@ -842,8 +806,8 @@ func _floor_two_disc_point(angle: float, radial_ratio: float = 1.0) -> Vector3:
 	var cosine := cos(angle)
 	var sine := sin(angle)
 	var ellipse_radius := 1.0 / sqrt(
-		(cosine * cosine) / (FLOOR_TWO_DISC_RADIUS_X * FLOOR_TWO_DISC_RADIUS_X)
-		+ (sine * sine) / (FLOOR_TWO_DISC_RADIUS_Z * FLOOR_TWO_DISC_RADIUS_Z)
+		(cosine * cosine) / (_disc_radius_x * _disc_radius_x)
+		+ (sine * sine) / (_disc_radius_z * _disc_radius_z)
 	)
 	var boundary_radius := ellipse_radius + _floor_two_disc_irregularity(angle)
 	var x := cosine * boundary_radius * safe_ratio
@@ -892,9 +856,9 @@ func _clamp_to_floor_two_disc(position: Vector3, inset: float) -> Vector3:
 func apply_palette(palette: Dictionary) -> void:
 	if _environment != null and _environment.environment != null:
 		var environment := _environment.environment
-		environment.background_color = _style_background_color(palette)
-		environment.ambient_light_color = _style_ambient_color(palette)
-		environment.fog_light_color = _style_fog_color(palette)
+		environment.background_color = _environment_color("background", palette)
+		environment.ambient_light_color = _environment_color("ambient", palette)
+		environment.fog_light_color = _environment_color("fog", palette)
 	for mesh_node in find_children("*", "MeshInstance3D", true, false):
 		var mesh_instance := mesh_node as MeshInstance3D
 		if mesh_instance == null or not mesh_instance.has_meta("theme_role"):
@@ -932,9 +896,9 @@ func _build_environment(palette: Dictionary) -> void:
 	_environment.name = "RealityWorldEnvironment"
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = _style_background_color(palette)
+	environment.background_color = _environment_color("background", palette)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = _style_ambient_color(palette)
+	environment.ambient_light_color = _environment_color("ambient", palette)
 	if built_floor == 1:
 		environment.ambient_light_energy = 0.78
 	elif built_floor == 2:
@@ -949,7 +913,7 @@ func _build_environment(palette: Dictionary) -> void:
 		environment.ambient_light_energy = 0.29
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	environment.fog_enabled = true
-	environment.fog_light_color = _style_fog_color(palette)
+	environment.fog_light_color = _environment_color("fog", palette)
 	if built_floor == 1:
 		environment.fog_light_energy = 0.52
 		environment.fog_density = 0.0062
@@ -981,19 +945,15 @@ func _build_environment(palette: Dictionary) -> void:
 	var key_light := DirectionalLight3D.new()
 	key_light.name = "RealityKeyLight"
 	key_light.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
+	key_light.light_color = _light_color("key", palette)
 	if built_floor == 1:
-		key_light.light_color = Color("FFF3D3")
 		key_light.light_energy = 1.32
 	elif built_floor == 2:
-		key_light.light_color = Color("78918C")
 		key_light.light_energy = 0.30
 	elif built_floor == 3:
-		key_light.light_color = Color("FFF4CB")
 		key_light.light_energy = 1.18
 	else:
-		var cold_key_colors := [Color("AFC7BE"), Color("C2CEC0"), Color("A9BBC4"), Color("96ACB6")]
 		var cold_key_energy := [0.34, 0.28, 0.36, 0.24]
-		key_light.light_color = cold_key_colors[built_floor - 2]
 		key_light.light_energy = cold_key_energy[built_floor - 2]
 	key_light.shadow_enabled = true
 	add_child(key_light)
@@ -1005,10 +965,10 @@ func _build_architecture(palette: Dictionary) -> void:
 	var architecture := Node3D.new()
 	architecture.name = "Architecture"
 	add_child(architecture)
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_ground(architecture, palette)
 	else:
-		var ground_role := "grass_ground" if built_floor == 3 else ("grass" if district_style == "night_white_blocks" else ("gallery_floor" if district_style == "overgrown_gallery" else "sunlit_paving"))
+		var ground_role := "grass_ground" if _layout_shape == "skylit_overgrown_gallery" else ("grass" if district_style == "night_white_blocks" else ("gallery_floor" if district_style == "overgrown_gallery" else "sunlit_paving"))
 		var street_ground := _add_box(
 			architecture,
 			"StreetGround",
@@ -1019,7 +979,7 @@ func _build_architecture(palette: Dictionary) -> void:
 			true
 		)
 		street_ground.set_meta("continuous_ground", true)
-	if district_style == "sunlit_brick_street" and built_floor != 2:
+	if _layout_shape == "shared_street":
 		var branch_ground := _add_box(
 			architecture,
 			"CrossroadGround",
@@ -1031,12 +991,10 @@ func _build_architecture(palette: Dictionary) -> void:
 		)
 		branch_ground.set_meta("continuous_ground", true)
 		branch_ground.set_meta("crossroad_extension", true)
-	match district_style:
-		"night_white_blocks" when built_floor == 2:
+	match _layout_shape:
+		"irregular_disc":
 			_build_floor_two_scattered_district(architecture, palette)
-		"night_white_blocks":
-			_build_night_white_blocks(architecture, palette)
-		"overgrown_gallery":
+		"skylit_overgrown_gallery":
 			_build_overgrown_gallery(architecture, palette)
 		_:
 			_build_sunlit_brick_street(architecture, palette)
@@ -1097,8 +1055,8 @@ func _build_floor_two_disc_ground(parent: Node3D, palette: Dictionary) -> void:
 	set_meta("terrain_profile", "undulating_irregular_disc")
 	set_meta("disc_angular_segment_count", FLOOR_TWO_DISC_SEGMENTS)
 	set_meta("disc_radial_segment_count", FLOOR_TWO_DISC_RADIAL_SEGMENTS)
-	set_meta("disc_radius_x", FLOOR_TWO_DISC_RADIUS_X)
-	set_meta("disc_radius_z", FLOOR_TWO_DISC_RADIUS_Z)
+	set_meta("disc_radius_x", _disc_radius_x)
+	set_meta("disc_radius_z", _disc_radius_z)
 	set_meta("disc_height_variation", max_height - min_height)
 	set_meta("disc_mound_count", FLOOR_TWO_HILL_MOUNDS.size())
 
@@ -1358,7 +1316,7 @@ func _build_sunlit_dreamcore_rhythm(parent: Node3D, palette: Dictionary) -> void
 				var light := OmniLight3D.new()
 				light.name = "ThresholdLight%s%02d" % [direction_name, bay_index]
 				light.position = Vector3(x + anomaly_offset, 4.22, 0.0)
-				light.light_color = Color("FFF1C9")
+				light.light_color = _light_color("threshold", palette)
 				light.light_energy = 0.36
 				light.omni_range = 7.4
 				light.shadow_enabled = false
@@ -1390,84 +1348,6 @@ func _build_crossroad_markings(parent: Node3D, palette: Dictionary) -> void:
 		if absf(x) < 2.0:
 			continue
 		_add_box(parent, "CrossroadStripe%02d" % dash_index, Vector3(2.1, 0.018, 0.14), Vector3(x, 0.088, 0.0), "accent", palette, false)
-
-
-func _build_night_white_blocks(parent: Node3D, palette: Dictionary) -> void:
-	_add_box(parent, "NightWalk", Vector3(4.8, 0.035, map_length - 1.2), Vector3(-2.35, 0.018, 0.0), "night_path", palette, false)
-	var lot_rows := int(ceil(float(room_count) / 2.0))
-	var terrace_span := map_length - NIGHT_TERRACE_END_MARGIN * 2.0
-	var segment_pitch := terrace_span / float(lot_rows)
-	var segment_length := segment_pitch - NIGHT_TERRACE_GAP
-	var facade_bay_count := 0
-	for room_index in room_count:
-		var row := int(room_index / 2)
-		var side := -1.0 if room_index % 2 == 0 else 1.0
-		var center_z := (float(lot_rows - 1) * segment_pitch * 0.5) - float(row) * segment_pitch
-		facade_bay_count += _build_night_house(parent, room_index, row, side, center_z, segment_length, palette)
-	set_meta("night_house_segment_count", room_count)
-	set_meta("night_house_coverage_ratio", segment_length / segment_pitch)
-	set_meta("night_house_max_gap", NIGHT_TERRACE_GAP)
-	set_meta("night_facade_bay_count", facade_bay_count)
-	_build_reference_portal(parent, str(DISTRICT_REFERENCE_TEXTURES[district_style]), palette)
-
-
-func _build_night_house(parent: Node3D, room_index: int, row: int, side: float, center_z: float, segment_length: float, palette: Dictionary) -> int:
-	var room := _new_room(parent, room_index)
-	var height := 4.5 + float((room_index + built_floor) % 3) * 0.8
-	var depth := 5.4
-	var center_x := side * (4.35 + depth * 0.5)
-	var house := _add_box(room, "WhiteHouse", Vector3(depth, height, segment_length), Vector3(center_x, height * 0.5, center_z), "white_wall", palette, true)
-	house.set_meta("continuous_house_segment", true)
-	house.set_meta("segment_length", segment_length)
-	_add_box(room, "TerraceParapet", Vector3(depth + 0.18, 0.22, segment_length), Vector3(center_x, height + 0.11, center_z), "white_wall", palette, false)
-	var face_x := center_x - side * (depth * 0.5 + 0.025)
-	var module_count := maxi(4, int(floor(segment_length / NIGHT_FACADE_BAY)))
-	var module_spacing := segment_length / float(module_count)
-	var anomaly_bay := posmod(room_index * 3 + built_floor, module_count)
-	for module_index in module_count:
-		var module_z := center_z - segment_length * 0.5 + module_spacing * (float(module_index) + 0.5)
-		if module_index > 0:
-			_add_box(
-				room,
-				"FacadeJoint%02d" % module_index,
-				Vector3(0.075, height - 0.34, 0.09),
-				Vector3(face_x - side * 0.04, height * 0.5, module_z - module_spacing * 0.5),
-				"window",
-				palette,
-				false
-			)
-		for storey_index in 2:
-			var controlled_anomaly := module_index == anomaly_bay and storey_index == 1
-			var window_height := 0.48 if controlled_anomaly else 0.82
-			var window_y := 1.38 + float(storey_index) * 1.72 + (0.18 if controlled_anomaly else 0.0)
-			var window := _add_box(
-				room,
-				"Window%02d_%d" % [module_index, storey_index],
-				Vector3(0.065, window_height, 0.84),
-				Vector3(face_x - side * 0.045, window_y, module_z),
-				"window",
-				palette,
-				false
-			)
-			if controlled_anomaly:
-				window.set_meta("controlled_repeat_anomaly", true)
-		if module_index % 4 == 1:
-			var repeated_door := _add_box(
-				room,
-				"RepeatedDoor%02d" % module_index,
-				Vector3(0.07, 2.18, 1.08),
-				Vector3(face_x - side * 0.055, 1.09, module_z + module_spacing * 0.22),
-				"window",
-				palette,
-				false
-			)
-			repeated_door.set_meta("architectural_repeat", true)
-	if row % 2 == 0:
-		_build_street_lamp(room, Vector3(side * 3.55, 0.0, center_z - minf(2.2, segment_length * 0.18)), palette, false)
-	if room_index % 4 == 2:
-		_build_mood_panel(room, room_index, Vector3(face_x - side * 0.04, 2.4, center_z + 1.4), side, palette)
-	_place_room_reward(room, room_index, Vector3(side * 3.65, 0.0, center_z), palette)
-	return module_count
 
 
 func _build_overgrown_gallery(parent: Node3D, palette: Dictionary) -> void:
@@ -1600,8 +1480,7 @@ func _build_full_map_grass(parent: Node3D, palette: Dictionary) -> void:
 			var basis := Basis(Vector3.UP, yaw).scaled(Vector3(width_scale, height_scale, width_scale))
 			var transform := Transform3D(basis, Vector3(x, FULL_MAP_GRASS_BLADE_HEIGHT * 0.5 * height_scale, z))
 			multimesh.set_instance_transform(instance_index, transform)
-			var brightness := 0.80 + float(posmod(row_index + column_index * 2, 6)) * 0.035
-			multimesh.set_instance_color(instance_index, Color(brightness, 0.92 + (brightness - 0.8) * 0.25, 0.72, 1.0))
+			multimesh.set_instance_color(instance_index, FloorLookScript.grass_blade_tint(row_index + column_index * 2))
 			instance_index += 1
 	grass_field.multimesh = multimesh
 	var grass_material := _material("grass", palette, false)
@@ -1652,7 +1531,7 @@ func _build_dreamcore_artifacts(parent: Node3D, palette: Dictionary) -> void:
 		artifact.set_meta("pickup_kind", "none")
 		var artifact_scale := 0.82 + float(posmod(artifact_index * 5, 4)) * 0.11
 		artifact.scale = Vector3.ONE * artifact_scale
-		if built_floor == 2:
+		if _is_disc_layout():
 			var angle := 0.18 + TAU * float(artifact_index) / float(artifact_count) + sin(float(artifact_index) * 2.3) * 0.12
 			var radial_ratio := 0.24 + float(posmod(artifact_index * 5, 7)) * 0.075
 			artifact.position = _floor_two_disc_point(angle, radial_ratio)
@@ -1892,7 +1771,7 @@ func _add_low_poly_cylinder(parent: Node3D, node_name: String, top_radius: float
 
 
 func _build_suspense_layer(parent: Node3D, palette: Dictionary) -> void:
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_suspense(parent, palette)
 		return
 	var suspense := Node3D.new()
@@ -1954,7 +1833,7 @@ func _build_suspense_layer(parent: Node3D, palette: Dictionary) -> void:
 		var pool := OmniLight3D.new()
 		pool.name = "SuspenseLight%02d" % light_index
 		pool.position = Vector3(light_x, 2.78, light_z)
-		pool.light_color = Color("D0A572") if warm_exception else Color("9DB9B4")
+		pool.light_color = _light_color("suspense_warm" if warm_exception else "suspense", palette)
 		pool.light_energy = 0.42 if warm_exception else 0.58
 		pool.omni_range = 12.5
 		pool.shadow_enabled = light_index % 2 == 0
@@ -2020,7 +1899,7 @@ func _build_floor_two_disc_suspense(parent: Node3D, palette: Dictionary) -> void
 		var pool := OmniLight3D.new()
 		pool.name = "SuspenseLight%02d" % light_index
 		pool.position = light_position
-		pool.light_color = Color("B07B55") if light_index == 1 else Color("668783")
+		pool.light_color = _light_color("disc_pool_warm" if light_index == 1 else "disc_pool", palette)
 		pool.light_energy = 1.25 if light_index == 1 else 1.65
 		pool.omni_range = 22.0
 		pool.shadow_enabled = light_index == 0
@@ -2061,7 +1940,7 @@ func _build_street_lamp(parent: Node3D, position: Vector3, palette: Dictionary, 
 		var light := OmniLight3D.new()
 		light.name = "WarmPool"
 		light.position = Vector3(0.0, 4.2, 0.0)
-		light.light_color = Color("FFB54A")
+		light.light_color = _light_color("street_lamp", palette)
 		light.light_energy = 2.4
 		light.omni_range = 7.5
 		light.shadow_enabled = false
@@ -2220,10 +2099,10 @@ func _build_air_walls(parent: Node3D) -> void:
 	var walls := Node3D.new()
 	walls.name = "AirWalls"
 	parent.add_child(walls)
-	if built_floor == 2:
+	if _is_disc_layout():
 		_build_floor_two_disc_air_walls(walls)
 		return
-	if district_style == "sunlit_brick_street":
+	if _layout_shape == "shared_street":
 		_build_sunlit_air_walls(walls)
 		return
 	_add_air_wall(walls, "WestAirWall", Vector3(AIR_WALL_THICKNESS, AIR_WALL_HEIGHT, map_length + AIR_WALL_THICKNESS * 2.0), Vector3(-map_width * 0.5, AIR_WALL_HEIGHT * 0.5, 0.0))
@@ -2324,12 +2203,20 @@ func _prerequisite_item_position_for_floor() -> Vector3:
 			return clamp_to_playable_position(start_position() + Vector3(0.0, 0.0, -18.0), 2.0)
 
 
-func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> void:
-	if item_data.is_empty() or built_floor > 3:
-		return
-	var item_id := str(item_data.get("id", "")).strip_edges()
-	if item_id.is_empty():
-		return
+func _build_prerequisite_items(items: Array, display_names: Dictionary, palette: Dictionary) -> void:
+	for item_data in items:
+		if not item_data is Dictionary:
+			continue
+		var entry: Dictionary = item_data
+		if str(entry.get("kind", "")) != "prerequisite":
+			continue
+		var item_id := str(entry.get("id", "")).strip_edges()
+		if item_id.is_empty():
+			continue
+		_build_prerequisite_item(item_id, str(display_names.get(item_id, "未登记物")), palette)
+
+
+func _build_prerequisite_item(item_id: String, display_name: String, palette: Dictionary) -> void:
 	useful_item_count += 1
 	var item := Area3D.new()
 	item.name = "PrerequisiteItemFloor%d" % built_floor
@@ -2343,7 +2230,7 @@ func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> voi
 	item.set_meta("revealed", false)
 	item.set_meta("collected", false)
 	item.set_meta("item_id", item_id)
-	item.set_meta("display_name", str(item_data.get("label", "未登记物")))
+	item.set_meta("display_name", display_name)
 	item.set_meta("item_effect", "prerequisite")
 	item.set_meta("item_value", built_floor)
 	item.set_meta("item_description", "这不是奖励。它只是证明你来过这里。")
@@ -2365,12 +2252,12 @@ func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> voi
 	halo.material_override = _material("item", palette, true)
 	item.add_child(halo)
 
-	match built_floor:
-		1:
+	match item_id:
+		"artifact_named_lamp_tag":
 			_build_nameplate_prerequisite(item, palette)
-		2:
+		"artifact_reversed_tape":
 			_build_cassette_prerequisite(item, palette)
-		3:
+		"artifact_missing_subject_page":
 			_build_page_prerequisite(item, palette)
 
 	var collision := CollisionShape3D.new()
@@ -2384,7 +2271,7 @@ func _build_prerequisite_item(item_data: Dictionary, palette: Dictionary) -> voi
 	var glow := OmniLight3D.new()
 	glow.name = "SearchGlow"
 	glow.position.y = 0.72
-	glow.light_color = _role_color("item", palette)
+	glow.light_color = _light_color("item_glow", palette)
 	glow.light_energy = 0.52
 	glow.omni_range = 2.4
 	glow.shadow_enabled = false
@@ -2436,61 +2323,78 @@ func _build_page_prerequisite(parent: Node3D, palette: Dictionary) -> void:
 		_add_box(parent, "PageLine%d" % line_index, Vector3(line_width, 0.025, 0.018), Vector3(-0.04, 0.94 - float(line_index) * 0.11, -0.03), "ink", palette, false)
 
 
-func _build_actors(actor_textures: Dictionary) -> void:
+func _build_actors(actor_textures: Dictionary, people: Array, display_names: Dictionary) -> void:
 	var actors := Node3D.new()
 	actors.name = "Actors"
 	add_child(actors)
 	var spawn := start_position()
-	var key_npc_position := Vector3(-3.4, 0.0, spawn.z - 8.0)
-	if built_floor == 2:
-		key_npc_position = _floor_two_disc_point(PI * 0.5 + 0.12, 0.72)
 	var key_npc_texture := actor_textures.get("key_npc") as Texture2D
 	var npc_textures: Array = actor_textures.get("npcs", [])
 	var fallback_texture := key_npc_texture
 	if not npc_textures.is_empty() and npc_textures[0] is Texture2D:
 		fallback_texture = npc_textures[0]
-	if built_floor <= 3:
-		var key_npc_label := str(actor_textures.get("key_npc_label", "关键住户"))
-		var key_npc := _make_actor("KeyNPC", "key_npc", key_npc_label, key_npc_position, key_npc_texture if key_npc_texture != null else fallback_texture, built_floor - 1)
-		actors.add_child(key_npc)
-		_actors.append(key_npc)
-
 	var doll_texture := actor_textures.get("doll") as Texture2D
-	var doll_encounter: Dictionary = actor_textures.get("doll_encounter", {})
-	if built_floor <= 3 and doll_texture != null and not doll_encounter.is_empty():
-		var doll_position := _doll_position_for_floor(spawn)
-		var doll := _make_doll_actor(doll_encounter, doll_position, doll_texture)
-		actors.add_child(doll)
-		_actors.append(doll)
-		set_meta("doll_encounter_count", 1)
+	var pedestrian_index := 0
+	for person_data in people:
+		if not person_data is Dictionary:
+			continue
+		var person: Dictionary = person_data
+		var person_id := str(person.get("id", ""))
+		var kind := str(person.get("kind", ""))
+		var label := str(display_names.get(person_id, ""))
+		match kind:
+			"key_npc":
+				var key_npc_position := Vector3(-3.4, 0.0, spawn.z - 8.0)
+				if _is_disc_layout():
+					key_npc_position = _floor_two_disc_point(PI * 0.5 + 0.12, 0.72)
+				if label.is_empty():
+					label = "关键住户"
+				var key_npc := _make_actor("KeyNPC", "key_npc", label, key_npc_position, key_npc_texture if key_npc_texture != null else fallback_texture, built_floor - 1)
+				key_npc.set_meta("actor_id", person_id)
+				actors.add_child(key_npc)
+				_actors.append(key_npc)
+			"doll":
+				if doll_texture == null or person_id.is_empty():
+					continue
+				var doll := _make_doll_actor(person_id, label, _doll_position_for_floor(spawn), doll_texture)
+				actors.add_child(doll)
+				_actors.append(doll)
+				set_meta("doll_encounter_count", 1)
+			"npc":
+				var actor_position := _pedestrian_position(pedestrian_index, ordinary_npc_count)
+				var npc_texture: Texture2D = fallback_texture
+				if not npc_textures.is_empty() and npc_textures[pedestrian_index % npc_textures.size()] is Texture2D:
+					npc_texture = npc_textures[pedestrian_index % npc_textures.size()]
+				var actor := _make_actor("NPC%d" % pedestrian_index, "npc", label, actor_position, npc_texture, pedestrian_index % 3)
+				actor.set_meta("actor_id", person_id)
+				actor.set_meta("language_bridge_actor", false)
+				actors.add_child(actor)
+				_actors.append(actor)
+				pedestrian_index += 1
 
-	var labels := ["迟到者", "回声住户", "抄写员", "无名信徒", "旧帖目击者"]
+
+func _pedestrian_position(index: int, pedestrian_count: int) -> Vector3:
 	var street_south := map_length * 0.5 - 12.5
 	var street_north := -map_length * 0.5 + 8.0
 	var lateral_positions := [3.4, -3.0, 1.6, -3.3, 0.5]
-	for index in ordinary_npc_count:
-		var progress := float(index + 1) / float(ordinary_npc_count + 1)
-		var actor_position: Vector3
-		if built_floor == 2:
-			var disc_angle := 0.72 + TAU * float(index + 1) / float(ordinary_npc_count + 2) + sin(float(index) * 1.7) * 0.16
-			var disc_radius := 0.30 + float(posmod(index * 3, 4)) * 0.14
-			actor_position = _floor_two_disc_point(disc_angle, disc_radius)
-		else:
-			actor_position = Vector3(
-				float(lateral_positions[index % lateral_positions.size()]),
-				0.0,
-				lerpf(street_south, street_north, progress)
-			)
-		var npc_texture: Texture2D = fallback_texture
-		if not npc_textures.is_empty() and npc_textures[index % npc_textures.size()] is Texture2D:
-			npc_texture = npc_textures[index % npc_textures.size()]
-		# 医生复述机制已移除:街区里不再生成医生角色,全部为普通 NPC。
-		var actor_type := "npc"
-		var actor_label: String = str(labels[index % labels.size()])
-		var actor := _make_actor("NPC%d" % index, actor_type, actor_label, actor_position, npc_texture, index % 3)
-		actor.set_meta("language_bridge_actor", false)
-		actors.add_child(actor)
-		_actors.append(actor)
+	if _is_disc_layout():
+		var disc_angle := 0.72 + TAU * float(index + 1) / float(pedestrian_count + 2) + sin(float(index) * 1.7) * 0.16
+		var disc_radius := 0.30 + float(posmod(index * 3, 4)) * 0.14
+		return _floor_two_disc_point(disc_angle, disc_radius)
+	var progress := float(index + 1) / float(pedestrian_count + 1)
+	return Vector3(
+		float(lateral_positions[index % lateral_positions.size()]),
+		0.0,
+		lerpf(street_south, street_north, progress)
+	)
+
+
+func _count_kind(people: Array, kind: String) -> int:
+	var count := 0
+	for person_data in people:
+		if person_data is Dictionary and str((person_data as Dictionary).get("kind", "")) == kind:
+			count += 1
+	return count
 
 
 func _doll_position_for_floor(spawn: Vector3) -> Vector3:
@@ -2504,20 +2408,19 @@ func _doll_position_for_floor(spawn: Vector3) -> Vector3:
 	return spawn
 
 
-func _make_doll_actor(encounter: Dictionary, doll_position: Vector3, doll_texture: Texture2D) -> Area3D:
+func _make_doll_actor(doll_id: String, display_name: String, doll_position: Vector3, doll_texture: Texture2D) -> Area3D:
 	var doll := Area3D.new()
-	var doll_id := str(encounter.get("doll_id", "doll_unknown"))
 	doll.name = "DollEncounter"
 	doll.position = doll_position
 	doll.collision_layer = 2
 	doll.collision_mask = 0
 	doll.set_meta("actor_id", doll_id)
 	doll.set_meta("actor_type", "doll")
-	doll.set_meta("display_name", str(encounter.get("actor_label", "缝线布偶")))
+	doll.set_meta("display_name", display_name if not display_name.is_empty() else "缝线布偶")
 	doll.set_meta("doll_id", doll_id)
 	doll.set_meta("guide_character", true)
 	doll.set_meta("discovery_style", "partially_hidden_near_existing_cover")
-	doll.set_meta("world_hint", str(encounter.get("world_hint", "")))
+	doll.set_meta("world_hint", "")
 	doll.set_meta("claimed", false)
 	doll.set_meta("face_veil", false)
 	doll.set_meta("camera_facing_layer", true)
@@ -2553,7 +2456,11 @@ func _make_doll_actor(encounter: Dictionary, doll_position: Vector3, doll_textur
 
 func _make_actor(node_name: String, actor_type: String, display_name: String, position: Vector3, npc_texture: Texture2D, tint_index: int) -> Area3D:
 	var actor := Area3D.new()
-	var face_center := Vector2(0.5, 0.18)
+	var source_size := Vector2(npc_texture.get_size()) if npc_texture != null else Vector2(1024.0, 1536.0)
+	var face_pixel := NpcPortraitsScript.face_pixel(npc_texture) if npc_texture != null else source_size * Vector2(0.5, 0.18)
+	var face_center := face_pixel / source_size
+	# Each portrait is sized so its face meets the first-person camera's eye height.
+	var portrait_height := ACTOR_CAMERA_EYE_HEIGHT / maxf(0.5, 1.0 - face_center.y)
 	actor.name = node_name
 	actor.position = position
 	actor.collision_layer = 2
@@ -2563,15 +2470,15 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	actor.set_meta("display_name", display_name)
 	actor.set_meta("tint_index", tint_index)
 	actor.set_meta("face_veil", true)
-	actor.set_meta("face_veil_style", "separate_animated_marker_overlay")
+	actor.set_meta("face_veil_style", "separate_animated_chalk_cover")
 	actor.set_meta("face_veil_mode", tint_index % 3)
 	actor.set_meta("face_identity_readable", false)
 	actor.set_meta("face_effect_separate_layer", true)
 	actor.set_meta("base_character_texture_preserved", true)
 	actor.set_meta("portrait_pose", "front_eye_level")
-	actor.set_meta("portrait_world_height", ACTOR_PORTRAIT_WORLD_HEIGHT)
+	actor.set_meta("portrait_world_height", portrait_height)
 	actor.set_meta("camera_eye_height", ACTOR_CAMERA_EYE_HEIGHT)
-	actor.set_meta("face_center_world_y", ACTOR_PORTRAIT_WORLD_HEIGHT * (1.0 - face_center.y))
+	actor.set_meta("face_center_world_y", portrait_height * (1.0 - face_center.y))
 	var collision := CollisionShape3D.new()
 	collision.name = "InteractionShape"
 	var capsule := CapsuleShape3D.new()
@@ -2584,20 +2491,9 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	var sprite := Sprite3D.new()
 	sprite.name = "Billboard"
 	sprite.texture = npc_texture
-	var source_height := float(npc_texture.get_height()) if npc_texture != null else 1536.0
-	sprite.pixel_size = ACTOR_PORTRAIT_WORLD_HEIGHT / maxf(1.0, source_height)
-	sprite.position.y = ACTOR_PORTRAIT_WORLD_HEIGHT * 0.5
-	# Keep the feet on their authored ground plane even when the player looks
-	# down at close range. Transparent canvas below the shoes is not floor.
-	var bottom_padding := 0.0
-	if npc_texture != null:
-		var source_image := npc_texture.get_image()
-		if source_image != null and not source_image.is_empty():
-			bottom_padding = float(source_image.get_height() - source_image.get_used_rect().end.y) * sprite.pixel_size
-	sprite.position.y -= bottom_padding
-	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	actor.set_meta("grounded_horizontal_billboard", true)
-	actor.set_meta("portrait_bottom_padding", bottom_padding)
+	sprite.pixel_size = portrait_height / maxf(1.0, source_size.y)
+	sprite.position.y = portrait_height * 0.5
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.shaded = false
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2610,37 +2506,35 @@ func _make_actor(node_name: String, actor_type: String, display_name: String, po
 	sprite.set_meta("front_eye_level", true)
 	actor.add_child(sprite)
 
-	var scribble_overlay := Sprite3D.new()
-	scribble_overlay.name = "FaceScribbleOverlay"
-	scribble_overlay.texture = npc_texture
-	scribble_overlay.pixel_size = sprite.pixel_size
-	scribble_overlay.position = sprite.position
-	scribble_overlay.scale = sprite.scale
-	scribble_overlay.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	scribble_overlay.shaded = false
-	scribble_overlay.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	scribble_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	scribble_overlay.render_priority = 8
-	scribble_overlay.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	scribble_overlay.double_sided = true
-	scribble_overlay.modulate = Color.WHITE
-	scribble_overlay.set_meta("separate_face_effect", true)
-	scribble_overlay.set_meta("camera_facing_layer", true)
-	scribble_overlay.set_meta("always_above_character_layer", true)
-	var scribble_material := ShaderMaterial.new()
-	scribble_material.shader = NPC_FACE_SCRIBBLE_OVERLAY_SHADER
-	scribble_material.render_priority = 8
-	scribble_material.set_shader_parameter("character_texture", npc_texture)
-	scribble_material.set_shader_parameter("scribble_atlas", NPC_FACE_SCRIBBLE_ATLAS)
-	scribble_material.set_shader_parameter("ink_color", Color("020202"))
-	scribble_material.set_shader_parameter("ink_opacity", 1.0)
-	scribble_material.set_shader_parameter("brush_width_px", 56.0)
-	scribble_material.set_shader_parameter("face_center", face_center)
-	scribble_material.set_shader_parameter("face_size", Vector2(0.16, 0.09))
-	scribble_material.set_shader_parameter("variation", float(tint_index % 3))
-	scribble_material.set_shader_parameter("seed", float(built_floor * 17 + tint_index * 7))
-	scribble_overlay.material_override = scribble_material
-	actor.add_child(scribble_overlay)
+	# The chalk cover is its own camera-facing layer in front of the character; the portrait stays untouched.
+	var cover_frame := NpcPortraitsScript.first_cover_frame()
+	var cover := Sprite3D.new()
+	cover.name = "FaceScribbleOverlay"
+	cover.texture = cover_frame
+	cover.pixel_size = sprite.pixel_size
+	cover.position = sprite.position
+	var cover_scale := NpcPortraitsScript.COVER_WIDTH_PX / maxf(1.0, float(cover_frame.get_width())) if cover_frame != null else 1.0
+	cover.scale = Vector3.ONE * cover_scale
+	cover.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	cover.shaded = false
+	cover.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cover.render_priority = 8
+	cover.double_sided = true
+	cover.set_meta("separate_face_effect", true)
+	cover.set_meta("camera_facing_layer", true)
+	cover.set_meta("always_above_character_layer", true)
+	var cover_material := ShaderMaterial.new()
+	cover_material.shader = NPC_FACE_COVER_SHADER
+	cover_material.render_priority = 8
+	if _npc_cover_frames == null:
+		_npc_cover_frames = NpcPortraitsScript.cover_frames()
+	cover_material.set_shader_parameter("cover_frames", _npc_cover_frames)
+	cover_material.set_shader_parameter("frame_count", float(NpcPortraitsScript.COVER_FRAME_COUNT))
+	cover_material.set_shader_parameter("frame_offset", float(built_floor * 5 + tint_index * 2))
+	var face_offset := Vector2(face_pixel.x - source_size.x * 0.5, source_size.y * 0.5 - face_pixel.y) * sprite.pixel_size
+	cover_material.set_shader_parameter("face_offset", face_offset)
+	cover.material_override = cover_material
+	actor.add_child(cover)
 	return actor
 
 
@@ -2681,10 +2575,10 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 		material.metallic = 0.54
 	if role == "grass":
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	if role == "night_path" and built_floor == 2:
+	if role == "night_path" and _is_disc_layout():
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.emission_enabled = true
-		material.emission = Color("28453A")
+		material.emission = FloorLookScript.tint("disc_path_glow")
 		material.emission_energy_multiplier = 0.78
 	if emission or role in ["lamp_light", "screen_glow", "fluorescent"]:
 		material.emission_enabled = true
@@ -2694,160 +2588,12 @@ func _material(role: String, palette: Dictionary, emission: bool) -> StandardMat
 
 
 func _role_color(role: String, palette: Dictionary) -> Color:
-	match role:
-		"brick":
-			return Color("D7B77F").lerp(_color(palette, "surface"), 0.12)
-		"brick_light":
-			return Color("E8CEA0").lerp(_color(palette, "surface"), 0.10)
-		"brick_dark":
-			return Color("8F7655").lerp(_color(palette, "accent"), 0.08)
-		"white_wall":
-			return Color("F0F2E9") if district_style == "night_white_blocks" else (Color("DCE4D2") if built_floor == 3 else Color("9DA99C"))
-		"window":
-			return Color("0B0D0B").lerp(_color(palette, "ink"), 0.35)
-		"grass":
-			return (Color("17321D") if district_style == "night_white_blocks" else (Color("5F8D3E") if built_floor == 3 else Color("4F7134"))).lerp(_color(palette, "accent"), 0.12)
-		"grass_ground":
-			return Color("527D42").lerp(_color(palette, "accent"), 0.10)
-		"gallery_floor":
-			return (Color("819978") if built_floor == 3 else Color("68756B")).lerp(_color(palette, "accent"), 0.08)
-		"sunlit_paving":
-			return Color("D7C8A8").lerp(_color(palette, "surface"), 0.16)
-		"night_path":
-			return Color("151613").lerp(_color(palette, "ink"), 0.42)
-		"crosswalk":
-			return Color("F3E8CD").lerp(_color(palette, "surface"), 0.24)
-		"lamp":
-			return Color("22241F").lerp(_color(palette, "ink"), 0.35)
-		"lamp_light":
-			return Color("FFBE58") if district_style == "night_white_blocks" else Color("E4D6A0")
-		"ground":
-			return _color(palette, "ink").lightened(0.055)
-		"road":
-			return _color(palette, "accent").darkened(0.54)
-		"sidewalk":
-			return _color(palette, "bg").darkened(0.36)
-		"lot_floor":
-			return _color(palette, "accent").darkened(0.30)
-		"floor":
-			return _color(palette, "accent").darkened(0.38)
-		"floor_alt":
-			return _color(palette, "accent").darkened(0.24)
-		"wall":
-			return _color(palette, "bg").darkened(0.38)
-		"wall_dark":
-			return _color(palette, "ink").lightened(0.035)
-		"ceiling":
-			return _color(palette, "surface").darkened(0.58)
-		"accent":
-			return _color(palette, "accent").darkened(0.10)
-		"item":
-			return _color(palette, "flash_text")
-		"backrooms_beige":
-			return Color("CBBE8E") if built_floor == 2 else Color("E0D6A7")
-		"fixture_metal":
-			return Color("69746D") if built_floor == 2 else Color("9AA79A")
-		"cart_metal":
-			return Color("4F5A54") if built_floor == 2 else Color("7D8D80")
-		"chair_metal":
-			return Color("758079") if built_floor == 2 else Color("A8B6A9")
-		"chair_vinyl":
-			return Color("485C50") if built_floor == 2 else Color("6E8B72")
-		"pipe_metal":
-			return Color("60736B") if built_floor == 2 else Color("8CA392")
-		"machine_green":
-			return Color("3B5A48") if built_floor == 2 else Color("688E69")
-		"cooler_blue":
-			return Color("538A8C") if built_floor == 2 else Color("8FC9C1")
-		"indicator_red":
-			return Color("8F4050") if built_floor == 2 else Color("C86A76")
-		"screen_glow":
-			return Color("6E9A7D") if built_floor == 2 else Color("B5DBAA")
-		"fluorescent":
-			return Color("D7E7AF") if built_floor == 2 else Color("F0F3CB")
-		"crate_wood":
-			return Color("725B3F") if built_floor == 2 else Color("A68B5C")
-		"crate_dark":
-			return Color("3E3529") if built_floor == 2 else Color("65563B")
-		"rubber_black":
-			return Color("111614")
-		"dream_pink":
-			return Color("F3A7BD") if built_floor == 3 else Color("B75A82")
-		"dream_cyan":
-			return Color("A8E1D3") if built_floor == 3 else Color("4C918D")
-		"dream_ivory":
-			return Color("FFF0BF") if built_floor == 3 else Color("A99775")
-		_:
-			return _color(palette, "muted")
+	return FloorLookScript.material_color(role, built_floor, district_style, palette)
 
 
-func _style_background_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("030607").lerp(_color(palette, "ink"), 0.08)
-	if built_floor == 3:
-		return Color("82B9B0").lerp(_color(palette, "surface"), 0.10)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("0B1112").lerp(_color(palette, "ink"), 0.14)
-			"overgrown_gallery":
-				return Color("202923").lerp(_color(palette, "ink"), 0.14)
-			_:
-				return Color("263A42").lerp(_color(palette, "ink"), 0.12)
-	match district_style:
-		"sunlit_brick_street":
-			return Color("1479B8").lerp(_color(palette, "accent"), 0.10)
-		"night_white_blocks":
-			return Color("10090B").lerp(_color(palette, "ink"), 0.22)
-		"overgrown_gallery":
-			return Color("D4DDD0").lerp(_color(palette, "muted"), 0.18)
-		_:
-			return _color(palette, "ink")
+func _environment_color(use: String, palette: Dictionary) -> Color:
+	return FloorLookScript.environment_color(use, built_floor, district_style, palette)
 
 
-func _style_ambient_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("55716B").lerp(_color(palette, "muted"), 0.08)
-	if built_floor == 3:
-		return Color("E1EBCF").lerp(_color(palette, "surface"), 0.12)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("89A096").lerp(_color(palette, "muted"), 0.12)
-			"overgrown_gallery":
-				return Color("7A8A7D").lerp(_color(palette, "muted"), 0.10)
-			_:
-				return Color("9FB4BC").lerp(_color(palette, "muted"), 0.12)
-	match district_style:
-		"night_white_blocks":
-			return Color("AEB8A2").lerp(_color(palette, "muted"), 0.18)
-		"overgrown_gallery":
-			return Color("F3F2DD").lerp(_color(palette, "surface"), 0.24)
-		_:
-			return Color("FFE4B8").lerp(_color(palette, "surface"), 0.18)
-
-
-func _style_fog_color(palette: Dictionary) -> Color:
-	if built_floor == 2:
-		return Color("111A19").lerp(_color(palette, "ink"), 0.10)
-	if built_floor == 3:
-		return Color("B5D4B4").lerp(_color(palette, "surface"), 0.10)
-	if built_floor >= 2:
-		match district_style:
-			"night_white_blocks":
-				return Color("202B2A").lerp(_color(palette, "accent"), 0.06)
-			"overgrown_gallery":
-				return Color("39463D").lerp(_color(palette, "accent"), 0.08)
-			_:
-				return Color("607780").lerp(_color(palette, "accent"), 0.08)
-	match district_style:
-		"night_white_blocks":
-			return Color("23181A").lerp(_color(palette, "accent"), 0.10)
-		"overgrown_gallery":
-			return Color("C9D6C0").lerp(_color(palette, "muted"), 0.20)
-		_:
-			return Color("7DB5C2").lerp(_color(palette, "accent"), 0.12)
-
-
-func _color(palette: Dictionary, key: String) -> Color:
-	return Color(str(palette.get(key, "FFF1C9")))
+func _light_color(use: String, palette: Dictionary) -> Color:
+	return FloorLookScript.light_color(use, built_floor, district_style, palette)

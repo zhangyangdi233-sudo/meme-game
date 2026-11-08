@@ -34,6 +34,10 @@ func _run() -> void:
 	game_root._locale.set_locale("zh")
 	if game_root.has_method("new_game"):
 		game_root.new_game()
+		game_root._skip_chapter_one()
+		# The street's cast starts on the second floor; the first is the empty crossroads.
+		game_root.game.tower_floor = 2
+		game_root._refresh_play_surfaces()
 	game_root._render()
 	await process_frame
 	await process_frame
@@ -59,10 +63,9 @@ func _run() -> void:
 		_assert_true(social_inline_close.custom_minimum_size.x >= 44.0, "small-view social close target should meet mobile touch guidance")
 	if view_toggle != null:
 		_assert_true(_inside_rect(view_toggle, viewport_rect), "small-view put-phone button should stay reachable")
-	if meme_bank != null:
-		_assert_true(not meme_bank.visible, "small-view passive social browsing should hide the publish-only meme bank")
-	if game_root.has_method("_open_social_post"):
-		game_root._open_social_post(0)
+	_assert_true(meme_bank == null, "small view must not mount the retired meme ring")
+	if game_root._social_feed_panel != null:
+		game_root._social_feed_panel.open_post(0)
 		await process_frame
 		var detail_window := _find_node_by_name(game_root, "SocialDetailWindow") as PanelContainer
 		var detail_close := _find_node_by_name(game_root, "SocialDetailWindowCloseButton") as Button
@@ -88,6 +91,11 @@ func _run() -> void:
 	_assert_true(phone_content != null and phone_content.visible, "small-view phone home should expose app icons")
 	if phone_social_icon != null:
 		_assert_true(_inside_rect(phone_social_icon, viewport_rect), "small-view phone app icons should stay reachable")
+	var phone_map_icon := _find_node_by_name(game_root, "PhoneAppIconMap") as Button
+	_assert_true(phone_map_icon != null and _inside_rect(phone_map_icon, viewport_rect), "small-view phone home should fit the map's row of icons")
+	var phone_note := _find_node_by_name(game_root, "PhoneLauncherNote") as Control
+	if phone_note != null and phone_home != null:
+		_assert_true(phone_note.get_global_rect().end.y <= phone_home.get_global_rect().end.y, "small-view phone home should not clip what follows the icons")
 	if game_root.has_method("set_view_state"):
 		game_root.set_view_state("npc_up")
 	await process_frame
@@ -113,7 +121,10 @@ func _run() -> void:
 	_assert_true(not doll_choices.is_empty(), "small-view doll discovery should expose authored choices")
 	var first_choice_id := str(doll_choices[0].get("id", "")) if not doll_choices.is_empty() else ""
 	if not first_choice_id.is_empty():
-		game_root._on_reality_choice_hovered(first_choice_id)
+		var first_choice_button := _find_node_by_name(game_root, "RealityChoice%s" % first_choice_id.to_pascal_case()) as Button
+		_assert_true(first_choice_button != null, "small-view dialogue should build a button for the first choice")
+		if first_choice_button != null:
+			first_choice_button.mouse_entered.emit()
 	var intent_preview := _find_node_by_name(game_root, "RealityIntentPreview") as RichTextLabel
 	_assert_true(intent_preview != null and intent_preview.visible, "small-view hover should reveal the full intended sentence")
 	if intent_preview != null:

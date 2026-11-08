@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Harness = preload("res://tests/harness/minimal_game_harness.gd")
+
 var _failures: Array[String] = []
 
 
@@ -22,15 +24,25 @@ func _run_async() -> void:
 	_test_main_menu(game_root)
 
 	game_root.new_game()
-	game_root._skip_prologue()
+	game_root._skip_chapter_one()
+	# The street's cast starts on the second floor; the first is the empty crossroads.
+	game_root.game.tower_floor = 2
+	game_root._refresh_play_surfaces()
 	await process_frame
 	_test_scene_contract(game_root)
 	_test_compact_hud_and_settings(game_root)
 	_test_phone_apps(game_root)
 	_test_social_feed(game_root)
 	_test_physical_doll_entry(game_root)
-	_test_language_and_playtest_contract(game_root)
+	_test_phone_hides_street(game_root)
+	_test_no_guidance_or_test_aids(game_root)
+	_test_world_prompt_and_bars_ignore_pollution(game_root)
 
+	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
+	root.remove_child(game_root)
+	_assert_true(bus.intent_emitted.get_connections().is_empty(), "a host out of the tree should stop listening to the UI event bus")
+	root.add_child(game_root)
+	_assert_eq(bus.intent_emitted.get_connections().size(), 1, "a host back in the tree should listen once again")
 	game_root.queue_free()
 	await process_frame
 	_finish()
@@ -38,11 +50,31 @@ func _run_async() -> void:
 
 func _test_main_menu(game_root: Node) -> void:
 	var main_menu := _find_node_by_name(game_root, "MainMenuLayer") as Control
-	var start_button := _find_node_by_name(game_root, "MainMenuStartButton") as Button
-	var exit_button := _find_node_by_name(game_root, "MainMenuExitButton") as Button
+	var start_button := _find_node_by_name(game_root, "MainMenuStartButton") as BaseButton
+	var exit_button := _find_node_by_name(game_root, "MainMenuExitButton") as BaseButton
 	_assert_true(main_menu != null and main_menu.visible, "launch should expose the main menu")
 	_assert_true(start_button != null, "main menu should expose start")
 	_assert_true(exit_button != null, "main menu should retain a direct system exit")
+	_assert_true(ServiceRegistry.has(ServiceKeys.UI_EVENT_BUS) and ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) == game_root._ui_event_bus, "the host should bind its UI event bus as a service")
+	exit_button.pressed.emit()
+	var confirmation := _find_node_by_name(game_root, "DialogLayer") as Control
+	_assert_true(confirmation != null and confirmation.visible, "exit should still ask for confirmation in the dialog")
+	_press_dialog_return(game_root)
+	_assert_true(confirmation != null and not confirmation.visible, "返回 should close the title exit dialog")
+	var language_button := _find_node_by_name(game_root, "MainMenuLanguageButton") as BaseButton
+	language_button.pressed.emit()
+	_assert_true(_find_node_by_name(game_root, "LanguageSelectionOverlay") != null, "language should still open the picker")
+	game_root._close_language_selection_overlay()
+	var ui_root := _find_node_by_name(game_root, "UIRoot") as Control
+	var sibling := Control.new()
+	sibling.name = "UiLayerSibling"
+	ui_root.add_child(sibling)
+	var menu_id := main_menu.get_instance_id()
+	game_root.uninstall_title_screen()
+	_assert_true(is_instance_valid(main_menu) and not main_menu.visible, "leaving the title should hide the same menu")
+	game_root.install_title_screen()
+	_assert_true(main_menu.get_instance_id() == menu_id and main_menu.visible, "re-entering the title should reuse the same menu")
+	_assert_true(is_instance_valid(sibling) and sibling.get_parent() == ui_root, "re-entering the title should keep other UI layer children")
 
 
 func _test_scene_contract(game_root: Node) -> void:
@@ -51,9 +83,24 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(game_root.get_node_or_null("CanvasLayer") is CanvasLayer, "2D interaction UI should remain on a CanvasLayer")
 	_assert_true(game_root.get_node_or_null("RealityFloor") is Node3D, "the physical floor should exist")
 	_assert_true(game_root.has_method("set_view_state"), "camera should support phone-down and NPC-up views")
-	_assert_true(game_root.has_method("_play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
-	_assert_true(game_root.has_method("_finish_pollution_flashback"), "the flashback should expose a deterministic completion path")
+	_assert_true(game_root._narrative_director != null, "narrative overlays should be wired through the director")
+	_assert_true(game_root._narrative_director.has_method("play_pollution_flashback"), "the 60-percent flashback entry should remain wired")
 	_assert_true(_find_node_by_name(game_root, "PollutionFlashbackOverlay") is Control, "the flashback overlay should be present")
+	_assert_true(game_root.get_node_or_null("Road") == null, "retired road tiles must not be built each run")
+	_assert_true(game_root.get_node_or_null("PhoneRig") == null, "retired PhoneRig must not be built each run")
+	_assert_true(game_root.get_node_or_null("NPC") == null, "retired NPC plane must not be built each run")
+	_assert_true(_find_node_by_name(game_root, "MemeBankPopup") == null, "retired meme ring popup must not hang into the adapter")
+	_assert_true(not FileAccess.file_exists("res://scripts/ui/meme_bank_panel.gd"), "retired meme bank panel source must not remain as a dead file")
+	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "retired 3D companion body must not exist")
+	var backdrop := _find_node_by_name(game_root, "PhoneDownBackdropImage") as TextureRect
+	_assert_true(backdrop != null, "phone-down backdrop should remain")
+	if backdrop != null:
+		game_root.set_view_state("phone_down")
+		for _settle_index in 8:
+			game_root._animate_world(0.5)
+		var settled_position := backdrop.position
+		game_root._animate_world(0.8)
+		_assert_true(backdrop.position != settled_position, "phone-down backdrop should keep walking sway after fade-in without road tiles")
 
 	for asset_path in [
 		"res://assets/generated/characters/guide_doll.png",
@@ -74,8 +121,26 @@ func _test_scene_contract(game_root: Node) -> void:
 		"func _render_shop_app",
 		"func _on_buy_meme_frame_pressed",
 		"merchant_frame_vendor.png",
+		"func _should_show_meme_bank",
+		"func _should_peek_meme_bank",
+		"func _ensure_meme_bank_panel",
+		"func _update_doll_companion",
+		"func _on_confirm_craft_pressed",
+		"func _on_token_pressed",
+		"func _on_note_token_pressed",
+		"func _on_slot_token_dropped",
+		"func _on_slot_pressed",
+		"func _on_dialogue_blank_pressed",
+		"func _on_dialogue_meme_dropped",
+		"func _craft_preview_text",
+		"func _slot_text",
+		"func _on_meme_pressed",
+		"func _on_meme_ring_selection_changed",
+		'_phone_rig.name = "PhoneRig"',
+		'npc_body.name = "NPCPlane"',
+		'tile.name = "RoadTile%d"',
 	]:
-		_assert_true(not main_source.contains(removed_runtime_identifier), "removed shop runtime should stay absent: %s" % removed_runtime_identifier)
+		_assert_true(not main_source.contains(removed_runtime_identifier), "removed adapter corpse should stay absent: %s" % removed_runtime_identifier)
 
 
 func _test_compact_hud_and_settings(game_root: Node) -> void:
@@ -83,7 +148,9 @@ func _test_compact_hud_and_settings(game_root: Node) -> void:
 	var reveal_zone := _find_node_by_name(game_root, "HUDRevealZone") as Control
 	_assert_true(rail != null and reveal_zone != null, "gameplay should expose the hidden left HUD drawer")
 	_assert_true(_find_node_by_name(game_root, "HUDPollutionIcon") is Button, "HUD should expose pollution")
-	_assert_true(_find_node_by_name(game_root, "HUDMoneyIcon") is Button, "HUD should expose funds")
+	_assert_true(_find_node_by_name(game_root, "HUDMoneyIcon") == null, "HUD should not expose funds")
+	_assert_true(_find_node_by_name(game_root, "HUDActionsLabel") == null, "HUD should not count daily actions")
+	_assert_true(_find_node_by_name(game_root, "ActionSpendOverlay") == null and _find_node_by_name(game_root, "DayTransitionOverlay") == null, "gameplay should build no action pulse or day transition overlay")
 	_assert_true(_find_node_by_name(game_root, "HUDSettingsIcon") is Button, "HUD should expose settings")
 	_assert_true(_find_node_by_name(game_root, "HUDDayIcon") == null, "day should not remain a global metric")
 	_assert_true(_find_node_by_name(game_root, "HUDHeatValue") == null, "heat should not return as a progression metric")
@@ -101,21 +168,25 @@ func _test_compact_hud_and_settings(game_root: Node) -> void:
 	_assert_true(volume_slider != null and volume_slider.editable, "volume must always remain adjustable")
 
 	game_root._request_quit_game()
-	var exit_overlay := _find_node_by_name(game_root, "ExitConfirmationOverlay") as Control
-	var exit_message := _find_node_by_name(game_root, "ExitConfirmationMessage") as Label
-	var exit_confirm := _find_node_by_name(game_root, "ExitConfirmationConfirmButton") as Button
+	var exit_overlay := _find_node_by_name(game_root, "DialogLayer") as Control
+	var exit_message := _find_node_by_name(exit_overlay, "DialogMessage") as Label
+	var exit_confirm := _find_node_by_name(exit_overlay, "DialogButton1") as Button
 	_assert_true(exit_overlay != null and exit_overlay.visible, "first exit request should show one confirmation")
 	_assert_true(exit_message != null and exit_message.text == "真的要抛弃我吗？", "exit confirmation should use the requested sentence")
 	_assert_true(exit_confirm != null and exit_confirm.text == "仍然退出", "final exit command should remain uncorrupted")
-	game_root._cancel_quit_game()
+	_press_dialog_return(game_root)
 
 
 func _test_phone_apps(game_root: Node) -> void:
-	_assert_true(_find_node_by_name(game_root, "PhoneAppIconBabel") is Button, "phone should expose the tower archive")
+	var app_icons: Array[String] = []
+	for node in game_root.find_children("PhoneAppIcon*", "Button", true, false):
+		app_icons.append(str(node.name))
+	app_icons.sort()
+	_assert_eq(app_icons, ["PhoneAppIconMap", "PhoneAppIconNotebook", "PhoneAppIconSocial"], "the phone should offer social media, the notebook and the map")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconSocial") is Button, "phone should expose social media")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconNotebook") is Button, "phone should expose the notebook")
 	_assert_true(_find_node_by_name(game_root, "PhoneAppIconShop") == null, "phone should not expose the removed shop")
-	_assert_true(_find_node_by_name(game_root, "BabelAppWindow") is Control, "tower app should own a separate window")
+	_assert_true(_find_node_by_name(game_root, "BabelAppWindow") == null, "the removed tower app should have no window")
 	_assert_true(_find_node_by_name(game_root, "SocialAppWindow") is Control, "social app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "NotebookAppWindow") is Control, "notebook app should own a separate window")
 	_assert_true(_find_node_by_name(game_root, "ShopAppWindow") == null, "removed shop window should not be constructed")
@@ -123,12 +194,12 @@ func _test_phone_apps(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "notebook should expose the free word canvas")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
-	game_root._set_social_screen("publish")
+	game_root._social_feed_panel.show_screen("publish")
 	game_root._render()
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the sentence area")
 	_assert_true(_find_node_by_name(game_root, "SocialPublishPostButton") is Button, "the publish page should expose one post command")
 	_assert_true(_find_node_by_name(game_root, "SocialPublishUnitCounter") != null, "the publish page should show a unit counter")
-	game_root._set_social_screen("home")
+	game_root._social_feed_panel.show_screen("home")
 
 
 func _test_social_feed(game_root: Node) -> void:
@@ -146,7 +217,7 @@ func _test_social_feed(game_root: Node) -> void:
 		_assert_true(absf(column_left.size.x - column_right.size.x) <= 1.0, "masonry columns should use equal widths")
 	_assert_true(_find_node_by_name(game_root, "SocialPostCard0") is Control, "feed should contain image-led cards")
 	_assert_true(_find_node_by_name(game_root, "SocialPostTexture0") is TextureRect, "feed cards should render generated poster art")
-	game_root._open_social_post(0)
+	game_root._social_feed_panel.open_post(0)
 	_assert_true(_find_node_by_name(game_root, "SocialPostDetailPage") is VBoxContainer, "opening a feed card should reveal its detail page")
 
 
@@ -161,7 +232,7 @@ func _test_physical_doll_entry(game_root: Node) -> void:
 	var billboard := doll.get_node_or_null("Billboard") as Sprite3D
 	_assert_true(billboard != null and billboard.texture != null, "doll should use the user-authored guide image")
 	_assert_true(bool(doll.get_meta("guide_character", false)), "doll actor should carry the permanent guide role")
-	game_root._reality_player.position = doll.position + Vector3(0.0, 0.0, 1.35)
+	game_root._reality_scene_adapter.player.position = doll.position + Vector3(0.0, 0.0, 1.35)
 	game_root._refresh_nearby_reality_actor()
 	_assert_true(game_root._try_reality_interaction(), "approaching the doll should start its authored encounter")
 	_assert_eq(game_root.game.conversation_actor_type, "doll", "doll should use its own conversation type")
@@ -169,31 +240,60 @@ func _test_physical_doll_entry(game_root: Node) -> void:
 	game_root._exit_reality_interaction()
 
 
-func _test_language_and_playtest_contract(game_root: Node) -> void:
+func _test_phone_hides_street(game_root: Node) -> void:
+	var floor: Node3D = game_root._reality_scene_adapter.floor
+	var player: Node3D = game_root._reality_scene_adapter.player
+	var doll := _find_actor_by_type(game_root, "doll")
+	_assert_true(floor != null and player != null and doll != null, "gameplay should have a street, a player, and a character")
+	if floor == null or player == null or doll == null:
+		return
+	game_root.set_view_state("npc_up")
+	_assert_eq(game_root.session_mode(), "gameplay", "closing the phone should stay in gameplay")
+	_assert_true(floor.is_visible_in_tree(), "closing the phone should show the street")
+	_assert_true(player.is_visible_in_tree(), "closing the phone should show the player")
+	_assert_true(doll.is_visible_in_tree(), "closing the phone should show street characters")
+	game_root.set_view_state("phone_down")
+	_assert_eq(game_root.session_mode(), "gameplay", "opening the phone should stay in gameplay")
+	_assert_true(not game_root.has_session_state("phone"), "the phone should not be a Session mode")
+	_assert_true(not floor.is_visible_in_tree(), "opening the phone should hide the street")
+	_assert_true(not player.is_visible_in_tree(), "opening the phone should hide the player")
+	_assert_true(not doll.is_visible_in_tree(), "opening the phone should hide street characters")
+	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
+	_assert_true(not main_source.contains("_reality_scene_adapter.floor.visible"), "the host should not set floor node visibility")
+	_assert_true(not main_source.contains("_reality_scene_adapter.player.visible"), "the host should not set character node visibility")
+
+
+## Only the game is on screen, also in a debug build: no doll guide window, no playtest panel or
+## TEST markers, no tower app. The doll stays in the street as a character.
+func _test_no_guidance_or_test_aids(game_root: Node) -> void:
 	# 医生复述机制已退役:世界里不再生成医生,拼句面板也不该再被触发。
 	var doctor := _find_actor_by_type(game_root, "doctor")
 	_assert_true(doctor == null, "the retired doctor actor must not spawn any more")
-	var assist_panel := _find_node_by_name(game_root, "PlaytestAssistPanel") as Control
-	var assist_label := _find_node_by_name(game_root, "PlaytestAssistLabel") as Label
-	_assert_true(assist_panel != null and assist_label != null, "debug builds should expose the explicit playtest route panel")
-	if assist_label != null:
-		_assert_true(assist_label.text.contains("测试提示"), "playtest panel should state the current tutorial action plainly")
-	var guide := _find_actor_by_type(game_root, "doll")
-	var key_npc := _find_actor_by_type(game_root, "key_npc")
-	_assert_true(guide != null and guide.get_node_or_null("PlaytestMarker") is Label3D, "guide should have a debug-only world marker")
-	_assert_true(key_npc != null and key_npc.get_node_or_null("PlaytestMarker") is Label3D, "key NPC should have a debug-only world marker")
-	if guide != null:
-		var marker := guide.get_node_or_null("PlaytestMarker") as Label3D
-		_assert_true(marker != null and marker.font_size <= 16, "playtest labels should remain compact enough to reveal the world and actor")
+	_assert_true(OS.is_debug_build(), "the test should run in a debug build, where the test aids used to show")
+	game_root._render()
+	_assert_eq(Harness.guidance_leftovers(game_root), [], "a new game should show no guide, test aid or tower app")
+	_assert_true(_find_actor_by_type(game_root, "doll") != null, "the doll should stay in the street as a character")
+	_assert_true(_find_actor_by_type(game_root, "key_npc") != null, "the key NPC should stay in the street")
+	for retired_path in ["res://scripts/tutorial/tutorial_director.gd", "res://scripts/tutorial/guide_line.gd",
+			"res://scripts/ui/doll_guide_panel.gd", "res://scripts/ui/playtest_assist_panel.gd", "res://scripts/ui/babel_app_panel.gd"]:
+		_assert_true(not FileAccess.file_exists(retired_path), "%s should be removed" % retired_path)
 
 
 func _find_actor_by_type(game_root: Node, actor_type: String) -> Area3D:
-	if game_root._reality_floor == null:
+	if game_root._reality_scene_adapter.floor == null:
 		return null
-	for actor in game_root._reality_floor.get_interactable_actors():
+	for actor in game_root._reality_scene_adapter.floor.get_interactable_actors():
 		if str(actor.get_meta("actor_type", "")) == actor_type:
 			return actor
 	return null
+
+
+## Presses 返回 on the open exit dialog.
+func _press_dialog_return(game_root: Node) -> void:
+	var return_button := _find_node_by_name(_find_node_by_name(game_root, "DialogLayer"), "DialogButton0") as Button
+	_assert_true(return_button != null and return_button.text == "返回", "the exit dialog should offer 返回 first")
+	if return_button != null:
+		return_button.pressed.emit()
 
 
 func _find_node_by_name(node: Node, target_name: String) -> Node:
@@ -206,6 +306,24 @@ func _find_node_by_name(node: Node, target_name: String) -> Node:
 		if found != null:
 			return found
 	return null
+
+
+func _test_world_prompt_and_bars_ignore_pollution(game_root: Node) -> void:
+	var pollution_before: int = game_root.game.pollution
+	game_root.game.pollution = 100
+	game_root._apply_ui_theme()
+	_assert_eq(str(game_root._ui_theme_helper.active_palette().get("name", "")), "pollution_palette_5", "full pollution should switch the UI theme to pollution palette 5")
+	var prompt := _find_node_by_name(game_root, "WorldPrompt") as Label
+	_assert_true(prompt != null, "the world prompt should be built")
+	if prompt != null:
+		_assert_eq(prompt.get_theme_color("font_outline_color"), Color("050705"), "the world prompt outline should stay near black under pollution palette 5")
+	for bar_name in ["CinematicTopBar", "CinematicBottomBar"]:
+		var bar := _find_node_by_name(game_root, bar_name) as ColorRect
+		_assert_true(bar != null, "%s should be built" % bar_name)
+		if bar != null:
+			_assert_eq(bar.color, Color("000000"), "%s should stay true black under pollution palette 5" % bar_name)
+	game_root.game.pollution = pollution_before
+	game_root._apply_ui_theme()
 
 
 func _assert_true(condition: bool, message: String) -> void:

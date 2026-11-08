@@ -1,0 +1,862 @@
+extends SceneTree
+## Property models: factory shape, copies, listeners, boot, and the single pollution value.
+
+const FactoryScript = preload("res://framework/properties/property_factory.gd")
+const ListScript = preload("res://framework/properties/list_property_model.gd")
+const MapScript = preload("res://framework/properties/map_property_model.gd")
+const ValueScript = preload("res://framework/properties/value_property_model.gd")
+const ManagerScript = preload("res://framework/properties/property_manager.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
+const BootScript = preload("res://scripts/game/property_boot.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const StateScript = preload("res://scripts/meme_game_state.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_run()
+	if _failures.is_empty():
+		print("property model tests passed")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _run() -> void:
+	_test_factory_picks_a_model_from_the_initial_value()
+	_test_value_keeps_bounds_and_rejects_the_wrong_type()
+	_test_list_and_map_reads_are_copies()
+	_test_register_syncs_and_notifies_every_listener()
+	_test_unregister_stops_updates()
+	_test_duplicate_names_keep_the_first_object()
+	_test_boot_resets_the_same_pollution_model()
+	_test_save_and_load_go_through_the_pollution_model()
+	_test_language_and_volume_are_preferences_and_autoplay_is_the_run()
+	_test_run_save_carries_autoplay_but_not_preferences()
+	_test_ending_choice_lives_only_in_the_run_model()
+	_test_phone_state_lives_only_in_the_run_models()
+	_test_open_windows_and_view_state_live_only_in_the_run_models()
+	_test_list_and_map_can_insert_or_replace_everything_once()
+	_test_holdings_live_only_in_the_run_models()
+	_test_canvas_positions_write_the_map_once_per_commit()
+	_test_conversation_progress_lives_only_in_the_run_models()
+	_test_social_engagement_lives_only_in_the_run_models()
+	_test_progression_lives_only_in_the_run_models()
+	_test_there_is_no_tutorial_progress()
+	_test_a_save_on_the_tower_app_returns_to_social()
+	_test_event_log_and_history_live_only_in_the_run_models()
+	_test_holdings_and_posting_live_only_in_the_run_models()
+	_test_registering_a_listener_does_not_open_a_screen()
+
+
+func _test_factory_picks_a_model_from_the_initial_value() -> void:
+	var counted: PropertyModel = FactoryScript.create("heat", 150, 0, 100)
+	var listed: PropertyModel = FactoryScript.create("bag", ["a"], 0, 100)
+	var mapped: PropertyModel = FactoryScript.create("table", {"a": 1})
+	_assert_true(counted.get_script() == ValueScript, "a number should become a single-value model")
+	_assert_eq(counted.read(), 100, "bounds should clamp the initial number")
+	_assert_true(listed.get_script() == ListScript, "an array should become a list model")
+	_assert_eq(listed.read(), ["a"], "list bounds should not rewrite the array")
+	_assert_true(mapped.get_script() == MapScript, "a dictionary should become a map model")
+	_assert_eq(mapped.read(), {"a": 1}, "a map should keep its initial entries")
+
+
+func _test_value_keeps_bounds_and_rejects_the_wrong_type() -> void:
+	var model: ValuePropertyModel = FactoryScript.create("heat", 0, 0, 100) as ValuePropertyModel
+	model.write(4)
+	model.write("nope")
+	_assert_eq(model.read(), 4, "a wrong type should keep the previous value")
+	model.write(140)
+	_assert_eq(model.read(), 100, "a number above the max should clamp")
+	model.write(-8)
+	_assert_eq(model.read(), 0, "a number below the min should clamp")
+
+	var floored: ValuePropertyModel = FactoryScript.create("count", 1, 1) as ValuePropertyModel
+	floored.write(0)
+	_assert_eq(floored.read(), 1, "a min without a max should still clamp below")
+	floored.write(9000)
+	_assert_eq(floored.read(), 9000, "a min without a max should leave large numbers alone")
+	var capped: ValuePropertyModel = FactoryScript.create("ratio", 0.5, null, 1.0) as ValuePropertyModel
+	capped.write(3.0)
+	_assert_eq(capped.read(), 1.0, "a max without a min should still clamp above")
+
+
+func _test_list_and_map_reads_are_copies() -> void:
+	var listed: ListPropertyModel = FactoryScript.create("bag", [{"n": 1}]) as ListPropertyModel
+	var heard: Array = []
+	listed.register(func(value: Variant) -> void:
+		heard.append(value)
+	)
+	_assert_eq(heard.size(), 1, "registering a list should sync once")
+	var notified: Array = heard[0]
+	notified.append({"n": 8})
+	var copy: Array = listed.read()
+	copy.append({"n": 9})
+	copy[0]["n"] = 7
+	_assert_eq(heard.size(), 1, "editing a list copy should not notify")
+	_assert_eq(int(listed.read()[0]["n"]), 1, "editing a list copy should not change the model")
+	_assert_eq(listed.read().size(), 1, "appending to a list copy should not change the model")
+
+	var item := {"n": 2}
+	listed.add(item)
+	item["n"] = 5
+	_assert_eq(heard.size(), 2, "adding through the list model should notify")
+	_assert_eq(listed.read().size(), 2, "add should store the new item")
+	_assert_eq(int(listed.read()[1]["n"]), 2, "add should store a copy of the item")
+	listed.replace_at(0, {"n": 3})
+	_assert_eq(int(listed.read()[0]["n"]), 3, "replace_at should change the stored item")
+	listed.remove_at(1)
+	_assert_eq(listed.read().size(), 1, "remove_at should drop the stored item")
+	var replaced_heard := heard.size()
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(listed.read().size(), 2, "replace_all should swap the whole list")
+	_assert_eq(heard.size(), replaced_heard + 1, "replace_all should notify once")
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(heard.size(), replaced_heard + 1, "replace_all with the same items should not notify")
+	var replacement := [{"n": 6}]
+	listed.replace_all(replacement)
+	replacement[0]["n"] = 0
+	_assert_eq(int(listed.read()[0]["n"]), 6, "replace_all should store a copy of the items")
+
+	var mapped: MapPropertyModel = FactoryScript.create("table", {"a": 1}) as MapPropertyModel
+	var map_heard: Array = []
+	mapped.register(func(value: Variant) -> void:
+		map_heard.append(value.size())
+	)
+	var map_copy: Dictionary = mapped.read()
+	map_copy["a"] = 9
+	map_copy["b"] = 2
+	_assert_eq(map_heard.size(), 1, "editing a map copy should not notify")
+	_assert_eq(int(mapped.read()["a"]), 1, "editing a map copy should not change the model")
+	_assert_true(not mapped.read().has("b"), "adding a key on a copy should not change the model")
+	mapped.add("a", 9)
+	_assert_eq(map_heard.size(), 1, "adding an existing key should not notify")
+	_assert_eq(int(mapped.read()["a"]), 1, "adding an existing key should keep the stored value")
+	mapped.add("b", {"n": 2})
+	mapped.replace("a", 4)
+	mapped.remove("b")
+	_assert_eq(int(mapped.read()["a"]), 4, "replace should change the stored entry")
+	_assert_true(not mapped.read().has("b"), "remove should drop the stored entry")
+	_assert_eq(map_heard.size(), 4, "add, replace, and remove should each notify")
+
+
+func _test_register_syncs_and_notifies_every_listener() -> void:
+	var model: ValuePropertyModel = FactoryScript.create("score", 2) as ValuePropertyModel
+	var first: Array = []
+	var second: Array = []
+	var first_listener := func(value: Variant) -> void:
+		first.append(int(value))
+	model.register(first_listener)
+	model.register(first_listener)
+	model.register(func(value: Variant) -> void:
+		second.append(int(value))
+	)
+	model.write(6)
+	_assert_eq(first, [2, 6], "the first listener should sync immediately and then see the change once")
+	_assert_eq(second, [2, 6], "a second listener should see the same values")
+
+
+func _test_unregister_stops_updates() -> void:
+	var model: ValuePropertyModel = FactoryScript.create("score", 1) as ValuePropertyModel
+	var heard: Array = []
+	var listener := func(value: Variant) -> void:
+		heard.append(int(value))
+	model.register(listener)
+	model.unregister(listener)
+	model.write(3)
+	_assert_eq(heard, [1], "an unregistered listener should keep only the sync value")
+
+
+func _test_duplicate_names_keep_the_first_object() -> void:
+	RegistryScript.clear()
+	var manager: PropertyManager = ManagerScript.new()
+	var first = FactoryScript.create("score", 1)
+	var second = FactoryScript.create("score", 9)
+	manager.add(first)
+	manager.add(second)
+	_assert_true(manager.model("score") == first, "adding the same model name twice should keep the first model")
+	_assert_eq(manager.model("score").read(), 1, "the rejected model should not replace the stored value")
+	_assert_true(manager.model("missing") == null, "a missing model name should be an error result")
+
+	var other = ManagerScript.new()
+	RegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, manager)
+	RegistryScript.bind(ServiceKeysScript.PROPERTY_MANAGER, other)
+	_assert_true(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) == manager, "binding the same service name twice should keep the first object")
+	RegistryScript.clear()
+	_assert_true(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) == null, "clear should drop the bound service")
+
+
+func _test_boot_resets_the_same_pollution_model() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+	var has_save: ValuePropertyModel = manager.model(PropertyKeysScript.HAS_SAVE) as ValuePropertyModel
+	var pollution_id: int = pollution.get_instance_id()
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.POLLUTION), "pollution should be saved with the run")
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(PropertyKeysScript.HAS_SAVE), "has_save should not be saved")
+	for property_name in [PropertyKeysScript.SETTINGS_OPEN, PropertyKeysScript.SAVE_STATUS, PropertyKeysScript.FEEDBACK_TEXT]:
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.NOT_SAVED).has(property_name), "%s should not be saved" % property_name)
+		_assert_true(manager.model(property_name) != null, "boot should create %s" % property_name)
+	_assert_eq(manager.model(PropertyKeysScript.SETTINGS_OPEN).read(), false, "settings should start closed")
+	_assert_eq(manager.model(PropertyKeysScript.SAVE_STATUS).read(), "", "save status should start empty")
+	_assert_eq(manager.model(PropertyKeysScript.FEEDBACK_TEXT).read(), "", "feedback text should start empty")
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
+		_assert_true(not PropertyKeysScript.is_run(property_name), "preference %s should not be saved with the run" % property_name)
+	_assert_eq(pollution.read(), 0, "pollution should start at zero")
+	_assert_eq(has_save.read(), false, "has_save should start false")
+	pollution.write(140)
+	_assert_eq(pollution.read(), 100, "booted pollution should clamp to 100")
+	pollution.write(-3)
+	_assert_eq(pollution.read(), 0, "booted pollution should clamp to 0")
+
+	var state = StateScript.new()
+	state.pollution = 40
+	_assert_eq(pollution.read(), 40, "writing the state should write the model")
+	pollution.write(22)
+	_assert_eq(state.pollution, 22, "the state should read the model instead of a private copy")
+	state.new_run()
+	_assert_eq(pollution.get_instance_id(), pollution_id, "a new run should keep the same pollution model")
+	_assert_eq(state.pollution, 0, "a new run should restore the initial pollution")
+	_assert_eq(has_save.read(), false, "a new run should leave the unsaved has_save model alone")
+
+
+func _test_save_and_load_go_through_the_pollution_model() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var pollution: ValuePropertyModel = manager.model(PropertyKeysScript.POLLUTION) as ValuePropertyModel
+	var pollution_id: int = pollution.get_instance_id()
+	var source = StateScript.new()
+	source.new_run()
+	source.pollution = 47
+	var save_data: Dictionary = source.to_save_data()
+	var state_data: Dictionary = save_data.get("state", {})
+	_assert_eq(int(state_data.get("pollution", -1)), 47, "the save should store the model value")
+	_assert_true(not state_data.has("has_save"), "the save should not store has_save")
+	source.pollution = 2
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data(save_data), "a save written from the model should load")
+	_assert_eq(restored.pollution, 47, "loading should write pollution back through the model")
+	_assert_eq(source.pollution, 47, "source and restored state should share the one pollution model")
+	_assert_eq(pollution.get_instance_id(), pollution_id, "loading should not replace the pollution model")
+	pollution.write("bad")
+	_assert_eq(pollution.read(), 47, "a wrong type on the booted model should keep the loaded value")
+
+
+func _test_language_and_volume_are_preferences_and_autoplay_is_the_run() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var locale: ValuePropertyModel = manager.model(PropertyKeysScript.LOCALE) as ValuePropertyModel
+	var volume: ValuePropertyModel = manager.model(PropertyKeysScript.MASTER_VOLUME) as ValuePropertyModel
+	var autoplay: ValuePropertyModel = manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE).has(PropertyKeysScript.LOCALE), "language should be a preference")
+	_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE).has(PropertyKeysScript.MASTER_VOLUME), "volume should be a preference")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.AUTOPLAY_ENABLED), "autoplay should be saved with the run")
+	_assert_eq(locale.read(), "zh", "language should start as Chinese")
+	_assert_eq(volume.read(), 80.0, "volume should start at 80")
+	_assert_eq(autoplay.read(), false, "autoplay should start off")
+	volume.write(140.0)
+	_assert_eq(volume.read(), 100.0, "volume should clamp to 100")
+
+	locale.write("en")
+	volume.write(35.0)
+	var state = StateScript.new()
+	state.set_autoplay_enabled(true)
+	_assert_eq(autoplay.read(), true, "turning autoplay on should write the model")
+	state.new_run()
+	_assert_eq(autoplay.read(), false, "a new run should turn autoplay off again")
+	_assert_eq(locale.read(), "en", "a new run should keep the chosen language")
+	_assert_eq(volume.read(), 35.0, "a new run should keep the chosen volume")
+
+
+func _test_run_save_carries_autoplay_but_not_preferences() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var autoplay: ValuePropertyModel = manager.model(PropertyKeysScript.AUTOPLAY_ENABLED) as ValuePropertyModel
+	var source = StateScript.new()
+	source.new_run()
+	source.set_autoplay_enabled(true)
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("autoplay_enabled", null), true, "the run save should store the autoplay model")
+	for property_name in PropertyKeysScript.names_saved_as(PropertyKeysScript.PREFERENCE):
+		_assert_true(not state_data.has(property_name), "the run save should not store preference %s" % property_name)
+	autoplay.write(false)
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(autoplay.read(), true, "loading should write autoplay back through the model")
+
+
+func _test_ending_choice_lives_only_in_the_run_model() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var choice: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_LANGUAGE_CHOICE) as ValuePropertyModel
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.ENDING_LANGUAGE_CHOICE), "the ending choice should be saved with the run")
+	_assert_eq(choice.read(), "", "the ending choice should start empty")
+
+	var source = StateScript.new()
+	source.new_run()
+	source.ending_unlocked = true
+	_assert_true(source.choose_ending_language("blank"), "choosing an ending language should succeed")
+	_assert_eq(choice.read(), "blank", "choosing should write the model")
+	_assert_eq(source.ending_language_choice, "blank", "the state should read the model, not keep a copy")
+	_assert_true(not source.get_progression_snapshot().has("ending_language_choice"), "the progression snapshot should not carry a second copy")
+	_assert_true(not source.choose_ending_language("silence"), "a second choice should be refused")
+	_assert_eq(choice.read(), "blank", "a refused choice should keep the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("ending_language_choice", null), "blank", "the run save should store the ending choice model")
+	choice.write("")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(choice.read(), "blank", "loading should write the ending choice back through the model")
+	restored.new_run()
+	_assert_eq(choice.read(), "", "a new run should clear the ending choice on the same model")
+	choice.write("blank")
+	choice.write(3)
+	_assert_eq(choice.read(), "blank", "a wrong type should keep the ending choice")
+
+
+func _test_phone_state_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var open: ValuePropertyModel = manager.model(PropertyKeysScript.PHONE_OPEN) as ValuePropertyModel
+	var app: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP) as ValuePropertyModel
+	var window: ValuePropertyModel = manager.model(PropertyKeysScript.ACTIVE_APP_WINDOW) as ValuePropertyModel
+	for key in [PropertyKeysScript.PHONE_OPEN, PropertyKeysScript.ACTIVE_APP, PropertyKeysScript.ACTIVE_APP_WINDOW]:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
+	_assert_eq(open.read(), true, "the phone should start open")
+	_assert_eq(app.read(), PropertyKeysScript.DEFAULT_APP, "the current app should start on the default app")
+	_assert_eq(window.read(), PropertyKeysScript.DEFAULT_APP, "the foreground app should start on the default app")
+
+	var source = StateScript.new()
+	source.new_run()
+	source.skip_chapter_one()
+	source.set_active_app("notebook")
+	_assert_eq(app.read(), "notebook", "choosing an app should write the current app model")
+	_assert_eq(window.read(), "notebook", "choosing an app should write the foreground model")
+	_assert_eq(source.active_app, "notebook", "the state should read the model, not keep a copy")
+	source.set_phone_open(false)
+	_assert_eq(open.read(), false, "closing the phone should write the model")
+	_assert_eq(window.read(), "", "closing the phone should clear the foreground model")
+	_assert_true(not source.get_phone_shell_snapshot().has("phone_open"), "the phone snapshot should not carry a second copy")
+
+	source.set_phone_open(true)
+	source.set_active_app("social")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("phone_open", null), true, "the run save should store the phone model")
+	_assert_eq(state_data.get("active_app_window", null), "social", "the run save should store the foreground model")
+	_assert_true(not state_data.has("phone_visible"), "the run save should not store a second copy of the phone")
+	open.write(false)
+	app.write("notebook")
+	window.write("")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(open.read(), true, "loading should write the phone back through the model")
+	_assert_eq(app.read(), "social", "loading should write the current app back through the model")
+	_assert_eq(window.read(), "social", "loading should write the foreground back through the model")
+	restored.new_run()
+	_assert_eq(window.read(), PropertyKeysScript.DEFAULT_APP, "a new run should reset the foreground on the same model")
+	open.write(false)
+	open.write("yes")
+	_assert_eq(open.read(), false, "a wrong type should keep the phone state")
+
+
+func _test_open_windows_and_view_state_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var windows: ListPropertyModel = manager.model(PropertyKeysScript.OPEN_APP_WINDOWS) as ListPropertyModel
+	var view: ValuePropertyModel = manager.model(PropertyKeysScript.VIEW_STATE) as ValuePropertyModel
+	_assert_true(windows != null, "the open windows should be a list model")
+	_assert_true(view != null, "the view should be a value model")
+	if windows == null or view == null:
+		return
+	for key in [PropertyKeysScript.OPEN_APP_WINDOWS, PropertyKeysScript.VIEW_STATE]:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
+	_assert_eq(windows.read(), [], "no window should be open before a run starts")
+	_assert_eq(view.read(), "phone_down", "the view should start phone-down")
+
+	var source = StateScript.new()
+	source.new_run()
+	_assert_eq(windows.read(), [], "a new run should open no window while its apps are locked")
+	source.skip_chapter_one()
+	_assert_eq(windows.read(), ["social"], "the tower street should open the foreground app window")
+	source.set_active_app("notebook")
+	_assert_eq(windows.read(), ["social", "notebook"], "choosing an app should open its window through the model")
+	source.set_active_app("notebook")
+	_assert_eq(windows.read(), ["social", "notebook"], "choosing an open app again should not list it twice")
+	source.set_view_state("npc_up")
+	_assert_eq(view.read(), "npc_up", "putting the phone down should write the view model")
+	_assert_eq(source.view_state, "npc_up", "the state should read the model, not keep a copy")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("open_app_windows", null), ["social", "notebook"], "the run save should store the open windows")
+	_assert_eq(state_data.get("view_state", null), "npc_up", "the run save should store the view model")
+	windows.replace_all([])
+	view.write("phone_down")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(windows.read(), ["social", "notebook"], "loading should write the open windows back through the model")
+	_assert_eq(view.read(), "npc_up", "loading should write the view back through the model")
+	restored.new_run()
+	_assert_eq(view.read(), "phone_down", "a new run should reset the view on the same model")
+	_assert_eq(windows.read(), [], "a new run should reset the open windows on the same model")
+
+
+func _test_list_and_map_can_insert_or_replace_everything_once() -> void:
+	var listed: ListPropertyModel = FactoryScript.create("bag", [{"n": 1}]) as ListPropertyModel
+	var heard: Array = []
+	listed.register(func(value: Variant) -> void:
+		heard.append(value)
+	)
+	var front := {"n": 0}
+	listed.insert_at(0, front)
+	front["n"] = 9
+	_assert_eq(heard.size(), 2, "insert_at should notify once")
+	_assert_eq(int(listed.read()[0]["n"]), 0, "insert_at should store a copy at the front")
+	listed.insert_at(5, {"n": 2})
+	_assert_eq(listed.read().size(), 2, "insert_at past the end should keep the list")
+	var replacement: Array = [{"n": 4}, {"n": 5}]
+	listed.replace_all(replacement)
+	replacement[0]["n"] = 7
+	_assert_eq(heard.size(), 3, "replace_all should notify once")
+	_assert_eq(int(listed.read()[0]["n"]), 4, "replace_all should store a copy")
+	listed.replace_all([{"n": 4}, {"n": 5}])
+	_assert_eq(heard.size(), 3, "replacing with the same items should not notify")
+
+	var mapped: MapPropertyModel = FactoryScript.create("table", {"a": 1}) as MapPropertyModel
+	var map_heard: Array = []
+	mapped.register(func(value: Variant) -> void:
+		map_heard.append(value)
+	)
+	var entries := {"a": [1, 2], "b": [3, 4]}
+	mapped.replace_all(entries)
+	entries["a"][0] = 9
+	_assert_eq(map_heard.size(), 2, "replacing the whole map should notify once")
+	_assert_eq(mapped.read(), {"a": [1, 2], "b": [3, 4]}, "replace_all should store a copy of every entry")
+	mapped.replace_all({"a": [1, 2], "b": [3, 4]})
+	_assert_eq(map_heard.size(), 2, "replacing the map with the same entries should not notify")
+
+
+func _test_holdings_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var chars: ListPropertyModel = manager.model(PropertyKeysScript.COLLECTED_CHAR_UNITS) as ListPropertyModel
+	var tokens: ListPropertyModel = manager.model(PropertyKeysScript.NOTEBOOK_TOKENS) as ListPropertyModel
+	var memes: ListPropertyModel = manager.model(PropertyKeysScript.COMPLETED_MEMES) as ListPropertyModel
+	var positions: MapPropertyModel = manager.model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	_assert_true(chars != null and tokens != null and memes != null, "held words and memes should be list models")
+	_assert_true(positions != null, "canvas positions should be a map model")
+	if chars == null or tokens == null or memes == null or positions == null:
+		return
+	for key in [PropertyKeysScript.COLLECTED_CHAR_UNITS, PropertyKeysScript.NOTEBOOK_TOKENS, PropertyKeysScript.COMPLETED_MEMES, PropertyKeysScript.CHAR_CANVAS_POSITIONS]:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should be saved with the run" % key)
+
+	var source = StateScript.new()
+	source.new_run()
+	var char_heard: Array = []
+	chars.register(func(value: Variant) -> void:
+		char_heard.append((value as Array).size())
+	)
+	_assert_true(bool(source.pick_social_char("floor_13", "门", "zh").get("picked", false)), "picking a word should succeed")
+	_assert_eq(char_heard, [0, 1], "picking a word should add it through the list model and notify once")
+	_assert_eq(source.get_collected_char_units("zh"), ["门"] as Array[String], "the state should read the held words from the model")
+	var read_copy: Array = source.collected_char_units
+	read_copy.append({"unit": "假", "locale": "zh"})
+	_assert_eq(chars.read().size(), 1, "editing what the state reads should not change the model")
+	_assert_eq(char_heard.size(), 2, "editing a copy should not notify")
+
+	var meme_heard: Array = []
+	memes.register(func(value: Variant) -> void:
+		meme_heard.append((value as Array).size())
+	)
+	source.completed_memes = [
+		{"id": "meme-left", "title": "左梗", "text": "左", "tags": [], "rarity": 1, "pollution_bias": 1, "unit_count": 1},
+		{"id": "meme-right", "title": "右梗", "text": "右", "tags": [], "rarity": 1, "pollution_bias": 1, "unit_count": 1},
+	]
+	_assert_eq(meme_heard, [0, 2], "setting the memes should replace the list model once")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq((state_data.get("completed_memes", []) as Array).size(), 2, "the run save should store the meme model")
+	_assert_eq((state_data.get("collected_char_units", []) as Array).size(), 1, "the run save should store the held words model")
+	chars.replace_all([])
+	memes.replace_all([])
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(chars.read().size(), 1, "loading should write the held words back through the model")
+	_assert_eq(memes.read().size(), 2, "loading should write the memes back through the model")
+	var broken: Dictionary = state_data.duplicate(true)
+	broken["completed_memes"] = "not a list"
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": broken}), "a save with a broken list should still load")
+	_assert_eq(memes.read().size(), 0, "a broken list should leave the reset meme list")
+	restored.new_run()
+	_assert_eq(chars.read().size(), 0, "a new run should clear the held words on the same model")
+	_assert_eq(char_heard.back(), 0, "listeners on the same model should hear the reset")
+	RegistryScript.clear()
+
+
+func _test_canvas_positions_write_the_map_once_per_commit() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var positions: MapPropertyModel = manager.model(PropertyKeysScript.CHAR_CANVAS_POSITIONS) as MapPropertyModel
+	if positions == null:
+		_failures.append("canvas positions should be a map model")
+		return
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	positions.register(func(value: Variant) -> void:
+		heard.append(value)
+	)
+	source.set_char_canvas_positions({"门": Vector2(20.0, 30.0), "开": Vector2(900.0, -5.0)}, "zh")
+	_assert_eq(heard.size(), 2, "committing two tiles should write the map once")
+	_assert_eq(source.get_char_canvas_position("门", "zh"), Vector2(20.0, 30.0), "the state should read the committed position from the map")
+	var clamped: Vector2 = source.get_char_canvas_position("开", "zh")
+	_assert_eq(clamped, Vector2(StateScript.CHAR_CANVAS_SIZE.x - StateScript.CHAR_CANVAS_TILE.x, 0.0), "a committed position should stay on the canvas")
+	source.set_char_canvas_positions({"门": Vector2(20.0, 30.0)}, "zh")
+	_assert_eq(heard.size(), 2, "committing the same positions should not write again")
+	source.set_char_canvas_positions({}, "zh")
+	_assert_eq(heard.size(), 2, "committing nothing should not write")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	positions.replace_all({})
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(restored.get_char_canvas_position("门", "zh"), Vector2(20.0, 30.0), "loading should write canvas positions back through the map model")
+	RegistryScript.clear()
+
+
+func _test_conversation_progress_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var phase: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_PHASE) as ValuePropertyModel
+	var prompt: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_PROMPT) as ValuePropertyModel
+	var reveal: ValuePropertyModel = manager.model(PropertyKeysScript.CONVERSATION_REVEAL_INDEX) as ValuePropertyModel
+	var choices: ListPropertyModel = manager.model(PropertyKeysScript.CONVERSATION_CHOICES) as ListPropertyModel
+	var units: ListPropertyModel = manager.model(PropertyKeysScript.CONVERSATION_REVEALED_UNITS) as ListPropertyModel
+	var keys := [
+		PropertyKeysScript.CONVERSATION_PHASE, PropertyKeysScript.CONVERSATION_MODE, PropertyKeysScript.CONVERSATION_ACTOR_TYPE,
+		PropertyKeysScript.CONVERSATION_ACTOR_LABEL, PropertyKeysScript.CONVERSATION_PROMPT, PropertyKeysScript.CONVERSATION_RESULT_LINE,
+		PropertyKeysScript.CONVERSATION_CHOICES, PropertyKeysScript.CONVERSATION_CAN_CONTINUE, PropertyKeysScript.CONVERSATION_FEEDBACK,
+		PropertyKeysScript.CONVERSATION_REVEAL_INDEX, PropertyKeysScript.CONVERSATION_REVEALED_UNITS,
+	]
+	for key in keys:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+	_assert_eq(phase.read(), PropertyKeysScript.DEFAULT_CONVERSATION_PHASE, "the conversation should start idle")
+	_assert_eq(choices.read().size(), 0, "the conversation should start without choices")
+
+	var source = StateScript.new()
+	source.new_run()
+	_assert_true(source.start_typed_reality_conversation("floor1npc0", "npc", "talker"), "a conversation should start")
+	_assert_eq(phase.read(), "choosing", "starting should write the phase model")
+	_assert_eq(source.conversation_phase, "choosing", "the state should read the model, not keep a copy")
+	_assert_eq(prompt.read(), source.conversation_prompt, "the state prompt should be the model prompt")
+	_assert_eq(choices.read().size(), 3, "starting should write the choices model")
+	var choice_id := str(source.get_typed_reality_choices()[0].get("id", ""))
+	_assert_true(source.select_typed_reality_choice(choice_id), "a choice should be selectable")
+	source.advance_typed_reality_character()
+	_assert_eq(reveal.read(), 1, "advancing should write the reveal index model")
+	_assert_eq(units.read().size(), 1, "advancing should write the revealed units model")
+	_assert_eq(source.conversation_revealed_units.size(), 1, "the state should read the units from the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	for key in keys:
+		_assert_true(not state_data.has(key), "%s is not part of the save" % key)
+	source.reset_typed_reality_conversation()
+	_assert_eq(phase.read(), "idle", "resetting should write the phase model back")
+	_assert_eq(units.read().size(), 0, "resetting should empty the units model")
+
+	source.start_typed_reality_conversation("floor1npc0", "npc", "talker")
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save should load")
+	_assert_eq(phase.read(), "idle", "loading starts from a clean conversation on the same model")
+	phase.write("typing")
+	phase.write(3)
+	_assert_eq(phase.read(), "typing", "a wrong type should keep the phase")
+
+
+func _test_social_engagement_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var followed: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES) as ListPropertyModel
+	var liked: ListPropertyModel = manager.model(PropertyKeysScript.SOCIAL_LIKED_POST_IDS) as ListPropertyModel
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES), "the followed authors should belong to the run")
+	_assert_true(PropertyKeysScript.is_run(PropertyKeysScript.SOCIAL_LIKED_POST_IDS), "the liked posts should belong to the run")
+
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	followed.register(func(value: Variant) -> void:
+		heard.append((value as Array).size())
+	)
+	_assert_true(source.toggle_social_follow("author-a"), "following should work")
+	_assert_true(source.toggle_social_like("post-1"), "liking should work")
+	_assert_eq(heard, [0, 1], "following should add through the list model once")
+	_assert_eq(followed.read(), ["author-a"], "the followed model should hold the author")
+	_assert_eq(liked.read(), ["post-1"], "the liked model should hold the post")
+	var copy: Array = followed.read()
+	copy.append("outsider")
+	_assert_eq(followed.read(), ["author-a"], "the list read out should be a copy")
+	source.toggle_social_follow("author-a")
+	_assert_eq(heard, [0, 1, 0], "unfollowing should remove through the list model once")
+
+	source.toggle_social_follow("author-b")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("social_followed_handles", []), ["author-b"], "the run save should store the followed model")
+	_assert_eq(state_data.get("social_liked_post_ids", []), ["post-1"], "the run save should store the liked model")
+	followed.replace_all([])
+	liked.replace_all([])
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(followed.read(), ["author-b"], "loading should write the followed authors back through the model")
+	_assert_eq(liked.read(), ["post-1"], "loading should write the liked posts back through the model")
+	RegistryScript.clear()
+
+
+func _test_progression_lives_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var keys := [PropertyKeysScript.ENDING_UNLOCKED, PropertyKeysScript.ENDING_ROUTE,
+		PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE, PropertyKeysScript.FLOOR3_TASK_COMPLETE, PropertyKeysScript.FLOOR4_TASK_COMPLETE]
+	for key in keys:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
+		_assert_true(manager.model(key) != null, "%s should have a model" % key)
+	var unlocked: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_UNLOCKED) as ValuePropertyModel
+	var route: ValuePropertyModel = manager.model(PropertyKeysScript.ENDING_ROUTE) as ValuePropertyModel
+	var formal: ValuePropertyModel = manager.model(PropertyKeysScript.FORMAL_FLOOR_THREE_COMPLETE) as ValuePropertyModel
+	var floor3: ValuePropertyModel = manager.model(PropertyKeysScript.FLOOR3_TASK_COMPLETE) as ValuePropertyModel
+	var floor4: ValuePropertyModel = manager.model(PropertyKeysScript.FLOOR4_TASK_COMPLETE) as ValuePropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+
+	source.ending_unlocked = true
+	source.ending_route = "hidden"
+	source.formal_floor_three_complete = true
+	source.floor3_task_complete = true
+	source.floor4_task_complete = true
+	_assert_eq(unlocked.read(), true, "the ending flag should be written to its model")
+	_assert_eq(route.read(), "hidden", "the ending route should be written to its model")
+	_assert_eq(formal.read(), true, "floor three completion should be written to its model")
+	_assert_eq(floor3.read(), true, "the floor three task should be written to its model")
+	_assert_eq(floor4.read(), true, "the floor four task should be written to its model")
+	floor4.write(false)
+	_assert_eq(source.floor4_task_complete, false, "the state should read the model, not keep a copy")
+	floor4.write(true)
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("ending_route", ""), "hidden", "the run save should store the ending route")
+	_assert_eq(state_data.get("floor3_task_complete", false), true, "the run save should store the floor three task")
+	for key in keys:
+		(manager.model(key) as PropertyModel).reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(unlocked.read(), true, "loading should write the ending flag back through its model")
+	_assert_eq(route.read(), "hidden", "loading should write the ending route back through its model")
+	_assert_eq(formal.read(), true, "loading should write floor three completion back")
+	_assert_eq(floor3.read(), true, "loading should write the floor three task back")
+	_assert_eq(floor4.read(), true, "loading should write the floor four task back")
+
+	restored.new_run()
+	_assert_eq(unlocked.read(), false, "a new run should clear the ending flag on the same model")
+	_assert_eq(route.read(), "", "a new run should clear the ending route")
+	_assert_eq(formal.read(), false, "a new run should clear floor three completion")
+	_assert_eq(floor3.read(), false, "a new run should clear the floor three task")
+	_assert_eq(floor4.read(), false, "a new run should clear the floor four task")
+	RegistryScript.clear()
+
+
+## The tutorial is gone: no property, no model, no state field and no save field. An older save that
+## still carries tutorial progress loads and drops it.
+func _test_there_is_no_tutorial_progress() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	_assert_true(not (PropertyKeysScript as Script).get_script_constant_map().has("TUTORIAL_PROGRESS"), "the property keys should name no tutorial progress")
+	_assert_true(not PropertyKeysScript.run_names().has("tutorial_progress"), "the run should have no tutorial progress model")
+	var source = StateScript.new()
+	source.new_run()
+	for retired in ["notify_tutorial", "get_tutorial_step", "skip_tutorial", "replay_tutorial"]:
+		_assert_true(not source.has_method(retired), "the state should have no %s" % retired)
+	_assert_true(not "tutorial_progress" in source, "the state should hold no tutorial progress")
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_true(not state_data.has("tutorial_progress"), "a new run should save no tutorial progress")
+	state_data["tutorial_progress"] = {"current_step_id": "open_social"}
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save that still carries tutorial progress should load")
+	_assert_true(not (restored.to_save_data().get("state", {}) as Dictionary).has("tutorial_progress"), "saving again should drop the tutorial progress")
+	RegistryScript.clear()
+
+
+## A save made with the removed tower app in front comes back on the social app, and the tower window stays closed.
+func _test_a_save_on_the_tower_app_returns_to_social() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var source = StateScript.new()
+	source.new_run()
+	source.skip_chapter_one()
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	state_data["active_app"] = "babel"
+	state_data["active_app_window"] = "babel"
+	state_data["open_app_windows"] = ["social", "babel"]
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "a save on the tower app should load")
+	_assert_eq(restored.active_app, "social", "the current app should fall back to social")
+	_assert_eq(restored.active_app_window, "social", "the foreground window should fall back to social")
+	_assert_true(not restored.is_app_window_open("babel"), "the tower window should not stay open")
+	RegistryScript.clear()
+
+
+func _test_event_log_and_history_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	for key in [PropertyKeysScript.EVENT_LOG, PropertyKeysScript.HISTORY_ENTRIES]:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
+		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
+	var log_model: ListPropertyModel = manager.model(PropertyKeysScript.EVENT_LOG) as ListPropertyModel
+	var history_model: ListPropertyModel = manager.model(PropertyKeysScript.HISTORY_ENTRIES) as ListPropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+	var heard: Array = []
+	log_model.register(func(value: Variant) -> void: heard.append((value as Array).size()))
+	source.record_event("first")
+	source.record_event("second")
+	_assert_eq(log_model.read(), ["second", "first"], "a new event should be written to the model at the front")
+	_assert_eq(heard, [0, 1, 2], "each event should notify the log listeners once")
+	_assert_eq(source.event_log, ["second", "first"], "the state should read the log from the model")
+	source.event_log.push_front("tampered")
+	_assert_eq(log_model.read(), ["second", "first"], "changing the copy the state hands out should not change the model")
+
+	var line := {"lineId": "L1", "originalSpeaker": "A", "currentSpeaker": "A", "originalText": "hi", "displayText": "hi", "revisionStage": 0, "revisionMarkup": ""}
+	var changes: Array = []
+	history_model.register(func(value: Variant) -> void: changes.append((value as Array).size()))
+	_assert_true(source.record_history_line(line), "recording a line should succeed")
+	_assert_eq(changes, [0, 1], "recording a line should write the history model once")
+	var revised := line.duplicate()
+	revised["displayText"] = "ha"
+	source.record_history_line(revised)
+	_assert_eq(history_model.read().size(), 1, "recording the same line id should replace, not add")
+	_assert_eq(str(history_model.read()[0].get("displayText", "")), "ha", "the replaced line should be on the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("event_log", []), ["second", "first"], "the run save should store the event log")
+	_assert_eq((state_data.get("history_entries", []) as Array).size(), 1, "the run save should store the history")
+	log_model.reset()
+	history_model.reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(log_model.read(), ["second", "first"], "loading should write the event log back through its model")
+	_assert_eq(history_model.read().size(), 1, "loading should write the history back through its model")
+
+	restored.new_run()
+	_assert_eq(log_model.read(), [], "a new run should clear the log on the same model")
+	_assert_eq(history_model.read(), [], "a new run should clear the history on the same model")
+	RegistryScript.clear()
+
+
+func _test_holdings_and_posting_live_only_in_the_run_models() -> void:
+	RegistryScript.clear()
+	BootScript.install()
+	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var maps := [PropertyKeysScript.DRAFT_SLOTS, PropertyKeysScript.WORLD_RULES]
+	var lists := [PropertyKeysScript.PUBLISHED_MEMES, PropertyKeysScript.FREE_SENTENCE_UNITS]
+	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
+		_assert_true(PropertyKeysScript.is_run(key), "%s should belong to the run" % key)
+		_assert_true(PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN).has(key), "%s should be saved" % key)
+		_assert_true(not StateScript.SAVE_FIELD_NAMES.has(key), "%s should not also be saved from the state" % key)
+	for key in maps:
+		_assert_true(manager.model(key) is MapPropertyModel, "%s should be a map model" % key)
+	for key in lists:
+		_assert_true(manager.model(key) is ListPropertyModel, "%s should be a list model" % key)
+	_assert_true(manager.model(PropertyKeysScript.OWNED_MEME_FRAMES) is ValuePropertyModel, "owned frames should be a value model")
+	var draft: MapPropertyModel = manager.model(PropertyKeysScript.DRAFT_SLOTS) as MapPropertyModel
+	var rules: MapPropertyModel = manager.model(PropertyKeysScript.WORLD_RULES) as MapPropertyModel
+	var published: ListPropertyModel = manager.model(PropertyKeysScript.PUBLISHED_MEMES) as ListPropertyModel
+	var units: ListPropertyModel = manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS) as ListPropertyModel
+	var frames: ValuePropertyModel = manager.model(PropertyKeysScript.OWNED_MEME_FRAMES) as ValuePropertyModel
+
+	var source = StateScript.new()
+	source.new_run()
+	source.draft_slots = {"subject": "t-1"}
+	_assert_eq(draft.read(), {"subject": "t-1"}, "draft slots should be written to the model")
+
+	var heard_units: Array = []
+	units.register(func(value: Variant) -> void: heard_units.append((value as Array).duplicate()))
+	source.free_sentence_units = ["门", "开"]
+	_assert_true(source.free_sentence_move(1, 0), "a placed unit should move")
+	_assert_true(source.free_sentence_remove(0), "a placed unit should be removed")
+	_assert_eq(heard_units, [[], ["门", "开"], ["开", "门"], ["门"]], "each sentence edit should write the units model once")
+	_assert_eq(source.get_free_sentence_units(), ["门"], "the state should read the units from the model")
+
+	source.free_sentence_units = ["门", "可", "以", "打", "开"]
+	var submitted: Dictionary = source.submit_free_sentence("zh")
+	_assert_true(bool(submitted.get("submitted", false)), "the sentence should post")
+	_assert_eq(units.read(), [], "posting should empty the units model")
+	_assert_eq(published.read().size(), 1, "posting should add a record to the published model")
+	_assert_true(rules.read().has("door|can_open"), "a rule sentence should be written to the world rules model")
+	_assert_true(source.is_world_rule_active("door|can_open"), "the state should read the rule from the model")
+
+	source.free_sentence_units = ["灯"]
+	source.submit_free_sentence("zh")
+	_assert_eq(published.read().size(), 2, "posting again should add a record at the front of the published model")
+	_assert_eq(str((published.read()[0] as Dictionary).get("text", "")), "灯", "the newest record should be first")
+
+	source.owned_meme_frames = 2
+	_assert_eq(frames.read(), 2, "owned frames should be written to the model")
+
+	var state_data: Dictionary = source.to_save_data().get("state", {})
+	_assert_eq(state_data.get("published_memes", []), published.read(), "the run save should store the published records")
+	_assert_eq(state_data.get("world_rules", {}), rules.read(), "the run save should store the world rules")
+	_assert_eq(state_data.get("owned_meme_frames", 0), 2, "the run save should store the owned frames")
+	for key in maps + lists + [PropertyKeysScript.OWNED_MEME_FRAMES]:
+		(manager.model(key) as PropertyModel).reset()
+	var restored = StateScript.new()
+	_assert_true(restored.load_save_data({"version": StateScript.SAVE_DATA_VERSION, "state": state_data}), "the run save should load")
+	_assert_eq(published.read().size(), 2, "loading should write the published records back through the model")
+	_assert_true(rules.read().has("door|can_open"), "loading should write the world rules back through the model")
+	_assert_eq(draft.read(), {"subject": "t-1"}, "loading should write the draft slots back through the model")
+	_assert_eq(frames.read(), 2, "loading should write the owned frames back through the model")
+
+	restored.new_run()
+	for key in maps:
+		_assert_eq(manager.model(key).read(), {}, "a new run should clear %s on the same model" % key)
+	for key in lists:
+		_assert_eq(manager.model(key).read(), [], "a new run should clear %s on the same model" % key)
+	_assert_eq(frames.read(), 0, "a new run should reset the owned frames on the same model")
+	RegistryScript.clear()
+
+
+func _test_registering_a_listener_does_not_open_a_screen() -> void:
+	var child_count := root.get_child_count()
+	var model: ValuePropertyModel = FactoryScript.create("score", 0) as ValuePropertyModel
+	model.register(func(_value: Variant) -> void:
+		pass
+	)
+	model.write(5)
+	_assert_eq(root.get_child_count(), child_count, "registering a listener should not add a screen")
+
+
+func _assert_true(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)
+
+
+func _assert_eq(actual, expected, message: String) -> void:
+	if actual != expected:
+		_failures.append("%s (expected %s, got %s)" % [message, str(expected), str(actual)])

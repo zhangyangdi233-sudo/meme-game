@@ -1,5 +1,7 @@
 extends SceneTree
 
+const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
+const GameEventsScript = preload("res://scripts/game_events.gd")
 const SCORE_METADATA_PATH := "res://assets/generated/audio/babel_liminal_score.json"
 
 var _failures: Array[String] = []
@@ -29,13 +31,14 @@ func _run() -> void:
 	root.add_child(game_root)
 	await process_frame
 	game_root.new_game()
+	game_root._skip_chapter_one()
 	await process_frame
 
 	var phone := game_root.get_node_or_null("PhoneRoadAmbience") as AudioStreamPlayer
 	var reality := game_root.get_node_or_null("RealityRoomAmbience") as AudioStreamPlayer
 	var pollution_music := game_root.get_node_or_null("PollutionMusicLayer") as AudioStreamPlayer
 	var flashback := game_root.get_node_or_null("PollutionFlashbackAudio") as AudioStreamPlayer
-	var action_tick := game_root.get_node_or_null("ActionTickAudio") as AudioStreamPlayer
+	_assert_true(game_root.get_node_or_null("ActionTickAudio") == null, "no action tick should be built now that actions are gone")
 	var cover_watcher_stinger := game_root.get_node_or_null("CoverWatcherStinger") as AudioStreamPlayer
 	_assert_true(phone != null and phone.playing, "phone ambience should start when gameplay enters the tree")
 	_assert_true(reality != null and reality.playing, "reality ambience should stay running underneath the mix")
@@ -71,21 +74,23 @@ func _run() -> void:
 			game_root._sync_audio_state(true)
 			var floor_path := str(phone.get_meta("generated_audio_path", ""))
 			floor_paths[floor_path] = true
-			_assert_eq(floor_path, game_root._phone_music_path_for_floor(floor_number), "each tower floor should select its authored phone score")
+			_assert_eq(floor_path, game_root._audio_controller.phone_music_path_for_floor(floor_number), "each tower floor should select its authored phone score")
 			_assert_eq(int(phone.get_meta("phone_music_floor", 0)), floor_number, "phone score metadata should follow the current floor")
 			var floor_stream := phone.stream as AudioStreamWAV
 			_assert_true(floor_stream != null and floor_stream.loop_end == 2_116_800, "every floor score should preserve the 96-second seamless loop contract")
 		_assert_eq(floor_paths.size(), 4, "three formal floors and the hidden floor should use distinct phone music")
-		game_root.game.tower_floor = 1
+		# The street's cast starts on the second floor; the first is the empty crossroads.
+		game_root.game.tower_floor = 2
+		game_root._refresh_play_surfaces()
 		game_root._sync_audio_state(true)
 	_validate_score_metadata()
 
 	game_root.game.pollution = 50
 	game_root._sync_audio_state(true)
 	if pollution_music != null:
-		_assert_near(pollution_music.volume_db, game_root._pollution_music_target(50), 0.1, "mid pollution should fade the corruption score into the mix")
-	_assert_near(game_root._pollution_music_target(60), -24.0, 0.1, "the 60 percent threshold should expose the pollution stem")
-	_assert_near(game_root._pollution_music_target(100), -3.0, 0.1, "maximum pollution should bring the corruption stem near the foreground")
+		_assert_near(pollution_music.volume_db, float(PollutionStageScript.stage(50)["music_db"]), 0.1, "mid pollution should fade the corruption score into the mix")
+	_assert_near(float(PollutionStageScript.stage(60)["music_db"]), -24.0, 0.1, "the 60 percent threshold should expose the pollution stem")
+	_assert_near(float(PollutionStageScript.stage(100)["music_db"]), -3.0, 0.1, "maximum pollution should bring the corruption stem near the foreground")
 	game_root.game.pollution = 0
 	game_root._sync_audio_state(true)
 
@@ -110,7 +115,7 @@ func _run() -> void:
 	if reality != null:
 		_assert_near(reality.volume_db, -7.0, 0.2, "player composing should make the room score more intimate")
 
-	game_root._play_pollution_flashback()
+	game_root._narrative_director.play_pollution_flashback()
 	await process_frame
 	_assert_true(flashback != null and flashback.playing, "pollution flashback should play its signal burst")
 	if phone != null and reality != null:
@@ -118,19 +123,39 @@ func _run() -> void:
 		_assert_true(bool(reality.get_meta("flashback_ducked", false)), "flashback should duck the reality layer")
 	if pollution_music != null:
 		_assert_true(bool(pollution_music.get_meta("flashback_ducked", false)), "flashback should duck the pollution music layer")
-	game_root._finish_pollution_flashback()
+	GameEventBus.raise_event(GameEvents.FLASHBACK_FINISHED)
 	_assert_true(flashback != null and not flashback.playing, "finishing flashback should stop the signal burst")
 
-	game_root._play_action_spend_animation(5, 4)
-	await process_frame
-	_assert_true(action_tick != null and action_tick.playing, "spending an action should play the short tick")
-	game_root._finish_action_spend_animation()
-	game_root._on_cover_watcher_appeared(1)
+	GameEventBus.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 1})
 	await process_frame
 	_assert_true(cover_watcher_stinger != null and cover_watcher_stinger.playing, "revealing the watcher should play its short horror cue")
+	_assert_true(game_root.game.has_seen_cover_watcher(1), "the host's sightings should mark the floor the watcher appeared on")
+	_assert_true(not game_root._reality_scene_adapter.has_signal("cover_watcher_appeared") and not game_root._reality_scene_adapter.has_signal("cover_watcher_vanished"), "the adapter should not forward watcher signals to the host")
+	_assert_true(not game_root.has_method("_on_cover_watcher_appeared") and not game_root.has_method("_on_cover_watcher_vanished"), "the host should keep no watcher handler")
 	if cover_watcher_stinger != null:
 		cover_watcher_stinger.stop()
+	await _test_pickup_sounds_ride_the_bus(game_root)
 	game_root.queue_free()
+	await process_frame
+
+
+## The host asks for the land and hinge cues by game event; the audio controller it attached hears them itself.
+func _test_pickup_sounds_ride_the_bus(game_root: Node) -> void:
+	var bus := ServiceRegistry.resolve(ServiceKeys.UI_EVENT_BUS) as GameEventBus
+	var cues: Array = []
+	var listener := func(payload: Dictionary) -> void: cues.append(payload.get(GameEventsScript.KEY_CUE))
+	bus.subscribe(GameEventsScript.SFX_REQUESTED, listener)
+	game_root._on_pickup_flight_landed("门")
+	bus.unsubscribe(GameEventsScript.SFX_REQUESTED, listener)
+	_assert_eq(cues, [GameEventsScript.CUE_PICKUP_LAND, GameEventsScript.CUE_NOTEBOOK_HINGE], "a landed pickup should ask for the land and hinge sounds")
+	var land := game_root.get_node_or_null("PickupLandAudio") as AudioStreamPlayer
+	var hinge := game_root.get_node_or_null("NotebookHingeAudio") as AudioStreamPlayer
+	_assert_true(land != null and land.playing, "the host's audio controller should play the land sound it heard")
+	_assert_true(hinge != null and hinge.playing, "the host's audio controller should play the hinge sound it heard")
+	var press := game_root.get_node_or_null("PickupPressAudio") as AudioStreamPlayer
+	GameEventBus.raise_event(GameEventsScript.SFX_REQUESTED, {GameEventsScript.KEY_CUE: GameEventsScript.CUE_PICKUP_PRESS})
+	_assert_true(press != null and press.playing, "the host's audio controller should play the press sound the presenter asks for")
+	_assert_eq(bus.intent_emitted.get_connections().size(), 1, "the host should stay the only intent listener while audio subscribes to game events")
 	await process_frame
 
 

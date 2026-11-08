@@ -1,7 +1,11 @@
 extends SceneTree
 ## 自由造句台 + 世界规则 + 终极任务 + 玩偶引导的回归测试。
 
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const StateScript = preload("res://scripts/meme_game_state.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const RegistryScript = preload("res://framework/service_registry.gd")
 
 var _failures: Array[String] = []
 
@@ -39,6 +43,7 @@ func _collect_door_sentence_units(game) -> void:
 func _test_composer_state() -> void:
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_assert_true(not game.free_sentence_place("门", "zh"), "uncollected units must not enter the sentence")
 	_collect_door_sentence_units(game)
 	_assert_true(game.free_sentence_place("门", "zh"), "collected units should be placeable")
@@ -55,32 +60,26 @@ func _test_composer_state() -> void:
 
 	for unit in ["门", "可", "以", "打", "开"]:
 		game.free_sentence_place(unit, "zh")
-	var actions_before: int = game.actions_remaining
-	var money_before: int = game.money
 	var pollution_before: int = game.pollution
 	var submit: Dictionary = game.submit_free_sentence("zh")
 	_assert_true(bool(submit.get("submitted", false)), "a one-or-more unit sentence can always be posted")
 	_assert_eq_text(str(submit.get("tier", "")), "rule", "门可以打开 should land as a rule")
-	_assert_eq_int(game.actions_remaining, actions_before - 1, "posting costs exactly one action")
-	_assert_true(game.money > money_before, "posting should pay out funds")
+	_assert_true(not submit.has("money_gain"), "posting should pay out no funds")
 	_assert_true(game.pollution > pollution_before, "posting should raise pollution")
 	_assert_true(game.get_free_sentence_units().is_empty(), "posting should clear the composer")
 	_assert_true(game.is_world_rule_active("door|can_open"), "the door rule should enter the world rule table")
 	_assert_true(not game.published_memes.is_empty() and str((game.published_memes[0] as Dictionary).get("kind", "")) == "free_sentence", "the post should enter the published feed records")
 
-	var no_actions = StateScript.new()
-	no_actions.new_run()
-	no_actions.pick_social_char("floor_13", "门", "zh")
-	no_actions.free_sentence_place("门", "zh")
-	no_actions.actions_remaining = 0
-	var blocked: Dictionary = no_actions.submit_free_sentence("zh")
-	_assert_eq_text(str(blocked.get("reason", "")), "no-actions", "posting without actions must be refused")
+	for unit in ["门", "可", "以", "打", "开"]:
+		game.free_sentence_place(unit, "zh")
+	_assert_true(bool(game.submit_free_sentence("zh").get("submitted", false)), "posting again should never be refused")
 
 
 func _test_rule_application_and_tasks() -> void:
 	# 第三层:门规则即终极任务;未完成前任何结局都被门挡住。
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	game.tower_floor = 3
 	game.pollution = 80
 	_assert_eq_text(game.complete_floor_three(), "floor-three-task-incomplete", "floor three must refuse to end before the door rule")
@@ -93,6 +92,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 提前写规则:第一层写下门规则,到第三层时兑现。
 	var early = StateScript.new()
 	early.new_run()
+	early.skip_chapter_one()
 	early.free_sentence_units = ["门", "可", "以", "打", "开"]
 	early.submit_free_sentence("zh")
 	_assert_true(not early.floor3_task_complete, "the door rule cannot complete a task before floor three")
@@ -110,6 +110,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 否定不解锁;之后的正例解锁;解锁后再否定不收回(任务锁存)。
 	var negated = StateScript.new()
 	negated.new_run()
+	negated.skip_chapter_one()
 	negated.tower_floor = 3
 	negated.free_sentence_units = ["门", "不", "可", "以", "打", "开"]
 	negated.submit_free_sentence("zh")
@@ -125,6 +126,7 @@ func _test_rule_application_and_tasks() -> void:
 	# 第四层:出口存在 = 终极任务完成,但隐藏结局只在日结边界解锁(先看见出口出现)。
 	var hidden = StateScript.new()
 	hidden.new_run()
+	hidden.skip_chapter_one()
 	hidden.tower_floor = 4
 	hidden.ending_route = "hidden"
 	_assert_true(not hidden.ending_unlocked, "the hidden floor should start without an unlocked ending")
@@ -132,14 +134,14 @@ func _test_rule_application_and_tasks() -> void:
 	var exit_submit: Dictionary = hidden.submit_free_sentence("zh")
 	_assert_true(bool(exit_submit.get("floor4_task_completed", false)), "出口存在 should complete the floor-four ultimate task")
 	_assert_true(hidden.floor4_task_complete, "the floor-four task should latch")
-	_assert_true(not hidden.ending_unlocked, "the hidden ending must wait for the day boundary so the player sees the exit appear")
-	hidden.needs_day_settlement = true
-	hidden.settle_day_if_needed()
-	_assert_true(hidden.ending_unlocked, "the day boundary should unlock the hidden ending")
+	_assert_true(not hidden.ending_unlocked, "the hidden ending must wait for the next interaction so the player sees the exit appear")
+	hidden.pick_social_char("floor_13", "门", "zh")
+	_assert_true(hidden.ending_unlocked, "the next interaction should unlock the hidden ending")
 
 	# 重复投稿同一规则不得再次报告任务完成。
 	var repeat = StateScript.new()
 	repeat.new_run()
+	repeat.skip_chapter_one()
 	repeat.tower_floor = 3
 	repeat.free_sentence_units = ["门", "可", "以", "打", "开"]
 	var first_submit: Dictionary = repeat.submit_free_sentence("zh")
@@ -151,16 +153,19 @@ func _test_rule_application_and_tasks() -> void:
 	# 英文与日文的提交路径同样命中规则表。
 	var english = StateScript.new()
 	english.new_run()
+	english.skip_chapter_one()
 	english.free_sentence_units = ["the", "door", "can", "be", "opened"]
 	_assert_eq_text(str(english.submit_free_sentence("en").get("rule_key", "")), "door|can_open", "the English door sentence should post as a rule")
 	var japanese = StateScript.new()
 	japanese.new_run()
+	japanese.skip_chapter_one()
 	japanese.free_sentence_units = ["ドア", "ひらく"]
 	_assert_eq_text(str(japanese.submit_free_sentence("ja").get("rule_key", "")), "door|can_open", "the Japanese door sentence should post as a rule")
 
 	# 拖拽 API:插入位置与重排。
 	var dragger = StateScript.new()
 	dragger.new_run()
+	dragger.skip_chapter_one()
 	dragger.pick_social_char("floor_13", "门", "zh")
 	dragger.pick_social_char("floor_13", "开", "zh")
 	dragger.pick_social_char("floor_13", "打", "zh")
@@ -176,12 +181,13 @@ func _test_rule_application_and_tasks() -> void:
 func _test_save_round_trip() -> void:
 	var game = StateScript.new()
 	game.new_run()
+	game.skip_chapter_one()
 	_collect_door_sentence_units(game)
 	game.free_sentence_place("门", "zh")
 	game.free_sentence_place("开", "zh")
 	game.tower_floor = 3
 	game.floor3_task_complete = true
-	game.world_rules["door|can_open"] = {"negated": false, "source_text": "门可以打开", "locale": "zh", "day": 1, "floor": 3}
+	game.world_rules = {"door|can_open": {"negated": false, "source_text": "门可以打开", "locale": "zh", "day": 1, "floor": 3}}
 	var restored = StateScript.new()
 	_assert_true(restored.load_save_data(game.to_save_data()), "composer save data should load")
 	_assert_eq_text(restored.get_free_sentence_text("zh"), "门开", "the in-progress sentence should survive a save")
@@ -194,98 +200,71 @@ func _test_ui_flow() -> void:
 	_assert_true(scene != null, "composer test should load the main scene")
 	if scene == null:
 		return
+	root.size = Vector2i(1600, 900)
 	var game_root := scene.instantiate()
 	root.add_child(game_root)
 	game_root._locale.set_locale("zh")
 	game_root.new_game()
 	await process_frame
 
-	# 玩偶引导:常驻、可拖、可折叠、文本非空。
-	var doll_panel := _find_node_by_name(game_root, "DollGuideOverlay") as PanelContainer
-	_assert_true(doll_panel != null and doll_panel.visible, "the doll guide should stay in view from the start")
-	var doll_line := _find_node_by_name(game_root, "DollGuideLine") as Label
-	_assert_true(doll_line != null and not doll_line.text.is_empty(), "the doll should always have a guide line")
-	_assert_true(game_root._move_window_for_test("doll_guide", Vector2(12, -8)), "the doll guide should be draggable")
-	var doll_body := _find_node_by_name(game_root, "DollGuideBody") as Container
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and not doll_body.visible, "collapsing should hide the doll body")
-	game_root._toggle_doll_guide_collapsed()
-	_assert_true(doll_body != null and doll_body.visible, "unfolding should restore the doll body")
-	var doll_close := _find_node_by_name(game_root, "DollGuideCloseButton")
-	_assert_true(doll_close == null, "the doll guide must not have a close button")
-
-	# 玩偶合并进左下角引导小窗:3D 跟随体不再存在,交互时整体隐身。
-	game_root._update_doll_companion(0.016)
+	game_root._skip_chapter_one()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
-	_assert_true(
-		Vector4(doll_panel.anchor_left, doll_panel.anchor_top, doll_panel.anchor_right, doll_panel.anchor_bottom) == Vector4(0.0, 1.0, 0.0, 1.0),
-		"the guide should dock to the bottom-left corner"
-	)
-	_assert_true(_find_node_by_name(game_root, "DollGuidePortrait") != null, "the guide keeps the doll portrait")
-	game_root._reality_interaction_active = true
-	game_root._update_doll_guide()
-	_assert_true(not doll_panel.visible, "the guide should vanish during NPC interactions")
-	game_root._reality_interaction_active = false
-	game_root._update_doll_guide()
-	_assert_true(doll_panel.visible, "the guide should return after the interaction ends")
 
-	# 一步一步教:多次数步骤显示进度计数。
-	game_root.game.replay_tutorial()
-	game_root.game.notify_tutorial("guide_found")
-	game_root.game.notify_tutorial("social_opened")
-	game_root.game.notify_tutorial("post_opened")
-	game_root.game.notify_tutorial("collect_word")
-	var progress_line: String = game_root._doll_guide_current_line()
-	_assert_true(progress_line.ends_with("(1/3)"), "multi-count tutorial steps should show step progress, got: %s" % progress_line)
+	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。
+	game_root.game.set_active_app("notebook")
+	game_root._render()
+	await process_frame
+	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "the notebook should host the word canvas")
+	var submit_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 
-	# 造句台:空句禁投,入句/撤回/投稿全链路。
-	game_root._set_social_screen("publish")
+	game_root.game.set_active_app("social")
+	game_root._social_feed_panel.show_screen("publish")
+	game_root._render()
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
-	var submit_button := _find_node_by_name(game_root, "SocialPublishPostButton") as Button
-	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
+	game_root.game.set_active_app("notebook")
+	game_root._render()
+	await process_frame
 	game_root.game.pick_social_char("floor_13", "门", "zh")
 	game_root.game.pick_social_char("floor_13", "开", "zh")
 	game_root._render()
 	await process_frame
-	game_root._on_composer_bank_tapped("门")
-	game_root._on_composer_bank_tapped("开")
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "门"})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"})
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门开", "bank taps should build the sentence in order")
-	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
-	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
-	var word_canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
-	var ghost: RigidBody2D = null
-	if word_canvas != null:
-		ghost = word_canvas.get_node_or_null("WordPhysicsRoot/WordBody_门") as RigidBody2D
-	_assert_true(ghost != null and is_equal_approx(ghost.modulate.a, 0.45), "a placed unit should remain as a ghost in the notebook canvas")
-	_assert_true(word_canvas != null and word_canvas.get_tile_count() == 2, "placing units should preserve both collected word tiles")
-	submit_button = _find_node_by_name(game_root, "SocialPublishPostButton") as Button
+	var canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(_canvas_tile_is_ghost(canvas, "门"), "a placed unit should ghost its canvas tile without reflow")
+	submit_button = _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
 
-	game_root._on_composer_answer_tapped(1)
+	game_root.game.set_active_app("social")
+	game_root._social_feed_panel.show_screen("publish")
+	game_root._render()
+	await process_frame
+	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
+	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
+
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1})
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门", "tapping an answer tile should remove it")
 
-	game_root._on_composer_submit_pressed()
+	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
 	await process_frame
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
-	_assert_true(game_root.log_text.begins_with("投稿已发出"), "posting should report one of the three response tiers")
+	_assert_true(str(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.FEEDBACK_TEXT).read()).begins_with("投稿已发出"), "posting should report one of the three response tiers")
 
-	# 无行动时投稿按钮必须置灰。
-	var saved_actions: int = game_root.game.actions_remaining
-	game_root.game.actions_remaining = 0
-	game_root.game.needs_day_settlement = false
+	# 投稿不限次数:放入字后投稿按钮总是可按。
 	game_root.game.pick_social_char("floor_13", "出", "zh")
 	game_root.game.free_sentence_place("出", "zh")
 	game_root._render()
 	await process_frame
-	var drained_button := _find_node_by_name(game_root, "SocialPublishPostButton") as Button
-	_assert_true(drained_button != null and drained_button.disabled, "no actions must gray out the post button")
-	game_root.game.actions_remaining = saved_actions
+	var ready_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
+	_assert_true(ready_button != null and not ready_button.disabled, "a placed word should keep the post button enabled")
 	game_root.game.free_sentence_clear()
 
 	# 第三层门道具:任务前封门可见且有碰撞,任务后门开框亮、碰撞解除。
@@ -339,6 +318,16 @@ func _test_ui_flow() -> void:
 
 	game_root.queue_free()
 	await process_frame
+
+
+func _canvas_tile_is_ghost(canvas: Node, unit: String) -> bool:
+	if canvas == null:
+		return false
+	var physics_root := canvas.get_node_or_null("WordPhysicsRoot")
+	if physics_root == null:
+		return false
+	var body := physics_root.get_node_or_null("WordBody_%s" % unit) as CanvasItem
+	return body != null and body.modulate.a < 0.9
 
 
 func _find_node_by_name(node: Node, node_name: String) -> Node:

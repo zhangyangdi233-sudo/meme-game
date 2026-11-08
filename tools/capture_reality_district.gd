@@ -29,19 +29,19 @@ func _capture() -> void:
 	root.add_child(main)
 	main._locale.set_locale("zh")
 	main.new_game()
-	main._skip_prologue()
+	main._skip_chapter_one()
 	main.game.tower_floor = floor_number
 	main._ensure_reality_floor_current()
 	main.set_view_state("npc_up")
 	main._phone_art_alpha = 0.0
 	var capture_crossroad := OS.get_environment("BABEL_CAPTURE_CROSSROAD") == "1" and floor_number == 1
 	var capture_overview := OS.get_environment("BABEL_CAPTURE_OVERVIEW") == "1" and floor_number == 2
-	main._reality_yaw = -90.0 if capture_crossroad else main._reality_floor.start_yaw_degrees()
-	main._reality_pitch = -3.0
+	main._reality_scene_adapter.yaw = -90.0 if capture_crossroad else main._reality_scene_adapter.floor.start_yaw_degrees()
+	main._reality_scene_adapter.pitch = -3.0
 	if main._phone_down_backdrop_image != null:
 		main._phone_down_backdrop_image.visible = false
-	if main._reality_player != null:
-		main._reality_player.position = Vector3(0.0, 0.08, 0.0) if capture_crossroad else main._reality_floor.start_position()
+	if main._reality_scene_adapter.player != null:
+		main._reality_scene_adapter.player.position = Vector3(0.0, 0.08, 0.0) if capture_crossroad else main._reality_scene_adapter.floor.start_position()
 	for frame in 72:
 		await process_frame
 	if capture_overview:

@@ -23,15 +23,15 @@ func _capture() -> void:
 	main._locale.set_locale("zh")
 	if main.has_method("new_game"):
 		main.new_game()
-		main._skip_prologue()
+		main._skip_chapter_one()
 	if main.has_method("set_view_state"):
 		main.set_view_state("npc_up")
 	main._phone_art_alpha = 0.0
 	if main._phone_down_backdrop_image != null:
 		main._phone_down_backdrop_image.visible = false
-	if main.get("_reality_player") != null:
-		main._reality_player.position = main._reality_floor.start_position()
-		main._reality_yaw = 0.0
+	if main._reality_scene_adapter.player != null:
+		main._reality_scene_adapter.player.position = main._reality_scene_adapter.floor.start_position()
+		main._reality_scene_adapter.yaw = 0.0
 	for frame in 72:
 		await process_frame
 	var viewport_texture := root.get_texture()

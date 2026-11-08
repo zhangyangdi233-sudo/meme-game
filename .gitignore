@@ -31,6 +31,10 @@ exports/
 *.exe
 *.pck
 *.zip
+.cursor
+
+# 示意图（僅供參考，不入版控）
+assets/image/示意图/
 
 # Local authoring backups, Python environments, credentials, and runtime data
 *.blend1
