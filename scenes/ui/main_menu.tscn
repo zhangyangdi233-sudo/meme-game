@@ -15,6 +15,27 @@
 [ext_resource type="Texture2D" uid="uid://y1301r6p8dh3" path="res://assets/image/main_menu/SETTING_hover.png" id="14_setting_hover"]
 [ext_resource type="Texture2D" uid="uid://ca4q5nyrgrnh5" path="res://assets/image/main_menu/QUIT_hover.png" id="15_quit_hover"]
 [ext_resource type="Script" uid="uid://cuh3onuxx8sl5" path="res://scripts/ui/hold_ring.gd" id="16_ring"]
+[ext_resource type="Texture2D" uid="uid://d2n5w6bdgst3q" path="res://assets/image/main_menu/square_uc.png" id="17_uc"]
+[ext_resource type="Shader" path="res://shaders/main_menu_red_backdrop.gdshader" id="18_backdrop_shader"]
+[ext_resource type="Shader" path="res://shaders/main_menu_cream_slabs.gdshader" id="19_slabs_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_backdrop"]
+resource_local_to_scene = true
+shader = ExtResource("18_backdrop_shader")
+shader_parameter/reveal = 0.0
+shader_parameter/node_origin = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_slabs"]
+resource_local_to_scene = true
+shader = ExtResource("19_slabs_shader")
+shader_parameter/reveal = 0.0
+shader_parameter/node_origin = Vector2(570, 255)
+shader_parameter/band_texture = ExtResource("4_band")
+shader_parameter/band_origin = Vector2(0, 116)
+shader_parameter/band_size = Vector2(1316, 780)
+shader_parameter/backdrop_texture = ExtResource("6_backdrop")
+shader_parameter/backdrop_origin = Vector2(0, 0)
+shader_parameter/backdrop_size = Vector2(1323, 900)
 
 [sub_resource type="Theme" id="Theme_pixel"]
 default_font = ExtResource("2_font")
@@ -60,10 +81,12 @@ mouse_filter = 2
 texture = ExtResource("5_strip")
 
 [node name="MainMenuRedBackdrop" type="TextureRect" parent="." unique_id=559541786]
+unique_name_in_owner = true
 layout_mode = 0
 offset_right = 1323.0
 offset_bottom = 900.0
 mouse_filter = 2
+material = SubResource("ShaderMaterial_backdrop")
 texture = ExtResource("6_backdrop")
 
 [node name="MainMenuTitleArt" type="TextureRect" parent="." unique_id=1369827620]
@@ -79,13 +102,25 @@ mouse_filter = 2
 texture = ExtResource("10_title")
 expand_mode = 1
 
+[node name="MainMenuSlabsOutline" type="TextureRect" parent="." unique_id=1154391849]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 570.0
+offset_top = 255.0
+offset_right = 1057.0
+offset_bottom = 855.0
+texture = ExtResource("17_uc")
+expand_mode = 1
+
 [node name="MainMenuSlabs" type="TextureRect" parent="." unique_id=1154391848]
+unique_name_in_owner = true
 layout_mode = 0
 offset_left = 570.0
 offset_top = 255.0
 offset_right = 1057.0
 offset_bottom = 855.0
 mouse_filter = 2
+material = SubResource("ShaderMaterial_slabs")
 texture = ExtResource("12_c")
 expand_mode = 1
 

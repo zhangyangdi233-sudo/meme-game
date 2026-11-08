@@ -49,6 +49,10 @@ func _run() -> void:
 	_test_global_theme_walk_skips_menu()
 	_test_misspelled_palette_role_is_reported()
 	_test_off_grid_font_size_is_reported()
+	_test_the_menu_opens_closed()
+	_test_hovering_the_slabs_opens_the_red_area_then_the_words()
+	_test_focusing_a_word_opens_the_menu()
+	_test_reopening_the_menu_starts_closed()
 
 
 func _run_hold() -> void:
@@ -457,6 +461,73 @@ func _test_art_buttons_keep_their_art() -> void:
 		if button != null:
 			_assert_true(button.texture_normal != null and button.texture_hover != null and button.texture_normal != button.texture_hover, "%s should swap leave art for hover art" % button_name)
 	_dispose(mounted)
+
+
+func _test_the_menu_opens_closed() -> void:
+	var mounted := _mount(0, false)
+	var screen = mounted["screen"]
+	_assert_eq(screen.reveal_progress(), 0.0, "the menu opens with only the band red")
+	for word in ["MainMenuStartButton", "MainMenuLanguageButton", "MainMenuExitButton"]:
+		_assert_eq(_word_alpha(mounted, word), 0.0, "%s is hidden until the menu opens" % word)
+	_assert_eq(_cover_reveal(mounted, "MainMenuRedBackdrop"), 0.0, "the red backdrop starts folded into the band")
+	_assert_eq(_cover_reveal(mounted, "MainMenuSlabs"), 0.0, "the slabs start cream only under the band")
+	var outline := Harness.find_node_by_name(mounted["host"], "MainMenuSlabsOutline") as TextureRect
+	_assert_true(outline != null and outline.mouse_filter != Control.MOUSE_FILTER_IGNORE, "the green slabs take the hover that opens the menu")
+	_dispose(mounted)
+
+
+func _test_hovering_the_slabs_opens_the_red_area_then_the_words() -> void:
+	var mounted := _mount(0, false)
+	var screen = mounted["screen"]
+	var outline := Harness.find_node_by_name(mounted["host"], "MainMenuSlabsOutline") as Control
+	outline.mouse_entered.emit()
+	screen._process(MainMenuScreenScript.REVEAL_SECONDS * 0.3)
+	_assert_true(_cover_reveal(mounted, "MainMenuRedBackdrop") > 0.0, "hovering the slabs starts swinging the red open")
+	_assert_eq(_cover_reveal(mounted, "MainMenuSlabs"), _cover_reveal(mounted, "MainMenuRedBackdrop"), "the cream follows the red edge")
+	_assert_eq(_word_alpha(mounted, "MainMenuStartButton"), 0.0, "the words wait for the red to open first")
+	screen._process(MainMenuScreenScript.REVEAL_SECONDS * 0.4)
+	_assert_true(_word_alpha(mounted, "MainMenuStartButton") > _word_alpha(mounted, "MainMenuExitButton"), "START shows before QUIT")
+	screen._process(MainMenuScreenScript.REVEAL_SECONDS)
+	_assert_eq(screen.reveal_progress(), 1.0, "the menu is open after REVEAL_SECONDS")
+	_assert_eq(_cover_reveal(mounted, "MainMenuRedBackdrop"), 1.0, "the red backdrop is fully open")
+	for word in ["MainMenuStartButton", "MainMenuLanguageButton", "MainMenuExitButton"]:
+		_assert_eq(_word_alpha(mounted, word), 1.0, "%s shows once the menu is open" % word)
+	outline.mouse_exited.emit()
+	screen._process(1.0)
+	_assert_eq(screen.reveal_progress(), 1.0, "leaving the slabs keeps the menu open")
+	_dispose(mounted)
+
+
+func _test_focusing_a_word_opens_the_menu() -> void:
+	var mounted := _mount(0, false)
+	var screen = mounted["screen"]
+	(Harness.find_node_by_name(mounted["host"], "MainMenuExitButton") as Control).focus_entered.emit()
+	screen._process(MainMenuScreenScript.REVEAL_SECONDS)
+	_assert_eq(screen.reveal_progress(), 1.0, "a key or pad focusing a word opens the menu")
+	_dispose(mounted)
+
+
+func _test_reopening_the_menu_starts_closed() -> void:
+	var mounted := _mount(0, false)
+	var screen = mounted["screen"]
+	screen.open_menu()
+	screen._process(MainMenuScreenScript.REVEAL_SECONDS)
+	mounted["manager"].close()
+	mounted["manager"].open({})
+	_assert_eq(screen.reveal_progress(), 0.0, "the next open starts closed again")
+	_assert_eq(_word_alpha(mounted, "MainMenuStartButton"), 0.0, "the words hide again on the next open")
+	_dispose(mounted)
+
+
+func _word_alpha(mounted: Dictionary, word: String) -> float:
+	var node := Harness.find_node_by_name(mounted["host"], word) as CanvasItem
+	return node.modulate.a if node != null else -1.0
+
+
+func _cover_reveal(mounted: Dictionary, node_name: String) -> float:
+	var node := Harness.find_node_by_name(mounted["host"], node_name) as CanvasItem
+	var material := node.material as ShaderMaterial if node != null else null
+	return float(material.get_shader_parameter("reveal")) if material != null else -1.0
 
 
 func _test_global_theme_walk_skips_menu() -> void:

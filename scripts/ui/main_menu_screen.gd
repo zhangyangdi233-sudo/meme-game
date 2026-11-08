@@ -11,6 +11,10 @@ extends UIBase
 ## on START's center for a key or pad hold. It hides, empty, on release or once the dialog opens.
 ## The hint above START shows only with a save, pale until START is hovered or focused.
 ## While open the hint follows the language in that language's formal font (LocaleFont), not the pixel font.
+## Each open starts closed: only the red band covers, the slabs are green where it does not, and the words are hidden.
+## Hovering the slabs, or hovering or focusing a word, opens it once: the band's upper edge swings up around its tip
+## into the red backdrop over REVEAL_SECONDS, the slabs turn cream wherever red covers them, then START, SETTING
+## and QUIT fade in one after another. It stays open until the menu closes. The words take presses either way.
 
 
 const SCENE_PATH := "res://scenes/ui/main_menu.tscn"
@@ -25,6 +29,16 @@ const BUTTON_INTENTS := {
 	"MainMenuLanguageButton": UiIntentsScript.LANGUAGE_PICKER,
 }
 const HOLD_SECONDS := 1.2
+const SLABS_OUTLINE := "MainMenuSlabsOutline"
+const SLABS_CREAM := "MainMenuSlabs"
+const RED_BACKDROP := "MainMenuRedBackdrop"
+const REVEAL_SECONDS := 0.55
+## Words in the order they fade in, each starting WORD_STAGGER after the one before, once the red is
+## WORD_START of the way open, and taking WORD_FADE of the reveal to show fully. The hint fades with START.
+const REVEAL_WORDS: Array[String] = [START_BUTTON, "MainMenuLanguageButton", "MainMenuExitButton"]
+const WORD_START := 0.35
+const WORD_STAGGER := 0.15
+const WORD_FADE := 0.35
 ## UI catalog source keys of the restart dialog.
 const RESTART_QUESTION := "确定要重新开始游戏吗？"
 const RESTART_YES := "是"
@@ -60,6 +74,9 @@ var _start_focused := false
 ## The press that started the current hold was the left mouse button, so the ring follows `_cursor` instead of sitting on START.
 var _held_by_mouse := false
 var _cursor := Vector2.ZERO
+## Asked to open; `_reveal` runs from 0 (closed) to 1 (open) in `_process`.
+var _opening := false
+var _reveal := 0.0
 
 
 func _ready() -> void:
@@ -77,10 +94,34 @@ func _ready() -> void:
 	start.focus_entered.connect(_on_start_focus.bind(true))
 	start.focus_exited.connect(_on_start_focus.bind(false))
 	_paint_hint()
+	var outline := get_node_or_null("%" + SLABS_OUTLINE) as Control
+	if outline != null:
+		outline.mouse_entered.connect(open_menu)
+	for word in REVEAL_WORDS:
+		var button := get_node_or_null("%" + word) as Control
+		if button != null:
+			button.mouse_entered.connect(open_menu)
+			button.focus_entered.connect(open_menu)
+	_place_cover()
+	_close_menu()
+
+
+## Opens the red area and the words; does nothing once opening or open.
+func open_menu() -> void:
+	if _opening:
+		return
+	_opening = true
+	_sync_process()
+
+
+## How far the menu is open, 0 closed to 1 open.
+func reveal_progress() -> float:
+	return _reveal
 
 
 func present(_context: Dictionary) -> void:
 	_watch.stop()
+	_close_menu()
 	_watch.start()
 	var hint := _hint()
 	var theme := GameUiThemeScript.bound()
@@ -97,6 +138,9 @@ func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		super._process(delta)
 		return
+	if _opening and _reveal < 1.0:
+		_paint_reveal(minf(1.0, _reveal + delta / REVEAL_SECONDS))
+		_sync_process()
 	if not _holding:
 		return
 	_held_seconds += delta
@@ -151,7 +195,7 @@ func _on_start_down() -> void:
 	_hold_fired = false
 	_holding = true
 	_held_seconds = 0.0
-	set_process(true)
+	_sync_process()
 	_paint_ring()
 
 
@@ -164,7 +208,7 @@ func _end_hold() -> void:
 	_holding = false
 	_hold_fired = false
 	_held_seconds = 0.0
-	set_process(false)
+	_sync_process()
 	_write_held(0.0)
 	_paint_ring()
 
@@ -240,3 +284,45 @@ func _hint() -> Label:
 
 func _ring() -> HoldRingScript:
 	return get_node_or_null("%" + HOLD_RING) as HoldRingScript
+
+
+func _sync_process() -> void:
+	set_process(_holding or (_opening and _reveal < 1.0))
+
+
+func _close_menu() -> void:
+	_opening = false
+	_paint_reveal(0.0)
+	_sync_process()
+
+
+## The shaders read layer points, so they learn where their own rect sits in the layer.
+func _place_cover() -> void:
+	for node_name in [RED_BACKDROP, SLABS_CREAM]:
+		var rect := get_node_or_null("%" + node_name) as CanvasItem
+		var material := rect.material as ShaderMaterial if rect != null else null
+		if material != null:
+			material.set_shader_parameter("node_origin", (rect as Control).position)
+
+
+func _paint_reveal(value: float) -> void:
+	_reveal = value
+	for node_name in [RED_BACKDROP, SLABS_CREAM]:
+		var rect := get_node_or_null("%" + node_name) as CanvasItem
+		var material := rect.material as ShaderMaterial if rect != null else null
+		if material != null:
+			material.set_shader_parameter("reveal", _eased(value))
+	for index in REVEAL_WORDS.size():
+		var shown := clampf((value - WORD_START - WORD_STAGGER * index) / WORD_FADE, 0.0, 1.0)
+		var word := get_node_or_null("%" + REVEAL_WORDS[index]) as CanvasItem
+		if word != null:
+			word.modulate.a = shown
+		if index == 0:
+			var hint := _hint()
+			if hint != null:
+				hint.modulate.a = shown
+
+
+## Fast start, soft landing.
+static func _eased(value: float) -> float:
+	return 1.0 - pow(1.0 - clampf(value, 0.0, 1.0), 3.0)
