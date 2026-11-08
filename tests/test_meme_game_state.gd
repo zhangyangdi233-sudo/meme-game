@@ -42,6 +42,7 @@ func _run() -> void:
 	test_typed_reality_reveals_one_character_and_never_grants_frames()
 	test_first_crossing_sixty_triggers_flashback_without_ending_the_day()
 	test_flashback_trigger_is_once_per_run()
+	test_the_demo_never_triggers_the_legacy_flashback()
 
 
 func test_navigation_and_actions_never_end_the_day() -> void:
@@ -275,6 +276,7 @@ func test_day_progress_lives_in_models() -> void:
 	_assert_eq(_conversation_model(PropertyKeysScript.PENDING_FLOOR_TRANSITION).read(), 2, "floor-one threshold should queue floor two in its model")
 	_assert_eq(_conversation_model(PropertyKeysScript.TOWER_FLOOR).read(), 1, "pollution alone must not move tower floor immediately")
 
+	game.pollution_flashback_enabled = true
 	game.change_pollution(35)
 	_assert_eq(game.pollution, 60, "pollution should add up")
 	_assert_true(game.pollution_flashback_pending, "the flashback crossing should queue the flashback")
@@ -470,12 +472,25 @@ func test_typed_reality_reveals_one_character_and_never_grants_frames() -> void:
 func test_first_crossing_sixty_triggers_flashback_without_ending_the_day() -> void:
 	var game: RefCounted = _state_script.new()
 	game.new_run()
+	game.pollution_flashback_enabled = true
 	game.pollution = 59
 	game.change_pollution(1)
 	_assert_true(game.pollution_flashback_pending, "first 60% crossing should queue the flashback")
 	_assert_true(game.pollution_flashback_seen, "first crossing should be remembered for the run")
 	_assert_true(game.consume_pollution_flashback(), "pending flashback should be consumable once")
 	_assert_eq(game.day, 1, "the flashback should not move the day on")
+
+
+## #145 Q3: the flashback is legacy until floor three is redesigned; crossing 60% in the demo queues nothing.
+func test_the_demo_never_triggers_the_legacy_flashback() -> void:
+	var game: RefCounted = _state_script.new()
+	game.new_run()
+	_assert_true(not game.pollution_flashback_enabled, "the demo should leave the flashback off")
+	game.pollution = 59
+	game.change_pollution(30)
+	_assert_eq(game.pollution, 89, "pollution should still add up")
+	_assert_true(not game.pollution_flashback_pending, "crossing 60% should queue no flashback")
+	_assert_true(not game.pollution_flashback_seen, "crossing 60% should not mark the flashback seen")
 
 
 func test_flashback_trigger_is_once_per_run() -> void:

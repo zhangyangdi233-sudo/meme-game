@@ -104,6 +104,10 @@ var exit_prompt_seen: bool = false
 var pollution_flashback_seen: bool = false
 ## Set when pollution crosses the flashback threshold; the outcome of the interaction that crossed it takes it.
 var pollution_flashback_pending: bool = false
+## Legacy, waiting on floor three's redesign (#145 Q3): the flashback's doll and doctor predate it, so the demo never
+## lets pollution trigger it. Its code and assets stay; the "a pollution threshold plays a beat" frame is to be reused
+## once the new content and its place are decided. Not saved. Test seam: a test turns it on to drive the beat.
+var pollution_flashback_enabled: bool = false
 
 var view_state: String:
 	get:
@@ -1021,7 +1025,8 @@ func change_pollution(amount: int) -> int:
 	var previous_pollution := pollution
 	pollution = clampi(pollution + amount, 0, 100)
 	request_floor_transition_for_pollution()
-	check_pollution_flashback(previous_pollution)
+	if pollution_flashback_enabled:
+		check_pollution_flashback(previous_pollution)
 	return pollution - previous_pollution
 
 

@@ -194,6 +194,7 @@ func test_floor_four_unlocks_the_hidden_ending_at_the_next_interaction() -> void
 func test_crossing_sixty_plays_the_flashback_and_the_run_goes_on() -> void:
 	var game := _tower_state()
 	game.tower_floor = 3
+	game.pollution_flashback_enabled = true
 	game.pollution = StateScript.POLLUTION_FLASHBACK_THRESHOLD - 1
 	game.free_sentence_units = ["灯"]
 	var outcome: ActionOutcomeScript = game.submit_free_sentence("zh").get("outcome")

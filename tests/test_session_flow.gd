@@ -204,6 +204,7 @@ func _run_narrative_beat(game_root) -> void:
 	var flashback_overlay := _find_node_by_name(game_root, "PollutionFlashbackOverlay") as Control
 	_assert_true(_find_node_by_name(game_root, "ActionSpendOverlay") == null, "no action pulse overlay should be built")
 	_assert_true(_find_node_by_name(game_root, "DayTransitionOverlay") == null, "no day transition overlay should be built")
+	game_root.game.pollution_flashback_enabled = true
 	game_root.game.pollution = 59
 	game_root.game.free_sentence_units = ["灯"]
 	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)

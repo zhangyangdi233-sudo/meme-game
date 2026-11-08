@@ -61,7 +61,7 @@ func _init() -> void:
 	test_validation_names_broken_events()
 	test_each_round_plays_its_anomaly_from_its_data()
 	test_only_round_fours_npc_gives_a_hidden_item()
-	test_enoch_is_written_in_the_content_as_provisional()
+	test_the_three_hidden_items_are_settled_content()
 	test_validation_names_broken_gifts()
 	test_validation_names_broken_hidden_items()
 	if _failures.is_empty():
@@ -585,18 +585,23 @@ func test_only_round_fours_npc_gives_a_hidden_item() -> void:
 		_assert_eq(gift, "enoch" if round_number == 4 else "", "round %d's gift" % round_number)
 
 
-## #142 Q2-2: the item's name and its one line are content, marked provisional until the planner rewrites them.
-func test_enoch_is_written_in_the_content_as_provisional() -> void:
+## #145 Q1, Q2: all three items are content with the planner's settled lines; the second is spelled Logos.
+func test_the_three_hidden_items_are_settled_content() -> void:
 	_assert_eq(HiddenItemsScript.validate(), [] as Array[String], "the authored hidden items should be valid")
-	_assert_true(HiddenItemsScript.is_known("enoch"), "Enoch should be a hidden item")
-	_assert_true(not HiddenItemsScript.is_known("logos"), "the second floor's item belongs to its own ticket")
-	_assert_true(HiddenItemsScript.is_provisional("enoch"), "Enoch's wording should be marked provisional")
-	_assert_eq(HiddenItemsScript.item_name("enoch", "zh"), "以诺", "Enoch's Chinese name")
-	_assert_eq(HiddenItemsScript.item_name("enoch", "en"), "Enoch", "Enoch's English name")
-	_assert_eq(HiddenItemsScript.description("enoch", "zh"), "一本绿色的书，封面没有字，翻开只有一页被撕掉的痕迹。", "Enoch's provisional line")
-	for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
-		_assert_true(not HiddenItemsScript.item_name("enoch", locale_code).is_empty(), "Enoch should have a %s name" % locale_code)
-		_assert_true(not HiddenItemsScript.description("enoch", locale_code).is_empty(), "Enoch should have a %s line" % locale_code)
+	var settled := {
+		"enoch": ["以诺", "Enoch", "一本绿色的书，封面没有字。"],
+		"logos": ["逻各斯", "Logos", "一篇蓝色的帖子，没有作者。"],
+		"diagnosis": ["精神类疾病诊断书", "Psychiatric Diagnosis", "一张揉皱的纸，来自一个精神病院。"],
+	}
+	for item_id: String in settled:
+		_assert_true(HiddenItemsScript.is_known(item_id), "%s should be a hidden item" % item_id)
+		_assert_true(not HiddenItemsScript.is_provisional(item_id), "%s's wording is settled (#145 Q2)" % item_id)
+		_assert_eq(HiddenItemsScript.item_name(item_id, "zh"), settled[item_id][0], "%s's Chinese name" % item_id)
+		_assert_eq(HiddenItemsScript.item_name(item_id, "en"), settled[item_id][1], "%s's English name" % item_id)
+		_assert_eq(HiddenItemsScript.description(item_id, "zh"), settled[item_id][2], "%s's settled line" % item_id)
+		for locale_code: String in RoomContentScript.SUPPORTED_LOCALES:
+			_assert_true(not HiddenItemsScript.item_name(item_id, locale_code).is_empty(), "%s should have a %s name" % [item_id, locale_code])
+			_assert_true(not HiddenItemsScript.description(item_id, locale_code).is_empty(), "%s should have a %s line" % [item_id, locale_code])
 	_assert_eq(HiddenItemsScript.item_name("nothing", "zh"), "", "an unknown item has no name")
 
 

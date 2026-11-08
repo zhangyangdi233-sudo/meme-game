@@ -1,12 +1,27 @@
 {
   "items": {
     "enoch": {
-      "provisional": true,
       "name": {"zh": "以诺", "ja": "エノク", "en": "Enoch"},
       "description": {
-        "zh": "一本绿色的书，封面没有字，翻开只有一页被撕掉的痕迹。",
-        "ja": "緑色の本。表紙には何も書かれていない。開くと、一ページ破り取られた跡だけがある。",
-        "en": "A green book with nothing on its cover. Open it and there is only the mark of a page torn out."
+        "zh": "一本绿色的书，封面没有字。",
+        "ja": "緑色の本。表紙には何も書かれていない。",
+        "en": "A green book with nothing written on its cover."
+      }
+    },
+    "logos": {
+      "name": {"zh": "逻各斯", "ja": "ロゴス", "en": "Logos"},
+      "description": {
+        "zh": "一篇蓝色的帖子，没有作者。",
+        "ja": "青い投稿。書いた人はいない。",
+        "en": "A blue post with no author."
+      }
+    },
+    "diagnosis": {
+      "name": {"zh": "精神类疾病诊断书", "ja": "精神疾患の診断書", "en": "Psychiatric Diagnosis"},
+      "description": {
+        "zh": "一张揉皱的纸，来自一个精神病院。",
+        "ja": "くしゃくしゃに丸められた紙。ある精神病院から来たもの。",
+        "en": "A crumpled sheet of paper from a psychiatric hospital."
       }
     }
   }
