@@ -731,6 +731,10 @@ func _click_card(mounted: Dictionary, post_index: int) -> void:
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
 	card.gui_input.emit(press)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	card.gui_input.emit(release)
 
 
 func _click_card_after_home(mounted: Dictionary, post_index: int) -> void:
