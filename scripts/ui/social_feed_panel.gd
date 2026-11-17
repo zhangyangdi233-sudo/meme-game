@@ -721,7 +721,7 @@ func _on_follow_pressed(author_id: String) -> void:
 func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed):
 		return
-	if _feed_kinetic != null and is_instance_valid(_feed_kinetic) and _feed_kinetic.was_dragged():
+	if is_instance_valid(_feed_kinetic) and _feed_kinetic.was_dragged():
 		return
 	open_post(post_index)
 

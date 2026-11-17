@@ -24,6 +24,9 @@ func _run_async() -> void:
 	await _test_a_small_wobble_is_not_a_drag()
 	await _test_a_fling_keeps_going_and_stops_at_the_edge()
 	await _test_a_new_press_stops_a_fling()
+	await _test_a_drag_held_still_before_release_does_not_fling()
+	await _test_a_lost_release_ends_the_drag()
+	await _test_a_settled_scroll_leaves_outside_moves_alone()
 	if _failures.is_empty():
 		print("kinetic scroll tests passed")
 		quit(0)
@@ -89,7 +92,7 @@ func _test_a_touchpad_pan_scrolls_like_the_wheel() -> void:
 func _test_dragging_moves_the_content_with_the_pointer() -> void:
 	var scroll := await _make_scroll()
 	var kinetic := KineticScrollScript.attach(scroll)
-	_assert_true(kinetic.handle_input(_press(Vector2(100, 300), true)) == false, "a press alone should stay free for the card under it")
+	_assert_true(kinetic.handle_input(_press(Vector2(100, 300), true)), "the feed should take the press so the window behind it does not")
 	kinetic.handle_input(_motion(Vector2(100, 250), Vector2(0, -50), Vector2.ZERO))
 	kinetic.handle_input(_motion(Vector2(100, 150), Vector2(0, -100), Vector2.ZERO))
 	_assert_eq(scroll.scroll_vertical, 150, "dragging up 150 px should scroll 150 px at once")
@@ -148,8 +151,49 @@ func _test_a_new_press_stops_a_fling() -> void:
 	kinetic.advance(STEP)
 	kinetic.advance(STEP)
 	_assert_eq(scroll.scroll_vertical, caught, "pressing on a moving feed should catch it")
-	_assert_true(not kinetic.was_dragged(), "the catching press starts a fresh gesture")
+	_assert_true(kinetic.was_dragged(), "a press that caught a moving feed is a scroll, not a tap on what is under it")
 	kinetic.handle_input(_press(Vector2(100, 200), false))
+	await _free(scroll)
+
+
+func _test_a_drag_held_still_before_release_does_not_fling() -> void:
+	var scroll := await _make_scroll()
+	var kinetic := KineticScrollScript.attach(scroll)
+	kinetic.handle_input(_press(Vector2(100, 300), true))
+	kinetic.handle_input(_motion(Vector2(100, 200), Vector2(0, -100), Vector2(0, -2000)))
+	for i in 30:
+		kinetic.advance(STEP)
+	kinetic.handle_input(_press(Vector2(100, 200), false))
+	var at_release := scroll.scroll_vertical
+	_settle(kinetic)
+	_assert_eq(scroll.scroll_vertical, at_release, "a drag held still for half a second should stop where it was let go")
+	await _free(scroll)
+
+
+func _test_a_lost_release_ends_the_drag() -> void:
+	var scroll := await _make_scroll()
+	var kinetic := KineticScrollScript.attach(scroll)
+	kinetic.handle_input(_press(Vector2(100, 300), true))
+	kinetic.handle_input(_motion(Vector2(100, 200), Vector2(0, -100), Vector2.ZERO))
+	var hover := _motion(Vector2(100, 100), Vector2(0, -100), Vector2.ZERO)
+	hover.button_mask = 0
+	kinetic.handle_input(hover)
+	_assert_eq(scroll.scroll_vertical, 100, "moving with no button held should not keep dragging")
+	kinetic.handle_input(_wheel(MOUSE_BUTTON_WHEEL_DOWN))
+	_settle(kinetic)
+	_assert_true(scroll.scroll_vertical > 100, "the wheel should work again after a lost release")
+	await _free(scroll)
+
+
+func _test_a_settled_scroll_leaves_outside_moves_alone() -> void:
+	var scroll := await _make_scroll()
+	var kinetic := KineticScrollScript.attach(scroll)
+	scroll.scroll_vertical = 300
+	kinetic.advance(STEP)
+	_assert_eq(scroll.scroll_vertical, 300, "a resting scroll should not undo a move made by someone else (focus, a repaint)")
+	kinetic.handle_input(_wheel(MOUSE_BUTTON_WHEEL_DOWN))
+	_settle(kinetic)
+	_assert_true(scroll.scroll_vertical > 300, "the wheel should go on from where the other move left it")
 	await _free(scroll)
 
 

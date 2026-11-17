@@ -4,9 +4,10 @@ extends Node
 ## follows the fingers, and a left-button drag moves the content with the pointer and flings on release.
 ##
 ## Attach it to the ScrollContainer it drives; it lives as that container's child and takes its gui_input, so a new
-## container gets a new one. A press is left to the control under it: a card that opens on release asks
-## was_dragged() first, so a drag never opens what it started on. Children that should let a drag through use
-## MOUSE_FILTER_PASS.
+## container gets a new one. The control under a press sees it first: a card that opens on release asks
+## was_dragged() first, so a drag (or a press that caught a moving feed) never opens what it started on. Children that
+## should let a drag through use MOUSE_FILTER_PASS; the container then takes the press so nothing behind it does.
+## Drag distances are read in the container's own coordinates, so a scaled window still tracks the pointer.
 
 ## A wheel notch scrolls this share of the visible page.
 const WHEEL_PAGE_SHARE := 0.3
@@ -20,6 +21,8 @@ const GLIDE_RATE := 14.0
 const FLING_FRICTION := 4.0
 const FLING_MIN_SPEED := 20.0
 const FLING_MAX_SPEED := 6000.0
+## A drag held still this long before release lets go without a fling.
+const FLING_HOLD_LIMIT := 0.1
 
 var _scroll: ScrollContainer
 var _position := 0.0
@@ -27,6 +30,8 @@ var _target := 0.0
 var _velocity := 0.0
 var _pressing := false
 var _dragged := false
+var _caught := false
+var _held_still := 0.0
 var _press_y := 0.0
 var _press_scroll := 0.0
 var _release_velocity := 0.0
@@ -47,9 +52,10 @@ func _process(delta: float) -> void:
 	advance(delta)
 
 
-## Whether the current (or last) press moved far enough to be a drag rather than a tap.
+## Whether the current (or last) press was a scroll rather than a tap: it moved far enough to drag, or it caught a
+## feed that was still moving.
 func was_dragged() -> bool:
-	return _dragged
+	return _dragged or _caught
 
 
 func is_settled() -> bool:
@@ -73,7 +79,12 @@ func handle_input(event: InputEvent) -> bool:
 
 ## Moves the scroll one step of time on: a fling slows down, a glide closes on its target.
 func advance(delta: float) -> void:
-	if _scroll == null or not is_instance_valid(_scroll) or (_pressing and _dragged):
+	if _scroll == null or not is_instance_valid(_scroll):
+		return
+	if _pressing and _dragged:
+		_held_still += delta
+		return
+	if is_settled():
 		return
 	if _velocity != 0.0:
 		_target += _velocity * delta
@@ -107,37 +118,49 @@ func _handle_button(event: InputEventMouseButton) -> bool:
 		return false
 	if event.pressed:
 		_sync_from_scroll()
+		_caught = not is_settled()
 		_velocity = 0.0
 		_target = _position
 		_apply()
 		_pressing = true
 		_dragged = false
-		_press_y = event.global_position.y
+		_press_y = event.position.y
 		_press_scroll = _position
 		_release_velocity = 0.0
-		return false
+		_held_still = 0.0
+		return true
 	if not _pressing:
 		return false
-	_pressing = false
-	if _dragged:
-		_velocity = clampf(_release_velocity, -FLING_MAX_SPEED, FLING_MAX_SPEED)
-		if absf(_velocity) < FLING_MIN_SPEED:
-			_velocity = 0.0
-	return _dragged
+	_end_press(true)
+	return true
 
 
 func _handle_motion(event: InputEventMouseMotion) -> bool:
 	if not _pressing:
 		return false
-	var pulled := _press_y - event.global_position.y
-	if not _dragged and absf(pulled) < DRAG_THRESHOLD:
+	if event.button_mask & MOUSE_BUTTON_MASK_LEFT == 0:
+		# The release went somewhere else (focus lost): end the press where it is.
+		_end_press(false)
 		return false
+	var pulled := _press_y - event.position.y
+	if not _dragged and absf(pulled) < DRAG_THRESHOLD:
+		return true
 	_dragged = true
+	_held_still = 0.0
 	_position = clampf(_press_scroll + pulled, 0.0, _max_scroll())
 	_target = _position
-	_release_velocity = -event.velocity.y
+	_release_velocity = -event.velocity.y / _screen_scale()
 	_apply()
 	return true
+
+
+func _end_press(may_fling: bool) -> void:
+	_pressing = false
+	_velocity = 0.0
+	if may_fling and _dragged and _held_still < FLING_HOLD_LIMIT:
+		_velocity = clampf(_release_velocity, -FLING_MAX_SPEED, FLING_MAX_SPEED)
+		if absf(_velocity) < FLING_MIN_SPEED:
+			_velocity = 0.0
 
 
 func _glide_by(amount: float) -> void:
@@ -156,6 +179,12 @@ func _sync_from_scroll() -> void:
 
 func _apply() -> void:
 	_scroll.scroll_vertical = roundi(_position)
+
+
+## How many screen pixels one of the container's own pixels takes, for pointer speeds read on screen.
+func _screen_scale() -> float:
+	var scale := absf(_scroll.get_global_transform_with_canvas().get_scale().y)
+	return scale if scale > 0.0 else 1.0
 
 
 func _page() -> float:
