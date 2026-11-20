@@ -40,7 +40,8 @@ func _init() -> void:
 	test_round_one_opens_only_by_its_exit_rules()
 	test_an_escape_makes_its_object_the_exit()
 	test_each_exit_subject_names_its_own_object()
-	test_only_rounds_two_and_four_open_by_the_npc_behind_the_door()
+	test_no_round_stands_an_npc_behind_the_door()
+	test_round_four_talk_leaves_its_exits_as_they_were()
 	test_every_round_has_its_own_rules_and_more_than_one_way_out()
 	test_an_xray_escape_opens_its_object_once_seen()
 	test_round_five_hides_an_xray_way_out_at_the_clock()
@@ -60,7 +61,7 @@ func _init() -> void:
 	test_a_rooms_events_lay_their_state_over_it()
 	test_validation_names_broken_events()
 	test_each_round_plays_its_anomaly_from_its_data()
-	test_only_round_fours_npc_gives_a_hidden_item()
+	test_no_round_gives_a_hidden_item()
 	test_the_three_hidden_items_are_settled_content()
 	test_validation_names_broken_gifts()
 	test_validation_names_broken_hidden_items()
@@ -189,17 +190,32 @@ func test_round_one_opens_only_by_its_exit_rules() -> void:
 	_assert_true(not _escaped(room, {"room|lit": {"negated": false, "round": 1}}, 1, false), "a rule that is no exit should leave round one shut")
 
 
-## #127 / #129: nobody stands in the room any more. Rounds two and four keep someone behind the sealed door whose help
-## (this round's post and the conversation) opens the exit door; rounds one, three and five open by their own escapes only.
-func test_only_rounds_two_and_four_open_by_the_npc_behind_the_door() -> void:
+## The planner's 2026-11-16 decision: the demo has no NPC at all (it overrides #119 Q2-2 / #129 / #130, which put one
+## behind the sealed door in rounds two and four). Every round opens by its own escapes, and a finished conversation
+## opens nothing.
+func test_no_round_stands_an_npc_behind_the_door() -> void:
 	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
 		var room: Dictionary = RoomContentScript.room(round_number)
-		var behind_door := round_number in [2, 4]
-		_assert_eq({"kind": "delivery"} in room.get("escapes"), behind_door, "round %d's escapes by the NPC's help" % round_number)
-		_assert_eq(RoomRulesScript.stands_npc(room), behind_door, "round %d's NPC behind the door" % round_number)
+		_assert_true({"kind": "delivery"} not in room.get("escapes"), "round %d should not open by an NPC's help" % round_number)
+		_assert_true(not RoomRulesScript.stands_npc(room), "round %d should stand no NPC behind the door" % round_number)
+		# The planner's 2026-11-20 request: round four's door answers after its bang, a talk that is no way out.
+		_assert_eq(RoomRulesScript.door_npc(room), round_number == 4, "only round four should put someone to talk to behind the door (round %d)" % round_number)
 		_assert_eq(RoomRulesScript.exit_rules(room).size(), 7, "round %d should offer the seven exit rules" % round_number)
-		var helped := RoomRulesScript.open_exits(room, {}, round_number, true)
-		_assert_eq(helped, ["door"] if behind_door else [], "the NPC's help in round %d should open only the exit door" % round_number)
+		_assert_eq(RoomRulesScript.open_exits(room, {}, round_number, true), [], "a finished conversation should open nothing in round %d" % round_number)
+
+
+## The planner's 2026-11-20 request gave round four someone to talk to behind the door; its ways out stay its seven exit
+## rules, and a finished conversation still opens nothing.
+func test_round_four_talk_leaves_its_exits_as_they_were() -> void:
+	var room: Dictionary = RoomContentScript.room(4)
+	var rule_escapes: Array = []
+	for escape: Dictionary in room.get("escapes"):
+		_assert_eq(escape.get("kind"), RoomRulesScript.ESCAPE_RULE, "round four should open only by its rules")
+		rule_escapes.append(escape.get("rule"))
+	_assert_eq(rule_escapes, ["tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"], "round four's exit rules should be unchanged")
+	_assert_eq(RoomRulesScript.open_exits(room, {}, 4, true), [], "talking should open nothing in round four")
+	_assert_eq(RoomRulesScript.open_exits(room, {"tv|exit": {"negated": false, "round": 4}}, 4, false), ["tv"], "电视是出口 should still open round four")
+	_assert_eq(RoomRulesScript.gift(room), "", "round four's talk should give no item")
 
 
 ## Each round says something of its own besides the ways out, with words it drops itself, and offers at least two ways out.
@@ -528,6 +544,7 @@ func test_validation_names_broken_events() -> void:
 	var good := {"rule_box": [], "rooms": {"1": {"words": {"zh": [], "ja": [], "en": []}, "rules": [], "escapes": [{"kind": "delivery"}], "state": {"brightness": 1.0, "hum": 0.0, "lights": true, "objects": {"wall_clock": true}}, "events": [
 		{"id": "blackout", "trigger": "entry_sealed", "delay": 1.0, "cue": "blackout", "switch_ends": true, "during": {"lights": false}, "after": {"objects": {"scattered_chairs": true}}},
 		{"id": "red", "trigger": "room_center", "duration": 8.0, "cue": "red_screens"},
+		{"id": "bang", "trigger": "left_sealed_door", "duration": 3.0, "cue": "door_bang"},
 	]}}}
 	_assert_eq(RoomContentScript.problems_in(good, 1), [] as Array[String], "a room with well-formed events should be valid")
 	for breakage in [
@@ -537,6 +554,8 @@ func test_validation_names_broken_events() -> void:
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1].erase("duration"),
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["duration"] = -1.0,
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["delay"] = "soon",
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][2].erase("duration"),
+		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][2]["cue"] = "whisper_flicker_door",
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][1]["during"] = {"lights": false},
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["after"] = {"objects": {"piano": true}},
 		func(catalog: Dictionary) -> void: catalog["rooms"]["1"]["events"][0]["during"] = {"lights": "off"},
@@ -560,7 +579,8 @@ func test_each_round_plays_its_anomaly_from_its_data() -> void:
 	var objects := func(round_number: int, started: Array = [], ended: Array = []) -> Dictionary:
 		return RoomRulesScript.world_state(RoomContentScript.room(round_number), {}, round_number, started, ended).get("objects", {})
 	_assert_eq(objects.call(1).get("wall_clock"), true, "round one should have one wall clock")
-	_assert_eq(RoomContentScript.events(1), [], "round one should play no event")
+	# The planner restored the old tutorial on 2026-11-16: round one's only event is the CRT focus cinematic.
+	_assert_eq(RoomContentScript.events(1).map(func(event: Dictionary) -> String: return str(event["cue"])), ["crt_focus"], "round one should play only the CRT focus cinematic")
 	var whisper: Dictionary = _event(2, "whisper")
 	_assert_eq([whisper.get("trigger"), whisper.get("delay"), whisper.get("duration"), whisper.get("switch_ends")], ["entry_sealed", 2.5, 8.0, true], "round two should whisper 2.5 s after the entry shuts, for 8 s, until the switch")
 	var blackout: Dictionary = _event(3, "blackout")
@@ -572,17 +592,21 @@ func test_each_round_plays_its_anomaly_from_its_data() -> void:
 	_assert_eq(objects.call(4).get("scattered_chairs", false), false, "round four's chairs should stand normally again")
 	_assert_eq(objects.call(4).get("clock_wall"), true, "round four should have the wall of clocks")
 	_assert_eq(objects.call(4).get("wall_clock", false), false, "round four's clocks should replace the single clock")
+	var bang: Dictionary = _event(4, "door_bang")
+	_assert_eq([bang.get("trigger"), bang.get("cue"), bang.get("duration"), bang.get("switch_ends", false)], ["left_sealed_door", "door_bang", 3.0, false], "round four's sealed door should bang once for 3 s after the player walks away from it, past the switch")
+	_assert_true(RoomContentScript.validate().get("ok", false), "the authored rooms with the door's bang should be valid: %s" % [RoomContentScript.validate().get("problems")])
 	_assert_eq(objects.call(5).get("half_clock"), true, "round five should have the half clock")
 	var red: Dictionary = _event(5, "red_screens")
 	_assert_eq([red.get("trigger"), red.get("duration"), red.get("switch_ends", false)], ["room_center", 8.0, false], "round five's screens should go black and red for 8 s from the room's middle, past the switch")
 	_assert_eq(objects.call(5).get("sunken_crts"), true, "round five should have its sunken screens")
 
 
-## #130 / #120 Q2: of the two NPCs behind the door only round four's gives a hidden item, the first one: Enoch.
-func test_only_round_fours_npc_gives_a_hidden_item() -> void:
+## The demo has no NPC (planner, 2026-11-16), so no round has the `gift` #130 gave round four's NPC to hand over.
+func test_no_round_gives_a_hidden_item() -> void:
 	for round_number in range(1, ChapterOneProgressScript.BASEMENT_ROUND_COUNT + 1):
-		var gift := RoomRulesScript.gift(RoomContentScript.room(round_number))
-		_assert_eq(gift, "enoch" if round_number == 4 else "", "round %d's gift" % round_number)
+		var room: Dictionary = RoomContentScript.room(round_number)
+		_assert_true(not room.has("gift"), "round %d should name no gift" % round_number)
+		_assert_eq(RoomRulesScript.gift(room), "", "round %d's gift" % round_number)
 
 
 ## #145 Q1, Q2: all three items are content with the planner's settled lines; the second is spelled Logos.

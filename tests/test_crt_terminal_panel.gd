@@ -18,6 +18,8 @@ const CrtTerminalPanelScript = preload("res://scripts/ui/crt_terminal_panel.gd")
 const GuideScript = preload("res://scripts/game/basement_guide.gd")
 const NarrativeCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
+const LessonScript = preload("res://scripts/game/crt_lesson.gd")
+const RoomContentScript = preload("res://scripts/game/room_content.gd")
 
 var _failures: Array[String] = []
 var _heard: Array = []
@@ -48,6 +50,9 @@ func _run() -> void:
 	await _test_a_hidden_terminal_lets_go_of_the_models()
 	await _test_the_narrator_walks_the_round_through()
 	await _test_outside_a_guided_round_the_narrator_is_silent()
+	await _test_the_lesson_walks_round_one_from_the_post_to_the_open_door()
+	await _test_the_exit_is_always_usable_and_an_open_round_has_no_lesson()
+	await _test_the_lesson_speaks_every_language()
 
 
 func _test_the_display_shows_the_social_feed_first() -> void:
@@ -62,6 +67,13 @@ func _test_the_display_shows_the_social_feed_first() -> void:
 	_assert_true(_find(social, "SocialChannelTabs") != null, "the terminal's social feed should be painted")
 	_assert_true(notebook != null and not notebook.is_visible_in_tree(), "the notebook should wait behind its tab")
 	_assert_true(_find(social, "SocialAppInlineCloseButton") == null, "the terminal's feed has no phone window to close")
+	# The old version's chrome wording (planner, 2026-11-16).
+	_assert_eq((_find(panel, "TerminalTitle") as Label).text, "信号终端", "the terminal's title")
+	_assert_eq((_find(panel, "TerminalExit") as Button).text, "退出屏幕", "the terminal's exit")
+	_assert_eq((_find(panel, "NotebookCraftButton") as Button).text, "发布", "the notebook's post button")
+	var catalog := preload("res://scripts/localization/ui_catalog.gd")
+	_assert_eq([catalog.entries("en").get("退出屏幕"), catalog.entries("ja").get("退出屏幕")], ["Leave screen", "画面から離れる"], "the exit in English and Japanese")
+	_assert_eq([catalog.entries("en").get("发布"), catalog.entries("ja").get("发布")], ["Post", "投稿"], "the post button in English and Japanese")
 	await _dispose(panel)
 
 
@@ -127,27 +139,137 @@ func _test_a_hidden_terminal_lets_go_of_the_models() -> void:
 	await _dispose(panel)
 
 
-## #125: the CRT's narrator follows the round from the models: pick, compose, post, what the post did, the open exit.
+## #125: the CRT's narrator follows the round from the models: pick, what the post did, the open exit. In round one the
+## lesson's caption says what to do until the exit is open, so the narrator hides meanwhile (planner, 2026-11-16).
 func _test_the_narrator_walks_the_round_through() -> void:
 	var panel = await _mount()
 	var progress := _model(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
+	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_PICK, 2), "a fresh round should greet the player")
+	_model(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, {"kind": "free_sentence", "text": "门", "tier": "misread", "round": 2})
+	await process_frame
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_MISSED, 2), "a green post should ask to try again")
+	_model(PropertyKeysScript.PUBLISHED_MEMES).replace_all([])
 	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
 	await process_frame
-	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_PICK), "a fresh round should ask for words")
-	_model(PropertyKeysScript.COLLECTED_CHAR_UNITS).replace_all([{"unit": "门", "locale": "zh", "source_post_id": "floor_13", "day": 1}])
-	await process_frame
-	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_COMPOSE), "held words should ask for a sentence")
-	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all(["门"])
-	await process_frame
-	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_POST), "a sentence should ask to be posted")
-	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all([])
-	_model(PropertyKeysScript.PUBLISHED_MEMES).insert_at(0, {"kind": "free_sentence", "text": "门", "tier": "misread", "round": 1})
-	await process_frame
-	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_MISSED), "a green post should ask to try again")
+	var guide := _find(panel, "TerminalGuide") as Label
+	_assert_true(not guide.visible, "round one's lesson should hide the narrator while it shows")
 	progress.replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["door"]))
 	await process_frame
 	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_OPEN), "an open exit should send the player out")
 	await _dispose(panel)
+
+
+## Round one's locked lesson in Chinese, from the first post to the open exit (the old tutorial, planner 2026-11-16):
+## each step lights its holes with the exit always among them and shows its caption; a click outside the holes reaches
+## nothing; what would break the step is refused when it comes from this display; leaving and coming back resumes;
+## once the exit is open the lesson is gone and the narrator sends the player to the door.
+func _test_the_lesson_walks_round_one_from_the_post_to_the_open_door() -> void:
+	var panel = await _mount()
+	var teaching := LessonScript.teaching_units(RoomContentScript.room(1), "zh")
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+	await _frames(3)
+	_assert_eq(panel.lesson_step(), LessonScript.STEP_POST, "a fresh round one should ask for a post")
+	_assert_lesson(panel, LessonScript.STEP_POST, ["TerminalExit"], "zh", 1)
+	var walked := 0
+	while panel.lesson_step() in [LessonScript.STEP_POST, LessonScript.STEP_COLLECT] and walked < 8:
+		walked += 1
+		var lit := _lit_card(panel)
+		_assert_true(lit != null, "the post step should light a card")
+		if lit == null:
+			break
+		var other := _unlit_card(panel, lit)
+		if other != null:
+			_heard.clear()
+			await _click_control(panel, other)
+			_assert_true(not _heard_name(UiIntentsScript.SOCIAL_CARD_CLICKED), "a click on another card should reach nothing")
+		_heard.clear()
+		await _click_control(panel, lit)
+		_assert_true(_heard_name(UiIntentsScript.SOCIAL_CARD_CLICKED), "the lit card should open")
+		await _frames(2)
+		_assert_eq(panel.lesson_step(), LessonScript.STEP_COLLECT, "an open post with missing words should ask to pick them")
+		_assert_lesson(panel, LessonScript.STEP_COLLECT, ["TerminalExit", "SocialDetailWindow"], "zh")
+		var offered := _offered_in_open_post(panel, teaching)
+		_assert_true(not offered.is_empty(), "the open post should light at least one missing word")
+		_assert_true(not _from_terminal(panel, UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "房", UiIntentsScript.KEY_POST_ID: _open_post_id(panel)}), "another word should be refused")
+		_assert_true(not _from_terminal(panel, UiIntentsScript.SOCIAL_LIKE_PRESSED, {UiIntentsScript.KEY_POST_ID: _open_post_id(panel)}), "a like should be refused")
+		_assert_true(_from_terminal(panel, UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: offered[0], UiIntentsScript.KEY_POST_ID: _open_post_id(panel)}), "a lit word should be picked")
+		_assert_true(panel.allows_intent(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "房", UiIntentsScript.KEY_POST_ID: "floor_13"}), "the phone's own intents should never be refused")
+		# The host picks the lit words up; the models tell the terminal.
+		_hold(_held() + offered)
+		await _frames(3)
+	_assert_true(teaching.all(func(unit: Variant) -> bool: return unit in _held()), "every lesson word should be held: %s" % [_held()])
+	_assert_eq(panel.lesson_step(), LessonScript.STEP_NOTEBOOK, "every word held should ask for the notebook")
+	_assert_lesson(panel, LessonScript.STEP_NOTEBOOK, ["TerminalExit", "TerminalAppNotebook"], "zh")
+	await _click(panel, "TerminalAppSocial")
+	_assert_eq(panel.selected_app(), "social", "the feed's tab should not be usable during the lesson")
+	_assert_true(not _from_terminal(panel, UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED, {}), "posting before the sentence should be refused")
+	await _click(panel, "TerminalAppNotebook")
+	await _frames(3)
+	_assert_eq(panel.lesson_step(), LessonScript.STEP_COMPOSE, "the notebook should ask for the sentence")
+	_assert_lesson(panel, LessonScript.STEP_COMPOSE, ["TerminalExit", "NotebookCanvasFrame", "NotebookSentenceBar"], "zh")
+	_assert_true(_from_terminal(panel, UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: teaching[0]}), "a lesson word should be placed")
+	_assert_true(not _from_terminal(panel, UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "房"}), "another word should not be placed")
+	panel.set_shown(false)
+	await _frames(1)
+	_assert_true(panel.lesson_holes().is_empty(), "leaving the screen should take the lesson away")
+	panel.set_shown(true)
+	await _frames(3)
+	_assert_eq(panel.lesson_step(), LessonScript.STEP_COMPOSE, "coming back should resume the step")
+	var reversed := teaching.duplicate()
+	reversed.reverse()
+	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all(reversed)
+	await _frames(3)
+	_assert_eq(panel.lesson_step(), LessonScript.STEP_PUBLISH, "the lesson words in any order should ask to post")
+	_assert_lesson(panel, LessonScript.STEP_PUBLISH, ["TerminalExit", "NotebookCraftButton", "NotebookSentenceBar"], "zh")
+	_heard.clear()
+	await _click(panel, "NotebookCraftButton")
+	_assert_heard(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED, {}, "the post button")
+	_assert_true(not (_find(panel, "TerminalGuide") as Label).visible, "the narrator should stay hidden while the lesson shows")
+	# The host judges the post red and opens the exit door.
+	_model(PropertyKeysScript.FREE_SENTENCE_UNITS).replace_all([])
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["door"]))
+	await _frames(2)
+	_assert_eq(panel.lesson_step(), "", "the open exit should end the lesson")
+	_assert_true(panel.lesson_holes().is_empty(), "no hole should be left")
+	_assert_eq(_guide_text(panel), _narrated(GuideScript.STEP_OPEN), "the narrator should send the player to the door")
+	_assert_true(not (_find(panel, "TerminalAppSocial") as Button).disabled, "the buttons should work again")
+	_assert_true(_from_terminal(panel, UiIntentsScript.SOCIAL_LIKE_PRESSED, {}), "nothing should be refused once the lesson is over")
+	await _dispose(panel)
+
+
+## The exit button is a hole of every step and always leaves; an open exit (on the phone) means no lesson at all.
+func _test_the_exit_is_always_usable_and_an_open_round_has_no_lesson() -> void:
+	var panel = await _mount()
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+	await _frames(3)
+	_heard.clear()
+	await _click(panel, "TerminalExit")
+	_assert_heard(UiIntentsScript.TERMINAL_EXIT_REQUESTED, {}, "the exit during the lesson")
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), 1), ["tv"]))
+	await _frames(2)
+	_assert_eq(panel.lesson_step(), "", "a round whose exit is already open should show no lesson")
+	_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 3))
+	await _frames(2)
+	_assert_eq(panel.lesson_step(), "", "a later round should show no lesson")
+	await _dispose(panel)
+
+
+## English and Japanese read the same lesson with their own words and captions.
+func _test_the_lesson_speaks_every_language() -> void:
+	for locale: String in ["en", "ja"]:
+		var panel = await _mount(locale)
+		_model(PropertyKeysScript.CHAPTER_ONE_PROGRESS).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
+		await _frames(3)
+		_assert_eq(panel.lesson_step(), LessonScript.STEP_POST, "%s: round one should start the lesson" % locale)
+		_assert_eq(panel.lesson_caption(), NarrativeCatalogScript.crt_lesson_caption(LessonScript.STEP_POST, locale), "%s: the post caption" % locale)
+		_assert_true(_lit_card(panel) != null, "%s: a card should offer a lesson word" % locale)
+		var teaching := LessonScript.teaching_units(RoomContentScript.room(1), locale)
+		_hold(teaching, locale)
+		await _frames(2)
+		_assert_eq(panel.lesson_caption(), NarrativeCatalogScript.crt_lesson_caption(LessonScript.STEP_NOTEBOOK, locale), "%s: the notebook caption" % locale)
+		await _dispose(panel)
 
 
 func _test_outside_a_guided_round_the_narrator_is_silent() -> void:
@@ -167,11 +289,110 @@ func _guide_text(panel) -> String:
 	return guide.text if guide != null else ""
 
 
-func _narrated(step: String) -> String:
-	return NarrativeCatalogScript.opening_speaker("zh") + NarrativeCatalogScript.basement_guide_line(1, step, "zh")
+func _narrated(step: String, round_number: int = 1) -> String:
+	return NarrativeCatalogScript.opening_speaker("zh") + NarrativeCatalogScript.basement_guide_line(round_number, step, "zh")
 
 
-func _mount():
+func _frames(count: int) -> void:
+	for frame in count:
+		await process_frame
+
+
+## The step's holes are the named controls (the exit among them), and its caption is the catalog's.
+func _assert_lesson(panel, step: String, hole_names: Array, locale: String, unnamed: int = 0) -> void:
+	var holes: Array[Rect2] = panel.lesson_holes()
+	_assert_eq(holes.size(), hole_names.size() + unnamed, "the %s step should light %s" % [step, hole_names])
+	for hole_name: String in hole_names:
+		var control := _find(panel, hole_name) as Control
+		var inside := false
+		if control != null:
+			for hole in holes:
+				inside = inside or hole.has_point(control.get_global_rect().get_center()) or hole.has_point(control.get_global_rect().position + Vector2(2, 2))
+		_assert_true(inside, "the %s step should light %s" % [step, hole_name])
+	var teaching := LessonScript.teaching_units(RoomContentScript.room(1), locale)
+	_assert_eq(panel.lesson_caption(), LessonScript.caption(step, locale, teaching), "the %s step's caption" % step)
+
+
+func _lit_card(panel) -> Control:
+	for hole: Rect2 in panel.lesson_holes():
+		for node in _find(panel, "SocialAppWindow").find_children("SocialPostCard*", "Control", true, false):
+			var card := node as Control
+			if card.is_visible_in_tree() and card.get_global_rect().grow(1.0).encloses(hole):
+				return card
+	return null
+
+
+## A visible card the lesson does not light, if the feed shows one.
+func _unlit_card(panel, lit: Control) -> Control:
+	for node in _find(panel, "SocialAppWindow").find_children("SocialPostCard*", "Control", true, false):
+		var card := node as Control
+		if card == lit or not card.is_visible_in_tree():
+			continue
+		var center := card.get_global_rect().get_center()
+		if center.y > 140.0 and center.y < 700.0:
+			return card
+	return null
+
+
+func _click_control(panel, control: Control) -> void:
+	var rect := control.get_global_rect().intersection(Rect2(Vector2(0, 124), Vector2(CrtTerminalPanelScript.DISPLAY_SIZE) - Vector2(0, 124)))
+	var uv: Vector2 = rect.get_center() / Vector2(CrtTerminalPanelScript.DISPLAY_SIZE)
+	panel.push_pointer(InputEventMouseMotion.new(), uv)
+	panel.push_pointer(_mouse_button(true), uv)
+	panel.push_pointer(_mouse_button(false), uv)
+	await process_frame
+
+
+func _heard_name(intent_name: String) -> bool:
+	for entry in _heard:
+		if entry[0] == intent_name:
+			return true
+	return false
+
+
+## Whether the lesson would let an intent through had a click on the terminal's display raised it.
+func _from_terminal(panel, intent_name: String, payload: Dictionary) -> bool:
+	panel.set("_dispatching", true)
+	var allowed: bool = panel.allows_intent(intent_name, payload)
+	panel.set("_dispatching", false)
+	return allowed
+
+
+func _open_post_id(panel) -> String:
+	var social := _find(panel, "TerminalSocialFeedPanel") as SocialFeedPanel
+	var source := RegistryScript.resolve(ServiceKeysScript.SOCIAL_FEED_SOURCE) as GameSocialFeedSource
+	return str(source.post_for_index(social.detail_post_index()).get("id", ""))
+
+
+## The lesson words the open post shows as links.
+func _offered_in_open_post(panel, teaching: Array) -> Array:
+	var offered: Array = []
+	var detail := _find(panel, "SocialDetailWindow")
+	for node in detail.find_children("*", "RichTextLabel", true, false):
+		var text := (node as RichTextLabel).text
+		for unit: String in teaching:
+			if ("[url=%s]" % unit) in text and unit not in offered:
+				offered.append(unit)
+		for unit: String in ["房", "间", "亮", "我", "你", "没", "不"]:
+			_assert_true(("[url=%s]" % unit) not in text, "the open post should not offer %s during the lesson" % unit)
+	return offered
+
+
+func _held() -> Array:
+	var units: Array = []
+	for entry in _model(PropertyKeysScript.COLLECTED_CHAR_UNITS).read():
+		units.append(str((entry as Dictionary).get("unit", "")))
+	return units
+
+
+func _hold(units: Array, locale: String = "zh") -> void:
+	var entries: Array = []
+	for unit in units:
+		entries.append({"unit": str(unit), "locale": locale, "source_post_id": "floor_13", "day": 1})
+	_model(PropertyKeysScript.COLLECTED_CHAR_UNITS).replace_all(entries)
+
+
+func _mount(locale_code: String = "zh"):
 	RegistryScript.clear()
 	BootScript.install()
 	_heard.clear()
@@ -181,6 +402,7 @@ func _mount():
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
 	var game := Harness.new_state()
 	var locale := LocaleScript.new()
+	locale.current_locale = locale_code
 	var material := LanguageMaterialScript.new()
 	material.configure(game, locale)
 	var source := GameSocialFeedSourceScript.new()
@@ -194,7 +416,7 @@ func _mount():
 			for child in node.get_children():
 				node.remove_child(child)
 				child.queue_free(),
-		"current_locale": func() -> String: return "zh",
+		"current_locale": func() -> String: return locale_code,
 		"char_canvas_position": func(_unit: String, _locale_code: String) -> Vector2: return Vector2(40.0, 40.0),
 	})
 	panel.set_shown(true)

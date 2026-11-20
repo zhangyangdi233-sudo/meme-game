@@ -42,7 +42,8 @@ func _on_progress(value: Variant) -> void:
 		ChapterOneProgressScript.PHASE_OPENING:
 			status.text = "开场"
 		ChapterOneProgressScript.PHASE_PASSAGE:
-			status.text = "白光门（通往 %s）" % str(progress.get("passage_to", ""))
+			var back_to := ChapterOneProgressScript.passage_round(progress)
+			status.text = "白光门（通往第 %d 圈）" % back_to if back_to > 0 else "白光门（通往 %s）" % str(progress.get("passage_to", ""))
 		ChapterOneProgressScript.PHASE_DEMO_END:
 			status.text = "Demo 结束"
 		ChapterOneProgressScript.PHASE_TOWER:

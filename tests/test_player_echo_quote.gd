@@ -24,6 +24,7 @@ func _post_door_sentence(game: RefCounted) -> void:
 
 func _run() -> void:
 	_test_stages()
+	_test_only_a_post_in_the_language_shown_is_quoted()
 
 
 func _test_stages() -> void:
@@ -55,6 +56,25 @@ func _test_stages() -> void:
 
 	game.pollution = 35
 	_assert_eq_text(game.get_player_echo_quote("zh"), game.get_player_echo_quote("zh"), "quotes must be deterministic")
+
+
+## The planner's 2026-11-20 report: after a switch to Japanese the feed quoted the earlier language's post.
+func _test_only_a_post_in_the_language_shown_is_quoted() -> void:
+	var game = StateScript.new()
+	game.new_run()
+	game.pollution = 10
+	_post_door_sentence(game)
+	_assert_eq_text(game.get_player_echo_quote("zh"), "门可以打开", "a zh post should be quoted while zh is shown")
+	_assert_eq_text(game.get_player_echo_quote("ja"), "", "a zh post should not be quoted once ja is shown")
+	game.pollution = 35
+	_assert_eq_text(game.get_player_echo_quote("ja"), "", "the truncated stage should not quote a zh post in ja either")
+	game.pollution = 10
+	game.free_sentence_units = ["ドア", "は", "あく"]
+	game.submit_free_sentence("ja")
+	_assert_eq_text(game.get_player_echo_quote("ja"), "ドアはあく", "a ja post should be quoted while ja is shown")
+	_assert_eq_text(game.get_player_echo_quote("zh"), "门可以打开", "back in zh the zh post should be quoted again")
+	game.pollution = 35
+	_assert_eq_text(game.get_player_echo_quote("ja"), "ドアは", "the truncated stage should cut the ja post's own units")
 
 
 func _assert_true(condition: bool, message: String) -> void:

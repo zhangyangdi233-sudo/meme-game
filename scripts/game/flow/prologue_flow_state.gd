@@ -19,5 +19,11 @@ func exit() -> void:
 		_host.uninstall_prologue_screen()
 
 
+# Keys reach the host during the narration too, so Escape can open settings there (old version).
+func handle_input(event: InputEvent) -> void:
+	if _host != null:
+		_host.handle_prologue_unhandled_input(event)
+
+
 func screen_set() -> PackedStringArray:
 	return PackedStringArray(["prologue", "play"])

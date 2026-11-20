@@ -11,16 +11,20 @@ extends Node3D
 ## A basement's lamps, hum and room objects (its clocks, the scattered chairs, the sunken screens) follow the round's room
 ## state, and the round's one-shot events play here (#114): the stage starts each on its trigger once its delay has
 ## passed on a clock the adapter holds while the world is held, plays its cue, and the wall switch ends the ones it can.
+## Round one's CRT focus cinematic is one of them: the room goes black but for the CRT under a spotlight until the
+## player has clicked through the narrator's lines (`crt_focus`, read by the adapter for the look pose).
 ## The run's seed decides what lies on the exit table and how round three's chairs scatter.
 ## The adapter drives it; the knock finishing, the player walking out through the basement's open exit, the player
 ## walking into the passage's light and a room event starting are raised as game events for the state to record.
 
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const CrtScreenScript = preload("res://scripts/world/crt_screen.gd")
+const BasementPortalScript = preload("res://scripts/world/basement_portal.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const GameEventsScript = preload("res://scripts/game_events.gd")
 const LanguageCorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const BasementDecorScript = preload("res://scripts/game/basement_decor.gd")
+const NarrativeSessionCatalogScript = preload("res://scripts/game/narrative_session_catalog.gd")
 
 const OPENING_MODEL_PATH := "res://assets/chapter1/Opening_WhiteDoor_v2.glb"
 const BASEMENT_MODEL_PATH := "res://assets/chapter1/Basement_Loop_v3b.glb"
@@ -43,11 +47,13 @@ const BASEMENT_SPAWN_YAW := 180.0
 ## The room's two lamps, lit here under the model's globes. The planner's look is Blender's main lamp at about 23 W
 ## (between its 15 W and 28 W previews, #120 Q4-1): on screenshots (`tools/capture_basement_rounds.gd`) energies of
 ## 1.0 and 0.5 match the 28 W preview, so these are 23/28 of them. Tune them on the real machine.
+## The lamp colour is the planner's pick on the look images of 2026-11-19 (yellow, a little cool, a little dimmer than
+## the warm preview): linear (0.97, 0.91, 0.68), with the energies taken down by a twentieth to go with it.
 const BASEMENT_LIGHTS := {
-	"BasementMainLight": {"position": Vector3(0.3, 2.42, 1.5), "energy": 0.82, "range": 6.0},
-	"BasementRearLight": {"position": Vector3(0.0, 2.42, -3.4), "energy": 0.41, "range": 4.5},
+	"BasementMainLight": {"position": Vector3(0.3, 2.42, 1.5), "energy": 0.78, "range": 6.0},
+	"BasementRearLight": {"position": Vector3(0.0, 2.42, -3.4), "energy": 0.39, "range": 4.5},
 }
-const BASEMENT_LIGHT_COLOR := Color("d9e3b8")
+const BASEMENT_LIGHT_COLOR := Color("fbf5d7")
 ## How fast the lamps fall off: corners go dark on their own.
 const BASEMENT_LIGHT_ATTENUATION := 1.4
 const BASEMENT_AMBIENT_ENERGY := 0.12
@@ -104,6 +110,18 @@ const DOOR_KNOCK_SECONDS := 3.0
 const DOOR_KNOCK_PAUSE_SECONDS := 5.0
 const DOOR_KNOCK_PIECES := 3
 const DOOR_KNOCK_HEIGHT := 1.0
+## The sealed door's one bang of the NPC-free demo (the old version's fourth-visit event, restored so the taped door is
+## not silent): once the entry has shut and the player has come within `DOOR_BANG_RADIUS` of the door (on the floor) and
+## then walks more than `DOOR_BANG_LEAVE_MARGIN` farther than their nearest, the door is hit from inside behind them.
+## One `DOOR_KNOCK_SECONDS` piece of the knock recording plays and the door leaf, knob and tape jolt along the door's
+## normal at each hit: [seconds into the event, amplitude], each `DOOR_BANG_HIT_SECONDS` long.
+const SEALED_DOOR_ANCHOR := BASEMENT_NPC_POSITION
+const SEALED_DOOR_NODES := ["StairCloset_Door", "StairCloset_Knob", "StairCloset_Tape"]
+const DOOR_BANG_RADIUS := 2.6
+const DOOR_BANG_LEAVE_MARGIN := 0.5
+const DOOR_BANG_HITS := [[0.0, 1.0], [0.42, 1.0], [0.84, 1.0], [1.94, 0.55]]
+const DOOR_BANG_HIT_SECONDS := 0.18
+const DOOR_BANG_SHAKE := 0.012
 ## The small table against the east wall, between the stairs and the CRT: its center on the floor and its size. The
 ## model has none, so it is built from boxes.
 const TABLE_POSITION := Vector3(2.55, 0.0, 0.6)
@@ -127,6 +145,11 @@ const EXIT_PROP_NODES := {
 }
 ## How high above a prop's floor point the view pushes in to; a lamp is pushed in to where it hangs.
 const EXIT_PROP_FOCUS_HEIGHT := {"table": 0.6, "chair": 0.55, "light": 0.0}
+## A long table also answers from its two ends: with chairs along its side (the old version's table and chairs, back
+## since the v4 model) nobody gets within reach of its middle. A table whose collider (`PropCollision_` and its name
+## without `Prop_`) is longer than this has a place this far past each end.
+const LONG_TABLE_LENGTH := 1.2
+const TABLE_END_REACH := 0.2
 const EXIT_DOOR_REACH := Vector3(-2.85, 0.0, -3.43)
 const EXIT_DOOR_FOCUS := Vector3(-4.2, 1.2, -3.43)
 ## The model's lamps light Blender's preview in physical watts, which Godot would read as energy and turn the room
@@ -167,22 +190,48 @@ const CLOCK_WALL_RADIUS := 0.17
 ## How far in front of a clock the player stands to use it.
 const CLOCK_REACH := 0.6
 ## Round five's sunken screens: where each stands, its yaw and its tilt (radians), in the model's space; four sit in
-## the walls. Clear of the room's middle, the stairs and the way to the exit.
+## the walls. Clear of the room's middle, the stairs and the way to the exit: the screens are solid (planner,
+## 2026-11-20), so the third stands a little off the way to the partition's opening, the fourth leaves the way from the
+## stairs open under the screen in the front wall, and the two of the rear room stand against its back wall, where the
+## player can still walk past them to the exit.
 const SUNKEN_CRTS := [
 	[Vector3(2.40, -0.18, 2.80), -2.65, -0.08],
 	[Vector3(2.55, -0.20, 1.75), -1.55, 0.06],
-	[Vector3(2.05, -0.24, -1.15), -0.90, -0.05],
-	[Vector3(-0.75, -0.19, 2.80), 2.65, 0.04],
+	[Vector3(2.05, -0.24, -0.95), -0.90, -0.05],
+	[Vector3(-0.75, -0.19, 2.45), 2.65, 0.04],
 	[Vector3(-1.13, -0.23, 0.65), 1.20, -0.08],
 	[Vector3(0.75, -0.22, 1.65), 2.75, 0.08],
-	[Vector3(2.40, -0.18, -3.20), -1.25, 0.05],
-	[Vector3(-0.95, -0.20, -3.75), 0.45, -0.04],
+	[Vector3(2.55, -0.18, -3.90), -0.35, 0.05],
+	[Vector3(-0.95, -0.20, -3.90), 0.25, -0.04],
 	[Vector3(3.18, 0.72, 2.20), -PI / 2.0, 0.0],
 	[Vector3(3.18, 1.48, -0.55), -PI / 2.0, 0.0],
 	[Vector3(-0.55, 1.30, 4.18), PI, 0.0],
 	[Vector3(1.90, 0.82, -4.18), 0.0, 0.0],
 ]
-const SUNKEN_CRT_STANDBY := Color(0.22, 0.41, 0.27)
+## Each sunken screen is the model's own CRT (planner, 2026-11-20: the screens on the floor are the one on the console):
+## its cabinet drawn as one mesh, its glass, and a solid box the player walks into. The offset keeps the glass where
+## the old box screens had theirs, in front of each stand point.
+const SUNKEN_CRT_MODEL := "Prop_CRT_TV"
+const SUNKEN_CRT_OFFSET := Vector3(0.0, 0.04, -0.05)
+## Round five's screens all play one looping recording, each from its own place in it (the old version's fifth visit,
+## restored by the planner on 2026-11-20): one muted player per screen, drawn into a small viewport its glass shows.
+## The console's CRT plays the last place, and gives its glass to the terminal while the player uses it.
+const CRT_LOOP_PATH := "res://assets/video/basement_crt_loop.ogv"
+const CRT_LOOP_SIZE := Vector2i(384, 288)
+const CRT_LOOP_STAGGER := 1.73
+## The model's chair colliders, which give way with their chairs while round three's pile lies in their stead.
+const CHAIR_COLLIDERS := ["PropCollision_WindsorA", "PropCollision_WindsorB"]
+## Round three's pile is solid (planner, 2026-11-20), so it is laid to leave the room walkable (`BasementDecor`): what
+## stands on the floor is every collider that reaches into this height band, and the player must still get this near
+## each exit object's place (the adapter answers from 1 m) and this near the CRT and the wall switch (it answers from
+## 0.9 m), starting this near the foot of the stairs. No chair lies where the player stands to press the switch.
+const FLOOR_BLOCK_BAND := Vector2(0.15, 1.5)
+const PILE_EXIT_REACH := 0.93
+const PILE_USE_REACH := 0.83
+const PILE_START_REACH := 0.8
+const PILE_SWITCH_CLEAR := 0.9
+## A tipped chair of the pile lies this high, on its side.
+const TIPPED_CHAIR_LIFT := 0.22
 ## The exit table at the rear and what the seed lays on it.
 const EXIT_TABLE_TOP := Vector3(-1.64, 0.74, -3.9)
 ## The stairs, from the foot to the landing: any step counts. Each place stands at the height of the floor or step
@@ -192,6 +241,31 @@ const EXIT_STAIRS := [
 	{"reach": Vector3(-2.5, 1.45, 0.5), "focus": Vector3(-2.5, 2.6, -0.8)},
 	{"reach": Vector3(-2.5, 2.62, -1.9), "focus": Vector3(-2.5, 3.6, -2.3)},
 ]
+## The middle of the stairs, the old version's CRT focus trigger (its asset contract's `stairs` block): the player's feet
+## crossing this depth going down (toward +Z), between these widths and near half the stairs' rise, starts the
+## `stairs_descended` trigger once.
+const STAIRS_MIDDLE_Z := 0.5
+const STAIRS_MIDDLE_X := Vector2(-3.14, -1.85)
+const STAIRS_MIDDLE_HEIGHT := 1.35
+const STAIRS_MIDDLE_HEIGHT_REACH := 0.65
+## Round one's CRT focus cinematic (the old version's first visit, restored by the planner on 2026-11-16): the room goes
+## black but for the CRT under a white spotlight while the view turns to it and narrows. The CRT is shown through mirror
+## meshes on a render layer of their own: changing the real meshes' layers at runtime crashed Godot 4.6 Forward+
+## (godotengine/godot#121989), so they are never touched.
+const CRT_FOCUS_LAYER := 1 << 17
+const CRT_FOCUS_CABINET := "Prop_CRT_TV*"
+const CRT_FOCUS_TURN_SECONDS := 0.8
+const CRT_FOCUS_RETURN_SECONDS := 0.65
+const CRT_FOCUS_SPOT_ENERGY := 9.0
+const CRT_FOCUS_SPOT_RANGE := 4.0
+const CRT_FOCUS_SPOT_ANGLE := 48.0
+## The spotlight stands this far above the glass's middle and this far in front of it, aimed at it.
+const CRT_FOCUS_SPOT_RISE := 1.25
+const CRT_FOCUS_SPOT_FRONT := 0.35
+## The cinematic's states: turning to the CRT, reading the lines, turning back.
+const FOCUS_TURN := "turn"
+const FOCUS_LINES := "lines"
+const FOCUS_RETURN := "return"
 
 var phase := ""
 var _model: Node3D
@@ -212,6 +286,13 @@ var _door_knock: AudioStreamPlayer3D
 var _door_knocking := false
 var _door_knock_clock := 0.0
 var _door_knock_cycle := -1
+## The sealed door's bang: whether it sounds now, how near the player came to the door and whether they have come close
+## and walked away (the trigger `left_sealed_door`), and the door's pieces with where each rests.
+var _door_banging := false
+var _bang_nearest := INF
+var _left_sealed_door := false
+var _door_pieces: Array[Node3D] = []
+var _door_rest: Array[Vector3] = []
 var _entry_door: Node3D
 var _exit_door: Node3D
 ## Door open ratios (0 shut, 1 open) and where each is swinging to.
@@ -238,17 +319,32 @@ var _hum: AudioStreamPlayer
 var _whisper: AudioStreamPlayer
 var _static: AudioStreamPlayer
 var _switch: Node3D
-## The model's chairs, which round three's scattered pile replaces once its light is back.
+## The model's chairs, which round three's scattered pile replaces once its light is back, with their colliders; the
+## pile's own solid boxes.
 var _chairs: Array[Node3D] = []
+var _chair_bodies: Array[StaticBody3D] = []
+var _pile_bodies: Array[StaticBody3D] = []
 ## The model's tape over the sealed door, which round five's torn tape replaces.
 var _sealed_tape: MeshInstance3D
 ## What only the X-ray shows, and whether it looks now.
 var _xray_nodes: Array[Node3D] = []
 var _xray_looking := false
-## Round five's sunken screens' glass, their red lights and the colour every screen shows now (none: their own).
-var _sunken_glass: Array[StandardMaterial3D] = []
+## The basement's portal (`BasementPortal`), built the first time the X-ray looks through its frame.
+var _portal: BasementPortal
+## Round five's sunken screens' glass, their solid boxes and red lights, the one flat colour their glass shows as a
+## signal, and the colour every screen shows now (none: their own).
+var _sunken_glass: Array[MeshInstance3D] = []
+var _sunken_bodies: Array[StaticBody3D] = []
+var _sunken_signal: StandardMaterial3D
 var _red_lights: Array[OmniLight3D] = []
 var _screen_color := NO_SIGNAL
+## Round five's recording: each screen's player and the material that shows it, in the order of `_sunken_glass` with the
+## console's CRT last, and whether they play now.
+var _loop_players: Array[VideoStreamPlayer] = []
+var _loop_materials: Array[ShaderMaterial] = []
+var _loop_playing := false
+## The recording did not load: it is not tried again every time the room is refreshed.
+var _loop_failed := false
 ## The round's one-shot events (room data), the ids started (saved or here) and ended by the switch, how long each
 ## event's trigger has held, and how long each timed event started here has played.
 var _events: Array = []
@@ -264,6 +360,20 @@ var _cue_crt_light_on := true
 var _cue_hum_on := true
 ## The room's sounds are held (the world held, or settings open): nothing starts or stops them until they go on.
 var _sounds_held := false
+## Where the player's feet were last tracked, and whether they have come down across the middle of the stairs.
+var _last_tracked := Vector3.ZERO
+var _has_tracked := false
+var _stairs_descended := false
+## Round one's CRT focus cinematic: its state (empty when none plays), seconds into the turn, the line shown, and what
+## the isolation put in place: the room's environment, the mirrors, the spotlight and every light it hid.
+var _focus_state := ""
+var _focus_time := 0.0
+var _focus_line := 0
+var _world_environment: WorldEnvironment
+var _focus_environment: Environment
+var _focus_mirrors: Array[MeshInstance3D] = []
+var _focus_spot: SpotLight3D
+var _focus_hidden_lights: Array[Light3D] = []
 
 
 ## Builds the stage for one chapter phase (`ChapterOneProgress.PHASE_OPENING`, `PHASE_PASSAGE` or `PHASE_BASEMENT`); a basement is
@@ -316,9 +426,20 @@ func door_position() -> Vector3:
 ## The basement round's NPC behind the sealed door, or none outside the basement or in a round without one.
 func interactable_actors() -> Array[Area3D]:
 	var actors: Array[Area3D] = []
-	if _npc != null:
+	var bang := _door_bang_event()
+	# A door banged once (round four) answers only after the bang (planner, 2026-11-20), once it is over: nobody talks
+	# through a door that is still being hit.
+	if _npc != null and (bang.is_empty() or (bang.get("id") in _started_ids and not _playing.has(bang.get("id")))):
 		actors.append(_npc)
 	return actors
+
+
+## The round's `door_bang` event, or empty when the round has none.
+func _door_bang_event() -> Dictionary:
+	for event: Variant in _events:
+		if event is Dictionary and event.get("cue") == "door_bang":
+			return event
+	return {}
 
 
 ## Where the phone lies on the table; zero when no phone is there.
@@ -360,6 +481,8 @@ func track_player(position: Vector3) -> void:
 	if _entry_door != null and position.z > ENTRY_SEAL_Z:
 		_entry_target = 0.0
 		_entry_sealed = true
+	_track_stairs(position)
+	_track_sealed_door(position)
 	_at_center = (
 		phase == ChapterOneProgressScript.PHASE_BASEMENT
 		and position.y < ROOM_FLOOR_HEIGHT
@@ -370,6 +493,36 @@ func track_player(position: Vector3) -> void:
 	if position.x < EXIT_WALKED_OUT_X and absf(position.z - EXIT_DOORWAY.z) <= EXIT_DOORWAY_HALF_WIDTH:
 		_exit_reported = true
 		GameEventBusScript.raise_event(GameEventsScript.BASEMENT_EXIT_CROSSED)
+
+
+## The player's feet crossed the middle of the stairs going down since the last track (the old version's CRT focus
+## trigger); it stays true once it has happened.
+func _track_stairs(position: Vector3) -> void:
+	var from := _last_tracked
+	var tracked_before := _has_tracked
+	_last_tracked = position
+	_has_tracked = true
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or _stairs_descended or not tracked_before:
+		return
+	if from.z >= STAIRS_MIDDLE_Z or position.z < STAIRS_MIDDLE_Z:
+		return
+	var crossing := from.lerp(position, (STAIRS_MIDDLE_Z - from.z) / (position.z - from.z))
+	_stairs_descended = (
+		crossing.x >= STAIRS_MIDDLE_X.x and crossing.x <= STAIRS_MIDDLE_X.y
+		and absf(crossing.y - STAIRS_MIDDLE_HEIGHT) < STAIRS_MIDDLE_HEIGHT_REACH
+	)
+
+
+## The player came within reach of the sealed door after the entry shut and is now walking away from it: the old
+## version's rule for the bang behind them (it stays true once it has happened).
+func _track_sealed_door(position: Vector3) -> void:
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or not _entry_sealed or _left_sealed_door:
+		return
+	var distance := Vector2(position.x - SEALED_DOOR_ANCHOR.x, position.z - SEALED_DOOR_ANCHOR.z).length()
+	if distance < DOOR_BANG_RADIUS:
+		_bang_nearest = minf(_bang_nearest, distance)
+	elif _bang_nearest < INF and distance > _bang_nearest + DOOR_BANG_LEAVE_MARGIN:
+		_left_sealed_door = true
 
 
 func contains_playable_position(position: Vector3, inset: float = 0.0) -> bool:
@@ -396,8 +549,9 @@ func sync_progress(progress: Dictionary) -> void:
 	# The exit door is locked until the door is one of the round's exits (the rule, or the NPC's help).
 	if _exit_door != null and ChapterOneProgressScript.door_open(progress):
 		_exit_target = 1.0
-	_door_knocking = _npc != null and not ChapterOneProgressScript.talked_to_npc(progress)
-	if not _door_knocking and _door_knock != null:
+	# A door banged once has its NPC answer after the bang, not knock on its own.
+	_door_knocking = _npc != null and _door_bang_event().is_empty() and not ChapterOneProgressScript.talked_to_npc(progress)
+	if not _door_knocking and _door_knock != null and not _door_banging:
 		_door_knock.stop()
 	if _knock == null or _paused or _knock_started:
 		return
@@ -426,6 +580,7 @@ func apply_room_state(state: Dictionary) -> void:
 		chair.visible = not _pile_shown()
 	if _sealed_tape != null:
 		_sealed_tape.visible = not bool(objects.get("torn_tape", false))
+	_sync_solids()
 	_refresh_room()
 
 
@@ -441,18 +596,115 @@ func decorate(seed: int) -> void:
 	for chair in pile.get_children():
 		pile.remove_child(chair)
 		chair.queue_free()
+	_pile_bodies.clear()
 	if _chairs.is_empty():
 		return
-	for spec: Dictionary in BasementDecorScript.scattered_chairs(seed):
+	for spec: Dictionary in BasementDecorScript.scattered_chairs(seed, _floor_plan()):
 		var chair := _chairs[int(spec["model"]) % _chairs.size()].duplicate() as Node3D
 		chair.name = "ScatteredChair%d" % pile.get_child_count()
 		chair.visible = true
 		var tilt := float(spec["tilt"])
-		var lift := Vector3(0.0, 0.22, 0.0) if tilt != 0.0 else Vector3.ZERO
+		var lift := Vector3(0.0, TIPPED_CHAIR_LIFT, 0.0) if tilt != 0.0 else Vector3.ZERO
 		chair.transform = Transform3D(Basis(Vector3.UP, float(spec["yaw"])) * Basis(Vector3.BACK, tilt), (spec["position"] as Vector3) + lift)
+		if bool(spec.get("solid", true)):
+			# The box stands on the chair's own floor point, so it tips over with the chair.
+			var body := _box_body("Body", BasementDecorScript.CHAIR_BODY, Vector3(0.0, BasementDecorScript.CHAIR_BODY.y * 0.5, 0.0))
+			chair.add_child(body)
+			_pile_bodies.append(body)
 		pile.add_child(chair)
 	for model_chair in _chairs:
 		model_chair.visible = not _pile_shown()
+	_sync_solids()
+
+
+## What the room shows is what the player walks into: the pile's chairs while they lie there (the model's chairs give
+## way, colliders and all) and the sunken screens while they stand.
+func _sync_solids() -> void:
+	var piled := _pile_shown()
+	for body in _pile_bodies:
+		body.collision_layer = 1 if piled else 0
+	for body in _chair_bodies:
+		body.collision_layer = 0 if piled else 1
+	var sunk := _room_objects.get("sunken_crts") as Node3D
+	for body in _sunken_bodies:
+		body.collision_layer = 1 if sunk != null and sunk.visible else 0
+
+
+## The floor round three's pile must leave walkable (`BasementDecor.scattered_chairs`): the room's bounds, what stands
+## on it, where the player comes from and every place they must still reach.
+func _floor_plan() -> Dictionary:
+	var blocks: Array = []
+	for node: Node in find_children("*", "CollisionShape3D", true, false):
+		var shape_node := node as CollisionShape3D
+		var body := shape_node.get_parent() as StaticBody3D
+		# The model's chairs give way to the pile, a pile already laid is not part of its own floor, and a body the room
+		# does not show now stops nobody.
+		if body == null or body in _chair_bodies or body in _pile_bodies or body.collision_layer == 0 or shape_node.shape == null:
+			continue
+		var bounds := _in_stage(shape_node) * _shape_bounds(shape_node.shape)
+		if bounds.end.y > FLOOR_BLOCK_BAND.x and bounds.position.y < FLOOR_BLOCK_BAND.y:
+			blocks.append(Rect2(bounds.position.x, bounds.position.z, bounds.size.x, bounds.size.z))
+	var reach: Array = []
+	for object_name: String in _exit_points:
+		if object_name == "chair":
+			continue
+		for point: Dictionary in _exit_points[object_name]:
+			var at: Vector3 = point["reach"]
+			if at.y < ROOM_FLOOR_HEIGHT:
+				reach.append([Vector2(at.x, at.z), PILE_EXIT_REACH])
+	reach.append([Vector2(CLOCK_POSITION.x - CLOCK_REACH, CLOCK_POSITION.z), PILE_EXIT_REACH])
+	var clear: Array = []
+	if _crt_screen != null:
+		var crt := crt_reach_position()
+		reach.append([Vector2(crt.x, crt.z), PILE_USE_REACH])
+	if _switch != null:
+		var press_from := switch_reach_position()
+		reach.append([Vector2(press_from.x, press_from.z), PILE_USE_REACH])
+		# The player stands here when the light, and the pile with it, comes back.
+		clear.append([Vector2(press_from.x, press_from.z), PILE_SWITCH_CLEAR])
+	var foot: Vector3 = EXIT_STAIRS[0]["reach"]
+	return {
+		"area": Rect2(BASEMENT_BOUNDS.position.x, BASEMENT_BOUNDS.position.z, BASEMENT_BOUNDS.size.x, BASEMENT_BOUNDS.size.z),
+		"blocks": blocks,
+		"start": [[Vector2(foot.x, foot.z), PILE_START_REACH]],
+		"reach": reach,
+		"clear": clear,
+	}
+
+
+## A collision shape's bounds in its own space: the model's colliders are triangle meshes, the stage's are boxes.
+func _shape_bounds(shape: Shape3D) -> AABB:
+	if shape is BoxShape3D:
+		var size := (shape as BoxShape3D).size
+		return AABB(-size * 0.5, size)
+	var points := PackedVector3Array()
+	if shape is ConcavePolygonShape3D:
+		points = (shape as ConcavePolygonShape3D).get_faces()
+	elif shape is ConvexPolygonShape3D:
+		points = (shape as ConvexPolygonShape3D).points
+	else:
+		# Any other shape (a ball, a capsule) is measured on the mesh the engine draws for it.
+		var outline := shape.get_debug_mesh()
+		return outline.get_aabb() if outline != null else AABB()
+	if points.is_empty():
+		return AABB()
+	var bounds := AABB(points[0], Vector3.ZERO)
+	for point in points:
+		bounds = bounds.expand(point)
+	return bounds
+
+
+## A solid box on the player's layer: `size`, its middle at `at` in its parent's space.
+func _box_body(node_name: String, size: Vector3, at: Vector3) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.position = at
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	return body
 
 
 ## The round's one-shot events as its room lists them, with the ids the state already saved as started and as ended by
@@ -477,6 +729,8 @@ func set_room_events(events: Array, started: Array, ended: Array) -> void:
 ## (`ROOM_EVENT_STARTED`) and plays its cue; a timed one stops after its duration. A `held` world (the phone up, the
 ## CRT, a transition) and open settings stop the clock and the sounds where they are.
 func advance_events(delta: float, held: bool) -> void:
+	# The CRT focus cinematic holds the room's clocks and sounds while it plays, as the old one paused the atmosphere.
+	held = held or crt_focus_playing()
 	_hold_sounds(held or _paused)
 	if _sounds_held or phase != ChapterOneProgressScript.PHASE_BASEMENT:
 		return
@@ -532,6 +786,216 @@ func press_switch() -> Array:
 	return ended
 
 
+## Whether round one's CRT focus cinematic plays: from its start until the view has turned back.
+func crt_focus_playing() -> bool:
+	return not _focus_state.is_empty()
+
+
+## Where the cinematic stands, or empty when none plays: its `state` (`FOCUS_TURN`, `FOCUS_LINES`, `FOCUS_RETURN`),
+## `weight` (0 the player's own look, 1 the look at the CRT, eased like the old turn), the `line` shown (-1 while
+## turning), the glass's middle as `target`, and whether the room is `isolated` to the CRT's layer (`layer`).
+func crt_focus() -> Dictionary:
+	if _focus_state.is_empty():
+		return {}
+	var duration := CRT_FOCUS_RETURN_SECONDS if _focus_state == FOCUS_RETURN else CRT_FOCUS_TURN_SECONDS
+	var eased := 0.5 - 0.5 * cos(PI * clampf(_focus_time / duration, 0.0, 1.0))
+	var weight := 1.0
+	if _focus_state == FOCUS_TURN:
+		weight = eased
+	elif _focus_state == FOCUS_RETURN:
+		weight = 1.0 - eased
+	return {
+		"state": _focus_state,
+		"weight": weight,
+		"line": _focus_line if _focus_state == FOCUS_LINES else -1,
+		"target": _crt_screen.center() if _crt_screen != null else Vector3.ZERO,
+		"isolated": _focus_spot != null,
+		"layer": CRT_FOCUS_LAYER,
+	}
+
+
+## Moves the cinematic's turns on by `delta`; open settings (and a lost focus) hold it where it is. The turn back ends
+## it. The room's lamps are put out again each step, since the room's own state may light them meanwhile.
+func advance_crt_focus(delta: float) -> void:
+	if _focus_state.is_empty() or _paused:
+		return
+	if _focus_state != FOCUS_LINES:
+		_focus_time += maxf(delta, 0.0)
+	if _focus_state == FOCUS_TURN and _focus_time >= CRT_FOCUS_TURN_SECONDS:
+		_focus_state = FOCUS_LINES
+	elif _focus_state == FOCUS_RETURN and _focus_time >= CRT_FOCUS_RETURN_SECONDS:
+		_focus_state = ""
+	if _focus_spot != null:
+		_hide_lights_for_focus()
+
+
+## The player clicked a shown line: the next one shows, and after the last the view turns back while the room comes
+## back. Answers whether a line was advanced (not during the turns or open settings).
+func advance_crt_focus_line() -> bool:
+	if _focus_state != FOCUS_LINES or _paused:
+		return false
+	_focus_line += 1
+	if _focus_line >= NarrativeSessionCatalogScript.CRT_FOCUS_LINE_COUNT:
+		_focus_state = FOCUS_RETURN
+		_focus_time = 0.0
+		_end_crt_focus_isolation()
+	return true
+
+
+func _start_crt_focus() -> void:
+	if _crt_screen == null or not is_inside_tree():
+		return
+	_focus_state = FOCUS_TURN
+	_focus_time = 0.0
+	_focus_line = 0
+	var to_stage := global_transform.affine_inverse()
+	var visuals: Array[MeshInstance3D] = []
+	for mesh: Node in _model.find_children(CRT_FOCUS_CABINET, "MeshInstance3D", true, false):
+		visuals.append(mesh as MeshInstance3D)
+	var glass := _model.find_child(CRT_SCREEN_NODE, true, false) as MeshInstance3D
+	if glass != null and glass not in visuals:
+		visuals.append(glass)
+	for mesh in visuals:
+		var mirror := MeshInstance3D.new()
+		mirror.name = "CrtFocusMirror%d" % _focus_mirrors.size()
+		mirror.layers = CRT_FOCUS_LAYER
+		mirror.mesh = mesh.mesh
+		mirror.material_override = mesh.material_override
+		mirror.material_overlay = mesh.material_overlay
+		mirror.cast_shadow = mesh.cast_shadow
+		var surfaces := mesh.mesh.get_surface_count() if mesh.mesh != null else 0
+		for surface in surfaces:
+			mirror.set_surface_override_material(surface, mesh.get_surface_override_material(surface))
+		mirror.transform = to_stage * mesh.global_transform
+		mirror.visible = mesh.is_visible_in_tree()
+		add_child(mirror)
+		_focus_mirrors.append(mirror)
+	var target := _crt_screen.center()
+	var apex := target + Vector3(0.0, CRT_FOCUS_SPOT_RISE, 0.0) + _crt_screen.forward() * CRT_FOCUS_SPOT_FRONT
+	_focus_spot = SpotLight3D.new()
+	_focus_spot.name = "CrtFocusSpotlight"
+	_focus_spot.layers = CRT_FOCUS_LAYER
+	_focus_spot.light_cull_mask = CRT_FOCUS_LAYER
+	_focus_spot.light_color = Color.WHITE
+	_focus_spot.light_energy = CRT_FOCUS_SPOT_ENERGY
+	_focus_spot.spot_range = CRT_FOCUS_SPOT_RANGE
+	_focus_spot.spot_angle = CRT_FOCUS_SPOT_ANGLE
+	# The room's hidden ceiling must not shadow the one thing left to see.
+	_focus_spot.shadow_enabled = false
+	_focus_spot.transform = to_stage * Transform3D(Basis.looking_at(target - apex, Vector3.FORWARD), apex)
+	add_child(_focus_spot)
+	if _world_environment != null:
+		_focus_environment = Environment.new()
+		_focus_environment.background_mode = Environment.BG_COLOR
+		_focus_environment.background_color = Color.BLACK
+		_focus_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		_focus_environment.ambient_light_color = Color.BLACK
+		_focus_environment.ambient_light_energy = 0.0
+		_world_environment.environment = _focus_environment
+	_hide_lights_for_focus()
+
+
+## Puts out every light of the stage but the spotlight, remembering each one it put out.
+func _hide_lights_for_focus() -> void:
+	for node: Node in find_children("*", "Light3D", true, false):
+		var light := node as Light3D
+		if light == _focus_spot or not light.visible:
+			continue
+		light.visible = false
+		if light not in _focus_hidden_lights:
+			_focus_hidden_lights.append(light)
+
+
+## The room comes back: its environment and lights, with the mirrors and the spotlight gone. The room state then lights
+## the lamps as it says.
+func _end_crt_focus_isolation() -> void:
+	for mirror in _focus_mirrors:
+		if is_instance_valid(mirror):
+			remove_child(mirror)
+			mirror.queue_free()
+	_focus_mirrors.clear()
+	if _focus_spot != null:
+		remove_child(_focus_spot)
+		_focus_spot.queue_free()
+		_focus_spot = null
+	for light in _focus_hidden_lights:
+		if is_instance_valid(light):
+			light.visible = true
+	_focus_hidden_lights.clear()
+	if _world_environment != null and _environment != null:
+		_world_environment.environment = _environment
+	_focus_environment = null
+	_refresh_room()
+
+
+## The portal (planner's design, 2026-10-31): the X-ray looks through `frame`, a part of the screen (0..1, y down) of a
+## camera at `eye` (world space) with this vertical field of view and aspect, and has been held for `held` (0..1) of the
+## time it takes to fix. The white door's passage shows in the frame, from `near` in front of the eye on. `feet` is where
+## the looking player stands (world space). Only a basement has a portal.
+func portal_look_through(eye: Transform3D, frame: Rect2, fov_degrees: float, aspect: float, held: float, feet: Vector3 = Vector3.ZERO, near: float = BasementPortalScript.NEAR) -> void:
+	if _ensure_portal():
+		var to_stage := global_transform.affine_inverse()
+		_portal.look_through(to_stage * eye, BasementPortalScript.frame_tangents(frame, fov_degrees, aspect), held, (to_stage * feet).y, near)
+
+
+## The X-ray looks away before its frame was fixed: nothing stays.
+func portal_look_away() -> void:
+	if _portal != null:
+		_portal.look_away()
+
+
+## The frame was held long enough: it stays in the room as the camera saw it, in place of any portal fixed before.
+## `used_up` fixes it as a flat print of the white door that nobody walks into (the run has been through its portal).
+## `feet`, `near` and `enter_at` as `BasementPortal.fix` takes them, `feet` in world space.
+func portal_fix(eye: Transform3D, frame: Rect2, fov_degrees: float, aspect: float, used_up: bool, feet: Vector3 = Vector3.INF, near: float = BasementPortalScript.NEAR, enter_at: float = BasementPortalScript.NEAR + BasementPortalScript.WALK_IN_MARGIN) -> void:
+	if _ensure_portal():
+		var to_stage := global_transform.affine_inverse()
+		_portal.fix(to_stage * eye, BasementPortalScript.frame_tangents(frame, fov_degrees, aspect), used_up, frame, to_stage * feet if feet.is_finite() else feet, near, enter_at)
+
+
+## Takes the portal out of the room (the CRT's terminal is entered: a portal fixed at the CRT would cover its glass).
+func portal_clear() -> void:
+	if _portal != null:
+		_portal.clear()
+
+
+func portal_fixed() -> bool:
+	return _portal != null and _portal.is_fixed()
+
+
+## Whether the fixed portal is a flat print (used up) and no way through.
+func portal_flat() -> bool:
+	return _portal != null and _portal.is_flat()
+
+
+## Whether a player standing at `feet` (the stage's space) has walked into the fixed portal.
+func portal_holds(feet: Vector3) -> bool:
+	return _portal != null and _portal.holds(feet)
+
+
+## The room's space to the passage's as the fixed portal joins them: where the player and their view go on walking in.
+func portal_to_passage() -> Transform3D:
+	return _portal.to_other() if _portal != null else Transform3D.IDENTITY
+
+
+func _ensure_portal() -> bool:
+	if phase != ChapterOneProgressScript.PHASE_BASEMENT or _model == null:
+		return false
+	if _portal != null:
+		return true
+	var portal := BasementPortalScript.new()
+	portal.name = "BasementPortal"
+	add_child(portal)
+	# The passage's own start: on its ground, facing its door (`_build_door_world`).
+	var start := Transform3D(Basis.IDENTITY, OPENING_DOOR_CENTER + Vector3(0.0, 0.04, OPENING_WALK_DISTANCE))
+	if not portal.build(BASEMENT_BOUNDS, start):
+		remove_child(portal)
+		portal.queue_free()
+		return false
+	_portal = portal
+	return true
+
+
 ## The X-ray looks (X held, or the hands' frame): what only it shows appears, where the room shows it.
 func set_xray_looking(looking: bool) -> void:
 	_xray_looking = looking
@@ -552,8 +1016,9 @@ func advance_door_knock(delta: float) -> void:
 	if _door_knock == null:
 		return
 	var held := _paused or not is_visible_in_tree()
-	_door_knock.stream_paused = held
-	if held:
+	# The bang keeps the event clock's hold (the phone up, the CRT) as well, so its sound stops where its shaking does.
+	_door_knock.stream_paused = held or (_door_banging and _sounds_held)
+	if held or _door_banging:
 		return
 	if not _door_knocking:
 		if _door_knock.playing:
@@ -579,8 +1044,9 @@ func set_paused(paused: bool) -> void:
 	if _knock != null:
 		_knock.stream_paused = paused
 	if _door_knock != null:
-		_door_knock.stream_paused = paused
+		_door_knock.stream_paused = paused or (_door_banging and _sounds_held)
 	_hold_sounds(paused)
+	_sync_crt_loop()
 
 
 ## Swings the white door open: 0 is closed, 1 fully open away from the player. Its glow plane hides once it moves.
@@ -703,6 +1169,8 @@ func _bind_lamps() -> void:
 	for globe_name: String in MODEL_LAMP_GLOBES:
 		var globe := _model.find_child(globe_name, true, false) as MeshInstance3D
 		if globe != null:
+			# The lamp's light stands under its glass: a glass that cast a shadow would black out the ceiling round it.
+			globe.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_globes.append(globe)
 	_dark_globe = _flat_material(DARK_GLOBE_COLOR)
 	_crt_light = _model.find_child(MODEL_CRT_LIGHT, true, false) as Light3D
@@ -853,40 +1321,46 @@ func _half_disc(node_name: String, radius: float, depth: float, material: Materi
 	return disc
 
 
-## Round five's twelve screens sunk in the floor and walls: a cabinet, glass glowing the CRT's standby green, and a red
-## light that only the red screens turn on.
+## Round five's twelve screens sunk in the floor and walls: each the model's own CRT (its cabinet, its glass showing
+## what the model's shows), a solid box around it while the room shows them, and a red light that only the red screens
+## turn on.
 func _build_sunken_crts() -> void:
 	var sunk := Node3D.new()
 	sunk.name = "SunkenCrts"
 	sunk.visible = false
 	add_child(sunk)
-	var plastic := _flat_material(Color(0.52, 0.53, 0.47))
+	_room_objects["sunken_crts"] = sunk
+	var tv := _model.find_child(SUNKEN_CRT_MODEL, true, false) as Node3D
+	var model_glass := _model.find_child(CRT_SCREEN_NODE, true, false) as MeshInstance3D
+	if tv == null or model_glass == null or not tv.is_ancestor_of(model_glass):
+		push_error("The basement model has no %s with its glass to sink into the floor" % SUNKEN_CRT_MODEL)
+		return
+	var cabinet := _cabinet_mesh(tv, model_glass)
+	var shell := cabinet.get_aabb()
+	var glass_at := _relative_to(model_glass, tv)
 	for index in SUNKEN_CRTS.size():
 		var spec: Array = SUNKEN_CRTS[index]
 		var monitor := Node3D.new()
 		monitor.name = "SunkenCrt%02d" % (index + 1)
 		monitor.position = spec[0]
 		monitor.rotation = Vector3(float(spec[2]), float(spec[1]), 0.0)
-		var cabinet := MeshInstance3D.new()
-		var cabinet_mesh := BoxMesh.new()
-		cabinet_mesh.size = Vector3(0.78, 0.64, 0.6)
-		cabinet.mesh = cabinet_mesh
-		cabinet.position = Vector3(0.0, 0.36, -0.08)
-		cabinet.material_override = plastic
-		monitor.add_child(cabinet)
+		var cabinet_node := MeshInstance3D.new()
+		cabinet_node.name = "Cabinet"
+		cabinet_node.mesh = cabinet
+		cabinet_node.position = SUNKEN_CRT_OFFSET
+		monitor.add_child(cabinet_node)
 		var glass := MeshInstance3D.new()
 		glass.name = "Glass"
-		var glass_mesh := QuadMesh.new()
-		glass_mesh.size = Vector2(0.6, 0.45)
-		glass.mesh = glass_mesh
-		glass.position = Vector3(-0.02, 0.4, 0.225)
-		var glow := StandardMaterial3D.new()
-		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		glow.albedo_color = SUNKEN_CRT_STANDBY
-		glass.material_override = glow
+		glass.mesh = model_glass.mesh
+		glass.transform = Transform3D(Basis.IDENTITY, SUNKEN_CRT_OFFSET) * glass_at
 		glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		monitor.add_child(glass)
-		_sunken_glass.append(glow)
+		_sunken_glass.append(glass)
+		var body := _box_body("Body", shell.size, SUNKEN_CRT_OFFSET + shell.get_center())
+		# Solid only while the room shows the screens (`_sync_solids`).
+		body.collision_layer = 0
+		monitor.add_child(body)
+		_sunken_bodies.append(body)
 		var red := OmniLight3D.new()
 		red.name = "RedScreenLight"
 		red.position = Vector3(0.0, 0.4, 0.5)
@@ -897,7 +1371,112 @@ func _build_sunken_crts() -> void:
 		monitor.add_child(red)
 		_red_lights.append(red)
 		sunk.add_child(monitor)
-	_room_objects["sunken_crts"] = sunk
+
+
+## The model CRT's cabinet as one mesh in the CRT's own space: every part but the glass, a surface per material, so
+## twelve more of them cost twelve draws and not twelve times its fifty parts.
+func _cabinet_mesh(tv: Node3D, glass: MeshInstance3D) -> ArrayMesh:
+	var surfaces := {}
+	for node: Node in tv.find_children("*", "MeshInstance3D", true, false):
+		var part := node as MeshInstance3D
+		if part == glass or part.mesh == null:
+			continue
+		var at := _relative_to(part, tv)
+		for surface in part.mesh.get_surface_count():
+			var material := part.get_active_material(surface)
+			if not surfaces.has(material):
+				var builder := SurfaceTool.new()
+				builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+				surfaces[material] = builder
+			(surfaces[material] as SurfaceTool).append_from(part.mesh, surface, at)
+	var merged := ArrayMesh.new()
+	for material: Variant in surfaces:
+		(surfaces[material] as SurfaceTool).commit(merged)
+		merged.surface_set_material(merged.get_surface_count() - 1, material as Material)
+	return merged
+
+
+## Round five's screens play their recording while the room shows them and the stage is in the tree; the players are
+## built the first time they are wanted. Open settings hold them where they are.
+func _sync_crt_loop() -> void:
+	var sunk := _room_objects.get("sunken_crts") as Node3D
+	var wanted := sunk != null and sunk.visible and is_inside_tree() and not _sunken_glass.is_empty()
+	if wanted and _loop_players.is_empty() and not _loop_failed:
+		_build_crt_loop()
+	if _loop_players.is_empty():
+		return
+	if wanted != _loop_playing:
+		_loop_playing = wanted
+		for index in _loop_players.size():
+			var player := _loop_players[index]
+			(player.get_parent() as SubViewport).render_target_update_mode = SubViewport.UPDATE_ALWAYS if wanted else SubViewport.UPDATE_DISABLED
+			if wanted:
+				player.play()
+				var length := player.get_stream_length()
+				var from := float(index) * CRT_LOOP_STAGGER
+				player.stream_position = fmod(from, length) if length > 0.0 else from
+			else:
+				player.paused = false
+				player.stop()
+	# A signal covers every glass: the recording waits under it, as it does under open settings.
+	var held := _paused or _screen_color != NO_SIGNAL
+	for player in _loop_players:
+		if player.is_playing():
+			player.paused = held
+
+
+## One muted, looping player of the recording per screen, each in a viewport of its own that a CRT glass material shows.
+func _build_crt_loop() -> void:
+	var stream := load(CRT_LOOP_PATH) as VideoStream if ResourceLoader.exists(CRT_LOOP_PATH) else null
+	if stream == null:
+		_loop_failed = true
+		push_error("Round five's recording did not load: %s" % CRT_LOOP_PATH)
+		return
+	var holder := Node.new()
+	holder.name = "CrtLoop"
+	add_child(holder)
+	for index in _sunken_glass.size() + 1:
+		var viewport := SubViewport.new()
+		viewport.name = "Screen%02d" % (index + 1)
+		viewport.size = CRT_LOOP_SIZE
+		viewport.disable_3d = true
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		var player := VideoStreamPlayer.new()
+		player.name = "Player"
+		player.stream = stream
+		player.loop = true
+		player.volume_db = -80.0
+		player.expand = true
+		player.size = Vector2(CRT_LOOP_SIZE)
+		# A paused player must be let go while it is still in the tree, or the engine complains as it leaves.
+		player.tree_exiting.connect(_release_loop_player.bind(player))
+		viewport.add_child(player)
+		holder.add_child(viewport)
+		var material := ShaderMaterial.new()
+		material.shader = CrtScreenScript.SHADER
+		material.set_shader_parameter("content_texture", viewport.get_texture())
+		material.set_shader_parameter("vhs_enabled", true)
+		_loop_players.append(player)
+		_loop_materials.append(material)
+
+
+func _release_loop_player(player: VideoStreamPlayer) -> void:
+	player.paused = false
+	player.stop()
+	# A stage that comes back into the tree starts the recording again (`_enter_tree`).
+	_loop_playing = false
+
+
+## A stage built before it joined the tree, or taken out and put back, starts round five's recording once it is in:
+## after this call, when its players are in the tree as well.
+func _enter_tree() -> void:
+	_refresh_once_in_tree.call_deferred()
+
+
+## A stage replaced in the frame it was added has left the tree again by now: nothing of it may start a sound.
+func _refresh_once_in_tree() -> void:
+	if is_inside_tree():
+		_refresh_room()
 
 
 ## The vase and the book of the exit table, both built and hidden until the seed picks one (`decorate`).
@@ -953,6 +1532,8 @@ func _hold_sounds(held: bool) -> void:
 	for player: AudioStreamPlayer in [_whisper, _static, _hum]:
 		if player != null:
 			player.stream_paused = held
+	if _door_banging and _door_knock != null:
+		_door_knock.stream_paused = held
 
 
 func _switch_ends(event: Dictionary) -> bool:
@@ -967,6 +1548,10 @@ func _trigger_holds(trigger: String) -> bool:
 			return _entry_sealed
 		"room_center":
 			return _at_center
+		"left_sealed_door":
+			return _left_sealed_door
+		"stairs_descended":
+			return _stairs_descended
 	return false
 
 
@@ -976,6 +1561,10 @@ func _start_event(event: Dictionary, played: float) -> void:
 		_playing[event["id"]] = played
 		if event.get("cue") == "whisper_flicker" and _whisper != null and _whisper.stream != null:
 			_whisper.play(played)
+		if event.get("cue") == "door_bang":
+			_start_door_bang(played)
+	if event.get("cue") == "crt_focus":
+		_start_crt_focus()
 	GameEventBusScript.raise_event(GameEventsScript.ROOM_EVENT_STARTED, {GameEventsScript.KEY_EVENT: str(event["id"])})
 
 
@@ -988,6 +1577,7 @@ func _refresh_cues() -> void:
 	_screen_color = NO_SIGNAL
 	var whispering := false
 	var hissing := -1.0
+	var banging := -1.0
 	for event: Variant in _events:
 		if not event is Dictionary or not _playing.has(event.get("id")):
 			continue
@@ -1006,6 +1596,8 @@ func _refresh_cues() -> void:
 				_screen_color = Color.BLACK if played < SIGNAL_BLACK_SECONDS else SIGNAL_RED
 				if played >= SIGNAL_BLACK_SECONDS:
 					hissing = played - SIGNAL_BLACK_SECONDS
+			"door_bang":
+				banging = played
 	if not _sounds_held:
 		if _whisper != null and not whispering:
 			_whisper.stop()
@@ -1014,6 +1606,7 @@ func _refresh_cues() -> void:
 				_static.play(hissing)
 			elif hissing < 0.0:
 				_static.stop()
+	_shake_sealed_door(banging)
 	_refresh_room()
 
 
@@ -1040,12 +1633,21 @@ func _refresh_room() -> void:
 				_hum.play()
 		else:
 			_hum.stop()
+	_sync_crt_loop()
 	var showing := _screen_color != NO_SIGNAL
-	for glass in _sunken_glass:
-		glass.albedo_color = _screen_color if showing else SUNKEN_CRT_STANDBY
+	if showing:
+		if _sunken_signal == null:
+			_sunken_signal = StandardMaterial3D.new()
+			_sunken_signal.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_sunken_signal.albedo_color = _screen_color
+	# A sunken screen shows the signal, else its recording, else the model's own standby glass.
+	for index in _sunken_glass.size():
+		var shown: Material = _sunken_signal if showing else (_loop_materials[index] if _loop_playing else null)
+		_sunken_glass[index].set_surface_override_material(0, shown)
 	for light in _red_lights:
 		light.visible = _screen_color == SIGNAL_RED
 	if _crt_screen != null:
+		_crt_screen.set_idle_material(_loop_materials[-1] if _loop_playing else null)
 		if showing:
 			_crt_screen.show_signal(_screen_color)
 		else:
@@ -1096,7 +1698,17 @@ func _collect_exit_points() -> void:
 			if object_name == "chair":
 				_chairs.append(prop)
 			var at := _model.transform * prop.position
-			points.append({"reach": Vector3(at.x, 0.0, at.z), "focus": Vector3(at.x, at.y + float(EXIT_PROP_FOCUS_HEIGHT[object_name]), at.z)})
+			var focus := Vector3(at.x, at.y + float(EXIT_PROP_FOCUS_HEIGHT[object_name]), at.z)
+			points.append({"reach": Vector3(at.x, 0.0, at.z), "focus": focus})
+			if object_name == "table":
+				for end: Vector3 in _long_table_ends(node_name):
+					points.append({"reach": end, "focus": focus})
+	for collider_name: String in CHAIR_COLLIDERS:
+		var body := _model.find_child(collider_name, true, false) as StaticBody3D
+		if body == null:
+			push_error("The basement model has no %s" % collider_name)
+		else:
+			_chair_bodies.append(body)
 
 
 func _build_clock() -> void:
@@ -1182,18 +1794,63 @@ func _build_npc() -> void:
 	collision.position.y = BASEMENT_NPC_HEIGHT * 0.5
 	_npc.add_child(collision)
 	add_child(_npc)
+	_ensure_door_knock()
+
+
+## The player of the knocking from behind the sealed door, built once: the NPC's knocking uses it, and so does the door's
+## one bang of a room without an NPC (`door_bang`), which builds it only when it plays.
+func _ensure_door_knock() -> void:
+	if _door_knock != null:
+		return
 	_door_knock = AudioStreamPlayer3D.new()
 	_door_knock.name = "SealedDoorKnock"
 	_door_knock.stream = load(DOOR_KNOCK_PATH) as AudioStream
 	if _door_knock.stream == null:
 		push_error("The sealed door's knocking did not load: %s" % DOOR_KNOCK_PATH)
-	_door_knock.position = BASEMENT_NPC_POSITION + Vector3(0.0, DOOR_KNOCK_HEIGHT, 0.0)
+	_door_knock.position = SEALED_DOOR_ANCHOR + Vector3(0.0, DOOR_KNOCK_HEIGHT, 0.0)
 	_door_knock.unit_size = 4.0
 	_door_knock.volume_db = -4.0
 	# Heard through the door: the farther the player, the more muffled.
 	_door_knock.attenuation_filter_cutoff_hz = 1200.0
 	_door_knock.attenuation_filter_db = -18.0
 	add_child(_door_knock)
+
+
+## The door is hit from inside behind the player: one piece of the recording plays from the door and `_refresh_cues`
+## shakes it. `played` is how far into the event the clock already is.
+func _start_door_bang(played: float) -> void:
+	_ensure_door_knock()
+	if _door_pieces.is_empty() and _model != null:
+		for piece_name: String in SEALED_DOOR_NODES:
+			var piece := _model.find_child(piece_name, true, false) as Node3D
+			if piece != null:
+				_door_pieces.append(piece)
+				_door_rest.append(piece.position)
+	_door_banging = true
+	_door_knock.stop()
+	if _door_knock.stream != null:
+		_door_knock.play(played)
+
+
+## Jolts the door leaf, knob and tape along the door's normal (stage +X) at each hit of the bang, and puts them back and
+## stops the sound once it is over. `played` is how long the bang has gone, or negative when none plays.
+func _shake_sealed_door(played: float) -> void:
+	if not _door_banging:
+		return
+	var offset := 0.0
+	if played >= 0.0:
+		for hit: Array in DOOR_BANG_HITS:
+			var into := played - float(hit[0])
+			if into >= 0.0 and into < DOOR_BANG_HIT_SECONDS:
+				offset = maxf(offset, float(hit[1]) * DOOR_BANG_SHAKE * sin(into / DOOR_BANG_HIT_SECONDS * PI))
+	for index in _door_pieces.size():
+		var piece := _door_pieces[index]
+		var parent_basis := _in_stage(piece).basis * piece.transform.basis.inverse()
+		piece.position = _door_rest[index] + parent_basis.inverse() * Vector3(offset, 0.0, 0.0)
+	if played < 0.0:
+		_door_banging = false
+		if _door_knock != null:
+			_door_knock.stop()
 
 
 ## Leaves out what the model brings that the room does without: the stool, the boxes and the stool's collider, and
@@ -1324,13 +1981,42 @@ func _peeled_strip(top: Vector3, material: Material, index: int) -> MeshInstance
 	return piece
 
 
+## The floor points just past the two ends of a model table longer than `LONG_TABLE_LENGTH`, read from its collider;
+## none for a short table or one without a collider.
+func _long_table_ends(node_name: String) -> Array[Vector3]:
+	var ends: Array[Vector3] = []
+	var body := _model.find_child("PropCollision_" + node_name.trim_prefix("Prop_"), true, false) as StaticBody3D
+	if body == null:
+		return ends
+	for child in body.get_children():
+		var shape_node := child as CollisionShape3D
+		if shape_node == null or shape_node.shape == null:
+			continue
+		var bounds := _in_stage(shape_node) * _shape_bounds(shape_node.shape)
+		var middle := bounds.get_center()
+		if bounds.size.z >= LONG_TABLE_LENGTH and bounds.size.z >= bounds.size.x:
+			var out := bounds.size.z * 0.5 + TABLE_END_REACH
+			ends.append(Vector3(middle.x, 0.0, middle.z - out))
+			ends.append(Vector3(middle.x, 0.0, middle.z + out))
+		elif bounds.size.x >= LONG_TABLE_LENGTH:
+			var out := bounds.size.x * 0.5 + TABLE_END_REACH
+			ends.append(Vector3(middle.x - out, 0.0, middle.z))
+			ends.append(Vector3(middle.x + out, 0.0, middle.z))
+	return ends
+
+
 ## A model node's transform in the stage's space.
 func _in_stage(node: Node3D) -> Transform3D:
-	var at := node.transform
-	var parent := node.get_parent()
-	while parent != self and parent is Node3D:
-		at = (parent as Node3D).transform * at
-		parent = parent.get_parent()
+	return _relative_to(node, self)
+
+
+## A node's transform in the space of one of its ancestors.
+func _relative_to(node: Node3D, ancestor: Node3D) -> Transform3D:
+	var at := Transform3D.IDENTITY
+	var step: Node = node
+	while step != ancestor and step is Node3D:
+		at = (step as Node3D).transform * at
+		step = step.get_parent()
 	return at
 
 
@@ -1447,6 +2133,7 @@ func _build_environment(ambient: Color, ambient_energy: float) -> void:
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world_environment.environment = environment
 	_environment = environment
+	_world_environment = world_environment
 	add_child(world_environment)
 
 

@@ -44,7 +44,6 @@ func _run() -> void:
 	for unit in ["门", "开", "打"]:
 		game_root.game.pick_social_char("floor_13", unit, "zh")
 	game_root.game.set_active_app("notebook")
-	game_root._ensure_notebook_window_home()
 	game_root._render()
 	await process_frame
 	var canvas := _find_node_by_name(game_root, "NotebookWordCanvas") as WordPhysicsCanvas

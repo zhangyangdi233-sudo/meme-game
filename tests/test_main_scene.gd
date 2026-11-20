@@ -92,15 +92,9 @@ func _test_scene_contract(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "MemeBankPopup") == null, "retired meme ring popup must not hang into the adapter")
 	_assert_true(not FileAccess.file_exists("res://scripts/ui/meme_bank_panel.gd"), "retired meme bank panel source must not remain as a dead file")
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "retired 3D companion body must not exist")
-	var backdrop := _find_node_by_name(game_root, "PhoneDownBackdropImage") as TextureRect
-	_assert_true(backdrop != null, "phone-down backdrop should remain")
-	if backdrop != null:
-		game_root.set_view_state("phone_down")
-		for _settle_index in 8:
-			game_root._animate_world(0.5)
-		var settled_position := backdrop.position
-		game_root._animate_world(0.8)
-		_assert_true(backdrop.position != settled_position, "phone-down backdrop should keep walking sway after fade-in without road tiles")
+	# The street-and-hand picture behind the first phone is out of the play UI; its file stays on disk.
+	_assert_true(_find_node_by_name(game_root, "PhoneDownBackdropImage") == null, "the phone-down backdrop should be gone from the play UI")
+	_assert_true(_find_node_by_name(game_root, "PhonePopup") != null and _find_node_by_name(game_root, "PhoneEdgeTab") != null, "the play UI should have the docked phone and its edge tab")
 
 	for asset_path in [
 		"res://assets/generated/characters/guide_doll.png",
@@ -255,9 +249,10 @@ func _test_phone_hides_street(game_root: Node) -> void:
 	game_root.set_view_state("phone_down")
 	_assert_eq(game_root.session_mode(), "gameplay", "opening the phone should stay in gameplay")
 	_assert_true(not game_root.has_session_state("phone"), "the phone should not be a Session mode")
-	_assert_true(not floor.is_visible_in_tree(), "opening the phone should hide the street")
-	_assert_true(not player.is_visible_in_tree(), "opening the phone should hide the player")
-	_assert_true(not doll.is_visible_in_tree(), "opening the phone should hide street characters")
+	# The phone is docked over the live world (old version): the world stays behind it.
+	_assert_true(floor.is_visible_in_tree(), "opening the phone should keep the street visible behind it")
+	_assert_true(player.is_visible_in_tree(), "opening the phone should keep the player")
+	_assert_true(doll.is_visible_in_tree(), "opening the phone should keep street characters visible")
 	var main_source := FileAccess.get_file_as_string("res://scripts/babel_meme_game.gd")
 	_assert_true(not main_source.contains("_reality_scene_adapter.floor.visible"), "the host should not set floor node visibility")
 	_assert_true(not main_source.contains("_reality_scene_adapter.player.visible"), "the host should not set character node visibility")

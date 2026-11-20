@@ -41,13 +41,14 @@
         {"kind": "rule", "rule": "light_exit"}
       ],
       "state": {"brightness": 1.0, "hum": 0.3, "objects": {"exit_lamp": false, "wall_clock": true}},
-      "events": []
+      "events": [
+        {"id": "crt_focus", "trigger": "stairs_descended", "cue": "crt_focus"}
+      ]
     },
     "2": {
       "words": {"zh": ["声", "音", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["こえ", "ある", "ない", "でぐち", "わたし", "あなた"], "en": ["voice", "here", "is", "not", "no", "the", "exit", "I", "you"]},
       "rules": ["voice_here", "voice_gone", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit", "tv_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},
         {"kind": "rule", "rule": "clock_exit"},
@@ -82,7 +83,6 @@
       "words": {"zh": ["名", "字", "留", "下", "是", "出", "口", "不", "没", "我", "你"], "ja": ["なまえ", "のこる", "でぐち", "ない", "わたし", "あなた"], "en": ["name", "stays", "stay", "not", "is", "the", "exit", "I", "you"]},
       "rules": ["name_stays", "name_leaves", "tv_exit", "table_exit", "chair_exit", "clock_exit", "light_exit", "door_exit", "stairs_exit"],
       "escapes": [
-        {"kind": "delivery"},
         {"kind": "rule", "rule": "tv_exit"},
         {"kind": "rule", "rule": "table_exit"},
         {"kind": "rule", "rule": "chair_exit"},
@@ -91,9 +91,11 @@
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"}
       ],
-      "gift": "enoch",
+      "door_npc": true,
       "state": {"brightness": 0.85, "hum": 0.0, "objects": {"exit_lamp": false, "clock_wall": true}},
-      "events": []
+      "events": [
+        {"id": "door_bang", "trigger": "left_sealed_door", "duration": 3.0, "cue": "door_bang"}
+      ]
     },
     "5": {
       "words": {"zh": ["家", "在", "是", "出", "口", "不", "没", "我", "你"], "ja": ["いえ", "ある", "でぐち", "ない", "わたし", "あなた"], "en": ["home", "here", "is", "exit", "not", "no", "the", "I", "you"]},

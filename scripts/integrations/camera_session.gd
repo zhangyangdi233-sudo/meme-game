@@ -208,6 +208,19 @@ func hand_frame_active() -> bool:
 	return enabled and overlay != null and overlay.is_frame_active()
 
 
+## The camera is on and the hands hold a frame up, with or without a second layer to show in it (the basement's portal
+## looks through the frame itself).
+func hand_frame_tracked() -> bool:
+	var overlay := hand_xray_overlay as HandXRayOverlay
+	return enabled and overlay != null and overlay.is_frame_tracked()
+
+
+## The hands' frame as a part of the screen (0..1, y down); empty while none is held.
+func hand_frame_rect() -> Rect2:
+	var overlay := hand_xray_overlay as HandXRayOverlay
+	return overlay.get_frame_rect_normalized() if hand_frame_tracked() else Rect2()
+
+
 func capture_phone_layer_for_xray(deps: Dictionary) -> bool:
 	var game_started := bool(deps.get("game_started", false))
 	if not game_started or _host == null or _host.get_viewport() == null or DisplayServer.get_name().to_lower() == "headless":

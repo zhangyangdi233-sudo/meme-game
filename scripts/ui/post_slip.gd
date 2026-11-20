@@ -14,12 +14,15 @@ const VOIDED_LINE := "被污染的字说不动它了。换一样东西，再试�
 
 
 ## The newest sentence post of this basement round among `published` (newest first), or empty. A new round's room
-## starts over, so an earlier round's post no longer shows. Outside the basement the round is zero.
-static func latest(published: Array, progress: Dictionary) -> Dictionary:
+## starts over, so an earlier round's post no longer shows. Outside the basement the round is zero. With a
+## `locale_code` only a post written in that language counts (a record without `content_locale` was written in zh), so
+## after a language switch the slip shows no text of the old language (planner, 2026-11-20); empty takes any language.
+static func latest(published: Array, progress: Dictionary, locale_code: String = "") -> Dictionary:
 	var current_round := ChapterOneProgressScript.round_of(progress)
 	for record in published:
 		if record is Dictionary and str(record.get("kind", "")) == "free_sentence" and int(record.get("round", 0)) == current_round:
-			return record
+			if locale_code.is_empty() or str(record.get("content_locale", "zh")) == locale_code:
+				return record
 	return {}
 
 

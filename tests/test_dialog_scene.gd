@@ -21,6 +21,8 @@ func _run_async() -> void:
 	_assert_true(scene != null, "dialog scene test should load the main scene")
 	if scene != null:
 		var game_root := scene.instantiate()
+		# The title panel needs `--dev-title`; the test turns it on directly.
+		game_root.set("_title_debug_enabled", true)
 		root.add_child(game_root)
 		game_root._locale.set_locale("zh")
 		await process_frame
@@ -145,12 +147,12 @@ func _live(node: Node, wanted: String) -> Node:
 
 
 func _test_the_debug_panel_needs_a_debug_build(game_root: Node) -> void:
-	game_root.set("_dialog_debug_enabled", false)
+	game_root.set("_title_debug_enabled", false)
 	game_root.uninstall_title_screen()
 	game_root.install_title_screen()
 	var panel := _find(game_root, "DialogDebugPanel")
-	_assert_true(panel == null or panel.is_queued_for_deletion(), "a release build should not show the dialog debug panel")
-	game_root.set("_dialog_debug_enabled", true)
+	_assert_true(panel == null or panel.is_queued_for_deletion(), "without --dev-title the title should not show the dialog debug panel")
+	game_root.set("_title_debug_enabled", true)
 
 
 func _test_an_open_dialog_sits_above_every_game_ui(game_root: Node) -> void:

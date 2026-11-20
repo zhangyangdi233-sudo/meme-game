@@ -25,6 +25,7 @@ func _init() -> void:
 	test_finishing_without_a_post_sends_the_player_back_to_the_computer()
 	test_an_earlier_rounds_post_does_not_deliver_this_round()
 	test_the_typing_hint_is_shown_until_a_first_line_is_typed()
+	test_the_typed_line_is_in_the_conversations_language()
 	test_a_save_comes_back_on_the_same_round_and_delivery()
 	test_leaving_through_the_open_exit_starts_the_next_round()
 	test_basement_posts_do_not_move_the_tower_floor()
@@ -190,6 +191,23 @@ func test_basement_posts_do_not_move_the_tower_floor() -> void:
 	_finish_conversation(game)
 	game.end_typed_reality_conversation()
 	_assert_eq(game.tower_floor, 1, "a basement conversation should not climb the tower")
+
+
+func test_the_typed_line_is_in_the_conversations_language() -> void:
+	# Round four's speaker, the one the authored rooms stand behind the taped door.
+	var game: MemeGameState = _basement_game(4)
+	_assert_true(_start(game), "round four's conversation should start")
+	_assert_eq(game.get_typed_reality_unrevealed_suffix(), "从第一行重数。你念，我记。", "the source line should wait before the host names the language")
+	game.configure_conversation_locale("ja")
+	_assert_eq(game.get_typed_reality_unrevealed_suffix(), "一行目から数え直そう。君が読んで、わたしが書く。", "the line to type should be Japanese in a Japanese talk")
+	_assert_eq(game.conversation_actor_label, "書記官", "the speaker should be named in Japanese too")
+	_type_turn(game)
+	_assert_true(game.continue_typed_reality_conversation(), "the talk should go on to its second turn")
+	_assert_eq(game.get_typed_reality_unrevealed_suffix(), "「さっき」と書いて。正確な時間は足さないで。", "the next line to type should be Japanese as well")
+	var english: MemeGameState = _basement_game(4)
+	_start(english)
+	english.configure_conversation_locale("en")
+	_assert_eq(english.get_typed_reality_unrevealed_suffix(), "Count again from the first line. You read, I'll write it down.", "the line to type should be English in an English talk")
 
 
 func _type_turn(game: MemeGameState) -> Dictionary:

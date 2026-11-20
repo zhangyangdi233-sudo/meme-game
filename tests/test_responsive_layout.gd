@@ -41,6 +41,8 @@ func _run() -> void:
 	game_root._render()
 	await process_frame
 	await process_frame
+	# The docked phone slides in from past the right edge first.
+	await create_timer(0.7).timeout
 
 	var viewport_rect := Rect2(Vector2.ZERO, root.get_visible_rect().size)
 	_assert_true(viewport_rect.size == Vector2(SMALL_VIEW_SIZE), "responsive test should run at the requested small viewport size")
@@ -48,7 +50,7 @@ func _run() -> void:
 	var social_window := _find_node_by_name(game_root, "SocialAppWindow") as PanelContainer
 	var social_bottom_nav := _find_node_by_name(game_root, "SocialBottomNav") as HBoxContainer
 	var social_inline_close := _find_node_by_name(game_root, "SocialAppInlineCloseButton") as Button
-	var view_toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var view_toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	var meme_bank := _find_node_by_name(game_root, "MemeBankPopup") as Control
 	var actions_label := _find_node_by_name(game_root, "HUDActionsLabel") as Label
 	_assert_true(hud != null, "small view should keep the left HUD rail")
@@ -80,8 +82,8 @@ func _run() -> void:
 	if social_inline_close != null:
 		social_inline_close.pressed.emit()
 	await process_frame
-	var phone_home := _find_node_by_name(game_root, "PhonePopup") as PanelContainer
-	var phone_content := _find_node_by_name(game_root, "PhoneContent") as Control
+	var phone_home := _find_node_by_name(game_root, "PhonePopup") as Control
+	var phone_content := _find_node_by_name(game_root, "PhoneLauncherScreen") as Control
 	var phone_social_icon := _find_node_by_name(game_root, "PhoneAppIconSocial") as Button
 	_assert_true(phone_home != null and phone_home.visible, "closing social on small view should reveal the phone home")
 	if phone_home != null:

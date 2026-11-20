@@ -233,6 +233,13 @@ var phone_owned: bool:
 		return _read_run_bool(PropertyKeysScript.PHONE_OWNED)
 	set(value):
 		_write_run_field(PropertyKeysScript.PHONE_OWNED, value)
+## The run has walked through its portal (planner's design, 2026-10-31: once a run); a frame fixed after that is a
+## flat print of the white door.
+var portal_used: bool:
+	get:
+		return _read_run_bool(PropertyKeysScript.PORTAL_USED)
+	set(value):
+		_write_run_field(PropertyKeysScript.PORTAL_USED, value)
 ## The hidden items the run holds, each once, in the order given (`HiddenItems` ids). A read is a copy.
 var hidden_items: Array:
 	get:
@@ -665,6 +672,21 @@ func leave_basement_round(exit_object: String) -> bool:
 	return true
 
 
+## The player walked into the portal they fixed in the basement round: the round is left for the white door's passage,
+## which leads to the next round (after the fifth, on as its own passage does). A run does it once: false after that and
+## outside the basement.
+func leave_basement_round_by_portal() -> bool:
+	if portal_used:
+		return false
+	if not _step_chapter_one(ChapterOneProgressScript.leave_round_by_portal(chapter_one_progress)):
+		return false
+	portal_used = true
+	_forget_room_rules()
+	if ChapterOneProgressScript.past_basement(chapter_one_progress):
+		_hand_over_earned_phone()
+	return true
+
+
 ## The player walked into the white door's light: the next level begins. False outside the passage.
 func cross_passage() -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.cross_passage(chapter_one_progress))
@@ -677,6 +699,8 @@ func jump_to_basement_round(round_number: int) -> bool:
 		return false
 	_forget_room_rules()
 	polluted_words = {}
+	# A jump starts the round as a fresh run would reach it: the portal can be tried again.
+	portal_used = false
 	_hand_over_earned_phone()
 	return true
 
@@ -761,6 +785,13 @@ func open_app_window(app_id: String) -> void:
 	if normalized.is_empty() or model == null or is_app_window_open(normalized) or not is_app_unlocked(normalized):
 		return
 	model.add(normalized)
+
+
+## The phone's home: every app is put away and none is in front. Raising the phone again brings the last app back.
+func go_phone_home() -> void:
+	for app_id in open_app_windows:
+		close_app_window(str(app_id))
+	active_app_window = ""
 
 
 func close_app_window(app_id: String) -> void:
@@ -1093,11 +1124,20 @@ func start_typed_reality_conversation(actor_id: String, actor_type: String, acto
 func _begin_linear_turn() -> void:
 	if conversation_mode != ChapterOneProgressScript.LINEAR_CONVERSATION_MODE or conversation_phase != "choosing":
 		return
-	var turn: Dictionary = conversation_turns[conversation_turn_index]
 	conversation_selected_choice_id = "turn_%d" % conversation_turn_index
-	conversation_clean_sentence = str(turn.get("sentence", "")).strip_edges()
+	conversation_clean_sentence = _linear_line()
 	conversation_clean_units = _conversation_units(conversation_clean_sentence)
 	conversation_phase = "typing"
+
+
+## The line the player types out in the linear conversation's current turn, in the conversation's language like the
+## lines around it.
+func _linear_line() -> String:
+	var turn: Dictionary = conversation_turns[conversation_turn_index]
+	var sentence := str(turn.get("sentence", "")).strip_edges()
+	if conversation_locale == "zh":
+		return sentence
+	return GameLocaleScript.for_locale(conversation_locale).translate(sentence)
 
 
 ## The player leaves the conversation. One in which they spoke at least once was a valid interaction, so the
@@ -1221,6 +1261,9 @@ func _load_typed_reality_turn(turn_index: int) -> void:
 func configure_conversation_locale(locale_code: String, _unused_legacy_texts: Array[String] = []) -> void:
 	conversation_locale = locale_code if locale_code in ["zh", "ja", "en"] else "zh"
 	_localize_conversation_display()
+	# A linear turn began on its source line before the host said which language the talk is in.
+	if conversation_mode == ChapterOneProgressScript.LINEAR_CONVERSATION_MODE and conversation_phase == "typing" and conversation_reveal_index == 0 and conversation_turn_index < conversation_turns.size():
+		conversation_clean_sentence = _linear_line()
 	if not conversation_clean_sentence.is_empty():
 		conversation_clean_units = _conversation_units(conversation_clean_sentence)
 
@@ -1844,10 +1887,11 @@ func see_through_xray(objects: Array) -> bool:
 	return _step_chapter_one(ChapterOneProgressScript.deliver(chapter_one_progress, opened))
 
 
-## Whether the basement round being played stands its NPC: only a room that opens by the NPC's conversation does.
-## False outside the basement.
+## Whether the basement round being played stands its NPC: a room that opens by the NPC's conversation, or one that
+## only puts someone behind the door to talk to (`door_npc`, planner 2026-11-20). False outside the basement.
 func basement_npc_stands() -> bool:
-	return RoomRulesScript.stands_npc(_current_room())
+	var room := _current_room()
+	return RoomRulesScript.stands_npc(room) or RoomRulesScript.door_npc(room)
 
 
 ## The room of the basement round being played, or empty outside the basement.
@@ -2091,7 +2135,9 @@ func get_player_quote_stage() -> int:
 func get_player_echo_quote(locale_code: String = "zh") -> String:
 	var source := ""
 	for record in published_memes:
-		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence":
+		# Only a post written in the language shown now is quoted (no `content_locale` means zh), so a language switch
+		# never puts the old language into the feed (planner, 2026-11-20).
+		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence" and str((record as Dictionary).get("content_locale", "zh")) == locale_code:
 			source = str((record as Dictionary).get("text", "")).strip_edges()
 			if not source.is_empty():
 				break
@@ -2102,7 +2148,7 @@ func get_player_echo_quote(locale_code: String = "zh") -> String:
 		return source
 	var units: Array = []
 	for record in published_memes:
-		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence":
+		if record is Dictionary and str((record as Dictionary).get("kind", "")) == "free_sentence" and str((record as Dictionary).get("content_locale", "zh")) == locale_code:
 			units = (record as Dictionary).get("units", [])
 			break
 	if stage == 2:

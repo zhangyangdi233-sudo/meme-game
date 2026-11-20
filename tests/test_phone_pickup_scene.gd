@@ -58,7 +58,7 @@ func _test_tab_raises_nothing_before_the_phone_is_picked_up(game_root) -> void:
 	_push_key(game_root, KEY_TAB)
 	await process_frame
 	_assert_eq(str(game_root.game.view_state), "npc_up", "Tab should not raise a phone that was never picked up")
-	var edge_tab := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Control
+	var edge_tab := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Control
 	_assert_true(edge_tab == null or not edge_tab.is_visible_in_tree(), "no edge tab should show before the phone is picked up")
 	var popup := Harness.find_node_by_name(game_root, "PhonePopup") as Control
 	_assert_true(popup == null or not popup.is_visible_in_tree(), "no phone should show before it is picked up")
@@ -90,7 +90,7 @@ func _test_f_at_the_table_picks_up_the_phone(game_root) -> void:
 	_assert_true(game_root.game.phone_owned, "F at the table should pick up the phone")
 	_assert_true(Harness.find_node_by_name(game_root, "BasementPhone") == null, "the picked-up phone should leave the table")
 	_assert_eq(str(game_root.game.view_state), "npc_up", "picking up the phone should not raise it yet")
-	var edge_tab := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Control
+	var edge_tab := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Control
 	_assert_true(edge_tab != null and edge_tab.is_visible_in_tree(), "the edge tab should show once the phone is owned")
 	if edge_tab != null:
 		var screen := Vector2(root.size)
@@ -107,7 +107,7 @@ func _test_tab_and_the_edge_tab_slide_the_phone_in_and_out(game_root) -> void:
 	_push_key(game_root, KEY_TAB)
 	await process_frame
 	_assert_eq(str(game_root.game.view_state), "npc_up", "Tab again should put the phone away")
-	var edge_tab := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var edge_tab := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	_assert_true(edge_tab != null, "the edge tab should exist")
 	if edge_tab == null:
 		return
@@ -131,9 +131,21 @@ func _test_the_phone_opens_its_apps_and_keeps_the_map_locked(game_root) -> void:
 	await process_frame
 	var social_window := Harness.find_node_by_name(game_root, "SocialAppWindow") as Control
 	_assert_true(social_window != null and social_window.is_visible_in_tree(), "the social feed should open")
+	var dock = game_root._phone_dock
+	_assert_true(social_window != null and social_window.get_parent() == dock.get_screen(), "the social feed should open inside the phone's screen")
+	_assert_true(not dock.get_launcher().visible, "the open app should replace the phone's home")
+	game_root._phone_go_home()
+	await process_frame
+	_assert_true(dock.get_launcher().visible and not social_window.visible, "the home bar should go back to the home")
 	notebook_icon.pressed.emit()
 	await process_frame
 	_assert_true(game_root.game.is_app_window_open("notebook"), "the notebook should open")
+	var notebook_window := Harness.find_node_by_name(game_root, "NotebookAppWindow") as Control
+	_assert_true(notebook_window != null and notebook_window.is_visible_in_tree() and notebook_window.get_parent() == dock.get_screen(), "the notebook should show inside the phone")
+	_assert_true(not social_window.visible, "one app shows at a time")
+	var adapter = game_root._reality_scene_adapter
+	_assert_true(Harness.find_node_by_name(game_root, "BasementRoom").is_visible_in_tree() and adapter.player.is_visible_in_tree(), "the room should stay visible behind the raised phone")
+	_assert_true(Harness.find_node_by_name(game_root, "PhoneDownBackdropImage") == null, "no street picture should cover the room")
 	var front: String = game_root.game.active_app_window
 	GameEventBus.raise(UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "map"})
 	await process_frame

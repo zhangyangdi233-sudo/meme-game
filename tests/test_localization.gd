@@ -10,6 +10,7 @@ const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const CorruptionContentScript = preload("res://scripts/narrative/language_corruption_content.gd")
 const RoomContentScript = preload("res://scripts/game/room_content.gd")
 const RoomRulesScript = preload("res://scripts/game/room_rules.gd")
+const STANDING_NPC_ROOMS := "res://tests/fixtures/rooms_standing_npc.json"
 
 var _failures: Array[String] = []
 
@@ -101,11 +102,13 @@ func _test_all_script_literals_have_translations() -> void:
 	_assert_true(missing.is_empty(), "every Chinese script literal should have an English catalog entry; missing (%d):\n%s" % [missing.size(), "\n".join(missing)])
 
 
-## #131: the NPCs behind the basement doors talk and are answered in the player's language, not in Chinese.
+## #131: the NPCs behind the basement doors talk and are answered in the player's language, not in Chinese. The authored
+## rooms stand none (planner, 2026-11-16), so the standing-NPC fixture's rooms keep the old tower's route covered.
 func _test_the_basement_npcs_speak_every_language() -> void:
 	var missing: Array[String] = []
 	for round_number in range(1, 6):
-		if not RoomRulesScript.stands_npc(RoomContentScript.room(round_number)):
+		# Only rounds two and four ever had translated routes (the NPCs #129 stood there), so only they are held to it.
+		if round_number not in [2, 4] or not RoomRulesScript.stands_npc(RoomContentScript.room(round_number, STANDING_NPC_ROOMS)):
 			continue
 		var route: Dictionary = CorruptionContentScript.get_basement_route(round_number)
 		var texts: Array[String] = [str(route.get("actor_label", ""))]
@@ -169,9 +172,9 @@ func _test_audited_localization_copy() -> void:
 	_assert_true(not state_en.has("你想说一句普通的话。第七层先开口了。"), "epilogue copy should leave the state catalog after moving to the content catalog")
 	_assert_true(not ui_en.has("写着“小月亮”的旧名牌"), "prerequisite labels should leave the UI catalog after moving to the content catalog")
 	_assert_true(ui_en.has("沿主路往前走，在右侧第一盏不亮的路灯脚边。"), "prerequisite location hints should remain in the UI catalog for event_log")
-	_assert_eq(ui_en["点击鼠标或触摸板继续"], "Click or tap to continue", "the opening narration hint should be in the UI catalog")
+	_assert_eq(ui_en["点击鼠标或触摸板继续"], "Click to continue", "the opening narration hint should be in the UI catalog")
 	_assert_eq(ui_ja["点击鼠标或触摸板继续"], "クリックで次へ", "the opening narration hint should be in the Japanese UI catalog")
-	_assert_eq(ui_en["F  开门"], "F  OPEN THE DOOR", "the white door prompt should be in the UI catalog")
+	_assert_eq(ui_en["F  打开门"], "F  Open door", "the white door prompt should be in the UI catalog")
 	_assert_eq(ui_en["塔顶没有人"], "No One Is at the Top of the Tower", "ending title chrome should stay in the UI catalog")
 	_assert_eq(ui_en["重开"], "Start Over", "ending restart chrome should stay in the UI catalog")
 	_assert_true(ui_en.has("你最后说：\n\n%s\n\n发射机把这个声音送回楼下。\n没有人回答。也许所有人都已经同时说完了。\n（这算是语言结束了吗？）\n指示灯没有提供选项。"), "ending result template should stay in the UI catalog")
@@ -196,6 +199,10 @@ func _test_audited_localization_copy() -> void:
 	_assert_eq(state_ja["发布一个只含 1 个语言单位的基础梗"], "一語だけの基本ミームを投稿する", "Japanese pattern copy should use the same lexical-word unit")
 	_assert_eq(ui_ja["在发现瀑布流里关注一个账号，它的帖子会留在这里。"], "「おすすめ」でアカウントをフォローすると、その投稿がここに残る。", "Japanese empty-following guidance should name the actual Discover tab")
 	_assert_eq(ui_ja["开启 VHS 质感"], "VHS風表示", "Japanese toggle labels should use compact native UI wording")
+	_assert_eq(ui_en["全局画面 VHS"], "Full-screen VHS", "English should name the full-screen VHS switch as the old version did")
+	_assert_eq(ui_ja["全局画面 VHS"], "画面全体のVHS効果", "Japanese should name the full-screen VHS switch as the old version did")
+	_assert_eq(ui_en["开启 CRT 屏幕 VHS 质感"], "CRT screen VHS effect", "English should name the CRT VHS switch as the old version did")
+	_assert_eq(ui_ja["开启 CRT 屏幕 VHS 质感"], "CRT画面のVHS効果", "Japanese should name the CRT VHS switch as the old version did")
 	_assert_eq(ui_en["门禁说我没回家我却在屋里"], "The Entry Log Says I Never Came Home. I'm Already Inside.", "English social horror copy should use short native clauses")
 	_assert_eq(ui_ja["门禁说我没回家我却在屋里"], "入退室記録では帰っていない。なのに、もう部屋にいる", "Japanese social horror copy should preserve the ordinary-to-impossible pivot")
 	_assert_eq(ui_ja["别急着懂。先把它转出去，懂会在后面补票。"], "急いで理解しなくていい。先に拡散して。理解はあとから追いついて、足りないぶんを払う。", "Japanese surreal copy should remain idiomatic without explaining away the metaphor")
@@ -304,7 +311,7 @@ func _test_language_selection_and_settings_ui() -> void:
 		var narration_line := _find_ui_node(game_root, "OpeningNarrationLine") as Label
 		var narration_hint := _find_ui_node(game_root, "OpeningNarrationHint") as Label
 		_assert_eq(narration_line.text, "???: Hello.", "the English opening should read the English narration")
-		_assert_eq(narration_hint.text, "Click or tap to continue", "the opening hint should use the UI catalog")
+		_assert_eq(narration_hint.text, "Click to continue", "the opening hint should use the UI catalog")
 	var language_option := _find_ui_node(game_root, "SettingsLanguageOption") as OptionButton
 	var manual_save := _find_ui_node(game_root, "SettingsManualSaveButton") as Button
 	_assert_true(language_option != null, "settings should expose an in-game language switcher")

@@ -96,6 +96,12 @@ func is_frame_active() -> bool:
 	return _frame_active and _tracking_enabled and _layer_texture != null
 
 
+## The hands hold a frame up, whether or not there is a second layer to show in it: a host that draws what the frame
+## shows itself (the basement's portal) only needs the frame.
+func is_frame_tracked() -> bool:
+	return _frame_active and _tracking_enabled
+
+
 func get_frame_rect_normalized() -> Rect2:
 	return _smoothed_rect
 

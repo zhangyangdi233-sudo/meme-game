@@ -57,7 +57,8 @@ func build(parent: Control, first_run: bool = false, deps: Dictionary = {}) -> v
 	panel.add_child(box)
 
 	var eyebrow := Label.new()
-	eyebrow.text = "BABEL PHONE  /  LANGUAGE"
+	# The game is called Aphasia now; the eyebrow names it.
+	eyebrow.text = "APHASIA  /  LANGUAGE"
 	eyebrow.add_theme_font_size_override("font_size", _theme().ui_font_size(15))
 	eyebrow.add_theme_color_override("font_color", _theme().theme_color("accent"))
 	box.add_child(eyebrow)

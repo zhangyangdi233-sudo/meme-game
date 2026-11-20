@@ -32,10 +32,15 @@ const LANGUAGE_PICKER := "language_picker"
 ## Language picker choice. Payload: {KEY_LOCALE: String}.
 const LANGUAGE_SELECTED := "language_selected"
 
-## Phone launcher. Payload: {KEY_APP_ID: String} for an icon or a window close, {} for the phone close.
+## The phone. Payload: {KEY_APP_ID: String} for an icon or a window close, {} for the phone close, its edge tab and
+## its home bar.
 const APP_ICON_PRESSED := "app_icon_pressed"
 const PHONE_CLOSE_REQUESTED := "phone_close_requested"
 const APP_WINDOW_CLOSE_REQUESTED := "app_window_close_requested"
+## The edge tab slides the phone in or out, like Tab (it was a host-built button calling the host directly).
+const PHONE_TOGGLE_REQUESTED := "phone_toggle_requested"
+## The home bar puts every app away and shows the phone's home.
+const PHONE_HOME_REQUESTED := "phone_home_requested"
 
 ## Camera consent. Payload: {KEY_ALLOWED: bool} for the answer, {KEY_INDEX: int} for the chosen source.
 const CAMERA_CONSENT_RESOLVED := "camera_consent_resolved"
@@ -63,6 +68,8 @@ const SETTINGS_PRESSED := "settings_pressed"
 ## A click on the shown opening narration line, and the ending screen. Payload: {} except the language choice,
 ## {KEY_CHOICE_ID: String}.
 const OPENING_NARRATION_ADVANCED := "opening_narration_advanced"
+## A click on a shown line of round one's CRT focus cinematic (the same narrator panel). Payload: {}.
+const CRT_FOCUS_ADVANCED := "crt_focus_advanced"
 const ENDING_LANGUAGE_SELECTED := "ending_language_selected"
 const RESTART_REQUESTED := "restart_requested"
 

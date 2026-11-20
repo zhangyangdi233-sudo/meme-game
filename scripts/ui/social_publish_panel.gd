@@ -237,9 +237,11 @@ func _sentence_units() -> Array:
 	return value as Array if value is Array else []
 
 
+## Only a post in the language shown now, so the slip never shows an earlier language's text (planner, 2026-11-20).
 func _last_post() -> Dictionary:
 	var published: Variant = _watch.read(PropertyKeysScript.PUBLISHED_MEMES)
-	return PostSlipScript.latest(published as Array if published is Array else [], _progress())
+	var source := _source()
+	return PostSlipScript.latest(published as Array if published is Array else [], _progress(), source.current_locale() if source != null else "")
 
 
 func _progress() -> Dictionary:

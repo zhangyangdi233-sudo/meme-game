@@ -63,7 +63,8 @@ func _run() -> void:
 		_assert_true(game_root._reality_scene_adapter.floor.get_interactable_actors().is_empty(), "nobody should stand at the crossroads chapter one ends on")
 	_assert_true(top_bar != null and bottom_bar != null, "gameplay should expose fixed cinematic bars")
 	if top_bar != null and bottom_bar != null:
-		_assert_true(not top_bar.visible and not bottom_bar.visible, "phone view should not be squeezed by the reality-only cinematic bars")
+		# The phone is docked over the live world, so the frame around the world stays (old version).
+		_assert_true(top_bar.visible and bottom_bar.visible, "opening the phone should keep both cinematic bars around the world")
 		_assert_true(is_equal_approx(game_root._cinematic_bars.bar_height(Vector2(2.35 * 400.0, 400.0)), 0.0), "cinematic bars should target the selected 2.35 aspect ratio")
 	if social_window != null and top_bar != null:
 		_assert_true(social_window.z_index > top_bar.z_index, "phone app windows should render above the cinematic bars")

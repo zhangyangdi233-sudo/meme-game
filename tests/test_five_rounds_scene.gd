@@ -1,6 +1,6 @@
 extends SceneTree
 ## #127: in the main scene the five basement rounds are played by their rules alone, from the white door to the demo's
-## end: nobody needs helping (the NPCs behind the door in rounds two and four are a side path, #129), each round's own words spell a clean exit rule, posting it makes its object the way out,
+## end: nobody to help (the demo has no NPC: planner, 2026-11-16, overriding #129), each round's own words spell a clean exit rule, posting it makes its object the way out,
 ## and F there plays the shared transition into the next round. The fifth round's way out leads through the passage's
 ## light to the end screen. #131: the same run is played in every language the game ships, without the camera.
 
@@ -51,8 +51,11 @@ func _play_the_demo(locale_code: String) -> void:
 	var used: Array = []
 	for round_number in range(1, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), round_number, "the %s run should stand in round %d" % [locale_code, round_number])
-		# Rounds two and four keep someone behind the sealed door (#129); helping them is a side path the run never takes here.
-		_assert_eq(Harness.find_node_by_name(game_root, "BasementNPC") != null, round_number in [2, 4], "%s round %d's NPC behind the door" % [locale_code, round_number])
+		# The demo has no NPC (planner, 2026-11-16): nobody to talk to behind the sealed door as a round starts; round
+		# four's door answers only after its bang (planner, 2026-11-20).
+		if round_number != 4:
+			_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "%s round %d should stand no NPC behind the door" % [locale_code, round_number])
+		_assert_eq(game_root._reality_scene_adapter.chapter_npc_position(), Vector3.ZERO, "%s round %d should offer nobody to talk to as it starts" % [locale_code, round_number])
 		used.append(await _leave_by_a_clean_exit_rule(game_root, round_number, locale_code))
 	_assert_eq(used.size(), ProgressScript.BASEMENT_ROUND_COUNT, "every %s round should have been left by a rule" % locale_code)
 	var distinct: Array = []

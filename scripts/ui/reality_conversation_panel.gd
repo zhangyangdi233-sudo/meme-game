@@ -181,6 +181,8 @@ func _paint() -> void:
 	if typing:
 		_set_richer_bbcode_fn.call(_typing_line, str(_call(_typed_bbcode_fn, "")))
 		_typing_progress.text = TYPING_HINT if not hint_seen else ""
+		# The hint is worded in the current language where it is set, like the lines above it.
+		_theme().set_localized_property(_typing_progress, "text")
 	else:
 		_set_richer_bbcode_fn.call(_typing_line, "")
 		_typing_progress.text = ""

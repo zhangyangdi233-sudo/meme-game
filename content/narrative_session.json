@@ -15,19 +15,19 @@
       "id": "opening_02",
       "zh": "看来你又一次遗忘了我……",
       "ja": "また私のことを忘れたみたいだね……",
-      "en": "Looks like you've forgotten me again…"
+      "en": "It seems you've forgotten me again..."
     },
     {
       "id": "opening_03",
       "zh": "哎……",
       "ja": "はあ……",
-      "en": "Sigh…"
+      "en": "Sigh..."
     },
     {
       "id": "opening_04",
       "zh": "这是常有的事",
       "ja": "まあ、いつものことだ。",
-      "en": "It happens all the time."
+      "en": "This happens often."
     },
     {
       "id": "opening_05",
@@ -39,37 +39,37 @@
       "id": "opening_06",
       "zh": "但你总是意气用事",
       "ja": "なのに君は、いつも感情に流される。",
-      "en": "But you always let your feelings decide."
+      "en": "But you always let your emotions take over."
     },
     {
       "id": "opening_07",
       "zh": "我多么努力的帮你理智的做着决定",
       "ja": "私は必死に、君が冷静に決められるよう手伝ってきたのに。",
-      "en": "I tried so hard to help you choose with a clear head."
+      "en": "I've tried so hard to help you make rational decisions."
     },
     {
       "id": "opening_08",
       "zh": "可是它……",
       "ja": "でも、あいつは……",
-      "en": "But it…"
+      "en": "But it..."
     },
     {
       "id": "opening_09",
       "zh": "每次都在关键时刻",
       "ja": "肝心なときになると、いつも",
-      "en": "every time it matters most,"
+      "en": "Every time it matters,"
     },
     {
       "id": "opening_10",
       "zh": "把我关起来",
       "ja": "私を閉じ込める。",
-      "en": "locks me away."
+      "en": "it locks me away."
     },
     {
       "id": "opening_11",
       "zh": "看来……",
       "ja": "どうやら……",
-      "en": "It seems…"
+      "en": "It seems..."
     },
     {
       "id": "opening_12",
@@ -81,31 +81,31 @@
       "id": "opening_13",
       "zh": "没事……",
       "ja": "大丈夫……",
-      "en": "It's all right…"
+      "en": "It's all right..."
     },
     {
       "id": "opening_14",
       "zh": "我能帮你如何出去",
       "ja": "ここから出る方法なら、私が教えてあげる。",
-      "en": "I can show you the way out."
+      "en": "I can help you find a way out."
     },
     {
       "id": "opening_15",
       "zh": "因为这一切都只是你自己创造的幻觉",
       "ja": "だって、これは全部、君が自分で作り出した幻覚なんだから。",
-      "en": "Because all of this is an illusion you made yourself."
+      "en": "Because all of this is only an illusion you created yourself."
     },
     {
       "id": "opening_16",
       "zh": "按理来说",
       "ja": "本当なら、",
-      "en": "By rights,"
+      "en": "In theory,"
     },
     {
       "id": "opening_17",
       "zh": "其实你比我更了解这里",
       "ja": "ここについては、私より君のほうが詳しいはずだよ。",
-      "en": "you should know this place better than I do."
+      "en": "you actually know this place better than I do."
     },
     {
       "id": "opening_18",
@@ -117,68 +117,68 @@
       "id": "opening_19",
       "zh": "你在想……",
       "ja": "こう思ってるんだろう……",
-      "en": "You're thinking…"
+      "en": "You're thinking..."
     },
     {
       "id": "opening_20",
       "zh": "“这个旁白是谁啊”",
       "ja": "「このナレーター、誰なんだ？」",
-      "en": "“Who is this narrator?”"
+      "en": "\"Who is this narrator?\""
     },
     {
       "id": "opening_21",
       "zh": "“我为啥说不出话”",
       "ja": "「なんで喋れないんだ？」",
-      "en": "“Why can't I speak?”"
+      "en": "\"Why can't I speak?\""
     },
     {
       "id": "opening_22",
       "zh": "“我就是想体验一下这个’游戏’”",
       "ja": "「ただこの『ゲーム』をやってみたいだけなのに」",
-      "en": "“I just wanted to try this ‘game’.”"
+      "en": "\"I just wanted to try this 'game.'\""
     },
     {
       "id": "opening_23",
       "zh": "“它在这里指指点点是什么意思”",
       "ja": "「あいつ、なんでいちいち口を出してくるんだ？」",
-      "en": "“Why does it keep telling me what to do?”"
+      "en": "\"Why does it keep telling me what to do?\""
     },
     {
       "id": "opening_24",
       "zh": "请记住",
       "ja": "覚えておいて。",
-      "en": "Remember this."
+      "en": "Please remember:"
     },
     {
       "id": "opening_25",
       "zh": "你的目标是逃出这里",
       "ja": "君の目的は、ここから逃げ出すこと。",
-      "en": "Your goal is to escape from here."
+      "en": "your goal is to escape this place."
     },
     {
       "id": "opening_26",
       "zh": "你才是这具身体的“主人”",
       "ja": "この体の「主人」は、君なんだから。",
-      "en": "You are the true “owner” of this body."
+      "en": "You are the \"owner\" of this body."
     },
     {
       "id": "opening_28",
       "zh": "看来你潜意识已经准备好了",
       "ja": "君の潜在意識は、もう準備ができたみたいだね。",
-      "en": "Looks like your subconscious is ready.",
+      "en": "It seems your subconscious is ready.",
       "cue": "knock"
     },
     {
       "id": "opening_29",
       "zh": "去吧！",
       "ja": "さあ、行って！",
-      "en": "Go on!"
+      "en": "Go!"
     },
     {
       "id": "opening_30",
       "zh": "埃弥亣……",
       "ja": "エミダー……",
-      "en": "Emida…"
+      "en": "Emida..."
     }
   ],
   "basement_guide": {
@@ -326,6 +326,47 @@
         "ja": "出口はそこにある。近づいて F を押して。",
         "en": "The way out is there. Walk over and press F."
       }
+    }
+  },
+  "crt_focus": [
+    {"id": "crt_focus_01", "zh": "这个对你来说不陌生", "ja": "これは君にとって見覚えのあるものだ", "en": "This should look familiar to you."},
+    {"id": "crt_focus_02", "zh": "你之前可喜欢盯着这个发呆了", "ja": "前はこれを見つめて、ぼんやりするのが好きだったね", "en": "You used to love staring at it, lost in thought."},
+    {"id": "crt_focus_03", "zh": "现在被你遗忘也是情有可原", "ja": "今は忘れてしまっていても、無理はない", "en": "It's understandable that you've forgotten it now."},
+    {"id": "crt_focus_04", "zh": "但是现在这个东西对你来说……", "ja": "でも今の君にとって、このものは……", "en": "But now, to you, this thing…"},
+    {"id": "crt_focus_05", "zh": "很有意思……是吧", "ja": "面白い……だろう？", "en": "It's interesting… isn't it?"},
+    {"id": "crt_focus_06", "zh": "去看看这个老家伙吧", "ja": "この古い相棒を見に行ってごらん", "en": "Go and take a look at the old fellow."},
+    {"id": "crt_focus_07", "zh": "你现在只能依靠它咯！", "ja": "今の君には、これだけが頼りだよ！", "en": "It's all you can rely on now!"}
+  ],
+  "crt_focus_hint": {
+    "zh": "点击继续",
+    "ja": "クリックで次へ",
+    "en": "Click to continue"
+  },
+  "crt_lesson": {
+    "post": {
+      "zh": "先打开这一条\n亮着的帖子。",
+      "ja": "光っている投稿を\n開こう。",
+      "en": "Open the\nhighlighted post."
+    },
+    "collect": {
+      "zh": "点亮的字：\n%s。\n把它们拾进笔记本。",
+      "ja": "光る言葉\n%s\nを拾おう。",
+      "en": "Pick up these words:\n%s."
+    },
+    "notebook": {
+      "zh": "打开笔记本。你拿走的词都在里面。",
+      "ja": "ノートをひらいて。持ってきた言葉は全部そこにある。",
+      "en": "Open the notebook. Everything you took is inside."
+    },
+    "compose": {
+      "zh": "把 %s\n从下面的字盘点到\n上面的句子栏。",
+      "ja": "下のトレイの\n%s を\nタップして上の文へ。",
+      "en": "Tap %s\nin the tray below\ninto the sentence above."
+    },
+    "publish": {
+      "zh": "点击\n「发布」",
+      "ja": "「投稿」\nを押そう",
+      "en": "Click\nPublish"
     }
   },
   "demo_end": {

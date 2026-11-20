@@ -25,9 +25,6 @@ func _capture() -> void:
 	main.new_game()
 	main._skip_chapter_one()
 	main.set_view_state("npc_up")
-	main._phone_art_alpha = 0.0
-	if main._phone_down_backdrop_image != null:
-		main._phone_down_backdrop_image.visible = false
 	main.game.pollution = 34
 	main.game.pollution_flashback_seen = true
 	var player := main.get_node_or_null("RealityPlayer") as CharacterBody3D

@@ -10,7 +10,9 @@ class_name RealitySceneAdapter
 ## the one exit transition every object shares (the view pushes in to it while the host darkens the screen), and only
 ## then is the next round built. The round's one-shot events (#114) run on a clock this adapter holds while the world
 ## is held: the phone up, settings open or the window out of focus (`set_paused`), the CRT entered or a transition
-## playing. The wall switch is a `switch` outcome while an event it can end goes on.
+## playing. The wall switch is a `switch` outcome while an event it can end goes on. Round one's CRT focus cinematic
+## (a Room event) is a `crt_focus` outcome while it plays: no walking, its line advanced by `advance_crt_focus`, and the
+## look pose turns to the CRT with a narrower `fov` and, while the room is isolated, the CRT's `cull_mask`.
 
 const RealityFloorGeneratorScript = preload("res://scripts/reality_floor_generator.gd")
 const FloorComposerScript = preload("res://scripts/game/floor_composer.gd")
@@ -18,6 +20,7 @@ const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const UiPaletteScript = preload("res://scripts/ui/ui_palette.gd")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ChapterOneStageScript = preload("res://scripts/world/chapter_one_stage.gd")
+const CarpetFootstepsScript = preload("res://scripts/world/carpet_footsteps.gd")
 
 const MOVE_SPEED := 3.3
 const SPRINT_MULTIPLIER := 1.85
@@ -37,12 +40,21 @@ const TERMINAL_REACH_RADIUS := 0.9
 ## The pushed-in view fills this share of the main camera's height with the CRT's glass.
 const TERMINAL_VIEW_FILL := 0.72
 const TERMINAL_VIEW_FOV := 58.0
+## Round one's CRT focus cinematic narrows the view to this, as the old one did.
+const CRT_FOCUS_FOV := 34.0
 ## How far from the phone on the table the player may stand for it to answer.
 const PHONE_REACH_RADIUS := 1.1
 ## How far from one of an exit object's places the player may stand for it to answer.
 const EXIT_REACH_RADIUS := 1.0
 ## How far from the wall switch's reach point the player may stand to press it.
 const SWITCH_REACH_RADIUS := 0.9
+## The portal held up to something solid: the other world begins this far short of it (never nearer the eye than the
+## minimum), and a body counts as walked in once its middle is this far short of it (the player's body stops 0.34 m
+## short of a wall), but never without a first step.
+const PORTAL_WALL_GAP := 0.12
+const PORTAL_NEAR_MIN := 0.3
+const PORTAL_BODY_REACH := 0.40
+const PORTAL_ENTER_MIN := 0.08
 ## Leaving by an exit: the view pushes in toward the object over the whole transition; the host darkens the screen as
 ## it ends, then the next round is built.
 const EXIT_TRANSITION_SECONDS := 1.8
@@ -77,6 +89,8 @@ var _host: Node3D
 var _interaction_active := false
 var _gaze_before_interaction: Dictionary = {}
 var _chapter_stage: ChapterOneStage
+## The basement carpet's footsteps. The adapter owns them because the player body and the stage kind live here.
+var _footsteps: CarpetFootstepsScript
 ## The chapter phase the stage was built for; empty while the tower street is built.
 var _built_stage := ""
 ## The basement round the stage was built for; zero outside the basement.
@@ -127,8 +141,17 @@ func build_world_nodes() -> void:
 	player_collision.shape = player_capsule
 	player_collision.position.y = 0.88
 	player.add_child(player_collision)
+	# The adapter outlives a world rebuild, so the footsteps of the world before go first: one would pile up per run.
+	if _footsteps != null and is_instance_valid(_footsteps):
+		remove_child(_footsteps)
+		_footsteps.free()
+	# The stride follows the speeds this player really has.
+	_footsteps = CarpetFootstepsScript.new()
+	_footsteps.walk_speed = MOVE_SPEED
+	_footsteps.sprint_speed = MOVE_SPEED * SPRINT_MULTIPLIER
+	add_child(_footsteps)
 
-	floor = RealityFloorGeneratorScript.new()
+	floor =RealityFloorGeneratorScript.new()
 	floor.name = "RealityFloor"
 	_host.add_child(floor)
 
@@ -139,6 +162,8 @@ func reset_session_state() -> void:
 	_built_stage = ""
 	_door_time = -1.0
 	_exit_time = -1.0
+	if _footsteps != null:
+		_footsteps.reset()
 	if floor != null:
 		yaw = floor.start_yaw_degrees()
 	pitch = 0.0
@@ -264,16 +289,27 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		return
 	if _chapter_stage != null:
 		_chapter_stage.advance_events(delta, _world_held(deps))
+		_chapter_stage.advance_crt_focus(delta)
+	# Round one's CRT focus cinematic takes the player's control: no walking until the view has turned back.
+	if _crt_focus_playing():
+		player.velocity = Vector3.ZERO
+		_tick_footsteps(delta, false)
+		return
 	if _door_time >= 0.0:
 		_advance_door_opening(delta)
+		_tick_footsteps(delta, false)
 		return
 	if _exit_time >= 0.0:
 		_advance_exit_transition(delta)
+		_tick_footsteps(delta, false)
 		return
 	if _should_recover_player():
 		_recover_player()
+		_tick_footsteps(delta, false)
 		return
-	var can_walk: bool = str(deps.get("view_state", "")) == "npc_up" and not _interaction_active and not _terminal_active
+	# A held world (open settings, a window out of focus) holds the player too: Escape now opens settings in the world,
+	# and walking on under the window was possible.
+	var can_walk: bool = str(deps.get("view_state", "")) == "npc_up" and not _interaction_active and not _terminal_active and not _paused
 	var input_vector := Vector2.ZERO
 	if can_walk:
 		input_vector = Input.get_vector("reality_left", "reality_right", "reality_forward", "reality_back")
@@ -299,6 +335,18 @@ func update_player(delta: float, deps: Dictionary) -> void:
 		_last_safe_position = player.position
 	if _chapter_stage != null:
 		_chapter_stage.track_player(player.position)
+	_tick_footsteps(delta, can_walk)
+
+
+## The carpet sounds only in a basement round with the world in the player's hands: the phone down, settings closed
+## (`_paused` also holds for a lost focus), outside the CRT terminal and any conversation (`can_walk`), no door or exit
+## transition (their branches pass false), and on the room's floor: the wooden stairs stay silent (old version's mix).
+func _tick_footsteps(delta: float, world_free: bool) -> void:
+	if _footsteps == null or player == null:
+		return
+	var in_basement_round := _chapter_stage != null and _built_stage == ChapterOneProgressScript.PHASE_BASEMENT
+	var enabled := world_free and in_basement_round and CarpetFootstepsScript.on_carpet(player.position)
+	_footsteps.advance(player.position, enabled, player.is_on_floor(), delta)
 
 
 ## Whether the world is held for the room's events: the phone up, the CRT entered, or the white door or an exit's
@@ -311,6 +359,79 @@ func _world_held(deps: Dictionary) -> bool:
 func set_xray_looking(looking: bool) -> void:
 	if _chapter_stage != null:
 		_chapter_stage.set_xray_looking(looking)
+
+
+## The basement's portal (`ChapterOneStage.portal_*`, planner's design of 2026-10-31): the host hands the X-ray's frame
+## on while it looks, fixes it once it was held long enough, and asks whether the player has walked into it.
+func portal_look_through(eye: Transform3D, frame: Rect2, fov_degrees: float, aspect: float, held: float) -> void:
+	if _chapter_stage != null and player != null:
+		var reach := _portal_reach(eye, frame, fov_degrees, aspect)
+		_chapter_stage.portal_look_through(eye, frame, fov_degrees, aspect, held, player.global_position, float(reach["near"]))
+
+
+func portal_look_away() -> void:
+	if _chapter_stage != null:
+		_chapter_stage.portal_look_away()
+
+
+func portal_fix(eye: Transform3D, frame: Rect2, fov_degrees: float, aspect: float, used_up: bool) -> void:
+	if _chapter_stage != null and player != null:
+		var reach := _portal_reach(eye, frame, fov_degrees, aspect)
+		_chapter_stage.portal_fix(eye, frame, fov_degrees, aspect, used_up, player.global_position, float(reach["near"]), float(reach["enter_at"]))
+
+
+func portal_clear() -> void:
+	if _chapter_stage != null:
+		_chapter_stage.portal_clear()
+
+
+## How far in front of the eye the portal's other world begins (`near`) and from where a body counts as walked in
+## (`enter_at`): the portal's own distances, or shorter when the frame's middle looks at something solid close by, so a
+## frame held up to a wall is pasted on that wall and walked into by walking at it (the player's body stops a little
+## short of the wall).
+func _portal_reach(eye: Transform3D, frame: Rect2, fov_degrees: float, aspect: float) -> Dictionary:
+	var reach := {"near": BasementPortal.NEAR, "enter_at": BasementPortal.NEAR + BasementPortal.WALK_IN_MARGIN}
+	if player == null or not player.is_inside_tree() or player.get_world_3d() == null:
+		return reach
+	var middle := BasementPortal.frame_tangents(frame, fov_degrees, aspect).get_center()
+	var direction := (eye.basis * Vector3(middle.x, middle.y, -1.0)).normalized()
+	var query := PhysicsRayQueryParameters3D.create(eye.origin, eye.origin + direction * (BasementPortal.NEAR + 1.0), player.collision_mask)
+	query.exclude = [player.get_rid()]
+	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return reach
+	var ahead := -(eye.affine_inverse() * (hit["position"] as Vector3)).z
+	reach["near"] = clampf(ahead - PORTAL_WALL_GAP, PORTAL_NEAR_MIN, BasementPortal.NEAR)
+	reach["enter_at"] = minf(float(reach["enter_at"]), maxf(PORTAL_ENTER_MIN, ahead - PORTAL_BODY_REACH))
+	return reach
+
+
+func portal_fixed() -> bool:
+	return _chapter_stage != null and _chapter_stage.portal_fixed()
+
+
+## Whether the player has walked into the fixed portal; never while a door or an exit plays.
+func portal_holds_player() -> bool:
+	if _chapter_stage == null or player == null or _exit_time >= 0.0 or _door_time >= 0.0:
+		return false
+	return _chapter_stage.portal_holds(_chapter_stage.transform.affine_inverse() * player.position)
+
+
+## Where walking into the portal puts the player in the passage, as `restore_world_pose` takes it (`player_position`,
+## `yaw`, `pitch`), with `to_passage`, the room's space to the passage's, for the view to follow.
+func portal_crossing() -> Dictionary:
+	if _chapter_stage == null or player == null:
+		return {}
+	# The stage's own mapping, taken to the space the player and the host's camera are in.
+	var to_passage := _chapter_stage.transform * _chapter_stage.portal_to_passage() * _chapter_stage.transform.affine_inverse()
+	var landed := to_passage * player.position
+	return {
+		"to_passage": to_passage,
+		# On the passage's ground, wherever the room's floor was.
+		"player_position": Vector3(landed.x, 0.04, landed.z),
+		"yaw": yaw + rad_to_deg(to_passage.basis.get_euler().y),
+		"pitch": pitch,
+	}
 
 
 ## Opening settings (or losing the window's focus) holds the knock, a door that is opening and the room's events.
@@ -405,6 +526,7 @@ func refresh_nearby_actor(deps: Dictionary) -> void:
 		str(deps.get("view_state", "")) != "npc_up"
 		or _interaction_active
 		or _terminal_active
+		or _crt_focus_playing()
 		or _door_time >= 0.0
 		or _exit_time >= 0.0
 		or floor == null
@@ -548,6 +670,15 @@ func interaction_outcome() -> Dictionary:
 			"interaction_active": true,
 			"progress": clampf(_exit_time / EXIT_TRANSITION_SECONDS, 0.0, 1.0),
 		}
+	if _crt_focus_playing():
+		var focus: Dictionary = _chapter_stage.crt_focus()
+		return {
+			"kind": "crt_focus",
+			"action": "advance_crt_focus",
+			"interaction_active": true,
+			"line": int(focus.get("line", -1)),
+			"progress": float(focus.get("weight", 0.0)),
+		}
 	if _terminal_active:
 		return {
 			"kind": "terminal",
@@ -571,6 +702,11 @@ func apply_interaction(intent: Dictionary) -> Dictionary:
 	var action := str(intent.get("action", "none"))
 	# Once the white door is opening, or the player is leaving by an exit, nothing turns it back.
 	if _door_time >= 0.0 or _exit_time >= 0.0:
+		return interaction_outcome()
+	# While the CRT focus cinematic plays, a click on a shown line is the only thing the player does.
+	if _crt_focus_playing():
+		if action == "advance_crt_focus":
+			_chapter_stage.advance_crt_focus_line()
 		return interaction_outcome()
 	if action == "leave_by_exit":
 		if player != null and _chapter_stage != null:
@@ -635,6 +771,9 @@ func _drop_interaction(restore_gaze: bool) -> Dictionary:
 	_gaze_before_interaction = {}
 	clear_active_actor()
 	_interaction_active = false
+	if _terminal_active and _crt_screen() != null:
+		# The glass goes back to what the room idles it on (round five's recording), if it has anything.
+		_crt_screen().clear_display()
 	_terminal_active = false
 	return {
 		"kind": "none",
@@ -1033,7 +1172,30 @@ func pose() -> Dictionary:
 		look_pose["view_position"] = _terminal_view_position()
 	if _exit_time >= 0.0:
 		look_pose["view_position"] = _exit_view_position()
+	if _crt_focus_playing():
+		_lay_crt_focus_over(look_pose)
 	return look_pose
+
+
+## Round one's CRT focus cinematic turns the look from the player's own to the CRT's glass and narrows the view, and
+## while the room is isolated the camera sees only the CRT's layer. The player's own yaw and pitch stay untouched, so
+## the look comes back to them.
+func _lay_crt_focus_over(look_pose: Dictionary) -> void:
+	var focus: Dictionary = _chapter_stage.crt_focus()
+	var weight := float(focus.get("weight", 0.0))
+	var direction: Vector3 = (focus.get("target", Vector3.ZERO) as Vector3) - (player.position + Vector3(0.0, EYE_HEIGHT, 0.0))
+	if direction.length_squared() > 0.0001:
+		var to_yaw := rad_to_deg(atan2(-direction.x, -direction.z))
+		var to_pitch := rad_to_deg(asin(clampf(direction.normalized().y, -1.0, 1.0)))
+		look_pose["yaw"] = rad_to_deg(lerp_angle(deg_to_rad(yaw), deg_to_rad(to_yaw), weight))
+		look_pose["pitch"] = lerpf(pitch, to_pitch, weight)
+	look_pose["fov"] = lerpf(TERMINAL_VIEW_FOV, CRT_FOCUS_FOV, weight)
+	if bool(focus.get("isolated", false)):
+		look_pose["cull_mask"] = int(focus.get("layer", 0))
+
+
+func _crt_focus_playing() -> bool:
+	return _chapter_stage != null and _chapter_stage.crt_focus_playing()
 
 
 func restore_world_pose(world_data: Dictionary) -> void:

@@ -26,9 +26,10 @@ const REALITY_CORRUPT_INTERVAL_DIVISOR := 12
 const REALITY_SENTENCE_MARKERS := ["■", "□", "▦", "∴", "//", "≠", "…"]
 
 # VHS overlay uses continuous pollution ratios (babel_meme_game._animate_vhs).
-const VHS_INTENSITY_BASE := 0.58
-const VHS_INTENSITY_SLOPE := 0.0022
-const VHS_INTENSITY_CAP := 0.22
+# Old version's tuned curve: once the overlay actually drew, the stronger one tore text too hard.
+const VHS_INTENSITY_BASE := 0.44
+const VHS_INTENSITY_SLOPE := 0.0016
+const VHS_INTENSITY_CAP := 0.16
 
 
 static func stage(pollution_value: int, day: int = 0) -> Dictionary:

@@ -68,6 +68,7 @@ func _run() -> void:
 	_test_like_follow_close_and_confirm_raise_their_intents()
 	_test_pickup_and_composer_actions_carry_their_answers()
 	_test_the_publish_page_belongs_to_its_own_panel()
+	_test_a_wheel_notch_moves_the_feed_by_its_step()
 
 
 func _test_painting_reads_the_bound_source_and_registers_drag_handles() -> void:
@@ -195,6 +196,36 @@ func _test_a_mounted_panel_is_not_opened_by_a_write() -> void:
 	var followed: ListPropertyModel = mounted["followed"]
 	followed.add("post-a")
 	_assert_true(_find(mounted, "SocialPhoneView") == null, "a write should not draw a feed nobody asked for")
+	_dispose(mounted)
+
+
+## The planner asked on 2026-11-20 for a faster wheel: one notch down moves the feed by the panel's step, up moves it back.
+func _test_a_wheel_notch_moves_the_feed_by_its_step() -> void:
+	var mounted := _mount()
+	(mounted["panel"] as SocialFeedPanel).render_app()
+	var feed_scroll := _find(mounted, "SocialFeedScroll") as ScrollContainer
+	_assert_true(feed_scroll != null, "the home page should have its feed scroll")
+	if feed_scroll == null:
+		_dispose(mounted)
+		return
+	_assert_eq(SocialFeedPanel.SOCIAL_FEED_WHEEL_STEP, 12, "the wheel step should be six times the old 2 px")
+	# No frame lays the feed out here, so the bar is given room to move.
+	var bar := feed_scroll.get_v_scroll_bar()
+	bar.page = 0.0
+	bar.max_value = 1000.0
+	feed_scroll.scroll_vertical = 100
+	for pressed in [true, false]:
+		var wheel := InputEventMouseButton.new()
+		wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		wheel.pressed = pressed
+		feed_scroll.gui_input.emit(wheel)
+	_assert_eq(feed_scroll.scroll_vertical, 100 + SocialFeedPanel.SOCIAL_FEED_WHEEL_STEP, "one wheel notch down should move the feed by the step")
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_WHEEL_UP
+	up.pressed = true
+	feed_scroll.gui_input.emit(up)
+	_assert_eq(feed_scroll.scroll_vertical, 100, "one wheel notch up should move it back")
+	_assert_true(not feed_scroll.has_meta("slow_scroll_step"), "the unread step meta should be gone")
 	_dispose(mounted)
 
 

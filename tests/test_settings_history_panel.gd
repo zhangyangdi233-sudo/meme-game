@@ -107,8 +107,7 @@ func _run() -> void:
 	var vhs_toggle := _find_node_by_name(settings, "SettingsVHSToggle") as CheckButton
 	var language_option := _find_node_by_name(settings, "SettingsLanguageOption") as OptionButton
 	var save_button := _find_node_by_name(settings, "SettingsManualSaveButton") as Button
-	var autoplay_button := _find_node_by_name(settings, "SettingsAutoplayButton") as CheckButton
-	var history_button := _find_node_by_name(settings, "SettingsHistoryButton") as Button
+	var return_main := _find_node_by_name(settings, "SettingsReturnMainButton") as Button
 	var camera_slot := panel.get_camera_slot() as Control
 
 	_assert_true(settings_scroll != null, "settings should use a named scroll body")
@@ -119,8 +118,17 @@ func _run() -> void:
 	_assert_true(vhs_toggle != null, "settings should contain the VHS toggle")
 	_assert_true(language_option != null, "settings should contain the language option")
 	_assert_true(save_button != null, "settings should contain the save button")
-	_assert_true(autoplay_button != null, "settings should contain the autoplay button")
-	_assert_true(history_button != null, "settings should contain the history button")
+	_assert_true(_find_node_by_name(settings, "SettingsAutoplayButton") == null, "settings should offer no autoplay toggle (old version)")
+	_assert_true(_find_node_by_name(settings, "SettingsHistoryButton") == null, "settings should offer no history button (old version)")
+	_assert_eq(vhs_toggle.text if vhs_toggle != null else "", "全局画面 VHS", "the full-screen VHS toggle should use the old wording")
+	var terminal_toggle := _find_node_by_name(settings, "SettingsTerminalVHSToggle") as CheckButton
+	_assert_eq(terminal_toggle.text if terminal_toggle != null else "", "开启 CRT 屏幕 VHS 质感", "the CRT VHS toggle should use the old wording")
+	_assert_true(return_main != null and settings_footer != null and settings_footer.is_ancestor_of(return_main), "退回主画面 should sit in the fixed system footer")
+	if return_main != null and settings_exit != null and settings_footer != null:
+		_assert_true(return_main.get_index() < settings_exit.get_index(), "退回主画面 should sit above 退出游戏")
+		_assert_eq(settings_footer.offset_top, -158.0, "the footer should be tall enough for both system commands")
+	if settings_scroll != null:
+		_assert_eq(settings_scroll.offset_bottom, -166.0, "the scroll body should end above the footer")
 	_assert_true(camera_slot != null, "settings should expose a camera slot for the adapter")
 	if camera_slot != null:
 		_assert_true(camera_slot.get_child_count() == 0, "camera slot should start empty so the adapter can inject the camera block")
@@ -176,32 +184,24 @@ func _run() -> void:
 	if vhs_toggle != null:
 		vhs_toggle.toggled.emit(false)
 		_assert_eq(_vhs_events, [false], "the VHS toggle should emit vhs_toggled")
-	if autoplay_button != null:
-		autoplay_button.toggled.emit(true)
-		_assert_eq(_autoplay_events, [true], "the autoplay toggle should emit autoplay_toggled")
 	if language_option != null:
 		language_option.item_selected.emit(1)
 		_assert_eq(_language_events, ["en"], "language selection should emit the locale code, not the index")
 	if save_button != null:
 		save_button.pressed.emit()
 		_assert_eq(_save_events, [true], "the save button should emit manual_save_pressed")
-	var return_main := _find_node_by_name(settings, "SettingsReturnMainButton") as Button
 	if return_main != null:
 		return_main.pressed.emit()
 		_assert_eq(_return_events, [true], "the return-main button should emit return_main_menu_pressed")
 	if settings_exit != null:
 		settings_exit.pressed.emit()
 		_assert_eq(_exit_events, [true], "the exit button should emit exit_game_requested")
-	if history_button != null:
-		history_button.pressed.emit()
-		_assert_eq(_history_toggle_events, [true], "the history button should emit history_toggle_requested")
-		_assert_true(history != null and not history.visible, "history toggle intent alone should not open the window; the host calls toggle()")
 
-	_test_open_settings_follow_the_models(panel, volume_slider, autoplay_button, language_option)
+	_test_open_settings_follow_the_models(panel, volume_slider, language_option)
 	_test_history_window_follows_the_model(panel, host)
 	_test_the_terminal_vhs_toggle_is_its_own_setting(panel, settings)
 
-	_test_labels_follow_pollution(panel, volume_label, autoplay_button, volume_slider)
+	_test_labels_follow_pollution(panel, volume_label, volume_slider)
 	_test_save_status_follows_the_model(panel, settings)
 
 	_test_exit_request_opens_the_dialog(panel, host, bus)
@@ -211,43 +211,35 @@ func _run() -> void:
 	await process_frame
 
 
-func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_slider: HSlider, autoplay_button: CheckButton, language_option: OptionButton) -> void:
-	if volume_slider == null or autoplay_button == null or language_option == null:
+func _test_open_settings_follow_the_models(panel: SettingsHistoryPanel, volume_slider: HSlider, language_option: OptionButton) -> void:
+	if volume_slider == null or language_option == null:
 		_failures.append("settings controls should exist before checking the models")
 		return
 	var volume := _model(PropertyKeysScript.MASTER_VOLUME)
-	var autoplay := _model(PropertyKeysScript.AUTOPLAY_ENABLED)
 	var locale := _model(PropertyKeysScript.LOCALE)
 	volume.write(30.0)
-	autoplay.write(true)
 	locale.write("en")
-	var events_before := _volume_events.size() + _autoplay_events.size() + _language_events.size()
+	var events_before := _volume_events.size() + _language_events.size()
 
 	panel.set_settings_open(true)
 	_assert_true(is_equal_approx(volume_slider.value, 30.0), "opening settings should sync the volume model")
-	_assert_true(autoplay_button.button_pressed, "opening settings should sync the autoplay model")
 	_assert_eq(str(language_option.get_selected_metadata()), "en", "opening settings should select the language model")
 
 	volume.write(12.0)
-	autoplay.write(false)
 	locale.write("zh")
 	_assert_true(is_equal_approx(volume_slider.value, 12.0), "open settings should follow volume writes")
-	_assert_true(not autoplay_button.button_pressed, "open settings should follow autoplay writes")
 	_assert_eq(str(language_option.get_selected_metadata()), "zh", "open settings should follow language writes")
-	_assert_eq(_volume_events.size() + _autoplay_events.size() + _language_events.size(), events_before, "syncing from a model should not echo an intent back")
+	_assert_eq(_volume_events.size() + _language_events.size(), events_before, "syncing from a model should not echo an intent back")
 
 	panel.close_settings()
 	volume.write(90.0)
-	autoplay.write(true)
 	locale.write("en")
 	_assert_true(is_equal_approx(volume_slider.value, 12.0), "closed settings should stop receiving volume")
-	_assert_true(not autoplay_button.button_pressed, "closed settings should stop receiving autoplay")
 	_assert_eq(str(language_option.get_selected_metadata()), "zh", "closed settings should stop receiving the language")
 
 	panel.set_settings_open(true)
 	_assert_true(is_equal_approx(volume_slider.value, 90.0), "reopening settings should sync again")
 	panel.close_settings()
-	autoplay.write(false)
 	locale.write("zh")
 
 
@@ -270,7 +262,7 @@ func _test_the_terminal_vhs_toggle_is_its_own_setting(panel: SettingsHistoryPane
 	panel.close_settings()
 
 
-func _test_labels_follow_pollution(panel: SettingsHistoryPanel, volume_label: Label, autoplay_button: CheckButton, volume_slider: HSlider) -> void:
+func _test_labels_follow_pollution(panel: SettingsHistoryPanel, volume_label: Label, volume_slider: HSlider) -> void:
 	var pollution := _model(PropertyKeysScript.POLLUTION)
 	pollution.write(0)
 	_assert_eq(volume_label.text, "音量", "clean pollution should keep the default volume label")
@@ -281,7 +273,6 @@ func _test_labels_follow_pollution(panel: SettingsHistoryPanel, volume_label: La
 	_assert_eq(volume_label.text, "音量", "an open window should show the current pollution")
 	pollution.write(30)
 	_assert_eq(volume_label.text, "外面的声音", "mid pollution should rename the volume label by itself")
-	_assert_eq(autoplay_button.text, "让我替你继续说", "mid pollution should rename the autoplay label by itself")
 	pollution.write(100)
 	_assert_eq(volume_label.text, "它离你有多近", "max pollution should use the corrupted volume label")
 	_assert_true(volume_slider.editable, "max pollution must keep the volume slider adjustable")

@@ -4,6 +4,7 @@ extends SceneTree
 var _failures: Array[String] = []
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
+const PropertyKeysScript = preload("res://scripts/property_keys.gd")
 const TEST_SAVE_PATH := "user://test_session_flow_save.dat"
 const TEST_PREFERENCES_PATH := "user://test_session_flow_preferences.cfg"
 const SESSION_IDS := ["main_menu", "prologue", "gameplay", "narrative", "ending"]
@@ -102,9 +103,11 @@ func _run() -> void:
 	_assert_eq(game_root.session_mode(), "gameplay", "in-run settings should stay in gameplay")
 	_assert_screen_set(game_root, ["play"], "in-run settings")
 	_assert_true(not game_root.has_session_state("settings"), "opening settings should not add a sixth Session mode")
-	await _assert_gameplay_world_hotkeys_live(game_root)
+	# Open settings free the cursor (old version), so the world hotkeys are checked once they close again.
+	_assert_true(not game_root._reality_mouse_look_enabled, "open settings should release the mouse look")
 	game_root._close_settings_window()
 	await process_frame
+	await _assert_gameplay_world_hotkeys_live(game_root)
 	game_root.set_view_state("npc_up")
 
 	game_root.game.pollution = 60
@@ -293,7 +296,7 @@ func _run_ending_screen_install(game_root) -> void:
 	_assert_host_applied_screens(game_root, ["ending"], "ending enter")
 	await _assert_world_hotkeys_inert(game_root, "ending enter")
 	await _assert_ending_overlay_eats_clicks(game_root)
-	var play_toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as CanvasItem
+	var play_toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as CanvasItem
 	_assert_true(
 		play_toggle != null and not play_toggle.visible,
 		"entering the ending should leave play chrome mounted but hidden"
@@ -332,7 +335,7 @@ func _assert_host_applied_screens(game_root, expected: Array, label: String) -> 
 	_assert_screen_node(game_root, "MainMenuLayer", "title" in expected, label)
 	_assert_screen_node(game_root, "OpeningNarrationPanel", "prologue" in expected, label)
 	# The opening narration locks the phone, so its toggle stays hidden under the narration.
-	_assert_screen_node(game_root, "PhoneViewToggleButton", "play" in expected and "prologue" not in expected, label)
+	_assert_screen_node(game_root, "PhoneEdgeTab", "play" in expected and "prologue" not in expected, label)
 	_assert_screen_node(game_root, "EndingScreen", "ending" in expected, label)
 
 
@@ -356,7 +359,7 @@ func _assert_gameplay_phone_toggle_click(game_root) -> void:
 	game_root.set_view_state("phone_down")
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	await process_frame
-	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	_assert_true(toggle != null and toggle.visible, "gameplay should show the phone view toggle")
 	if toggle == null:
 		return
@@ -375,7 +378,7 @@ func _assert_main_menu_overlay_eats_clicks(game_root) -> void:
 	var overlay := _find_node_by_name(game_root, "MainMenuLayer") as Control
 	await _assert_fullscreen_overlay_eats_clicks(game_root, overlay, "main menu overlay")
 	_assert_true(
-		_find_node_by_name(game_root, "PhoneViewToggleButton") == null,
+		_find_node_by_name(game_root, "PhoneEdgeTab") == null,
 		"main menu should not keep phone UI under the overlay"
 	)
 
@@ -418,7 +421,7 @@ func _assert_ending_overlay_eats_clicks(game_root) -> void:
 
 
 func _assert_opening_hides_the_phone(game_root) -> void:
-	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Control
+	var toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as Control
 	_assert_true(toggle == null or not toggle.visible, "the opening narration should hide the phone toggle")
 	var view_before := str(game_root.game.view_state)
 	game_root.set_view_state("phone_down")
@@ -429,7 +432,7 @@ func _assert_overlay_eats_phone_clicks(game_root, overlay: Control, label: Strin
 	_assert_true(overlay != null and overlay.visible, "%s should be visible" % label)
 	if overlay == null:
 		return
-	var toggle := _find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var toggle := _find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	_assert_true(toggle != null, "phone view toggle should exist under %s" % label)
 	if toggle == null:
 		return
@@ -521,7 +524,12 @@ func _assert_world_hotkeys_inert(game_root, label: String) -> void:
 func _assert_viewport_routed_look(game_root) -> void:
 	var center := Vector2(game_root.get_viewport().get_visible_rect().size) * 0.5
 	game_root._unhandled_input(_key_event(KEY_ESCAPE))
-	_assert_true(not game_root._reality_mouse_look_enabled, "Escape should release gameplay mouse look")
+	_assert_true(not game_root._reality_mouse_look_enabled, "Escape should open settings and release gameplay mouse look")
+	_assert_true(game_root._model_is_on(PropertyKeysScript.SETTINGS_OPEN), "Escape with nothing to leave should open settings")
+	game_root._unhandled_input(_key_event(KEY_ESCAPE))
+	_assert_true(not game_root._model_is_on(PropertyKeysScript.SETTINGS_OPEN), "a second Escape should close settings")
+	_assert_true(game_root._reality_mouse_look_enabled, "closing settings in the world view should recapture mouse look")
+	game_root._set_reality_mouse_look(false)
 	await _click_at(game_root, center)
 	_assert_true(game_root._reality_mouse_look_enabled, "a click on the street should recapture gameplay mouse look")
 	var yaw_before := float(game_root._reality_scene_adapter.pose().get("yaw", 0.0))
@@ -580,11 +588,12 @@ func _assert_window_drag(game_root, expect_live: bool, label: String) -> void:
 	if not game_root.has_method("_move_window_for_test") or not game_root.has_method("_window_position_for_test"):
 		_failures.append("%s should expose window drag through the adapter" % label)
 		return
-	var window_id := "phone"
+	# The docked phone is not dragged (old version); the settings window is the play chrome's draggable window.
+	var window_id := "settings"
 	var before: Vector2 = game_root._window_position_for_test(window_id)
 	if not before.is_finite():
 		if expect_live:
-			_failures.append("%s should have a draggable phone window" % label)
+			_failures.append("%s should have a draggable settings window" % label)
 		return
 	var moved: bool = game_root._move_window_for_test(window_id, Vector2(16, -10))
 	var after: Vector2 = game_root._window_position_for_test(window_id)

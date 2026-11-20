@@ -1,7 +1,9 @@
 extends SceneTree
 ## #125: basement round one played through in the main scene the way a player would, without a document: no NPC
-## stands in the room; at the CRT the narrator says what to do next; the words of an exit rule can be picked off the
-## terminal's feed; a post that misses says to try again; 门是出口 opens the exit; walking out starts round two.
+## stands in the room. Since the planner restored the old tutorial (2026-11-16), coming down the stairs first plays the
+## CRT focus cinematic, which takes control until its seven lines are read; at the CRT the locked lesson walks the
+## player from a lit post to the notebook and the post button, its words picked off the terminal's feed; 门是出口 opens
+## the exit, the lesson is gone and the narrator sends the player out; walking out starts round two.
 
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GuideScript = preload("res://scripts/game/basement_guide.gd")
@@ -11,10 +13,12 @@ const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const SocialFeedPanelScript = preload("res://scripts/ui/social_feed_panel.gd")
+const LessonScript = preload("res://scripts/game/crt_lesson.gd")
+const StageScript = preload("res://scripts/world/chapter_one_stage.gd")
+const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const TEST_SAVE_PATH := "user://test_round_one_flow_save.dat"
 const TEST_PREFERENCES_PATH := "user://test_round_one_flow_preferences.cfg"
-## A green post first, then the exit rule.
-const MISS := ["我"]
+## The lesson's sentence: round one's door exit rule.
 const EXIT_RULE := ["门", "是", "出", "口"]
 
 var _failures: Array[String] = []
@@ -47,33 +51,67 @@ func _run() -> void:
 	game_root._locale.preferences_path = TEST_PREFERENCES_PATH
 	game_root._locale.set_locale("zh")
 	await _enter_round_one(game_root)
+	await _test_coming_down_the_stairs_plays_the_crt_focus_once(game_root)
 	await _test_round_one_is_escaped_by_an_exit_rule(game_root)
 	game_root.queue_free()
 	await process_frame
+
+
+## The cinematic takes control once: the view sees only the CRT, F and Tab do nothing and the phone stays locked while
+## the narrator reads its seven lines, one per click; then the room and control come back, and coming down again plays
+## nothing.
+func _test_coming_down_the_stairs_plays_the_crt_focus_once(game_root) -> void:
+	var adapter = game_root._reality_scene_adapter
+	await _come_down_the_stairs(game_root)
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "crt_focus", "coming down across the stairs' middle should start the cinematic")
+	_assert_true("crt_focus" in ProgressScript.started_events(game_root.game.chapter_one_progress), "the state should record the cinematic at once")
+	var narrator := Harness.find_node_by_name(game_root, "CrtFocusNarration") as Control
+	_assert_true(narrator != null, "the narrator should speak the cinematic")
+	_assert_eq(game_root._camera.cull_mask, StageScript.CRT_FOCUS_LAYER, "the view should see only the CRT")
+	_push_key(game_root, KEY_F)
+	_push_key(game_root, KEY_TAB)
+	await process_frame
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "crt_focus", "F and Tab should do nothing during the cinematic")
+	_assert_true(game_root._phone_locked(), "the phone should stay locked during the cinematic")
+	for frame in 70:
+		await physics_frame
+	await process_frame
+	var line := Harness.find_node_by_name(narrator, "OpeningNarrationLine") as Label
+	_assert_true(line != null and line.visible and line.text.ends_with(str(NarrativeCatalogScript.crt_focus_lines("zh")[0])), "the first line should show once the view has turned")
+	for read in NarrativeCatalogScript.CRT_FOCUS_LINE_COUNT:
+		GameEventBus.raise(UiIntentsScript.CRT_FOCUS_ADVANCED)
+		await process_frame
+	for frame in 60:
+		await physics_frame
+	await process_frame
+	await process_frame
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "control should come back after the seventh line")
+	_assert_true(Harness.find_node_by_name(game_root, "CrtFocusNarration") == null, "the narrator should leave with the cinematic")
+	_assert_eq(game_root._camera.cull_mask, game_root.CAMERA_CULL_ALL, "the view should see the room again")
+	await _come_down_the_stairs(game_root)
+	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "coming down again should play nothing")
 
 
 func _test_round_one_is_escaped_by_an_exit_rule(game_root) -> void:
 	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "round one should stand no NPC")
 	await _enter_terminal(game_root)
 	var display := Harness.find_node_by_name(game_root, "CrtTerminalDisplay")
-	_assert_eq(_guide_text(display), _narrated(GuideScript.STEP_PICK), "the narrator should start by asking for words")
+	var terminal = game_root._crt_terminal_panel
+	_assert_eq(terminal.lesson_step(), LessonScript.STEP_POST, "the lesson should start by lighting a post")
+	_assert_true(not (Harness.find_node_by_name(display, "TerminalGuide") as Label).visible, "the narrator should leave the saying to the lesson")
 
-	var picked := await _pick_off_the_feed(game_root, display, MISS + EXIT_RULE)
-	_assert_eq(picked, MISS + EXIT_RULE, "every word of 门是出口 should be on offer in round one")
+	var picked := await _pick_off_the_feed(game_root, display, EXIT_RULE)
+	_assert_eq(picked, EXIT_RULE, "every word of 门是出口 should be on offer in round one")
+	_assert_eq(terminal.lesson_step(), LessonScript.STEP_NOTEBOOK, "held words should ask for the notebook")
 	(Harness.find_node_by_name(display, "TerminalAppNotebook") as Button).pressed.emit()
 	await process_frame
 	await process_frame
-	_assert_eq(_guide_text(display), _narrated(GuideScript.STEP_COMPOSE), "held words should ask for a sentence")
+	_assert_eq(terminal.lesson_step(), LessonScript.STEP_COMPOSE, "the notebook should ask for the sentence")
 
-	await _post(display, MISS)
-	_assert_true(not ProgressScript.exit_open(game_root.game.chapter_one_progress), "a green post should leave the exit shut")
-	var hint := Harness.find_node_by_name(display, "PostRetryHint") as Label
-	_assert_true(hint != null and hint.is_visible_in_tree(), "a missed post should say to try again under the post button")
-	_assert_eq(hint.text if hint != null else "", PostSlipScript.MISSED_LINE, "the slip should say nothing answered")
-	_assert_eq(_guide_text(display), _narrated(GuideScript.STEP_MISSED), "the narrator should say to try again")
-
-	await _post(display, EXIT_RULE)
+	await _post(game_root, display, EXIT_RULE)
 	_assert_true(ProgressScript.exit_open(game_root.game.chapter_one_progress), "门是出口 should open round one")
+	await process_frame
+	_assert_eq(terminal.lesson_step(), "", "the open exit should end the lesson")
 	_assert_eq(_guide_text(display), _narrated(GuideScript.STEP_OPEN), "the narrator should send the player out")
 
 	_push_key(game_root, KEY_TAB)
@@ -83,6 +121,18 @@ func _test_round_one_is_escaped_by_an_exit_rule(game_root) -> void:
 		await process_frame
 	await _walk_out(game_root)
 	_assert_eq(ProgressScript.round_of(game_root.game.chapter_one_progress), 2, "walking out should start round two")
+
+
+func _come_down_the_stairs(game_root) -> void:
+	var adapter = game_root._reality_scene_adapter
+	adapter.player.position = Vector3(-2.5, 1.6, 0.3)
+	adapter.player.velocity = Vector3.ZERO
+	await physics_frame
+	adapter.player.position = Vector3(-2.5, 1.3, 0.7)
+	adapter.player.velocity = Vector3.ZERO
+	for frame in 3:
+		await physics_frame
+	await process_frame
 
 
 ## A new run read to the end, knocked, and saved behind the white door continues in basement round one.
@@ -146,7 +196,7 @@ func _offered(game_root, label: RichTextLabel, wanted: Array) -> Variant:
 
 
 ## Taps the words into the sentence on the terminal's notebook and posts it with the notebook's button.
-func _post(display: Node, units: Array) -> void:
+func _post(game_root, display: Node, units: Array) -> void:
 	var canvas := Harness.find_node_by_name(display, "NotebookWordCanvas") as WordPhysicsCanvas
 	_assert_true(canvas != null, "the terminal's notebook should show its words")
 	for unit in units:
@@ -155,7 +205,7 @@ func _post(display: Node, units: Array) -> void:
 		await process_frame
 		await process_frame
 		canvas = Harness.find_node_by_name(display, "NotebookWordCanvas") as WordPhysicsCanvas
-	_assert_eq(_guide_text(display), _narrated(GuideScript.STEP_POST), "a sentence should ask to be posted")
+	_assert_eq(game_root._crt_terminal_panel.lesson_step(), LessonScript.STEP_PUBLISH, "the lesson's sentence should ask to be posted")
 	var craft := Harness.find_node_by_name(display, "NotebookCraftButton") as Button
 	_assert_true(craft != null and not craft.disabled, "the terminal's notebook should offer the post")
 	if craft != null:

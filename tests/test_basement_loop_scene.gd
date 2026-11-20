@@ -86,7 +86,7 @@ func _test_f9_shows_the_debug_panel_and_jumps_to_a_round(game_root) -> void:
 	GameEventBus.raise(UiIntentsScript.CHAPTER_ROUND_JUMP_REQUESTED, {UiIntentsScript.KEY_INDEX: 2})
 	await process_frame
 	await process_frame
-	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "round two should keep its NPC behind the door (#129)")
+	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") == null, "round two should stand no NPC either (planner, 2026-11-16)")
 	await _stand_npcs(game_root, 2)
 	_assert_true(Harness.find_node_by_name(game_root, "BasementNPC") != null, "a room declaring the NPC's help should stand its NPC")
 

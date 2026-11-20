@@ -28,6 +28,7 @@ func _run() -> void:
 	test_a_save_keeps_the_line_and_the_knock()
 	test_a_save_made_before_chapter_one_stays_on_the_tower()
 	test_skipping_chapter_one_lands_on_the_tower()
+	test_the_portal_leaves_a_round_for_a_passage_back_into_the_next()
 	test_the_exit_opens_only_after_a_delivery_with_this_rounds_post()
 	test_leaving_through_the_exit_starts_the_next_round()
 	test_the_fifth_exit_leads_to_the_white_door_passage()
@@ -261,6 +262,32 @@ func test_the_level_order_table_decides_the_next_level() -> void:
 	var fifth := ProgressScript.deliver(ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT), ["door"])
 	_assert_eq(ProgressScript.leave_round(fifth, "door", longer).get("passage_to"), "floor_two", "the fifth exit should follow the table, not a fixed level")
 	_assert_eq(ProgressScript.leave_round(fifth, "door", [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the exit should hold")
+
+
+func test_the_portal_leaves_a_round_for_a_passage_back_into_the_next() -> void:
+	var second := ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 2), "whisper")
+	var through := ProgressScript.leave_round_by_portal(second)
+	_assert_eq(through.get("phase"), ProgressScript.PHASE_PASSAGE, "the portal should lead into the white door's passage")
+	_assert_eq(ProgressScript.round_of(through), 0, "the passage is no basement round")
+	_assert_eq(ProgressScript.passage_round(through), 3, "a passage entered through the portal should lead to the next round")
+	_assert_eq(through.get("events"), [], "the round left through the portal should take its events with it")
+	_assert_eq(ProgressScript.normalize(through), through, "a save in that passage should come back in it")
+	var third := ProgressScript.cross_passage(through)
+	_assert_eq(third.get("phase"), ProgressScript.PHASE_BASEMENT, "the white door should lead back into the basement")
+	_assert_eq(ProgressScript.round_of(third), 3, "the white door should open on the round after the one left")
+	_assert_eq(third.get("passage_round"), 0, "the round reached should keep nothing of the passage")
+	_assert_eq(ProgressScript.exits(third), [], "the round reached should start with no exit")
+	var fifth := ProgressScript.jump_to_round(ProgressScript.initial(), ProgressScript.BASEMENT_ROUND_COUNT)
+	var last := ProgressScript.leave_round_by_portal(fifth)
+	_assert_eq(last.get("passage_to"), ProgressScript.PHASE_DEMO_END, "the fifth round's portal should lead where its own passage does")
+	_assert_eq(ProgressScript.passage_round(last), 0, "the fifth round's passage leads to no further round")
+	_assert_eq(ProgressScript.cross_passage(last).get("phase"), ProgressScript.PHASE_DEMO_END, "the fifth round's portal should end the demo")
+	_assert_eq(ProgressScript.leave_round_by_portal(fifth, [ProgressScript.PHASE_BASEMENT]), fifth, "without a next level the fifth round's portal should hold")
+	_assert_eq(ProgressScript.leave_round_by_portal(ProgressScript.initial()), ProgressScript.initial(), "there is no portal out of the opening")
+	_assert_eq(ProgressScript.leave_round_by_portal(through), through, "there is no portal out of the passage")
+	var claimed := ProgressScript.normalize(_with(through, "passage_round", 9))
+	_assert_eq(claimed.get("passage_to"), ProgressScript.PHASE_DEMO_END, "a passage back into a round that does not exist should lead on instead")
+	_assert_eq(ProgressScript.passage_round(claimed), 0, "a broken round should not be kept")
 
 
 func test_the_passage_and_the_demo_end_survive_a_save() -> void:

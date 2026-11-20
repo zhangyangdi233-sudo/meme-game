@@ -44,9 +44,6 @@ func _new_game_scene() -> Node:
 	main.new_game()
 	main._skip_chapter_one()
 	main.set_view_state("npc_up")
-	main._phone_art_alpha = 0.0
-	if main._phone_down_backdrop_image != null:
-		main._phone_down_backdrop_image.visible = false
 	return main
 
 

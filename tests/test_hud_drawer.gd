@@ -66,49 +66,26 @@ func _test_edge_drawer_integration() -> void:
 	game_root._skip_chapter_one()
 	await process_frame
 
+	# The left HUD rail is retired (old version): it is still built, but it and its reveal strip stay hidden in
+	# play and the edge drawer never opens.
 	var rail := _find_node_by_name(game_root, "InternationalHUDRail") as PanelContainer
 	var reveal_zone := _find_node_by_name(game_root, "HUDRevealZone") as Control
-	var reveal_indicator := _find_node_by_name(game_root, "HUDRevealIndicator") as ColorRect
-	_assert_true(rail != null, "gameplay should keep the international HUD rail")
-	_assert_true(reveal_zone != null, "collapsed HUD should expose a left-edge reveal zone")
-	_assert_true(reveal_indicator != null, "the invisible hit zone should have a narrow visible edge cue")
-	_assert_true(game_root.has_method("_set_hud_drawer_expanded"), "HUD drawer should expose one state transition method")
-	_assert_true(game_root.has_method("_is_hud_drawer_expanded"), "HUD drawer state should be observable without reading animation internals")
+	_assert_true(rail != null, "gameplay should still build the retired HUD rail")
+	_assert_true(reveal_zone != null, "gameplay should still build its reveal zone")
 
 	if rail != null and reveal_zone != null:
-		_assert_true(not game_root._is_hud_drawer_expanded(), "HUD rail should start collapsed")
-		_assert_true(rail.get_global_rect().end.x <= 1.0, "collapsed HUD rail should sit fully outside the left edge")
-		_assert_true(reveal_zone.visible and reveal_zone.get_global_rect().size.x >= 44.0, "left-edge reveal target should remain touch friendly")
-		_assert_true(bool(reveal_zone.get_meta("hover_reveals", false)), "desktop hover should reveal the drawer")
-		_assert_true(bool(reveal_zone.get_meta("touch_reveals", false)), "touch should have a non-hover fallback")
-
-		game_root._set_hud_drawer_expanded(true, false)
-		_assert_true(game_root._is_hud_drawer_expanded(), "explicit expansion should update drawer state")
-		_assert_true(rail.get_global_rect().position.x >= -1.0, "expanded HUD should slide in from the left")
-		_assert_true(rail.get_global_rect().end.x >= 150.0, "expanded HUD should restore the full icon rail")
-
-		game_root._set_hud_drawer_expanded(false, false)
+		_assert_true(not rail.is_visible_in_tree(), "the retired HUD rail should stay hidden in play")
+		_assert_true(not reveal_zone.is_visible_in_tree(), "the retired rail's reveal strip should stay hidden in play")
+		_assert_true(not game_root._is_hud_drawer_expanded(), "the HUD drawer should stay collapsed")
 		reveal_zone.mouse_entered.emit()
-		_assert_true(game_root._is_hud_drawer_expanded(), "hovering the left-edge target should reveal the HUD")
-
-		reveal_zone.visible = false
-		rail.mouse_exited.emit()
-		game_root._update_hud_drawer_auto_close(1.0)
-		_assert_true(not game_root._is_hud_drawer_expanded(), "leaving both the rail and edge target should collapse the HUD after its delay")
-		reveal_zone.visible = true
-
-		game_root._set_hud_drawer_expanded(false, false)
+		_assert_true(not game_root._is_hud_drawer_expanded(), "hovering the left edge should not reveal the retired rail")
 		var touch := InputEventScreenTouch.new()
 		touch.pressed = true
 		touch.position = reveal_zone.get_global_rect().get_center()
 		reveal_zone.gui_input.emit(touch)
-		_assert_true(game_root._is_hud_drawer_expanded(), "tapping the edge target should reveal the HUD")
-
-		var outside_touch := InputEventScreenTouch.new()
-		outside_touch.pressed = true
-		outside_touch.position = Vector2(900.0, 450.0)
-		_assert_true(game_root._handle_hud_drawer_global_input(outside_touch), "a touch outside the pinned drawer should be consumed")
-		_assert_true(not game_root._is_hud_drawer_expanded(), "touching outside should collapse the pinned drawer")
+		_assert_true(not game_root._is_hud_drawer_expanded(), "tapping the left edge should not reveal the retired rail")
+		game_root._update_visibility()
+		_assert_true(not rail.is_visible_in_tree(), "a visibility pass should keep the retired rail hidden")
 
 	game_root.queue_free()
 	await process_frame

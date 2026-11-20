@@ -34,7 +34,7 @@ func _test_session_mode_hides_play_chrome_on_ending() -> void:
 	if game_root == null:
 		return
 
-	var toggle := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	var toggle := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	_assert_eq(game_root.session_mode(), "gameplay", "skipped prologue should be gameplay")
 	_assert_true(toggle != null and toggle.visible, "gameplay should show the phone view toggle")
 
@@ -44,7 +44,7 @@ func _test_session_mode_hides_play_chrome_on_ending() -> void:
 	_assert_eq(game_root.session_mode(), "ending", "unlocking the ending should set Session mode to ending")
 	var ending := Harness.find_node_by_name(game_root, "EndingScreen") as Control
 	_assert_true(ending != null and ending.visible, "ending Session mode should show ending chrome")
-	toggle = Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Button
+	toggle = Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Button
 	_assert_true(toggle != null, "ending chrome should hide play chrome, not destroy it")
 	if toggle != null:
 		_assert_true(not toggle.visible, "ending Session mode should hide the phone view toggle")

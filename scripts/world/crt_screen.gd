@@ -3,6 +3,8 @@ extends RefCounted
 ## The basement CRT's glass: one imported mesh surface the terminal display is shown on. It answers where the glass
 ## is, which way it faces, and where a ray meets it as a 0..1 UV (top-left origin), from the mesh's own triangles.
 ## The VHS look on the glass is its own setting.
+## What the glass shows: a signal covering it, else the terminal's display while the terminal has it, else what the room
+## idles it on (round five's recording); with nothing to idle on, the last display stays on the glass as it always did.
 
 const SHADER := preload("res://shaders/crt_terminal.gdshader")
 ## A ray that meets no glass.
@@ -12,6 +14,9 @@ var _mesh: MeshInstance3D
 var _triangles: Array[Dictionary] = []
 var _material: ShaderMaterial
 var _signal: StandardMaterial3D
+var _idle: Material
+var _displaying := false
+var _signalling := false
 
 
 ## Binds the glass; false when the mesh has no surface with UVs to show a display on.
@@ -54,11 +59,25 @@ func show_display(texture: Texture2D, vhs_enabled: bool) -> void:
 	if _material == null:
 		_material = ShaderMaterial.new()
 		_material.shader = SHADER
-	# A signal covering the glass stays until it is cleared; the display shows again then.
-	if _signal == null or _mesh.get_surface_override_material(0) != _signal:
-		_mesh.set_surface_override_material(0, _material)
 	_material.set_shader_parameter("content_texture", texture)
 	_material.set_shader_parameter("vhs_enabled", vhs_enabled)
+	_displaying = true
+	# A signal covering the glass stays until it is cleared; the display shows again then.
+	_refresh()
+
+
+## The terminal let the glass go: it shows what the room idles it on again, if the room has anything.
+func clear_display() -> void:
+	_displaying = false
+	_refresh()
+
+
+## What the glass shows while no display has it (round five's recording); null for nothing of the room's own.
+func set_idle_material(material: Material) -> void:
+	if material == _idle:
+		return
+	_idle = material
+	_refresh()
 
 
 ## Covers the glass with one flat colour, as a dead or failing signal (#114); `clear_signal` gives the display back.
@@ -67,11 +86,22 @@ func show_signal(color: Color) -> void:
 		_signal = StandardMaterial3D.new()
 		_signal.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_signal.albedo_color = color
-	_mesh.set_surface_override_material(0, _signal)
+	_signalling = true
+	_refresh()
 
 
 func clear_signal() -> void:
-	_mesh.set_surface_override_material(0, _material)
+	_signalling = false
+	_refresh()
+
+
+func _refresh() -> void:
+	var shown: Material = _material
+	if _signalling:
+		shown = _signal
+	elif not _displaying and _idle != null:
+		shown = _idle
+	_mesh.set_surface_override_material(0, shown)
 
 
 ## Where a world-space ray meets the glass, as a UV with its origin at the top left; `MISS` when it does not.

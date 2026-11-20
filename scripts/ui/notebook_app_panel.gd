@@ -108,6 +108,10 @@ func _paint() -> void:
 
 	_render_frame_tab(notebook_content)
 	_render_action_bar(notebook_page)
+	# The page words itself in the current language whoever asked for the repaint. The phone's host does it after its own
+	# render, but a repaint from a model change (a word put into the sentence) and the terminal's copy had nobody, and
+	# the post button fell back to its source wording.
+	_theme().localize_control_tree(notebook_page)
 
 
 func _render_sentence_header(notebook_page: VBoxContainer) -> void:
@@ -119,6 +123,21 @@ func _render_sentence_header(notebook_page: VBoxContainer) -> void:
 	var header_hint := _theme().label("从帖子拾取原词，再按语法位置组成手机世界会使用的句子。", 14, _theme().theme_color("accent")) as Label
 	header_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notebook_header.add_child(header_hint)
+	# The old notebook showed the sentence above its tray; round one's CRT lesson points at it again (planner,
+	# 2026-11-16: the tutorial is the old one), so the sentence being composed reads here, above the word canvas.
+	var sentence_bar := _theme().panel() as PanelContainer
+	sentence_bar.name = "NotebookSentenceBar"
+	notebook_header.add_child(sentence_bar)
+	var locale_code := _locale()
+	var polluted_units := SentenceWarningScript.polluted_units(_painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), locale_code)
+	var shown_units := PollutionPolicyScript.shown_units(_painted_units, polluted_units)
+	var sentence := _theme().label(MemeGameStateScript.sentence_text(shown_units, locale_code) if not _painted_units.is_empty() else "……(句子还空着)", 18, _theme().theme_color("ink")) as Label
+	sentence.name = "NotebookSentenceText"
+	sentence.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sentence.set_meta("skip_localization", not _painted_units.is_empty())
+	if shown_units != _painted_units:
+		_theme().set_font_role(sentence, "error")
+	sentence_bar.add_child(sentence)
 	var tab_rule := ColorRect.new()
 	tab_rule.name = "NotebookSentenceRule"
 	tab_rule.color = _theme().theme_color("accent")
@@ -204,7 +223,8 @@ func _render_action_bar(notebook_page: VBoxContainer) -> void:
 	action_bar.add_child(action_box)
 	var craft := Button.new()
 	craft.name = "NotebookCraftButton"
-	craft.text = "投稿这句话"
+	# The old notebook's word for its post button (planner, 2026-11-16: the old wording).
+	craft.text = "发布"
 	craft.custom_minimum_size.y = 56
 	craft.disabled = _painted_units.is_empty()
 	craft.pressed.connect(_on_craft_pressed)
@@ -252,8 +272,9 @@ func _locale() -> String:
 	return _current_locale_fn.call() if _current_locale_fn.is_valid() else "zh"
 
 
+## Only a post in the language shown now, so the slip never shows an earlier language's text (planner, 2026-11-20).
 func _last_post() -> Dictionary:
-	return PostSlipScript.latest(_read_list(PropertyKeysScript.PUBLISHED_MEMES), _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS))
+	return PostSlipScript.latest(_read_list(PropertyKeysScript.PUBLISHED_MEMES), _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), _locale())
 
 
 func _read_list(property_name: String) -> Array:

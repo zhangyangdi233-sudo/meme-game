@@ -12,6 +12,7 @@ extends Node
 
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
+const CrtLessonScript = preload("res://scripts/game/crt_lesson.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const MemeGameStateScript = preload("res://scripts/meme_game_state.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -19,7 +20,9 @@ const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const SocialPublishPanelScript = preload("res://scripts/ui/social_publish_panel.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-const SOCIAL_FEED_WHEEL_STEP := 2
+## Pixels the feed moves per wheel notch (the handler takes the event, so this is the whole step); up from 2 at the
+## planner's 2026-11-20 request that the wheel scroll a bit faster. A wheel that sends finer steps moves by its share.
+const SOCIAL_FEED_WHEEL_STEP := 12
 const SCREENS := ["home", "publish", "profile"]
 const DEFAULT_SCREEN := "home"
 const DEFAULT_CHANNEL := "discover"
@@ -52,6 +55,7 @@ var _screen := DEFAULT_SCREEN
 var _channel := DEFAULT_CHANNEL
 var _rendered := false
 var _windowed := true
+var _closable := true
 var _app_shown := false
 var _followed: Array = []
 var _liked: Array = []
@@ -63,6 +67,9 @@ var _painted_liked: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
 var _painted_published: Array = []
+## Round one's CRT lesson's words and the ones of them still to pick, while it marks the open post (empty otherwise).
+var _lesson_teaching: Array = []
+var _lesson_lit: Array = []
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
 	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
@@ -78,9 +85,11 @@ func _init() -> void:
 	add_child(_publish)
 
 
-## `windowed` is false where the feed is not a phone window: its handles are not dragged and it has no close button.
-func mount(parent: Control, windowed: bool = true) -> void:
+## `windowed` is false where the feed is not a floating window: its handles are not dragged and it has no close button.
+## `closable` keeps the close button anyway: inside the docked phone the feed is a page that closes back to the home.
+func mount(parent: Control, windowed: bool = true, closable: bool = false) -> void:
 	_windowed = windowed
+	_closable = windowed or closable
 	_resolve_source()
 	_build_social_app_window(parent)
 	_build_social_detail_window(parent)
@@ -106,10 +115,39 @@ func is_detail_open() -> bool:
 	return _detail_post_index != NO_POST
 
 
+## The open post's index, or `NO_POST`.
+func detail_post_index() -> int:
+	return _detail_post_index
+
+
+## The screen and the channel this feed shows.
+func current_screen() -> String:
+	return _screen
+
+
+func current_channel() -> String:
+	return _channel
+
+
+## Round one's CRT lesson marks the open post's words its own way while it runs (`CrtLesson.lesson_bbcode`): `lit`
+## are the words still to pick, the rest of `teaching` dimmed, everything else greyed and inert. Empty `teaching` gives
+## the usual marking back. Only the terminal's feed is told, so the phone's stays unrestricted.
+func set_lesson_marking(teaching: Array, lit: Array) -> void:
+	if teaching == _lesson_teaching and lit == _lesson_lit:
+		return
+	_lesson_teaching = teaching.duplicate()
+	_lesson_lit = lit.duplicate()
+	if _rendered and is_detail_open():
+		render_companion()
+		_theme_window(_detail_window)
+
+
 ## Opens one post beside the feed and tells the host which one.
 func open_post(post_index: int) -> void:
 	_open_detail(post_index)
 	render_companion()
+	# Every repaint words itself in the current language; the terminal's copy has no host to do it afterwards.
+	_theme_window(_detail_window)
 	GameEventBus.raise(UiIntentsScript.SOCIAL_CARD_CLICKED, {UiIntentsScript.KEY_POST_INDEX: post_index})
 
 
@@ -279,6 +317,7 @@ func render_app() -> void:
 		drag_grip.custom_minimum_size = Vector2(36, 3)
 		drag_grip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		status_bar.add_child(drag_grip)
+	if _closable:
 		var close_social := Button.new()
 		close_social.name = "SocialAppInlineCloseButton"
 		close_social.text = "X"
@@ -455,7 +494,6 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 
 	var feed_scroll := ScrollContainer.new()
 	feed_scroll.name = "SocialFeedScroll"
-	feed_scroll.set_meta("slow_scroll_step", SOCIAL_FEED_WHEEL_STEP)
 	feed_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	feed_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	feed_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
@@ -735,7 +773,9 @@ func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) 
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			direction = -1
 		if direction != 0:
-			_scroll_feed(feed_scroll, direction * SOCIAL_FEED_WHEEL_STEP)
+			var factor := (event as InputEventMouseButton).factor
+			var step := maxi(1, int(round(SOCIAL_FEED_WHEEL_STEP * (factor if factor > 0.0 else 1.0))))
+			_scroll_feed(feed_scroll, direction * step)
 			feed_scroll.accept_event()
 	elif event is InputEventPanGesture:
 		var vertical_delta := int(round((event as InputEventPanGesture).delta.y * float(SOCIAL_FEED_WHEEL_STEP)))
@@ -888,6 +928,7 @@ func _on_detail_close_pressed() -> void:
 		_repaint_page()
 	else:
 		render_companion()
+		_theme_window(_detail_window)
 	GameEventBus.raise(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED)
 
 
@@ -909,6 +950,8 @@ func _repaint_page() -> bool:
 		return false
 	render_app()
 	render_companion()
+	_theme_window(_app_window)
+	_theme_window(_detail_window)
 	return true
 
 
@@ -981,7 +1024,10 @@ func _make_pickup_rich_text(node_name: String, source_text: String, post_id: Str
 	rich.add_theme_color_override("default_color", _theme().theme_color("surface"))
 	rich.set_meta("on_dark", true)
 	var bbcode := source_text
-	if _source.language_material() != null:
+	if not _lesson_teaching.is_empty():
+		var lesson_locale := _source.current_locale()
+		bbcode = CrtLessonScript.lesson_bbcode(source_text, lesson_locale, _lesson_lit, MemeGameStateScript.char_units_for_locale(_held_chars, lesson_locale), _lesson_teaching)
+	elif _source.language_material() != null:
 		var locale := _source.current_locale()
 		bbcode = LanguageMaterialScript.pickup_bbcode(
 			source_text,
@@ -1046,7 +1092,7 @@ func _repaint_if_stale() -> void:
 
 
 func _theme_window(window: Control) -> void:
-	if window == null or not is_instance_valid(window):
+	if window == null or not is_instance_valid(window) or _theme() == null:
 		return
 	_theme().apply_ui_theme(window)
 	_theme().localize_control_tree(window)

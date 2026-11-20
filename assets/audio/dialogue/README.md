@@ -10,4 +10,6 @@
 
 錄音身分紀錄：https://github.com/thorstenMueller/Thorsten-Voice/blob/6efb25310a303af541d83047627c0f4d79aaad7c/README.md
 
-`voice_sources.json` 列到的 `D_whisper_fragments/`（耳語短音）與 `03_muted_narrator/`（企劃選的旁白單音，專案自行合成）目前遊戲沒有用到，只留在 `main` 的歷史裡（commit `a5ad585`），要替旁白加聲音時再取回。
+`03_muted_narrator/`（企劃選的旁白單音 `blip_01.wav`–`blip_06.wav`，專案自行合成、不含第三方錄音）已從舊版複製回來，開場旁白逐字播放（`scripts/audio/narration_blips.gd`，執行時用 `AudioStreamWAV.load_from_file` 載入，不經匯入）。原因：負責人比對舊版後發現 demo 少了旁白聲。`voice_sources.json` 裡 `03_muted_narrator/` 的路徑與 SHA-256 即這六個檔案。
+
+`voice_sources.json` 列到的 `D_whisper_fragments/`（耳語短音）目前遊戲沒有用到，只留在 `main` 的歷史裡（commit `a5ad585`）。

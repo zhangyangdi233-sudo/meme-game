@@ -69,8 +69,8 @@ func _test_a_new_run_opens_on_black_water_and_the_narration(game_root) -> void:
 
 
 func _test_the_narration_locks_movement_look_and_the_phone(game_root) -> void:
-	var toggle := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Control
-	_assert_true(toggle == null or not toggle.visible, "the narration should hide the phone toggle")
+	var toggle := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Control
+	_assert_true(toggle == null or not toggle.is_visible_in_tree(), "the narration should hide the phone toggle")
 	game_root.set_view_state("phone_down")
 	_assert_eq(str(game_root.game.view_state), "npc_up", "the narration should refuse to raise the phone")
 	_push_key(game_root, KEY_TAB)
@@ -208,8 +208,8 @@ func _test_the_door_waits_for_the_knock_then_opens_into_the_basement(game_root) 
 	_assert_true(fade == null or fade.color.a < 0.05, "the black should lift in the basement")
 	_assert_eq(int(game_root.game.chapter_one_progress.get("round")), 1, "the basement should be round one")
 	# The phone lies on the basement's table: no edge tab until it is picked up.
-	var toggle := Harness.find_node_by_name(game_root, "PhoneViewToggleButton") as Control
-	_assert_true(toggle == null or not toggle.visible, "the basement should show no phone toggle before the phone is picked up")
+	var toggle := Harness.find_node_by_name(game_root, "PhoneEdgeTab") as Control
+	_assert_true(toggle == null or not toggle.is_visible_in_tree(), "the basement should show no phone toggle before the phone is picked up")
 	_assert_true(game_root._reality_scene_adapter.chapter_phone_position() != Vector3.ZERO, "the phone should lie on round one's table")
 
 

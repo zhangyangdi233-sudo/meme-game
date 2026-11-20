@@ -40,7 +40,7 @@ func test_opening_narration_in_every_language() -> void:
 	_assert_eq(str(CatalogScript.opening_lines("zh")[0]), "你好", "zh opening should start with the manuscript's first line")
 	_assert_eq(str(CatalogScript.opening_lines("ja")[ChapterOneProgressScript.KNOCK_LINE_INDEX]), "君の潜在意識は、もう準備ができたみたいだね。", "ja knock line should follow the manuscript")
 	_assert_eq(str(CatalogScript.opening_lines("en")[0]), "Hello.", "en opening should have its own draft")
-	_assert_eq(str(CatalogScript.opening_lines("en")[ChapterOneProgressScript.KNOCK_LINE_INDEX]), "Looks like your subconscious is ready.", "en knock line should stay on the manuscript's line")
+	_assert_eq(str(CatalogScript.opening_lines("en")[ChapterOneProgressScript.KNOCK_LINE_INDEX]), "It seems your subconscious is ready.", "en knock line should stay on the manuscript's line, in the old version's wording (planner, 2026-11-16)")
 	_assert_eq(CatalogScript.opening_knock_line_index(), ChapterOneProgressScript.KNOCK_LINE_INDEX, "the catalog's knock cue should sit on the progress module's knock line")
 	_assert_true(not CatalogScript.load_catalog().has("prologue"), "the old prologue should leave the catalog")
 

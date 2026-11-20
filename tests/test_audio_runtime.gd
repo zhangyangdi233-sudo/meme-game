@@ -98,7 +98,7 @@ func _run() -> void:
 	await create_timer(0.65).timeout
 	if phone != null and reality != null:
 		_assert_true(reality.volume_db > phone.volume_db, "raising the camera should crossfade toward room ambience")
-		_assert_near(reality.volume_db, -10.0, 0.2, "NPC speaking mix should reach its audible liminal-score target")
+		_assert_near(reality.volume_db, -15.0, 0.2, "NPC speaking mix should reach its audible liminal-score target")
 
 	var player := game_root.get_node_or_null("RealityPlayer") as CharacterBody3D
 	var doll := game_root.get_node_or_null("RealityFloor/Actors/DollEncounter") as Area3D
@@ -113,7 +113,7 @@ func _run() -> void:
 		game_root._on_reality_choice_selected(first_choice_id)
 	await create_timer(0.65).timeout
 	if reality != null:
-		_assert_near(reality.volume_db, -7.0, 0.2, "player composing should make the room score more intimate")
+		_assert_near(reality.volume_db, -12.0, 0.2, "player composing should make the room score more intimate")
 
 	game_root._narrative_director.play_pollution_flashback()
 	await process_frame

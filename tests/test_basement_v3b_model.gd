@@ -122,10 +122,11 @@ func _test_the_sealed_door_is_the_models_taped_door() -> void:
 			var hit := space.intersect_ray(query)
 			_assert_true(not hit.is_empty() and (hit["position"] as Vector3).x > -1.95, "the taped door should hold the player out at %.1f m in round %d: %s" % [height, round_number, hit])
 		if round_number != 1:
-			var npc: Vector3 = adapter.chapter_npc_position()
-			adapter.player.position = Vector3(npc.x + 0.35, 0.05, npc.z + 0.5)
+			var door: Vector3 = ChapterOneStage.SEALED_DOOR_ANCHOR
+			adapter.player.position = Vector3(door.x + 0.35, 0.05, door.z + 0.5)
 			adapter.refresh_nearby_actor(_deps(round_number))
-			_assert_eq(str(adapter.nearby_outcome().get("action")), "converse", "round %d's door should still let the player talk through it" % round_number)
+			# The demo has no NPC (planner, 2026-11-16); round four's door answers only after its bang (2026-11-20).
+			_assert_true(str(adapter.nearby_outcome().get("action", "")) != "converse", "round %d's door should offer no conversation before any bang" % round_number)
 		await _free(adapter)
 
 
@@ -194,7 +195,8 @@ func _deps(round_number: int) -> Dictionary:
 		"chapter_one_progress": progress,
 		"view_state": "npc_up",
 		"room_state": RoomRulesScript.world_state(room, {}, round_number),
-		"basement_npc_stands": RoomRulesScript.stands_npc(room),
+		"basement_npc_stands": RoomRulesScript.stands_npc(room) or RoomRulesScript.door_npc(room),
+		"room_events": RoomContentScript.events(round_number),
 		"phone_owned": round_number > 1,
 	}
 

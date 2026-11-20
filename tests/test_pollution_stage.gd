@@ -92,7 +92,7 @@ func _test_corrupt_sentence_reality() -> void:
 func _test_vhs_fields() -> void:
 	_assert_float_eq(_stage(0)["vhs_pollution"], 0.0, "vhs pollution ratio should start at zero")
 	_assert_float_eq(_stage(100)["vhs_pollution"], 1.0, "vhs pollution ratio should cap at one")
-	_assert_float_eq(_stage(60)["vhs_intensity"], 0.58 + minf(0.22, 60.0 * 0.0022), "vhs intensity should follow the continuous curve")
+	_assert_float_eq(_stage(60)["vhs_intensity"], 0.44 + minf(0.16, 60.0 * 0.0016), "vhs intensity should follow the continuous curve")
 
 
 func _stage(pollution: int, day: int = 0) -> Dictionary:

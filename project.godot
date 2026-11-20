@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Babel Meme Game"
-config/description="A standalone Chinese prototype about meme pollution, Babel, and language collapse."
+config/name="Aphasia"
+config/description="A psychological-horror game about losing language."
 config/version="0.1.0"
 run/main_scene="res://scenes/babel_meme_game.tscn"
 config/features=PackedStringArray("4.6")

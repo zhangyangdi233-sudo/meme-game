@@ -176,26 +176,27 @@ func _test_phone_popup_follows_the_phone_model() -> void:
 	if game_root == null:
 		return
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	var open: PropertyModel = manager.model(PropertyKeysScript.PHONE_OPEN)
+	# The docked phone watches whether it is up; it slides past the right edge instead of hiding.
+	var view: PropertyModel = manager.model(PropertyKeysScript.VIEW_STATE)
+	var dock: PhoneDockPanel = game_root._phone_dock
 	var popup := Harness.find_node_by_name(game_root, "PhonePopup") as Control
-	_assert_true(popup != null and popup.visible, "a new run should show the phone popup")
-	_assert_eq(open.changed.get_connections().size(), 1, "the shown phone should listen to the phone model once")
+	_assert_true(popup != null and popup.visible, "a new run should show the docked phone")
+	_assert_eq(_view_listeners(view, dock), 1, "the shown phone should listen to the view model once")
 
-	open.write(false)
-	# The phone slides out before it hides.
-	game_root._phone_launcher_panel._process(1.0)
-	_assert_true(popup != null and not popup.visible, "writing the phone model closed should hide the popup without a refresh")
-	open.write(true)
-	_assert_true(popup != null and popup.visible, "writing the phone model open should show the popup without a refresh")
+	view.write("npc_up")
+	await create_timer(0.6).timeout
+	_assert_true(dock.slide_fraction() == 0.0 and popup.position.x >= Vector2(root.size).x, "writing the view model down should slide the phone away without a refresh")
+	view.write("phone_down")
+	await create_timer(0.6).timeout
+	_assert_true(dock.slide_fraction() == 1.0 and popup.get_global_rect().end.x <= Vector2(root.size).x, "writing the view model up should slide the phone in without a refresh")
 
 	game_root.set_view_state("npc_up")
-	await process_frame
-	game_root._phone_launcher_panel._process(1.0)
-	_assert_true(popup != null and not popup.visible, "putting the phone down should hide the popup")
-	_assert_eq(open.changed.get_connections().size(), 1, "putting the phone down should keep one registration while the play chrome is shown")
+	await create_timer(0.6).timeout
+	_assert_true(not dock.is_open() and popup.position.x >= Vector2(root.size).x, "putting the phone down should slide it away")
+	_assert_eq(_view_listeners(view, dock), 1, "putting the phone down should keep one registration while the play chrome is shown")
 	game_root.set_view_state("phone_down")
-	await process_frame
-	_assert_true(popup != null and popup.visible, "picking the phone up should show the popup")
+	await create_timer(0.6).timeout
+	_assert_true(dock.is_open() and popup.get_global_rect().end.x <= Vector2(root.size).x, "picking the phone up should bring it back")
 
 	game_root.queue_free()
 	await process_frame
@@ -301,6 +302,15 @@ func _test_a_new_run_resets_the_social_and_notebook_view() -> void:
 
 	game_root.queue_free()
 	await process_frame
+
+
+## How many of the model's listeners belong to the docked phone (the audio and other watchers may listen too).
+func _view_listeners(model: PropertyModel, dock: Object) -> int:
+	var count := 0
+	for connection in model.changed.get_connections():
+		if (connection["callable"] as Callable).get_object() == dock:
+			count += 1
+	return count
 
 
 func _label_colors(node: Node) -> Dictionary:

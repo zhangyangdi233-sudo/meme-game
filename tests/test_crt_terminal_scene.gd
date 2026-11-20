@@ -7,6 +7,7 @@ const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
+const PickupCharPoolScript = preload("res://scripts/narrative/pickup_char_pool.gd")
 const TEST_SAVE_PATH := "user://test_crt_terminal_scene_save.dat"
 const TEST_PREFERENCES_PATH := "user://test_crt_terminal_scene_preferences.cfg"
 
@@ -79,6 +80,7 @@ func _test_f_at_the_crt_enters_the_screen_and_tab_returns_the_view(game_root) ->
 	_push_key(game_root, KEY_F)
 	await process_frame
 	_assert_eq(str(adapter.interaction_outcome().get("kind")), "terminal", "F at the CRT should enter its screen")
+	_assert_true(not game_root._vhs_overlay.is_lens_bowed(), "the camera's lens should not bow the picture while the pointer is free on the screen")
 	var display := Harness.find_node_by_name(game_root, "CrtTerminalDisplay") as SubViewport
 	_assert_true(display != null and display.render_target_update_mode == SubViewport.UPDATE_ALWAYS, "the terminal's display should be live")
 	var glass := _glass_material(game_root)
@@ -90,6 +92,7 @@ func _test_f_at_the_crt_enters_the_screen_and_tab_returns_the_view(game_root) ->
 	_push_key(game_root, KEY_TAB)
 	await process_frame
 	_assert_eq(str(adapter.interaction_outcome().get("kind")), "none", "Tab should leave the screen")
+	_assert_true(game_root._vhs_overlay.is_lens_bowed(), "the camera's lens should bow the picture again once the pointer is captured")
 	_assert_eq(str(game_root.game.view_state), "npc_up", "Tab in the screen should not raise the phone")
 	_assert_near(float(adapter.pose().get("yaw")), 25.0, 0.001, "leaving should give the yaw back")
 	_assert_near(float(adapter.pose().get("pitch")), -6.0, 0.001, "leaving should give the pitch back")
@@ -142,10 +145,20 @@ func _test_a_word_picked_on_either_side_is_one_notebook(game_root) -> void:
 
 func _test_a_post_from_the_terminal_records_the_round(game_root) -> void:
 	await _enter_terminal(game_root)
-	game_root.game.free_sentence_units = ["门"]
-	await process_frame
-	await process_frame
 	var display := Harness.find_node_by_name(game_root, "CrtTerminalDisplay")
+	# Round one's lesson (planner, 2026-11-16: the old tutorial) lets only its own sentence be posted from the notebook.
+	var lesson := ["门", "是", "出", "口"]
+	for unit: String in lesson:
+		for post_id in PickupCharPoolScript.get_post_ids():
+			if PickupCharPoolScript.is_unit_seeded_in_post(str(post_id), unit, "zh"):
+				game_root.game.pick_social_char(str(post_id), unit, "zh")
+				break
+	await process_frame
+	(Harness.find_node_by_name(display, "TerminalAppNotebook") as Button).pressed.emit()
+	await process_frame
+	game_root.game.free_sentence_units = lesson
+	await process_frame
+	await process_frame
 	var craft := Harness.find_node_by_name(display, "NotebookCraftButton") as Button
 	_assert_true(craft != null and not craft.disabled, "the terminal's notebook should offer the post")
 	var posts_before: int = game_root.game.published_memes.size()

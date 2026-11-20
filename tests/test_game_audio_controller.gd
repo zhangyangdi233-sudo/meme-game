@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_controller_out_of_the_tree_stops_listening()
 	_test_cover_watcher_appearance_plays_the_stinger()
 	_test_cover_watcher_vanishing_lets_the_stinger_finish()
+	_test_score_levels_are_the_old_versions_mix()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("game audio controller tests passed")
@@ -119,6 +120,25 @@ func _test_cover_watcher_vanishing_lets_the_stinger_finish() -> void:
 	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_APPEARED, {GameEventsScript.KEY_FLOOR: 2})
 	GameEventBusScript.raise_event(GameEventsScript.COVER_WATCHER_VANISHED, {GameEventsScript.KEY_FLOOR: 2})
 	_assert_true(controller.cover_watcher_stinger.playing, "a vanished watcher should let the stinger finish")
+	(mounted["host"] as Node).free()
+
+
+## The score's levels are back at the old version's mix (the demo had them 5 dB louder).
+func _test_score_levels_are_the_old_versions_mix() -> void:
+	var mounted := _mount()
+	var controller = mounted["controller"]
+	var base := {"game_started": true, "game": RefCounted.new(), "day_progress": {"tower_floor": 1}, "pollution_stage": {"music_db": -60.0}}
+	var cases := [
+		["phone raised", {"phone_shell": {"view_state": "phone_down"}}, -13.0, -31.0],
+		["world", {"phone_shell": {"view_state": "npc_up"}}, -47.0, -15.0],
+		["typing in a conversation", {"phone_shell": {"view_state": "npc_up"}, "reality_interaction_active": true, "reality_conversation": {"phase": "typing"}}, -47.0, -12.0],
+	]
+	for case: Array in cases:
+		var deps: Dictionary = base.duplicate()
+		deps.merge(case[1])
+		controller.sync_state(deps, true)
+		_assert_eq(controller.phone_ambience.volume_db, case[2], "the phone stem with %s" % case[0])
+		_assert_eq(controller.reality_ambience.volume_db, case[3], "the reality stem with %s" % case[0])
 	(mounted["host"] as Node).free()
 
 

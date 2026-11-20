@@ -9,6 +9,11 @@ const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progres
 const KNOCK_CUE := "knock"
 const CATALOG_PATH := "res://content/narrative_session.json"
 const SUPPORTED_LOCALES := ["zh", "ja", "en"]
+## The old version's CRT focus cinematic speaks seven lines (planner, 2026-11-16: the tutorial is the old one).
+const CRT_FOCUS_LINE_COUNT := 7
+## The steps of round one's CRT lesson that show a caption (`CrtLesson`); kept here so the catalog checks them without
+## loading the lesson.
+const CRT_LESSON_STEPS := ["post", "collect", "notebook", "compose", "publish"]
 
 
 static func load_catalog(path: String = CATALOG_PATH) -> Dictionary:
@@ -58,6 +63,25 @@ static func basement_guide_line(round_number: int, step: String, locale_code: St
 	if not steps is Dictionary or not (steps as Dictionary).has(step):
 		return ""
 	return _text(steps[step], locale_code)
+
+
+## Round one's CRT focus cinematic: the narrator's lines in reading order (`crt_focus`), the old version's seven.
+static func crt_focus_lines(locale_code: String = "zh", path: String = CATALOG_PATH) -> Array:
+	return _localized_line_list(load_catalog(path).get("crt_focus", []), locale_code)
+
+
+## The hint under each line of the CRT focus cinematic.
+static func crt_focus_hint(locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
+	return _text(load_catalog(path).get("crt_focus_hint", {}), locale_code)
+
+
+## The caption of one step of round one's CRT lesson (`CrtLesson.STEPS`), or empty when it has none. A `%s` in it
+## stands for the lesson's words.
+static func crt_lesson_caption(step: String, locale_code: String = "zh", path: String = CATALOG_PATH) -> String:
+	var captions: Variant = load_catalog(path).get("crt_lesson", {})
+	if not captions is Dictionary or not (captions as Dictionary).has(step):
+		return ""
+	return _text(captions[step], locale_code)
 
 
 ## The demo end screen's line.
@@ -149,6 +173,11 @@ static func validate(path: String = CATALOG_PATH) -> Dictionary:
 	_validate_line_list(catalog.get("opening", []), "opening", ChapterOneProgressScript.OPENING_LINE_COUNT, problems)
 	if opening_knock_line_index(path) != ChapterOneProgressScript.KNOCK_LINE_INDEX:
 		problems.append("opening knock cue should sit on line %d" % ChapterOneProgressScript.KNOCK_LINE_INDEX)
+	_validate_line_list(catalog.get("crt_focus", []), "crt focus", CRT_FOCUS_LINE_COUNT, problems)
+	_validate_localized_field(catalog.get("crt_focus_hint", {}), "crt focus hint", problems)
+	var lesson: Variant = catalog.get("crt_lesson", {})
+	for step in CRT_LESSON_STEPS:
+		_validate_localized_field((lesson as Dictionary).get(step) if lesson is Dictionary else null, "crt lesson %s" % step, problems)
 	_validate_line_list(catalog.get("epilogue", []), "epilogue", 5, problems)
 	var doctor_floors: Array[int] = []
 	for entry_data in catalog.get("doctor", []):

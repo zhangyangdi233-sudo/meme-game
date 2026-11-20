@@ -55,12 +55,10 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	var host := Control.new()
 	host.size = Vector2(1600, 900)
 	root.add_child(host)
-	var panel := PhoneLauncherPanel.new()
+	var panel: PhoneDockPanel = preload("res://scripts/ui/phone_dock_panel.gd").new()
 	root.add_child(panel)
 	RegistryScript.bind(ServiceKeysScript.UI_THEME, GameUiThemeScript.new())
-	panel.mount(host, {
-		"viewport_size": func() -> Vector2: return Vector2(1600, 900),
-	})
+	panel.mount(host)
 	panel.set_shown(true)
 	# A locked app's icon raises nothing; the social feed is unlocked here.
 	var manager: PropertyManager = RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
@@ -69,8 +67,12 @@ func _test_launcher_raises_icon_close_and_window_close() -> void:
 	_press(host, "PhoneAppIconSocial")
 	_assert_eq(_heard, [[UiIntentsScript.APP_ICON_PRESSED, {UiIntentsScript.KEY_APP_ID: "social"}]], "an app icon should raise its id")
 	_heard.clear()
-	_press(host, "PhoneHomeCloseButton")
-	_assert_eq(_heard, [[UiIntentsScript.PHONE_CLOSE_REQUESTED, {}]], "the phone close button should raise an empty intent")
+	# The docked phone has no close button: its home bar goes home and its edge tab slides it away.
+	_press(host, "PhoneHomeButton")
+	_assert_eq(_heard, [[UiIntentsScript.PHONE_HOME_REQUESTED, {}]], "the home bar should raise an empty intent")
+	_heard.clear()
+	_press(host, "PhoneEdgeTab")
+	_assert_eq(_heard, [[UiIntentsScript.PHONE_TOGGLE_REQUESTED, {}]], "the edge tab should raise an empty intent")
 	_heard.clear()
 	var close := panel.get_app_window("notebook").find_child("*CloseButton", true, false) as Button
 	_assert_true(close != null, "the notebook window should have a close button")

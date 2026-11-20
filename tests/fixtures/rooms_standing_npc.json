@@ -78,6 +78,7 @@
         {"kind": "rule", "rule": "door_exit"},
         {"kind": "rule", "rule": "stairs_exit"}
       ],
+      "gift": "enoch",
       "state": {"brightness": 1.0, "hum": 0.0, "objects": {"exit_lamp": false}},
       "events": []
     },

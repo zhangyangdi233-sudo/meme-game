@@ -21,6 +21,16 @@ const DialogDebugPanelScene = preload("res://scenes/ui/dialog_debug_panel.tscn")
 const SaveSlotScript = preload("res://scripts/game/save_slot.gd")
 const LanguageSelectionPanelScript = preload("res://scripts/ui/language_selection_panel.gd")
 const OpeningNarrationScene = preload("res://scenes/ui/opening_narration.tscn")
+## Camera3D's default cull mask: every render layer.
+const CAMERA_CULL_ALL := 0xFFFFF
+## The portal: how long the X-ray's frame is held before it stays in the room; the frame the X key looks through (the
+## hands bring their own); and how far the hands' frame may drift (its middle, or its size, as a share of the screen)
+## and still count as held still.
+const PORTAL_HOLD_SECONDS := 3.0
+const PORTAL_KEY_FRAME := Rect2(0.30, 0.22, 0.40, 0.52)
+const PORTAL_STEADY_DRIFT := 0.06
+## How long a look may be lost (the camera drops a packet, X slips) and still go on as the same look.
+const PORTAL_LOOK_GRACE := 0.35
 const DemoEndScene = preload("res://scenes/ui/demo_end.tscn")
 const ChapterOneProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const ChapterDebugPanelScene = preload("res://scenes/ui/chapter_debug_panel.tscn")
@@ -28,7 +38,7 @@ const TypingKeysScript = preload("res://scripts/game/typing_keys.gd")
 const ConversationReplyClockScript = preload("res://scripts/game/conversation_reply_clock.gd")
 const CameraConsentPanelScript = preload("res://scripts/ui/camera_consent_panel.gd")
 const PhoneCameraConnectionPanelScript = preload("res://scripts/ui/phone_camera_connection_panel.gd")
-const PhoneLauncherPanelScript = preload("res://scripts/ui/phone_launcher_panel.gd")
+const PhoneDockPanelScript = preload("res://scripts/ui/phone_dock_panel.gd")
 const RealityConversationPanelScript = preload("res://scripts/ui/reality_conversation_panel.gd")
 const NotebookAppPanelScript = preload("res://scripts/ui/notebook_app_panel.gd")
 const CrtTerminalPanelScript = preload("res://scripts/ui/crt_terminal_panel.gd")
@@ -66,14 +76,10 @@ const NarrativeFlowStateScript = preload("res://scripts/game/flow/narrative_flow
 const EndingFlowStateScript = preload("res://scripts/game/flow/ending_flow_state.gd")
 const ActionOutcomeScript = preload("res://scripts/game/action_outcome.gd")
 
-const PHONE_DOWN_BACKDROP_PATH := "res://assets/generated/world/phone_down_backdrop.png"
-## The narrow tab on the right edge that slides the phone in and out.
-const PHONE_EDGE_TAB_SIZE := Vector2(24.0, 112.0)
 const GUIDE_DOLL_CHARACTER_PATH := "res://assets/generated/characters/guide_doll.png"
 const NPC_CHARACTER_PATHS := NpcPortraits.PORTRAIT_PATHS
 const HUD_POLLUTION_ICON_PATH := "res://assets/generated/ui/hud_pollution_icon.png"
 const HUD_SETTINGS_ICON_PATH := "res://assets/generated/ui/hud_settings_icon.png"
-const PHONE_LAUNCHER_WALLPAPER_PATH := "res://assets/generated/1/IMG_4835.PNG"
 const REALITY_MOUSE_SENSITIVITY := 0.064
 const REALITY_TOUCH_SENSITIVITY := 0.082
 const REALITY_TRACKPAD_SENSITIVITY := 1.8
@@ -85,6 +91,9 @@ const UI_FONT_MAX_SIZE := 45
 const CINEMATIC_ASPECT_RATIO := 2.35
 const CINEMATIC_MAX_BAR_RATIO := 0.12
 const HUD_RAIL_WIDTH := 158.0
+## The left HUD rail (pollution icon, settings gear) is a first-generation leftover the old version always hid
+## once settings opened from Esc / F10; it stays built but hidden.
+const HUD_RAIL_RETIRED := true
 const HUD_RAIL_MAX_HEIGHT := 700.0
 const HUD_RAIL_FRAME_MARGIN := 10.0
 const HUD_DRAWER_EDGE_HIT_WIDTH := 44.0
@@ -110,7 +119,6 @@ const WORLD_HOTKEY_ACTIONS := [
 
 var game: MemeGameState = MemeGameStateScript.new()
 var _locale = GameLocaleScript.new()
-var _phone_sway_time := 0.0
 
 var _camera: Camera3D
 var _xray_tint: ColorRect
@@ -122,8 +130,6 @@ var _reality_touch_look_index := -1
 var _canvas: CanvasLayer
 var _ui_root: Control
 var _textures: RuntimeTextureCache = RuntimeTextureCacheScript.new()
-var _phone_down_backdrop_image: TextureRect
-var _hand_phone_image: TextureRect
 var _camera_session
 var _audio_controller
 var _narrative_director: NarrativeOverlayDirector
@@ -148,6 +154,8 @@ var _dialog_debug_panel: DialogDebugPanel
 var _ui_event_bus: GameEventBus
 var _language_selection_panel: LanguageSelectionPanel
 var _opening_narration_panel: OpeningNarrationPanel
+## The same narrator speaking round one's CRT focus cinematic, mounted while it plays.
+var _crt_focus_panel: OpeningNarrationPanel
 ## Black cover over the white door opening; it darkens as the door finishes and lifts in the next stage.
 var _door_fade: ColorRect
 ## Debug builds only: the chapter panel F9 shows and hides during a run.
@@ -170,14 +178,21 @@ var _notebook_intent_handler: NotebookIntentHandler = NotebookIntentHandlerScrip
 var _settings_intent_handler: SettingsIntentHandler = SettingsIntentHandlerScript.new()
 ## Asked in turn for every intent; the first that claims it handles it and the host presents the result (ADR 0007).
 var _intent_handlers: Array[IntentHandler] = [_social_intent_handler, _notebook_intent_handler, _settings_intent_handler]
-var _phone_launcher_panel
+## The found phone, docked at the right edge of the live world; its apps open inside its screen.
+var _phone_dock: PhoneDockPanelScript
 var _notebook_app_panel: NotebookAppPanel
 ## The basement CRT's screen; the adapter shows its display on the CRT's glass while the terminal is entered.
 var _crt_terminal_panel: CrtTerminalPanel
+## The portal's frame being held: for how long, which part of the screen, and whether a new look may begin (the look
+## that fixed a portal has been let go).
+var _portal_held := 0.0
+var _portal_frame := Rect2()
+var _portal_armed := true
+var _portal_lost := 0.0
 var _language_overlay: Control
+## The phone's edge tab; the play chrome counts as built while it exists.
 var _view_toggle_button: Button
 var _vhs_overlay: VhsOverlayScript
-var _phone_tab: Button
 var _app_window: PanelContainer
 var _app_title: Label
 var _app_body: VBoxContainer
@@ -185,8 +200,11 @@ var _app_windows: Dictionary = {}
 var _app_titles: Dictionary = {}
 var _app_bodies: Dictionary = {}
 var _reality_conversation_panel
-## The title-corner dialog debug panel shows only in debug builds.
+## Debug builds only: the F9 chapter debug panel and its round jumps.
 var _dialog_debug_enabled := OS.is_debug_build()
+## The title-corner dialog debug panel also needs `--dev-title` in the user args: the owner always runs the editor
+## binary (a debug build) and should see the title as players do.
+var _title_debug_enabled := OS.is_debug_build() and OS.get_cmdline_user_args().has("--dev-title")
 var _pickup_flight_layer: FlyToTargetLayer
 var _notebook_squash_tween: Tween
 var _ending_screen_panel
@@ -200,7 +218,6 @@ var _ending_screen_installed := false
 var _world_hotkeys_installed := false
 var _vhs_enabled := true
 var _camera_session_decided := false
-var _phone_art_alpha := 0.0
 var _save_path := SAVE_PATH
 var _session_world_data: Dictionary = {}
 
@@ -252,7 +269,6 @@ func _camera_session_deps() -> Dictionary:
 		"refresh_phone_connection_ui": _refresh_phone_camera_connection_ui,
 		"locale_translate": func(text: String) -> String: return _locale.translate(text),
 		"ui_root": _ui_root,
-		"phone_down_backdrop_image": _phone_down_backdrop_image,
 	}
 
 
@@ -346,6 +362,7 @@ func _process(delta: float) -> void:
 			_ensure_reality_floor_current()
 		_refresh_nearby_reality_actor()
 		_update_door_fade(delta)
+		_update_crt_focus_presentation()
 		_advance_linear_reply(delta)
 		_apply_responsive_layouts_if_needed()
 		if _edge_drawer != null:
@@ -468,8 +485,41 @@ func _handle_reality_trackpad_pan(event: InputEvent) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if _handle_chapter_debug_key(event):
 		return
+	if _handle_settings_key(event):
+		return
 	if _flow != null:
 		_flow.handle_input(event)
+
+
+## F10 toggles settings anywhere in a run and Escape closes it, as in the old version, so settings no longer hide
+## behind the HUD drawer's gear. An open Dialog keeps both: it takes every key before the host sees it.
+func _handle_settings_key(event: InputEvent) -> bool:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return false
+	var closing := key.keycode == KEY_ESCAPE and _model_is_on(PropertyKeysScript.SETTINGS_OPEN)
+	if key.keycode != KEY_F10 and not closing:
+		return false
+	if not session_mode() in ["prologue", "gameplay"]:
+		return false
+	_toggle_settings_window()
+	get_viewport().set_input_as_handled()
+	return true
+
+
+## Escape with nothing to leave opens settings (the old version's Esc), in the prologue and in the world alike.
+func _open_settings_from_escape(event: InputEvent) -> bool:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_ESCAPE:
+		return false
+	if _settings_history_panel != null:
+		_settings_history_panel.set_settings_open(true)
+	get_viewport().set_input_as_handled()
+	return true
+
+
+func handle_prologue_unhandled_input(event: InputEvent) -> void:
+	_open_settings_from_escape(event)
 
 
 ## F9 in a debug build shows or hides the chapter debug panel while a run is on.
@@ -489,8 +539,18 @@ func _handle_chapter_debug_key(event: InputEvent) -> bool:
 
 
 func handle_gameplay_unhandled_input(event: InputEvent) -> void:
+	# Open settings hold every world key and click (F, Tab, typing, a click on the CRT's glass): Escape and F10 were
+	# taken before this, and without the hold Tab could capture the mouse under the settings window.
+	if _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
+		return
 	if _terminal_is_open():
 		_handle_terminal_input(event)
+		return
+	# Round one's CRT focus cinematic takes control: no F, Tab, walking or looking; Escape still opens settings, and
+	# its narrator panel takes the clicks that read on.
+	if _crt_focus_playing():
+		if not _open_settings_from_escape(event) and (event is InputEventKey or event is InputEventMouse or event is InputEventScreenDrag):
+			get_viewport().set_input_as_handled()
 		return
 	if _conversation_takes_keys(event):
 		if event.pressed and _conversation_phase() == "typing" and TypingKeysScript.types_a_unit(event):
@@ -507,15 +567,18 @@ func handle_gameplay_unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_ESCAPE:
-			if _reality_interaction_is_active():
-				# The white door cannot be turned back once it is opening.
-				if not _reality_transition_playing():
-					_exit_reality_interaction()
+			# The white door cannot be turned back once it is opening.
+			if _reality_interaction_is_active() and not _reality_transition_playing():
+				_exit_reality_interaction()
 			else:
-				_set_reality_mouse_look(false)
+				# Nothing to leave: Escape opens settings (old version) instead of only releasing the mouse.
+				_open_settings_from_escape(event)
 			get_viewport().set_input_as_handled()
 			return
 	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up" or _reality_interaction_is_active():
+		return
+	# Open settings keep the cursor: a click beside the window must not capture the mouse under it.
+	if _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_set_reality_mouse_look(true)
@@ -560,7 +623,6 @@ func _continue_or_new_game() -> void:
 ## narration; any other run goes straight to the world.
 func _begin_game_session(session_state: MemeGameState, world_data: Dictionary) -> void:
 	_game_started = true
-	_phone_art_alpha = 1.0
 	if _camera_session != null:
 		_camera_session.second_layer_texture = null
 	game = session_state
@@ -619,7 +681,6 @@ func show_main_menu() -> void:
 	_game_started = false
 	if _settings_history_panel != null and is_instance_valid(_settings_history_panel):
 		_settings_history_panel.close_settings()
-	_phone_art_alpha = 0.0
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 		_reality_scene_adapter.clear_nearby_targets()
@@ -791,8 +852,6 @@ func set_view_state(value: String) -> void:
 		else:
 			_set_reality_mouse_look(false)
 			_write_feedback_text("你又低头看向手机。")
-			if _phone_launcher_panel != null:
-				_phone_launcher_panel.move_phone_to_front()
 		_refresh_phone_shell()
 		_update_world_for_phone_view()
 		_sync_audio_state(false)
@@ -806,6 +865,10 @@ func _toggle_view_state() -> void:
 
 
 func _capture_phone_layer_for_xray() -> bool:
+	# The docked phone lies over the live room: in chapter one a screenshot would only freeze the room, and the
+	# basement's X-ray looks at the live world, so only the old tower keeps the phone layer (as the old version did).
+	if game != null and ChapterOneProgressScript.phase_of(game.chapter_one_progress) != ChapterOneProgressScript.PHASE_TOWER:
+		return false
 	return _camera_session.capture_phone_layer_for_xray(_camera_session_deps()) if _camera_session != null else false
 
 
@@ -814,6 +877,10 @@ func _set_reality_mouse_look(enabled: bool) -> void:
 	if not enabled or str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
 		_reality_touch_look_index = -1
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if enabled else Input.MOUSE_MODE_VISIBLE)
+	# The camera filter's lens bows the picture only while the pointer is captured: under a free pointer the bow would
+	# show the terminal's words and the menus' buttons away from where a click lands.
+	if _vhs_overlay != null:
+		_vhs_overlay.set_lens_bowed(enabled)
 
 
 func _ensure_reality_scene_adapter() -> void:
@@ -1011,10 +1078,10 @@ func uninstall_title_screen() -> void:
 	_unmount_dialog_debug_panel()
 
 
-## Debug builds only: a title-corner panel that opens sample dialogs and simulates the save for START.
+## Debug builds run with `--dev-title` only: a title-corner panel that opens sample dialogs and simulates the save.
 func _mount_dialog_debug_panel() -> void:
 	_unmount_dialog_debug_panel()
-	if not _dialog_debug_enabled or _ui_root == null:
+	if not _title_debug_enabled or _ui_root == null:
 		return
 	var panel := DialogDebugPanelScene.instantiate() as DialogDebugPanel
 	panel.configure(_save_slot())
@@ -1106,9 +1173,11 @@ func _look_through_xray() -> void:
 	var held := _xray_key_held()
 	if _xray_tint != null:
 		_xray_tint.visible = held
-	var looking := held or _hand_frame_looking()
+	# The CRT focus cinematic shows nothing but the CRT, so the X-ray (the hands' frame too) does not look meanwhile.
+	var looking := (held or _hand_frame_looking()) and not _crt_focus_playing()
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.set_xray_looking(looking)
+	_update_portal(held, looking)
 	if game == null or not looking:
 		return
 	var hidden := game.basement_xray_objects()
@@ -1124,7 +1193,87 @@ func _xray_key_held() -> bool:
 
 
 func _hand_frame_looking() -> bool:
-	return _camera_session != null and _camera_session.hand_frame_active()
+	if _camera_session == null:
+		return false
+	if _camera_session.hand_frame_active():
+		return true
+	# In a basement round the frame needs no second layer: the portal looks through it. It looks where the X key
+	# would: with the phone up out of the way and nothing else holding the view.
+	return (
+		_in_basement_round() and _camera_session.hand_frame_tracked()
+		and str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _reality_interaction_is_active()
+	)
+
+
+func _in_basement_round() -> bool:
+	return game != null and ChapterOneProgressScript.phase_of(game.chapter_one_progress) == ChapterOneProgressScript.PHASE_BASEMENT
+
+
+## The portal (planner's design, 2026-10-31, after Viewfinder; "hold X for three seconds", 2026-11-20). In a basement
+## round the X-ray's frame looks into the white door's passage: the hands' frame, or for the X key a frame in the middle
+## of the screen. Held for `PORTAL_HOLD_SECONDS` (the hands' frame: held still) it stays in the room, and a player who
+## walks into it has left the round for the passage. A run goes through once; after that a fixed frame is a flat print.
+## The look that fixed a portal must be let go before another can begin.
+func _update_portal(key_held: bool, looking: bool) -> void:
+	if _reality_scene_adapter == null or game == null or _camera == null:
+		return
+	var in_basement := _in_basement_round()
+	if in_basement and not _reality_interaction_is_active() and _reality_scene_adapter.portal_holds_player():
+		_enter_portal()
+		return
+	# Open settings, a lost focus and a door or exit that plays hold the world: no frame is counted or fixed meanwhile.
+	if _model_is_on(PropertyKeysScript.SETTINGS_OPEN) or _focus_lost or _reality_transition_playing():
+		looking = false
+	if not looking or not in_basement:
+		# A look lost for a moment (a camera packet without the hands) goes on where it was, and does not let a new one
+		# begin over a portal just fixed.
+		_portal_lost += get_process_delta_time()
+		if in_basement and _portal_lost < PORTAL_LOOK_GRACE:
+			return
+		_portal_held = 0.0
+		_portal_armed = true
+		_reality_scene_adapter.portal_look_away()
+		return
+	_portal_lost = 0.0
+	if not _portal_armed:
+		return
+	var frame := PORTAL_KEY_FRAME
+	if not key_held and _camera_session != null:
+		frame = _camera_session.hand_frame_rect()
+	if frame.size.x <= 0.0 or frame.size.y <= 0.0:
+		return
+	# The hands' frame has to stay where it is; the key's frame is the same part of the screen all along.
+	var drift := maxf(frame.get_center().distance_to(_portal_frame.get_center()), (frame.size - _portal_frame.size).length())
+	if _portal_held <= 0.0 or drift > PORTAL_STEADY_DRIFT:
+		_portal_held = 0.0
+		_portal_frame = frame
+	# Round one is the lesson: its frame shows the passage, but stays in the room only once the round's first post is
+	# made, so the lesson cannot be walked round.
+	var may_fix := ChapterOneProgressScript.round_of(game.chapter_one_progress) > 1 or game.has_posted_this_round()
+	_portal_held = _portal_held + get_process_delta_time() if may_fix else 0.0
+	var screen := get_viewport().get_visible_rect().size
+	var aspect := screen.x / maxf(screen.y, 1.0)
+	if _portal_held >= PORTAL_HOLD_SECONDS:
+		_reality_scene_adapter.portal_fix(_camera.global_transform, frame, _camera.fov, aspect, game.portal_used)
+		_portal_held = 0.0
+		_portal_armed = false
+	else:
+		_reality_scene_adapter.portal_look_through(_camera.global_transform, frame, _camera.fov, aspect, _portal_held / PORTAL_HOLD_SECONDS)
+
+
+## The player walked into the fixed portal: the round is left for the white door's passage, and the view goes on from
+## where it was, carried into the passage's space, so stepping through shows no cut but the room dropping away.
+func _enter_portal() -> void:
+	var crossing: Dictionary = _reality_scene_adapter.portal_crossing()
+	if crossing.is_empty() or not game.leave_basement_round_by_portal():
+		return
+	_rebuild_reality_floor()
+	_reality_scene_adapter.restore_world_pose(crossing)
+	_camera.global_transform = (crossing["to_passage"] as Transform3D) * _camera.global_transform
+	_portal_held = 0.0
+	_portal_armed = false
+	_refresh_play_surfaces()
+	_sync_audio_state(false)
 
 
 ## The look of the X-ray held on the keyboard: the X-ray's green over the whole view. What it shows in the room (round
@@ -1169,6 +1318,8 @@ func _enter_terminal() -> bool:
 	if str(entered.get("kind", "none")) != "terminal":
 		return false
 	_set_reality_mouse_look(false)
+	# A portal fixed at the CRT covers its glass: the terminal takes it away.
+	_reality_scene_adapter.portal_clear()
 	_show_terminal_display()
 	_update_world_for_phone_view()
 	_refresh_reality_hud()
@@ -1180,7 +1331,8 @@ func _exit_terminal() -> void:
 	if not _terminal_is_open():
 		return
 	_reality_scene_adapter.apply_interaction({"action": "end"})
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
+	# Open settings keep the cursor (a language change in settings leaves the terminal); closing them captures it.
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
 		_set_reality_mouse_look(true)
 	_update_world_for_phone_view()
 	_refresh_reality_hud()
@@ -1314,7 +1466,8 @@ func _exit_reality_interaction(should_render: bool = true) -> void:
 	if _reality_scene_adapter != null:
 		_reality_scene_adapter.apply_interaction({"action": "end"})
 	var outcome: ActionOutcomeScript = game.end_typed_reality_conversation()
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up":
+	# Open settings keep the cursor; closing them captures it again in the world view.
+	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
 		_set_reality_mouse_look(true)
 	if not should_render:
 		return
@@ -1509,18 +1662,7 @@ func _build_ui() -> void:
 
 	_build_vhs_overlay()
 
-	_phone_down_backdrop_image = TextureRect.new()
-	_phone_down_backdrop_image.name = "PhoneDownBackdropImage"
-	_phone_down_backdrop_image.texture = _load_runtime_texture(PHONE_DOWN_BACKDROP_PATH)
-	_phone_down_backdrop_image.set_meta("asset_path", PHONE_DOWN_BACKDROP_PATH)
-	_phone_down_backdrop_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_phone_down_backdrop_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_phone_down_backdrop_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_phone_down_backdrop_image.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_phone_down_backdrop_image.set_meta("walking_bob_amplitude", 2.4)
-	_phone_down_backdrop_image.z_index = 1
-	_ui_root.add_child(_phone_down_backdrop_image)
-	_hand_phone_image = null
+	# No street-and-hand picture behind the phone any more: the phone is docked over the live world (old version).
 	_build_hand_xray_overlay()
 	_build_xray_tint()
 	_build_cinematic_bars()
@@ -1543,28 +1685,25 @@ func _build_ui() -> void:
 	_world_prompt.z_index = 10
 	_ui_root.add_child(_world_prompt)
 
-	_phone_tab = null
-
+	# One phone at the right edge; its apps open inside its screen, one at a time, as in the old version.
+	_ensure_phone_dock()
+	_phone_dock.mount(_ui_root)
 	_ensure_social_feed_panel()
-	_social_feed_panel.mount(_ui_root)
-	_ensure_phone_launcher_panel()
-	_phone_launcher_panel.mount(_ui_root, _phone_launcher_mount_deps())
+	# Inside the phone the feed is a page: not dragged, but its close still goes back to the home.
+	_social_feed_panel.mount(_phone_dock.get_screen(), false, true)
+	_phone_dock.add_page("social", _social_feed_panel.get_app_window())
+	_phone_dock.add_overlay(_social_feed_panel.get_detail_window())
 	_app_windows["social"] = _social_feed_panel.get_app_window()
 	_app_titles["social"] = _social_feed_panel.get_app_title() as Label
 	_app_bodies["social"] = _social_feed_panel.get_app_body() as VBoxContainer
-	_app_windows["notebook"] = _phone_launcher_panel.get_app_window("notebook")
-	_app_titles["notebook"] = _phone_launcher_panel.get_app_title("notebook")
-	_app_bodies["notebook"] = _phone_launcher_panel.get_app_body("notebook")
+	_app_windows["notebook"] = _phone_dock.get_app_window("notebook")
+	_app_titles["notebook"] = _phone_dock.get_app_title("notebook")
+	_app_bodies["notebook"] = _phone_dock.get_app_body("notebook")
 	_ensure_notebook_app_panel()
 	_ensure_crt_terminal_panel()
 
-	# The tab sticking out of the right edge once the phone is owned: it slides the phone in and out like Tab.
-	_view_toggle_button = Button.new()
-	_view_toggle_button.name = "PhoneViewToggleButton"
-	_view_toggle_button.custom_minimum_size = PHONE_EDGE_TAB_SIZE
-	_view_toggle_button.z_index = 42
-	_view_toggle_button.pressed.connect(_toggle_view_state)
-	_ui_root.add_child(_view_toggle_button)
+	# The tab sticking out of the right edge once the phone is owned is the phone's own; it raises its intent.
+	_view_toggle_button = _phone_dock.get_tab()
 
 	_ensure_reality_conversation_panel()
 	_reality_conversation_panel.mount(_ui_root, _reality_conversation_mount_deps())
@@ -1599,7 +1738,49 @@ func _reading_opening_narration() -> bool:
 func _phone_locked() -> bool:
 	if game != null and not game.phone_owned:
 		return true
-	return _reading_opening_narration() or _reality_transition_playing() or _terminal_is_open()
+	return _reading_opening_narration() or _reality_transition_playing() or _terminal_is_open() or _crt_focus_playing()
+
+
+## Round one's CRT focus cinematic plays (a Room event the adapter reports as the `crt_focus` interaction).
+func _crt_focus_playing() -> bool:
+	if _reality_scene_adapter == null:
+		return false
+	return str(_reality_scene_adapter.interaction_outcome().get("kind", "none")) == "crt_focus"
+
+
+## A click on the cinematic's shown line reads on; open settings hold it.
+func _advance_crt_focus() -> void:
+	if not _crt_focus_playing() or _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
+		return
+	_reality_scene_adapter.apply_interaction({"action": "advance_crt_focus"})
+
+
+## While the cinematic plays its narrator shows the line the adapter reports, under the rest of the in-run UI so
+## settings stay clickable, and the mouse is free for its clicks; once the view has turned back the panel goes and the
+## look is the player's again.
+func _update_crt_focus_presentation() -> void:
+	if _crt_focus_playing():
+		if _crt_focus_panel == null or not is_instance_valid(_crt_focus_panel):
+			if _ui_root == null or not is_instance_valid(_ui_root):
+				return
+			_crt_focus_panel = OpeningNarrationScene.instantiate() as OpeningNarrationPanel
+			_crt_focus_panel.name = "CrtFocusNarration"
+			_crt_focus_panel.configure_crt_focus()
+			_ui_root.add_child(_crt_focus_panel)
+			_ui_root.move_child(_crt_focus_panel, 0)
+			_set_reality_mouse_look(false)
+			_refresh_play_surfaces()
+		_crt_focus_panel.show_crt_focus_line(int(_reality_scene_adapter.interaction_outcome().get("line", -1)))
+		return
+	if _crt_focus_panel == null:
+		return
+	if is_instance_valid(_crt_focus_panel):
+		_crt_focus_panel.get_parent().remove_child(_crt_focus_panel)
+		_crt_focus_panel.queue_free()
+	_crt_focus_panel = null
+	if _in_world_view() and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
+		_set_reality_mouse_look(true)
+	_refresh_play_surfaces()
 
 
 ## The white door opening, or the player leaving a basement round by an exit: neither can be turned back.
@@ -1838,7 +2019,8 @@ func _ensure_edge_drawer() -> void:
 
 func _sync_edge_drawer_enabled() -> void:
 	if _edge_drawer != null:
-		_edge_drawer.enabled = _world_hotkeys_installed
+		# The retired HUD rail is the drawer's only panel, so it never opens either.
+		_edge_drawer.enabled = _world_hotkeys_installed and not HUD_RAIL_RETIRED
 
 
 func _add_hud_metric(parent: VBoxContainer, label_text: String, value_name: String) -> Label:
@@ -1861,6 +2043,7 @@ func _build_vhs_overlay() -> void:
 	_vhs_overlay.name = "VHSOverlay"
 	_vhs_overlay.visible = _vhs_enabled
 	_vhs_overlay.z_index = 3
+	_vhs_overlay.set_lens_bowed(_reality_mouse_look_enabled)
 	_ui_root.add_child(_vhs_overlay)
 
 
@@ -2020,6 +2203,10 @@ func _ensure_ui_event_bus() -> void:
 
 
 func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
+	# Round one's CRT lesson refuses what would break its step when a click on the terminal raised it; the phone's own
+	# intents always pass (the old version's `tutorial_allows`).
+	if _crt_terminal_panel != null and is_instance_valid(_crt_terminal_panel) and not _crt_terminal_panel.allows_intent(intent_name, payload):
+		return
 	for handler in _intent_handlers:
 		if handler.handles(intent_name):
 			_configure_intent_handler(handler)
@@ -2043,6 +2230,8 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 				_on_language_selected(locale_code)
 		UiIntentsScript.OPENING_NARRATION_ADVANCED:
 			_advance_opening_narration()
+		UiIntentsScript.CRT_FOCUS_ADVANCED:
+			_advance_crt_focus()
 		UiIntentsScript.ENDING_LANGUAGE_SELECTED:
 			_on_ending_language_selected(str(payload.get(UiIntentsScript.KEY_CHOICE_ID, "")))
 		UiIntentsScript.RESTART_REQUESTED:
@@ -2051,6 +2240,10 @@ func _on_ui_intent(intent_name: String, payload: Dictionary) -> void:
 			_on_app_pressed(str(payload.get(UiIntentsScript.KEY_APP_ID, "")))
 		UiIntentsScript.PHONE_CLOSE_REQUESTED:
 			set_view_state("npc_up")
+		UiIntentsScript.PHONE_TOGGLE_REQUESTED:
+			_toggle_view_state()
+		UiIntentsScript.PHONE_HOME_REQUESTED:
+			_phone_go_home()
 		UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED:
 			_close_app_window(str(payload.get(UiIntentsScript.KEY_APP_ID, "")))
 		UiIntentsScript.CAMERA_CONSENT_RESOLVED:
@@ -2179,8 +2372,9 @@ func _ensure_language_material() -> void:
 ## Rebinds the presenter each use: the flight layer is built after the material.
 func _presenter() -> LanguagePresenter:
 	if _language_presenter == null:
+		# Its notebook-home request is left unanswered: inside the docked phone a picked-up word lands on the home bar
+		# and the feed stays in front, as on the old phone, instead of the notebook opening over it.
 		_language_presenter = LanguagePresenterScript.new()
-		_language_presenter.notebook_home_requested.connect(_ensure_notebook_window_home)
 	_language_presenter.configure(
 		_pickup_flight_layer,
 		_notebook_flight_target,
@@ -2191,36 +2385,12 @@ func _presenter() -> LanguagePresenter:
 	return _language_presenter
 
 
-func _ensure_phone_launcher_panel() -> void:
-	if _phone_launcher_panel != null and is_instance_valid(_phone_launcher_panel):
+func _ensure_phone_dock() -> void:
+	if _phone_dock != null and is_instance_valid(_phone_dock):
 		return
-	_phone_launcher_panel = PhoneLauncherPanelScript.new()
-	_phone_launcher_panel.name = "PhoneLauncherPanel"
-	add_child(_phone_launcher_panel)
-
-
-func _phone_launcher_mount_deps() -> Dictionary:
-	_ensure_window_manager()
-	return {
-		"load_texture": _load_runtime_texture,
-		"register_draggable": _make_draggable_window,
-		"viewport_size": _viewport_size,
-		"hud_safe_left": func() -> float:
-			var safe_left := 12.0
-			var hud_rail := _hud_rail()
-			if hud_rail != null:
-				safe_left = maxf(safe_left, hud_rail.offset_right + 10.0)
-			return safe_left,
-		"phone_popup_hud_safe_left": func() -> float:
-			var safe_left := 176.0
-			var hud_rail := _hud_rail()
-			if hud_rail != null:
-				safe_left = hud_rail.offset_right + 18.0
-			return safe_left,
-		"notebook_window_left": func() -> float: return 188.0 if _hud_rail() != null else 44.0,
-		"launcher_wallpaper_path": PHONE_LAUNCHER_WALLPAPER_PATH,
-		"no_signal_icon_path": GameSocialFeedSourceScript.NO_SIGNAL_ICON_PATH,
-	}
+	_phone_dock = PhoneDockPanelScript.new()
+	_phone_dock.name = "PhoneDockPanel"
+	add_child(_phone_dock)
 
 
 func _ensure_reality_conversation_panel() -> void:
@@ -2374,9 +2544,23 @@ func _on_settings_open_changed(_open: Variant) -> void:
 	if not is_node_ready():
 		return
 	_hold_world_for_settings_or_focus()
+	# Settings need the cursor; closing gives the mouse look back only in the plain world view.
+	if _model_is_on(PropertyKeysScript.SETTINGS_OPEN):
+		_set_reality_mouse_look(false)
+	elif _in_world_view():
+		_set_reality_mouse_look(true)
 	if _apple_hud_panel != null:
 		_apple_hud_panel.hide_tooltip()
 	_update_visibility()
+
+
+## The player walks the world: phone down, no terminal, conversation or transition, the opening narration read.
+func _in_world_view() -> bool:
+	if not _game_started or game == null or session_mode() != "gameplay" or _reading_opening_narration():
+		return false
+	if str(_phone_shell_snapshot().get("view_state", "")) != "npc_up":
+		return false
+	return not _terminal_is_open() and not _reality_interaction_is_active() and not _reality_transition_playing()
 
 
 ## Open settings, or a window out of focus, holds the world: the knock, a door or exit transition, the room's events.
@@ -2409,7 +2593,8 @@ func _value_model(property_name: String) -> ValuePropertyModel:
 func _on_settings_language_selected(locale_code: String) -> void:
 	if locale_code.is_empty():
 		return
-	if _reality_interaction_is_active():
+	# The CRT focus cinematic cannot be left: ending it here did nothing but capture the mouse for its remaining lines.
+	if _reality_interaction_is_active() and not _crt_focus_playing():
 		_exit_reality_interaction(false)
 	if not _locale.select_language(locale_code):
 		return
@@ -2419,6 +2604,9 @@ func _on_settings_language_selected(locale_code: String) -> void:
 		game.free_sentence_clear()
 	_render()
 	_ui_theme_helper.refresh_localized_ui(_ui_root)
+	# The terminal's display is not under the interface root: it words itself, and draws its feed again in the new language.
+	if _crt_terminal_panel != null and is_instance_valid(_crt_terminal_panel):
+		_crt_terminal_panel.refresh_language()
 	_refresh_camera_source_option_labels()
 
 
@@ -2439,6 +2627,8 @@ func _present_vhs(value: bool) -> void:
 	_vhs_enabled = value
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = value
+	# Saved at once like the terminal VHS, so the switch survives a crash or a closed window.
+	_locale.save_preferences(_vhs_enabled, _camera_session.enabled, _camera_session.source)
 
 
 func _on_camera_access_toggled(value: bool) -> void:
@@ -2476,36 +2666,15 @@ func _apply_reality_layout() -> void:
 		_reality_conversation_panel.layout(hud_right)
 
 
-## The edge tab sits on the right edge, halfway down, at every window size.
-func _apply_view_toggle_layout() -> void:
-	if _view_toggle_button == null:
-		return
-	_view_toggle_button.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	# A wider label grows the tab into the screen, never past the edge.
-	_view_toggle_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_view_toggle_button.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_view_toggle_button.offset_left = -PHONE_EDGE_TAB_SIZE.x
-	_view_toggle_button.offset_right = 0.0
-	_view_toggle_button.offset_top = -PHONE_EDGE_TAB_SIZE.y * 0.5
-	_view_toggle_button.offset_bottom = PHONE_EDGE_TAB_SIZE.y * 0.5
-
-
 func _apply_responsive_layouts_if_needed(force: bool = false) -> void:
 	var viewport_size := _viewport_size()
 	if not force and viewport_size == _last_responsive_layout_size:
 		return
 	_last_responsive_layout_size = viewport_size
-	if _phone_launcher_panel != null and game != null:
-		_phone_launcher_panel.relayout()
-	if _social_feed_panel != null:
-		var social_safe_left := 12.0
-		var hud_rail := _hud_rail()
-		if hud_rail != null:
-			social_safe_left = maxf(social_safe_left, hud_rail.offset_right + 10.0)
-		_social_feed_panel.layout_detail(viewport_size, social_safe_left)
-		_social_feed_panel.layout_window(viewport_size, social_safe_left)
+	# The phone scales as a whole and lays its edge tab out itself; its pages fill its screen.
+	if _phone_dock != null and is_instance_valid(_phone_dock):
+		_phone_dock.relayout(viewport_size)
 	_apply_reality_layout()
-	_apply_view_toggle_layout()
 	_layout_settings_window()
 	if _cinematic_bars != null:
 		_cinematic_bars.relayout(_viewport_size())
@@ -2560,12 +2729,10 @@ func _refresh_play_surfaces() -> void:
 
 func _apply_phone_shell_theme() -> void:
 	var targets: Array[Node] = []
-	if _phone_launcher_panel != null:
-		targets.append(_phone_launcher_panel.get_phone_panel())
-		targets.append(_phone_launcher_panel.get_app_window("notebook"))
-	if _social_feed_panel != null:
-		targets.append(_social_feed_panel.get_app_window())
-		targets.append(_social_feed_panel.get_detail_window())
+	# The phone's body holds every app page and the open post; its edge tab is a sibling.
+	if _phone_dock != null and is_instance_valid(_phone_dock):
+		targets.append(_phone_dock.get_body())
+		targets.append(_phone_dock.get_tab())
 	for target in targets:
 		_theme_phone_window(target)
 
@@ -2615,7 +2782,8 @@ func _render_world_prompt() -> void:
 			"actor":
 				_world_prompt.text = "F  交谈 · %s" % str(nearby.get("actor_label", "对方"))
 			"door":
-				_world_prompt.text = "F  开门"
+				# Chapter one's prompts use the old version's wording (planner, 2026-11-16).
+				_world_prompt.text = "F  打开门"
 			"terminal":
 				_world_prompt.text = "F  使用终端"
 			"phone":
@@ -2623,9 +2791,12 @@ func _render_world_prompt() -> void:
 			"exit":
 				_world_prompt.text = "F  离开"
 			"switch":
-				_world_prompt.text = "F  开灯"
+				_world_prompt.text = "F  灯开关"
 			_:
 				_world_prompt.text = ""
+	# The prompt is worded in the current language each time it is set, not only when the whole interface is redrawn:
+	# walking up to something sets it between two redraws.
+	_ui_theme_helper.set_localized_property(_world_prompt, "text")
 
 
 func _render_app() -> void:
@@ -2827,11 +2998,15 @@ func _update_visibility() -> void:
 	if _settings_window != null:
 		_settings_window.visible = _model_is_on(PropertyKeysScript.SETTINGS_OPEN) and show_play
 	if _desk_log != null:
-		_desk_log.visible = show_play and in_phone
+		# It was the status line under the full-screen phone; with the phone docked over the live room the old
+		# version kept it hidden, so no line floats over the world.
+		_desk_log.visible = false
 	if _vhs_overlay != null:
 		_vhs_overlay.visible = _vhs_enabled and show_play
 	if _apple_hud_panel != null:
-		_apple_hud_panel.set_shown(show_play)
+		# The left HUD rail is retired (old version hid it once settings moved to Esc / F10): it and its reveal
+		# strip stay hidden in play. The class is kept.
+		_apple_hud_panel.set_shown(show_play and not HUD_RAIL_RETIRED)
 	_update_reality_hud_visibility()
 	_layout_hud_rail()
 
@@ -2858,7 +3033,7 @@ func _update_reality_hud_visibility() -> void:
 		var nearby_kind := str((hud.get("nearby", {}) as Dictionary).get("kind", "none"))
 		_world_prompt.visible = (not in_phone) and (not interaction_active) and nearby_kind != "none"
 	var terminal_open := _terminal_is_open()
-	var interaction_visible := (not in_phone) and interaction_active and not _reality_transition_playing() and not terminal_open
+	var interaction_visible := (not in_phone) and interaction_active and not _reality_transition_playing() and not terminal_open and not _crt_focus_playing()
 	if _reality_conversation_panel != null:
 		_reality_conversation_panel.set_shown(interaction_visible)
 	if _crt_terminal_panel != null:
@@ -2874,43 +3049,38 @@ func _phone_view_is_down() -> bool:
 
 
 func _update_phone_shell_visibility() -> void:
-	var in_phone := _phone_view_is_down()
-	var show_play := _session_shows_play_chrome()
-	# 手机始终留在画面上:打开 App 只是弹出对应窗口,不会让手机消失。
-	var show_phone_home := show_play and in_phone
-	if _phone_launcher_panel != null:
-		_phone_launcher_panel.set_shown(show_play and not _phone_locked())
-	if _phone_tab != null:
-		_phone_tab.visible = false
-	for app_id in _app_windows.keys():
-		var app_window := _app_windows[app_id] as Control
-		if app_window != null:
-			app_window.visible = show_phone_home and _app_window_is_open(app_id)
+	var dock_shown := _phone_dock_available()
+	if _phone_dock != null and is_instance_valid(_phone_dock):
+		_phone_dock.set_shown(dock_shown)
+	# The phone shows one app at a time inside its screen: the one in front. The dock shows and hides the pages; the
+	# apps watch their models only while they are that page.
+	var front := game.active_app_window if dock_shown and _phone_view_is_down() and game != null else ""
 	if _social_feed_panel != null:
-		_social_feed_panel.update_visibility(show_phone_home, _app_window_is_open("social"))
+		_social_feed_panel.update_visibility(front == "social", front == "social")
 	if _notebook_app_panel != null and is_instance_valid(_notebook_app_panel):
-		_notebook_app_panel.set_shown(show_phone_home and _app_window_is_open("notebook"))
-	if _phone_down_backdrop_image != null:
-		_phone_down_backdrop_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
-	if _hand_phone_image != null:
-		_hand_phone_image.visible = show_play and (in_phone or _phone_art_alpha > 0.03)
+		_notebook_app_panel.set_shown(front == "notebook")
+
+
+## The docked phone (body and edge tab) may show: the play chrome is up, the phone is owned and not locked, and
+## nothing stands in front of it (settings open, a conversation), as the old version hid it then.
+func _phone_dock_available() -> bool:
+	return (
+		_session_shows_play_chrome()
+		and not _phone_locked()
+		and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN)
+		and (_phone_view_is_down() or not _reality_interaction_is_active())
+	)
 
 
 func _update_world_for_phone_view() -> void:
-	var in_phone := _phone_view_is_down()
-	if _view_toggle_button != null:
-		_view_toggle_button.visible = (
-			_session_shows_play_chrome()
-			and not _model_is_on(PropertyKeysScript.SETTINGS_OPEN)
-			and not _phone_locked()
-			and (in_phone or not _reality_interaction_is_active())
-		)
-		_view_toggle_button.text = ">" if in_phone else "<"
-		_view_toggle_button.tooltip_text = "收起手机" if in_phone else "拿出手机"
+	# The room stays visible and lit behind the docked phone (the old version never hid the world for it).
 	if _reality_scene_adapter != null:
-		_reality_scene_adapter.set_street_shown(not in_phone)
+		_reality_scene_adapter.set_street_shown(true)
+	# The room's F prompt is no longer covered by a picture: it hides itself while the phone is up.
+	_update_reality_hud_visibility()
+	# The frame around the world does not change when the phone slides in, as in the old version.
 	if _cinematic_bars != null:
-		_cinematic_bars.set_bars_visible(_session_shows_play_chrome() and not in_phone)
+		_cinematic_bars.set_bars_visible(_session_shows_play_chrome())
 
 
 func _animate_world(delta: float) -> void:
@@ -2923,7 +3093,8 @@ func _animate_world(delta: float) -> void:
 	var camera_target_pos := Vector3(0.0, 1.45, 2.2)
 	var camera_target_rot := Vector3(-54.0, 0.0, 0.0)
 	var look_pose: Dictionary = _reality_scene_adapter.pose() if _reality_scene_adapter != null else {}
-	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
+	# The view stays at the player's eyes with the phone up too: the phone is docked over the live room.
+	if bool(look_pose.get("has_player", false)):
 		camera_target_pos = (look_pose.get("player_position", Vector3.ZERO) as Vector3) + Vector3(0.0, RealitySceneAdapter.EYE_HEIGHT, 0.0)
 		# Inside the CRT's screen the view pushes in to its glass.
 		if look_pose.has("view_position"):
@@ -2936,20 +3107,9 @@ func _animate_world(delta: float) -> void:
 	current_rotation.y = rad_to_deg(lerp_angle(deg_to_rad(current_rotation.y), deg_to_rad(camera_target_rot.y), camera_lerp))
 	current_rotation.z = lerpf(current_rotation.z, 0.0, camera_lerp)
 	_camera.rotation_degrees = current_rotation
-	_camera.fov = 58.0
-	var target_alpha := 1.0 if str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" else 0.0
-	_phone_art_alpha = lerpf(_phone_art_alpha, target_alpha, minf(1.0, delta * 3.4))
-	_phone_sway_time += delta * 1.4
-	if _phone_down_backdrop_image != null:
-		_phone_down_backdrop_image.visible = str(_phone_shell_snapshot().get("view_state", "")) == "phone_down" or _phone_art_alpha > 0.03
-		_phone_down_backdrop_image.modulate.a = _phone_art_alpha
-		var viewport_size := _viewport_size()
-		var bob := sin(_phone_sway_time * 2.2) * 2.4
-		var sway := sin(_phone_sway_time * 1.1) * 1.1
-		_phone_down_backdrop_image.pivot_offset = viewport_size * 0.5
-		_phone_down_backdrop_image.scale = Vector2(1.012, 1.012)
-		var settled_position := Vector2(-viewport_size.x * 0.006 + sway, -viewport_size.y * 0.006 + bob)
-		_phone_down_backdrop_image.position = Vector2(settled_position.x, lerpf(70.0, settled_position.y, _phone_art_alpha))
+	# Round one's CRT focus cinematic narrows the view and, while the room is isolated, sees only the CRT's layer.
+	_camera.fov = float(look_pose.get("fov", 58.0))
+	_camera.cull_mask = int(look_pose.get("cull_mask", CAMERA_CULL_ALL))
 	if str(_phone_shell_snapshot().get("view_state", "")) == "npc_up" and bool(look_pose.get("has_player", false)):
 		_reality_scene_adapter.update_authored_events(delta, -_camera.global_basis.z)
 	_animate_vhs(delta)
@@ -2997,11 +3157,20 @@ func _present_app_window_closed(app_id: String) -> void:
 	_refresh_phone_shell()
 
 
+## The phone's home bar: every app is put away and the home shows again (the old phone's home control).
+func _phone_go_home() -> void:
+	if game == null or not _phone_view_is_down():
+		return
+	game.go_phone_home()
+	if _social_feed_panel != null:
+		_social_feed_panel.close_detail()
+	_write_feedback_text("回到手机主页。")
+	_refresh_phone_shell()
+
+
 func _open_phone_launcher() -> void:
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
-	if _phone_launcher_panel != null:
-		_phone_launcher_panel.move_phone_to_front()
 	_write_feedback_text("展开手机主页。")
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
@@ -3233,10 +3402,6 @@ func _on_app_pressed(app_id: String) -> void:
 	game.set_view_state("phone_down")
 	_set_reality_mouse_look(false)
 	game.set_active_app(app_id)
-	if app_id == "social":
-		var social_window := _app_windows.get("social") as Control
-		if social_window != null:
-			social_window.move_to_front()
 	_write_feedback_text("打开 %s。" % app_id)
 	_refresh_phone_shell()
 	_update_world_for_phone_view()
@@ -3270,17 +3435,6 @@ func _build_pickup_flight_layer() -> void:
 	_pickup_flight_layer.flight_landed.connect(_on_pickup_flight_landed)
 
 
-## 拾字时把笔记本窗口召回左上角初始位置并打开,让玩家看见字飞进去。
-func _ensure_notebook_window_home() -> void:
-	game.open_app_window("notebook")
-	var window := _notebook_window_control()
-	if window == null:
-		return
-	if _phone_launcher_panel != null:
-		_phone_launcher_panel.layout_app_window("notebook")
-	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
-
-
 ## A pickup already shows through the models; the host presents it only when it changed more than the notebook.
 func _present_pickup_outcome(outcome: ActionOutcomeScript) -> void:
 	if _interaction_changed_the_run(outcome):
@@ -3310,13 +3464,20 @@ func _notebook_window_control() -> Control:
 	return null
 
 
+## A picked-up word flies into the notebook when it is in front; otherwise to the docked phone's home bar, the way
+## back to it (old phone).
 func _notebook_flight_target() -> Vector2:
-	return LanguageMaterialScript.notebook_flight_target(_notebook_window_control())
+	var window := _notebook_window_control()
+	if window != null and window.is_visible_in_tree():
+		return LanguageMaterialScript.notebook_flight_target(window)
+	if _phone_dock != null and is_instance_valid(_phone_dock) and _phone_dock.get_body() != null and _phone_dock.get_body().is_visible_in_tree():
+		return _phone_dock.home_point()
+	return LanguageMaterialScript.notebook_flight_target(null)
 
 
 func _squash_notebook_window() -> void:
 	var window := _notebook_window_control()
-	if window == null or not window.visible:
+	if window == null or not window.is_visible_in_tree():
 		return
 	if _notebook_squash_tween != null and _notebook_squash_tween.is_valid():
 		_notebook_squash_tween.kill()

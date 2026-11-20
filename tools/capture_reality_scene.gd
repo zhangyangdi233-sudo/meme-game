@@ -26,9 +26,6 @@ func _capture() -> void:
 		main._skip_chapter_one()
 	if main.has_method("set_view_state"):
 		main.set_view_state("npc_up")
-	main._phone_art_alpha = 0.0
-	if main._phone_down_backdrop_image != null:
-		main._phone_down_backdrop_image.visible = false
 	if main._reality_scene_adapter.player != null:
 		main._reality_scene_adapter.player.position = main._reality_scene_adapter.floor.start_position()
 		main._reality_scene_adapter.yaw = 0.0

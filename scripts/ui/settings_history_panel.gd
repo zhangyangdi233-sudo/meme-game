@@ -3,8 +3,8 @@ extends Node
 ## Game-side settings + history windows: chrome, layout, history render/toggle, and intents on the event bus.
 ## Whether settings are open lives in a model: the panel writes it and shows or hides the window when it changes.
 ## The panel always watches the open flag and pollution (for its labels).
-## The open settings window also watches volume, autoplay, language and the save status; closing it stops.
-## The open history window watches the recorded lines the same way.
+## The open settings window also watches volume, the terminal VHS, language and the save status; closing it stops.
+## The open history window watches the recorded lines the same way; the window has no button of its own any more.
 ## The exit confirmation is the shared Dialog (ServiceKeys.DIALOG); the panel builds no confirmation nodes.
 
 const PollutionStageScript = preload("res://scripts/world/pollution_stage.gd")
@@ -29,8 +29,6 @@ var _settings_camera_slot: VBoxContainer
 var _settings_title_label: Label
 var _settings_volume_label: Label
 var _settings_save_button: Button
-var _settings_autoplay_button: CheckButton
-var _settings_history_button: Button
 var _settings_exit_button: Button
 var _settings_language_option: OptionButton
 var _settings_save_status: Label
@@ -43,7 +41,6 @@ var _always_watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 })
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.MASTER_VOLUME: _on_master_volume,
-	PropertyKeysScript.AUTOPLAY_ENABLED: _on_autoplay,
 	PropertyKeysScript.TERMINAL_VHS_ENABLED: _on_terminal_vhs,
 	PropertyKeysScript.LOCALE: _on_locale,
 	PropertyKeysScript.SAVE_STATUS: _on_save_status,
@@ -140,11 +137,6 @@ func _on_terminal_vhs(value: Variant) -> void:
 		_terminal_vhs_toggle.set_pressed_no_signal(bool(value))
 
 
-func _on_autoplay(value: Variant) -> void:
-	if _settings_autoplay_button != null:
-		_settings_autoplay_button.set_pressed_no_signal(bool(value))
-
-
 func _on_locale(value: Variant) -> void:
 	if _settings_language_option == null:
 		return
@@ -185,10 +177,6 @@ func _on_pollution(value: Variant) -> void:
 		_volume_slider.mouse_filter = Control.MOUSE_FILTER_STOP
 	if _settings_save_button != null:
 		_settings_save_button.text = _menu_display_label(pollution, "save")
-	if _settings_autoplay_button != null:
-		_settings_autoplay_button.text = _menu_display_label(pollution, "autoplay")
-	if _settings_history_button != null:
-		_settings_history_button.text = _menu_display_label(pollution, "history")
 
 
 func _on_save_status(value: Variant) -> void:
@@ -283,7 +271,8 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	settings_scroll.name = "SettingsScroll"
 	settings_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	settings_scroll.offset_top = 66
-	settings_scroll.offset_bottom = -108
+	# Ends above the taller system footer.
+	settings_scroll.offset_bottom = -166
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	settings_shell.add_child(settings_scroll)
 
@@ -312,7 +301,8 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 
 	_vhs_toggle = CheckButton.new()
 	_vhs_toggle.name = "SettingsVHSToggle"
-	_vhs_toggle.text = "开启 VHS 质感"
+	# Old version's wording: this one is the whole screen, the next one the CRT's glass.
+	_vhs_toggle.text = "全局画面 VHS"
 	_vhs_toggle.button_pressed = bool(deps.get("vhs_enabled", true))
 	_vhs_toggle.custom_minimum_size.y = 48
 	_vhs_toggle.toggled.connect(_on_vhs_toggle_changed)
@@ -320,7 +310,7 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 
 	_terminal_vhs_toggle = CheckButton.new()
 	_terminal_vhs_toggle.name = "SettingsTerminalVHSToggle"
-	_terminal_vhs_toggle.text = "终端屏幕 VHS 质感"
+	_terminal_vhs_toggle.text = "开启 CRT 屏幕 VHS 质感"
 	_terminal_vhs_toggle.custom_minimum_size.y = 48
 	_terminal_vhs_toggle.toggled.connect(_on_terminal_vhs_toggle_changed)
 	_settings_content.add_child(_terminal_vhs_toggle)
@@ -356,33 +346,14 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	_settings_save_status.name = "SettingsSaveStatus"
 	_settings_content.add_child(_settings_save_status)
 
-	_settings_autoplay_button = CheckButton.new()
-	_settings_autoplay_button.name = "SettingsAutoplayButton"
-	_settings_autoplay_button.text = "自动播放"
-	_settings_autoplay_button.set_meta("skip_localization", true)
-	_settings_autoplay_button.custom_minimum_size.y = 50
-	_settings_autoplay_button.toggled.connect(_on_autoplay_toggle_changed)
-	_settings_content.add_child(_settings_autoplay_button)
-
-	_settings_history_button = Button.new()
-	_settings_history_button.name = "SettingsHistoryButton"
-	_settings_history_button.text = "历史记录"
-	_settings_history_button.set_meta("skip_localization", true)
-	_settings_history_button.custom_minimum_size.y = 50
-	_settings_history_button.pressed.connect(_on_history_button_pressed)
-	_settings_content.add_child(_settings_history_button)
-
-	var return_main_button := Button.new()
-	return_main_button.name = "SettingsReturnMainButton"
-	return_main_button.text = "退回主画面"
-	return_main_button.custom_minimum_size.y = 50
-	return_main_button.pressed.connect(_on_return_main_button_pressed)
-	_settings_content.add_child(return_main_button)
+	# No autoplay toggle (it wrote a model nothing reads) and no history button (the list stays empty in this
+	# demo), as in the old version's window.
 
 	var system_footer := VBoxContainer.new()
 	system_footer.name = "SettingsSystemFooter"
 	system_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	system_footer.offset_top = -100
+	# Tall enough for 退回主画面 above 退出游戏 (old version's footer).
+	system_footer.offset_top = -158
 	system_footer.add_theme_constant_override("separation", 6)
 	settings_shell.add_child(system_footer)
 	var system_rule := HSeparator.new()
@@ -391,6 +362,13 @@ func _build_settings_window(parent: Control, deps: Dictionary) -> void:
 	var system_label := _theme().label("系统", 14, _theme().theme_color("accent")) as Label
 	system_label.name = "SettingsSystemLabel"
 	system_footer.add_child(system_label)
+	# Leaving the run is a system command beside quitting, so it sits in the fixed footer (old version).
+	var return_main_button := Button.new()
+	return_main_button.name = "SettingsReturnMainButton"
+	return_main_button.text = "退回主画面"
+	return_main_button.custom_minimum_size.y = 50
+	return_main_button.pressed.connect(_on_return_main_button_pressed)
+	system_footer.add_child(return_main_button)
 	_settings_exit_button = Button.new()
 	_settings_exit_button.name = "SettingsExitGameButton"
 	_settings_exit_button.text = "退出游戏"
@@ -459,10 +437,6 @@ func _on_terminal_vhs_toggle_changed(value: bool) -> void:
 	GameEventBus.raise(UiIntentsScript.TERMINAL_VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
 
 
-func _on_autoplay_toggle_changed(value: bool) -> void:
-	GameEventBus.raise(UiIntentsScript.AUTOPLAY_TOGGLED, {UiIntentsScript.KEY_VALUE: value})
-
-
 func _on_language_item_selected(index: int) -> void:
 	if _settings_language_option == null or index < 0 or index >= _settings_language_option.item_count:
 		return
@@ -479,10 +453,6 @@ func _on_return_main_button_pressed() -> void:
 
 func _on_exit_button_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.EXIT_GAME_REQUESTED)
-
-
-func _on_history_button_pressed() -> void:
-	GameEventBus.raise(UiIntentsScript.HISTORY_TOGGLE_REQUESTED)
 
 
 func _on_history_close_pressed() -> void:

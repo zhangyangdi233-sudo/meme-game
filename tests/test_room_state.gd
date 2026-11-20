@@ -13,6 +13,9 @@ const StateScript = preload("res://scripts/meme_game_state.gd")
 const WordDropScript = preload("res://scripts/game/word_drop.gd")
 
 const RULE_ESCAPE_ROOMS := "res://tests/fixtures/rooms_rule_escape.json"
+## The demo has no NPC (planner, 2026-11-16), so the NPC code paths the old tower still uses are played on the fixture
+## whose rounds stand one (round four gives Enoch).
+const STANDING_NPC_ROOMS := "res://tests/fixtures/rooms_standing_npc.json"
 
 var _failures: Array[String] = []
 
@@ -27,7 +30,8 @@ func _init() -> void:
 	test_a_debug_jump_forgets_the_rooms_rules()
 	test_a_rule_that_is_no_way_out_leaves_the_round_shut()
 	test_round_one_opens_by_an_exit_rule_without_an_npc()
-	test_only_rounds_two_and_four_open_by_the_npcs_help()
+	test_no_round_stands_an_npc_in_the_demo()
+	test_a_room_declaring_delivery_stands_its_npc_whose_help_opens_the_exit_door()
 	test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so()
 	test_the_xray_shows_round_fives_way_out_at_the_clock()
 	test_helping_round_fours_npc_hands_over_enoch()
@@ -139,28 +143,44 @@ func test_round_one_opens_by_an_exit_rule_without_an_npc() -> void:
 	_post(game, ["门", "是", "出", "口"])
 	_assert_true(ProgressScript.exit_open(game.chapter_one_progress), "门是出口 should open round one")
 	_assert_true(game.leave_basement_round("door"), "the opened exit should lead on")
-	_assert_true(game.basement_npc_stands(), "round two should keep its NPC behind the door (#129)")
+	_assert_true(not game.basement_npc_stands(), "round two should stand no NPC either (planner, 2026-11-16)")
 	game.skip_chapter_one()
 	_assert_true(not game.basement_npc_stands(), "the tower stands no basement NPC")
 
 
-## #129: rounds two and four keep their NPC behind the door, whose help (this round's post, then the conversation)
-## opens the exit door; rounds three and five have nobody, and a conversation opens nothing there.
-func test_only_rounds_two_and_four_open_by_the_npcs_help() -> void:
+## The planner's 2026-11-16 decision: the demo has no NPC whose help is a way out, so a conversation opens nothing (it
+## overrides #129's NPC behind the door in rounds two and four). On 2026-11-20 the planner brought round four's talk
+## back (`door_npc`): round four stands someone to talk to, whose talk opens nothing.
+func test_no_round_stands_an_npc_in_the_demo() -> void:
 	var game := _basement()
 	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
 		_assert_true(game.jump_to_basement_round(round_number), "setup should reach round %d" % round_number)
-		var behind_door := round_number in [2, 4]
-		_assert_eq(game.basement_npc_stands(), behind_door, "round %d's NPC behind the door" % round_number)
+		_assert_eq(game.basement_npc_stands(), round_number == 4, "only round four should stand someone behind the door (round %d)" % round_number)
+		_finish_conversation_with(game, round_number)
+		_assert_eq(game.basement_exits(), [], "a conversation without a post in round %d should open nothing" % round_number)
+		game.end_typed_reality_conversation()
 		_post(game, ["我", "是", "你"])
 		_finish_conversation_with(game, round_number)
-		_assert_eq(game.basement_exits(), ["door"] if behind_door else [], "the NPC's help in round %d should open only the exit door" % round_number)
+		_assert_eq(game.basement_exits(), [], "a conversation in round %d should open nothing" % round_number)
+	_assert_eq(game.hidden_items, [], "no round should give a hidden item")
 
 
-## #129: the first word to the one behind the door is recorded at once, so the knocking stops; finished with this
+## A room that declares `delivery` still stands its NPC (the old tower's code path), whose help (this round's post, then
+## the conversation) opens the exit door.
+func test_a_room_declaring_delivery_stands_its_npc_whose_help_opens_the_exit_door() -> void:
+	var game := _standing_basement()
+	for round_number in range(2, ProgressScript.BASEMENT_ROUND_COUNT + 1):
+		_assert_true(game.jump_to_basement_round(round_number), "setup should reach round %d" % round_number)
+		_assert_true(game.basement_npc_stands(), "round %d should stand its NPC" % round_number)
+		_post(game, ["我", "是", "你"])
+		_finish_conversation_with(game, round_number)
+		_assert_eq(game.basement_exits(), ["door"], "the NPC's help in round %d should open only the exit door" % round_number)
+
+
+## #129 (NPC code path, on the standing-NPC fixture): the first word to the one behind the door is recorded at once, so the knocking stops; finished with this
 ## round's post, the NPC says they will help the player out, and the exit door opens.
 func test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so() -> void:
-	var game := _basement()
+	var game := _standing_basement()
 	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
 	_assert_true(not ProgressScript.talked_to_npc(game.chapter_one_progress), "nobody should have talked to round two's NPC yet")
 	_assert_true(game.start_typed_reality_conversation("basement_npc_2", "basement_npc", "迟到者"), "the NPC behind the door should talk")
@@ -184,10 +204,10 @@ func test_talking_to_the_npc_behind_the_door_is_recorded_and_its_help_says_so() 
 	_assert_true(not game.conversation_feedback.contains(StateScript.BASEMENT_HELPED_LINE), "the NPC should not claim a door a rule opened")
 
 
-## #130 / #120 Q2: round four's NPC gives Enoch once it is helped (this round's post, then the whole conversation), and
+## #130 / #120 Q2 (NPC code path, on the standing-NPC fixture): round four's NPC gives Enoch once it is helped (this round's post, then the whole conversation), and
 ## says so; talking without a post gives nothing, nor does round two's NPC.
 func test_helping_round_fours_npc_hands_over_enoch() -> void:
-	var game := _basement()
+	var game := _standing_basement()
 	_assert_eq(game.hidden_items, [], "a new run should hold no hidden item")
 	_assert_true(game.jump_to_basement_round(2), "setup should reach round two")
 	_post(game, ["我", "是", "你"])
@@ -211,7 +231,7 @@ func test_helping_round_fours_npc_hands_over_enoch() -> void:
 
 ## Helping is the post and the conversation; a rule that opened the door first takes nothing from it.
 func test_round_fours_npc_gives_enoch_even_after_a_rule_opened_the_door() -> void:
-	var game := _basement()
+	var game := _standing_basement()
 	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
 	_post(game, ["门", "是", "出", "口"])
 	_assert_eq(game.basement_exits(), ["door"], "门是出口 should open round four's exit door")
@@ -221,11 +241,12 @@ func test_round_fours_npc_gives_enoch_even_after_a_rule_opened_the_door() -> voi
 
 func test_enoch_stays_in_the_save() -> void:
 	_assert_true(PropertyKeysScript.HIDDEN_ITEMS in PropertyKeysScript.names_saved_as(PropertyKeysScript.SAVED_WITH_RUN), "the hidden items should be saved with the run")
-	var game := _basement()
+	var game := _standing_basement()
 	_assert_true(game.jump_to_basement_round(4), "setup should reach round four")
 	_post(game, ["我", "是", "你"])
 	_finish_conversation_with(game, 4)
 	var loaded := StateScript.new()
+	loaded.room_data_path = STANDING_NPC_ROOMS
 	_assert_true(loaded.load_save_data(game.to_save_data()), "the save should load")
 	_assert_eq(loaded.hidden_items, ["enoch"], "Enoch should stay after a load")
 	_assert_true(loaded.leave_basement_round("door"), "the exit door should lead on")
@@ -389,7 +410,8 @@ func test_the_tower_keeps_its_rules() -> void:
 ## #114: the state records a one-shot event the moment the stage starts it, so a save never replays it.
 func test_a_rooms_event_is_recorded_once_and_survives_a_save() -> void:
 	var game := _basement()
-	_assert_eq(game.basement_room_events(), [], "round one should play no event")
+	# The planner restored the old tutorial on 2026-11-16: round one's only event is the CRT focus cinematic.
+	_assert_eq(game.basement_room_events().map(func(event: Dictionary) -> String: return str(event["id"])), ["crt_focus"], "round one should play only the CRT focus cinematic")
 	_assert_true(not game.start_room_event("whisper"), "round one has no whisper to start")
 	game.jump_to_basement_round(2)
 	_assert_eq((game.basement_room_events()[0] as Dictionary).get("id"), "whisper", "round two's events should come from its room")
@@ -441,6 +463,12 @@ func _basement() -> MemeGameState:
 	game.complete_opening_knock()
 	game.open_opening_door()
 	_assert_eq(ProgressScript.round_of(game.chapter_one_progress), 1, "setup should reach round one")
+	return game
+
+
+func _standing_basement() -> MemeGameState:
+	var game := _basement()
+	game.room_data_path = STANDING_NPC_ROOMS
 	return game
 
 

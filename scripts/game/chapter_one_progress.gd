@@ -32,7 +32,8 @@ const BASEMENT_ROUND_COUNT := 5
 const BASEMENT_NPC_ACTOR_TYPE := "basement_npc"
 const LINEAR_CONVERSATION_MODE := "linear"
 
-## A new run's progress. `PropertyKeys` uses it as the model's initial value.
+## A new run's progress. `PropertyKeys` uses it as the model's initial value. `passage_round` is the basement round a
+## passage leads back into when it was entered through the portal (zero: the passage leads on to `passage_to`).
 const INITIAL := {
 	"phase": PHASE_OPENING,
 	"line_index": 0,
@@ -45,6 +46,7 @@ const INITIAL := {
 	"ended": [],
 	"talked": false,
 	"passage_to": "",
+	"passage_round": 0,
 }
 ## The things of a basement room a rule can make the way out (#144); `RoomContent` checks the room data against it and
 ## the chapter stage answers F at every place of each.
@@ -93,6 +95,12 @@ static func normalize(raw: Variant) -> Dictionary:
 		progress["ended"] = _names(source.get("ended", [])).filter(func(event_id: String) -> bool: return event_id in progress["events"])
 		progress["talked"] = _is_true(source.get("talked", false))
 	elif phase == PHASE_PASSAGE:
+		# A passage entered through the portal leads back into the basement, at the round after the one left.
+		var back_to := _integer_or(source.get("passage_round", 0), 0)
+		if source.get("passage_to", "") == PHASE_BASEMENT and back_to >= 2 and back_to <= BASEMENT_ROUND_COUNT:
+			progress["passage_to"] = PHASE_BASEMENT
+			progress["passage_round"] = back_to
+			return progress
 		var passage_to: Variant = source.get("passage_to", "")
 		var ahead := LEVEL_ORDER.find(passage_to) > LEVEL_ORDER.find(PHASE_BASEMENT)
 		progress["passage_to"] = passage_to if ahead else next_level(PHASE_BASEMENT)
@@ -285,11 +293,50 @@ static func leave_round(progress: Dictionary, exit_object: String, order: Array 
 	return next
 
 
-## The player walked into the white door's light: the level the passage leads to begins.
+## The player walked into the portal they fixed in the room: the round is left for the white door's passage without an
+## exit of its own (planner's design, 2026-10-31). The passage leads to the next round; after the fifth, to the level
+## `order` puts after the basement, as its own passage does. Outside the basement, or with no next level, it holds.
+static func leave_round_by_portal(progress: Dictionary, order: Array = LEVEL_ORDER) -> Dictionary:
+	if phase_of(progress) != PHASE_BASEMENT:
+		return progress
+	var next := progress.duplicate(true)
+	next["delivered"] = false
+	next["exits"] = []
+	next["events"] = []
+	next["ended"] = []
+	next["talked"] = false
+	next["phase"] = PHASE_PASSAGE
+	next["round"] = 0
+	if round_of(progress) < BASEMENT_ROUND_COUNT:
+		next["passage_to"] = PHASE_BASEMENT
+		next["passage_round"] = round_of(progress) + 1
+		return next
+	var passage_to := next_level(PHASE_BASEMENT, order)
+	if passage_to.is_empty():
+		return progress
+	next["passage_to"] = passage_to
+	next["passage_round"] = 0
+	return next
+
+
+## The basement round the passage leads back into (it was entered through the portal), or zero for a passage that leads on.
+static func passage_round(progress: Dictionary) -> int:
+	if phase_of(progress) != PHASE_PASSAGE or progress.get("passage_to", "") != PHASE_BASEMENT:
+		return 0
+	var back_to := _integer_or(progress.get("passage_round", 0), 0)
+	return back_to if back_to >= 2 and back_to <= BASEMENT_ROUND_COUNT else 0
+
+
+## The player walked into the white door's light: the level the passage leads to begins, or the basement round it leads
+## back into.
 static func cross_passage(progress: Dictionary) -> Dictionary:
 	if phase_of(progress) != PHASE_PASSAGE:
 		return progress
-	return _enter_level(progress, str(progress.get("passage_to", "")))
+	var back_to := passage_round(progress)
+	var next := _enter_level(progress, str(progress.get("passage_to", "")))
+	if back_to > 0:
+		next["round"] = back_to
+	return next
 
 
 ## Whether a run that got this far must already carry the phone: it lies on the basement's table in round one, so
@@ -323,6 +370,7 @@ static func _enter_level(progress: Dictionary, level: String) -> Dictionary:
 	next["ended"] = []
 	next["talked"] = false
 	next["passage_to"] = ""
+	next["passage_round"] = 0
 	return next
 
 

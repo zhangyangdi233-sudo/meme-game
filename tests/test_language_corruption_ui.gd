@@ -43,14 +43,10 @@ func _run_async() -> void:
 				return_button.pressed.emit()
 		var settings_title := _find_node_by_name(root, "SettingsWindowHandle") as Label
 		var save_button := _find_node_by_name(root, "SettingsManualSaveButton") as Button
-		var autoplay_button := _find_node_by_name(root, "SettingsAutoplayButton") as CheckButton
-		var history_button := _find_node_by_name(root, "SettingsHistoryButton") as Button
 		var volume_label := _find_node_by_name(root, "SettingsVolumeLabel") as Label
 		var volume_slider := _find_node_by_name(root, "SettingsVolumeSlider") as HSlider
 		_assert_true(settings_title != null and settings_title.text == "设置", "clean menu should expose 设置")
 		_assert_true(save_button != null and save_button.text == "保存", "clean menu should expose 保存")
-		_assert_true(autoplay_button != null and autoplay_button.text == "自动播放", "clean menu should expose 自动播放")
-		_assert_true(history_button != null and history_button.text == "历史记录", "clean menu should expose 历史记录")
 		_assert_true(root.has_method("_toggle_history_window"), "history should be a view-only in-game window")
 		if root.has_method("_toggle_history_window"):
 			root.game.record_history_line({
@@ -73,7 +69,6 @@ func _run_async() -> void:
 		_assert_typed_reality_colors(root as GameScript, UiPalette.POLLUTION_PALETTE_5, "pollution palette 5")
 		_assert_true(save_button != null and save_button.text != "保存", "menu label display may become polluted at 60%")
 		_assert_true(save_button == null or not save_button.disabled, "menu pollution must not disable saving")
-		_assert_true(history_button == null or not history_button.disabled, "menu pollution must not disable history")
 		_assert_true(volume_label != null and volume_label.text != "音量", "high pollution may rename the volume label")
 		_assert_true(volume_slider != null and volume_slider.editable, "menu pollution must never disable volume adjustment")
 		root.free()

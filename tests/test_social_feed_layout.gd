@@ -66,8 +66,8 @@ func _run() -> void:
 			await process_frame
 			_assert_true(game_root._social_feed_panel.is_detail_open(), "clicking a poster in the rendered feed should open its detail page")
 			_assert_true(_find_node_by_name(game_root, "SocialPostDetailPage") != null, "poster click should render the social detail page")
-			_assert_window_drags(game_root, "social-detail")
-	_assert_window_drags(game_root, "app:social")
+			_assert_inside_phone(game_root, game_root._social_feed_panel.get_detail_window(), "the open post")
+	_assert_inside_phone(game_root, game_root._social_feed_panel.get_app_window(), "the feed")
 	_assert_host_connects_no_panel_signal(game_root)
 
 	game_root.queue_free()
@@ -75,13 +75,11 @@ func _run() -> void:
 	_finish()
 
 
-func _assert_window_drags(game_root, window_id: String) -> void:
-	var before: Vector2 = game_root._window_position_for_test(window_id)
-	_assert_true(before.is_finite(), "%s should be registered with the host's window manager" % window_id)
-	_assert_true(game_root._move_window_for_test(window_id, Vector2(16, -10)), "%s should drag" % window_id)
-	var after: Vector2 = game_root._window_position_for_test(window_id)
-	_assert_true(after.distance_to(before) > 1.0, "dragging %s should move it" % window_id)
-	game_root._move_window_for_test(window_id, Vector2(-16, 10))
+## Inside the docked phone the feed and its open post are pages on its screen, not floating windows to drag.
+func _assert_inside_phone(game_root, window: Control, what: String) -> void:
+	var screen: Control = game_root._phone_dock.get_screen()
+	_assert_true(window != null and window.get_parent() == screen, "%s should be on the phone's screen" % what)
+	_assert_true(not game_root._window_position_for_test("app:social").is_finite(), "the feed inside the phone should not be draggable")
 
 
 func _assert_host_connects_no_panel_signal(game_root: Node) -> void:

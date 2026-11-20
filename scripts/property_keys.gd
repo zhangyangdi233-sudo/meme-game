@@ -58,6 +58,8 @@ const CHAPTER_ONE_PROGRESS := "chapter_one_progress"
 const TYPING_HINT_SEEN := "typing_hint_seen"
 ## Whether the player picked up the phone from the basement's table. Saved apart from which apps are unlocked.
 const PHONE_OWNED := "phone_owned"
+## Whether the run has walked through its portal: a run does it once, and a frame fixed afterwards is a flat print.
+const PORTAL_USED := "portal_used"
 ## The phone apps this run can open; the phone comes with them. Any other app's icon does nothing.
 const UNLOCKED_APPS := "unlocked_apps"
 ## The run's seed: what decides the basement's look that changes from run to run but holds within one, such as the
@@ -136,6 +138,7 @@ const FACTS: Array[Dictionary] = [
 	{"name": CHAPTER_ONE_PROGRESS, "initial": ChapterOneProgressScript.INITIAL, "save": SAVED_WITH_RUN},
 	{"name": TYPING_HINT_SEEN, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": PHONE_OWNED, "initial": false, "save": SAVED_WITH_RUN},
+	{"name": PORTAL_USED, "initial": false, "save": SAVED_WITH_RUN},
 	{"name": UNLOCKED_APPS, "initial": [], "save": SAVED_WITH_RUN},
 	{"name": RUN_SEED, "initial": 0, "save": SAVED_WITH_RUN},
 	{"name": HIDDEN_ITEMS, "initial": [], "save": SAVED_WITH_RUN},

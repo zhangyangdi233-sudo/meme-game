@@ -34,8 +34,12 @@ func _run_async() -> void:
 
 		GameEventBus.raise(UiIntentsScript.VOLUME_CHANGED, {UiIntentsScript.KEY_VALUE: 37.0})
 		_assert_eq(float(volume.read()), 37.0, "the host should route a volume intent to the settings handler")
+		game_root._locale.preferences_path = TEST_PREFERENCES_PATH
 		GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: false})
 		_assert_eq(game_root._vhs_enabled, false, "the host should present a VHS toggle")
+		var preferences := ConfigFile.new()
+		_assert_true(preferences.load(TEST_PREFERENCES_PATH) == OK, "toggling the VHS should save the preferences at once")
+		_assert_eq(preferences.get_value("visual", "vhs_enabled", true), false, "the saved preferences should hold the VHS switch")
 		GameEventBus.raise(UiIntentsScript.VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
 
 		var history: Control = game_root._settings_history_panel.get_history_window()

@@ -173,6 +173,11 @@ func _test_the_last_post_shows_red_or_green() -> void:
 	_assert_eq(slip.get_theme_color("font_color"), theme.theme_color("error"), "a post the world obeyed should be red")
 	var craft := Harness.find_node_by_name(mounted["body"], "NotebookCraftButton")
 	_assert_true(slip.get_index() > craft.get_index(), "the slip should sit under the post button")
+	# The planner's 2026-11-20 report: a post in another language than the one shown (zh here) stays off the slip.
+	published.insert_at(0, {"kind": "free_sentence", "text": "へやあかるい", "tier": "rule", "content_locale": "ja"})
+	await process_frame
+	slip = Harness.find_node_by_name(mounted["body"], "LastPostSlip") as Label
+	_assert_true(slip != null and slip.text.contains("灯亮") and not slip.text.contains("へやあかるい"), "a ja post should not show on a zh slip")
 	var progress: MapPropertyModel = (RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager).model(PropertyKeysScript.CHAPTER_ONE_PROGRESS)
 	progress.replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
 	await process_frame

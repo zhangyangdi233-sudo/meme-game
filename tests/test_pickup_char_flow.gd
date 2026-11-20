@@ -136,9 +136,10 @@ func _test_ui_flow() -> void:
 	pickup_line.meta_clicked.emit("门")
 	await process_frame
 	_assert_true(game_root.game.is_social_char_collected("门", "zh"), "clicking a highlighted unit through the real meta signal should collect it")
-	_assert_true(game_root.game.is_app_window_open("notebook"), "a pickup should open the notebook window")
-	var notebook_window: Control = game_root._notebook_window_control()
-	_assert_true(notebook_window != null and notebook_window.get_global_rect().position.x < 400.0, "the notebook should return to its upper-left home position")
+	# Inside the docked phone the feed stays in front and the word flies to the phone's home bar (old phone).
+	_assert_eq_text(game_root.game.active_app_window, "social", "a pickup should keep the feed in front")
+	var dock_body: Control = game_root._phone_dock.get_body()
+	_assert_true(dock_body.get_global_rect().has_point(game_root._notebook_flight_target()), "a pickup with the feed in front should fly into the phone")
 	if flight_layer != null:
 		_assert_true(bool(flight_layer.is_animating()), "a successful pickup should start the flight animation")
 		flight_layer.finish_all_immediately()
@@ -147,11 +148,10 @@ func _test_ui_flow() -> void:
 	game_root.game.set_active_app("notebook")
 	game_root._render()
 	await process_frame
-	var target_before: Vector2 = game_root._notebook_flight_target()
-	_assert_true(game_root._notebook_window_control() != null, "the notebook window control must resolve via its app: key")
-	_assert_true(game_root._move_window_for_test("app:notebook", Vector2(40, 24)), "the notebook window should be movable in tests")
-	var target_after: Vector2 = game_root._notebook_flight_target()
-	_assert_true((target_after - target_before).is_equal_approx(Vector2(40, 24)), "the flight target must track the notebook window position")
+	var notebook_window: Control = game_root._notebook_window_control()
+	_assert_true(notebook_window != null and notebook_window.is_visible_in_tree(), "the notebook in front should show inside the phone")
+	if notebook_window != null:
+		_assert_true(notebook_window.get_global_rect().has_point(game_root._notebook_flight_target()), "the flight target must land in the notebook in front")
 
 	# 自然飞行完成:flight_landed 信号必须发出,并触发笔记本受击。
 	var landed_units: Array = []

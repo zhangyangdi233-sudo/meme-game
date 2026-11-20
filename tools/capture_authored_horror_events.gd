@@ -29,9 +29,6 @@ func _capture() -> void:
 	main.game.day = 1
 	main._ensure_reality_floor_current()
 	main.set_view_state("npc_up")
-	main._phone_art_alpha = 0.0
-	if main._phone_down_backdrop_image != null:
-		main._phone_down_backdrop_image.visible = false
 	_hide_canvas_layers(main)
 	var actors := main._reality_scene_adapter.floor.get_node_or_null("Actors") as Node3D
 	if actors != null:

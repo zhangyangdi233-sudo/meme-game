@@ -1,6 +1,6 @@
 extends SceneTree
 ## #114 in the main scene: a room event the stage starts is saved by the state at once; round three's switch answers F
-## in the dark ("F  开灯") and brings the light back over the scattered chairs; holding X shows round five's missing
+## in the dark ("F  灯开关") and brings the light back over the scattered chairs; holding X shows round five's missing
 ## numbers; and a window out of focus holds the events' clock like open settings do.
 
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
@@ -76,7 +76,7 @@ func _test_the_switch_brings_round_threes_light_back(game_root) -> void:
 	_assert_eq(game_root.game.room_world_state().get("lights"), false, "round three should go dark once the player is down")
 	var stage: Node = game_root.find_child("ChapterOneStage", true, false)
 	await _stand_at(game_root, stage.switch_reach_position())
-	_assert_eq(str(game_root._world_prompt.text), "F  开灯", "the switch should offer the light")
+	_assert_eq(str(game_root._world_prompt.text), "F  灯开关", "the switch should offer the light")
 	_push_key(game_root, KEY_F)
 	await _frames(3)
 	_assert_eq(game_root.game.basement_ended_events(), ["blackout"], "F at the switch should end the outage")

@@ -157,11 +157,13 @@ func sync_state(deps: Dictionary, immediate: bool = false) -> void:
 	ensure_phone_music_for_floor(int(day_progress.get("tower_floor", 1)))
 	var phone_shell: Dictionary = deps.get("phone_shell", {})
 	var in_phone: bool = str(phone_shell.get("view_state", "")) == "phone_down"
-	var phone_target: float = -8.0 if in_phone else -42.0
+	# The score sits 5 dB lower than this demo first shipped it: the owner measured the old version's mix and found
+	# the demo 5 dB louder, so every stem target is back at the old level.
+	var phone_target: float = -13.0 if in_phone else -47.0
 	var reality_interaction_active := bool(deps.get("reality_interaction_active", false))
 	var conversation: Dictionary = deps.get("reality_conversation", {})
 	var intimate_typing: bool = reality_interaction_active and str(conversation.get("phase", "")) == "typing"
-	var reality_target: float = -26.0 if in_phone else (-7.0 if intimate_typing else -10.0)
+	var reality_target: float = -31.0 if in_phone else (-12.0 if intimate_typing else -15.0)
 	var pollution_stage: Dictionary = deps.get("pollution_stage", {})
 	var pollution_target := float(pollution_stage.get("music_db", -60.0))
 	phone_ambience.set_meta("target_volume_db", phone_target)

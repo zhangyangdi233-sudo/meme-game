@@ -20,13 +20,20 @@ const SUPPORTED_LOCALES := ["zh", "ja", "en"]
 ## scattered by the run's seed, the screens sunk in the floor and walls (#114) and the sealed door's tape with a few
 ## strips torn off (#128).
 const OBJECTS := ["exit_lamp", "wall_clock", "clock_wall", "half_clock", "scattered_chairs", "sunken_crts", "torn_tape"]
-## What starts a one-shot event: the entry shutting behind the player, or the player reaching the room's middle.
-const EVENT_TRIGGERS := ["entry_sealed", "room_center"]
-## How the stage plays an event: the whisper with the lights flickering, the outage, or the screens going black then red.
-const EVENT_CUES := ["whisper_flicker", "blackout", "red_screens"]
+## What starts a one-shot event: the entry shutting behind the player, the player reaching the room's middle, or the
+## player walking away from the sealed door after coming close to it (the old version's fourth-visit bang, restored for
+## the NPC-free demo so the taped door is not silent).
+## The player first coming down across the middle of the stairs (`stairs_descended`) starts round one's CRT focus
+## cinematic, the old version's trigger (planner, 2026-11-16: the tutorial is the old one).
+const EVENT_TRIGGERS := ["entry_sealed", "room_center", "left_sealed_door", "stairs_descended"]
+## How the stage plays an event: the whisper with the lights flickering, the outage, the screens going black then red,
+## the sealed door banged from inside, or the CRT alone under a spotlight while the narrator speaks (`crt_focus`).
+const EVENT_CUES := ["whisper_flicker", "blackout", "red_screens", "door_bang", "crt_focus"]
 ## The cues the stage plays over a time: an event with one needs a `duration`. The outage plays nothing of its own (its
 ## `during` state darkens the room), so it lasts until the switch instead.
-const TIMED_CUES := ["whisper_flicker", "red_screens"]
+const TIMED_CUES := ["whisper_flicker", "red_screens", "door_bang"]
+## The cues the player ends by reading them through, click by click: neither a duration nor the switch ends them.
+const READ_CUES := ["crt_focus"]
 ## The state fields a room, a rule or an event can set: numbers, the lights' switch and the objects.
 const STATE_NUMBERS := ["brightness", "hum"]
 ## The things of the room a rule can make the way out (#144): an exit rule names one as its `object`.
@@ -216,6 +223,9 @@ static func _check_event(event: Dictionary, label: String, problems: Array[Strin
 			problems.append("%s has a duration that is no time" % label)
 		if event.has("during"):
 			problems.append("%s has a during state but ends by itself" % label)
+	elif event.get("cue") in READ_CUES:
+		if _is_yes(event.get("switch_ends", false)) or event.has("during"):
+			problems.append("%s is read through by the player, so neither the switch nor a during state belongs to it" % label)
 	elif not _is_yes(event.get("switch_ends", false)):
 		problems.append("%s has no duration and the switch cannot end it" % label)
 	for part: String in ["during", "after"]:

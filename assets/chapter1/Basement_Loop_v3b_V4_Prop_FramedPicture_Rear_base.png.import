@@ -1,0 +1,44 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://ddxb0dkdkm6ux"
+path.bptc="res://.godot/imported/Basement_Loop_v3b_V4_Prop_FramedPicture_Rear_base.png-cb262a921ae81a4b1cc8cc732f2bc85a.bptc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "b1e6c2b6654d02a127cc64695189690a"
+}
+
+[deps]
+
+source_file="res://assets/chapter1/Basement_Loop_v3b_V4_Prop_FramedPicture_Rear_base.png"
+dest_files=["res://.godot/imported/Basement_Loop_v3b_V4_Prop_FramedPicture_Rear_base.png-cb262a921ae81a4b1cc8cc732f2bc85a.bptc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=true
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

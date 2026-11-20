@@ -94,6 +94,13 @@ static func stands_npc(room: Dictionary) -> bool:
 	return false
 
 
+## Whether the room puts someone behind the sealed door to talk to with no way out in their help (`"door_npc": true`):
+## the planner's 2026-11-20 request brought round four's talk back after the bang without making its exit hang on it.
+static func door_npc(room: Dictionary) -> bool:
+	var flag: Variant = room.get("door_npc", false)
+	return flag is bool and flag
+
+
 ## The hidden item the room's NPC gives once helped (#130), or empty: only a room that stands an NPC gives one.
 static func gift(room: Dictionary) -> String:
 	var item_id: Variant = room.get("gift", "")
