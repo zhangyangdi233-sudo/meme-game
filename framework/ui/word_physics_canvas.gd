@@ -14,8 +14,15 @@ const TILE_SIZE := Vector2(44.0, 40.0)
 const DRAG_THRESHOLD := 6.0
 const THROW_SPEED_LIMIT := 900.0
 const SETTLED_SPEED := 4.0
+## 视窗被拖动时,字跟着画布走,只拿到一点反向的速度晃一下(#152)。
+const WINDOW_SWAY := 0.25
+const WINDOW_SWAY_LIMIT := 600.0
+## 字靠着牆时会稍微压进去一点,超过这个距离才算跑出画布。
+const ESCAPE_MARGIN := 8.0
 
 var _physics_root: Node2D
+var _last_canvas_transform := Transform2D.IDENTITY
+var _has_canvas_transform := false
 var _bodies: Dictionary = {}
 var _dragging_body: RigidBody2D = null
 var _drag_grab_offset := Vector2.ZERO
@@ -37,6 +44,62 @@ func _ready() -> void:
 	resized.connect(_rebuild_walls)
 
 
+## 字是 RigidBody2D,物理会把它留在原本的全局位置,牆却跟着画布瞬移,
+## 拖得快就会穿过字。每个物理步先把字带着画布一起移动,再把出界的字放回画布内。
+func _physics_process(delta: float) -> void:
+	_follow_canvas_motion(delta)
+	_return_escaped_tiles()
+
+
+func _follow_canvas_motion(delta: float) -> void:
+	var canvas_transform := get_global_transform()
+	if not _has_canvas_transform:
+		_last_canvas_transform = canvas_transform
+		_has_canvas_transform = true
+		return
+	if canvas_transform == _last_canvas_transform:
+		return
+	var shift := canvas_transform.origin - _last_canvas_transform.origin
+	_last_canvas_transform = canvas_transform
+	var sway := (-shift / maxf(delta, 0.001) * WINDOW_SWAY).limit_length(WINDOW_SWAY_LIMIT)
+	for unit in _bodies.keys():
+		var body: RigidBody2D = _bodies[unit]
+		if not is_instance_valid(body):
+			continue
+		# 节点的局部位置还是上一步物理同步的结果,只有物理服务器还停在旧的全局位置。
+		PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+		if body == _dragging_body:
+			continue
+		body.linear_velocity = (body.linear_velocity + sway).limit_length(WINDOW_SWAY_LIMIT)
+		body.sleeping = false
+
+
+func _return_escaped_tiles() -> void:
+	for unit in _bodies.keys():
+		var body: RigidBody2D = _bodies[unit]
+		if not is_instance_valid(body) or body == _dragging_body:
+			continue
+		var inside := _clamp_center(body.position)
+		if inside.distance_to(body.position) <= ESCAPE_MARGIN:
+			continue
+		body.position = inside
+		PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+		body.linear_velocity = Vector2.ZERO
+		body.sleeping = false
+
+
+func _canvas_size() -> Vector2:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return custom_minimum_size
+	return size
+
+
+## 字中心能待的范围:整块字都在画布里。
+func _clamp_center(center: Vector2) -> Vector2:
+	var half_size := TILE_SIZE * 0.5
+	return center.clamp(half_size, (_canvas_size() - half_size).max(half_size))
+
+
 ## 画布四壁:底边接住下坠的字,两侧与顶部防止字被挤出可活动区域。
 func _rebuild_walls() -> void:
 	if _physics_root == null:
@@ -48,9 +111,7 @@ func _rebuild_walls() -> void:
 	var walls := StaticBody2D.new()
 	walls.name = "CanvasWalls"
 	_physics_root.add_child(walls)
-	var canvas_size := size
-	if canvas_size.x <= 0.0 or canvas_size.y <= 0.0:
-		canvas_size = custom_minimum_size
+	var canvas_size := _canvas_size()
 	var half := WALL_THICKNESS * 0.5
 	var specs := {
 		"FloorWall": [Vector2(canvas_size.x * 0.5, canvas_size.y + half), Vector2(canvas_size.x + WALL_THICKNESS * 2.0, WALL_THICKNESS)],
@@ -78,13 +139,13 @@ func clear_tiles() -> void:
 	_dragging_body = null
 
 
-## 放入一个字:给定初始位置(通常是存档里记下的落点),之后交给物理。`shown_text` 是瓦片上显示的字,留空就显示 unit。
+## 放入一个字:给定初始位置(通常是存档里记下的落点),出界的会夹回画布内,之后交给物理。`shown_text` 是瓦片上显示的字,留空就显示 unit。
 func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool, shown_text: String = "") -> void:
 	if _bodies.has(unit):
 		return
 	var body := RigidBody2D.new()
 	body.name = "WordBody_%s" % unit
-	body.position = spawn_position + TILE_SIZE * 0.5
+	body.position = _clamp_center(spawn_position + TILE_SIZE * 0.5)
 	body.gravity_scale = 1.0
 	body.mass = 0.6
 	body.physics_material_override = PhysicsMaterial.new()
@@ -157,7 +218,7 @@ func is_dragging() -> bool:
 	return _dragging_body != null
 
 
-## 静止、且没被抓住的字。还在动或拖曳中的位置留在方块上，不往外送。
+## 静止、且没被抓住的字,位置一定在画布内。还在动或拖曳中的位置留在方块上，不往外送。
 func settled_tile_positions() -> Dictionary:
 	var positions := {}
 	for unit in _bodies.keys():
@@ -166,7 +227,7 @@ func settled_tile_positions() -> Dictionary:
 			continue
 		if body.linear_velocity.length() >= SETTLED_SPEED:
 			continue
-		positions[str(unit)] = body.position - TILE_SIZE * 0.5
+		positions[str(unit)] = _clamp_center(body.position) - TILE_SIZE * 0.5
 	return positions
 
 
@@ -223,8 +284,7 @@ func _end_drag(release_global: Vector2) -> void:
 	# Release at the current pointer, not at the last physics-server transform.
 	if _drag_started:
 		body.position = get_global_transform().affine_inverse() * release_global - _drag_grab_offset
-		var half_size := TILE_SIZE * 0.5
-		body.position = body.position.clamp(half_size, (size - half_size).max(half_size))
+		body.position = _clamp_center(body.position)
 	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
 	body.freeze = false
 	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面;停手一下再放就不抛。

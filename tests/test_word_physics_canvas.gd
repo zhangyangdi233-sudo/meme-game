@@ -12,6 +12,9 @@ func _init() -> void:
 
 func _run_async() -> void:
 	await _test_drag_release_across_physics_frames()
+	await _test_window_shake_keeps_tiles_inside()
+	await _test_escaped_tile_returns_next_step()
+	_test_out_of_bounds_positions_are_clamped()
 	await _run()
 	if _failures.is_empty():
 		print("word physics canvas tests passed")
@@ -53,6 +56,84 @@ func _test_drag_release_across_physics_frames() -> void:
 	for frame in 8:
 		await physics_frame
 	_assert_true(body.position.y > release_y, "gravity continues pulling the released tile downward")
+	canvas.free()
+
+
+const SHAKE_CANVAS_SIZE := Vector2(520, 300)
+
+
+func _make_shake_canvas() -> WordPhysicsCanvas:
+	var canvas: WordPhysicsCanvas = CanvasScript.new()
+	canvas.position = Vector2(200, 150)
+	canvas.size = SHAKE_CANVAS_SIZE
+	root.add_child(canvas)
+	return canvas
+
+
+func _tile_inside(canvas: WordPhysicsCanvas, unit: String) -> bool:
+	var tile_position := canvas.get_tile_position(unit)
+	var slack := 2.0
+	return tile_position.x >= -slack and tile_position.y >= -slack \
+		and tile_position.x <= SHAKE_CANVAS_SIZE.x - CanvasScript.TILE_SIZE.x + slack \
+		and tile_position.y <= SHAKE_CANVAS_SIZE.y - CanvasScript.TILE_SIZE.y + slack
+
+
+# #152: dragging the notebook window fast moved the walls through the tiles.
+func _test_window_shake_keeps_tiles_inside() -> void:
+	var canvas := _make_shake_canvas()
+	var units := ["捧", "这", "门", "灯", "开"]
+	for index in units.size():
+		canvas.add_tile(units[index], Vector2(40.0 + index * 90.0, 200.0), Color.WHITE, null, false)
+	for frame in 60:
+		await physics_frame
+	var body: RigidBody2D = canvas.get_node("WordPhysicsRoot/WordBody_门")
+	var rest_x := canvas.get_tile_position("门").x
+	# One big jump right: the tiles should sway left inside the canvas, not stay behind it.
+	canvas.position += Vector2(600, 0)
+	await physics_frame
+	await physics_frame
+	_assert_true(body.linear_velocity.x < -20.0, "moving the window right should sway the tiles left (vx=%.1f)" % body.linear_velocity.x)
+	var swayed_x := canvas.get_tile_position("门").x
+	_assert_true(swayed_x < rest_x + 2.0 and swayed_x > rest_x - 60.0, "the swaying tile follows the window instead of being left behind (from %.1f to %.1f)" % [rest_x, swayed_x])
+	# A fast shake back and forth, larger than the canvas, then let it settle.
+	for swing in 12:
+		canvas.position += Vector2(-900 if swing % 2 == 0 else 900, -300 if swing % 3 == 0 else 300)
+		await physics_frame
+	for frame in 120:
+		await physics_frame
+	for unit in units:
+		_assert_true(_tile_inside(canvas, unit), "after a fast window shake %s stays inside the canvas, got %s" % [unit, canvas.get_tile_position(unit)])
+	_assert_true(canvas.get_tile_position("门").y > SHAKE_CANVAS_SIZE.y - CanvasScript.TILE_SIZE.y * 3.0, "the tiles fall back to the bottom")
+	canvas.free()
+
+
+func _test_escaped_tile_returns_next_step() -> void:
+	var canvas := _make_shake_canvas()
+	canvas.add_tile("捧", Vector2(100, 200), Color.WHITE, null, false)
+	for frame in 10:
+		await physics_frame
+	var body: RigidBody2D = canvas.get_node("WordPhysicsRoot/WordBody_捧")
+	body.position = Vector2(-400, 900)
+	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+	body.linear_velocity = Vector2(-500, 500)
+	await physics_frame
+	await physics_frame
+	_assert_true(_tile_inside(canvas, "捧"), "a tile outside the canvas is put back on the next physics step, got %s" % canvas.get_tile_position("捧"))
+	canvas.free()
+
+
+func _test_out_of_bounds_positions_are_clamped() -> void:
+	var canvas := _make_shake_canvas()
+	# An old save may hold a position a shake pushed outside.
+	canvas.add_tile("这", Vector2(2000, -500), Color.WHITE, null, false)
+	_assert_true(_tile_inside(canvas, "这"), "a saved position outside the canvas is clamped back in, got %s" % canvas.get_tile_position("这"))
+	var body: RigidBody2D = canvas.get_node("WordPhysicsRoot/WordBody_这")
+	body.position = Vector2(-300, 1200)
+	body.linear_velocity = Vector2.ZERO
+	var settled: Dictionary = canvas.settled_tile_positions()
+	_assert_true(settled.has("这"), "a resting tile is reported")
+	var reported: Vector2 = settled.get("这", Vector2.ZERO)
+	_assert_true(Rect2(Vector2.ZERO, SHAKE_CANVAS_SIZE - CanvasScript.TILE_SIZE).grow(0.01).has_point(reported), "settled positions are always inside the canvas, got %s" % reported)
 	canvas.free()
 
 
