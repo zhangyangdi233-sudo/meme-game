@@ -49,6 +49,35 @@ func _run() -> void:
 	await _test_a_hidden_terminal_lets_go_of_the_models()
 	await _test_the_narrator_walks_the_round_through()
 	await _test_outside_a_guided_round_the_narrator_is_silent()
+	await _test_a_flying_word_draws_above_every_app()
+
+
+## A picked or placed word flies over the terminal's apps, not under them: the social windows raise their own z to
+## stack, so the flight layer must draw above every window on the display (#154 follow-up).
+func _test_a_flying_word_draws_above_every_app() -> void:
+	var panel = await _mount()
+	var layer: FlyToTargetLayer = panel.flight_layer()
+	_assert_true(layer != null, "the terminal should have a flight layer")
+	if layer == null:
+		panel.free()
+		return
+	var display := _find(panel, "CrtTerminalDisplay")
+	for window in display.find_children("*Window", "Control", true, false):
+		if layer.is_ancestor_of(window):
+			continue
+		_assert_true(_absolute_z(layer) > _absolute_z(window as CanvasItem), "a flying word should draw above %s (z %d vs %d)" % [window.name, _absolute_z(layer), _absolute_z(window as CanvasItem)])
+	panel.free()
+
+
+func _absolute_z(item: CanvasItem) -> int:
+	var z := 0
+	var node: Node = item
+	while node is CanvasItem:
+		z += (node as CanvasItem).z_index
+		if not (node as CanvasItem).z_as_relative:
+			break
+		node = node.get_parent()
+	return z
 
 
 func _test_the_display_shows_the_social_feed_first() -> void:

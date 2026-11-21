@@ -28,6 +28,8 @@ const APP_TOP := 124.0
 const APP_MARGIN := 12.0
 ## Where a pointer that left the glass is sent, so nothing on the display stays hovered.
 const OFF_DISPLAY := Vector2(-100, -100)
+## Above every app window on the display, as the screen's own flight layer is above the phone.
+const FLIGHT_Z := 97
 
 var _viewport: SubViewport
 var _screen: PaletteSceneRoot
@@ -106,6 +108,8 @@ func mount(notebook_deps: Dictionary) -> void:
 	_flight_layer = FlyToTargetLayer.new()
 	_flight_layer.name = "TerminalFlightLayer"
 	_flight_layer.size = Vector2(DISPLAY_SIZE)
+	# The app windows raise their own z to stack (the open post at 24); a flying word passes over all of them.
+	_flight_layer.z_index = FLIGHT_Z
 	_viewport.add_child(_flight_layer)
 	_show_app()
 
