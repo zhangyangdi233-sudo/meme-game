@@ -21,8 +21,10 @@ const WINDOW_SWAY_LIMIT := 600.0
 const ESCAPE_MARGIN := 8.0
 ## 堆着的字会互相压进一点点;两个字重叠超过这个距离才算叠在一起。
 const OVERLAP_SLACK := 4.0
-## 放入的字落在别的字上时,往外找空位最多找几圈。
+## 放入的字落在别的字上时,往外找空位最多找几圈;整圈都超出画布就不再找。
 const FREE_SPOT_RINGS := 12
+## 松手处离画布边缘不到这个距离,算是甩到牆边,不算拖出画布。
+const RELEASE_SLACK := 22.0
 
 ## 画布还没排版(尺寸为零)时,放入的字按这个尺寸夹回画布内;排版后出界的字由物理步放回来。
 var expected_size := Vector2.ZERO
@@ -198,10 +200,14 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 
 
 ## 离 `center` 最近、不压在别的字上的位置;一圈圈往外找,整块字都留在画布里。找不到就留在原处交给物理。
-func _free_center(center: Vector2) -> Vector2:
-	if not _overlaps_a_tile(center):
+## `ignore` 是正要放回去的字自己。
+func _free_center(center: Vector2, ignore: RigidBody2D = null) -> Vector2:
+	if not _overlaps_a_tile(center, ignore):
 		return center
+	var canvas_size := _canvas_size()
 	for ring in range(1, FREE_SPOT_RINGS + 1):
+		if ring * TILE_SIZE.x > canvas_size.x and ring * TILE_SIZE.y > canvas_size.y:
+			break
 		var best := center
 		var best_distance := INF
 		for column in range(-ring, ring + 1):
@@ -210,7 +216,7 @@ func _free_center(center: Vector2) -> Vector2:
 					continue
 				var candidate := _clamp_center(center + Vector2(column * TILE_SIZE.x, row * TILE_SIZE.y))
 				var distance := candidate.distance_squared_to(center)
-				if distance < best_distance and not _overlaps_a_tile(candidate):
+				if distance < best_distance and not _overlaps_a_tile(candidate, ignore):
 					best = candidate
 					best_distance = distance
 		if best_distance < INF:
@@ -218,11 +224,11 @@ func _free_center(center: Vector2) -> Vector2:
 	return center
 
 
-func _overlaps_a_tile(center: Vector2) -> bool:
+func _overlaps_a_tile(center: Vector2, ignore: RigidBody2D = null) -> bool:
 	var reach := TILE_SIZE - Vector2(OVERLAP_SLACK, OVERLAP_SLACK)
 	for unit in _bodies.keys():
 		var body: RigidBody2D = _bodies[unit]
-		if not is_instance_valid(body):
+		if not is_instance_valid(body) or body == ignore:
 			continue
 		var gap := (body.position - center).abs()
 		if gap.x < reach.x and gap.y < reach.y:
@@ -321,11 +327,13 @@ func _end_drag(release_global: Vector2) -> void:
 	var body := _dragging_body
 	_dragging_body = null
 	body.z_index = 0
-	# 拖出画布(拖进句子,或拖到别处)的字回到抓起的地方,从句子拿掉时也回到这里。
+	# 拖出画布(拖进句子,或拖到别处)的字回到抓起的地方(那里已被别的字占了就放在旁边),
+	# 从句子拿掉时也回到这里。只甩过牆边一点点的字照旧靠在牆边。
 	var dropped_outside := _drag_started and not get_global_rect().has_point(release_global)
+	var goes_home := dropped_outside and not get_global_rect().grow(RELEASE_SLACK).has_point(release_global)
 	# Release at the current pointer, not at the last physics-server transform.
-	if dropped_outside:
-		body.position = _drag_home
+	if goes_home:
+		body.position = _free_center(_drag_home, body)
 	elif _drag_started:
 		body.position = get_global_transform().affine_inverse() * release_global - _drag_grab_offset
 		body.position = _clamp_center(body.position)
@@ -333,7 +341,7 @@ func _end_drag(release_global: Vector2) -> void:
 	body.freeze = false
 	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面;停手一下再放就不抛。
 	var still_time := float(Time.get_ticks_usec() - _last_drag_time_usec) / 1000000.0
-	body.linear_velocity = _drag_velocity if still_time < 0.09 and not dropped_outside else Vector2.ZERO
+	body.linear_velocity = _drag_velocity if still_time < 0.09 and not goes_home else Vector2.ZERO
 	body.sleeping = false
 	var unit := str(body.get_meta("word_unit", ""))
 	if not _drag_started:

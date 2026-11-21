@@ -176,7 +176,26 @@ func _test_a_tile_dropped_outside_goes_back_home() -> void:
 	_assert_eq_vec(canvas.get_tile_position("门"), home, "a tile dropped outside should go back where it was picked up")
 	_assert_true(body.linear_velocity == Vector2.ZERO, "and rest there")
 	_assert_true(dropped == ["门"], "the drop outside should still be reported")
+
+	# Another word fell into the spot while this one was held: it goes beside it, not on top.
+	canvas._begin_drag(body.position, canvas.global_position + body.position)
+	canvas._gui_input(motion)
+	canvas.add_tile("开", home, Color.WHITE, null)
+	var fallen := Rect2(canvas.get_tile_position("开"), CanvasScript.TILE_SIZE)
+	canvas._end_drag(canvas.global_position + outside)
+	var back := Rect2(canvas.get_tile_position("门"), CanvasScript.TILE_SIZE)
+	_assert_true(not fallen.grow(-CanvasScript.OVERLAP_SLACK).intersects(back), "a tile going home should not land on the word now there, got %s and %s" % [fallen, back])
+
+	# A flick a few pixels past the edge rests against the wall, as before.
+	var flick := Vector2(SHAKE_CANVAS_SIZE.x + 6.0, 150.0)
+	canvas._begin_drag(body.position, canvas.global_position + body.position)
+	motion.position = flick
+	motion.global_position = canvas.global_position + flick
+	canvas._gui_input(motion)
+	canvas._end_drag(canvas.global_position + flick)
+	_assert_true(canvas.get_tile_position("门").x > SHAKE_CANVAS_SIZE.x - CanvasScript.TILE_SIZE.x - 2.0, "a release just past the edge should rest against the wall, got %s" % canvas.get_tile_position("门"))
 	canvas.free()
+
 
 
 func _assert_eq_vec(actual: Vector2, expected: Vector2, message: String) -> void:

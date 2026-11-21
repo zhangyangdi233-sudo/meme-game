@@ -46,6 +46,8 @@ func _run() -> void:
 	await _test_canvas_tiles_carry_their_answers()
 	await _test_a_placed_word_leaves_the_pile_and_comes_back()
 	await _test_posting_returns_every_used_word()
+	await _test_a_returning_word_yields_its_spot_to_a_resting_one()
+	await _test_a_drop_on_the_scrolled_out_sentence_misses()
 	_test_words_sit_above_the_sentence_on_a_draggable_split()
 	await _test_the_split_keeps_its_place_across_repaints()
 	_test_the_sentence_raises_its_intents()
@@ -165,6 +167,47 @@ func _test_posting_returns_every_used_word() -> void:
 	units.replace_all([])
 	await process_frame
 	_assert_eq(_tile_units(mounted), ["门", "开"], "an emptied sentence should give every word back")
+	_dispose(mounted)
+
+
+## A word that settled into the spot of a word now in the sentence keeps it; the word coming back goes beside it.
+func _test_a_returning_word_yields_its_spot_to_a_resting_one() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var chars: ListPropertyModel = mounted["chars"]
+	var units: ListPropertyModel = mounted["units"]
+	chars.add(_held("门"))
+	chars.add(_held("开"))
+	units.replace_all(["门"])
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	var resting := _canvas(mounted).get_tile_position("开")
+	units.replace_all([])
+	await process_frame
+	var canvas := _canvas(mounted)
+	_assert_true(canvas.get_tile_position("开").is_equal_approx(resting), "the resting word should keep its spot, got %s not %s" % [canvas.get_tile_position("开"), resting])
+	_assert_true(not canvas.get_tile_position("门").is_equal_approx(resting), "the returning word should go beside it")
+	_dispose(mounted)
+
+
+## A tile let go over a part of the sentence scrolled out of view does not land in the sentence.
+func _test_a_drop_on_the_scrolled_out_sentence_misses() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var rules: MapPropertyModel = mounted["rules"]
+	for index in 14:
+		rules.add("rule%d|on" % index, {"negated": false, "source_text": "规则%d" % index, "locale": "zh", "day": 1, "floor": 3})
+	panel.render(mounted["body"])
+	await process_frame
+	var scroll := Harness.find_node_by_name(mounted["body"], "NotebookSentenceScroll") as ScrollContainer
+	scroll.scroll_vertical = 10000
+	await process_frame
+	var answer := Harness.find_node_by_name(mounted["body"], "ComposerAnswerPanel") as Control
+	var hidden_point := answer.get_global_rect().get_center()
+	_assert_true(not scroll.get_global_rect().has_point(hidden_point), "the setup should scroll the sentence out of view")
+	_heard.clear()
+	_canvas(mounted).tile_dropped_outside.emit("打", hidden_point)
+	_assert_eq(_heard, [], "a tile let go over the hidden sentence should stay in the pile")
 	_dispose(mounted)
 
 

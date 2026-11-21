@@ -32,6 +32,7 @@ var _current_locale_fn: Callable
 var _char_canvas_position_fn: Callable
 var _word_canvas: WordPhysicsCanvas
 var _answer_panel: Control
+var _sentence_scroll: ScrollContainer
 var _app_body: VBoxContainer
 ## Where the player dragged the split; a repaint builds the page again and puts the split back there.
 var _split_offset := 0
@@ -89,6 +90,7 @@ func _paint() -> void:
 	var app_body := _app_body
 	if app_body == null or not is_instance_valid(app_body) or _theme() == null:
 		return
+	var leaving_sentence := _painted_units
 	_painted_chars = _read_list(PropertyKeysScript.COLLECTED_CHAR_UNITS)
 	_painted_units = _read_list(PropertyKeysScript.FREE_SENTENCE_UNITS)
 	_painted_rules = _read_map(PropertyKeysScript.WORLD_RULES)
@@ -97,6 +99,7 @@ func _paint() -> void:
 	commit_canvas_positions()
 	_word_canvas = null
 	_answer_panel = null
+	_sentence_scroll = null
 	_clear_fn.call(app_body)
 
 	var notebook_page := VBoxContainer.new()
@@ -114,12 +117,13 @@ func _paint() -> void:
 	notebook_page.add_child(split)
 
 	var polluted_units := SentenceWarningScript.polluted_units(_painted_polluted, _read_map(PropertyKeysScript.CHAPTER_ONE_PROGRESS), _locale())
-	_render_word_area(split, polluted_units)
+	_render_word_area(split, polluted_units, leaving_sentence)
 	_render_sentence_area(split, polluted_units)
 
 
-## The upper part: the words picked up and not in the sentence, free to arrange.
-func _render_word_area(split: VSplitContainer, polluted_units: Array) -> void:
+## The upper part: the words picked up and not in the sentence, free to arrange. Words that were in the sentence
+## (`leaving_sentence`) go down last, so a word resting in one of their spots keeps it.
+func _render_word_area(split: VSplitContainer, polluted_units: Array, leaving_sentence: Array) -> void:
 	var word_area := VBoxContainer.new()
 	word_area.name = "NotebookWordArea"
 	word_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -153,10 +157,17 @@ func _render_word_area(split: VSplitContainer, polluted_units: Array) -> void:
 		empty_hint.name = "NotebookCharEmptyHint"
 		empty_hint.position = Vector2(10.0, 10.0)
 		canvas.add_child(empty_hint)
+	var resting: Array[String] = []
+	var returning: Array[String] = []
 	for unit in collected_units:
 		# A word already in the sentence is there, not here; it comes back to its spot when it leaves the sentence.
 		if unit in _painted_units:
 			continue
+		if unit in leaving_sentence:
+			returning.append(unit)
+		else:
+			resting.append(unit)
+	for unit in resting + returning:
 		var is_polluted := unit in polluted_units
 		var tile_position: Vector2 = _char_canvas_position_fn.call(unit, locale_code) if _char_canvas_position_fn.is_valid() else Vector2.ZERO
 		canvas.add_tile(
@@ -185,6 +196,7 @@ func _render_sentence_area(split: VSplitContainer, polluted_units: Array) -> voi
 	sentence_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sentence_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	sentence_area.add_child(sentence_scroll)
+	_sentence_scroll = sentence_scroll
 	var sentence_content := VBoxContainer.new()
 	sentence_content.name = "NotebookSentenceContent"
 	sentence_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -382,7 +394,8 @@ func _on_split_dragged(offset: int) -> void:
 func _on_canvas_tile_dropped_outside(unit: String, release_global: Vector2) -> void:
 	if _answer_panel == null or not is_instance_valid(_answer_panel) or not _answer_panel.is_visible_in_tree():
 		return
-	if not _answer_panel.get_global_rect().has_point(release_global):
+	# Only the part of the sentence the scroll shows takes a word.
+	if not _answer_panel.get_global_rect().intersection(_sentence_scroll.get_global_rect()).has_point(release_global):
 		return
 	var data := {"kind": "composer_unit", "id": unit}
 	for tile in _answer_panel.find_children("ComposerAnswerTile*", "ComposerAnswerTile", true, false):
