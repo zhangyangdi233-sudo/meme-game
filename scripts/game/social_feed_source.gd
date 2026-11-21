@@ -18,8 +18,6 @@ extends RefCounted
 
 @abstract func player_character_path() -> String
 
-@abstract func composer_soft_unit_limit() -> int
-
 @abstract func visible_post_indices(followed_handles: Array, channel: String) -> Array[int]
 
 @abstract func post_for_index(post_index: int) -> Dictionary

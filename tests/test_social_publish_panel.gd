@@ -1,12 +1,11 @@
 extends SceneTree
-## Social publish panel paints the publish page into the page host it is given.
-## While shown it watches the sentence being composed, repaints its own page, and raises the composer intents on the
-## event bus. Posting is never limited, and the old-meme confirm button and its funds outcome are gone.
+## Social publish panel paints the publish page into the page host it is given. The sentence is composed and posted in
+## the notebook (#154); this page only shows the last post and points there. While shown it watches the posts and
+## repaints its own page. The old-meme confirm button and its funds outcome are gone.
 
 const BootScript = preload("res://scripts/game/property_boot.gd")
 const Harness = preload("res://tests/harness/minimal_game_harness.gd")
 const GameUiThemeScript = preload("res://scripts/ui/game_ui_theme.gd")
-const PolicyScript = preload("res://scripts/game/pollution_policy.gd")
 const ProgressScript = preload("res://scripts/game/chapter_one_progress.gd")
 const GameEventBusScript = preload("res://scripts/ui/game_event_bus.gd")
 const PropertyKeysScript = preload("res://scripts/property_keys.gd")
@@ -14,7 +13,6 @@ const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const RegistryScript = preload("res://framework/service_registry.gd")
 const SocialFeedSourceScript = preload("res://scripts/game/social_feed_source.gd")
 const SocialPublishPanelScript = preload("res://scripts/ui/social_publish_panel.gd")
-const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
 var _failures: Array[String] = []
 var _heard: Array = []
@@ -35,53 +33,29 @@ func _init() -> void:
 
 func _run() -> void:
 	_test_rendering_paints_the_page_into_the_host()
-	_test_a_placed_word_can_always_be_posted()
-	_test_the_shown_page_follows_the_sentence()
+	_test_the_page_composes_nothing_and_points_to_the_notebook()
 	_test_the_page_shows_the_last_post()
-	_test_a_polluted_word_shows_as_red_garble_and_warns()
 	_test_the_page_has_no_old_meme_route()
 	_test_showing_registers_once_and_hiding_lets_go()
 	_test_a_released_page_is_not_repainted()
-	_test_painting_before_showing_reads_the_models_now()
-	_test_composer_raises_its_intents()
-	_test_tile_drag_preview_follows_the_pollution_palette()
 
 
 func _test_rendering_paints_the_page_into_the_host() -> void:
 	var mounted := _mount()
 	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
 	_assert_true(_find(mounted, "SocialPublishPage") != null, "rendering should paint the publish page into the host")
-	_assert_true(_find(mounted, "ComposerAnswerPanel") != null, "the publish page should host the sentence area")
-	_assert_eq(_label_text(mounted, "SocialPublishUnitCounter"), "0 / 12 字", "the counter should read the source's soft limit")
 	_dispose(mounted)
 
 
-func _test_a_placed_word_can_always_be_posted() -> void:
+func _test_the_page_composes_nothing_and_points_to_the_notebook() -> void:
 	var mounted := _mount()
-	var panel := mounted["panel"] as SocialPublishPanel
 	(mounted["units"] as ListPropertyModel).replace_all(["门"])
-	panel.render(mounted["host"])
-	panel.set_shown(true)
-	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should be postable")
-	_assert_true(not (_find(mounted, "SocialPublishPostButton") as Button).disabled, "the post button should never lock for the day")
-	_dispose(mounted)
-
-
-func _test_the_shown_page_follows_the_sentence() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as SocialPublishPanel
-	var units: ListPropertyModel = mounted["units"]
-	panel.render(mounted["host"])
-	panel.set_shown(true)
-	_assert_eq(_post_button_text(mounted), "先放入一个字", "an empty sentence should ask for a word")
-	_assert_true(_find(mounted, "ComposerAnswerPlaceholder") != null, "an empty sentence should show its placeholder")
-	units.replace_all(["门", "开"])
-	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should unlock the page by itself")
-	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "门开", "the preview should join the placed words")
-	_assert_eq(_label_text(mounted, "SocialPublishUnitCounter"), "2 / 12 字", "the counter should count the placed words")
-	_assert_true(_find(mounted, "ComposerAnswerTile1") != null, "each placed word should get a tile")
-	units.replace_all([])
-	_assert_eq(_post_button_text(mounted), "先放入一个字", "posting should empty the page by itself")
+	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
+	for node_name in ["ComposerAnswerPanel", "SocialPublishPostButton", "SocialPublishUnitCounter", "ComposerPreviewLabel"]:
+		_assert_true(_find(mounted, node_name) == null, "the publish page should not build %s" % node_name)
+	var hint := _find(mounted, "SocialPublishNotebookHint") as Label
+	_assert_true(hint != null and hint.text == "在笔记本里拼句、投稿。", "the page should send the player to the notebook")
+	_assert_true(_find(mounted, "PublishEmptyLine") != null, "with no post yet the page should say so")
 	_dispose(mounted)
 
 
@@ -91,35 +65,15 @@ func _test_the_page_shows_the_last_post() -> void:
 	panel.render(mounted["host"])
 	panel.set_shown(true)
 	_assert_true(_find(mounted, "LastPostSlip") == null, "no post should show no slip")
-	var published: ListPropertyModel = (RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager).model(PropertyKeysScript.PUBLISHED_MEMES)
+	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
+	var published: ListPropertyModel = manager.model(PropertyKeysScript.PUBLISHED_MEMES)
 	published.insert_at(0, {"kind": "free_sentence", "text": "灯亮", "tier": "rule"})
 	var slip := _find(mounted, "LastPostSlip") as Label
 	_assert_true(slip != null and slip.text.contains("灯亮"), "a post should show on the page by itself")
+	_assert_true(_find(mounted, "PublishEmptyLine") == null, "a post should replace the empty line")
+	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 2))
+	_assert_true(_find(mounted, "LastPostSlip") == null, "a new round should not show an earlier round's post")
 	panel.set_shown(false)
-
-
-func _test_a_polluted_word_shows_as_red_garble_and_warns() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as SocialPublishPanel
-	var manager := RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER) as PropertyManager
-	(manager.model(PropertyKeysScript.CHAPTER_ONE_PROGRESS) as MapPropertyModel).replace_all(ProgressScript.jump_to_round(ProgressScript.initial(), 1))
-	(mounted["units"] as ListPropertyModel).replace_all(["房", "间", "亮"])
-	panel.render(mounted["host"])
-	panel.set_shown(true)
-	_assert_true(_find(mounted, "SentenceVoidWarning") == null, "a clean rule should not warn")
-	(manager.model(PropertyKeysScript.POLLUTED_WORDS) as MapPropertyModel).replace_all({"subjects": ["room"], "units": {"zh": ["房", "间"]}})
-	var theme := RegistryScript.resolve(ServiceKeysScript.UI_THEME) as GameUiTheme
-	theme.apply_ui_theme(mounted["host"])
-	var polluted := _find(mounted, "ComposerAnswerTile0") as Button
-	var clean := _find(mounted, "ComposerAnswerTile2") as Button
-	_assert_eq(polluted.text, PolicyScript.garbled("房"), "the polluted word should show garbled by itself")
-	_assert_eq(polluted.get_theme_color("font_color"), theme.theme_color("error"), "and red")
-	_assert_eq(clean.text, "亮", "a clean word should stay readable")
-	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "%s%s亮" % [PolicyScript.garbled("房"), PolicyScript.garbled("间")], "the preview should read the same")
-	var warning := _find(mounted, "SentenceVoidWarning") as Label
-	_assert_true(warning != null, "a void sentence should warn")
-	_assert_eq(warning.get_theme_color("font_color"), theme.theme_color("error"), "the warning should stay red through the theme walk")
-	_assert_true(not (_find(mounted, "SocialPublishPostButton") as Button).disabled, "it can still be posted")
 	_dispose(mounted)
 
 
@@ -140,15 +94,13 @@ func _test_the_page_has_no_old_meme_route() -> void:
 func _test_showing_registers_once_and_hiding_lets_go() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialPublishPanel
-	for key in ["units"]:
-		_assert_eq(_listener_count(mounted[key]), 0, "a new panel should not listen to %s" % key)
+	_assert_eq(_listener_count(mounted["published"]), 0, "a new panel should not listen to the posts")
 	panel.set_shown(true)
 	panel.set_shown(true)
-	for key in ["units"]:
-		_assert_eq(_listener_count(mounted[key]), 1, "showing should register on %s once" % key)
+	_assert_eq(_listener_count(mounted["published"]), 1, "showing should register on the posts once")
+	_assert_eq(_listener_count(mounted["units"]), 0, "the page should not watch the sentence any more")
 	panel.set_shown(false)
-	for key in ["units"]:
-		_assert_eq(_listener_count(mounted[key]), 0, "hiding should unregister from %s" % key)
+	_assert_eq(_listener_count(mounted["published"]), 0, "hiding should unregister from the posts")
 	_dispose(mounted)
 
 
@@ -159,51 +111,9 @@ func _test_a_released_page_is_not_repainted() -> void:
 	panel.set_shown(true)
 	var page := _find(mounted, "SocialPublishPage")
 	panel.release()
-	(mounted["units"] as ListPropertyModel).add("门")
+	(mounted["published"] as ListPropertyModel).insert_at(0, {"kind": "free_sentence", "text": "灯亮", "tier": "rule"})
 	_assert_true(page != null and _find(mounted, "SocialPublishPage") == page, "a released page should be left to whoever clears the host")
-	_dispose(mounted)
-
-
-func _test_painting_before_showing_reads_the_models_now() -> void:
-	var mounted := _mount()
-	(mounted["units"] as ListPropertyModel).replace_all(["门"])
-	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
-	_assert_eq(_post_button_text(mounted), "投稿", "a page painted before showing should read the sentence now")
-	_dispose(mounted)
-
-
-func _test_composer_raises_its_intents() -> void:
-	var mounted := _mount()
-	var panel := mounted["panel"] as SocialPublishPanel
-	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
-	panel.render(mounted["host"])
-	var dropped := {"unit": "门", "index": 3}
-	_heard.clear()
-	(_find(mounted, "ComposerAnswerPanel") as ComposerDropArea).unit_dropped.emit(dropped)
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: dropped}]], "a drop on the area should raise the whole drag data")
-	_heard.clear()
-	(_find(mounted, "ComposerAnswerTile0") as ComposerAnswerTile).unit_dropped_before.emit(dropped, 1)
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_BEFORE_INDEX: 1}]], "a drop on a tile should raise the drag data and the index")
-	_heard.clear()
-	_press(mounted, "ComposerAnswerTile1")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1}]], "tapping a placed tile should raise its index")
-	_heard.clear()
-	_press(mounted, "SocialPublishPostButton")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, {}]], "the post button should raise its intent")
-	_dispose(mounted)
-
-
-func _test_tile_drag_preview_follows_the_pollution_palette() -> void:
-	var mounted := _mount()
-	Harness.bind_ui_theme("pollution_palette_5")
-	(mounted["units"] as ListPropertyModel).replace_all(["门"])
-	(mounted["panel"] as SocialPublishPanel).render(mounted["host"])
-	var tile := _find(mounted, "ComposerAnswerTile0") as DraggableButton
-	_assert_true(tile != null, "a placed word should get a tile")
-	if tile != null:
-		var preview := tile.build_drag_preview()
-		_assert_eq(preview.get_theme_color("font_color"), UiPalette.color(UiPalette.POLLUTION_PALETTE_5, "accent"), "dragging a tile at pollution stage 5 should preview it in that palette's accent")
-		preview.free()
+	panel.set_shown(false)
 	_dispose(mounted)
 
 
@@ -227,10 +137,11 @@ func _mount() -> Dictionary:
 		"host": host,
 		"panel": panel,
 		"units": manager.model(PropertyKeysScript.FREE_SENTENCE_UNITS),
+		"published": manager.model(PropertyKeysScript.PUBLISHED_MEMES),
 	}
 
 
-## A typed stand-in for the game's social content: day 0 in Chinese, twelve words to a sentence.
+## A typed stand-in for the game's social content: day 0 in Chinese.
 class FakeSource extends SocialFeedSourceScript:
 	func channels() -> Array:
 		return []
@@ -252,9 +163,6 @@ class FakeSource extends SocialFeedSourceScript:
 
 	func player_character_path() -> String:
 		return ""
-
-	func composer_soft_unit_limit() -> int:
-		return 12
 
 	func visible_post_indices(_followed_handles: Array, _channel: String) -> Array[int]:
 		return []
@@ -297,24 +205,6 @@ class FakeSource extends SocialFeedSourceScript:
 
 	func language_material() -> LanguageMaterial:
 		return null
-
-
-func _post_button_text(mounted: Dictionary) -> String:
-	var button := _find(mounted, "SocialPublishPostButton") as Button
-	return button.text if button != null else "<missing>"
-
-
-func _label_text(mounted: Dictionary, node_name: String) -> String:
-	var label := _find(mounted, node_name) as Label
-	return label.text if label != null else "<missing %s>" % node_name
-
-
-func _press(mounted: Dictionary, node_name: String) -> void:
-	var button := _find(mounted, node_name) as Button
-	if button == null:
-		_failures.append("missing button %s" % node_name)
-		return
-	button.pressed.emit()
 
 
 func _find(mounted: Dictionary, node_name: String) -> Node:

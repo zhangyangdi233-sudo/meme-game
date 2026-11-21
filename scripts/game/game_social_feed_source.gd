@@ -12,7 +12,6 @@ const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.
 const PLAYER_CHARACTER_PATH := "res://assets/generated/characters/protagonist_operator.png"
 const NO_SIGNAL_ICON_PATH := "res://assets/generated/ui/no_signal_icon.png"
 const SOCIAL_POSTER_SHEET_PATH := "res://assets/generated/social/poster_sheet.png"
-const COMPOSER_SOFT_UNIT_LIMIT := 12
 
 var post_cards: Array = SocialFeedCatalogScript.get_post_cards()
 var _channels: Array = SocialFeedCatalogScript.get_channels()
@@ -74,10 +73,6 @@ func no_signal_icon_path() -> String:
 
 func player_character_path() -> String:
 	return PLAYER_CHARACTER_PATH
-
-
-func composer_soft_unit_limit() -> int:
-	return COMPOSER_SOFT_UNIT_LIMIT
 
 
 func visible_post_indices(followed_handles: Array, channel: String) -> Array[int]:

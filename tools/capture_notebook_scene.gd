@@ -55,7 +55,7 @@ func _capture() -> void:
 		main._on_app_pressed("notebook")
 	for frame in 5:
 		await process_frame
-	var notebook_scroll := main.find_child("NotebookCraftScroll", true, false) as ScrollContainer
+	var notebook_scroll := main.find_child("NotebookSentenceScroll", true, false) as ScrollContainer
 	if notebook_scroll != null:
 		notebook_scroll.scroll_vertical = 10000
 	for frame in 12:

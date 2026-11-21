@@ -21,7 +21,6 @@ const KEY_BEFORE_INDEX := "before_index"
 const KEY_UNIT_INDEX := "unit_index"
 const KEY_TILE_POSITIONS := "tile_positions"
 const KEY_UNIT := "unit"
-const KEY_RELEASE_GLOBAL := "release_global"
 
 ## Main menu. Payload: {}.
 const START_GAME := "start_game"
@@ -75,27 +74,25 @@ const CHAPTER_ROUND_JUMP_REQUESTED := "chapter_round_jump_requested"
 
 ## Social feed. Payload: {KEY_CHANNEL: String} for a channel tab, {KEY_SCREEN: String} for a page change,
 ## {KEY_POST_INDEX: int} for a card, {KEY_POST_ID: String} for a like, {KEY_AUTHOR_ID: String} for a follow,
-## {KEY_META: Variant, KEY_POST_ID: String} for a pickup unit, {KEY_DATA: Dictionary} for a drop on the sentence area,
-## {KEY_DATA: Dictionary, KEY_BEFORE_INDEX: int} for a drop before a tile, {KEY_UNIT_INDEX: int} for a placed tile, {} for the rest.
+## {KEY_META: Variant, KEY_POST_ID: String} for a pickup unit, {} for the rest.
 const SOCIAL_CHANNEL_PRESSED := "social_channel_pressed"
 const SOCIAL_SCREEN_REQUESTED := "social_screen_requested"
 const SOCIAL_CARD_CLICKED := "social_card_clicked"
 const SOCIAL_LIKE_PRESSED := "social_like_pressed"
 const SOCIAL_FOLLOW_PRESSED := "social_follow_pressed"
 const SOCIAL_PICKUP_UNIT_CLICKED := "social_pickup_unit_clicked"
-const SOCIAL_COMPOSER_AREA_DROPPED := "social_composer_area_dropped"
-const SOCIAL_COMPOSER_TILE_DROPPED := "social_composer_tile_dropped"
-const SOCIAL_COMPOSER_ANSWER_TAPPED := "social_composer_answer_tapped"
 const SOCIAL_CLOSE_REQUESTED := "social_close_requested"
 const SOCIAL_DETAIL_CLOSE_REQUESTED := "social_detail_close_requested"
-const SOCIAL_COMPOSER_SUBMIT_REQUESTED := "social_composer_submit_requested"
 
-## Notebook. Payload: {KEY_TILE_POSITIONS: Dictionary} for the resting canvas tiles,
-## {KEY_UNIT: String, KEY_RELEASE_GLOBAL: Vector2} for a tile dropped off the canvas, {KEY_UNIT: String} for a tapped tile,
-## {} for the rest.
+## Notebook: words above, the sentence and its post button below (#154). Payload: {KEY_TILE_POSITIONS: Dictionary}
+## for the resting canvas tiles, {KEY_UNIT: String} for a tapped tile, {KEY_DATA: Dictionary} for a drop on the
+## sentence, {KEY_DATA: Dictionary, KEY_BEFORE_INDEX: int} for a drop before a sentence word, {KEY_UNIT_INDEX: int}
+## for a tapped sentence word, {} for the rest.
 const NOTEBOOK_CRAFT_REQUESTED := "notebook_craft_requested"
 const NOTEBOOK_CANVAS_POSITIONS_COMMITTED := "notebook_canvas_positions_committed"
-const NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE := "notebook_canvas_tile_dropped_outside"
+const NOTEBOOK_SENTENCE_AREA_DROPPED := "notebook_sentence_area_dropped"
+const NOTEBOOK_SENTENCE_TILE_DROPPED := "notebook_sentence_tile_dropped"
+const NOTEBOOK_SENTENCE_TILE_TAPPED := "notebook_sentence_tile_tapped"
 const NOTEBOOK_COMPOSER_BANK_TAPPED := "notebook_composer_bank_tapped"
 
 ## Reality conversation. Payload: {KEY_CHOICE_ID: String} for a choice, {} for the continue button.

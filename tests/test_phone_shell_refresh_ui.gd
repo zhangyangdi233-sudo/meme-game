@@ -22,7 +22,7 @@ func _run_async() -> void:
 	await _test_like_refreshes_phone_shell_not_hud()
 	await _test_channel_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
-	await _test_composer_intents_paint_the_publish_page_without_a_host_redraw()
+	await _test_sentence_intents_paint_the_notebook_without_a_host_redraw()
 	await _test_phone_popup_follows_the_phone_model()
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
@@ -112,38 +112,37 @@ func _test_channel_refreshes_phone_shell_not_hud() -> void:
 	await process_frame
 
 
-func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> void:
+func _test_sentence_intents_paint_the_notebook_without_a_host_redraw() -> void:
 	var game_root := await _boot_gameplay()
 	if game_root == null:
 		return
-	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
 	game_root.game.pick_social_char("floor_13", "门", "zh")
-	game_root._social_feed_panel.show_screen("publish")
 	await process_frame
-	var notebook_body := game_root._app_bodies.get("notebook") as VBoxContainer
-	_assert_true(notebook_body != null, "the phone shell should keep a notebook app body")
-	if notebook_body == null:
+	var social_body := game_root._app_bodies.get("social") as VBoxContainer
+	_assert_true(social_body != null, "the phone shell should keep a social app body")
+	if social_body == null:
 		game_root.queue_free()
 		await process_frame
 		return
 	var sentinel := Label.new()
-	sentinel.name = "NotebookRedrawSentinel"
-	notebook_body.add_child(sentinel)
+	sentinel.name = "SocialRedrawSentinel"
+	social_body.add_child(sentinel)
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
 	await process_frame
 
 	var tile := Harness.find_node_by_name(game_root, "ComposerAnswerTile0")
-	_assert_true(tile != null, "the publish page should show the dropped word from the sentence model")
+	_assert_true(tile != null, "the notebook should show the dropped word from the sentence model")
 	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "editing the sentence should not make the host redraw the whole phone shell")
-	var social_window := game_root._social_feed_panel.get_app_window() as Control
-	var painted := _label_colors(social_window)
+	var notebook_window := game_root._notebook_window_control() as Control
+	var painted := _label_colors(notebook_window)
 	game_root._apply_phone_shell_theme()
-	_assert_eq(painted, _label_colors(social_window), "the self-repainted publish page should already carry the phone shell theme")
+	_assert_eq(painted, _label_colors(notebook_window), "the self-repainted notebook should already carry the phone shell theme")
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
 	await process_frame
-	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the publish page should drop the removed word from the sentence model")
+	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the notebook should drop the removed word from the sentence model")
 	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "removing a word should not make the host redraw the whole phone shell")
 
 	game_root.queue_free()

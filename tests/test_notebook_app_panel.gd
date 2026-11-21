@@ -43,8 +43,13 @@ func _run() -> void:
 	_test_a_freed_panel_unregisters()
 	await _test_showing_before_any_render_paints_nothing()
 	_test_the_craft_button_raises_its_intent()
-	_test_canvas_tiles_carry_their_answers()
-	await _test_a_placed_word_ghosts_its_tile_and_enables_posting()
+	await _test_canvas_tiles_carry_their_answers()
+	await _test_a_placed_word_leaves_the_pile_and_comes_back()
+	await _test_posting_returns_every_used_word()
+	_test_words_sit_above_the_sentence_on_a_draggable_split()
+	await _test_the_split_keeps_its_place_across_repaints()
+	_test_the_sentence_raises_its_intents()
+	_test_the_hint_says_where_words_go()
 	await _test_a_new_world_rule_appears_by_itself()
 	await _test_the_last_post_shows_red_or_green()
 	await _test_a_polluted_word_shows_as_red_garble()
@@ -122,20 +127,105 @@ func _test_the_notebook_has_no_fusion_tab() -> void:
 	_dispose(mounted)
 
 
-func _test_a_placed_word_ghosts_its_tile_and_enables_posting() -> void:
+func _test_a_placed_word_leaves_the_pile_and_comes_back() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
 	var chars: ListPropertyModel = mounted["chars"]
 	var units: ListPropertyModel = mounted["units"]
 	chars.add(_held("门"))
+	chars.add(_held("开"))
 	panel.render(mounted["body"])
 	panel.set_shown(true)
 	_assert_true(_button_disabled(mounted, "NotebookCraftButton"), "an empty sentence should not post")
-	_assert_true(not _is_ghost(mounted, "门"), "a word not in the sentence should be a normal tile")
+	_assert_true(_has(mounted, "ComposerAnswerPlaceholder"), "an empty sentence should show its placeholder")
 	units.add("门")
 	await process_frame
-	_assert_true(_is_ghost(mounted, "门"), "a word placed in the sentence should ghost its tile by itself")
+	_assert_eq(_tile_units(mounted), ["开"], "a word placed in the sentence should leave the pile")
+	_assert_eq(_button_text(mounted, "ComposerAnswerTile0"), "门", "the placed word should show in the sentence")
+	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "门", "the preview should read the sentence")
 	_assert_true(not _button_disabled(mounted, "NotebookCraftButton"), "a sentence with a word should post")
+	units.remove_at(0)
+	await process_frame
+	_assert_eq(_tile_units(mounted), ["门", "开"], "a word taken out of the sentence should come back to the pile")
+	_assert_true(not _has(mounted, "ComposerAnswerTile0"), "the sentence should be empty again")
+	_dispose(mounted)
+
+
+func _test_posting_returns_every_used_word() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	var chars: ListPropertyModel = mounted["chars"]
+	var units: ListPropertyModel = mounted["units"]
+	chars.add(_held("门"))
+	chars.add(_held("开"))
+	units.replace_all(["门", "开"])
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	_assert_eq(_tile_units(mounted), [], "a full sentence should leave nothing in the pile")
+	units.replace_all([])
+	await process_frame
+	_assert_eq(_tile_units(mounted), ["门", "开"], "an emptied sentence should give every word back")
+	_dispose(mounted)
+
+
+func _test_words_sit_above_the_sentence_on_a_draggable_split() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	var split := Harness.find_node_by_name(mounted["body"], "NotebookSplit") as VSplitContainer
+	_assert_true(split != null, "the notebook should split words and sentence")
+	if split == null:
+		_dispose(mounted)
+		return
+	_assert_true(split.dragging_enabled, "the split should be draggable")
+	var words := split.get_child(0)
+	var sentence := split.get_child(1)
+	_assert_true(Harness.find_node_by_name(words, "NotebookWordCanvas") != null, "the pile should sit in the upper part")
+	for node_name in ["ComposerAnswerPanel", "NotebookCraftButton"]:
+		_assert_true(Harness.find_node_by_name(sentence, node_name) != null, "%s should sit in the lower part" % node_name)
+	_dispose(mounted)
+
+
+func _test_the_split_keeps_its_place_across_repaints() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	panel.render(mounted["body"])
+	panel.set_shown(true)
+	var split := Harness.find_node_by_name(mounted["body"], "NotebookSplit") as VSplitContainer
+	split.split_offset = -90
+	split.dragged.emit(-90)
+	(mounted["chars"] as ListPropertyModel).add(_held("门"))
+	await process_frame
+	var repainted := Harness.find_node_by_name(mounted["body"], "NotebookSplit") as VSplitContainer
+	_assert_true(repainted != split, "a new word should repaint the page")
+	_assert_eq(repainted.split_offset, -90, "a repaint should keep where the player dragged the split")
+	_dispose(mounted)
+
+
+func _test_the_sentence_raises_its_intents() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as NotebookAppPanel
+	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
+	panel.render(mounted["body"])
+	var dropped := {"kind": "composer_unit", "id": "打"}
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "ComposerAnswerPanel") as ComposerDropArea).unit_dropped.emit(dropped)
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: dropped}]], "a drop on the sentence should raise the whole drag data")
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "ComposerAnswerTile0") as ComposerAnswerTile).unit_dropped_before.emit(dropped, 1)
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_SENTENCE_TILE_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_BEFORE_INDEX: 1}]], "a drop on a sentence word should raise the drag data and the index")
+	_heard.clear()
+	(Harness.find_node_by_name(mounted["body"], "ComposerAnswerTile1") as Button).pressed.emit()
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1}]], "tapping a sentence word should raise its index")
+	_dispose(mounted)
+
+
+func _test_the_hint_says_where_words_go() -> void:
+	var mounted := _mount()
+	(mounted["panel"] as NotebookAppPanel).render(mounted["body"])
+	var text := Harness.collect_control_text(mounted["body"])
+	_assert_true(text.contains("点字放进下方的句子;从句子拿掉的字会回到这里。"), "the hint should say tapping puts a word in the sentence below: %s" % text)
+	_assert_true(not text.contains("发布页"), "the notebook should no longer send the player to the publish page")
 	_dispose(mounted)
 
 
@@ -249,10 +339,9 @@ func _test_hiding_unregisters_from_the_sentence_and_rules() -> void:
 	_dispose(mounted)
 
 
-## A tile already placed in the sentence is drawn faded.
-func _is_ghost(mounted: Dictionary, unit: String) -> bool:
-	var body := Harness.find_node_by_name(mounted["body"], "WordBody_%s" % unit) as CanvasItem
-	return body != null and body.modulate.a < 1.0
+func _label_text(mounted: Dictionary, node_name: String) -> String:
+	var label := Harness.find_node_by_name(mounted["body"], node_name) as Label
+	return label.text if label != null else "<missing %s>" % node_name
 
 
 func _button_text(mounted: Dictionary, node_name: String) -> String:
@@ -328,14 +417,25 @@ func _test_the_craft_button_raises_its_intent() -> void:
 func _test_canvas_tiles_carry_their_answers() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as NotebookAppPanel
+	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
 	panel.render(mounted["body"])
+	await process_frame
 	var canvas := _canvas(mounted)
 	_heard.clear()
-	canvas.tile_dropped_outside.emit("门", Vector2(120.0, 80.0))
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: "门", UiIntentsScript.KEY_RELEASE_GLOBAL: Vector2(120.0, 80.0)}]], "a tile dropped off the canvas should carry its unit and release point")
+	canvas.tile_tapped.emit("打")
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "打"}]], "a tapped tile should carry its unit")
+	var answer := Harness.find_node_by_name(mounted["body"], "ComposerAnswerPanel") as Control
+	var second := Harness.find_node_by_name(mounted["body"], "ComposerAnswerTile1") as Control
+	var placed := {"kind": "composer_unit", "id": "打"}
 	_heard.clear()
-	canvas.tile_tapped.emit("开")
-	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"}]], "a tapped tile should carry its unit")
+	canvas.tile_dropped_outside.emit("打", second.get_global_rect().get_center())
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_SENTENCE_TILE_DROPPED, {UiIntentsScript.KEY_DATA: placed, UiIntentsScript.KEY_BEFORE_INDEX: 1}]], "a tile dropped on a sentence word should go before it")
+	_heard.clear()
+	canvas.tile_dropped_outside.emit("打", answer.get_global_rect().end - Vector2(4.0, 4.0))
+	_assert_eq(_heard, [[UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: placed}]], "a tile dropped on the sentence should join its end")
+	_heard.clear()
+	canvas.tile_dropped_outside.emit("打", Vector2(-500.0, -500.0))
+	_assert_eq(_heard, [], "a tile dropped anywhere else should stay in the pile")
 	_dispose(mounted)
 
 

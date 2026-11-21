@@ -2666,12 +2666,7 @@ func _configure_intent_handler(handler: IntentHandler) -> void:
 	else:
 		_ensure_language_material()
 		_social_intent_handler.configure(game, _language_material, _social_feed_source())
-		_notebook_intent_handler.configure(game, _language_material, _locale, _composer_answer_panel)
-
-
-## The publish page's answer area a notebook tile can be dropped on, or null while it is not built.
-func _composer_answer_panel() -> Control:
-	return _find_control_by_name(_ui_root, "ComposerAnswerPanel")
+		_notebook_intent_handler.configure(game, _language_material, _locale)
 
 
 ## A handler already changed the state and wrote its feedback; the host only presents what it asks for.

@@ -18,7 +18,6 @@ const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 var _failures: Array[String] = []
 var _game: MemeGameState
 var _handler: NotebookIntentHandler
-var _answer_panel: Control
 var _results: Array = []
 
 
@@ -29,12 +28,10 @@ func _init() -> void:
 func _run_async() -> void:
 	_test_it_claims_every_notebook_intent_and_nothing_else()
 	_test_bank_taps_place_the_word_and_ask_for_its_flight()
-	_test_a_tile_dropped_on_the_answer_joins_the_sentence()
-	await _test_a_tile_dropped_off_the_answer_stays_out()
+	_test_sentence_drops_place_and_reorder_words()
+	_test_a_tapped_sentence_word_goes_back()
 	_test_craft_returns_the_submit_outcome()
 	_test_committed_positions_are_written_to_the_state()
-	if _answer_panel != null:
-		_answer_panel.queue_free()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("notebook intent handler tests passed")
@@ -55,7 +52,7 @@ func _boot() -> void:
 	var material := LanguageMaterialScript.new()
 	material.configure(_game, locale)
 	_handler = NotebookIntentHandlerScript.new()
-	_handler.configure(_game, material, locale, func() -> Control: return _answer_panel)
+	_handler.configure(_game, material, locale)
 	var bus := GameEventBusScript.new()
 	RegistryScript.bind(ServiceKeysScript.UI_EVENT_BUS, bus)
 	_results.clear()
@@ -85,13 +82,15 @@ func _test_it_claims_every_notebook_intent_and_nothing_else() -> void:
 	for intent_name in [
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
 		UiIntentsScript.NOTEBOOK_CANVAS_POSITIONS_COMMITTED,
-		UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE,
 		UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED,
+		UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED,
+		UiIntentsScript.NOTEBOOK_SENTENCE_TILE_DROPPED,
+		UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED,
 	]:
 		_assert_true(_handler.handles(intent_name), "the handler should claim %s" % intent_name)
 	for intent_name in [
 		UiIntentsScript.START_GAME,
-		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED,
+		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED,
 		UiIntentsScript.SETTINGS_PRESSED,
 	]:
 		_assert_true(not _handler.handles(intent_name), "the handler should leave %s to the host" % intent_name)
@@ -113,29 +112,29 @@ func _test_bank_taps_place_the_word_and_ask_for_its_flight() -> void:
 		_assert_eq(unknown.value, false, "a word not held should not be placed")
 
 
-func _test_a_tile_dropped_on_the_answer_joins_the_sentence() -> void:
+func _test_sentence_drops_place_and_reorder_words() -> void:
 	_boot()
 	_game.pick_social_char("floor_13", "门", "zh")
-	_answer_panel = Control.new()
-	_answer_panel.position = Vector2(100.0, 100.0)
-	_answer_panel.size = Vector2(200.0, 80.0)
-	root.add_child(_answer_panel)
-	var result := _raise(UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: "门", UiIntentsScript.KEY_RELEASE_GLOBAL: Vector2(150.0, 120.0)})
-	_assert_eq(_game.get_free_sentence_text("zh"), "门", "a tile released over the answer should join the sentence")
-	_assert_eq(_feedback(), LanguageMaterialScript.PLACED_LINE, "a placed tile should word its feedback")
-	_assert_presents(result, IntentResultScript.NONE, "a tile drop")
+	_game.pick_social_char("floor_13", "开", "zh")
+	var area := _raise(UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
+	_assert_eq(_game.get_free_sentence_text("zh"), "门", "a word dropped on the sentence should join its end")
+	_assert_eq(_feedback(), LanguageMaterialScript.PLACED_LINE, "a placed word should word its feedback")
+	_assert_presents(area, IntentResultScript.NONE, "a drop on the sentence")
+	_raise(UiIntentsScript.NOTEBOOK_SENTENCE_TILE_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "开"}, UiIntentsScript.KEY_BEFORE_INDEX: 0})
+	_assert_eq(_game.get_free_sentence_text("zh"), "开门", "a word dropped on a sentence word should go before it")
+	_raise(UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_reorder", "id": "0"}})
+	_assert_eq(_game.get_free_sentence_text("zh"), "门开", "a sentence word dropped on the sentence should move to its end")
 
 
-func _test_a_tile_dropped_off_the_answer_stays_out() -> void:
+func _test_a_tapped_sentence_word_goes_back() -> void:
 	_boot()
 	_game.pick_social_char("floor_13", "门", "zh")
-	_raise(UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: "门", UiIntentsScript.KEY_RELEASE_GLOBAL: Vector2(10.0, 10.0)})
-	_assert_true(_game.get_free_sentence_units().is_empty(), "a tile released off the answer should stay out")
-	_answer_panel.queue_free()
-	_answer_panel = null
-	await process_frame
-	_raise(UiIntentsScript.NOTEBOOK_CANVAS_TILE_DROPPED_OUTSIDE, {UiIntentsScript.KEY_UNIT: "门", UiIntentsScript.KEY_RELEASE_GLOBAL: Vector2(150.0, 120.0)})
-	_assert_true(_game.get_free_sentence_units().is_empty(), "with no answer panel a released tile should stay out")
+	_game.pick_social_char("floor_13", "开", "zh")
+	_raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "门"})
+	_raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "开"})
+	var result := _raise(UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
+	_assert_eq(_game.get_free_sentence_text("zh"), "开", "a tapped sentence word should leave the sentence")
+	_assert_presents(result, IntentResultScript.NONE, "a sentence tap")
 
 
 func _test_craft_returns_the_submit_outcome() -> void:

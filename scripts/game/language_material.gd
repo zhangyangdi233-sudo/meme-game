@@ -41,18 +41,6 @@ func place_from_bank(unit: String) -> bool:
 	return true
 
 
-func place_if_over_answer(unit: String, release_global: Vector2, answer_panel: Control) -> bool:
-	if _game == null:
-		return false
-	var dropped_into_sentence := false
-	if answer_panel != null and is_instance_valid(answer_panel) and answer_panel.is_visible_in_tree():
-		if answer_panel.get_global_rect().has_point(release_global):
-			dropped_into_sentence = _game.free_sentence_place(unit, _locale_code())
-	if dropped_into_sentence:
-		_write_feedback(PLACED_LINE)
-	return dropped_into_sentence
-
-
 func drop_on_area(data: Dictionary) -> Dictionary:
 	var target_index := 0
 	if _game != null:
