@@ -2176,19 +2176,30 @@ func _ensure_language_material() -> void:
 	_social_feed_source().configure(game, _locale, _language_material)
 
 
-## Rebinds the presenter each use: the flight layer is built after the material.
+## Rebinds the presenter each use: the flight layer is built after the material, and while the CRT terminal is in use
+## words fly on its display, toward its own notebook, instead of over the screen toward the phone's (#154).
 func _presenter() -> LanguagePresenter:
 	if _language_presenter == null:
 		_language_presenter = LanguagePresenterScript.new()
 		_language_presenter.notebook_home_requested.connect(_ensure_notebook_window_home)
+	var on_terminal := _terminal_flights()
 	_language_presenter.configure(
-		_pickup_flight_layer,
-		_notebook_flight_target,
-		_composer_answer_target,
+		_crt_terminal_panel.flight_layer() if on_terminal else _pickup_flight_layer,
+		_crt_terminal_panel.notebook_flight_target if on_terminal else _notebook_flight_target,
+		_crt_terminal_panel.sentence_flight_target if on_terminal else _composer_answer_target,
 		_ui_theme_helper.theme_color("flash_text"),
 		_ui_theme_helper.theme_color("accent"),
 	)
 	return _language_presenter
+
+
+func _terminal_flights() -> bool:
+	return _crt_terminal_panel != null and is_instance_valid(_crt_terminal_panel) and _crt_terminal_panel.is_shown()
+
+
+## Where a flight starts: the clicked word, on the terminal's display while it is in use.
+func _flight_origin() -> Vector2:
+	return _crt_terminal_panel.pointer_point() if _terminal_flights() else get_viewport().get_mouse_position()
 
 
 func _ensure_phone_launcher_panel() -> void:
@@ -2679,10 +2690,10 @@ func _present_intent_result(result: IntentResult) -> void:
 		SocialIntentHandlerScript.WINDOW_CLOSED:
 			_present_app_window_closed("social")
 		SocialIntentHandlerScript.PICKUP:
-			_presenter().present_pickup(result.outcome, result.unit, get_viewport().get_mouse_position())
+			_presenter().present_pickup(result.outcome, result.unit, _flight_origin())
 			_present_pickup_outcome(result.outcome)
 		NotebookIntentHandlerScript.PLACE:
-			_present_place(bool(result.value), result.unit)
+			_presenter().present_place(bool(result.value), result.unit, _flight_origin())
 		SettingsIntentHandlerScript.VHS_TOGGLED:
 			_present_vhs(bool(result.value))
 		SettingsIntentHandlerScript.PREFERENCES_CHANGED:
@@ -3248,21 +3259,12 @@ func _commit_notebook_canvas_positions() -> void:
 	_notebook_app_panel.commit_canvas_positions()
 
 
-## The phone notebook's sentence; the terminal's notebook flies its words on its own display.
+## The phone notebook's sentence.
 func _composer_answer_target() -> Vector2:
 	if _notebook_app_panel == null or not is_instance_valid(_notebook_app_panel):
 		return _notebook_flight_target()
 	return _notebook_app_panel.sentence_flight_target()
 
-
-## A word tapped into the sentence flies on the notebook it was tapped in: the terminal's while it is entered.
-func _present_place(placed: bool, unit: String) -> void:
-	if not placed:
-		return
-	if _terminal_is_open() and _crt_terminal_panel != null:
-		_crt_terminal_panel.play_place_flight(unit, _ui_theme_helper.theme_color("accent"))
-		return
-	_presenter().present_place(placed, unit, get_viewport().get_mouse_position())
 
 
 func _build_pickup_flight_layer() -> void:

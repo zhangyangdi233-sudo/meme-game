@@ -397,7 +397,11 @@ func _on_craft_pressed() -> void:
 
 ## Where a word tapped on the canvas flies to: this notebook's sentence, in its own viewport's coordinates.
 func sentence_flight_target() -> Vector2:
-	return LanguageMaterialScript.composer_answer_target(_answer_flow)
+	if _answer_flow != null and is_instance_valid(_answer_flow):
+		return LanguageMaterialScript.composer_answer_target(_answer_flow)
+	if _app_body != null and is_instance_valid(_app_body):
+		return _app_body.get_global_rect().get_center()
+	return Vector2.ZERO
 
 
 func _on_split_dragged(offset: int) -> void:

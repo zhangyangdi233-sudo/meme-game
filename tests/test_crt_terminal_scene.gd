@@ -200,8 +200,19 @@ func _test_a_word_tapped_on_the_terminal_flies_inside_its_display(game_root) -> 
 	_assert_eq(screen_layer.get_child_count(), screen_glyphs, "no glyph should fly over the screen toward the phone's notebook")
 	var glyphs := display.find_children("PlaceFlightGlyph", "Label", true, false)
 	_assert_eq(glyphs.size(), 1, "the word should fly inside the terminal's display")
+	# A word picked on the terminal flies on its display too, toward its notebook tab.
+	var pool_script := load("res://scripts/narrative/pickup_char_pool.gd")
+	var fresh: Array = game_root.game.get_pickup_unit_pool("zh").filter(func(unit) -> bool:
+		return pool_script.is_unit_seeded_in_post("floor_13", str(unit), "zh") and not game_root.game.is_social_char_collected(str(unit), "zh"))
+	var screen_holds := screen_layer.find_children("HoldFlightGlyph", "Label", true, false).size()
+	var picked := str(fresh[0]) if not fresh.is_empty() else ""
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: picked, UiIntentsScript.KEY_POST_ID: "floor_13"})
+	await process_frame
+	_assert_true(game_root.game.is_social_char_collected(picked, "zh"), "a pickup on the terminal should collect %s" % picked)
+	_assert_eq(screen_layer.find_children("HoldFlightGlyph", "Label", true, false).size(), screen_holds, "a pickup on the terminal should not fly over the screen")
+	_assert_eq(display.find_children("HoldFlightGlyph", "Label", true, false).size(), 1, "a pickup on the terminal should fly on its display")
+	await create_timer(1.4).timeout
 	var flow := Harness.find_node_by_name(display, "ComposerAnswerFlow") as Control
-	await create_timer(0.4).timeout
 	_assert_true(flow != null and flow.is_visible_in_tree(), "the terminal's sentence should show")
 	_assert_eq(display.find_children("ComposerAnswerTile0", "", true, false).size(), 1, "the terminal's sentence should show the word")
 	_push_key(game_root, KEY_TAB)

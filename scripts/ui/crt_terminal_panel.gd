@@ -110,11 +110,30 @@ func mount(notebook_deps: Dictionary) -> void:
 	_show_app()
 
 
-## A word tapped in the terminal's notebook flies from the pointer to the notebook's sentence, on this display.
-func play_place_flight(unit: String, color: Color) -> void:
-	if _flight_layer == null or not _shown:
-		return
-	_flight_layer.play_place_flight(unit, _last_point, _notebook.sentence_flight_target, color)
+## While the terminal is in use, words picked or placed on it fly on this display (#154).
+func is_shown() -> bool:
+	return _shown and _flight_layer != null
+
+
+func flight_layer() -> FlyToTargetLayer:
+	return _flight_layer
+
+
+## Where the pointer is on this display: a flight starts at the word the player clicked.
+func pointer_point() -> Vector2:
+	return _last_point
+
+
+## A picked word flies to the notebook's tab, the notebook's sentence when the notebook shows.
+func notebook_flight_target() -> Vector2:
+	if _app == "notebook":
+		return _notebook.sentence_flight_target()
+	var tab := _tabs.get("notebook") as Control
+	return tab.get_global_rect().get_center() if tab != null else Vector2(DISPLAY_SIZE) * 0.5
+
+
+func sentence_flight_target() -> Vector2:
+	return _notebook.sentence_flight_target()
 
 
 ## What the CRT's glass shows.
