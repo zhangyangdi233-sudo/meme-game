@@ -41,8 +41,9 @@ const TERMINAL_VIEW_FOV := 58.0
 const PHONE_REACH_RADIUS := 1.1
 ## How far from one of an exit object's places the player may stand for it to answer.
 const EXIT_REACH_RADIUS := 1.0
-## How far from the wall switch's reach point the player may stand to press it.
-const SWITCH_REACH_RADIUS := 0.9
+## How far from the wall switch's reach point the player may stand to press it: wide, since it is pressed in the dark
+## (#153). It answers only while it would end something, so it hides the stairs beside it only then.
+const SWITCH_REACH_RADIUS := 1.5
 ## Leaving by an exit: the view pushes in toward the object over the whole transition; the host darkens the screen as
 ## it ends, then the next round is built.
 const EXIT_TRANSITION_SECONDS := 1.8

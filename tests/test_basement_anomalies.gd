@@ -51,6 +51,8 @@ func _run() -> void:
 	await _test_the_switch_ends_the_whisper_early()
 	await _test_round_three_goes_dark_but_keeps_the_crts_green()
 	await _test_the_switch_lights_round_three_over_seeded_chairs()
+	await _test_the_switch_glows_only_while_it_can_end_the_dark()
+	await _test_the_switch_answers_from_further_off()
 	await _test_round_four_hangs_a_wall_of_clocks_over_normal_chairs()
 	await _test_round_fives_missing_numbers_show_only_through_the_xray()
 	await _test_round_five_turns_black_then_red_from_the_rooms_middle()
@@ -195,6 +197,40 @@ func _test_the_switch_lights_round_three_over_seeded_chairs() -> void:
 	var other = await _adapter_with(other_deps)
 	_assert_true(_chair_transforms(_stage(other).get_node("ScatteredChairs")) != first, "another run's seed should lay another pile")
 	await _free(other)
+
+
+## #153: in the outage the switch is the one point that glows, and it stops once the light is back.
+func _test_the_switch_glows_only_while_it_can_end_the_dark() -> void:
+	var lit_room = await _round(1)
+	_assert_true(not _switch_glows(_stage(lit_room)), "the switch should not glow under normal light")
+	await _free(lit_room)
+	var dark := ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 3), "blackout")
+	var adapter = await _adapter_with(_deps(3, dark))
+	var stage := _stage(adapter)
+	_assert_true(_switch_glows(stage), "the switch should glow in the outage")
+	var glow := stage.get_node("SwitchGlow") as Node3D
+	var reach: Vector3 = stage.switch_reach_position()
+	var offset := glow.position - reach
+	_assert_true(Vector2(offset.x, offset.z).length() < 1.0 and glow.position.y > 0.8, "the glow should sit on the switch")
+	await _stand_at_switch(adapter, 3, dark)
+	adapter.apply_interaction({"action": "press_switch"})
+	adapter.ensure_floor_current(_deps(3, ProgressScript.end_events(dark, ["blackout"])))
+	_assert_true(not _switch_glows(stage), "the glow should go once the light is back")
+	await _free(adapter)
+
+
+## #153: in the dark the switch answers from further off than an arm's length.
+func _test_the_switch_answers_from_further_off() -> void:
+	var dark := ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 3), "blackout")
+	var adapter = await _adapter_with(_deps(3, dark))
+	var reach: Vector3 = _stage(adapter).switch_reach_position()
+	adapter.player.position = reach + Vector3(0.0, 0.05, -1.3)
+	adapter.refresh_nearby_actor(_deps(3, dark))
+	_assert_eq(adapter.nearby_outcome().get("kind"), "switch", "the switch should answer 1.3 m off its reach point")
+	adapter.player.position = reach + Vector3(0.0, 0.05, -2.5)
+	adapter.refresh_nearby_actor(_deps(3, dark))
+	_assert_true(adapter.nearby_outcome().get("kind") != "switch", "the switch should not answer from across the room")
+	await _free(adapter)
 
 
 func _test_round_four_hangs_a_wall_of_clocks_over_normal_chairs() -> void:
@@ -371,6 +407,16 @@ func _lamps_lit(stage: Node3D) -> bool:
 		if not light.visible or light.light_energy <= 0.0:
 			return false
 	return true
+
+
+func _switch_glows(stage: Node3D) -> bool:
+	var glow := stage.get_node_or_null("SwitchGlow") as Node3D
+	if glow == null or not glow.visible:
+		return false
+	for child in glow.get_children():
+		if child is OmniLight3D and (child as OmniLight3D).light_energy > 0.0:
+			return true
+	return false
 
 
 func _original_chairs_shown(stage: Node3D) -> bool:
