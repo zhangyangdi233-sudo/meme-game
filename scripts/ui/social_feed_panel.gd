@@ -10,6 +10,7 @@ extends Node
 ## Its windows' drag handles go to the window manager bound in the service registry. Mounted outside the phone (the
 ## basement CRT terminal) it has no window to drag or close.
 
+const KineticScrollScript = preload("res://framework/ui/kinetic_scroll.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
 const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
@@ -19,7 +20,6 @@ const PropertyWatchScript = preload("res://scripts/game/property_watch.gd")
 const SocialPublishPanelScript = preload("res://scripts/ui/social_publish_panel.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
 
-const SOCIAL_FEED_WHEEL_STEP := 2
 const SCREENS := ["home", "publish", "profile"]
 const DEFAULT_SCREEN := "home"
 const DEFAULT_CHANNEL := "discover"
@@ -51,6 +51,8 @@ var _publish: SocialPublishPanel
 var _screen := DEFAULT_SCREEN
 var _channel := DEFAULT_CHANNEL
 var _rendered := false
+## The home feed's scroll; a repaint builds a new feed and with it a new one.
+var _feed_kinetic: KineticScroll
 var _windowed := true
 var _app_shown := false
 var _followed: Array = []
@@ -455,12 +457,11 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 
 	var feed_scroll := ScrollContainer.new()
 	feed_scroll.name = "SocialFeedScroll"
-	feed_scroll.set_meta("slow_scroll_step", SOCIAL_FEED_WHEEL_STEP)
 	feed_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	feed_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	feed_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	feed_scroll.gui_input.connect(_on_feed_scroll_gui_input.bind(feed_scroll))
 	feed_frame.add_child(feed_scroll)
+	_feed_kinetic = KineticScrollScript.attach(feed_scroll)
 
 	var feed_content := VBoxContainer.new()
 	feed_content.name = "SocialFeedContent"
@@ -499,7 +500,8 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		card_panel.clip_contents = true
-		card_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		# A press on a card goes on to the feed, so a drag that starts on a card still scrolls.
+		card_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 		card_panel.gui_input.connect(_on_card_gui_input.bind(post_index))
 		card_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		masonry_columns[column_index].add_child(card_panel)
@@ -695,11 +697,6 @@ func _poster_color(post_index: int) -> Color:
 			return _theme().theme_color("bg").lightened(0.10)
 
 
-func _scroll_feed(feed_scroll: ScrollContainer, delta: int) -> void:
-	var max_scroll := int(feed_scroll.get_v_scroll_bar().max_value)
-	feed_scroll.scroll_vertical = clampi(feed_scroll.scroll_vertical + delta, 0, max_scroll)
-
-
 func _on_close_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.SOCIAL_CLOSE_REQUESTED)
 
@@ -720,28 +717,13 @@ func _on_follow_pressed(author_id: String) -> void:
 	GameEventBus.raise(UiIntentsScript.SOCIAL_FOLLOW_PRESSED, {UiIntentsScript.KEY_AUTHOR_ID: author_id})
 
 
+## A card opens on release, and only when the press stayed a tap: the end of a drag over it opens nothing.
 func _on_card_gui_input(event: InputEvent, post_index: int) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		open_post(post_index)
-	elif event is InputEventScreenTouch and event.pressed:
-		open_post(post_index)
-
-
-func _on_feed_scroll_gui_input(event: InputEvent, feed_scroll: ScrollContainer) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		var direction := 0
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			direction = 1
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			direction = -1
-		if direction != 0:
-			_scroll_feed(feed_scroll, direction * SOCIAL_FEED_WHEEL_STEP)
-			feed_scroll.accept_event()
-	elif event is InputEventPanGesture:
-		var vertical_delta := int(round((event as InputEventPanGesture).delta.y * float(SOCIAL_FEED_WHEEL_STEP)))
-		if vertical_delta != 0:
-			_scroll_feed(feed_scroll, vertical_delta)
-			feed_scroll.accept_event()
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed):
+		return
+	if is_instance_valid(_feed_kinetic) and _feed_kinetic.was_dragged():
+		return
+	open_post(post_index)
 
 
 func _render_detail_page(parent: VBoxContainer) -> void:
