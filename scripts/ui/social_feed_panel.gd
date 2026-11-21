@@ -6,7 +6,8 @@ extends Node
 ## The publish page is its own SocialPublishPanel; this shell only hands it the page host.
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
-## Moving between them repaints the panel at once; the host hears the channel or screen intent only to re-theme the new nodes.
+## Moving between them repaints and re-themes the panel at once, on the phone and on the basement terminal alike;
+## the host hears the channel or screen intent only to re-theme the shell around it.
 ## Its windows' drag handles go to the window manager bound in the service registry. Mounted outside the phone (the
 ## basement CRT terminal) it has no window to drag or close.
 
@@ -890,7 +891,9 @@ func _repaint_page() -> bool:
 	if not _rendered:
 		return false
 	render_app()
+	_theme_window(_app_window)
 	render_companion()
+	_theme_window(_detail_window)
 	return true
 
 

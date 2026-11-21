@@ -42,6 +42,7 @@ func _main() -> void:
 func _run() -> void:
 	await _test_the_display_shows_the_social_feed_first()
 	await _test_a_tab_switches_the_app_and_raises_its_intent()
+	await _test_a_repainted_social_page_keeps_the_theme()
 	await _test_the_exit_raises_its_intent()
 	await _test_a_word_held_anywhere_shows_in_the_terminal_notebook()
 	await _test_posting_from_the_terminal_raises_the_phone_intent()
@@ -75,6 +76,30 @@ func _test_a_tab_switches_the_app_and_raises_its_intent() -> void:
 	await _click(panel, "TerminalAppSocial")
 	_assert_eq(panel.selected_app(), "social", "the social tab should switch back")
 	await _dispose(panel)
+
+
+## Switching channel or bottom-nav page rebuilds the feed; the new buttons must wear the UI theme, not the engine's grey boxes.
+func _test_a_repainted_social_page_keeps_the_theme() -> void:
+	var panel = await _mount()
+	await _click(panel, "SocialChannelTabfollowing")
+	_assert_themed(panel, "SocialChannelTabdiscover", "after the following channel")
+	_assert_themed(panel, "SocialNavHome", "after the following channel")
+	var underline := _find(panel, "SocialChannelTabUnderlinefollowing") as Control
+	_assert_true(underline != null and underline.visible, "the following tab should show it is selected")
+	await _click(panel, "SocialNavMine")
+	_assert_themed(panel, "SocialNavHome", "after the profile page")
+	await _click(panel, "SocialNavHome")
+	_assert_themed(panel, "SocialNavMine", "after the home page")
+	_assert_themed(panel, "SocialChannelTabfollowing", "after the home page")
+	await _dispose(panel)
+
+
+func _assert_themed(panel, button_name: String, label: String) -> void:
+	var button := _find(panel, button_name) as Button
+	_assert_true(button != null and not button.is_queued_for_deletion(), "%s should be on the terminal %s" % [button_name, label])
+	if button == null:
+		return
+	_assert_true(button.has_theme_stylebox_override("normal"), "%s should wear the UI theme %s, not the default StyleBox" % [button_name, label])
 
 
 func _test_the_exit_raises_its_intent() -> void:
