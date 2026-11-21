@@ -24,7 +24,12 @@ var _heard: Array = []
 
 
 func _init() -> void:
+	call_deferred("_main")
+
+
+func _main() -> void:
 	_run()
+	await _test_following_from_the_post_detail_keeps_its_scroll()
 	if _failures.is_empty():
 		print("social feed panel tests passed")
 		RegistryScript.clear()
@@ -41,6 +46,9 @@ func _run() -> void:
 	_test_the_panel_keeps_no_signal_for_the_host()
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_following_and_liking_repaint_the_open_feed()
+	_test_following_and_liking_on_a_card_keep_the_feed()
+	_test_following_and_liking_in_the_post_detail_keep_its_nodes()
+	_test_follow_and_like_buttons_keep_their_width()
 	_test_the_following_channel_lists_followed_authors_only()
 	_test_a_list_that_changed_while_hidden_is_painted_on_show()
 	_test_hiding_unregisters_and_later_writes_are_ignored()
@@ -129,6 +137,97 @@ func _test_following_and_liking_repaint_the_open_feed() -> void:
 	liked.replace_all([])
 	_assert_eq(_follow_text(mounted, 0), "关注", "unfollowing should repaint the open feed by itself")
 	_assert_true(_like_text(mounted, 0).begins_with("♡"), "unliking should repaint the open feed by itself")
+	_dispose(mounted)
+
+
+## #148: a follow or a like changes one button, so the feed around it stays the same nodes.
+func _test_following_and_liking_on_a_card_keep_the_feed() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	var liked: ListPropertyModel = mounted["liked"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	var phone_view := _find(mounted, "SocialPhoneView")
+	var follow_button := _find(mounted, "SocialPostFollowButton0")
+	var like_button := _find(mounted, "SocialPostLikeButton0")
+	followed.add("post-a")
+	liked.add("post-a")
+	_assert_true(_find(mounted, "SocialPhoneView") == phone_view, "following or liking on a card should not rebuild the feed")
+	_assert_true(_find(mounted, "SocialPostFollowButton0") == follow_button, "the card's follow button should be updated in place")
+	_assert_true(_find(mounted, "SocialPostLikeButton0") == like_button, "the card's like button should be updated in place")
+	_assert_eq(_follow_text(mounted, 0), "已关注", "the card's follow button should show the follow")
+	_assert_true(_like_text(mounted, 0).begins_with("♥"), "the card's like button should show the like")
+	_dispose(mounted)
+
+
+## #148: the post detail updates its follow and like buttons without rebuilding the page.
+func _test_following_and_liking_in_the_post_detail_keep_its_nodes() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	var liked: ListPropertyModel = mounted["liked"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	var detail_body := _find(mounted, "SocialDetailBody")
+	var children_before := detail_body.get_children()
+	var detail_follow := _find(mounted, "SocialDetailFollowButton") as Button
+	var detail_like := _find(mounted, "SocialDetailLikeButton") as Button
+	followed.add("post-a")
+	liked.add("post-a")
+	_assert_eq(detail_body.get_children(), children_before, "following or liking in the post detail should keep its nodes")
+	_assert_true(not detail_follow.is_queued_for_deletion() and _find(mounted, "SocialDetailFollowButton") == detail_follow, "the detail follow button should be updated in place")
+	_assert_true(not detail_like.is_queued_for_deletion() and _find(mounted, "SocialDetailLikeButton") == detail_like, "the detail like button should be updated in place")
+	_assert_eq(detail_follow.text, "已关注", "the detail follow button should show the follow")
+	_assert_true(detail_like.text.begins_with("♥"), "the detail like button should show the like")
+	followed.replace_all([])
+	_assert_eq(detail_follow.text, "关注", "unfollowing should update the detail follow button in place")
+	_dispose(mounted)
+
+
+## #148: switching 关注 and 已关注 (or a like count gaining a digit) must not push the buttons beside it.
+func _test_follow_and_like_buttons_keep_their_width() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	for button_name in ["SocialPostFollowButton0", "SocialPostLikeButton0", "SocialDetailFollowButton", "SocialDetailLikeButton"]:
+		var button := _find(mounted, button_name) as Button
+		if button == null:
+			_failures.append("missing button %s" % button_name)
+			continue
+		var width_before := button.get_combined_minimum_size().x
+		var original := button.text
+		button.text = "已关注已关注已关注已关注 ♥ 1000"
+		_assert_eq(button.get_combined_minimum_size().x, width_before, "%s should not change width with its label" % button_name)
+		button.text = original
+	_dispose(mounted)
+
+
+## #148: a follow in the post detail leaves the reader where they were.
+func _test_following_from_the_post_detail_keeps_its_scroll() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	(mounted["parent"] as Control).size = Vector2(900, 420)
+	panel.layout_detail(Vector2(900, 420))
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	for _frame in 3:
+		await process_frame
+	var scroll := _find(mounted, "SocialDetailScroll") as ScrollContainer
+	scroll.scroll_vertical = 120
+	for _frame in 3:
+		await process_frame
+	var scrolled := scroll.scroll_vertical
+	_assert_true(scrolled > 0, "the post detail should be long enough to scroll for this test to mean much")
+	followed.add("post-a")
+	for _frame in 3:
+		await process_frame
+	_assert_eq(scroll.scroll_vertical, scrolled, "following in the post detail should keep its scroll position")
 	_dispose(mounted)
 
 

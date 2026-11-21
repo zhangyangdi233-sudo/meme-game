@@ -2,7 +2,9 @@ class_name SocialFeedPanel
 extends Node
 ## Game-side social phone shell: window chrome, home feed masonry, bottom nav, and UI intents on the event bus.
 ## While the app is shown, it watches the followed authors, the liked posts, the held words, the finished memes
-## and the published records, and repaints itself.
+## and the published records, and repaints itself. A follow or a like only relabels the buttons that show it,
+## so the open feed and post keep their nodes and scroll (#148); a follow rebuilds the feed only where it
+## changes which posts are listed (the following channel).
 ## The publish page is its own SocialPublishPanel; this shell only hands it the page host.
 ## The page, the channel and the open post are this screen's own view and live only here.
 ## What it paints comes from the SocialFeedSource bound in the service registry.
@@ -28,6 +30,10 @@ const DEFAULT_CHANNEL := "discover"
 const TOWER_BASE_CHANNEL := "tower_base"
 ## The open post's index, or this when no post is open.
 const NO_POST := -1
+const FOLLOW_TEXT := "关注"
+const FOLLOWING_TEXT := "已关注"
+## Room around a follow or like label, so its widest text fits once the theme styles the button.
+const ACTION_LABEL_PADDING := 24.0
 const SOCIAL_FEED_POSTER_HEIGHTS := [
 	214.0, 176.0, 238.0, 194.0,
 	226.0, 184.0, 218.0, 202.0,
@@ -66,6 +72,10 @@ var _painted_liked: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
 var _painted_published: Array = []
+## The like and follow buttons on the painted feed cards and in the open post, so a follow or a like
+## relabels them in place. Each entry holds `like`, `follow`, `post`, `like_index` and `author`.
+var _feed_actions: Array[Dictionary] = []
+var _detail_actions: Dictionary = {}
 var _watch: PropertyWatchScript = PropertyWatchScript.new(self, {
 	PropertyKeysScript.SOCIAL_FOLLOWED_HANDLES: _on_followed,
 	PropertyKeysScript.SOCIAL_LIKED_POST_IDS: _on_liked,
@@ -188,6 +198,7 @@ func render_companion() -> void:
 		return
 	_painted_held_chars = _held_chars
 	_painted_published = _published
+	_detail_actions = {}
 	_clear(_detail_body)
 	if not is_detail_open():
 		return
@@ -230,6 +241,7 @@ func render_app() -> void:
 	_painted_followed = _followed
 	_painted_liked = _liked
 	_painted_memes = _completed_memes
+	_feed_actions.clear()
 	_clear(_app_body)
 	var phone_view := _theme().panel() as PanelContainer
 	phone_view.name = "SocialPhoneView"
@@ -548,8 +560,6 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		card.add_child(meta_row)
 		var likes := Button.new()
 		likes.name = "SocialPostLikeButton%d" % post_index
-		var like_text := _source.like_text(post, post_index, _liked)
-		likes.text = like_text
 		likes.set_meta("flat_phone_button", true)
 		likes.custom_minimum_size = Vector2(64, 44)
 		likes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -558,12 +568,14 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		var follow := Button.new()
 		follow.name = "SocialPostFollowButton%d" % post_index
 		var author_id := _source.author_id(post)
-		var following := _followed.has(author_id)
-		follow.text = "已关注" if following else "关注"
 		follow.set_meta("flat_phone_button", true)
 		follow.custom_minimum_size = Vector2(74, 44)
 		follow.pressed.connect(_on_follow_pressed.bind(author_id))
 		meta_row.add_child(follow)
+		var actions := {"like": likes, "follow": follow, "post": post, "like_index": post_index, "author": author_id}
+		_hold_action_widths(actions)
+		_label_actions(actions)
+		_feed_actions.append(actions)
 	var hint_slot := Control.new()
 	hint_slot.name = "SocialScrollHintSlot"
 	hint_slot.custom_minimum_size.y = 32
@@ -792,20 +804,25 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 	detail_box.add_child(engagement)
 	var detail_like := Button.new()
 	detail_like.name = "SocialDetailLikeButton"
-	var like_text := _source.like_text(post, int(post.get("card_index", _detail_post_index)), _liked)
-	detail_like.text = like_text
 	detail_like.custom_minimum_size = Vector2(120, 44)
 	detail_like.pressed.connect(_on_like_pressed.bind(post_card_id))
 	engagement.add_child(detail_like)
 	var detail_follow := Button.new()
 	detail_follow.name = "SocialDetailFollowButton"
 	var author_id := _source.author_id(post)
-	var following := _followed.has(author_id)
-	detail_follow.text = "已关注" if following else "关注"
 	detail_follow.custom_minimum_size = Vector2(120, 44)
 	detail_follow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_follow.pressed.connect(_on_follow_pressed.bind(author_id))
 	engagement.add_child(detail_follow)
+	_detail_actions = {
+		"like": detail_like,
+		"follow": detail_follow,
+		"post": post,
+		"like_index": int(post.get("card_index", _detail_post_index)),
+		"author": author_id,
+	}
+	_hold_action_widths(_detail_actions)
+	_label_actions(_detail_actions)
 	var signal_profile := _theme().label("拾取字词不增加污染；使用它才会改变语言。", 13, _theme().theme_color("muted")) as Label
 	signal_profile.name = "SocialCardSignalProfile"
 	signal_profile.set_meta("on_dark", true)
@@ -1017,17 +1034,65 @@ func _repaint_unless_syncing() -> void:
 ## A page that was never drawn is left to the host; a page that shows these lists already needs nothing.
 ## Held words and published records (the echo under a post) mark the post detail only,
 ## and finished memes show on the profile page only. The publish panel repaints its own page.
+## Follows and likes relabel their buttons in place, unless a follow changes which posts the feed lists.
 func _repaint_if_stale() -> void:
 	if not _rendered:
 		return
+	var actions_stale := _followed != _painted_followed or _liked != _painted_liked
 	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
-	var feed_stale := _followed != _painted_followed or _liked != _painted_liked or profile_stale
-	if feed_stale:
+	var listing_stale := _followed != _painted_followed and _lists_followed_only()
+	if profile_stale or listing_stale:
 		render_app()
 		_theme_window(_app_window)
-	if feed_stale or _held_chars != _painted_held_chars or _published != _painted_published:
+	elif actions_stale:
+		_painted_followed = _followed
+		_painted_liked = _liked
+		for actions in _feed_actions:
+			_label_actions(actions)
+	if _held_chars != _painted_held_chars or _published != _painted_published:
 		render_companion()
 		_theme_window(_detail_window)
+	elif actions_stale:
+		_label_actions(_detail_actions)
+
+
+func _lists_followed_only() -> bool:
+	return _screen == DEFAULT_SCREEN and _channel == "following"
+
+
+## Writes the follow and like state onto one post's buttons, localized as the theme would.
+func _label_actions(actions: Dictionary) -> void:
+	var like := actions.get("like") as Button
+	var follow := actions.get("follow") as Button
+	if not is_instance_valid(like) or not is_instance_valid(follow):
+		return
+	like.text = _source.like_text(actions["post"], int(actions["like_index"]), _liked)
+	follow.text = FOLLOWING_TEXT if _followed.has(str(actions["author"])) else FOLLOW_TEXT
+	_theme().set_localized_property(like, "text")
+	_theme().set_localized_property(follow, "text")
+
+
+## Sizes a post's follow and like buttons for their widest label, so switching labels never moves their neighbours.
+func _hold_action_widths(actions: Dictionary) -> void:
+	var post: Dictionary = actions["post"]
+	var like_index := int(actions["like_index"])
+	var post_id := str(post.get("id", ""))
+	_hold_width(actions["like"] as Button, [
+		_source.like_text(post, like_index, []),
+		_source.like_text(post, like_index, [post_id]),
+	])
+	_hold_width(actions["follow"] as Button, [FOLLOW_TEXT, FOLLOWING_TEXT])
+
+
+func _hold_width(button: Button, labels: Array) -> void:
+	button.clip_text = true
+	var font := button.get_theme_font("font")
+	var font_size := button.get_theme_font_size("font_size")
+	var widest := 0.0
+	for label in labels:
+		var shown := _source.translate(str(label))
+		widest = maxf(widest, font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x)
+	button.custom_minimum_size.x = maxf(button.custom_minimum_size.x, ceilf(widest + ACTION_LABEL_PADDING))
 
 
 func _theme_window(window: Control) -> void:
