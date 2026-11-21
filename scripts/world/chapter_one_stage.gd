@@ -533,7 +533,7 @@ func in_outage() -> bool:
 func switch_reach_position() -> Vector3:
 	if _switch == null:
 		return Vector3.ZERO
-	var at := _model.transform * _switch.position + SWITCH_REACH_OFFSET
+	var at := _model.transform * _model_space(_switch).origin + SWITCH_REACH_OFFSET
 	return Vector3(at.x, 0.0, at.z)
 
 
