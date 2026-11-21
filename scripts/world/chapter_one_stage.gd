@@ -144,12 +144,12 @@ const DARK_AMBIENT_SHARE := 0.12
 ## The wall switch by the foot of the stairs, and where the player stands to press it.
 const SWITCH_NODE := "Prop_LightSwitch"
 const SWITCH_REACH_OFFSET := Vector3(0.6, 0.0, 0.0)
-## In the dark the switch glows faintly (#153): a dot on its toggle, in the switch's own space (its +z faces the room),
-## and a small light just off the wall that finds the faceplate.
+## In the outage the switch glows faintly (#153): a dot on its toggle, in the switch's own space (its +z faces the
+## room), and a small light this far off the dot, away from the wall, that finds the faceplate.
 const SWITCH_GLOW_COLOR := Color("c8ffb8")
 const SWITCH_GLOW_DOT := Vector3(0.0, 0.06, 0.02)
 const SWITCH_GLOW_DOT_RADIUS := 0.012
-const SWITCH_GLOW_LIGHT := Vector3(0.0, 0.06, 0.12)
+const SWITCH_GLOW_LIGHT_OFFSET := Vector3(0.0, 0.0, 0.1)
 const SWITCH_GLOW_ENERGY := 0.35
 const SWITCH_GLOW_RANGE := 0.9
 ## The room's middle, where round five's screens turn (#114): within this far of it on the floor.
@@ -246,7 +246,7 @@ var _hum: AudioStreamPlayer
 var _whisper: AudioStreamPlayer
 var _static: AudioStreamPlayer
 var _switch: Node3D
-## The switch's faint glow, shown while it is dark and pressing the switch would end something.
+## The switch's faint glow, shown in an outage that pressing the switch would end.
 var _switch_glow: Node3D
 ## The model's chairs, which round three's scattered pile replaces once its light is back.
 var _chairs: Array[Node3D] = []
@@ -522,6 +522,11 @@ func switch_targets() -> Array:
 		if _playing.has(event["id"]) or (event["id"] in _started_ids and not event.has("duration")):
 			targets.append(event["id"])
 	return targets
+
+
+## Whether the room's lights are out (an outage), not only flickering for a beat of a cue.
+func in_outage() -> bool:
+	return not bool(_room_state.get("lights", true))
 
 
 ## Where the player stands to press the wall switch; zero when the stage has none.
@@ -1044,7 +1049,7 @@ func _refresh_room() -> void:
 	if _crt_light != null:
 		_crt_light.visible = _cue_crt_light_on
 	if _switch_glow != null:
-		_switch_glow.visible = not lit and not switch_targets().is_empty()
+		_switch_glow.visible = in_outage() and not switch_targets().is_empty()
 	var hum := float(_room_state.get("hum", 0.0))
 	if _hum != null and not _sounds_held:
 		if hum > 0.0 and _cue_hum_on:
@@ -1431,7 +1436,8 @@ func _build_exit_lamp() -> void:
 func _build_switch_glow() -> void:
 	if _switch == null:
 		return
-	var frame := _model.transform * _switch.transform
+	var frame := _model.transform * _model_space(_switch)
+	frame.basis = frame.basis.orthonormalized()
 	_switch_glow = Node3D.new()
 	_switch_glow.name = "SwitchGlow"
 	_switch_glow.position = frame * SWITCH_GLOW_DOT
@@ -1453,9 +1459,19 @@ func _build_switch_glow() -> void:
 	light.light_color = SWITCH_GLOW_COLOR
 	light.light_energy = SWITCH_GLOW_ENERGY
 	light.omni_range = SWITCH_GLOW_RANGE
-	light.position = frame.basis * (SWITCH_GLOW_LIGHT - SWITCH_GLOW_DOT)
+	light.position = frame.basis * SWITCH_GLOW_LIGHT_OFFSET
 	_switch_glow.add_child(light)
 	add_child(_switch_glow)
+
+
+## A node of the model, placed in the model's own space through every parent between them.
+func _model_space(node: Node3D) -> Transform3D:
+	var placed := node.transform
+	var parent := node.get_parent() as Node3D
+	while parent != null and parent != _model:
+		placed = parent.transform * placed
+		parent = parent.get_parent() as Node3D
+	return placed
 
 
 func _flat_material(color: Color) -> StandardMaterial3D:

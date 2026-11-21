@@ -139,10 +139,19 @@ func _test_the_switch_ends_the_whisper_early() -> void:
 	await _stand_at_switch(adapter, 2)
 	_assert_true(str(adapter.nearby_outcome().get("kind")) != "switch", "the switch should offer nothing while the room is calm")
 	await _advance(adapter, 2, 2.6)
+	_assert_true(not _switch_glows(stage), "the switch should not glow at any beat of the flicker")
+	await _advance(adapter, 2, 0.1)
+	_assert_true(not _switch_glows(stage), "the switch should not glow at any beat of the flicker")
 	adapter.refresh_nearby_actor(_deps(2))
 	var nearby: Dictionary = adapter.nearby_outcome()
 	_assert_eq(nearby.get("kind"), "switch", "the switch should answer F during the whisper")
 	_assert_eq(nearby.get("events"), ["whisper"], "the switch should name the event it ends")
+	_assert_true(not _switch_glows(stage), "the switch should not glow through the flicker: only the outage lights it")
+	var reach: Vector3 = stage.switch_reach_position()
+	adapter.player.position = reach + Vector3(0.0, 0.05, -1.3)
+	adapter.refresh_nearby_actor(_deps(2))
+	_assert_true(str(adapter.nearby_outcome().get("kind")) != "switch", "with the lamps on the switch should keep its arm's length")
+	await _stand_at_switch(adapter, 2)
 	adapter.apply_interaction({"action": "press_switch"})
 	_assert_true(_lamps_lit(stage), "the switch should end the flicker")
 	_assert_true(not (stage.get_node("BasementWhisper") as AudioStreamPlayer).playing, "the switch should end the whisper")
@@ -219,7 +228,7 @@ func _test_the_switch_glows_only_while_it_can_end_the_dark() -> void:
 	await _free(adapter)
 
 
-## #153: in the dark the switch answers from further off than an arm's length.
+## #153: in the outage the switch answers from further off than an arm's length.
 func _test_the_switch_answers_from_further_off() -> void:
 	var dark := ProgressScript.start_event(ProgressScript.jump_to_round(ProgressScript.initial(), 3), "blackout")
 	var adapter = await _adapter_with(_deps(3, dark))
