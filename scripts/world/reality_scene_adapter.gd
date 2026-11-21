@@ -41,8 +41,10 @@ const TERMINAL_VIEW_FOV := 58.0
 const PHONE_REACH_RADIUS := 1.1
 ## How far from one of an exit object's places the player may stand for it to answer.
 const EXIT_REACH_RADIUS := 1.0
-## How far from the wall switch's reach point the player may stand to press it.
+## How far from the wall switch's reach point the player may stand to press it; wider in an outage, when it is pressed
+## in the dark (#153). It answers before the exits, so with the lamps on it keeps to an arm's length.
 const SWITCH_REACH_RADIUS := 0.9
+const SWITCH_OUTAGE_REACH_RADIUS := 1.5
 ## Leaving by an exit: the view pushes in toward the object over the whole transition; the host darkens the screen as
 ## it ends, then the next round is built.
 const EXIT_TRANSITION_SECONDS := 1.8
@@ -828,7 +830,8 @@ func _switch_in_reach() -> bool:
 	if reach == Vector3.ZERO:
 		return false
 	var offset: Vector3 = reach - player.position
-	return absf(offset.y) <= EXIT_REACH_HEIGHT and Vector2(offset.x, offset.z).length() <= SWITCH_REACH_RADIUS
+	var radius := SWITCH_OUTAGE_REACH_RADIUS if _chapter_stage.in_outage() else SWITCH_REACH_RADIUS
+	return absf(offset.y) <= EXIT_REACH_HEIGHT and Vector2(offset.x, offset.z).length() <= radius
 
 
 func _clear_chapter_stage() -> void:

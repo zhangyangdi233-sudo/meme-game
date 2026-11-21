@@ -207,7 +207,7 @@ func _run_narrative_beat(game_root) -> void:
 	game_root.game.pollution_flashback_enabled = true
 	game_root.game.pollution = 59
 	game_root.game.free_sentence_units = ["灯"]
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 	await process_frame
 	_assert_eq(game_root.session_mode(), "narrative", "a post crossing 60% should enter narrative")
 	_assert_true(flashback_overlay != null and flashback_overlay.visible, "the beat should show the flashback at once")
@@ -219,7 +219,7 @@ func _run_narrative_beat(game_root) -> void:
 	_assert_host_applied_screens(game_root, ["play"], "gameplay after narrative beat")
 	await _assert_gameplay_world_hotkeys_live(game_root)
 	game_root.game.free_sentence_units = ["灯"]
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 	await process_frame
 	_assert_eq(game_root.game.published_memes.size(), 2, "the player should keep posting after the flashback")
 	_assert_eq(game_root.session_mode(), "gameplay", "a later post should stay in gameplay")

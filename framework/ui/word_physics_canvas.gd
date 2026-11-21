@@ -14,11 +14,28 @@ const TILE_SIZE := Vector2(44.0, 40.0)
 const DRAG_THRESHOLD := 6.0
 const THROW_SPEED_LIMIT := 900.0
 const SETTLED_SPEED := 4.0
+## 视窗被拖动时,字跟着画布走,只拿到一点反向的速度晃一下(#152)。
+const WINDOW_SWAY := 0.25
+const WINDOW_SWAY_LIMIT := 600.0
+## 字靠着牆时会稍微压进去一点,超过这个距离才算跑出画布。
+const ESCAPE_MARGIN := 8.0
+## 堆着的字会互相压进一点点;两个字重叠超过这个距离才算叠在一起。
+const OVERLAP_SLACK := 4.0
+## 放入的字落在别的字上时,往外找空位最多找几圈;整圈都超出画布就不再找。
+const FREE_SPOT_RINGS := 12
+## 松手处离画布边缘不到这个距离,算是甩到牆边,不算拖出画布。
+const RELEASE_SLACK := 22.0
+
+## 画布还没排版(尺寸为零)时,放入的字按这个尺寸夹回画布内;排版后出界的字由物理步放回来。
+var expected_size := Vector2.ZERO
 
 var _physics_root: Node2D
+var _last_canvas_transform := Transform2D.IDENTITY
+var _has_canvas_transform := false
 var _bodies: Dictionary = {}
 var _dragging_body: RigidBody2D = null
 var _drag_grab_offset := Vector2.ZERO
+var _drag_home := Vector2.ZERO
 var _press_global := Vector2.ZERO
 var _drag_started := false
 var _last_drag_position := Vector2.ZERO
@@ -37,6 +54,62 @@ func _ready() -> void:
 	resized.connect(_rebuild_walls)
 
 
+## 字是 RigidBody2D,物理会把它留在原本的全局位置,牆却跟着画布瞬移,
+## 拖得快就会穿过字。每个物理步先把字带着画布一起移动,再把出界的字放回画布内。
+func _physics_process(delta: float) -> void:
+	_follow_canvas_motion(delta)
+	_return_escaped_tiles()
+
+
+func _follow_canvas_motion(delta: float) -> void:
+	var canvas_transform := get_global_transform()
+	if not _has_canvas_transform:
+		_last_canvas_transform = canvas_transform
+		_has_canvas_transform = true
+		return
+	if canvas_transform == _last_canvas_transform:
+		return
+	var shift := canvas_transform.origin - _last_canvas_transform.origin
+	_last_canvas_transform = canvas_transform
+	var sway := (-shift / maxf(delta, 0.001) * WINDOW_SWAY).limit_length(WINDOW_SWAY_LIMIT)
+	for unit in _bodies.keys():
+		var body: RigidBody2D = _bodies[unit]
+		if not is_instance_valid(body):
+			continue
+		# 节点的局部位置还是上一步物理同步的结果,只有物理服务器还停在旧的全局位置。
+		PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+		if body == _dragging_body:
+			continue
+		body.linear_velocity = (body.linear_velocity + sway).limit_length(WINDOW_SWAY_LIMIT)
+		body.sleeping = false
+
+
+func _return_escaped_tiles() -> void:
+	for unit in _bodies.keys():
+		var body: RigidBody2D = _bodies[unit]
+		if not is_instance_valid(body) or body == _dragging_body:
+			continue
+		var inside := _clamp_center(body.position)
+		if inside.distance_to(body.position) <= ESCAPE_MARGIN:
+			continue
+		body.position = inside
+		PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
+		body.linear_velocity = Vector2.ZERO
+		body.sleeping = false
+
+
+func _canvas_size() -> Vector2:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return custom_minimum_size.max(expected_size)
+	return size
+
+
+## 字中心能待的范围:整块字都在画布里。
+func _clamp_center(center: Vector2) -> Vector2:
+	var half_size := TILE_SIZE * 0.5
+	return center.clamp(half_size, (_canvas_size() - half_size).max(half_size))
+
+
 ## 画布四壁:底边接住下坠的字,两侧与顶部防止字被挤出可活动区域。
 func _rebuild_walls() -> void:
 	if _physics_root == null:
@@ -48,9 +121,7 @@ func _rebuild_walls() -> void:
 	var walls := StaticBody2D.new()
 	walls.name = "CanvasWalls"
 	_physics_root.add_child(walls)
-	var canvas_size := size
-	if canvas_size.x <= 0.0 or canvas_size.y <= 0.0:
-		canvas_size = custom_minimum_size
+	var canvas_size := _canvas_size()
 	var half := WALL_THICKNESS * 0.5
 	var specs := {
 		"FloorWall": [Vector2(canvas_size.x * 0.5, canvas_size.y + half), Vector2(canvas_size.x + WALL_THICKNESS * 2.0, WALL_THICKNESS)],
@@ -78,13 +149,14 @@ func clear_tiles() -> void:
 	_dragging_body = null
 
 
-## 放入一个字:给定初始位置(通常是存档里记下的落点),之后交给物理。`shown_text` 是瓦片上显示的字,留空就显示 unit。
-func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, is_ghost: bool, shown_text: String = "") -> void:
+## 放入一个字:给定初始位置(通常是存档里记下的落点),出界的会夹回画布内,
+## 那里已经有字时挪到最近的空位,之后交给物理。`shown_text` 是瓦片上显示的字,留空就显示 unit。
+func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_style: StyleBox, shown_text: String = "") -> void:
 	if _bodies.has(unit):
 		return
 	var body := RigidBody2D.new()
 	body.name = "WordBody_%s" % unit
-	body.position = spawn_position + TILE_SIZE * 0.5
+	body.position = _free_center(_clamp_center(spawn_position + TILE_SIZE * 0.5))
 	body.gravity_scale = 1.0
 	body.mass = 0.6
 	body.physics_material_override = PhysicsMaterial.new()
@@ -123,11 +195,45 @@ func add_tile(unit: String, spawn_position: Vector2, label_color: Color, panel_s
 	label.set_meta("skip_localization", true)
 	body.add_child(label)
 
-	if is_ghost:
-		body.modulate = Color(1.0, 1.0, 1.0, 0.45)
-
 	_physics_root.add_child(body)
 	_bodies[unit] = body
+
+
+## 离 `center` 最近、不压在别的字上的位置;一圈圈往外找,整块字都留在画布里。找不到就留在原处交给物理。
+## `ignore` 是正要放回去的字自己。
+func _free_center(center: Vector2, ignore: RigidBody2D = null) -> Vector2:
+	if not _overlaps_a_tile(center, ignore):
+		return center
+	var canvas_size := _canvas_size()
+	for ring in range(1, FREE_SPOT_RINGS + 1):
+		if ring * TILE_SIZE.x > canvas_size.x and ring * TILE_SIZE.y > canvas_size.y:
+			break
+		var best := center
+		var best_distance := INF
+		for column in range(-ring, ring + 1):
+			for row in range(-ring, ring + 1):
+				if maxi(absi(column), absi(row)) != ring:
+					continue
+				var candidate := _clamp_center(center + Vector2(column * TILE_SIZE.x, row * TILE_SIZE.y))
+				var distance := candidate.distance_squared_to(center)
+				if distance < best_distance and not _overlaps_a_tile(candidate, ignore):
+					best = candidate
+					best_distance = distance
+		if best_distance < INF:
+			return best
+	return center
+
+
+func _overlaps_a_tile(center: Vector2, ignore: RigidBody2D = null) -> bool:
+	var reach := TILE_SIZE - Vector2(OVERLAP_SLACK, OVERLAP_SLACK)
+	for unit in _bodies.keys():
+		var body: RigidBody2D = _bodies[unit]
+		if not is_instance_valid(body) or body == ignore:
+			continue
+		var gap := (body.position - center).abs()
+		if gap.x < reach.x and gap.y < reach.y:
+			return true
+	return false
 
 
 ## 瓦片上显示文字的 Label,没有这个字时回 null。
@@ -157,7 +263,7 @@ func is_dragging() -> bool:
 	return _dragging_body != null
 
 
-## 静止、且没被抓住的字。还在动或拖曳中的位置留在方块上，不往外送。
+## 静止、且没被抓住的字,位置一定在画布内。还在动或拖曳中的位置留在方块上，不往外送。
 func settled_tile_positions() -> Dictionary:
 	var positions := {}
 	for unit in _bodies.keys():
@@ -166,7 +272,7 @@ func settled_tile_positions() -> Dictionary:
 			continue
 		if body.linear_velocity.length() >= SETTLED_SPEED:
 			continue
-		positions[str(unit)] = body.position - TILE_SIZE * 0.5
+		positions[str(unit)] = _clamp_center(body.position) - TILE_SIZE * 0.5
 	return positions
 
 
@@ -204,6 +310,7 @@ func _begin_drag(local_position: Vector2, global_position: Vector2) -> void:
 	if _dragging_body == null:
 		return
 	_drag_grab_offset = local_position - _dragging_body.position
+	_drag_home = _dragging_body.position
 	_last_drag_position = _dragging_body.position
 	_last_drag_delta = Vector2.ZERO
 	_drag_velocity = Vector2.ZERO
@@ -220,22 +327,27 @@ func _end_drag(release_global: Vector2) -> void:
 	var body := _dragging_body
 	_dragging_body = null
 	body.z_index = 0
+	# 拖出画布(拖进句子,或拖到别处)的字回到抓起的地方(那里已被别的字占了就放在旁边),
+	# 从句子拿掉时也回到这里。只甩过牆边一点点的字照旧靠在牆边。
+	var dropped_outside := _drag_started and not get_global_rect().has_point(release_global)
+	var goes_home := dropped_outside and not get_global_rect().grow(RELEASE_SLACK).has_point(release_global)
 	# Release at the current pointer, not at the last physics-server transform.
-	if _drag_started:
+	if goes_home:
+		body.position = _free_center(_drag_home, body)
+	elif _drag_started:
 		body.position = get_global_transform().affine_inverse() * release_global - _drag_grab_offset
-		var half_size := TILE_SIZE * 0.5
-		body.position = body.position.clamp(half_size, (size - half_size).max(half_size))
+		body.position = _clamp_center(body.position)
 	PhysicsServer2D.body_set_state(body.get_rid(), PhysicsServer2D.BODY_STATE_TRANSFORM, body.global_transform)
 	body.freeze = false
 	# 松手把手上的速度交给物理,轻轻一抛也能堆到别的字上面;停手一下再放就不抛。
 	var still_time := float(Time.get_ticks_usec() - _last_drag_time_usec) / 1000000.0
-	body.linear_velocity = _drag_velocity if still_time < 0.09 else Vector2.ZERO
+	body.linear_velocity = _drag_velocity if still_time < 0.09 and not goes_home else Vector2.ZERO
 	body.sleeping = false
 	var unit := str(body.get_meta("word_unit", ""))
 	if not _drag_started:
 		tile_tapped.emit(unit)
 		return
-	if not get_global_rect().has_point(release_global):
+	if dropped_outside:
 		tile_dropped_outside.emit(unit, release_global)
 
 

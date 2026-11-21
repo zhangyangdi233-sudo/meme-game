@@ -2,6 +2,7 @@ class_name SocialIntentHandler
 extends IntentHandler
 ## Handles the social feed's intents: changes the state and the language material, writes the feedback line,
 ## and returns what the host presents. The host stays the only listener and routes these intents here (ADR 0007).
+## Composing and posting the sentence is the notebook's (#154).
 
 const SocialFeedContentScript = preload("res://scripts/game/social_feed_content.gd")
 const UiIntentsScript = preload("res://scripts/ui_intents.gd")
@@ -22,10 +23,6 @@ const INTENTS: Array[String] = [
 	UiIntentsScript.SOCIAL_CLOSE_REQUESTED,
 	UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED,
 	UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED,
-	UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED,
-	UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED,
-	UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED,
-	UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED,
 ]
 
 var _game: MemeGameState
@@ -68,13 +65,5 @@ func handle(intent_name: String, payload: Dictionary) -> IntentResult:
 			var pickup := IntentResultScript.present(PICKUP, _material.pick_from_post(meta, str(payload.get(UiIntentsScript.KEY_POST_ID, ""))))
 			pickup.unit = str(meta)
 			return pickup
-		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED:
-			_material.drop_on_area(payload.get(UiIntentsScript.KEY_DATA, {}))
-		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED:
-			_material.drop_before(payload.get(UiIntentsScript.KEY_DATA, {}), int(payload.get(UiIntentsScript.KEY_BEFORE_INDEX, 0)))
-		UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED:
-			_material.remove_at(int(payload.get(UiIntentsScript.KEY_UNIT_INDEX, -1)))
-		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED:
-			return IntentResultScript.present(IntentResultScript.SUBMIT, _material.submit())
 	return IntentResultScript.present(IntentResultScript.NONE)
 

@@ -26,7 +26,7 @@ func _init() -> void:
 	_test_page_changes_ask_the_host_to_re_theme()
 	_test_like_and_follow_write_the_state_and_the_feedback()
 	_test_closing_the_window_and_the_detail()
-	_test_pickup_and_composer_intents_build_and_post_a_sentence()
+	_test_a_pickup_collects_the_word()
 	RegistryScript.clear()
 	if _failures.is_empty():
 		print("social intent handler tests passed")
@@ -79,16 +79,13 @@ func _test_it_claims_every_social_intent_and_nothing_else() -> void:
 		UiIntentsScript.SOCIAL_CLOSE_REQUESTED,
 		UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED,
 		UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED,
-		UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED,
-		UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED,
-		UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED,
-		UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED,
 	]:
 		_assert_true(_handler.handles(intent_name), "the handler should claim %s" % intent_name)
 	for intent_name in [
 		UiIntentsScript.START_GAME,
 		UiIntentsScript.APP_WINDOW_CLOSE_REQUESTED,
 		UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED,
+		UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED,
 	]:
 		_assert_true(not _handler.handles(intent_name), "the handler should leave %s to the host" % intent_name)
 
@@ -132,7 +129,7 @@ func _test_closing_the_window_and_the_detail() -> void:
 	_assert_presents(detail, SocialIntentHandlerScript.PAGE_CHANGED, "a detail close")
 
 
-func _test_pickup_and_composer_intents_build_and_post_a_sentence() -> void:
+func _test_a_pickup_collects_the_word() -> void:
 	_boot()
 	var pickup := _raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"})
 	_assert_true(_game.is_social_char_collected("门", "zh"), "a pickup intent should collect the word")
@@ -140,21 +137,6 @@ func _test_pickup_and_composer_intents_build_and_post_a_sentence() -> void:
 	if pickup != null:
 		_assert_eq(pickup.unit, "门", "a pickup should name the picked word for its flight")
 		_assert_true(pickup.outcome != null and pickup.outcome.succeeded, "a pickup should carry its outcome")
-	_raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "开", UiIntentsScript.KEY_POST_ID: "floor_13"})
-	var area := _raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
-	_assert_eq(_game.get_free_sentence_text("zh"), "门", "an area drop intent should place the dragged word")
-	_assert_presents(area, IntentResultScript.NONE, "an area drop")
-	var tile := _raise(UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "开"}, UiIntentsScript.KEY_BEFORE_INDEX: 0})
-	_assert_eq(_game.get_free_sentence_text("zh"), "开门", "a tile drop intent should place the word before the tile")
-	_assert_presents(tile, IntentResultScript.NONE, "a tile drop")
-	var tap := _raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
-	_assert_eq(_game.get_free_sentence_text("zh"), "门", "an answer tap intent should remove that tile")
-	_assert_presents(tap, IntentResultScript.NONE, "an answer tap")
-	var submit := _raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
-	_assert_true(_game.get_free_sentence_units().is_empty(), "a submit intent should post the sentence")
-	_assert_presents(submit, IntentResultScript.SUBMIT, "a submit")
-	if submit != null:
-		_assert_true(submit.outcome != null and submit.outcome.succeeded, "a submit should carry its outcome")
 
 
 func _assert_presents(result: IntentResult, presentation: String, label: String) -> void:

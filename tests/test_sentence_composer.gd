@@ -211,7 +211,7 @@ func _test_ui_flow() -> void:
 	await process_frame
 	_assert_true(_find_node_by_name(game_root, "DollCompanionBody") == null, "the 3D companion body must be retired")
 
-	# 造句台:笔记本画布 + 发布页答案区 + 投稿全链路。
+	# 造句台:笔记本画布 + 笔记本里的句子 + 投稿全链路(#154)。
 	game_root.game.set_active_app("notebook")
 	game_root._render()
 	await process_frame
@@ -219,16 +219,9 @@ func _test_ui_flow() -> void:
 	var submit_button := _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and submit_button.disabled, "an empty sentence must disable the post button")
 
-	game_root.game.set_active_app("social")
-	game_root._social_feed_panel.show_screen("publish")
-	game_root._render()
-	await process_frame
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the composer answer panel")
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the notebook should host the composer answer panel")
 	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPlaceholder") != null, "an empty sentence should show the placeholder")
 
-	game_root.game.set_active_app("notebook")
-	game_root._render()
-	await process_frame
 	game_root.game.pick_social_char("floor_13", "门", "zh")
 	game_root.game.pick_social_char("floor_13", "开", "zh")
 	game_root._render()
@@ -238,24 +231,24 @@ func _test_ui_flow() -> void:
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门开", "bank taps should build the sentence in order")
 	var canvas := _find_node_by_name(game_root, "NotebookWordCanvas")
-	_assert_true(_canvas_tile_is_ghost(canvas, "门"), "a placed unit should ghost its canvas tile without reflow")
+	_assert_true(not _canvas_has_tile(canvas, "门"), "a placed unit should leave the canvas")
 	submit_button = _find_node_by_name(game_root, "NotebookCraftButton") as Button
 	_assert_true(submit_button != null and not submit_button.disabled, "a non-empty sentence should enable the post button")
 
-	game_root.game.set_active_app("social")
-	game_root._social_feed_panel.show_screen("publish")
-	game_root._render()
-	await process_frame
 	var answer_tile := _find_node_by_name(game_root, "ComposerAnswerTile0") as Button
 	_assert_true(answer_tile != null and answer_tile.text == "门", "placed units should render as answer tiles")
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1})
 	await process_frame
 	_assert_eq_text(game_root.game.get_free_sentence_text("zh"), "门", "tapping an answer tile should remove it")
+	canvas = _find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(_canvas_has_tile(canvas, "开"), "a removed unit should come back to the canvas")
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED)
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
 	await process_frame
 	_assert_true(game_root.game.get_free_sentence_units().is_empty(), "posting should clear the composer")
+	canvas = _find_node_by_name(game_root, "NotebookWordCanvas")
+	_assert_true(_canvas_has_tile(canvas, "门") and _canvas_has_tile(canvas, "开"), "posting should give every used unit back to the canvas")
 	_assert_true(str(RegistryScript.resolve(ServiceKeysScript.PROPERTY_MANAGER).model(PropertyKeysScript.FEEDBACK_TEXT).read()).begins_with("投稿已发出"), "posting should report one of the three response tiers")
 
 	# 投稿不限次数:放入字后投稿按钮总是可按。
@@ -320,14 +313,8 @@ func _test_ui_flow() -> void:
 	await process_frame
 
 
-func _canvas_tile_is_ghost(canvas: Node, unit: String) -> bool:
-	if canvas == null:
-		return false
-	var physics_root := canvas.get_node_or_null("WordPhysicsRoot")
-	if physics_root == null:
-		return false
-	var body := physics_root.get_node_or_null("WordBody_%s" % unit) as CanvasItem
-	return body != null and body.modulate.a < 0.9
+func _canvas_has_tile(canvas: Node, unit: String) -> bool:
+	return canvas is WordPhysicsCanvas and (canvas as WordPhysicsCanvas).has_tile(unit)
 
 
 func _find_node_by_name(node: Node, node_name: String) -> Node:

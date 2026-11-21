@@ -28,6 +28,8 @@ const APP_TOP := 124.0
 const APP_MARGIN := 12.0
 ## Where a pointer that left the glass is sent, so nothing on the display stays hovered.
 const OFF_DISPLAY := Vector2(-100, -100)
+## Above every app window on the display, as the screen's own flight layer is above the phone.
+const FLIGHT_Z := 97
 
 var _viewport: SubViewport
 var _screen: PaletteSceneRoot
@@ -35,6 +37,8 @@ var _apps: Control
 var _social: SocialFeedPanel
 var _notebook: NotebookAppPanel
 var _notebook_body: VBoxContainer
+## Words tapped in the terminal's notebook fly on its display, not over the screen (#154).
+var _flight_layer: FlyToTargetLayer
 var _tabs: Dictionary = {}
 var _app := DEFAULT_APP
 var _shown := false
@@ -101,7 +105,39 @@ func mount(notebook_deps: Dictionary) -> void:
 	add_child(_notebook)
 	_notebook.configure(notebook_deps)
 	_notebook.render(_notebook_body)
+	_flight_layer = FlyToTargetLayer.new()
+	_flight_layer.name = "TerminalFlightLayer"
+	_flight_layer.size = Vector2(DISPLAY_SIZE)
+	# The app windows raise their own z to stack (the open post at 24); a flying word passes over all of them.
+	_flight_layer.z_index = FLIGHT_Z
+	_viewport.add_child(_flight_layer)
 	_show_app()
+
+
+## While the terminal is in use, words picked or placed on it fly on this display (#154).
+func is_shown() -> bool:
+	return _shown and _flight_layer != null
+
+
+func flight_layer() -> FlyToTargetLayer:
+	return _flight_layer
+
+
+## Where the pointer is on this display: a flight starts at the word the player clicked.
+func pointer_point() -> Vector2:
+	return _last_point
+
+
+## A picked word flies to the notebook's tab, the notebook's sentence when the notebook shows.
+func notebook_flight_target() -> Vector2:
+	if _app == "notebook":
+		return _notebook.sentence_flight_target()
+	var tab := _tabs.get("notebook") as Control
+	return tab.get_global_rect().get_center() if tab != null else Vector2(DISPLAY_SIZE) * 0.5
+
+
+func sentence_flight_target() -> Vector2:
+	return _notebook.sentence_flight_target()
 
 
 ## What the CRT's glass shows.

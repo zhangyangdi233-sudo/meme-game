@@ -194,11 +194,11 @@ func _test_phone_apps(game_root: Node) -> void:
 	_assert_true(_find_node_by_name(game_root, "NotebookWordCanvas") != null, "notebook should expose the free word canvas")
 	_assert_true(_find_node_by_name(game_root, "NotebookSentenceSlotSubject") == null, "the retired subject/verb/object slots must not come back")
 	_assert_true(_find_node_by_name(game_root, "NotebookTokenFlow") == null, "the retired long-token word bank must not come back")
+	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the notebook should host the sentence area")
 	game_root._social_feed_panel.show_screen("publish")
 	game_root._render()
-	_assert_true(_find_node_by_name(game_root, "ComposerAnswerPanel") != null, "the publish page should host the sentence area")
-	_assert_true(_find_node_by_name(game_root, "SocialPublishPostButton") is Button, "the publish page should expose one post command")
-	_assert_true(_find_node_by_name(game_root, "SocialPublishUnitCounter") != null, "the publish page should show a unit counter")
+	_assert_true(_find_node_by_name(game_root, "SocialPublishPostButton") == null, "the publish page should leave posting to the notebook")
+	_assert_true(_find_node_by_name(game_root, "SocialPublishNotebookHint") != null, "the publish page should point to the notebook")
 	game_root._social_feed_panel.show_screen("home")
 
 

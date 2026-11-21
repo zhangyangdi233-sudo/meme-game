@@ -42,12 +42,42 @@ func _main() -> void:
 func _run() -> void:
 	await _test_the_display_shows_the_social_feed_first()
 	await _test_a_tab_switches_the_app_and_raises_its_intent()
+	await _test_a_repainted_social_page_keeps_the_theme()
 	await _test_the_exit_raises_its_intent()
 	await _test_a_word_held_anywhere_shows_in_the_terminal_notebook()
 	await _test_posting_from_the_terminal_raises_the_phone_intent()
 	await _test_a_hidden_terminal_lets_go_of_the_models()
 	await _test_the_narrator_walks_the_round_through()
 	await _test_outside_a_guided_round_the_narrator_is_silent()
+	await _test_a_flying_word_draws_above_every_app()
+
+
+## A picked or placed word flies over the terminal's apps, not under them: the social windows raise their own z to
+## stack, so the flight layer must draw above every window on the display (#154 follow-up).
+func _test_a_flying_word_draws_above_every_app() -> void:
+	var panel = await _mount()
+	var layer: FlyToTargetLayer = panel.flight_layer()
+	_assert_true(layer != null, "the terminal should have a flight layer")
+	if layer == null:
+		panel.free()
+		return
+	var display := _find(panel, "CrtTerminalDisplay")
+	for window in display.find_children("*Window", "Control", true, false):
+		if layer.is_ancestor_of(window):
+			continue
+		_assert_true(_absolute_z(layer) > _absolute_z(window as CanvasItem), "a flying word should draw above %s (z %d vs %d)" % [window.name, _absolute_z(layer), _absolute_z(window as CanvasItem)])
+	panel.free()
+
+
+func _absolute_z(item: CanvasItem) -> int:
+	var z := 0
+	var node: Node = item
+	while node is CanvasItem:
+		z += (node as CanvasItem).z_index
+		if not (node as CanvasItem).z_as_relative:
+			break
+		node = node.get_parent()
+	return z
 
 
 func _test_the_display_shows_the_social_feed_first() -> void:
@@ -75,6 +105,30 @@ func _test_a_tab_switches_the_app_and_raises_its_intent() -> void:
 	await _click(panel, "TerminalAppSocial")
 	_assert_eq(panel.selected_app(), "social", "the social tab should switch back")
 	await _dispose(panel)
+
+
+## Switching channel or bottom-nav page rebuilds the feed; the new buttons must wear the UI theme, not the engine's grey boxes.
+func _test_a_repainted_social_page_keeps_the_theme() -> void:
+	var panel = await _mount()
+	await _click(panel, "SocialChannelTabfollowing")
+	_assert_themed(panel, "SocialChannelTabdiscover", "after the following channel")
+	_assert_themed(panel, "SocialNavHome", "after the following channel")
+	var underline := _find(panel, "SocialChannelTabUnderlinefollowing") as Control
+	_assert_true(underline != null and underline.visible, "the following tab should show it is selected")
+	await _click(panel, "SocialNavMine")
+	_assert_themed(panel, "SocialNavHome", "after the profile page")
+	await _click(panel, "SocialNavHome")
+	_assert_themed(panel, "SocialNavMine", "after the home page")
+	_assert_themed(panel, "SocialChannelTabfollowing", "after the home page")
+	await _dispose(panel)
+
+
+func _assert_themed(panel, button_name: String, label: String) -> void:
+	var button := _find(panel, button_name) as Button
+	_assert_true(button != null and not button.is_queued_for_deletion(), "%s should be on the terminal %s" % [button_name, label])
+	if button == null:
+		return
+	_assert_true(button.has_theme_stylebox_override("normal"), "%s should wear the UI theme %s, not the default StyleBox" % [button_name, label])
 
 
 func _test_the_exit_raises_its_intent() -> void:

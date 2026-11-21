@@ -24,7 +24,12 @@ var _heard: Array = []
 
 
 func _init() -> void:
+	call_deferred("_main")
+
+
+func _main() -> void:
 	_run()
+	await _test_following_from_the_post_detail_keeps_its_scroll()
 	if _failures.is_empty():
 		print("social feed panel tests passed")
 		RegistryScript.clear()
@@ -41,6 +46,9 @@ func _run() -> void:
 	_test_the_panel_keeps_no_signal_for_the_host()
 	_test_showing_registers_once_and_syncs_both_models()
 	_test_following_and_liking_repaint_the_open_feed()
+	_test_following_and_liking_on_a_card_keep_the_feed()
+	_test_following_and_liking_in_the_post_detail_keep_its_nodes()
+	_test_follow_and_like_buttons_keep_their_width()
 	_test_the_following_channel_lists_followed_authors_only()
 	_test_a_list_that_changed_while_hidden_is_painted_on_show()
 	_test_hiding_unregisters_and_later_writes_are_ignored()
@@ -66,7 +74,7 @@ func _run() -> void:
 	_test_intent_names_and_payload_keys()
 	_test_navigation_raises_channel_screen_and_post_intents()
 	_test_like_follow_close_and_confirm_raise_their_intents()
-	_test_pickup_and_composer_actions_carry_their_answers()
+	_test_pickup_actions_carry_their_answers()
 	_test_the_publish_page_belongs_to_its_own_panel()
 
 
@@ -129,6 +137,104 @@ func _test_following_and_liking_repaint_the_open_feed() -> void:
 	liked.replace_all([])
 	_assert_eq(_follow_text(mounted, 0), "关注", "unfollowing should repaint the open feed by itself")
 	_assert_true(_like_text(mounted, 0).begins_with("♡"), "unliking should repaint the open feed by itself")
+	_dispose(mounted)
+
+
+## #148: a follow or a like changes one button, so the feed around it stays the same nodes.
+func _test_following_and_liking_on_a_card_keep_the_feed() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	var liked: ListPropertyModel = mounted["liked"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	var phone_view := _find(mounted, "SocialPhoneView")
+	var follow_button := _find(mounted, "SocialPostFollowButton0")
+	var like_button := _find(mounted, "SocialPostLikeButton0")
+	followed.add("post-a")
+	liked.add("post-a")
+	_assert_true(_find(mounted, "SocialPhoneView") == phone_view, "following or liking on a card should not rebuild the feed")
+	_assert_true(_find(mounted, "SocialPostFollowButton0") == follow_button, "the card's follow button should be updated in place")
+	_assert_true(_find(mounted, "SocialPostLikeButton0") == like_button, "the card's like button should be updated in place")
+	_assert_eq(_follow_text(mounted, 0), "已关注", "the card's follow button should show the follow")
+	_assert_true(_like_text(mounted, 0).begins_with("♥"), "the card's like button should show the like")
+	_dispose(mounted)
+
+
+## #148: the post detail updates its follow and like buttons without rebuilding the page.
+func _test_following_and_liking_in_the_post_detail_keep_its_nodes() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	var liked: ListPropertyModel = mounted["liked"]
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	var detail_body := _find(mounted, "SocialDetailBody")
+	var children_before := detail_body.get_children()
+	var detail_follow := _find(mounted, "SocialDetailFollowButton") as Button
+	var detail_like := _find(mounted, "SocialDetailLikeButton") as Button
+	followed.add("post-a")
+	liked.add("post-a")
+	_assert_eq(detail_body.get_children(), children_before, "following or liking in the post detail should keep its nodes")
+	_assert_true(not detail_follow.is_queued_for_deletion() and _find(mounted, "SocialDetailFollowButton") == detail_follow, "the detail follow button should be updated in place")
+	_assert_true(not detail_like.is_queued_for_deletion() and _find(mounted, "SocialDetailLikeButton") == detail_like, "the detail like button should be updated in place")
+	_assert_eq(detail_follow.text, "已关注", "the detail follow button should show the follow")
+	_assert_true(detail_like.text.begins_with("♥"), "the detail like button should show the like")
+	followed.replace_all([])
+	_assert_eq(detail_follow.text, "关注", "unfollowing should update the detail follow button in place")
+	_dispose(mounted)
+
+
+## #148: switching 关注 and 已关注 (or a like count gaining a digit) must not push the buttons beside it.
+func _test_follow_and_like_buttons_keep_their_width() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	for button_name in ["SocialPostFollowButton0", "SocialPostLikeButton0", "SocialDetailFollowButton", "SocialDetailLikeButton"]:
+		var button := _find(mounted, button_name) as Button
+		if button == null:
+			_failures.append("missing button %s" % button_name)
+			continue
+		# A bigger font from the theme pass must widen the button to keep its widest label whole.
+		button.add_theme_font_size_override("font_size", 30)
+		var font := button.get_theme_font("font")
+		var labels := ["关注", "已关注"] if button_name.contains("Follow") else ["♡ 95", "♥ 96"]
+		for label in labels:
+			var needed := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+			_assert_true(button.get_combined_minimum_size().x >= needed, "%s should fit its label %s" % [button_name, label])
+		var width_before := button.get_combined_minimum_size().x
+		var original := button.text
+		button.text = "已关注已关注已关注已关注 ♥ 1000"
+		_assert_eq(button.get_combined_minimum_size().x, width_before, "%s should not change width with its label" % button_name)
+		button.text = original
+	_dispose(mounted)
+
+
+## #148: a follow in the post detail leaves the reader where they were.
+func _test_following_from_the_post_detail_keeps_its_scroll() -> void:
+	var mounted := _mount()
+	var panel := mounted["panel"] as SocialFeedPanel
+	var followed: ListPropertyModel = mounted["followed"]
+	(mounted["parent"] as Control).size = Vector2(900, 420)
+	panel.layout_detail(Vector2(900, 420))
+	panel.render_app()
+	panel.update_visibility(true, true)
+	_click_card(mounted, 0)
+	for _frame in 3:
+		await process_frame
+	var scroll := _find(mounted, "SocialDetailScroll") as ScrollContainer
+	scroll.scroll_vertical = 120
+	for _frame in 3:
+		await process_frame
+	var scrolled := scroll.scroll_vertical
+	_assert_true(scrolled > 0, "the post detail should be long enough to scroll for this test to mean much")
+	followed.add("post-a")
+	for _frame in 3:
+		await process_frame
+	_assert_eq(scroll.scroll_vertical, scrolled, "following in the post detail should keep its scroll position")
 	_dispose(mounted)
 
 
@@ -265,9 +371,6 @@ class FakeSource extends SocialFeedSourceScript:
 
 	func player_character_path() -> String:
 		return ""
-
-	func composer_soft_unit_limit() -> int:
-		return 12
 
 	func visible_post_indices(followed_handles: Array, channel: String) -> Array[int]:
 		return SocialFeedContent.visible_post_indices({
@@ -454,7 +557,8 @@ func _test_the_open_publish_page_always_allows_posting() -> void:
 	panel.render_app()
 	panel.show_screen("publish")
 	panel.update_visibility(true, true)
-	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should be postable on the open publish page")
+	_assert_true(_find(mounted, "SocialPublishNotebookHint") != null, "the open publish page should point to the notebook")
+	_assert_true(_find(mounted, "SocialPublishPostButton") == null, "posting belongs to the notebook alone")
 	_assert_true(_find(mounted, "SocialPublishButton") == null, "the open publish page should have no old-meme confirm button")
 	_dispose(mounted)
 
@@ -486,7 +590,7 @@ func _test_a_nav_button_switches_the_page_by_itself() -> void:
 	_press(mounted, "SocialNavMine")
 	_assert_eq(_meme_count_text(mounted), "已合成梗：0", "the profile button should open the profile page without the host")
 	_press(mounted, "SocialNavCreate")
-	_assert_eq(_post_button_text(mounted), "投稿", "the publish button should open the publish page without the host")
+	_assert_true(_find(mounted, "SocialPublishPage") != null, "the publish button should open the publish page without the host")
 	_press(mounted, "SocialNavHome")
 	_assert_true(_find(mounted, "SocialHomePage") != null, "the home button should bring the feed back")
 	_assert_true(_underline_shown(mounted, "discover"), "switching pages should land on the discover channel")
@@ -552,28 +656,10 @@ func _test_the_open_publish_page_follows_the_sentence() -> void:
 	var panel := mounted["panel"] as SocialFeedPanel
 	var units: ListPropertyModel = mounted["units"]
 	panel.render_app()
-	panel.show_screen("publish")
-	panel.update_visibility(true, true)
-	_assert_eq(_post_button_text(mounted), "先放入一个字", "an empty sentence should ask for a word")
-	_assert_true(_find(mounted, "ComposerAnswerPlaceholder") != null, "an empty sentence should show its placeholder")
-	units.replace_all(["门", "开"])
-	_assert_eq(_post_button_text(mounted), "投稿", "a placed word should unlock the open publish page by itself")
-	_assert_eq(_label_text(mounted, "ComposerPreviewLabel"), "门开", "the preview should join the placed words")
-	_assert_eq(_label_text(mounted, "SocialPublishUnitCounter"), "2 / 12 字", "the counter should count the placed words")
-	_assert_true(_find(mounted, "ComposerAnswerTile1") != null, "each placed word should get a tile")
-	units.replace_all([])
-	_assert_eq(_post_button_text(mounted), "先放入一个字", "posting should empty the open publish page by itself")
-
-	_dispose(mounted)
-
-	mounted = _mount()
-	panel = mounted["panel"] as SocialFeedPanel
-	units = mounted["units"]
-	panel.render_app()
 	panel.update_visibility(true, true)
 	var feed := _find(mounted, "SocialPhoneView")
 	units.add("门")
-	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "a sentence write should not redraw a page without the composer")
+	_assert_true(feed != null and _find(mounted, "SocialPhoneView") == feed, "a sentence write should not redraw the social app")
 	_dispose(mounted)
 
 
@@ -597,7 +683,7 @@ func _test_showing_registers_the_sentence_and_publishing_and_hiding_lets_go() ->
 	for key in ["units", "published"]:
 		_assert_eq(_listener_count(mounted[key]), 0, "a mounted panel should not listen to %s before it is shown" % key)
 	panel.update_visibility(true, true)
-	_assert_eq(_listener_count(mounted["units"]), 1, "showing should register on the sentence once")
+	_assert_eq(_listener_count(mounted["units"]), 0, "the sentence is the notebook's; the social app should not watch it")
 	_assert_eq(_listener_count(mounted["published"]), 2, "showing should register the post echo and the publish page's slip once each")
 	panel.update_visibility(true, false)
 	for key in ["units", "published"]:
@@ -612,12 +698,8 @@ func _test_intent_names_and_payload_keys() -> void:
 	_assert_eq(UiIntentsScript.SOCIAL_LIKE_PRESSED, "social_like_pressed", "like intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_FOLLOW_PRESSED, "social_follow_pressed", "follow intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, "social_pickup_unit_clicked", "pickup intent name")
-	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, "social_composer_area_dropped", "area drop intent name")
-	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, "social_composer_tile_dropped", "tile drop intent name")
-	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, "social_composer_answer_tapped", "answer tap intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_CLOSE_REQUESTED, "social_close_requested", "close intent name")
 	_assert_eq(UiIntentsScript.SOCIAL_DETAIL_CLOSE_REQUESTED, "social_detail_close_requested", "detail close intent name")
-	_assert_eq(UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, "social_composer_submit_requested", "submit intent name")
 	_assert_eq(UiIntentsScript.KEY_CHANNEL, "channel", "channel payload key")
 	_assert_eq(UiIntentsScript.KEY_SCREEN, "screen", "screen payload key")
 	_assert_eq(UiIntentsScript.KEY_POST_INDEX, "post_index", "post index payload key")
@@ -664,7 +746,7 @@ func _test_like_follow_close_and_confirm_raise_their_intents() -> void:
 	_dispose(mounted)
 
 
-func _test_pickup_and_composer_actions_carry_their_answers() -> void:
+func _test_pickup_actions_carry_their_answers() -> void:
 	var mounted := _mount()
 	var panel := mounted["panel"] as SocialFeedPanel
 	(mounted["units"] as ListPropertyModel).replace_all(["门", "开"])
@@ -674,21 +756,6 @@ func _test_pickup_and_composer_actions_carry_their_answers() -> void:
 	_heard.clear()
 	(_find(mounted, "SocialPickupLineText") as RichTextLabel).meta_clicked.emit("门")
 	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"}]], "a pickup click should raise the meta and its post")
-
-	panel.show_screen("publish")
-	var dropped := {"unit": "门", "index": 3}
-	_heard.clear()
-	(_find(mounted, "ComposerAnswerPanel") as ComposerDropArea).unit_dropped.emit(dropped)
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: dropped}]], "a drop on the area should raise the whole drag data")
-	_heard.clear()
-	(_find(mounted, "ComposerAnswerTile0") as ComposerAnswerTile).unit_dropped_before.emit(dropped, 1)
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_TILE_DROPPED, {UiIntentsScript.KEY_DATA: dropped, UiIntentsScript.KEY_BEFORE_INDEX: 1}]], "a drop on a tile should raise the drag data and the index")
-	_heard.clear()
-	_press(mounted, "ComposerAnswerTile1")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 1}]], "tapping a placed tile should raise its index")
-	_heard.clear()
-	_press(mounted, "SocialPublishPostButton")
-	_assert_eq(_heard, [[UiIntentsScript.SOCIAL_COMPOSER_SUBMIT_REQUESTED, {}]], "the post button should raise its intent")
 	_dispose(mounted)
 
 
@@ -745,11 +812,6 @@ func _click_card_after_home(mounted: Dictionary, post_index: int) -> void:
 func _underline_shown(mounted: Dictionary, channel: String) -> bool:
 	var underline := _find(mounted, "SocialChannelTabUnderline%s" % channel) as ColorRect
 	return underline != null and underline.visible
-
-
-func _post_button_text(mounted: Dictionary) -> String:
-	var button := _find(mounted, "SocialPublishPostButton") as Button
-	return button.text if button != null else "<missing>"
 
 
 func _meme_count_text(mounted: Dictionary) -> String:

@@ -2,11 +2,10 @@ extends RefCounted
 
 
 const EN: Dictionary = {
-	"字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。": "Collected units stay here for good. Arrange them freely, or drag one into the sentence on the publish page.",
+	"点字放进下方的句子;从句子拿掉的字会回到这里。": "Tap a unit to put it in the sentence below; a unit taken out of the sentence comes back here.",
 	"今天不能再投稿": "No posting left today",
-	"先放入一个字": "Add a unit first",
-	"把笔记本里的字拖进来": "Drag units in from the notebook",
-	"%d / %d 字": "%d / %d units",
+	"在笔记本里拼句、投稿。": "Compose and post your sentence in the notebook.",
+	"还没有投稿。": "Nothing posted yet.",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "Continue",
 	"长按重新开始": "hold to restart",
@@ -322,7 +321,6 @@ const EN: Dictionary = {
 
 	# Social publishing and profile.
 	"发布新信号": "Post a New Signal",
-	"01  /  内容": "01  /  CONTENT",
 	"拖拽或点击": "Drag or click",
 	"02  /  传播预估": "02  /  ESTIMATED REACH",
 	"03  /  今日牌型": "03  /  TODAY'S PATTERN",
@@ -550,11 +548,10 @@ const EN: Dictionary = {
 
 
 const JA: Dictionary = {
-	"字被拾取后一直留在这里。可以随意拖动摆放,也可以拖进发布页的句子里。": "ひろった文字はここに残る。自由に並べ替えられるし、投稿ページの文へドラッグもできる。",
+	"点字放进下方的句子;从句子拿掉的字会回到这里。": "文字をタップすると下の文に入る。文から外した文字はここに戻る。",
 	"今天不能再投稿": "今日はもう投稿できない",
-	"先放入一个字": "まず一文字入れて",
-	"把笔记本里的字拖进来": "ノートの文字をここへドラッグ",
-	"%d / %d 字": "%d / %d 文字",
+	"在笔记本里拼句、投稿。": "文はノートで組み立てて投稿する。",
+	"还没有投稿。": "まだ投稿していない。",
 	# Main menu, settings, phone shell, and HUD.
 	"继续游戏": "つづきから",
 	"长按重新开始": "長押しでリスタート",
@@ -870,7 +867,6 @@ const JA: Dictionary = {
 
 	# Social publishing and profile.
 	"发布新信号": "新しいシグナルを投稿",
-	"01  /  内容": "01  /  内容",
 	"拖拽或点击": "ドラッグまたはクリック",
 	"02  /  传播预估": "02  /  予想拡散",
 	"03  /  今日牌型": "03  /  本日のパターン",

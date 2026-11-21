@@ -22,7 +22,9 @@ func _run_async() -> void:
 	await _test_like_refreshes_phone_shell_not_hud()
 	await _test_channel_refreshes_phone_shell_not_hud()
 	await _test_opening_app_refreshes_phone_shell_not_hud()
-	await _test_composer_intents_paint_the_publish_page_without_a_host_redraw()
+	await _test_sentence_intents_paint_the_notebook_without_a_host_redraw()
+	await _test_a_notebook_a_pickup_opens_follows_the_sentence()
+	await _test_a_tapped_word_flies_to_the_phone_notebook_sentence()
 	await _test_phone_popup_follows_the_phone_model()
 	await _test_app_windows_follow_the_open_windows_model()
 	await _test_like_does_not_rerun_ending()
@@ -112,40 +114,80 @@ func _test_channel_refreshes_phone_shell_not_hud() -> void:
 	await process_frame
 
 
-func _test_composer_intents_paint_the_publish_page_without_a_host_redraw() -> void:
+func _test_sentence_intents_paint_the_notebook_without_a_host_redraw() -> void:
 	var game_root := await _boot_gameplay()
 	if game_root == null:
 		return
-	game_root._on_app_pressed("social")
+	game_root._on_app_pressed("notebook")
 	game_root.game.pick_social_char("floor_13", "门", "zh")
-	game_root._social_feed_panel.show_screen("publish")
 	await process_frame
-	var notebook_body := game_root._app_bodies.get("notebook") as VBoxContainer
-	_assert_true(notebook_body != null, "the phone shell should keep a notebook app body")
-	if notebook_body == null:
+	var social_body := game_root._app_bodies.get("social") as VBoxContainer
+	_assert_true(social_body != null, "the phone shell should keep a social app body")
+	if social_body == null:
 		game_root.queue_free()
 		await process_frame
 		return
 	var sentinel := Label.new()
-	sentinel.name = "NotebookRedrawSentinel"
-	notebook_body.add_child(sentinel)
+	sentinel.name = "SocialRedrawSentinel"
+	social_body.add_child(sentinel)
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_SENTENCE_AREA_DROPPED, {UiIntentsScript.KEY_DATA: {"kind": "composer_unit", "id": "门"}})
 	await process_frame
 
 	var tile := Harness.find_node_by_name(game_root, "ComposerAnswerTile0")
-	_assert_true(tile != null, "the publish page should show the dropped word from the sentence model")
+	_assert_true(tile != null, "the notebook should show the dropped word from the sentence model")
 	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "editing the sentence should not make the host redraw the whole phone shell")
-	var social_window := game_root._social_feed_panel.get_app_window() as Control
-	var painted := _label_colors(social_window)
+	var notebook_window := game_root._notebook_window_control() as Control
+	var painted := _label_colors(notebook_window)
 	game_root._apply_phone_shell_theme()
-	_assert_eq(painted, _label_colors(social_window), "the self-repainted publish page should already carry the phone shell theme")
+	_assert_eq(painted, _label_colors(notebook_window), "the self-repainted notebook should already carry the phone shell theme")
 
-	GameEventBus.raise(UiIntentsScript.SOCIAL_COMPOSER_ANSWER_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_SENTENCE_TILE_TAPPED, {UiIntentsScript.KEY_UNIT_INDEX: 0})
 	await process_frame
-	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the publish page should drop the removed word from the sentence model")
+	_assert_true(Harness.find_node_by_name(game_root, "ComposerAnswerTile0") == null, "the notebook should drop the removed word from the sentence model")
 	_assert_true(is_instance_valid(sentinel) and sentinel.is_inside_tree(), "removing a word should not make the host redraw the whole phone shell")
 
+	game_root.queue_free()
+	await process_frame
+
+
+## A pickup pops the notebook open to show the word landing; the open notebook then follows the models like one the
+## player opened, so a tapped word leaves the pile and shows in the sentence (#154).
+func _test_a_notebook_a_pickup_opens_follows_the_sentence() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("social")
+	await process_frame
+	_assert_true(not game_root.game.is_app_window_open("notebook"), "setup: the notebook starts closed")
+	GameEventBus.raise(UiIntentsScript.SOCIAL_PICKUP_UNIT_CLICKED, {UiIntentsScript.KEY_META: "门", UiIntentsScript.KEY_POST_ID: "floor_13"})
+	await process_frame
+	var window := game_root._notebook_window_control() as Control
+	_assert_true(window != null and window.visible, "a pickup should pop the notebook open")
+	var canvas := Harness.find_node_by_name(window, "NotebookWordCanvas") as WordPhysicsCanvas
+	_assert_true(canvas != null and canvas.has_tile("门"), "the popped-open notebook should show the picked word")
+	GameEventBus.raise(UiIntentsScript.NOTEBOOK_COMPOSER_BANK_TAPPED, {UiIntentsScript.KEY_UNIT: "门"})
+	await process_frame
+	await process_frame
+	_assert_true(Harness.find_node_by_name(window, "ComposerAnswerTile0") != null, "the tapped word should show in the sentence")
+	canvas = Harness.find_node_by_name(window, "NotebookWordCanvas") as WordPhysicsCanvas
+	_assert_true(canvas != null and not canvas.has_tile("门"), "the tapped word should leave the pile")
+	game_root.queue_free()
+	await process_frame
+
+
+## The place flight aims at the sentence of the phone's notebook, never at another notebook's.
+func _test_a_tapped_word_flies_to_the_phone_notebook_sentence() -> void:
+	var game_root := await _boot_gameplay()
+	if game_root == null:
+		return
+	game_root._on_app_pressed("notebook")
+	await process_frame
+	await process_frame
+	var window := game_root._notebook_window_control() as Control
+	var flow := Harness.find_node_by_name(window, "ComposerAnswerFlow") as Control
+	var target: Vector2 = game_root._composer_answer_target()
+	_assert_true(flow != null and flow.get_global_rect().grow(24.0).has_point(target), "the flight should aim at the phone notebook's sentence, got %s" % target)
 	game_root.queue_free()
 	await process_frame
 
