@@ -198,6 +198,13 @@ func _test_follow_and_like_buttons_keep_their_width() -> void:
 		if button == null:
 			_failures.append("missing button %s" % button_name)
 			continue
+		# A bigger font from the theme pass must widen the button to keep its widest label whole.
+		button.add_theme_font_size_override("font_size", 30)
+		var font := button.get_theme_font("font")
+		var labels := ["关注", "已关注"] if button_name.contains("Follow") else ["♡ 95", "♥ 96"]
+		for label in labels:
+			var needed := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+			_assert_true(button.get_combined_minimum_size().x >= needed, "%s should fit its label %s" % [button_name, label])
 		var width_before := button.get_combined_minimum_size().x
 		var original := button.text
 		button.text = "已关注已关注已关注已关注 ♥ 1000"

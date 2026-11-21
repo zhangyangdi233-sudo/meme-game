@@ -69,6 +69,8 @@ var _completed_memes: Array = []
 var _published: Array = []
 var _painted_followed: Array = []
 var _painted_liked: Array = []
+## The posts the painted home feed lists; a follow that changes them rebuilds the feed.
+var _painted_post_indices: Array = []
 var _painted_held_chars: Array = []
 var _painted_memes: Array = []
 var _painted_published: Array = []
@@ -238,8 +240,7 @@ func render_app() -> void:
 	var channel := _channel
 	_rendered = true
 	_publish.release()
-	_painted_followed = _followed
-	_painted_liked = _liked
+	_mark_actions_painted()
 	_painted_memes = _completed_memes
 	_feed_actions.clear()
 	_clear(_app_body)
@@ -443,6 +444,8 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 	home_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	home_page.add_theme_constant_override("separation", 0)
 	parent.add_child(home_page)
+	var visible_post_indices: Array = _source.visible_post_indices(_followed, channel)
+	_painted_post_indices = visible_post_indices
 	if channel == "nearby":
 		_render_channel_empty_state(
 			home_page,
@@ -452,7 +455,6 @@ func _render_home_page(parent: VBoxContainer, channel: String) -> void:
 		)
 		return
 
-	var visible_post_indices: Array = _source.visible_post_indices(_followed, channel)
 	if channel == "following" and visible_post_indices.is_empty():
 		_render_channel_empty_state(
 			home_page,
@@ -818,7 +820,7 @@ func _render_detail_page(parent: VBoxContainer) -> void:
 		"like": detail_like,
 		"follow": detail_follow,
 		"post": post,
-		"like_index": int(post.get("card_index", _detail_post_index)),
+		"like_index": _detail_post_index,
 		"author": author_id,
 	}
 	_hold_action_widths(_detail_actions)
@@ -1040,13 +1042,12 @@ func _repaint_if_stale() -> void:
 		return
 	var actions_stale := _followed != _painted_followed or _liked != _painted_liked
 	var profile_stale := _screen == "profile" and _completed_memes != _painted_memes
-	var listing_stale := _followed != _painted_followed and _lists_followed_only()
+	var listing_stale := _followed != _painted_followed and _lists_other_posts()
 	if profile_stale or listing_stale:
 		render_app()
 		_theme_window(_app_window)
 	elif actions_stale:
-		_painted_followed = _followed
-		_painted_liked = _liked
+		_mark_actions_painted()
 		for actions in _feed_actions:
 			_label_actions(actions)
 	if _held_chars != _painted_held_chars or _published != _painted_published:
@@ -1056,8 +1057,14 @@ func _repaint_if_stale() -> void:
 		_label_actions(_detail_actions)
 
 
-func _lists_followed_only() -> bool:
-	return _screen == DEFAULT_SCREEN and _channel == "following"
+## Whether the home feed, under the current follows, would list other posts than it shows (the following channel does).
+func _lists_other_posts() -> bool:
+	return _screen == DEFAULT_SCREEN and _source.visible_post_indices(_followed, _channel) != _painted_post_indices
+
+
+func _mark_actions_painted() -> void:
+	_painted_followed = _followed
+	_painted_liked = _liked
 
 
 ## Writes the follow and like state onto one post's buttons, localized as the theme would.
@@ -1084,8 +1091,14 @@ func _hold_action_widths(actions: Dictionary) -> void:
 	_hold_width(actions["follow"] as Button, [FOLLOW_TEXT, FOLLOWING_TEXT])
 
 
+## Measured again whenever the button's theme changes, since the theme pass sets its final font after painting.
 func _hold_width(button: Button, labels: Array) -> void:
 	button.clip_text = true
+	_fit_widest_label(button, labels)
+	button.theme_changed.connect(_fit_widest_label.bind(button, labels))
+
+
+func _fit_widest_label(button: Button, labels: Array) -> void:
 	var font := button.get_theme_font("font")
 	var font_size := button.get_theme_font_size("font_size")
 	var widest := 0.0
