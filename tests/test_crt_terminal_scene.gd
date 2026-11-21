@@ -44,6 +44,7 @@ func _run() -> void:
 	await _test_the_screen_exit_leaves_the_terminal(game_root)
 	await _test_a_word_picked_on_either_side_is_one_notebook(game_root)
 	await _test_a_post_from_the_terminal_records_the_round(game_root)
+	await _test_a_word_tapped_on_the_terminal_flies_inside_its_display(game_root)
 	await _test_the_terminal_vhs_is_its_own_preference(game_root)
 	game_root.queue_free()
 	await process_frame
@@ -177,6 +178,32 @@ func _test_the_terminal_vhs_is_its_own_preference(game_root) -> void:
 	GameEventBus.raise(UiIntentsScript.TERMINAL_VHS_TOGGLED, {UiIntentsScript.KEY_VALUE: true})
 	await process_frame
 	_assert_true(glass.get_shader_parameter("vhs_enabled") == true, "turning the terminal VHS back on should reach the glass")
+	_push_key(game_root, KEY_TAB)
+	await process_frame
+
+
+## A word tapped in the terminal's notebook flies to the terminal's own sentence, on its display; nothing flies over
+## the screen toward the phone's notebook, which is set aside (#154).
+func _test_a_word_tapped_on_the_terminal_flies_inside_its_display(game_root) -> void:
+	await _enter_terminal(game_root)
+	game_root.game.free_sentence_clear()
+	game_root.game.pick_social_char("floor_13", "门", "zh")
+	var display := Harness.find_node_by_name(game_root, "CrtTerminalDisplay")
+	(Harness.find_node_by_name(display, "TerminalAppNotebook") as Button).pressed.emit()
+	await process_frame
+	await process_frame
+	var screen_layer := game_root._pickup_flight_layer as Node
+	var screen_glyphs := screen_layer.get_child_count()
+	(Harness.find_node_by_name(display, "NotebookWordCanvas") as WordPhysicsCanvas).tile_tapped.emit("门")
+	await process_frame
+	_assert_eq(game_root.game.get_free_sentence_units(), ["门"], "a tap on the terminal should place the word")
+	_assert_eq(screen_layer.get_child_count(), screen_glyphs, "no glyph should fly over the screen toward the phone's notebook")
+	var glyphs := display.find_children("PlaceFlightGlyph", "Label", true, false)
+	_assert_eq(glyphs.size(), 1, "the word should fly inside the terminal's display")
+	var flow := Harness.find_node_by_name(display, "ComposerAnswerFlow") as Control
+	await create_timer(0.4).timeout
+	_assert_true(flow != null and flow.is_visible_in_tree(), "the terminal's sentence should show")
+	_assert_eq(display.find_children("ComposerAnswerTile0", "", true, false).size(), 1, "the terminal's sentence should show the word")
 	_push_key(game_root, KEY_TAB)
 	await process_frame
 

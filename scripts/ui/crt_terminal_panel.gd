@@ -35,6 +35,8 @@ var _apps: Control
 var _social: SocialFeedPanel
 var _notebook: NotebookAppPanel
 var _notebook_body: VBoxContainer
+## Words tapped in the terminal's notebook fly on its display, not over the screen (#154).
+var _flight_layer: FlyToTargetLayer
 var _tabs: Dictionary = {}
 var _app := DEFAULT_APP
 var _shown := false
@@ -101,7 +103,18 @@ func mount(notebook_deps: Dictionary) -> void:
 	add_child(_notebook)
 	_notebook.configure(notebook_deps)
 	_notebook.render(_notebook_body)
+	_flight_layer = FlyToTargetLayer.new()
+	_flight_layer.name = "TerminalFlightLayer"
+	_flight_layer.size = Vector2(DISPLAY_SIZE)
+	_viewport.add_child(_flight_layer)
 	_show_app()
+
+
+## A word tapped in the terminal's notebook flies from the pointer to the notebook's sentence, on this display.
+func play_place_flight(unit: String, color: Color) -> void:
+	if _flight_layer == null or not _shown:
+		return
+	_flight_layer.play_place_flight(unit, _last_point, _notebook.sentence_flight_target, color)
 
 
 ## What the CRT's glass shows.

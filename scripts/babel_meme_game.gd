@@ -2682,7 +2682,7 @@ func _present_intent_result(result: IntentResult) -> void:
 			_presenter().present_pickup(result.outcome, result.unit, get_viewport().get_mouse_position())
 			_present_pickup_outcome(result.outcome)
 		NotebookIntentHandlerScript.PLACE:
-			_presenter().present_place(bool(result.value), result.unit, get_viewport().get_mouse_position())
+			_present_place(bool(result.value), result.unit)
 		SettingsIntentHandlerScript.VHS_TOGGLED:
 			_present_vhs(bool(result.value))
 		SettingsIntentHandlerScript.PREFERENCES_CHANGED:
@@ -3248,11 +3248,21 @@ func _commit_notebook_canvas_positions() -> void:
 	_notebook_app_panel.commit_canvas_positions()
 
 
+## The phone notebook's sentence; the terminal's notebook flies its words on its own display.
 func _composer_answer_target() -> Vector2:
-	var answer_flow := _find_control_by_name(_ui_root, "ComposerAnswerFlow")
-	if answer_flow != null and is_instance_valid(answer_flow):
-		return LanguageMaterialScript.composer_answer_target(answer_flow)
-	return _notebook_flight_target()
+	if _notebook_app_panel == null or not is_instance_valid(_notebook_app_panel):
+		return _notebook_flight_target()
+	return _notebook_app_panel.sentence_flight_target()
+
+
+## A word tapped into the sentence flies on the notebook it was tapped in: the terminal's while it is entered.
+func _present_place(placed: bool, unit: String) -> void:
+	if not placed:
+		return
+	if _terminal_is_open() and _crt_terminal_panel != null:
+		_crt_terminal_panel.play_place_flight(unit, _ui_theme_helper.theme_color("accent"))
+		return
+	_presenter().present_place(placed, unit, get_viewport().get_mouse_position())
 
 
 func _build_pickup_flight_layer() -> void:
@@ -3273,7 +3283,8 @@ func _ensure_notebook_window_home() -> void:
 		return
 	if _phone_launcher_panel != null:
 		_phone_launcher_panel.layout_app_window("notebook")
-	window.visible = game != null and str(_phone_shell_snapshot().get("view_state", "")) == "phone_down"
+	# Shows the window and has the notebook follow the models, as when the player opens it.
+	_update_phone_shell_visibility()
 
 
 ## A pickup already shows through the models; the host presents it only when it changed more than the notebook.

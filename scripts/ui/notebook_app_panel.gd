@@ -9,6 +9,7 @@ extends Node
 
 const ComposerAnswerTileScript = preload("res://scripts/ui/composer_answer_tile.gd")
 const ComposerDropAreaScript = preload("res://scripts/ui/composer_drop_area.gd")
+const LanguageMaterialScript = preload("res://scripts/game/language_material.gd")
 const WordPhysicsCanvasScript = preload("res://framework/ui/word_physics_canvas.gd")
 const ServiceRegistryScript = preload("res://framework/service_registry.gd")
 const ServiceKeysScript = preload("res://scripts/service_keys.gd")
@@ -31,7 +32,10 @@ var _clear_fn: Callable
 var _current_locale_fn: Callable
 var _char_canvas_position_fn: Callable
 var _word_canvas: WordPhysicsCanvas
+## The physics frame the canvas was built in.
+var _canvas_physics_frame := -1
 var _answer_panel: Control
+var _answer_flow: Control
 var _sentence_scroll: ScrollContainer
 var _app_body: VBoxContainer
 ## Where the player dragged the split; a repaint builds the page again and puts the split back there.
@@ -72,8 +76,11 @@ func set_shown(shown: bool) -> void:
 		_watch.stop()
 
 
+## Tiles not yet through a physics step lie where the state put them; there is nothing new to write.
 func commit_canvas_positions() -> void:
 	if _word_canvas == null or not is_instance_valid(_word_canvas):
+		return
+	if Engine.get_physics_frames() == _canvas_physics_frame:
 		return
 	var positions: Dictionary = _word_canvas.settled_tile_positions()
 	if positions.is_empty():
@@ -99,6 +106,7 @@ func _paint() -> void:
 	commit_canvas_positions()
 	_word_canvas = null
 	_answer_panel = null
+	_answer_flow = null
 	_sentence_scroll = null
 	_clear_fn.call(app_body)
 
@@ -147,6 +155,7 @@ func _render_word_area(split: VSplitContainer, polluted_units: Array, leaving_se
 	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	canvas_frame.add_child(canvas)
 	_word_canvas = canvas
+	_canvas_physics_frame = Engine.get_physics_frames()
 	canvas.tile_dropped_outside.connect(_on_canvas_tile_dropped_outside)
 	canvas.tile_tapped.connect(_on_composer_bank_tapped)
 
@@ -238,6 +247,7 @@ func _render_sentence(parent: VBoxContainer, polluted_units: Array) -> void:
 	answer_flow.add_theme_constant_override("v_separation", 6)
 	answer_flow.custom_minimum_size.y = 46
 	answer_box.add_child(answer_flow)
+	_answer_flow = answer_flow
 	if placed_units.is_empty():
 		var placeholder := _theme().label("……(句子还空着)", 14, _theme().theme_color("muted")) as Label
 		placeholder.name = "ComposerAnswerPlaceholder"
@@ -383,6 +393,11 @@ func _read_map(property_name: String) -> Dictionary:
 
 func _on_craft_pressed() -> void:
 	GameEventBus.raise(UiIntentsScript.NOTEBOOK_CRAFT_REQUESTED)
+
+
+## Where a word tapped on the canvas flies to: this notebook's sentence, in its own viewport's coordinates.
+func sentence_flight_target() -> Vector2:
+	return LanguageMaterialScript.composer_answer_target(_answer_flow)
 
 
 func _on_split_dragged(offset: int) -> void:

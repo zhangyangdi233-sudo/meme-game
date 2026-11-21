@@ -407,6 +407,9 @@ func _test_hiding_writes_positions_once_and_unregisters() -> void:
 	panel.set_shown(true)
 	var commits: Array = mounted["commits"]
 	commits.clear()
+	panel.commit_canvas_positions()
+	_assert_eq(commits.size(), 0, "tiles not yet through a physics step should not be written")
+	await physics_frame
 
 	panel.set_shown(false)
 	_assert_eq(commits.size(), 1, "hiding should write the canvas positions in one batch")
